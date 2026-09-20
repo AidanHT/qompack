@@ -231,6 +231,11 @@ type drainer struct {
 	// unsyncedNoted names each spool file whose sync has failed since its last one that succeeded, so
 	// that noteUnsynced announces the failure Loud once, not on every pass. Guarded by mu.
 	unsyncedNoted map[string]bool
+	// wedgeNoted records that this drainer has already announced a refused progress state, so the
+	// Loud below fires once for a wedge rather than on every idle tick. Cleared by the first pass
+	// that gets past validateProgress, so a wedge that returns later is announced again. Guarded
+	// by mu, which Drain holds for the whole pass.
+	wedgeNoted bool
 
 	gapMu sync.Mutex
 	gaps  DrainGapState
@@ -281,8 +286,11 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 	if err := dr.validateProgress(files, st); err != nil {
 		gaps.add("", DrainGapProgressUnreadable, "drain progress no longer matches the spool")
 		dr.publishGaps(gaps.state(dr.cfg.Clock, 0))
+		dr.noteWedged(len(files), err)
 		return 0, err
 	}
+	// Past the gate: a wedge that returns later is a new one and gets announced again.
+	dr.wedgeNoted = false
 	listed := make(map[string]bool, len(files))
 	for _, path := range files {
 		listed[filepath.Base(path)] = true
@@ -923,6 +931,27 @@ func (dr *drainer) validateProgress(files []string, st drainState) error {
 		}
 	}
 	return nil
+}
+
+// noteWedged announces a refused drain-progress state, once per wedge.
+//
+// It is finding F4-7. A stale state/drain.json wedges the spool: validateProgress refuses, Drain
+// returns without consuming a byte, and every spooled delivery behind it stays stranded — reported
+// only as a day-log Warn and as spool_files on the LIVE status snapshot, both of which vanish with
+// the daemon. §13 invariant 10 wants it Loud and durable, because the operator action here is real:
+// nothing will move until state/drain.json is dealt with.
+//
+// Once per wedge, not once per pass: the idle tick calls Drain repeatedly, and a Loud per tick would
+// bury LOUD.log in one repeated fact. The flag clears on the first pass that gets through, so a
+// wedge that comes back is announced again.
+func (dr *drainer) noteWedged(files int, err error) {
+	if dr.wedgeNoted {
+		return
+	}
+	dr.wedgeNoted = true
+	dr.cfg.Log.Loud("daemon: drain refused; spooled deliveries are stranded until state/drain.json "+
+		"is replaced or removed",
+		"spool_files", files, "err", err.Error())
 }
 
 // forgetReleased drops the progress entry of every released file — finished (Done), no cleanup

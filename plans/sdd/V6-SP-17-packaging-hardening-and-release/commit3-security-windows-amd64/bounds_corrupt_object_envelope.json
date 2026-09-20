@@ -1,0 +1,17 @@
+{
+  "name": "bounds_corrupt_object_envelope",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "outcome": "verified",
+  "reason": "a quarantined object is reported unavailable through both address forms: the explicit third answer, neither a protocol error nor an absence.",
+  "detail": "by tool_use_id: content_hash_mismatch=unavailable damaged_zstd_frame=unavailable decompression_bomb=unavailable physical_size_past_the_read_bound=unavailable truncated_object=unavailable; by bare chunk hash: content_hash_mismatch=unavailable damaged_zstd_frame=unavailable decompression_bomb=unavailable physical_size_past_the_read_bound=unavailable truncated_object=unavailable"
+}

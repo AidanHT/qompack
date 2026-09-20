@@ -1,0 +1,20 @@
+{
+  "name": "roots_last_line_truncated",
+  "phase": "publication",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "boundary": "roots.jsonl last line truncated mid-record",
+  "seed_method": "index/roots.jsonl is truncated inside its final record, the torn-write shape store/fsstore's loadRoots counts as store.index.badline",
+  "outcome": "explicit_incomplete",
+  "reason": "3 reference(s) the cut introduced still do not resolve, and the product reports the degradation on status --json+day log (warn): daylog[1]: qompack-20260916.log: ts=2026-09-16T03:01:54.1647424Z level=warn msg=\"store: skipped malformed index lines\" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)",
+  "detail": "cut: truncated roots.jsonl from 3705 to 3680 bytes, inside its final record\neverything the surfaces gained: daylog[2]: qompack-20260916.log: ts=2026-09-16T03:01:54.1647424Z level=warn msg=\"store: skipped malformed index lines\" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)\nof which naming this cut (roots.jsonl, badline, malformed index): daylog[1]: qompack-20260916.log: ts=2026-09-16T03:01:54.1647424Z level=warn msg=\"store: skipped malformed index lines\" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:4 roots:3 sidecars:4 checkpoints:0 dangling:3 reported:0}\ndegradation (new since the cut): daylog[1]: qompack-20260916.log: ts=2026-09-16T03:01:54.1647424Z level=warn msg=\"store: skipped malformed index lines\" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)\nnewly dangling: index_bad_line(roots.jsonl:3): line does not parse as a roots record: unexpected end of JSON input; tool_use_root(toolu_fault_roots_last_line_truncated_02): tool_use toolu_fault_roots_last_line_truncated_02 points at root 8152211d8f49, which cannot be materialized; capture_bytes_absent(toolu_fault_roots_last_line_truncated_02): published capture sidecar names root 8152211d8f49, which does not resolve\nnewly reported: none\nremaining dangling after recovery: index_bad_line(roots.jsonl:3): line does not parse as a roots record: unexpected end of JSON input; tool_use_root(toolu_fault_roots_last_line_truncated_02): tool_use toolu_fault_roots_last_line_truncated_02 points at root 8152211d8f49, which cannot be materialized; capture_bytes_absent(toolu_fault_roots_last_line_truncated_02): published capture sidecar names root 8152211d8f49, which does not resolve",
+  "dangling_before": 0,
+  "dangling_after": 3
+}

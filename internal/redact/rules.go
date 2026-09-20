@@ -117,14 +117,35 @@ func builtinRules() []rule {
 			`\b[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s/@:]+:([^\s/@]{3,})@`,
 			1, lits("://"), false),
 
-		// Every key alternative contains one of these five: api[_-]?key and access[_-]?key contain
-		// "key"; client[_-]?secret contains "secret"; auth/access/refresh/api[_-]?token and the bare
-		// "token" alternative all contain "token". (?i), so fold.
+		// The leading gate is `\b_?`, not a bare `\b`, and that is finding S-5. A word boundary
+		// cannot match between an underscore and a letter, so `_authToken=` — the spelling npm
+		// writes into .npmrc and the one every `npm config set` command line carries — and
+		// `_password=` were outside the family entirely. The optional `_` is consumed by the match,
+		// which is harmless: group 1 is the VALUE, so only the value is replaced.
+		//
+		// It is `\b_?` rather than `(?:\b|_)` deliberately. The looser form admits an underscore
+		// with a WORD character in front of it, which makes `API_SECRET=` an assignment and takes
+		// every dotenv-shaped line away from the dotenv_value rule that labels it today — the same
+		// bytes redacted under a different rule name, for no gain. Requiring the boundary BEFORE the
+		// underscore keeps `_authToken`, `_password` and `_auth` (all of which follow `:`, a
+		// separator or the start of a line) while leaving `API_SECRET` where it was.
+		//
+		// A bare `auth` alternative sits after the longer `auth[_-]?token` one, which is the second,
+		// independent half of S-5: plain `auth=` and `_auth=` matched nothing at all, because the
+		// alternation carried no bare branch. Go's regexp is leftmost-FIRST, so the longer
+		// alternative keeps priority and `authToken=` is still labelled by it. `Authorization`,
+		// `author` and `oauth` stay out: the trailing \b after the key name refuses the first two
+		// and the leading gate refuses the third.
+		//
+		// Every key alternative contains one of these six literals: api[_-]?key and access[_-]?key
+		// contain "key"; client[_-]?secret contains "secret"; access/refresh/api[_-]?token and the
+		// bare "token" alternative all contain "token"; the two auth branches contain "auth", which
+		// is mandatory for the bare one and therefore listed. (?i), so fold.
 		mk("assignment_secret",
-			`(?i)\b(?:(?:password|passwd|secret|api[_-]?key|access[_-]?key|client[_-]?secret`+
-				`|auth[_-]?token|access[_-]?token|refresh[_-]?token|api[_-]?token)\b[ \t]*[:=]`+
+			`(?i)\b_?(?:(?:password|passwd|secret|api[_-]?key|access[_-]?key|client[_-]?secret`+
+				`|auth[_-]?token|access[_-]?token|refresh[_-]?token|api[_-]?token|auth)\b[ \t]*[:=]`+
 				`|token\b[ \t]*=)[ \t]*("[^"\n]{4,}"|'[^'\n]{4,}'|[^\s,;"'\n]{1,})`,
-			1, lits("password", "passwd", "secret", "key", "token"), true),
+			1, lits("password", "passwd", "secret", "key", "token", "auth"), true),
 
 		// The key-name gate is a literal alternation and the pattern has no (?i), so these are
 		// mandatory as written. CREDENTIALS is omitted because CREDENTIAL is a prefix of it.

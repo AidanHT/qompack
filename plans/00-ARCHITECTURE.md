@@ -375,8 +375,17 @@ non-`_test.go` files; CI enforces with an import-graph check.
 | Vuln scan | `govulncheck` | CI job |
 | Typecheck | `go build ./... && go vet ./...` + `staticcheck` | CI job `verify` |
 | Task runner | `go run ./tools/devtool <task>` | one Go program, identical on PowerShell / bash / zsh. **No Makefile-only workflow** — the dev machine is Windows |
-| Release | `goreleaser` | `.goreleaser.yaml`, 6 targets: linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64} |
+| Release | `goreleaser` | `.goreleaser.yaml`: goreleaser PUBLISHES and does not build — every build entry is skipped and a tag creates a DRAFT release carrying the archives `devtool bundle --archive` produced for the 6 targets: linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64} |
 | Benchmark diffing | `benchstat` | `devtool bench-compare`, run locally against `testdata/bench-baseline.txt` (V2 ruling: the baseline is single-host; `bench-gate` gains the comparison only once per-OS baselines are recorded on the runners) |
+
+**One build path produces every shipped byte.** `build`, `build-all` and `bundle` all go through
+one helper (`goBuildArgs` in `tools/devtool/build.go`), whose flag list is
+`-trimpath -buildvcs=false -ldflags "-s -w -buildid= -X …/internal/core.Version=<v>"`. The two
+flags beyond this section's original contract are determinism flags: `-buildvcs=false` keeps the
+VCS stamp (and its dirty bit) out of the binary, and `-buildid=` clears a build ID that otherwise
+varies with the action graph. A second compiler writing the same `-X` symbol — which is what
+`.goreleaser.yaml`'s `builds:` block used to be — cannot agree with the first, so it was disabled
+rather than kept in step.
 
 **The Go pin is an equality, not a range.** A range (`go-version: '1.26.x'`) or a
 `go-version-file:` spelling is forbidden in every workflow, and
@@ -387,9 +396,10 @@ ignores the `toolchain` directive — and left CI building on a Go carrying four
 A toolchain bump therefore edits `go.mod` and every workflow in the same commit.
 
 `tools/devtool` tasks (canonical names used by CI and by every subplan's local loop):
-`fmt`, `lint`, `vet`, `build`, `build-all`, `test`, `test-race`, `cover`, `bench`,
-`bench-hotpath`, `bench-compare`, `replay`, `plugin-validate`, `fsck`, `ci-local`, `gen-config-docs`,
-`fmt-check`, `gen-contract-fixtures`, `gen-fixtures`, `install-hooks`, `check-commit-msg`.
+`fmt`, `lint`, `vet`, `build`, `build-all`, `bundle`, `test`, `test-race`, `cover`, `bench`,
+`bench-hotpath`, `bench-compare`, `replay`, `plugin-validate`, `fsck`, `ci-local`, `release-check`,
+`release-scope`, `licenses`, `gen-config-docs`, `fmt-check`, `gen-contract-fixtures`,
+`gen-fixtures`, `install-hooks`, `check-commit-msg`.
 
 ---
 
@@ -2548,8 +2558,11 @@ never in a shipped binary — is outside the scanned set by construction.
 **deterministic** replay over the recorded corpus (§6.3 tier 2) when the `QOMPACK_SESSIONS_DIR`
 secret is present — the corpus is what makes that run different from `replay-gate`, not the mode.
 Live mode is never run by any workflow (§5.18).
-`.github/workflows/release.yml`: tag-triggered, `goreleaser`, plugin bundle assembly, checksum +
-provenance attestation.
+`.github/workflows/release.yml`: tag-triggered; `devtool release-check --tag` gates first, then
+`devtool bundle --archive` assembles and packs the bundles, `devtool release-scope --markdown`
+renders the supported-scope table into the release notes, `actions/attest-build-provenance`
+attests the archives, and `goreleaser` — which builds nothing — creates a DRAFT release a human
+publishes. `ci.yml`'s `release-dry-run` job runs the same gate on every push.
 
 `bench-gate` and `replay-gate` are **required checks on `develop` and `main`** from the end of
 wave 1 onward (they cannot be required before SP-02 and SP-05 exist).

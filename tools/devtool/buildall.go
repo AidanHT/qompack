@@ -13,8 +13,7 @@ func taskBuildAll(args []string) error {
 	ldflags := versionLdflags(version)
 	for _, tgt := range releaseTargets {
 		out := filepath.Join("dist", fmt.Sprintf("qompack-%s-%s%s", tgt.GOOS, tgt.GOARCH, exeSuffix(tgt.GOOS)))
-		env := map[string]string{"CGO_ENABLED": "0", "GOOS": tgt.GOOS, "GOARCH": tgt.GOARCH}
-		if err := goInheritEnv(env, "build", "-trimpath", "-ldflags", ldflags, "-o", out, "./cmd/qompack"); err != nil {
+		if err := goBuildRelease(tgt.GOOS, tgt.GOARCH, out, ldflags); err != nil {
 			return fmt.Errorf("build-all: %s/%s: %w", tgt.GOOS, tgt.GOARCH, err)
 		}
 	}

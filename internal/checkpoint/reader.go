@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
+	"sync"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/logging"
@@ -51,6 +53,14 @@ type fileReader struct {
 	l   paths.Layout
 	log logging.Logger
 	m   obs.Registry
+
+	// integrityMu guards integrityNoted.
+	integrityMu sync.Mutex
+	// integrityNoted names each artifact this reader has already announced as orphaned, missing or
+	// mismatched, so a long-lived reader Louds each one ONCE rather than on every List. A reader is
+	// cheap and usually short-lived, so this bounds the common case; the set is per reader, never
+	// package-level, because a process-wide memo would silently suppress a second project's report.
+	integrityNoted map[string]bool
 }
 
 var _ Reader = (*fileReader)(nil)
@@ -85,9 +95,22 @@ func OpenReader(root string, log logging.Logger, m obs.Registry) (Reader, error)
 // paths.CheckpointPath; Ref.Tokens and Ref.Frontier are writer-only and stay zero (see
 // OpenReader).
 //
-// It does NOT read or verify the artifacts. List is the index; Get and Verify are the ones that
-// re-hash, and making a listing pay for a full re-hash would put fsck's cost on every caller that
-// only wanted to know what exists.
+// It does NOT re-hash the artifacts. List is the index; Get and Verify are the ones that re-hash,
+// and making a listing pay for a full re-hash would put fsck's cost on every caller that only
+// wanted to know what exists.
+//
+// It DOES sweep the directory for the two integrity defects a re-hash cannot find, and that is
+// finding F4-9: a MANIFEST entry whose artifact is missing, and an artifact present with no entry
+// of its own (the state finalize.go logs when CreateNew succeeded and AppendManifest did not).
+// Neither reached any surface before — not LOUD.log, not status, not self-test, not a DropEntry —
+// because nothing in a recovery path ever looked. The sweep is one directory read and one stat per
+// entry, next to a re-hash of every artifact's bytes.
+//
+// What List RETURNS is unchanged: every entry the manifest records, defects included. List is the
+// index, and an index that silently dropped rows would make "what does this project claim to have"
+// unanswerable. The refusal §12.3 asks for already lives where the checkpoint is USED — Get, Latest
+// and Chain each report core.ErrContract and step over to the parent — and this adds the Loud that
+// was missing beside it.
 func (r *fileReader) List(ctx context.Context) ([]Ref, error) {
 	entries, err := r.manifest()
 	if err != nil {
@@ -105,7 +128,58 @@ func (r *fileReader) List(ctx context.Context) ([]Ref, error) {
 		}
 		refs = append(refs, ref)
 	}
+	r.sweepIntegrity(refs)
 	return refs, nil
+}
+
+// sweepIntegrity reports the two defects a digest check cannot see: an entry whose artifact is gone,
+// and an artifact no entry claims. Each is announced once per reader and counted; nothing is moved,
+// repaired or deleted (§12.3 is explicit that a checkpoint defect is refused, never repaired here).
+//
+// A directory that cannot be read is not itself reported: List has already succeeded in reading the
+// manifest through it, so an unreadable listing is a race with a concurrent writer rather than a
+// durability defect, and announcing it would be announcing the sweep's own failure as the store's.
+func (r *fileReader) sweepIntegrity(refs []Ref) {
+	claimed := make(map[string]bool, len(refs))
+	for _, ref := range refs {
+		claimed[filepath.Base(ref.Path)] = true
+		if _, err := os.Stat(paths.Long(ref.Path)); err != nil {
+			r.noteIntegrity(filepath.Base(ref.Path),
+				"checkpoint artifact missing; the manifest still claims it",
+				"seq", ref.Seq, "path", ref.Path, "sha256", ref.SHA256.String())
+		}
+	}
+
+	entries, err := os.ReadDir(paths.Long(r.l.Checkpoints))
+	if err != nil {
+		return
+	}
+	manifestName := filepath.Base(paths.ManifestPath(r.l))
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || name == manifestName || filepath.Ext(name) != ".json" || claimed[name] {
+			continue
+		}
+		r.noteIntegrity(name,
+			"checkpoint artifact present with no MANIFEST line; it is an orphan and is not used",
+			"path", filepath.Join(r.l.Checkpoints, name))
+	}
+}
+
+// noteIntegrity Louds and counts one integrity defect, once per artifact per reader.
+func (r *fileReader) noteIntegrity(artifact, msg string, kv ...any) {
+	r.integrityMu.Lock()
+	if r.integrityNoted == nil {
+		r.integrityNoted = map[string]bool{}
+	}
+	already := r.integrityNoted[artifact]
+	r.integrityNoted[artifact] = true
+	r.integrityMu.Unlock()
+	if already {
+		return
+	}
+	r.m.Counter(metricManifestMismatch).Add(1)
+	r.log.Loud(msg, append([]any{"artifact", artifact}, kv...)...)
 }
 
 // Get returns the checkpoint with sequence number seq, after re-hashing its bytes against the
@@ -232,9 +306,18 @@ func (r *fileReader) Chain(ctx context.Context, seq core.CheckpointSeq) ([]Check
 // not match, ascending. It is what `qompack fsck` reports.
 //
 // It returns an EMPTY slice, never nil, on a clean store: nil marshals to JSON null, which is a
-// different claim from "nothing mismatched". It is also deliberately quiet — no Loud, no
-// mismatch counter — because it returns the mismatches to a caller whose whole job is to report
-// them, and a Loud per entry would duplicate fsck's own output into LOUD.log on every run.
+// different claim from "nothing mismatched".
+//
+// It used to be deliberately quiet — no Loud, no counter — on the grounds that it returns the
+// mismatches to a caller whose job is to report them. Finding F4-9 is what overturned that: the
+// callers that report are `qompack fsck`, which an operator has to run, and ResolveLatest, which
+// reports into a rehydration's own account and nowhere durable. So a MANIFEST digest mismatch
+// existed on disk with §12.3's "Loud, refuse to use the affected checkpoint" half missing, and
+// test/fault found nothing naming it on any surface.
+//
+// The Loud is once per ARTIFACT per reader, not once per pass, so the repeated runs a daemon makes
+// do not fill LOUD.log with one repeated fact, and fsck's own output is not duplicated on every
+// invocation. Nothing is repaired, moved or deleted here.
 func (r *fileReader) Verify(ctx context.Context) ([]core.CheckpointSeq, error) {
 	entries, err := r.manifest()
 	if err != nil {
@@ -251,7 +334,19 @@ func (r *fileReader) Verify(ctx context.Context) ([]core.CheckpointSeq, error) {
 			return nil, err
 		}
 		raw, readErr := os.ReadFile(paths.Long(ref.Path))
-		if readErr != nil || core.Hash(sha256.Sum256(raw)) != ref.SHA256 {
+		switch {
+		case readErr != nil:
+			// The missing-artifact case List's sweep also names. noteIntegrity keys on the artifact,
+			// so whichever runs first is the one that speaks.
+			r.noteIntegrity(filepath.Base(ref.Path),
+				"checkpoint artifact unreadable; the manifest still claims it",
+				"seq", e.Seq, "path", ref.Path, "detail", readErr.Error())
+			bad = append(bad, e.Seq)
+		case core.Hash(sha256.Sum256(raw)) != ref.SHA256:
+			r.noteIntegrity(filepath.Base(ref.Path),
+				"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused",
+				"seq", e.Seq, "expected", ref.SHA256.String(),
+				"observed", core.Hash(sha256.Sum256(raw)).String())
 			bad = append(bad, e.Seq)
 		}
 	}

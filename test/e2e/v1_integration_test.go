@@ -692,23 +692,31 @@ func v1RegisteredSubcommands(t *testing.T, bin string) string {
 }
 
 // v1SplitCommand argv-splits a manifest command string the way a shell would, after substituting
-// ${CLAUDE_PLUGIN_ROOT}. The manifest's own commands contain no quoting or escaping, and
-// pluginmanifest's TestManifest_NoUnexpandedTemplateLeftovers keeps it that way, so a plain
-// whitespace split is faithful; the assertion below fails loudly if that ever stops being true.
+// ${CLAUDE_PLUGIN_ROOT}.
+//
+// Since finding F-1 the executable word is DOUBLE-QUOTED — hooks.json is shell form and an install
+// directory containing a space word-splits an unquoted expansion — so the split honours exactly
+// that one shape: a leading `"…"` word, then a tail that carries no quoting at all. Anything else
+// fails here rather than being silently re-split, which is what keeps this faithful to what a shell
+// would do with the committed bytes.
 func v1SplitCommand(t *testing.T, command, pluginRoot, staged string) []string {
 	t.Helper()
-	require.NotContains(t, command, `"`, "manifest commands must not need shell quoting")
-	require.NotContains(t, command, `'`, "manifest commands must not need shell quoting")
+	require.True(t, strings.HasPrefix(command, `"`),
+		"the shell-form hook command must quote the plugin root: %q", command)
 
-	expanded := strings.ReplaceAll(command, "${CLAUDE_PLUGIN_ROOT}", pluginRoot)
-	fields := strings.Fields(expanded)
-	require.NotEmpty(t, fields)
+	end := strings.Index(command[1:], `"`)
+	require.Positive(t, end, "unterminated quote in the manifest command %q", command)
+	exe := command[1 : 1+end]
+	tail := strings.TrimSpace(command[2+end:])
+	require.NotContains(t, tail, `"`, "only the executable word may be quoted: %q", command)
+	require.NotContains(t, tail, `'`, "manifest commands must not need shell quoting: %q", command)
+
 	require.Equal(t, filepath.ToSlash(filepath.Join(pluginRoot, "bin", "qompack")),
-		filepath.ToSlash(fields[0]),
+		filepath.ToSlash(strings.ReplaceAll(exe, "${CLAUDE_PLUGIN_ROOT}", pluginRoot)),
 		"every manifest command must invoke ${CLAUDE_PLUGIN_ROOT}/bin/qompack")
 
-	// fields[0] is the manifest's extension-less path; the staged executable is what we can run.
-	return fields[1:]
+	// exe is the manifest's extension-less path; the staged executable is what we can run.
+	return strings.Fields(tail)
 }
 
 // v1SubcommandOf reconstructs the dispatch name from an argv tail, dropping flags. cli registers

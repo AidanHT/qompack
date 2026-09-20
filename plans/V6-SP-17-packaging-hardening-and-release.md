@@ -1,6 +1,6 @@
 # SP-17: production packaging, compatibility, hardening and reversible release
 
-**Status:** future Wave 5/M7 plan, revised 2026-09-06; no implementation/release work performed here.
+**Status:** implementation complete 2026-09-16; final gate passed at `4db5cea`; independent review CLEAN at `87966da`; reduced scope in `docs/release.md` §3; no publication.
 **Branch:** `feat/sp17-packaging-hardening-and-release` | **Wave:** 5 | **Prerequisites:** V5 and applicable M0–M6 gates, SP19 installed capability register, SP20 migration/backup contract | **Runs in parallel with:** SP18 on disjoint files; SP18 integrates after this artifact exists | **Design sections:** §§7, 11, 12 | **Gaps addressed:** G9.2, G9.3 packaging/residual reporting.
 
 ---
@@ -88,7 +88,7 @@ Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bo
 
 **When broader checks are necessary.** Reserve full build/platform/security, installed-host, crash/upgrade/rollback and release evaluation for their named commits or the frozen release artifact. Share matching SP-20/V4/V5 evidence as context, but perform the installed-artifact checks required by SP17-M7-01–08 and V6; earlier source snapshots do not certify a new bundle.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 role structure and global worker limit under this plan's Opus 4.8-only subagent rule; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
@@ -96,35 +96,35 @@ Eight future commits retain original numbering/areas, conventional subjects and 
 
 ### Commit 1 — `build(packaging): assemble a versioned plugin bundle`
 
-- [ ] Specify bundle/launcher/version contracts, implement deterministic assembly and retain installed validation evidence.
+- [x] Specify bundle/launcher/version contracts, implement deterministic assembly and retain installed validation evidence.
 
 ### Commit 2 — `test(platform): verify supported deployment environments`
 
-- [ ] Add path/filesystem/IPC/permission cases, execute the actual supported matrix and record unsupported cases.
+- [x] Add path/filesystem/IPC/permission cases, execute the actual supported matrix and record unsupported cases.
 
 ### Commit 3 — `test(security): verify archive trust and privacy boundaries`
 
-- [ ] Verify permission-before-preview/expansion, redaction/retention and bounded decoding; independent trust review.
+- [x] Verify permission-before-preview/expansion, redaction/retention and bounded decoding; independent trust review.
 
 ### Commit 4 — `test(fault): exercise capture and lifecycle failures`
 
-- [ ] Reuse and extend publication/locking/lifecycle/child failure matrix on installed package; no unit-only certification.
+- [x] Reuse and extend publication/locking/lifecycle/child failure matrix on installed package; no unit-only certification.
 
 ### Commit 5 — `feat(cli): report integrity and capability diagnostics`
 
-- [ ] Implement compatible fsck/doctor contracts, error/unknown status and explicit repair behavior; test rollback-safe diagnostics.
+- [x] Implement compatible fsck/doctor contracts, error/unknown status and explicit repair behavior; test rollback-safe diagnostics.
 
 ### Commit 6 — `fix(hardening): resolve verified release blockers`
 
-- [ ] Integrate minimal fixes with affected owners, preserve frozen reader compatibility and repeat affected failure gates.
+- [x] Integrate minimal fixes with affected owners, preserve frozen reader compatibility and repeat affected failure gates.
 
 ### Commit 7 — `ci(release): gate release on evidence and rollback`
 
-- [ ] Prepare versioned release workflow/tooling and independent feature switches; validate package identity/licenses and rollback before future publication.
+- [x] Prepare versioned release workflow/tooling and independent feature switches; validate package identity/licenses and rollback before future publication.
 
 ### Commit 8 — `test(e2e): rehearse installation upgrade and removal`
 
-- [ ] Execute install/upgrade/uninstall and pre/post-write rollback; attach V6 evidence and actual supported release scope.
+- [x] Execute install/upgrade/uninstall and pre/post-write rollback; attach V6 evidence and actual supported release scope.
 
 ## Subagent strategy
 
@@ -147,32 +147,34 @@ No two roles edit `docs/security.md`; C/D return proposals to its sole main owne
 
 Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDENCE.md#future-implementation-subagents-for-sp-14-through-sp-21). Preserve A–F, main ownership and all release gates. The role list is not six concurrent agents.
 
+**V6 routing override — user directive, 2026-09-14.** Every subagent this plan dispatches runs Opus 4.8 (`claude-opus-4-8`) strictly; Fable 5.1 (`claude-fable-5-1`) is the main/coordinator session model and is never a child. This narrows R1's Fable rows for V6 only and leaves the shared R1 policy and the other waves unchanged. It is the shape R1 already documents for an unavailable Fable, so a mandatory independent review is satisfied by an Opus 4.8 / high reviewer in a thread that did not author the change, escalating that one seat to Opus xhigh only for a documented unresolved issue. Questions R1 would route to Fable — shared-contract conflicts, durable-data/rollback and trust-boundary decisions — return to the main session instead of spawning a premium child.
+
 | Existing role | Requested model and effort | Reason and boundary |
 |---|---|---|
 | A packaging; E diagnostics; F release/install | Opus 4.8 / high | Bounded packaging, version and diagnostic contracts; main retains publishing, shared CI/config and final decisions |
 | B platform | Opus 4.8 / high | Design and interpret installed-artifact/platform checks; medium only for collation of actual results |
-| C security; D fault/recovery | Opus 4.8 / high | Evaluate concrete denial, crash and rollback scenarios in assigned fixtures; route unresolved cross-storage/trust questions to Fable 5.1 / high |
-| Independent release/integrity reviewer | Fable 5.1 / high | Reconcile package, privacy, migration/rollback and evidence scope before release acceptance |
+| C security; D fault/recovery | Opus 4.8 / high | Evaluate concrete denial, crash and rollback scenarios in assigned fixtures; return unresolved cross-storage/trust questions to the Fable 5.1 main session rather than escalating a child |
+| Independent release/integrity reviewer | Opus 4.8 / high | Reconcile package, privacy, migration/rollback and evidence scope before release acceptance; must be a thread that did not author the change, escalating to Opus xhigh only for a documented unresolved issue |
 
-A establishes the artifact/version contract first. B/C/D may then occupy up to three disjoint slots using isolated disposable environments. E waits for A; F consumes the artifact and relevant results; do not race on CHANGELOG, docs/security, shared helpers or release metadata. The independent reviewer starts when the combined artifact and evidence exist and occupies one slot; only one Fable child runs at a time. Reuse workers for related follow-ups and serialize quiet-run benchmarks, actual release steps and shared integration. No subagent receives authority to publish, change accounts, or contact outsiders from this planning policy.
+A establishes the artifact/version contract first. B/C/D may then occupy up to three disjoint slots using isolated disposable environments. E waits for A; F consumes the artifact and relevant results; do not race on CHANGELOG, docs/security, shared helpers or release metadata. The independent reviewer starts when the combined artifact and evidence exist and occupies one slot; no child runs Fable, and R1's one-Fable slot stays unused rather than becoming extra Opus concurrency. Reuse workers for related follow-ups and serialize quiet-run benchmarks, actual release steps and shared integration. No subagent receives authority to publish, change accounts, or contact outsiders from this planning policy.
 
 ## Exit criteria
 
-- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
-- [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
+- [x] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
+- [x] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
-- [ ] SP17-M7-01–08 and V6 primary quality/recovery gates have actual evidence or a documented reduced release scope.
-- [ ] Migration and rollback are rehearsed before/after new-format writes.
-- [ ] Installed host validation covers claimed environments; skipped tests leave capability unverified.
-- [ ] Independent switches and privacy denial behave as documented.
-- [ ] Supported artifact identifiers, dependency licenses and name checks are current at release.
+- [x] SP17-M7-01–08 and V6 primary quality/recovery gates have actual evidence or a documented reduced release scope.
+- [x] Migration and rollback are rehearsed before/after new-format writes.
+- [x] Installed host validation covers claimed environments; skipped tests leave capability unverified.
+- [x] Independent switches and privacy denial behave as documented.
+- [x] Supported artifact identifiers, dependency licenses and name checks are current at release.
 
 ## Done checklist
 
-- [ ] Eight conventional future commits retain original IDs and no attribution trailers.
-- [ ] Release/upgrade owner and independent reviewer sign the same evidence-backed scope.
-- [ ] No unverified native controls, universal performance or exact-history claims appear in package/help.
-- [ ] SP18 receives the real supported package and rollback instructions before final UAT documentation.
+- [x] Eight conventional future commits retain original IDs and no attribution trailers.
+- [x] Release/upgrade owner and independent reviewer sign the same evidence-backed scope.
+- [x] No unverified native controls, universal performance or exact-history claims appear in package/help.
+- [x] SP18 receives the real supported package and rollback instructions before final UAT documentation.
 
 ### Rollout, rollback and blockers
 

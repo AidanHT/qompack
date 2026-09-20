@@ -1,0 +1,151 @@
+project: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/1d1cb01e-14ea-492d-be9e-7de050bd5a7c/scratchpad/ro-scen/B
+
+VERSION AND IDENTITY
+ROW                                        STATUS    OBSERVED
+version.plugin                             ok        0.1.0
+                                                     internal/core.Version, which the release build stamps with -ldflags -X
+version.buildinfo                          ok        (devel)
+                                                     main module github.com/qompack/qompack; CGO_ENABLED=0 GOARCH=amd64 GOOS=windows
+version.bundle                             unknown   not running from a bundle
+                                                     C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\1d1cb01e-14ea-492d-be9e-7de050bd5a7c\scratchpad\ro-scen\qompack.exe does not sit at <bundle>/bin/qompack
+version.pluginRoot                         unknown   unset
+                                                     the host sets it when it invokes a hook; an unset value here says nothing about an installed plugin
+
+HOST
+ROW                                        STATUS    OBSERVED
+host.platform                              ok        windows/amd64
+                                                     the GOOS/GOARCH this binary is running on
+host.go                                    ok        go1.26.6
+                                                     the Go runtime this binary was built with
+host.claudeCLI                             unknown   not probed
+                                                     doctor never shells out to the host; an installed-plugin claim needs a real session, which is test/canary's job
+host.target                                unknown   unknown target
+                                                     no observation ledger entry names a host this build gathered evidence against
+
+SCOPE
+ROW                                        STATUS    OBSERVED
+scope.root                                 ok        C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/1d1cb01e-14ea-492d-be9e-7de050bd5a7c/scratchpad/ro-scen/B
+                                                     resolved from --project, QOMPACK_PROJECT_ROOT or the nearest enclosing .git
+scope.established                          ok        C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\1d1cb01e-14ea-492d-be9e-7de050bd5a7c\scratchpad\ro-scen\B\.qompack
+                                                     this directory has been used with Qompack before
+scope.daemon                               ok        no lock
+                                                     no daemon.lock, or one this build cannot parse; nothing is serving this project
+scope.mode                                 ok        auto
+                                                     from the default layer (config.Defaults())
+scope.contractMode                         ok        unknown
+                                                     0 session(s) recorded, 0 clean run(s) since the last degradation
+
+CAPABILITIES
+ROW                                        STATUS    OBSERVED
+observation                                ok        implemented_unverified, enabled=true
+                                                     class record; mechanism hook payloads read through internal/hookio across the seven declared events; evidence implemented_unverified; target unknown target; fallback none stated; no observation
+injection                                  ok        implemented_unverified, enabled=true
+                                                     class act; mechanism SessionStart additionalContext reinjection (source=compact); evidence implemented_unverified; target unknown target; fallback none stated; no observation
+new_result_replacement                     disabled  documented, enabled=false
+                                                     class optimize; mechanism PostToolUse updatedToolOutput replacement of a newly delivered result; evidence documented; target unknown target; fallback pass-through: the host's original result is delivered unchanged; no observation
+usage_attribution                          disabled  documented, enabled=false
+                                                     class record; mechanism host-reported usage and cache categories attributed to a request and its parent; evidence documented; target unknown target; fallback unknown stays unknown; cost is not claimed from an unattributed request; no observation
+token_estimation                           ok        implemented_unverified, enabled=true
+                                                     class record; mechanism local estimator over the whole serialized additional-context record; evidence implemented_unverified; target unknown target; fallback none stated; no observation
+compaction_request                         unknown   unsupported, enabled=false
+                                                     class optimize; mechanism none: no supported plugin mechanism requests native compaction, and PreCompact custom_instructions is INPUT to a compaction the host already decided to run; evidence unsupported; target unknown target; fallback advisory cadence only: Qompack schedules its own work and never asks the host to compact; no observation
+compaction_blocking                        disabled  documented, enabled=false
+                                                     class optimize; mechanism PreCompact veto of a compaction the host is about to perform; evidence documented; target unknown target; fallback automatic optimization veto off; manual compact never blocked; no observation
+history_rewriting                          unknown   unsupported, enabled=false
+                                                     class optimize; mechanism none: no validated plugin mechanism rewrites, cuts or evicts native history; evidence unsupported; target unknown target; fallback excluded: no native-history rewriting, cuts, cache-marker manipulation or deletion of delivered results; no observation
+
+CONTROLS
+ROW                                        STATUS    OBSERVED
+config.violations                          ok        none
+                                                     every configured leaf is within its domain
+runtime.migration.capture.rawEvidence      disabled  false
+                                                     gate "M1 capture fidelity (T20-M1-01/02)" (owner SP-20) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M1 capture fidelity (T20-M1-01/02)" (owner SP-20) is pending
+runtime.migration.publication.durableFrontier disabled  false
+                                                     gate "M1 durable publication (T20-M1-03/04/05)" (owner SP-20) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M1 durable publication (T20-M1-03/04/05)" (owner SP-20) is pending
+runtime.migration.replacement.newResult    disabled  false
+                                                     gate "M4 admission (T21 pipeline, pass-through and recovery)" (owner SP-21) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M4 admission (T21 pipeline, pass-through and recovery)" (owner SP-21) is pending
+runtime.migration.compaction.automaticVeto disabled  false
+                                                     gate "recovery/proactive distinction verified in the target host" (owner SP-19 M0-03, then SP-12) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "recovery/proactive distinction verified in the target host" (owner SP-19 M0-03, then SP-12) is pending
+runtime.migration.experiments.enabled      disabled  false
+                                                     gate "M5/M6 selection and refinement acceptance" (owner SP-15 and SP-16) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M5/M6 selection and refinement acceptance" (owner SP-15 and SP-16) is pending
+runtime.phase7.reuse.scopedCandidates      disabled  false
+                                                     gate "M6-G16-A scoped reuse and authorization" (owner SP-16) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M6-G16-A scoped reuse and authorization" (owner SP-16) is pending
+runtime.phase7.reuse.warmPrior             disabled  false
+                                                     gate "M6-G16-D optional-policy value against a simple baseline" (owner SP-16) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M6-G16-D optional-policy value against a simple baseline" (owner SP-16) is pending
+runtime.phase7.retrieval.reminders         disabled  false
+                                                     gate "M6-G16-B bounded retrieval and usefulness telemetry" (owner SP-16) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M6-G16-B bounded retrieval and usefulness telemetry" (owner SP-16) is pending
+runtime.phase7.retrieval.demandPromotion   disabled  false
+                                                     gate "M6-G16-C promotion of future representations only" (owner SP-16) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M6-G16-C promotion of future representations only" (owner SP-16) is pending
+runtime.phase7.filters.segmentBloom        disabled  false
+                                                     gate "M6-G16-E filter coverage, staleness and recovery" (owner SP-16) passed=false
+                                                     from the default layer (config.Defaults()); refused-by-validate while gate "M6-G16-E filter coverage, staleness and recovery" (owner SP-16) is pending
+runtime.mode                               ok        auto
+                                                     from the default layer (config.Defaults())
+runtime.migration.settingsVersion          ok        1
+                                                     from the default layer (config.Defaults())
+runtime.migration.compaction.blockManualCompact ok        false
+                                                     from the default layer (config.Defaults())
+runtime.phase7.settingsVersion             ok        1
+                                                     from the default layer (config.Defaults())
+runtime.telemetry.enabled                  disabled  false
+                                                     from the default layer (config.Defaults()); hardwired off — a true value is a Validate violation, not a setting
+runtime.redact.enabled                     ok        true
+                                                     from the default layer (config.Defaults())
+runtime.daemon.enabled                     ok        true
+                                                     from the default layer (config.Defaults())
+runtime.selection.submodularEnabled        ok        false
+                                                     from the default layer (config.Defaults())
+runtime.selection.loopWarningsEnabled      ok        false
+                                                     from the default layer (config.Defaults())
+store.migrate.legacyImportCutover          disabled  build gate, passed=false
+                                                     owner SP-20 M1-04; gate M1 compatible migration (T20-M1-08: import/parity/cutover and the pre- and post-first-write rollback drill); it has no config leaf on purpose, so no file can turn it on
+admission                                  disabled  disabled: mirrors runtime.migration.replacement.newResult; host allowlist empty
+                                                     admission.Gate.Admits answers (false, disabled) while the mirror is off and (false, unknown target) once it is on with no target evidence
+runtime.recording                          ok        auto
+                                                     recording has no switch of its own: runtime.mode passive or off IS the recording control (config/runtime.go:104-116)
+
+RECORDING GAPS
+ROW                                        STATUS    OBSERVED
+store.writable                             ok        writable
+                                                     an existing file (C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\1d1cb01e-14ea-492d-be9e-7de050bd5a7c\scratchpad\ro-scen\B\.qompack\.gitignore) was opened for writing and closed untouched; no file was created to find out
+spool.pending                              ok        0 file(s), 0 byte(s)
+                                                     spool files the daemon has not drained; an observation, not a latency or health verdict
+drain.progress                             ok        0 spool file(s) tracked
+                                                     state/drain.json parses; `qompack fsck` compares it against the spool itself
+negknow.ledger                             unknown   no elimination log
+                                                     nothing has been eliminated in this project
+captures.unpublished                       ok        0 gap(s) across 0 sidecar(s)
+                                                     a sidecar is a gap only for a tool delivery whose outcome is ok and whose bytes are durable with no reference joined; sidecars are evidence and are never swept
+assertions.last                            ok        no failed assertion recorded
+                                                     0 assertion result(s) persisted from the last session
+
+RETRIEVAL GAPS
+ROW                                        STATUS    OBSERVED
+store.open                                 ok        0 object(s), 0 tool use(s), 0 file(s), 0 segment(s)
+                                                     counts are observations of what is stored, not a verdict about efficiency or health
+checkpoint.latest                          unknown   none recorded
+                                                     no checkpoint has been finalized in this project
+mcp.tools                                  ok        8 tool(s): recall, expand, re_read, already_tried, record_eliminated, timeline, why, dropped
+                                                     declared by internal/mcp and byte-compared against plugin/ by devtool plugin-validate
+integrity                                  unknown   not checked here
+                                                     run `qompack fsck` for identities, references, manifests, delta bases and roots
+
+AGREEMENT WITH QOMPACK STATUS
+ROW                                        STATUS    OBSERVED
+status.primary                             unknown   none
+                                                     availability error (daemon: status refused: ; disk: reading C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\1d1cb01e-14ea-492d-be9e-7de050bd5a7c\scratchpad\ro-scen\B\.qompack\metrics\latency.json: open C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\1d1cb01e-14ea-492d-be9e-7de050bd5a7c\scratchpad\ro-scen\B\.qompack\metrics\latency.json: The system cannot find the file specified.); doctor never SPAWNS a daemon (it strips Self before building the client), so it agrees with `qompack status` for the disk and probe sources and for a daemon that is already running — a `status` run that lazily spawns one can report source=daemon where this row reports disk
+status.mode                                unknown   unknown
+                                                     the same snapshot `qompack status` renders, collected through the same sources
+status.schema                              ok        1
+                                                     commands.StatusSchema, so a reader of both documents compares one number
+
+exit: 0

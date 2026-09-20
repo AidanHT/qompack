@@ -3,13 +3,16 @@ package paths_test
 import (
 	"bytes"
 	"encoding/json"
+	"io/fs"
 	"math"
+	"net"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -224,7 +227,7 @@ func TestCreateNew_SetsReadOnly(t *testing.T) {
 
 	fi, err := os.Stat(p)
 	require.NoError(t, err)
-	require.Zero(t, fi.Mode().Perm()&0o222, "no write bit should remain")
+	require.Zero(t, fi.Mode().Perm()&0o222, "no write bit should remain (CreateNew chmods 0444 after the durable write)")
 
 	err = os.WriteFile(p, []byte("overwrite"), 0o600)
 	require.Error(t, err, "a read-only file must refuse a subsequent os.WriteFile")
@@ -232,6 +235,113 @@ func TestCreateNew_SetsReadOnly(t *testing.T) {
 	b, err := os.ReadFile(p)
 	require.NoError(t, err)
 	require.Equal(t, "{}", string(b))
+
+	err = paths.CreateNew(p, []byte("second"))
+	require.ErrorIs(t, err, os.ErrExist, "a second CreateNew of the same regular file is the collision Finalize retries past")
+	b, err = os.ReadFile(p)
+	require.NoError(t, err)
+	require.Equal(t, "{}", string(b), "the create-once file must keep the first write")
+}
+
+func TestRestoreLog_CreatesAnAppendableLogAndRefusesToOverwrite(t *testing.T) {
+	l := newLayout(t)
+	p := paths.ManifestPath(l)
+	first := []byte("{\"seq\":1}\n")
+	require.NoError(t, paths.RestoreLog(p, first))
+
+	fi, err := os.Stat(p)
+	require.NoError(t, err)
+	require.NotZero(t, fi.Mode().Perm()&0o200, "a restored log must stay owner-writable")
+
+	got, err := os.ReadFile(p)
+	require.NoError(t, err)
+	require.Equal(t, first, got)
+
+	require.NoError(t, paths.AppendJSONL(p, map[string]int{"seq": 2}))
+	got, err = os.ReadFile(p)
+	require.NoError(t, err)
+	require.Contains(t, string(got), `"seq":1`)
+	require.Contains(t, string(got), `"seq":2`)
+
+	err = paths.RestoreLog(p, []byte("overwrite\n"))
+	require.ErrorIs(t, err, os.ErrExist)
+	got, err = os.ReadFile(p)
+	require.NoError(t, err)
+	require.NotContains(t, string(got), "overwrite")
+
+	err = paths.RestoreLog(filepath.Join(l.Checkpoints, "0001.json"), []byte("{}"))
+	require.ErrorIs(t, err, core.ErrAppendOnly)
+}
+
+// TestRestoreLog_MissingParentIsAnError pins that RestoreLog will not mkdir a missing parent
+// to land a restored log: the create-if-absent open fails, and nothing is written underneath.
+func TestRestoreLog_MissingParentIsAnError(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "no-such-parent", "MANIFEST.jsonl")
+
+	err := paths.RestoreLog(p, []byte("{\"seq\":1}\n"))
+	require.Error(t, err)
+	require.NotErrorIs(t, err, os.ErrExist)
+	require.NotErrorIs(t, err, core.ErrAppendOnly)
+
+	_, statErr := os.Stat(filepath.Join(dir, "no-such-parent"))
+	require.ErrorIs(t, statErr, fs.ErrNotExist, "RestoreLog must not create the missing parent")
+}
+
+// TestRestoreLog_ExistingNonLogIsAppendOnly pins the extension allow-list as a refusal that
+// happens before any write, even when a file already sits at p: the bytes stay untouched.
+func TestRestoreLog_ExistingNonLogIsAppendOnly(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "notes.json")
+	const keep = "already here\n"
+	require.NoError(t, os.WriteFile(p, []byte(keep), 0o600))
+
+	err := paths.RestoreLog(p, []byte("overwrite\n"))
+	require.ErrorIs(t, err, core.ErrAppendOnly)
+
+	got, readErr := os.ReadFile(p)
+	require.NoError(t, readErr)
+	require.Equal(t, keep, string(got), "a refused extension must not rewrite an existing file")
+}
+
+// TestRestoreLog_DirectoryAtPathWritesNothing pins RestoreLog's "never overwrite" rule for a
+// directory already at p: Lstat succeeds, so the call is a wrapped os.ErrExist and the
+// directory is left exactly as it was.
+func TestRestoreLog_DirectoryAtPathWritesNothing(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "invariants.jsonl")
+	require.NoError(t, os.Mkdir(p, 0o700))
+	sentinel := filepath.Join(p, "kept.txt")
+	require.NoError(t, os.WriteFile(sentinel, []byte("evidence"), 0o600))
+
+	err := paths.RestoreLog(p, []byte("stolen\n"))
+	require.ErrorIs(t, err, os.ErrExist)
+
+	fi, statErr := os.Lstat(p)
+	require.NoError(t, statErr)
+	require.True(t, fi.IsDir(), "a directory at p must not be replaced with a log")
+	got, readErr := os.ReadFile(sentinel)
+	require.NoError(t, readErr)
+	require.Equal(t, "evidence", string(got))
+}
+
+// TestRestoreLog_UnstatablePathIsNotCreated pins the Lstat arm that is neither success nor
+// fs.ErrNotExist: an illegal Windows name cannot be examined, so RestoreLog must return that
+// error rather than treat the path as absent and try to create it.
+func TestRestoreLog_UnstatablePathIsNotCreated(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("platform: Windows reserved filename characters are what make Lstat fail closed here")
+	}
+	dir := t.TempDir()
+	p := filepath.Join(dir, "bad*.jsonl")
+
+	err := paths.RestoreLog(p, []byte("{\"seq\":1}\n"))
+	require.Error(t, err)
+	require.NotErrorIs(t, err, os.ErrExist)
+	require.NotErrorIs(t, err, fs.ErrNotExist)
+	require.NotErrorIs(t, err, core.ErrAppendOnly)
+
+	entries, readDirErr := os.ReadDir(dir)
+	require.NoError(t, readDirErr)
+	require.Empty(t, entries, "an un-examinable path must not create a sibling or substitute file")
 }
 
 // TestCreateNew_DirectoryAtPathIsNotACollision pins the one error CreateNew reserves: os.ErrExist
@@ -249,10 +359,50 @@ func TestCreateNew_DirectoryAtPathIsNotACollision(t *testing.T) {
 	require.Error(t, err, "a directory at the artifact path must refuse the write")
 	require.NotErrorIs(t, err, os.ErrExist,
 		"a directory is not a sequence collision: ErrExist would make Finalize move to the next number")
+	require.ErrorIs(t, err, syscall.EISDIR,
+		"the reserved kind for a directory at p is EISDIR (remapped on POSIX; OpenFile's own kind on Windows)")
 
 	fi, statErr := os.Stat(paths.Long(p))
 	require.NoError(t, statErr)
 	require.True(t, fi.IsDir(), "the directory must be left exactly where it was")
+}
+
+// TestCreateNew_MissingParentIsAnError pins that CreateNew will not mkdir a missing parent to
+// land the artifact: the exclusive create fails, and the missing directory is still missing.
+func TestCreateNew_MissingParentIsAnError(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "no-such-parent", "artifact")
+
+	err := paths.CreateNew(p, []byte("{}"))
+	require.Error(t, err)
+	require.NotErrorIs(t, err, os.ErrExist, "a missing parent is not a filename collision")
+	require.NotErrorIs(t, err, syscall.EISDIR)
+
+	_, statErr := os.Stat(filepath.Join(dir, "no-such-parent"))
+	require.ErrorIs(t, statErr, fs.ErrNotExist, "CreateNew must not create the missing parent")
+}
+
+// TestCreateNew_NonRegularEntryIsNotACollision pins the other half of CreateNew's remapping: a
+// non-file that is not a directory (an AF_UNIX socket) is fs.ErrInvalid, never os.ErrExist. The
+// socket stays the socket.
+func TestCreateNew_NonRegularEntryIsNotACollision(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "artifact")
+	ln, err := net.Listen("unix", p)
+	if err != nil {
+		t.Skipf("platform: unix domain sockets unavailable: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+
+	err = paths.CreateNew(p, []byte("{}"))
+	require.Error(t, err, "a socket at the artifact path must refuse the write")
+	require.NotErrorIs(t, err, os.ErrExist,
+		"a non-regular entry is not a sequence collision")
+	require.ErrorIs(t, err, fs.ErrInvalid, "the reserved kind for a non-directory non-file is ErrInvalid")
+
+	fi, statErr := os.Lstat(p)
+	require.NoError(t, statErr)
+	require.False(t, fi.Mode().IsRegular(), "the socket must still be the socket")
+	require.False(t, fi.IsDir())
 }
 
 func TestReplaceBloom_KeepsOneBackup(t *testing.T) {
@@ -732,4 +882,118 @@ func TestReplacePinsView_DeniedStagingCreatePreservesView(t *testing.T) {
 	entries, readDirErr := os.ReadDir(l.Tmp)
 	require.NoError(t, readDirErr)
 	require.Empty(t, entries, "a denied CreateTemp must not leave a staging file")
+}
+
+// TestReplacePinsView_ReplacesAReadOnlyDestination pins that the materialized view is
+// replaceable even when a previous generation was marked 0444: renameWithRetry clears the
+// read-only bit and the new bytes land. The view is derived state, not a CreateNew artifact.
+func TestReplacePinsView_ReplacesAReadOnlyDestination(t *testing.T) {
+	l := newLayout(t)
+	view := filepath.Join(l.Pins, "invariants.json")
+	const before = `{"invariants":["old"]}`
+	const after = `{"invariants":["new"]}`
+	require.NoError(t, paths.ReplacePinsView(l, []byte(before)))
+	require.NoError(t, os.Chmod(view, 0o444))
+
+	require.NoError(t, paths.ReplacePinsView(l, []byte(after)),
+		"a read-only invariants.json must still be replaceable through renameWithRetry")
+
+	got, err := os.ReadFile(view)
+	require.NoError(t, err)
+	require.Equal(t, after, string(got))
+
+	fi, err := os.Stat(view)
+	require.NoError(t, err)
+	require.NotZero(t, fi.Mode().Perm()&0o200, "the replacement must land owner-writable")
+
+	entries, err := os.ReadDir(l.Tmp)
+	require.NoError(t, err)
+	require.Empty(t, entries, "no staging file may survive a successful replace")
+}
+
+// TestReplacePinsView_MissingPinsDirCleansStaging pins the finishing rename's failure when
+// pins/ is gone: the call errors, the view is not created, and the staged file is removed.
+func TestReplacePinsView_MissingPinsDirCleansStaging(t *testing.T) {
+	l := newLayout(t)
+	require.NoError(t, os.RemoveAll(l.Pins))
+
+	err := paths.ReplacePinsView(l, []byte(`{"invariants":["new"]}`))
+	require.Error(t, err, "a missing pins directory cannot receive the view")
+
+	_, statErr := os.Stat(filepath.Join(l.Pins, "invariants.json"))
+	require.ErrorIs(t, statErr, fs.ErrNotExist)
+
+	entries, readDirErr := os.ReadDir(l.Tmp)
+	require.NoError(t, readDirErr)
+	require.Empty(t, entries, "a failed replace must not leak its staging file")
+}
+
+// countingWriter records how many Write calls it received so TerminatePartialTail can be shown
+// not to touch a well-terminated or unreadable file.
+type countingWriter struct{ writes int }
+
+func (w *countingWriter) Write(p []byte) (int, error) {
+	w.writes++
+	return len(p), nil
+}
+
+// TestTerminatePartialTail_WellTerminatedFileIsUnchanged pins the no-op: a file that already
+// ends in a newline must not gain another, so bytes and mtime stay exactly as they were.
+func TestTerminatePartialTail_WellTerminatedFileIsUnchanged(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "roots.jsonl")
+	content := []byte("{\"id\":\"a\"}\n")
+	require.NoError(t, os.WriteFile(p, content, 0o600))
+	before, err := os.Stat(p)
+	require.NoError(t, err)
+
+	w := &countingWriter{}
+	require.NoError(t, paths.TerminatePartialTail(w, p))
+	require.Zero(t, w.writes, "a tail that already ends in a newline must not be written")
+
+	got, err := os.ReadFile(p)
+	require.NoError(t, err)
+	require.Equal(t, content, got)
+
+	after, err := os.Stat(p)
+	require.NoError(t, err)
+	require.Equal(t, before.Size(), after.Size())
+	require.True(t, before.ModTime().Equal(after.ModTime()),
+		"a no-op terminator must not bump mtime: before=%v after=%v", before.ModTime(), after.ModTime())
+}
+
+// TestTerminatePartialTail_UnreadablePathIsLeftAlone pins the documented fail-open: a file
+// that cannot be opened for the diagnostic read is left alone (nil, no write) rather than
+// turning a torn-line check into a lost record. The fixture is a non-empty file without a
+// trailing newline whose ACL denies read — Stat still works, Open does not.
+func TestTerminatePartialTail_UnreadablePathIsLeftAlone(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("platform: icacls is windows-specific")
+	}
+	u, err := user.Current()
+	if err != nil {
+		t.Skipf("platform: could not determine current user: %v", err)
+	}
+
+	p := filepath.Join(t.TempDir(), "torn.jsonl")
+	const torn = `{"id":"partial"`
+	require.NoError(t, os.WriteFile(p, []byte(torn), 0o600))
+
+	if out, denyErr := exec.Command("icacls", p, "/deny", u.Username+":(R)").CombinedOutput(); denyErr != nil {
+		t.Skipf("platform: icacls deny unavailable in this environment: %v: %s", denyErr, out)
+	}
+	t.Cleanup(func() {
+		_, _ = exec.Command("icacls", p, "/remove:d", u.Username).CombinedOutput()
+	})
+
+	w := &countingWriter{}
+	require.NoError(t, paths.TerminatePartialTail(w, p),
+		"a failed diagnostic open must not refuse the caller's append")
+	require.Zero(t, w.writes, "an unreadable path must not receive a terminator write")
+
+	if out, clearErr := exec.Command("icacls", p, "/remove:d", u.Username).CombinedOutput(); clearErr != nil {
+		t.Fatalf("remove test-owned deny ACE: %v: %s", clearErr, out)
+	}
+	got, readErr := os.ReadFile(p)
+	require.NoError(t, readErr)
+	require.Equal(t, torn, string(got), "the torn bytes must be left exactly as they were")
 }

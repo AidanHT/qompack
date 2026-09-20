@@ -1,0 +1,17 @@
+{
+  "name": "bounds_damaged_zstd_frame",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "outcome": "verified",
+  "reason": "damaged_zstd_frame was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a zstd frame with its middle overwritten.",
+  "detail": "read error: qompack: not found: object refused as damaged: object c261659ba42e failed to decode"
+}

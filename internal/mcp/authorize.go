@@ -7,12 +7,27 @@ import "github.com/qompack/qompack/internal/paths"
 // each run the check in this file before a preview is built or any content is materialized —
 // never after, and never merely because the caller supplied a well-formed hash or id.
 //
-// The check itself is the same one `re_read` already ran for its caller-given path: paths.Norm
-// against the CURRENT project root and symlink state. Applying it here too closes the gap that
-// mattered — `expand` (by tool_use_id) and `recall` (over every hit) previously resolved a stored
-// path with no re-check at all, so a path that was inside the project when it was captured, but
-// has since become — or been replaced by — a symlink escaping the project, could be walked back
-// into through the archive even though a live read of the same path today would be refused.
+// The check has two halves, and the second is finding S-1.
+//
+// The first is paths.Norm against the CURRENT project root: it rejects a lexically escaping path
+// outright. Applying it here closed the gap that `expand` (by tool_use_id) and `recall` (over every
+// hit) used to have, where a stored path was resolved with no re-check at all.
+//
+// It is not sufficient on its own, and test/security measured why. Norm is the store-key
+// normaliser, so when EvalSymlinks lands OUTSIDE the root it DISCARDS the resolution and keeps the
+// unresolved spelling — a deliberate anti-smuggling rule that keeps keys stable. The consequence is
+// that a captured file whose parent directory has since been replaced by a link pointing out of the
+// project normalises perfectly cleanly, and an authorization gate built on Norm alone has nothing
+// to refuse: `expand` and `re_read` served the archived content for an address a live read of the
+// same path would be denied today. (No byte of the linked-to file was ever returned — the bytes
+// served were the ones captured from inside the project — so it was a policy divergence, not a data
+// leak. It is still the policy this file documents.)
+//
+// So the second half asks paths.ResolvesInside, which is the question Norm may not answer: does
+// this path, resolved on disk as far as it exists, still land inside the root? Junctions and mount
+// points count on Windows, and a path whose leaf no longer exists is answered by the deepest
+// component that does.
+//
 // Archived reads may not bypass a host-denied path.
 
 // deniedBody is the explicit refusal shape every authorization check renders: found is always
@@ -41,13 +56,17 @@ const authorizedDenialReason = "authorization denied: the associated path is out
 //
 // An empty path — a capture with no associated file, such as a Bash result or an elimination's
 // evidence bytes — carries no path policy to apply and is authorized by identity alone: expand and
-// re_read never grant a path-bearing capability beyond what paths.Norm would grant a live read of
-// the same path today.
+// re_read never grant a path-bearing capability beyond what a live read of the same path would be
+// granted today.
 func (h *handlers) authorizePath(path string) (ok bool, reason string) {
 	if path == "" {
 		return true, ""
 	}
-	if _, err := paths.Norm(h.root, path); err != nil {
+	norm, err := paths.Norm(h.root, path)
+	if err != nil {
+		return false, authorizedDenialReason
+	}
+	if !paths.ResolvesInside(h.root, norm) {
 		return false, authorizedDenialReason
 	}
 	return true, ""

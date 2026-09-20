@@ -1,0 +1,20 @@
+{
+  "name": "delivery_seal_torn_slot",
+  "phase": "publication",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "boundary": "delivery seal with one torn slot, and a half-present seal pair",
+  "seed_method": "the delivery position files are torn the way daemon/delivery_seal_test.go's crash-reachable images are, then one side of the pair is removed entirely (delivery_seal_tool.go calls a half-present pair \"a recovery decision, not a repair\")",
+  "outcome": "recovered",
+  "reason": "the cut introduced no dangling reference, none remains anywhere under .qompack/, and the product went on recording: the recovery session's own observation was indexed.",
+  "detail": "cut: tore delivery-lease-position.json from 111 to 87 bytes; removed delivery-ack-position.json, leaving a half-present pair\neverything the surfaces gained: daylog[1]: qompack-20260916.log: ts=2026-09-16T03:02:22.7856955Z level=warn msg=\"store: segment closed without a tokens feature; Segment.Tokens stays zero permanently\" segment=2 session=sess-fault-delivery-seal-torn-slot-r; status[1]: counter l0_delivery_unleased=1; surfaces status --json+day log (warn)\nof which naming this cut (delivery, seal, delivery-lease-position, delivery-ack-position, unleased, unacknowledged): status[1]: counter l0_delivery_unleased=1; surfaces status --json\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:4 roots:4 sidecars:3 checkpoints:0 dangling:0 reported:0}\ndegradation (new since the cut): status[1]: counter l0_delivery_unleased=1; surfaces status --json\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

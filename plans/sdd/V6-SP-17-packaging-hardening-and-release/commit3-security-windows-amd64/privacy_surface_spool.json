@@ -1,0 +1,18 @@
+{
+  "name": "privacy_surface_spool",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "outcome": "verified",
+  "reason": "no literal and no \u003e8-byte fragment of any of the 11 planted credential families survives under spool.",
+  "detail": "1 files, 58 bytes swept, 0 redaction placeholders",
+  "artifact": "privacy-surface-sweep.json"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "unknown_schema_capture_sidecar",
+  "capability": "unknown_schema",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "a records/captures sidecar at v2 (build reads v1): readable and degraded — fsck's captures row stays ok and names it, and the sidecar is never repaired or swept",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-16"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.0",
+    "target": "windows/amd64",
+    "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
+  },
+  "artifact": "commit8-install-windows-amd64/unknown_schema_capture_sidecar.json"
+}

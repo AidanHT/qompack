@@ -1,0 +1,16 @@
+{
+  "name": "shell-gitbash-unquoted-spaced",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.263"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "outcome": "verified",
+  "reason": "F-1 is fixed and this row is now its regression assertion: the command the bundle SHIPS quotes the plugin root and exits 0 from an install directory containing a space, under both host expansion strategies",
+  "detail": "shell C:\\Program Files\\Git\\usr\\bin\\bash.exe (found at the Git for Windows install location under %ProgramFiles%). Shipped (quoted) form \"\\\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\\\" observe tool\" exited 0 env-expanded and 0 textually substituted against the spaced root, and 0 against the space-free control \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-3859752902\\\\plugplain\". The PRE-FIX spelling \"${CLAUDE_PLUGIN_ROOT}/bin/qompack observe tool\" is still run as the contrast and is not asserted on: it exited 127 env-expanded (stderr: /usr/bin/bash: line 1: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-3859752902\\plug: No such file or directory) and 127 textually substituted (stderr: /usr/bin/bash: line 1: C:UsersQuantAppDataLocalTempqompack-platform-3859752902plug: command not found). SCOPE: hooks.json ONLY. .mcp.json names the same placeholder but carries `args`, which makes it exec form (no shell), so it has no word-splitting problem and must NOT be quoted — quotes would become literal path characters and break the spawn everywhere. This test neither reads nor exercises .mcp.json."
+}

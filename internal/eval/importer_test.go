@@ -350,7 +350,7 @@ func TestImportCommand_PrintsReport(t *testing.T) {
 	var out bytes.Buffer
 	code := eval.ImportCommand(
 		[]string{"--from", oneFixture(t, "basic.jsonl"), "--to", t.TempDir()},
-		&out, config.Env{Getenv: func(string) string { return "" }})
+		&out, config.Env{ProjectRoot: t.TempDir(), Getenv: func(string) string { return "" }})
 
 	require.Equal(t, 0, code)
 
@@ -392,4 +392,16 @@ func TestImportCommand_ErrorsAreReportedNotPanicked(t *testing.T) {
 	code := eval.ImportCommand([]string{"--nonsense"}, &out,
 		config.Env{Getenv: func(string) string { return "" }})
 	require.Equal(t, 1, code)
+}
+
+// TestImportCommand_RefusesWhenProjectRootIsEmpty is finding S-4's silent-skip: an import with
+// no project root cannot read runtime.redact.patterns, so it must refuse rather than fall back
+// to the built-in table alone.
+func TestImportCommand_RefusesWhenProjectRootIsEmpty(t *testing.T) {
+	var out bytes.Buffer
+	code := eval.ImportCommand(
+		[]string{"--from", oneFixture(t, "basic.jsonl"), "--to", t.TempDir()},
+		&out, config.Env{Getenv: func(string) string { return "" }})
+	require.Equal(t, 1, code)
+	require.Contains(t, out.String(), "redaction configuration")
 }
