@@ -311,10 +311,42 @@ func (h *handlers) jsonResponse(name string, body any, meta map[string]any) Resp
 		h.log.Warn("mcp: could not marshal a tool result", "tool", name, "err", err.Error())
 		return errResponse(name + " failed: could not render its result")
 	}
+	if name == ToolWhy || name == ToolDropped || name == ToolTimeline {
+		// Checkpoint summaries and drop reasons can quote captured text. They
+		// require today's privacy policy just as payload expansion does.
+		var value any
+		decoder := json.NewDecoder(bytes.NewReader(b))
+		decoder.UseNumber()
+		if h.redactor == nil || decoder.Decode(&value) != nil {
+			b, _ = marshalCompact(unavailable(redactorMissingReason))
+		} else {
+			b, err = marshalCompact(h.redactMetadata(name, value))
+			if err != nil {
+				return errResponse(name + " failed: could not render private metadata")
+			}
+		}
+	}
 	if meta == nil {
 		meta = map[string]any{}
 	}
 	return Response{Content: []Content{{Type: "text", Text: string(b)}}, Meta: meta}
+}
+
+func (h *handlers) redactMetadata(tool string, value any) any {
+	switch v := value.(type) {
+	case string:
+		b, _ := h.redactForRetrieval(tool, []byte(v))
+		return string(b)
+	case []any:
+		for i := range v {
+			v[i] = h.redactMetadata(tool, v[i])
+		}
+	case map[string]any:
+		for key, item := range v {
+			v[key] = h.redactMetadata(tool, item)
+		}
+	}
+	return value
 }
 
 // marshalCompact renders v as compact JSON with HTML escaping off, so a path containing "&" or a

@@ -213,7 +213,7 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 		// Authorization runs BEFORE the root is even looked up: a tool_use_id resolved a stored
 		// path, and that path is re-checked against the CURRENT path/symlink policy — a hash or id
 		// is an address, not a credential (T13-TRUST / T20-M2-04).
-		if ok, reason := h.authorizePath(rec.Path); !ok {
+		if ok, reason := h.authorizeOrigin(rec.Tool, rec.Path); !ok {
 			return store.Root{}, "", "", nil, denied(reason), nil
 		}
 		rt, gerr := h.store.GetRoot(ctx, rec.Root)
@@ -232,6 +232,9 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 	hash, perr := core.ParseHash(a.Hash)
 	if perr != nil {
 		return store.Root{}, "", "", nil, nil, errors.New(`hash must be "sha256:" followed by 64 hex characters`)
+	}
+	if refusal := h.authorizeHash(ctx, hash); refusal != nil {
+		return store.Root{}, "", "", nil, refusal, nil
 	}
 	rt, gerr := h.store.GetRoot(ctx, hash)
 	if gerr == nil {

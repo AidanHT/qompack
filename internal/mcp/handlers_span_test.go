@@ -132,15 +132,17 @@ func TestExpandNeitherArgRejected(t *testing.T) {
 // TestExpandUnknownHashFoundFalse pins the semantic-miss rule for a well-formed hash nothing was ever
 // stored under: found:false naming where the search went, NOT an error. "I looked here and here and it
 // is not there" is information the model can act on; isError is not.
-func TestExpandUnknownHashFoundFalse(t *testing.T) {
+func TestExpandUnknownHashHasUnavailableProvenance(t *testing.T) {
 	f := newFixture(t)
 
 	var body missBody
 	resp := f.callOK(t, ToolExpand, map[string]any{"hash": sampleHash}, &body)
 
-	require.False(t, resp.IsError, "an unknown hash is a miss, not a failure")
-	require.False(t, body.Found, "nothing is stored under an all-zero hash")
-	require.Equal(t, "object store (root and chunk index)", body.Searched, "the miss must name where it looked")
+	require.False(t, resp.IsError, "unavailable provenance is a structured tool outcome")
+	require.False(t, body.Found)
+	no := false
+	require.Equal(t, &no, body.Available, "an unindexed object must not be materialized or claimed absent")
+	require.Contains(t, body.Reason, "provenance")
 }
 
 // TestExpandMalformedHashIsError is the other half of that rule: a string that is not a hash at all is a

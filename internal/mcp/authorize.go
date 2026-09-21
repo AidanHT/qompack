@@ -1,6 +1,12 @@
 package mcp
 
-import "github.com/qompack/qompack/internal/paths"
+import (
+	"context"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/store"
+)
 
 // Retrieval authorization (T13-TRUST / T20-M2-04's "security boundary"): a stored content hash or
 // the host's own tool_use_id is an ADDRESS, never a credential. `recall`, `expand` and `re_read`
@@ -28,7 +34,8 @@ import "github.com/qompack/qompack/internal/paths"
 // points count on Windows, and a path whose leaf no longer exists is answered by the deepest
 // component that does.
 //
-// Archived reads may not bypass a host-denied path.
+// This layer enforces recorded provenance and current filesystem scope. Effective
+// host permission is a separate policy input; containment does not establish it.
 
 // deniedBody is the explicit refusal shape every authorization check renders: found is always
 // false and denied is always true, spelled out so a caller cannot mistake a policy refusal for "it
@@ -54,13 +61,11 @@ const authorizedDenialReason = "authorization denied: the associated path is out
 
 // authorizePath reports whether path may be resolved before its content is materialized.
 //
-// An empty path — a capture with no associated file, such as a Bash result or an elimination's
-// evidence bytes — carries no path policy to apply and is authorized by identity alone: expand and
-// re_read never grant a path-bearing capability beyond what a live read of the same path would be
-// granted today.
+// Empty paths have no filesystem scope and are refused here. authorizeOrigin
+// separately recognizes known pathless producers; a missing Read path is not one.
 func (h *handlers) authorizePath(path string) (ok bool, reason string) {
 	if path == "" {
-		return true, ""
+		return false, authorizedDenialReason
 	}
 	norm, err := paths.Norm(h.root, path)
 	if err != nil {
@@ -70,4 +75,38 @@ func (h *handlers) authorizePath(path string) (ok bool, reason string) {
 		return false, authorizedDenialReason
 	}
 	return true, ""
+}
+
+// authorizeOrigin preserves legitimate pathless records without upgrading a lost
+// file path (including a legacy record) into a permission grant. Unknown producers
+// remain denied rather than being guessed to have no file dependency.
+func (h *handlers) authorizeOrigin(tool, path string) (bool, string) {
+	if path != "" {
+		return h.authorizePath(path)
+	}
+	switch tool {
+	case "Bash", "PowerShell", "UserPromptSubmit", "SubagentStop", mcpToolPrefix + ToolRecordEliminated:
+		return true, ""
+	default:
+		return false, "authorization denied: the capture has no usable path provenance"
+	}
+}
+
+// authorizeHash checks the complete origin set before any chunk is fetched.
+// A store that cannot supply it must not silently fall back to trusting the hash.
+func (h *handlers) authorizeHash(ctx context.Context, hash core.Hash) any {
+	reader, ok := h.store.(store.ProvenanceReader)
+	if !ok {
+		return unavailable("content provenance is unavailable in this store")
+	}
+	origins, err := reader.ContentOrigins(ctx, hash)
+	if err != nil || len(origins) == 0 {
+		return unavailable("complete content provenance could not be established")
+	}
+	for _, origin := range origins {
+		if ok, reason := h.authorizeOrigin(origin.Tool, origin.Path); !ok {
+			return denied(reason)
+		}
+	}
+	return nil
 }
