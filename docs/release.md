@@ -4,6 +4,13 @@ How a release is cut, what each gate proves, what the release actually claims to
 it deliberately does not claim. Configuration keys are named but never described here —
 `docs/config-reference.md` is generated from the schema and owns every default.
 
+**V6 release status: blocked.** The integrated candidate has reproduced retrieval-authorization
+and publication-recovery failures. The historical SP-17 scope table below is evidence for its named
+artifacts; it does not certify this candidate. A successful `release-check` can include skipped
+steps and tests that record known failed outcomes. Inspect those artifacts and clear the mandatory
+V6 gates before tagging, publishing or broadening rollout. See `plans/sdd/V6-VERIFY/` for the
+current failure records.
+
 ## 1. Procedure
 
 1. **Bump `internal/core.Version`** in its own commit. This is a gate, not a convenience: the

@@ -8,9 +8,9 @@ command and tool pages are generated from the shipped code, so this page links t
 ## Who this is for and what to expect
 
 You are running a Claude Code session with the Qompack plugin installed, and you want to know what
-it added, what it dropped, and how to get something back. (Installation and the packaged bundle are
-planned (SP-17): docs/install.md and docs/security.md. Neither file exists yet, so neither is
-linked here. Building from source is covered in [README.md](../README.md).)
+it added, what it dropped, and how to get something back. (Installing the packaged bundle is covered
+in [docs/install.md](install.md), and its security and recovery posture in
+[docs/security.md](security.md). Building from source is covered in [README.md](../README.md).)
 
 **What it adds.** Qompack records what the session produces into `.qompack/` through the host's
 hooks, writes a checkpoint at `PreCompact`, and — after the compaction — injects one bounded,
@@ -410,6 +410,8 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 | `config print [--provenance] [--json]` | the effective configuration; `--provenance` labels each leaf `default`, `user`, `project`, `env` or `flag` ([origins](config-reference.md#provenance-origins)) |
 | `config schema` | the configuration JSON Schema — the machine-readable counterpart to [docs/config-reference.md](config-reference.md) |
 | `self-test` | asserts every host contract and reports a table (or `{checks,mode,exit}` under `--json`). **The only command that may exit non-zero on a real finding** |
+| `doctor [--project <root>] [--json]` | version, scope, per-capability evidence, disabled controls and gaps; read-only |
+| `fsck [--project <root>] [--json] [--repair] [--yes]` | store, index, checkpoint and backup integrity; read-only unless `--repair --yes`, which performs five explicit additive repairs and deletes nothing |
 | `version` | the plugin version |
 | `admin delivery-seal [--project <root>] (--check \| --to v1)` | checks or converts the delivery journals' position seals. **The daemon must be stopped** |
 | `eval import` | imports recorded Claude Code transcripts as a redacted replay corpus |
@@ -417,11 +419,18 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 | `mcp` | runs the MCP server over stdio; the host starts this, you normally do not |
 | `dropped`, `recall`, `pin`, `why`, `eval` | the slash commands' own binaries, described above |
 
-**Not implemented in this build.** `doctor` and `fsck` each print `qompack <name>: not implemented
-in this build` and exit `1` — they are SP-17 deliverables. `bench` does the same thing: the help
-line still advertises it, and `internal/cli/commands.go` registers it alongside the other two, so
-it is unavailable here as well. `plans/V5-report.md` §29 item 7 carries `bench` as an open row for
-SP-17 to implement or deprecate.
+**`doctor` and `fsck` are read-only diagnostics.** SP-17 implemented both. `qompack doctor` reports
+version, scope, per-capability evidence, disabled controls and gaps; `qompack fsck` verifies store,
+index, checkpoint and backup integrity across seventeen check classes. Both open the store read-only;
+`fsck --repair` needs `--yes` and performs five explicit additive repairs that never delete anything
+([docs/security.md §7](security.md#7-what-needs-an-operator-and-how-to-find-it),
+[docs/release.md §5](release.md#5-rollback)). `fsck` exits 0 when clean, 1 on a defect, 2 on a
+misuse.
+
+**Not implemented in this build.** `bench` still prints `qompack bench: not implemented in this
+build` and exits `1`: the help line advertises it and `internal/cli/commands.go` registers it in the
+`notImplemented` list. `plans/V5-report.md` §29 item 7 carries `bench` as an open row to implement or
+deprecate.
 
 Reading `status` when nothing is running is normal: rows say `unavailable` with a reason. That is an
 honest gap and not a failure. Two reasons recur — a budget with no per-hook instrument (its number
@@ -467,7 +476,8 @@ documentation, and `plans/V5-report.md` §25 records the estimated price for its
 - [docs/architecture.md](architecture.md) — the contracts behind all of it
 - [docs/adr/README.md](adr/README.md) — every architecture decision record, with its status
 
-Planned, and not yet written — named as plain text on purpose, because these files are not on this
-tree:
+Packaging and release, added by SP-17:
 
-- planned (SP-17): docs/install.md, docs/security.md and docs/release.md
+- [docs/install.md](install.md) — installing, upgrading and uninstalling the bundle
+- [docs/security.md](security.md) — the security and recovery posture
+- [docs/release.md](release.md) — how a release is cut and what it claims to support
