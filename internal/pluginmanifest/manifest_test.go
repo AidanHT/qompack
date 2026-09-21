@@ -41,7 +41,7 @@ func TestManifest_CoversAllSixHooks(t *testing.T) {
 		require.Len(t, groups[0].Hooks, 1, "%s", event)
 		require.Equal(t, wantTimeout, groups[0].Hooks[0].Timeout, "%s timeout", event)
 		require.Equal(t, "command", groups[0].Hooks[0].Type, "%s type", event)
-		require.True(t, strings.HasPrefix(groups[0].Hooks[0].Command, "${CLAUDE_PLUGIN_ROOT}/bin/qompack "),
+		require.True(t, strings.HasPrefix(groups[0].Hooks[0].Command, `"${CLAUDE_PLUGIN_ROOT}/bin/qompack" `),
 			"%s must invoke the bundled binary, got %q", event, groups[0].Hooks[0].Command)
 	}
 
@@ -197,4 +197,33 @@ func TestManifest_NoUnexpandedTemplateLeftovers(t *testing.T) {
 	for path, content := range files {
 		require.False(t, placeholder.Match(content), "%s contains an unexpanded template directive", path)
 	}
+}
+
+// TestManifest_HookCommandQuotesThePluginRoot is finding F-1, measured by test/platform under Git
+// Bash: hooks.json is SHELL form, so an install directory containing a space word-splits the
+// unquoted `${CLAUDE_PLUGIN_ROOT}/bin/qompack` into two arguments and the hook exits 127. The host
+// documentation's own remedy is to quote the placeholder, and the quoted form was measured green in
+// both the environment expansion and the textual substitution.
+//
+// `.mcp.json` is EXEC form (`args` present, no shell), so quoting there would make the quotes
+// literal characters in the path and break every install directory. TestMCPJSON_UsesPluginRoot
+// keeps it unquoted; this test keeps the two forms apart on purpose.
+func TestManifest_HookCommandQuotesThePluginRoot(t *testing.T) {
+	m := pluginmanifest.Default(testVersion)
+	require.Len(t, m.Hooks.Hooks, 7, "the hook event count is part of the plugin-validate contract")
+	for event, groups := range m.Hooks.Hooks {
+		cmd := groups[0].Hooks[0].Command
+		require.True(t, strings.HasPrefix(cmd, `"${CLAUDE_PLUGIN_ROOT}/bin/qompack" `),
+			"%s: the shell-form hook command must quote the plugin root, got %q", event, cmd)
+		require.NotContains(t, strings.TrimPrefix(cmd, `"${CLAUDE_PLUGIN_ROOT}/bin/qompack"`), `"`,
+			"%s: only the executable is quoted; the subcommand tail stays bare, got %q", event, cmd)
+	}
+}
+
+// TestManifest_MCPCommandIsNotQuoted is the other half of F-1 and the reviewer's Critical 1: the
+// exec-form server command must NOT gain the quotes hooks.json needs.
+func TestManifest_MCPCommandIsNotQuoted(t *testing.T) {
+	srv := pluginmanifest.Default(testVersion).MCP.MCPServers["qompack"]
+	require.NotContains(t, srv.Command, `"`,
+		"the MCP server command is exec form and must carry no shell quoting, got %q", srv.Command)
 }

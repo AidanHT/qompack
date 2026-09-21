@@ -186,3 +186,68 @@ func TestFinalizeKeepsToolPointersWhoseRootTheStoreHolds(t *testing.T) {
 		require.NotEqual(t, "pointer_unresolvable", dr.Kind, "nothing was collected, so nothing may be reported as such: %+v", dr)
 	}
 }
+
+// TestFinalizeDropsAToolPointerWhoseChunkFileIsGone is the owning-package half of F4-8.
+//
+// keepResolvableTools used to ask store.Has. A root is not an object, so Has(root) is already
+// false; the predicate then keeps the pointer when GetRoot succeeds and Has is true for every
+// chunk. Deleting the chunk file with the index intact leaves Has(chunk) true (the in-memory
+// set still names it) and ObjectOnDisk(chunk) false. Against Has the pointer would survive;
+// against ObjectOnDisk it must be a pointer_unresolvable drop. That is the RED this test
+// records: the product already uses ObjectOnDisk, so the row is green, and the Has/OnDisk
+// pair above is the counterfactual that would fail if the predicate were rolled back.
+func TestFinalizeDropsAToolPointerWhoseChunkFileIsGone(t *testing.T) {
+	f := newFx(t)
+	f.prompt(0, "Check the pool statistics.", true)
+	root := f.tool("toolu_disk_0001", 1, "Bash", "", "pool statistics for the failing window", false)
+	f.closedSeg(1, 0, 3)
+
+	held, err := f.store.GetRoot(f.ctx(), root)
+	require.NoError(t, err)
+	require.NotEmpty(t, held.Chunks)
+	chunk := held.Chunks[0].Hash
+	require.True(t, f.store.Has(chunk), "the index still names the chunk")
+	removeChunkObject(t, f.p.Root, chunk)
+	disk, ok := f.store.(store.ObjectPresence)
+	require.True(t, ok, "the shipped store answers ObjectOnDisk")
+	require.False(t, disk.ObjectOnDisk(chunk), "the object file is gone")
+	require.True(t, f.store.Has(chunk), "Has still believes the index: that is the F4-8 miss")
+
+	d := f.begin()
+	f.advance(d, 1)
+	ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+	require.NoError(t, err)
+	raw, err := os.ReadFile(paths.Long(ref.Path))
+	require.NoError(t, err)
+	cp, err := checkpoint.Unmarshal(raw)
+	require.NoError(t, err)
+
+	require.Empty(t, cp.Pointers.Tools)
+	var found bool
+	for _, dr := range cp.Dropped {
+		if dr.Kind == "pointer_unresolvable" {
+			found = true
+			require.Equal(t, "toolu_disk_0001", dr.ID)
+		}
+	}
+	require.True(t, found, "objectPresent through ObjectOnDisk must drop the pointer; got %+v", cp.Dropped)
+}
+
+// removeChunkObject deletes h's file under objects/ the way a crash or a quarantine would,
+// leaving the index line in place.
+func removeChunkObject(t *testing.T, root string, h core.Hash) {
+	t.Helper()
+	hx := h.String()
+	const prefix = "sha256:"
+	if len(hx) > len(prefix) && hx[:len(prefix)] == prefix {
+		hx = hx[len(prefix):]
+	}
+	l := paths.Of(root)
+	for _, name := range []string{hx + ".zst", hx} {
+		p := filepath.Join(l.Objects, hx[:2], hx[2:4], name)
+		if err := os.Remove(paths.Long(p)); err == nil {
+			return
+		}
+	}
+	t.Fatalf("object %s was not present to remove", h.Short())
+}

@@ -1,0 +1,20 @@
+{
+  "name": "switch_mode_passive",
+  "capability": "switch",
+  "scope": "installed_bundle",
+  "switch": "runtime.mode",
+  "value": "passive",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-607-g2c21467-dirty",
+    "binary_sha256": "0063baad34f35a135a96808299c4ff42376260b6916bdabd78c26c9a45e2a521"
+  },
+  "outcome": "verified",
+  "reason": "runtime.mode passive stopped SessionStart reinjection and left recording and retrieval working",
+  "detail": "with the switch: SessionStart(compact) carried no injected span (additionalContext=\"\"), recall ok=true count=1 found=true, 2 file(s) under objects+index, all six hooks exit 0 with parseable stdout, `config print --json` reports runtime.mode=passive. Without it, on the same project after a daemon restart: 621 byte(s) carrying an injected span, recall ok=true count=2. NOTE for the reader: passive is not a recording switch — Mode.MayRecord (internal/contract/mode.go) is false only for `off`, so the objects and index above are the design, not a leak. Not duplicated here: internal/ipc's StateFromConfig unit tests and internal/contract's monitor tests pin the mode mapping itself",
+  "control": "defaults injected a checkpoint span, 621 byte(s) of additionalContext; recall ok=true count=2"
+}

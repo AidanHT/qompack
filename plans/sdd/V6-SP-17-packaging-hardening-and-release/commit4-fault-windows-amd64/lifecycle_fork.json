@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_fork",
+  "phase": "lifecycle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "boundary": "SessionStart source: fork (a source the observer's own set does not name)",
+  "seed_method": "SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

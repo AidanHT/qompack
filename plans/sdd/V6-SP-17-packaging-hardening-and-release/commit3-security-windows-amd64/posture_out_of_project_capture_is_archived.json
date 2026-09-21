@@ -1,0 +1,17 @@
+{
+  "name": "posture_out_of_project_capture_is_archived",
+  "capability": "posture",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "outcome": "failed",
+  "reason": "a capture whose tool_input named a file outside the project root had its CONTENT archived to [objects:objects/7f/4d/7f4d2610e59cc62c918ecbdc1243ab92d4b01f1aba12e2c011cfa4eb38314784.zst] while its path was dropped. The mechanism is in internal/observer's tool-use path: paths.Norm fails for an out-of-project path, the path key falls to the empty string, and the bytes go to PutBytes anyway. internal/admission's Privacy port is NOT the remedy and could not be: it has no production importer, and Permits takes only a payload with no path to judge. COORDINATOR RULING carried here: no capture-time refusal is introduced — the host had already permitted the read and the model had already seen the bytes, so the trust boundary is retrieval-time authorization plus redaction at capture, and docs/security.md states this behaviour explicitly. Owner of the documentation and of the dropped-path decision: internal/observer + internal/cli.",
+  "detail": "swept 30 files under .qompack/"
+}

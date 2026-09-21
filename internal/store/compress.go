@@ -75,6 +75,15 @@ func encodedObjectLimit() int64 {
 	return int64(enc.MaxEncodedSize(MaxPutBytes))
 }
 
+// EncodedObjectLimit is the largest .zst object file readObjectFile will read before refusing it
+// (objects.go). It is exported for `qompack fsck`, whose objects row must name the limit the
+// STORE'S OWN READER applies rather than a generous bound of its own invention: a file fsck calls
+// acceptable and the store then refuses is a defect the report does not have.
+//
+// Bare (uncompressed) objects are bounded at MaxPutBytes instead; that is the plaintext limit and
+// readObjectFile applies it to the second candidate directly.
+func EncodedObjectLimit() int64 { return encodedObjectLimit() }
+
 // Encode returns the zstd-compressed form of b, at zstd.SpeedDefault. This is a real
 // implementation, not a stub (§14.1 of plans/V1-SP-01-foundation-toolchain-and-contracts.md):
 // SP-06's real Put/PutBytes calls it directly to produce objects/ab/cd/<sha256>.zst, so it must

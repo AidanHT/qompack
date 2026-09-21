@@ -1,0 +1,20 @@
+{
+  "name": "unknown_schema_delivery_seal_v2",
+  "capability": "unknown_schema",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "a v2 delivery position seal: fsck's delivery row classifies it by its declared version and leaves the bytes alone; an OLDER binary's refusal of a v2 seal is internal/daemon's own rollback row (delivery_seal_format2_test.go), cited here rather than duplicated",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-16"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.0",
+    "target": "windows/amd64",
+    "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
+  },
+  "artifact": "commit8-install-windows-amd64/unknown_schema_delivery_seal_v2.json"
+}

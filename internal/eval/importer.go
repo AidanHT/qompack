@@ -112,6 +112,11 @@ func Import(ctx context.Context, o ImportOptions) (ImportReport, error) {
 				"at %s, and recorded sessions are never committed", to, root)
 	}
 
+	operatorPatterns, err := compileOperatorPatterns(o)
+	if err != nil {
+		return ImportReport{}, err
+	}
+
 	files, err := transcriptFiles(from)
 	if err != nil {
 		return ImportReport{}, err
@@ -143,7 +148,7 @@ func Import(ctx context.Context, o ImportOptions) (ImportReport, error) {
 		}
 		if o.Redact {
 			var n int
-			s, n = Redact(s)
+			s, n = Redact(s, operatorPatterns...)
 			rep.RedactedSpans += n
 		}
 
@@ -417,13 +422,42 @@ var redactRules = []redactRule{
 	{regexp.MustCompile(`(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----`), "<KEY>"},
 	{regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`), "<TOKEN>"},
 	{regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{22,}`), "<TOKEN>"},
-	{regexp.MustCompile(`\b(?:ghp|gho)_[A-Za-z0-9]{36}\b`), "<TOKEN>"},
-	{regexp.MustCompile(`\bsk-ant-[A-Za-z0-9-]{20,}`), "<TOKEN>"},
+	// All five classic GitHub prefixes, with an OPEN body quantifier. Both halves are finding S-4:
+	// the body was fixed at {36}, so a 38-character token matched its first 36 characters and then
+	// failed the trailing \b — the rule did not fire on it at all — and ghu_/ghs_/ghr_ (a user-to-
+	// server, server-to-server and refresh token) were outside the alternation entirely. This is
+	// internal/redact's shape; the two rule sets are kept in step by hand because §3.2 gives
+	// internal/eval a foundation-only allow-set that does not include internal/redact.
+	{regexp.MustCompile(`\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b`), "<TOKEN>"},
+	{regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_\-]{16,}`), "<TOKEN>"},
 	{regexp.MustCompile(`\bsk-[A-Za-z0-9]{20,}`), "<TOKEN>"},
 	{regexp.MustCompile(`(^|[^>\w.+-])[\w.+-]+@[\w-]+\.[\w.]+`), "${1}<EMAIL>"},
-	{regexp.MustCompile(`(?i)(password|secret|token|api[_-]?key)\s*[:=]\s*\S+`), "${1}=<REDACTED>"},
-	{regexp.MustCompile(`Bearer\s+[A-Za-z0-9._~+/-]{16,}`), "Bearer <REDACTED>"},
-	{regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}`), "<JWT>"},
+	// The assignment family, widened to internal/redact's key set: passwd, client_secret, the three
+	// access/refresh token spellings, a bare `auth`, and a leading underscore. `_authToken=` is how
+	// npm writes a registry credential into .npmrc, and a word boundary cannot match between `_` and
+	// a letter, so every underscored spelling was outside the rule. The underscore is consumed by
+	// the match but is outside group 1, so the replacement drops it — which is still a fixed point,
+	// because the output has no leading underscore to re-consume.
+	{regexp.MustCompile(`(?i)\b_?(password|passwd|secret|api[_-]?key|access[_-]?key|` +
+		`client[_-]?secret|auth[_-]?token|access[_-]?token|refresh[_-]?token|api[_-]?token|` +
+		`auth|token)\s*[:=]\s*\S+`), "${1}=<REDACTED>"},
+	// The .env line shape, which this rule set had no equivalent of at all: an UPPERCASE key whose
+	// name carries one of the secret words, where the word sits mid-identifier and therefore behind
+	// no word boundary the assignment rule above could use (API_SECRET, DATABASE_PASSWORD). The key
+	// is group 1, so the line keeps its name.
+	//
+	// The value is `[^\s#<>]\S{7,}` rather than internal/redact's `[^\s#][^\n]{7,}`, and the
+	// difference is this package's own marker-bracket convention: a value may not BEGIN with `<`,
+	// so a line whose value is already a marker another rule wrote is left alone and the rule is a
+	// fixed point. `\S` is not a negated class, so it carries no such hazard and needs no exclusion
+	// (TestRedactRules_SpanningClassesRejectMarkerBrackets states the convention).
+	{regexp.MustCompile(`(?m)^([ \t]*(?:export[ \t]+)?[A-Z][A-Z0-9_]*` +
+		`(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DSN|PRIVATE)[A-Z0-9_]*)` +
+		`[ \t]*=[ \t]*[^\s#<>]\S{7,}`), "${1}=<REDACTED>"},
+	// Case-folded, and with the base64 padding a real bearer token can end in. `<REDACTED>` cannot
+	// re-match it: `<` is outside the body class.
+	{regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._~+/-]{16,}={0,2}`), "Bearer <REDACTED>"},
+	{regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}`), "<JWT>"},
 }
 
 // Redact scrubs secrets, home paths and e-mail addresses out of a session and reports how many
@@ -433,10 +467,21 @@ var redactRules = []redactRule{
 // secret — and it never mutates its input, so a caller holding the original still has it.
 // Redaction changes what a session SAYS, never its shape: turn count, roles, indices, token counts
 // and compaction points all survive, because those are what the replay numbers are computed from.
-func Redact(s Session) (Session, int) {
+//
+// extra is the operator's own `runtime.redact.patterns`, and it is the second half of finding S-4.
+// The built-in table above is this package's transcription of internal/redact's — §3.2 gives
+// internal/eval a foundation-only allow-set that does not include internal/redact, so the two are
+// kept in step by hand — but an operator's private rules exist only in configuration and could not
+// be transcribed at all. Without them the export was strictly weaker than the capture path over
+// exactly the secrets an operator had told the product about. Each is replaced with <REDACTED> and
+// applied AFTER the built-ins, so a configured rule cannot swallow a marker they wrote first.
+//
+// It is variadic so that every existing caller — the fuzz target and the frozen seed corpus among
+// them — keeps compiling against a signature that is still one slice of patterns.
+func Redact(s Session, extra ...*regexp.Regexp) (Session, int) {
 	total := 0
 	scrub := func(in string) string {
-		out, n := redactString(in)
+		out, n := redactString(in, extra)
 		total += n
 		return out
 	}
@@ -451,9 +496,9 @@ func Redact(s Session) (Session, int) {
 		for j, call := range turn.ToolCalls {
 			c := call
 			var n int
-			c.Args, n = redactJSON(call.Args)
+			c.Args, n = redactJSON(call.Args, extra)
 			total += n
-			c.Result, n = redactJSON(call.Result)
+			c.Result, n = redactJSON(call.Result, extra)
 			total += n
 			c.Paths = make([]string, len(call.Paths))
 			for k, p := range call.Paths {
@@ -478,6 +523,28 @@ func Redact(s Session) (Session, int) {
 	return out, total
 }
 
+// compileOperatorPatterns compiles ImportOptions.Patterns, or reports why it will not export.
+//
+// A pattern that does not compile refuses the whole import and names its INDEX, never its text: the
+// pattern itself is the operator's, may describe a secret's shape, and an error message is the one
+// place in this command that is certain to be read aloud or pasted into an issue.
+func compileOperatorPatterns(o ImportOptions) ([]*regexp.Regexp, error) {
+	if !o.Redact || len(o.Patterns) == 0 {
+		return nil, nil
+	}
+	out := make([]*regexp.Regexp, 0, len(o.Patterns))
+	for i, pat := range o.Patterns {
+		re, err := regexp.Compile(pat)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"eval: runtime.redact.patterns[%d] does not compile, so the export would be weaker "+
+					"than the capture path believes it is: %w", i, core.ErrDegraded)
+		}
+		out = append(out, re)
+	}
+	return out, nil
+}
+
 // redactJSON scrubs every string inside a JSON payload and re-encodes it.
 //
 // It works on the DECODED value rather than on the raw bytes, because a raw payload has its
@@ -486,7 +553,7 @@ func Redact(s Session) (Session, int) {
 // keeps the result valid JSON, which scrubbing raw bytes cannot promise.
 //
 // Numbers are decoded with UseNumber so an integer token count cannot come back as 1.4e+02.
-func redactJSON(raw json.RawMessage) (json.RawMessage, int) {
+func redactJSON(raw json.RawMessage, extra []*regexp.Regexp) (json.RawMessage, int) {
 	if len(raw) == 0 {
 		return raw, 0
 	}
@@ -495,11 +562,11 @@ func redactJSON(raw json.RawMessage) (json.RawMessage, int) {
 	var v any
 	if err := dec.Decode(&v); err != nil {
 		// Not valid JSON, so treat it as opaque text; the shape was never load-bearing.
-		out, n := redactString(string(raw))
+		out, n := redactString(string(raw), extra)
 		return json.RawMessage(out), n
 	}
 
-	scrubbed, n := redactValue(v)
+	scrubbed, n := redactValue(v, extra)
 	if n == 0 {
 		return raw, 0
 	}
@@ -524,15 +591,15 @@ func marshalNoHTMLEscape(v any) ([]byte, error) {
 }
 
 // redactValue walks a decoded JSON value, scrubbing every string it contains.
-func redactValue(v any) (any, int) {
+func redactValue(v any, extra []*regexp.Regexp) (any, int) {
 	switch t := v.(type) {
 	case string:
-		out, n := redactString(t)
+		out, n := redactString(t, extra)
 		return out, n
 	case []any:
 		total := 0
 		for i, item := range t {
-			scrubbed, n := redactValue(item)
+			scrubbed, n := redactValue(item, extra)
 			t[i] = scrubbed
 			total += n
 		}
@@ -545,7 +612,7 @@ func redactValue(v any) (any, int) {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			scrubbed, n := redactValue(t[k])
+			scrubbed, n := redactValue(t[k], extra)
 			t[k] = scrubbed
 			total += n
 		}
@@ -556,28 +623,49 @@ func redactValue(v any) (any, int) {
 }
 
 // redactString applies every rule in order and counts the spans replaced.
-func redactString(in string) (string, int) {
+//
+// The operator's own patterns run LAST, each replaced wholesale with <REDACTED>. Running them after
+// the built-ins is what keeps the marker convention intact: a configured rule written against raw
+// transcript text cannot swallow a <HOME> or an <EMAIL> that is not there yet, and a marker already
+// written is only re-matched if the operator's own pattern matches it — which reproduces the same
+// output and so is still a fixed point.
+func redactString(in string, extra []*regexp.Regexp) (string, int) {
 	if in == "" {
 		return in, 0
 	}
 	n := 0
 	out := in
-	for _, rule := range redactRules {
-		matches := rule.re.FindAllStringIndex(out, -1)
+	apply := func(re *regexp.Regexp, with string) {
+		matches := re.FindAllStringIndex(out, -1)
 		if len(matches) == 0 {
-			continue
+			return
 		}
-		replaced := rule.re.ReplaceAllString(out, rule.with)
+		replaced := re.ReplaceAllString(out, with)
 		if replaced == out {
 			// The rule matched but changed nothing, which is what an already-redacted span looks
 			// like. Counting it would make the span count grow on every re-run.
-			continue
+			return
 		}
 		n += len(matches)
 		out = replaced
 	}
+	for _, rule := range redactRules {
+		apply(rule.re, rule.with)
+	}
+	for _, re := range extra {
+		if re == nil {
+			continue
+		}
+		apply(re, operatorPatternMarker)
+	}
 	return out, n
 }
+
+// operatorPatternMarker is what a configured `runtime.redact.patterns` rule leaves behind. It is
+// the same bracketed-marker shape every built-in uses, so the idempotence convention holds for it
+// too, and it is deliberately the generic word: an operator's pattern says what to remove, never
+// what the thing it removed was.
+const operatorPatternMarker = "<REDACTED>"
 
 // ── qompack eval import ─────────────────────────────────────────────────────────────────────
 
@@ -607,8 +695,24 @@ func ImportCommand(args []string, out io.Writer, env config.Env) int {
 		return 1
 	}
 
+	// The operator's own redaction rules, read the way `config print` reads them. A configuration
+	// this loader cannot read is not a reason to export MORE than the operator asked for, so the
+	// import refuses rather than falling back to the built-in table alone (finding S-4).
+	var patterns []string
+	if !*noRedact {
+		cfg, _, _, cfgErr := config.Load(env)
+		if cfgErr != nil {
+			fmt.Fprintf(out, "qompack eval import: reading the redaction configuration: %v\n", cfgErr)
+			return 1
+		}
+		if cfg.Runtime.Redact.Enabled {
+			patterns = cfg.Runtime.Redact.Patterns
+		}
+	}
+
 	rep, err := Import(context.Background(), ImportOptions{
 		From: *from, To: *to, Limit: *limit, Redact: !*noRedact, Getenv: getenv,
+		Patterns: patterns,
 	})
 	if err != nil {
 		fmt.Fprintf(out, "qompack eval import: %v\n", err)

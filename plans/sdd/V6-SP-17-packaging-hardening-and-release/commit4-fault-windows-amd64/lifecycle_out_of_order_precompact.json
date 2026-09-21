@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_out_of_order_precompact",
+  "phase": "lifecycle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
+  },
+  "boundary": "PreCompact before the tool events it would summarise",
+  "seed_method": "PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

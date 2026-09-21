@@ -41,7 +41,7 @@ var putBufPool = sync.Pool{New: func() any { return new([]byte) }}
 // pathologically large tool result must degrade to "we kept the first 64 MiB" rather than to a
 // failed session.
 func (s *FSStore) Put(ctx context.Context, r io.Reader, o PutOptions) (PutResult, error) {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return PutResult{}, err
 	}
 	// Checked here as well as in PutBytes, because the read below happens first and a 64 MiB stream
@@ -97,7 +97,7 @@ func readAllInto(dst []byte, r io.Reader) ([]byte, error) {
 // objects/ cannot be deleted without breaking every root that references its chunk, which is
 // exactly what §13 invariant 7 forbids.
 func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResult, error) {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return PutResult{}, err
 	}
 	// The most expensive call in the package — redaction, canonicalization, chunking, compression

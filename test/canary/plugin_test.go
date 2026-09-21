@@ -23,6 +23,12 @@ import (
 // dropped the expansion — would work in this checkout and fail on every installed copy.
 const binaryRef = "${CLAUDE_PLUGIN_ROOT}/bin/qompack"
 
+// quotedBinaryRef is the SHELL-form spelling hooks.json uses. A hooks.json `command` is handed to a
+// shell, so an install directory containing a space word-splits an unquoted expansion; .mcp.json
+// carries `args` and is exec form, where a quote would become part of the path. The two spellings
+// are asserted separately below for that reason (finding F-1).
+const quotedBinaryRef = `"` + binaryRef + `"`
+
 // TestCanary_PluginValidate is M0-03's "Validate the installed package using the Claude CLI's
 // documented plugin-validation command", and M0-G4's requirement that repository-only validation be
 // LABELLED as such.
@@ -162,9 +168,9 @@ func TestCanary_PackagingShape(t *testing.T) {
 			for _, h := range g.Hooks {
 				commands++
 				require.Equal(t, "command", h.Type, "%s: hook type", event)
-				require.True(t, strings.HasPrefix(h.Command, binaryRef),
+				require.True(t, strings.HasPrefix(h.Command, quotedBinaryRef+" "),
 					"%s: %q must invoke the plugin binary through %s, or it cannot resolve once installed",
-					event, h.Command, binaryRef)
+					event, h.Command, quotedBinaryRef)
 				require.Positive(t, h.Timeout, "%s: %q declares no timeout", event, h.Command)
 			}
 		}
@@ -189,8 +195,9 @@ func TestCanary_PackagingShape(t *testing.T) {
 	rec.Outcome = OutcomeVerified
 	rec.Reason = fmt.Sprintf("repository-level: the committed plugin/hooks/hooks.json declares the "+
 		"%d events internal/pluginmanifest declares, across %d command entries, each invoking %s "+
-		"with a timeout; plugin/.mcp.json launches the same binary. Installed-host version at the "+
+		"with a timeout; plugin/.mcp.json launches the same binary unquoted, as exec form requires. "+
+		"Installed-host version at the "+
 		"time of this record: %s. This is the packaging SHAPE, not evidence that an installed host "+
-		"resolves it.", len(wantEvents), commands, binaryRef, version)
+		"resolves it.", len(wantEvents), commands, quotedBinaryRef, version)
 	writeRecord(t, rec)
 }

@@ -1,0 +1,19 @@
+{
+  "name": "switch_mode_off",
+  "capability": "switch",
+  "scope": "installed_bundle",
+  "switch": "runtime.mode",
+  "value": "off",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-607-g2c21467-dirty",
+    "binary_sha256": "0063baad34f35a135a96808299c4ff42376260b6916bdabd78c26c9a45e2a521"
+  },
+  "outcome": "verified",
+  "reason": "runtime.mode off recorded nothing, started no daemon, and every hook still exited 0",
+  "detail": "all six hooks exit 0 with \"{}{}{}{}{}{}\"; 0 file(s) under objects+index; no daemon lock file was ever created. Not duplicated here: internal/cli/hooks_test.go and internal/daemon's own mode tests pin the short-circuit at the seam"
+}

@@ -108,15 +108,23 @@ func admitHookCapture(env Env, root string, in hookInput) (hookio.Capture, hooki
 		return failed(fmt.Errorf("%w: capture root unavailable", core.ErrDegraded))
 	}
 	faultCorruptConfigIfNeeded(root)
-	cfg, _, err := config.LoadForCapture(config.Env{
+	cfg, _, violations, err := config.LoadForCapture(config.Env{
 		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
 	})
 	if err != nil {
 		return failed(err)
 	}
+	// A clamped key is a §11.3 violation and must reach an operator where they would look for one.
+	// Before finding S-7 there was nothing to report here, because any violation refused the whole
+	// delivery instead.
+	reportCaptureViolations(root, homeDir(env), violations)
 	if cfg.Runtime.Mode == "off" {
 		return hookio.Capture{}, hookio.Event{}, cfg, nil
 	}
+	// Defence in depth, not the enforcement point. config.Validate now bounds the key from above
+	// (HookCaptureHardCapBytes, finding S-2) and the loader clamps it, so a configured value can no
+	// longer arrive here above the cap. A Config built some other way still can, and the hard
+	// allocation bound answers to nothing but itself.
 	if cfg.Runtime.HotPath.MaxPayloadBytes > hookCaptureMaxBytes {
 		return failed(fmt.Errorf("%w: capture configuration exceeds supported bound", core.ErrBudget))
 	}
