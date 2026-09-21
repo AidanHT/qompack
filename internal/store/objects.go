@@ -297,18 +297,27 @@ func (s *FSStore) readObjectFile(h core.Hash) (raw []byte, path string, compress
 
 var errObjectTooLarge = errors.New("store: physical object exceeds size limit")
 
-// readBoundedObject rejects nonregular leaf paths and bounds allocation even if the file grows
-// after Stat. SameFile detects a replaced leaf between Lstat and Open; the plaintext hash check
-// handles changed bytes. This is not a complete authorization check for ancestor directories.
+// readBoundedObject rejects nonregular leaf paths and bounds allocation by the size the file's own
+// Stat reports, which is already checked against limit. SameFile detects a replaced leaf between
+// Lstat and Open; the plaintext hash check handles changed bytes. This is not a complete
+// authorization check for ancestor directories.
+//
+// The bytes are read into ONE buffer pre-sized from the Stat'd size (W1: no io.ReadAll geometric
+// regrowth, no transient over-allocation), and the read then requires the file to be exactly that
+// long — a short read (the file shrank under us) and a trailing byte (it grew under us) are both
+// refused. The trailing-byte probe is load-bearing, not tidiness: without it a file appended to
+// after its Stat would be accepted on the strength of its valid PREFIX's content hash, since the
+// downstream hash would only ever see the prefix this function returned.
 func readBoundedObject(path string, limit int64) ([]byte, error) {
-	before, err := os.Lstat(paths.Long(path))
+	long := paths.Long(path) // W2: computed once; on Windows this allocates the \\?\-prefixed string.
+	before, err := os.Lstat(long)
 	if err != nil {
 		return nil, err
 	}
 	if !before.Mode().IsRegular() {
 		return nil, fmt.Errorf("store: object is not a regular file")
 	}
-	f, err := os.Open(paths.Long(path))
+	f, err := os.Open(long)
 	if err != nil {
 		return nil, err
 	}
@@ -323,14 +332,51 @@ func readBoundedObject(path string, limit int64) ([]byte, error) {
 	if opened.Size() > limit {
 		return nil, errObjectTooLarge
 	}
-	raw, err := io.ReadAll(io.LimitReader(f, limit+1))
-	if err != nil {
+	return readExactSize(f, opened.Size())
+}
+
+// readExactSize reads exactly size bytes from r into a single pre-sized buffer, then requires r to be
+// at EOF. It is separated from readBoundedObject so its truncation and growth handling can be tested
+// deterministically against a crafted reader, without racing a real file.
+//
+// size is the caller's already-bounds-checked length (readBoundedObject rejects opened.Size() > limit
+// first), so the one allocation is bounded by the validated limit. A read shorter than size is a
+// shrink; a byte past size is a growth or appended suffix. Both are refused — the growth refusal is
+// what stops a valid-prefix hash from certifying an appended object (see readBoundedObject).
+func readExactSize(r io.Reader, size int64) ([]byte, error) {
+	if size == 0 {
+		// A legitimate zero-byte object reads nothing, but must still be at EOF: a file that grew
+		// from zero after its Stat is refused like any other growth.
+		return []byte{}, requireEOF(r)
+	}
+	buf := make([]byte, size)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, fmt.Errorf("store: object is shorter than its recorded size")
+		}
 		return nil, err
 	}
-	if int64(len(raw)) > limit {
-		return nil, errObjectTooLarge
+	if err := requireEOF(r); err != nil {
+		return nil, err
 	}
-	return raw, nil
+	return buf, nil
+}
+
+// requireEOF probes one byte and refuses any that remain: a Read that returns data means the file has
+// more bytes than its Stat reported. Only an explicit EOF is accepted; a reader
+// making no progress has not established the end of the object.
+func requireEOF(r io.Reader) error {
+	var probe [1]byte
+	switch n, err := r.Read(probe[:]); {
+	case n > 0:
+		return fmt.Errorf("store: object grew past its recorded size")
+	case err == io.EOF:
+		return nil
+	case err != nil:
+		return err
+	default:
+		return io.ErrNoProgress
+	}
 }
 
 // ErrDamaged reports that an object was FOUND on disk and REFUSED: its physical size, its zstd
