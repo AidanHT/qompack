@@ -294,6 +294,9 @@ type Migrator struct {
 	// not use. It is per-Migrator rather than a package variable so two tests running beside each
 	// other cannot see one another's hook.
 	afterBackupWalk func()
+	// Operator maintenance supplies a bounded streaming copy. The legacy engine
+	// retains its existing copy path when this optional implementation is nil.
+	copyBackupFile func(context.Context, string, string) (int64, string, error)
 }
 
 // NewMigrator builds a Migrator over root, a PROJECT root (never <root>/.qompack), matching
