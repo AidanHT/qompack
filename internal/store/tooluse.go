@@ -37,6 +37,9 @@ type ToolUseRecord struct {
 	TS      core.UnixMilli
 	Tool    string
 	// ArgsDigest is the domain-separated digest of the tool's arguments (core.DomainArgs).
+	// Leased UserPromptSubmit records use synthetic {prompt, observation_id}
+	// arguments for crash recovery; their digest is delivery-specific, not a
+	// content-equality key. ArgsPreview still contains only the prompt preview.
 	ArgsDigest core.Hash
 	// ArgsPreview is a human-readable preview of the tool's arguments, truncated to at most 120
 	// characters, used by tombstones (observer.Tombstone) and the `timeline` retrieval tool.
