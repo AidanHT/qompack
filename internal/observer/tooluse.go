@@ -45,6 +45,12 @@ const crlfClass = canon.Class("crlf")
 // which is why it is named here and not in internal/config.
 const minHashShingleSize = 5
 
+// counterCaptureScopeRefused counts captures this observer refused at the path-scope boundary
+// (V6-AUTH-1 defence in depth): either a submitted structured path escaped the project root, or a
+// file-content producer's target could not be proven inside it. It is a closed label and carries no
+// path text; the refusal persists nothing and is terminal, not a retry.
+const counterCaptureScopeRefused = "observer.capture_scope_refused"
+
 // OnToolUse is the PostToolUse pipeline of §8.1 items 1–6, in the order resolved decision 1 fixes:
 // index → file version → sketches → DAG → grammar → signals/features → tombstone.
 //
@@ -84,12 +90,22 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	empty := len(body) == 0
 
 	// 4. The path this call touched, normalized once, in paths.Key form for everything downstream.
-	pathKey := ""
-	if raw := PathsFromInput(display, e.ToolInput); len(raw) > 0 && raw[0] != "" {
-		if n, err := paths.Norm(o.opt.ProjectRoot, raw[0]); err == nil {
-			pathKey = paths.Key(n)
-		}
+	//    This is also the capture-time path-scope boundary's last line (V6-AUTH-1,
+	//    authority-review §3.1/§7 #3). A structured path that escapes the project root is NOT
+	//    swallowed into "" and then laundered into the store as if it were pathless Bash output:
+	//    hookio.CaptureScope checks EVERY structured path both lexically (paths.Norm) and physically
+	//    (paths.ResolvesInside). Any verdict that Refuses — a proven escape OR a file-content
+	//    producer whose target cannot be proven inside — refuses the capture here, BEFORE PutBytes,
+	//    so no bytes and no Path:"",Tool:"Read" record are written. The refusal persists nothing and
+	//    is terminal (not the ErrUnpublished retry a soft failure takes), counted under a closed
+	//    label with no path text. The daemon admission gate is the primary boundary; this is the
+	//    object-store leak's last line.
+	scope := hookio.CaptureScope(o.opt.ProjectRoot, display, e.ToolInput)
+	if scope.Verdict.Refuses() {
+		o.count(counterCaptureScopeRefused)
+		return hookio.Empty(), nil
 	}
+	pathKey := scope.PrimaryKey
 
 	// 5. §8.1 item 1. The observer never chunks, redacts or canonicalizes by hand: the store does
 	//    redact → canonicalize → chunk internally, and this call's contribution to O2 is the

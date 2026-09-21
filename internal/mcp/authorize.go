@@ -97,10 +97,12 @@ func (h *handlers) authorizeOrigin(tool, path string) (bool, string) {
 func (h *handlers) authorizeHash(ctx context.Context, hash core.Hash) any {
 	reader, ok := h.store.(store.ProvenanceReader)
 	if !ok {
+		h.m.Counter("mcp.provenance_unavailable").Add(1)
 		return unavailable("content provenance is unavailable in this store")
 	}
 	origins, err := reader.ContentOrigins(ctx, hash)
 	if err != nil || len(origins) == 0 {
+		h.m.Counter("mcp.provenance_incomplete").Add(1)
 		return unavailable("complete content provenance could not be established")
 	}
 	for _, origin := range origins {

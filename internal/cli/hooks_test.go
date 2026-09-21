@@ -114,7 +114,7 @@ func TestHooks_RefuseToCreateStoreUnderMissingRoot(t *testing.T) {
 func TestHooks_RootReResolvesFromPayload(t *testing.T) {
 	dir := t.TempDir()
 
-	payload, err := json.Marshal(map[string]any{"session_id": "s1", "cwd": dir, "tool_name": "Read"})
+	payload, err := json.Marshal(map[string]any{"session_id": "s1", "cwd": dir, "tool_name": "Read", "tool_input": map[string]any{"file_path": "src/a.go"}})
 	require.NoError(t, err)
 
 	var out, errw bytes.Buffer
@@ -501,7 +501,7 @@ func TestHooks_OverBudgetDeliveryIsRecordedNotDropped(t *testing.T) {
 	require.True(t, req.Capture.Truncated)
 	require.Equal(t, len(payload), req.Capture.SourceBytes,
 		"the host delivery's real size is retained even though its bytes are not")
-	require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix is retained as evidence")
+	require.Empty(t, req.Capture.Bytes, "an incomplete envelope cannot prove scope; classification and observed size remain")
 	require.Less(t, len(req.Capture.Bytes), len(payload))
 	require.NotContains(t, string(req.Capture.Bytes), admissionSecret,
 		"the retained prefix clears the operator's own redaction rules before it is published")
@@ -574,7 +574,7 @@ func TestHooks_HardCapDeliveryIsRecordedWhenStateExists(t *testing.T) {
 	require.True(t, req.Capture.Truncated)
 	require.Equal(t, hookCaptureMaxBytes+1, req.Capture.SourceBytes,
 		"the cap records what it observed before it stopped reading, not a size it never measured")
-	require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix is retained as evidence")
+	require.Empty(t, req.Capture.Bytes, "an incomplete envelope cannot prove scope; classification and observed size remain")
 	require.LessOrEqual(t, len(req.Capture.Bytes), hookCaptureRefusalPrefixBytes*2,
 		"the record must not reintroduce the buffer the cap exists to refuse")
 	require.NotContains(t, string(req.Capture.Bytes), admissionSecret,

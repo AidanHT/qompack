@@ -146,7 +146,66 @@ func admitHookCapture(env Env, root string, in hookInput) (hookio.Capture, hooki
 			// document as bytes that were merely never valid JSON.
 			Oversize: in.Oversize, SourceBytes: in.Observed,
 		})
-	return capture, ev, cfg, err
+	guarded := scopeGuardCapture(root, capture, ev)
+	// Scope the original envelope too: redaction can replace a path, and JSON
+	// decoding can collapse duplicate keys. Neither may grant admission.
+	if verdict := hookio.CaptureScopeRaw(root, in.Raw).Verdict; verdict.Refuses() && guarded.Recorded() {
+		guarded.Bytes = nil
+		if capture.Outcome == core.OutcomeOK {
+			guarded.Fidelity = core.FidelityUnknown
+			guarded.Outcome = core.OutcomeUnavailable
+			if verdict == hookio.ScopeOutOfProject {
+				guarded.Outcome = core.OutcomeDenied
+			}
+		}
+	}
+	if guarded.Outcome != core.OutcomeOK {
+		// A refused or degraded delivery carries NO Event: hookio derived none for a degraded one,
+		// and a scope refusal must not let the original Event (or the Raw extras composed from it)
+		// travel to the spool and reintroduce a path the bytes were just stripped of. Clearing it
+		// here is where ipc.WithCapture's composition is made byte-free-safe end to end.
+		ev = hookio.Event{}
+	}
+	return guarded, ev, cfg, err
+}
+
+// scopeGuardCapture applies the path-scope trust boundary (V6-AUTH-1, authority-review §5) on the
+// hook client, BEFORE the capture can be spooled or sent, so out-of-project file bytes never reach
+// the transport spool/WAL — the guarantee the daemon admission gate alone cannot make, because the
+// raw line touches the spool before admission runs.
+//
+// An admitted (OutcomeOK) delivery is judged from its derived Event's structured tool input. Any
+// verdict that Refuses reduces it to a byte-free record that REUSES an existing outcome (no new
+// schema): a PROVEN escape becomes OutcomeDenied, an UNPROVABLE target becomes OutcomeUnavailable —
+// "cannot prove inside" recorded as unavailable, never as a false absence.
+//
+// A degraded delivery derived no Event; it is judged from its own ALREADY-REDACTED retained bytes
+// (what the sidecar would persist — scoping them reintroduces nothing). Only a single, complete,
+// unambiguous in-scope object may keep them; a partial prefix cannot prove its nature (field order
+// is not a contract, a later path or a duplicate key cannot be ruled out), so its bytes are dropped
+// while the degraded classification and SourceBytes — the trace privacy does not require bytes for —
+// are preserved.
+func scopeGuardCapture(root string, capture hookio.Capture, ev hookio.Event) hookio.Capture {
+	if !capture.Recorded() {
+		return capture // nothing was classified, so there is nothing to guard
+	}
+	if capture.Outcome == core.OutcomeOK {
+		switch hookio.CaptureScope(root, ev.ToolName, ev.ToolInput).Verdict {
+		case hookio.ScopeOutOfProject:
+			capture.Bytes, capture.Fidelity, capture.Outcome = nil, core.FidelityUnknown, core.OutcomeDenied
+		case hookio.ScopeUnprovable:
+			capture.Bytes, capture.Fidelity, capture.Outcome = nil, core.FidelityUnknown, core.OutcomeUnavailable
+		}
+		return capture
+	}
+	if len(capture.Bytes) == 0 {
+		return capture // already a byte-free evidence record; nothing to strip
+	}
+	if hookio.CaptureScopeRaw(root, capture.Bytes).Verdict == hookio.ScopeAllow {
+		return capture // a complete, unambiguous, in-scope object may be retained as evidence
+	}
+	capture.Bytes = nil // drop opaque, unprovable-or-outside bytes; keep the classification + SourceBytes
+	return capture
 }
 
 // Both real policies currently admit only exact or redacted JSON. Preserve earlier admission
