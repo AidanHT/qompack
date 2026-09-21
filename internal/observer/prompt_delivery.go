@@ -60,7 +60,7 @@ func promptDeliveryDigest(prompt string, obs core.ObservationID) core.Hash {
 	return digest
 }
 
-func (o *observer) syncPrompt(ctx context.Context, root core.Hash) error {
+func (o *observer) syncObservation(ctx context.Context, root core.Hash) error {
 	sync, ok := o.opt.Store.(store.PublicationSync)
 	if !ok || sync.SyncPublication(ctx, root) != nil {
 		return o.unpublished(stageIndex)
@@ -86,7 +86,7 @@ func (o *observer) recoverPrompt(ctx context.Context, st *sessionState, e Event,
 	if rec.ID == "" {
 		return false, nil
 	}
-	if err := o.syncPrompt(ctx, rec.Root); err != nil {
+	if err := o.syncObservation(ctx, rec.Root); err != nil {
 		return false, err
 	}
 	if err := o.linkObservation(obs, rec); err != nil {
@@ -127,9 +127,8 @@ func (o *observer) promptReplyOutput(st *sessionState) Output {
 	return out
 }
 
-// recordPromptDurable writes the verbatim capture's three durable artifacts — the content-addressed
-// bytes' index record, the observation reference join, and the DAG node — for a fresh (not
-// redelivered) prompt, and reports whether it may advance the session.
+// recordPromptDurable publishes the verbatim record and observation link before
+// advancing the session. DAG updates remain secondary derived state.
 //
 // For a LEASED delivery a lost index write or a lost reference link returns ErrUnpublished so the
 // frontier is never acknowledged over a capture that did not become durable (SP08-D3): the daemon
@@ -155,6 +154,12 @@ func (o *observer) recordPromptDurable(ctx context.Context, st *sessionState, e 
 		ID: id, Session: e.SessionID, Turn: st.Turn, TS: now, Tool: userPromptSubmit,
 		ArgsDigest: digest, ArgsPreview: preview,
 		Root: res.Root.Hash, Bytes: int64(len(body)), Tokens: tok, Status: store.StatusOK,
+		Observation: obs,
+	}
+	if obs != "" {
+		if err := o.syncObservation(ctx, rec.Root); err != nil {
+			return err
+		}
 	}
 	if err := o.opt.Store.RecordToolUse(ctx, rec); err != nil {
 		if obs != "" {
@@ -164,7 +169,7 @@ func (o *observer) recordPromptDurable(ctx context.Context, st *sessionState, e 
 		return nil
 	}
 	if obs != "" {
-		if err := o.syncPrompt(ctx, rec.Root); err != nil {
+		if err := o.syncObservation(ctx, rec.Root); err != nil {
 			return err
 		}
 	}

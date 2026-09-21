@@ -474,49 +474,23 @@ func TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock(t *testing.T) {
 	require.Len(t, st.ToolUses, 1, "fixture: the read between the two dispatches is in the window")
 }
 
-// TestRedelivery_ProbeOnAStoreThatCannotAnswerNamesTheRightCause is about a COUNTER rather than
-// about behaviour, and the behaviour is asserted alongside it precisely to show that.
-//
-// freeDerivedTurn concludes "this id is taken" from a nil error and "free" from ErrNotFound. A
-// closed store answers neither: FSStore.ToolUse's s.use() guard reports core.ErrDegraded, and
-// reading that as "taken" would burn all 64 probe iterations and then bump
-// observer.derived_turn_exhausted — whose documented cause is 64 consecutive OCCUPIED ids, i.e. a
-// state file lagging the index. An operator would go looking there, and the answer would be
-// somewhere else entirely.
+// The leased worker must retain unavailable work. The client still preserves
+// host output; the worker error must not become a false committed frontier.
 func TestRedelivery_ProbeOnAStoreThatCannotAnswerNamesTheRightCause(t *testing.T) {
 	r := newRdxRig(t)
-	ctx := context.Background()
 	id := r.sidecar(1, rdxOpStop)
 	require.NoError(t, r.st.Close())
-
-	_, err := r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
-	require.NoError(t, err,
-		"a degraded store is a soft failure for a hook, never an error the host sees (§12.3)")
-
-	require.Equal(t, int64(1), r.counter(rdxCounterUnanswered),
-		"a store that cannot say whether an id is taken must be counted as exactly that")
-	require.Equal(t, int64(0), r.counter(rdxCounterExhausted),
-		"and never as exhaustion, which names a cause — a state file lagging the index — that is "+
-			"not what happened")
-	require.Equal(t, int64(1), r.counter(rdxCounterErrStopPut),
-		"the capture itself still degrades softly, exactly as it does on today's tree")
+	_, err := r.o.OnStop(WithObservation(context.Background(), id), stopOf(true), true)
+	require.ErrorIs(t, err, ErrUnpublished)
+	require.Equal(t, int64(1), r.counter(rdxCounterErrIndex))
+	require.Equal(t, int64(0), r.counter(rdxCounterExhausted))
+	require.Equal(t, int64(0), r.counter(rdxCounterErrStopPut), "unavailable identity prevents a new capture")
 }
 
 // ── Guard G3: a sidecar that does not describe THIS delivery is not its publication ──────────
 
-// TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized pins guard G3.
-//
-// The identity rule promotes the ObservationID from evidence to a precondition for whether a
-// capture is written at all, so it now depends on an invariant nothing enforces mechanically:
-// ObservationID is H(session‖arrival) over the delivery journal's dense per-session arrival
-// counter, and nothing retires that counter today — carried defect SP20-D4 is exactly the future
-// retention or compaction change that would restart it and recycle ids. A recycled id whose old
-// sidecar is still Published would otherwise swallow a genuinely new capture.
-//
-// Checking the session and the op against the event being handled removes the cross-session and
-// cross-op cases, which is the whole of it unless a recycled id lands on the same session AND the
-// same op. The failure direction is the safe one either way: an unrecognized sidecar degrades to
-// today's duplicate, never to a lost capture.
+// Conflicting identity metadata must retain the delivery for recovery, without
+// treating it as either a successful publication or a new event.
 func TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -544,10 +518,10 @@ func TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized(t *testing.T
 
 			r.clock.Advance(time.Second)
 			_, err = r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
-			require.NoError(t, err)
+			require.ErrorIs(t, err, ErrUnpublished)
 
-			require.Equal(t, rdxCaptureIDs(0, 1), rdxIDs(t, r.index(), subagentStop),
-				"a sidecar that does not describe this delivery must not absorb it")
+			require.Equal(t, rdxCaptureIDs(0), rdxIDs(t, r.index(), subagentStop),
+				"conflicting sidecar identity must neither absorb nor duplicate the event")
 			require.Equal(t, int64(0), r.counter(rdxCounterAbsorbed))
 		})
 	}
@@ -555,87 +529,49 @@ func TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized(t *testing.T
 
 // ── The index confirmation: a reference the index cannot corroborate is not a publication ────
 
-// TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized pins the third condition in
-// observationRecord — the one that reads the sidecar's reference back out of the index before
-// trusting it — in both of the ways it can fail.
-//
-// Recognition rests on two durable writes that are neither made together nor made durable the same
-// way: the index record line, appended to a handle that is not fsynced until Flush, and the
-// sidecar's link, written through paths.WriteAtomic. A power loss between them leaves a link naming
-// a record the index does not hold, and that reference must read as "not published" rather than as
-// an id to reuse.
-//
-// The failure direction is why this is worth a row of its own rather than a note. The two guards
-// beside it fail toward a DUPLICATE capture, the benign direction this design leans on everywhere.
-// This one fails toward absorbing a delivery that published nothing: no record, no blob, and
-// observer.redelivery_absorbed incremented as though the capture had been handled. A silently lost
-// capture is strictly worse than the duplicate SP08-D2 exists to remove.
+// A surviving capture link is not sufficient evidence. A missing legacy record
+// may be reconstructed from the durable intent; a conflicting record must remain
+// unavailable rather than be overwritten or followed by a duplicate identity.
 func TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized(t *testing.T) {
-	for _, tc := range []struct {
-		name    string
-		reclaim bool
-		want    []string
-	}{
-		// The link outlived its record line and nothing has taken the id since, so the index cannot
-		// answer for it at all: ToolUse reports ErrNotFound.
-		{name: "the index does not hold the id", want: rdxCaptureIDs(0)},
-		// The same power loss, and then a capture that carried no identity re-minted the freed id
-		// over its own bytes — a later instant, so a different blob and a different root. The index
-		// answers, and what it holds under that id is somebody else's record.
-		{name: "the index holds the id under another root", reclaim: true, want: rdxCaptureIDs(0, 1)},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, conflict := range []bool{false, true} {
+		t.Run(fmt.Sprintf("conflict=%v", conflict), func(t *testing.T) {
 			r := newRdxRig(t)
 			ctx := context.Background()
 			id := r.sidecar(1, rdxOpStop)
-
-			before := len(r.index())
 			_, err := r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
 			require.NoError(t, err)
-			require.Equal(t, rdxCaptureIDs(0), rdxIDs(t, r.index(), subagentStop),
-				"fixture: the first run captured the subagent")
-
-			r.loseIndexTail(before)
-
-			if tc.reclaim {
-				// An in-process caller: no observation, so no recognition and no free-turn probe. It
-				// re-derives turn 0 — which the index no longer holds — over a clock that has moved,
-				// so its blob, and therefore its root, is not the one the sidecar was linked with.
-				r.clock.Advance(time.Second)
-				_, err = r.o.OnStop(ctx, stopOf(true), true)
-				require.NoError(t, err)
-			}
-
-			// The fixture stated at the two values the guard itself compares, so that a pass here
-			// can never come from recognition exiting at an EARLIER condition instead.
+			original := r.index()
 			sc, err := store.ReadCaptureSidecar(r.root, id)
 			require.NoError(t, err)
-			require.True(t, sc.Published,
-				"fixture: the link is fsynced where the record line is not, so it survived")
-			require.Equal(t, SubagentCaptureID(testSession, 0), sc.ToolUseID,
-				"fixture: the sidecar still names the record the first run published")
-			indexed, err := r.st.ToolUse(ctx, sc.ToolUseID)
-			if tc.reclaim {
-				require.NoError(t, err, "fixture: the freed id was re-minted by the later capture")
-				require.NotEqual(t, sc.Root, indexed.Root,
-					"fixture: the index holds that id under a DIFFERENT root than the sidecar's")
-			} else {
-				require.ErrorIs(t, err, core.ErrNotFound,
-					"fixture: the index no longer holds the id the sidecar names")
+			require.True(t, sc.Published)
+			r.loseIndexTail(0)
+			if conflict {
+				// Deliberate on-disk corruption, not an authorized Store writer.
+				require.NoError(t, r.st.Close())
+				var line map[string]json.RawMessage
+				require.NoError(t, json.Unmarshal(bytes.TrimSpace(original), &line))
+				line["root"], err = json.Marshal(core.HashBytes("v6.corrupt-record", []byte("different")))
+				require.NoError(t, err)
+				bad, err := json.Marshal(line)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(paths.Long(filepath.Join(paths.Of(r.root).Index, "tool_use.jsonl")), append(bad, '\n'), 0o600))
+				r.o, r.st = newRealStoreObserver(t, r.root, r.clock, r.metrics)
 			}
-
-			// The redelivery: stage 1 rewrites the sidecar, carrying the published reference
-			// forward, and the delivery is dispatched under the lease it already holds.
 			r.clock.Advance(time.Second)
-			r.sidecar(1, rdxOpStop)
+			before := r.index()
 			_, err = r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
+			if conflict {
+				require.ErrorIs(t, err, ErrUnpublished)
+				require.Equal(t, before, r.index(), "conflicting evidence must remain untouched")
+				require.Equal(t, int64(0), r.counter(rdxCounterAbsorbed))
+				return
+			}
 			require.NoError(t, err)
-
-			require.Equal(t, tc.want, rdxIDs(t, r.index(), subagentStop),
-				"a reference the index cannot confirm is not a publication: this delivery must "+
-					"CAPTURE, not be absorbed as one already published")
-			require.Equal(t, int64(0), r.counter(rdxCounterAbsorbed),
-				"and it must not be counted absorbed, which reports a lost capture as handled")
+			require.Equal(t, rdxCaptureIDs(0), rdxIDs(t, r.index(), subagentStop))
+			rec, err := r.st.ToolUse(ctx, sc.ToolUseID)
+			require.NoError(t, err)
+			require.Equal(t, sc.Root, rec.Root, "repair restores the original referent")
+			require.Equal(t, int64(1), r.counter(rdxCounterAbsorbed))
 		})
 	}
 }
@@ -691,40 +627,29 @@ func TestRedelivery_DerivedToolIDIsAbsorbed(t *testing.T) {
 	}
 }
 
-// TestRedelivery_DerivedToolIDWithADifferentRootMintsFreshly is guard G2, and what it prevents is
-// not a duplicate but a PERMANENT STALL.
-//
-// A redelivery whose root legitimately differs from its first run's — a changed canonicalization
-// config, a different payload cap, a moved truncation boundary — must not adopt the id the first
-// run published: same id with a different root is ErrAppendOnly, which the observer reports as
-// ErrUnpublished, which makes the drain break its read loop without advancing the file's offset. It
-// would then retry that same line on every later drain, forever, with the rest of the spool file
-// stuck behind it. On the base the delivery would simply have minted a fresh id and recorded, so
-// adopting one without checking the root converts a self-healing duplicate into a stuck spool.
+// Retains guard G2's identifier but replaces its duplicate-minting criterion:
+// an observation names its original record even when a replay would derive
+// another representation. A real second delivery must have a distinct lease.
 func TestRedelivery_DerivedToolIDWithADifferentRootMintsFreshly(t *testing.T) {
 	r := newRdxRig(t)
 	ctx := context.Background()
 	id := r.sidecar(1, rdxOpTool)
-
 	_, err := r.o.OnToolUse(WithObservation(ctx, id), readOf("", supersedePath, rdxBody))
 	require.NoError(t, err)
-	require.Equal(t, []string{string(rdxDerivedToolID(testSession, 0, 0))}, rdxIDs(t, r.index(), ""))
-
-	// A restart empties the window, so the id this run derives is the one the first run took.
+	beforeIndex, beforeRoots := r.index(), r.roots()
+	sc, err := store.ReadCaptureSidecar(r.root, id)
+	require.NoError(t, err)
+	originalRoot := sc.Root
 	r.restart(false)
 	r.clock.Advance(time.Second)
 	r.sidecar(1, rdxOpTool)
-	_, err = r.o.OnToolUse(WithObservation(ctx, id),
-		readOf("", supersedePath, rdxBody+"a line the first run did not have\n"))
-
-	require.NoError(t, err,
-		"a root mismatch must fall through to a fresh id, NOT return ErrUnpublished: that error is "+
-			"what stalls the drain's read loop on this line forever")
-	require.Equal(t, []string{
-		string(rdxDerivedToolID(testSession, 0, 0)),
-		string(rdxDerivedToolID(testSession, 0, 1)),
-	}, rdxIDs(t, r.index(), ""),
-		"the delivery records under a freshly probed id, the way the base would have")
+	_, err = r.o.OnToolUse(WithObservation(ctx, id), readOf("", supersedePath, rdxBody+"changed derivation\n"))
+	require.NoError(t, err)
+	require.Equal(t, beforeIndex, r.index(), "a replay must retain the original record")
+	require.Equal(t, beforeRoots, r.roots(), "recognition precedes new object derivation")
+	sc, err = store.ReadCaptureSidecar(r.root, id)
+	require.NoError(t, err)
+	require.Equal(t, originalRoot, sc.Root)
 }
 
 // rdxBody is the tool-result content these tests read. It is long enough to chunk and to carry a
