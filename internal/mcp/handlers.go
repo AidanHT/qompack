@@ -152,7 +152,7 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 		// matched — a hash or a stored path is never itself proof that this hit may be shown
 		// (T13-TRUST). A hit that fails is omitted rather than rendered with its summary redacted:
 		// the summary itself is the thing being protected.
-		if ok, _ := h.authorizePath(hit.Path); !ok {
+		if ok, _ := h.authorizeOrigin(hit.Tool, hit.Path); !ok {
 			deniedCount++
 			continue
 		}
@@ -771,7 +771,7 @@ func (h *handlers) whyFound(ctx context.Context, d checkpoint.Decision, seq core
 	}
 	body.Evidence = d.Evidence.String()
 	body.Hint = "call expand with hash=" + d.Evidence.String() + " to read the evidence"
-	if h.store != nil {
+	if h.store != nil && h.authorizeHash(ctx, d.Evidence) == nil {
 		if root, err := h.store.GetRoot(ctx, d.Evidence); err == nil {
 			n := root.CanonBytes
 			body.EvidenceBytes = &n
