@@ -219,6 +219,9 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 
 	tree := filepath.Join(dir, backupTreeDir)
 	err = filepath.WalkDir(paths.Long(m.l.Dot), func(p string, d fs.DirEntry, werr error) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if werr != nil {
 			return werr
 		}
@@ -244,6 +247,18 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 		// paths.WriteAtomic of that path fails — the R10 hazard running the other way, the backup
 		// stalling the daemon. test/guards' sharedReaders row for this function is the inventory
 		// that stops the answer reverting.
+		if m.copyBackupFile != nil {
+			if len(man.Files) >= maintMaxManifestFiles {
+				return fmt.Errorf("store: backup exceeds supported file count")
+			}
+			dst := filepath.Join(tree, filepath.FromSlash(rel))
+			size, digest, err := m.copyBackupFile(ctx, p, dst)
+			if err != nil {
+				return err
+			}
+			man.Files = append(man.Files, BackupFile{Name: rel, Size: size, SHA256: digest})
+			return nil
+		}
 		b, ferr := paths.ReadFileShared(p)
 		if ferr != nil {
 			return ferr
