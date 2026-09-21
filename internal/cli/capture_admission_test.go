@@ -39,7 +39,7 @@ func TestHookCapture_RedactsBeforeEveryLegacySpoolMode(t *testing.T) {
 				require.NoError(t, ipc.WriteState(root, st))
 				raw, err := json.Marshal(map[string]any{
 					"cwd": root, "session_id": "admission-session", "tool_name": "Read",
-					"tool_input":    map[string]any{"password": admissionSecret},
+					"tool_input":    map[string]any{"password": admissionSecret, "file_path": "src/a.go"},
 					"tool_response": admissionSecret, "prompt": admissionSecret,
 					"trigger": admissionSecret, "agent_name": admissionSecret,
 				})

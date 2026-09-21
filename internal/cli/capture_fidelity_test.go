@@ -64,16 +64,16 @@ func TestHookCapture_ShortReadIsRecordedAsPartial(t *testing.T) {
 	require.False(t, capture.Truncated, "a short read is not a truncation this process chose")
 	require.NotEqual(t, core.OutcomeOK, capture.Outcome)
 	require.Equal(t, hookio.Event{}, ev)
-	require.NotEmpty(t, capture.Bytes)
+	require.Empty(t, capture.Bytes, "an incomplete envelope cannot prove scope")
 	require.NotContains(t, string(capture.Bytes), admissionSecret,
 		"a retained prefix clears the operator's own rules first")
 }
 
-// TestHookCapture_OversizeRetainsARedactedPrefix pins T20-M1-02's truncated case at the seam where
+// TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes pins T20-M1-02's truncated case at the seam where
 // the bound is a policy decision rather than the hard allocation cap: the payload cleared the cap
 // readHookCapture enforces without loading any configuration, and is then bounded by the configured
 // maxPayloadBytes, which is where a prefix can be retained under a loaded policy.
-func TestHookCapture_OversizeRetainsARedactedPrefix(t *testing.T) {
+func TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes(t *testing.T) {
 	root := t.TempDir()
 	writeAdmissionConfig(t, root,
 		`{"runtime":{"hotPath":{"maxPayloadBytes":4096},"redact":{"patterns":["PRIVATE-[A-Z]{12}"]}}}`)
@@ -86,7 +86,7 @@ func TestHookCapture_OversizeRetainsARedactedPrefix(t *testing.T) {
 	require.Equal(t, core.CaptureErrorOversize, capture.CaptureError)
 	require.True(t, capture.Truncated)
 	require.Equal(t, len(raw), capture.SourceBytes)
-	require.NotEmpty(t, capture.Bytes, "an oversize delivery still leaves its head behind as evidence")
+	require.Empty(t, capture.Bytes, "a cut prefix cannot prove scope; size and classification remain")
 	require.Less(t, len(capture.Bytes), len(raw))
 	require.NotContains(t, string(capture.Bytes), admissionSecret)
 	require.Equal(t, hookio.Event{}, ev)
@@ -105,7 +105,8 @@ func TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected(t *testing.T) 
 	require.NotErrorIs(t, err, core.ErrContract)
 	require.Equal(t, core.FidelityBinary, capture.Fidelity)
 	require.Equal(t, core.CaptureErrorNotJSON, capture.CaptureError)
-	require.Equal(t, raw, capture.Bytes, "non-UTF-8 evidence is retained as it arrived")
+	require.Empty(t, capture.Bytes, "an opaque non-JSON envelope cannot prove scope")
+	require.Equal(t, len(raw), capture.SourceBytes)
 	require.NotEqual(t, core.OutcomeOK, capture.Outcome)
 	require.Equal(t, hookio.Event{}, ev)
 }

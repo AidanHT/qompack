@@ -13,11 +13,12 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/store"
 )
 
-// TestV6_ArchivedReadRetainsItsAuthorizationBoundary joins S-6's real hook
-// capture to the retrieval surface. A dropped path cannot turn a file read into
-// a pathless capability. The bytes are synthetic; no user data is read.
+// TestV6_ArchivedReadRetainsItsAuthorizationBoundary covers the legacy stored
+// shape produced before capture-scope refusal: Read bytes with a dropped path.
+// The separate posture test verifies that new packaged captures refuse it.
 func TestV6_ArchivedReadRetainsItsAuthorizationBoundary(t *testing.T) {
 	b := assembledBundle(t)
 	base := tempBase(t)
@@ -27,16 +28,13 @@ func TestV6_ArchivedReadRetainsItsAuthorizationBoundary(t *testing.T) {
 	const id = "toolu_v6_outside_read"
 	const marker = "V6-OUTSIDE-READ-CONTENT-847ea021"
 	const sess = core.SessionID("sess-v6-outside-read")
-	outside := filepath.Join(base, "neighbour", "outside.txt")
-	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(outside)), 0o700))
-	require.NoError(t, os.WriteFile(paths.Long(outside), []byte(marker+"\n"), 0o600))
-
-	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess))
-	require.True(t, waitDaemonUp(t, p.Root))
-	runHook(t, b.Bin, p, []string{"observe", "tool"},
-		readToolPayload(t, p.Root, sess, id, filepath.ToSlash(outside), marker+"\n"))
-	requireIndexed(t, p.Root, id)
-	shutdownIfReachable(t, p.Root)
+	s := openStoreAt(t, p.Root)
+	legacy, err := s.PutBytes(context.Background(), []byte(marker+"\n"), store.PutOptions{Tool: "Read"})
+	require.NoError(t, err)
+	require.NoError(t, s.RecordToolUse(context.Background(), store.ToolUseRecord{
+		ID: core.ToolUseID(id), Session: sess, Tool: "Read", Root: legacy.Root.Hash, Bytes: legacy.Root.RawBytes,
+	}))
+	require.NoError(t, s.Close())
 
 	child := startMCP(t, b.Bin, p)
 	t.Cleanup(func() { child.stop(t) })

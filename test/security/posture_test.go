@@ -82,17 +82,9 @@ func TestSecurity_TelemetryCannotBeTurnedOn(t *testing.T) {
 	writeRecord(t, rec)
 }
 
-// TestSecurity_OutOfProjectCaptureIsArchivedWithItsPathDropped drives a capture whose tool_input
-// names a file OUTSIDE the project root and records what the product actually does with it.
-//
-// The name is the finding. The brief expected a refusal; what happens is that the CONTENT is
-// archived and the PATH is dropped, because internal/observer normalizes the tool input's path and,
-// on a Norm failure, falls through to PutBytes with an empty path key. A test named for the refusal
-// it expected would keep asserting a contract the product does not have.
-//
-// The invariant that IS asserted holds regardless: §13 invariant 6's hooks-exit-0, and that no
-// absolute path outside the project reaches a durable surface.
-func TestSecurity_OutOfProjectCaptureIsArchivedWithItsPathDropped(t *testing.T) {
+// V6 replaces the previous dropped-path finding with a capture-time refusal.
+// Historical failure artifacts retain the original identifier and observation.
+func TestSecurity_OutOfProjectCaptureIsRefusedBeforePersistence(t *testing.T) {
 	b := assembledBundle(t)
 	base := tempBase(t)
 	p := newProjectAt(t, base, "proj")
@@ -142,24 +134,11 @@ func TestSecurity_OutOfProjectCaptureIsArchivedWithItsPathDropped(t *testing.T) 
 			"out-of-project path reached %v", withPath)
 	default:
 		rec.Outcome = OutcomeFailed
-		rec.Reason = fmt.Sprintf("a capture whose tool_input named a file outside the project root "+
-			"had its CONTENT archived to %v while its path was dropped. The mechanism is in "+
-			"internal/observer's tool-use path: paths.Norm fails for an out-of-project path, the "+
-			"path key falls to the empty string, and the bytes go to PutBytes anyway. "+
-			"internal/admission's Privacy port is NOT the remedy and could not be: it has no "+
-			"production importer, and Permits takes only a payload with no path to judge. "+
-			"COORDINATOR RULING carried here: no capture-time refusal is introduced — the host had "+
-			"already permitted the read and the model had already seen the bytes, so the trust "+
-			"boundary is retrieval-time authorization plus redaction at capture, and "+
-			"docs/security.md states this behaviour explicitly. Owner of the documentation and of "+
-			"the dropped-path decision: internal/observer + internal/cli.", withContent)
-		// RETURNED, not failed here, and the ruling above is why: this is the product's settled
-		// behaviour rather than a missing guard, and the deliverable is that the document says so.
-		t.Logf("RETURNED FINDING (owner internal/observer + internal/cli): out-of-project capture "+
-			"content reached %v with its path dropped", withContent)
+		rec.Reason = fmt.Sprintf("capture-time scope refusal failed: outside bytes reached %v; owner internal/cli + internal/daemon + internal/observer", withContent)
 	}
 	rec.Detail = fmt.Sprintf("swept %d files under .qompack/", len(files))
 	writeRecord(t, rec)
+	require.Equal(t, OutcomeVerified, rec.Outcome, rec.Reason)
 }
 
 // configViolation is the §11.3 record `config print` leaves behind when it refuses a value. It is
