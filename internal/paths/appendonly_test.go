@@ -663,6 +663,13 @@ func TestHighestBloomBackupSeq_UnreadableDirIsAnError(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = exec.Command("icacls", l.Sketches, "/remove:d", u.Username).CombinedOutput()
 	})
+	// Elevated hosted runners can bypass a successfully installed deny ACE. Prove
+	// the fixture is unreadable before attributing a successful read to the product.
+	if _, probeErr := os.ReadDir(l.Sketches); probeErr == nil {
+		t.Skip("platform: current token bypasses the test-owned deny ACE; directory permission scenario unverified")
+	} else {
+		require.True(t, os.IsPermission(probeErr), "the fixture must fail for access denial: %v", probeErr)
+	}
 
 	seq, ok, err := paths.HighestBloomBackupSeq(l)
 	require.Error(t, err, "an unreadable directory must not be reported as an empty one")

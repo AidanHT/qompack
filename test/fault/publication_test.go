@@ -165,8 +165,15 @@ func publicationRows() []boundaryRow {
 				"disk — the state daemon/delivery_crash_test.go's cut between the durable object and " +
 				"the reference produces in process",
 			Owner: "internal/store + internal/daemon",
-			Known: "F4-1",
-			Names: []string{"roots.jsonl", "badline", "index", "root", "resolve"},
+			// F4-1's pin is gone: the daemon's startup publication accounting (V6-RECOVERY-1) now
+			// walks objects/ after the drain and Louds the object no live index chunk references, so
+			// the recovery daemon reports the gap on LOUD.log and in `status --json` — the loud tail
+			// and the daemon.publication.unindexed_object_candidates counter. The row is now
+			// `explicit_incomplete`: the object is still unindexed and NOTHING here repairs it, but it
+			// is named. Detection is not recovery — reapplying an index line without the current
+			// authority is unsafe (main's ruling), so recovery stays the operator's verified
+			// backup/restore path. `unindexed` is the token the startup LOUD line carries for this cut.
+			Names: []string{"roots.jsonl", "badline", "index", "root", "resolve", "unindexed"},
 			Cut:   cutDropLastRootLine,
 		},
 		{
@@ -194,8 +201,17 @@ func publicationRows() []boundaryRow {
 				"LinkCaptureReference has not yet joined — store/capture_sidecar.go's own " +
 				"\"crash between publication order's first two stages\"",
 			Owner: "internal/store + internal/daemon",
-			Known: "F4-4",
-			Names: []string{"capture", "sidecar", "published", "observation"},
+			// F4-4's pin is gone: the daemon's startup publication accounting (V6-RECOVERY-1) now
+			// classifies capture sidecars after the drain and Louds an observe.tool delivery whose
+			// outcome is ok and whose bytes are durable with no reference joined — fsck's own
+			// calibration rule 2 — so the recovery daemon reports the gap on LOUD.log and in
+			// `status --json` (the loud tail and the daemon.publication.unpublished_captures counter).
+			// The row is now `explicit_incomplete`: the capture is still at stage one and the sidecar
+			// is preserved as evidence, but it is named. Detection is not recovery — reapplying a
+			// sidecar without the current authority is unsafe (main's ruling), so recovery stays the
+			// operator's verified backup/restore path. `unpublished` is the token the startup LOUD
+			// line carries for this cut.
+			Names: []string{"capture", "sidecar", "published", "observation", "unpublished"},
 			Cut:   cutUnpublishCaptureSidecar,
 		},
 		{

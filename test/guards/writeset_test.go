@@ -79,6 +79,7 @@ func TestGuard_WriteSetConfinedToQompack(t *testing.T) {
 		"session_id": "s-writeset",
 		"cwd":        root,
 		"tool_name":  "FileRead",
+		"tool_input": map[string]any{"file_path": "src/main.go"},
 		"source":     "startup",
 	})
 	require.NoError(t, err)

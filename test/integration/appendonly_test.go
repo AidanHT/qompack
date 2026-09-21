@@ -234,11 +234,14 @@ func cdwEvent(t *testing.T, root string, si, i int) hookio.Event {
 	t.Helper()
 	body, err := json.Marshal(cdwEventBody(si, i))
 	require.NoError(t, err)
+	input, err := json.Marshal(map[string]string{"file_path": cdwEventPath(si, i)})
+	require.NoError(t, err)
 	return hookio.Event{
 		HookEventName: "PostToolUse",
 		SessionID:     cdwSessionID(si),
 		CWD:           root,
 		ToolName:      "Read",
+		ToolInput:     input,
 		ToolUseID:     cdwEventID(si, i),
 		ToolResponse:  body,
 	}

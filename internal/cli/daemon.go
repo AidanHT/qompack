@@ -49,6 +49,17 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 		return nil
 	}
 
+	// Exclude maintenance and competing daemon bootstraps before wiring opens
+	// any store handles. Keep the lease through all deferred writer closes.
+	leaseCtx, lease, releaseLease, err := acquireWriterLease(ctx, root)
+	if err != nil {
+		if !errors.Is(err, daemon.ErrLockHeld) {
+			fmt.Fprintf(errw, "qompack daemon: writer lease unavailable: %v\n", err)
+		}
+		return nil
+	}
+	defer func() { _ = releaseLease() }()
+	ctx = leaseCtx
 	l := paths.Of(root)
 	if err := paths.EnsureLayout(l); err != nil {
 		fmt.Fprintf(errw, "qompack daemon: could not create %s: %v\n", l.Dot, err)
@@ -139,7 +150,7 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 
 	installMCPTools(&opts, root, cfg, log, reg, clk)
 
-	d, err := daemon.New(opts)
+	d, err := daemon.NewWithLease(opts, lease)
 	if err != nil {
 		log.Loud("daemon: could not construct", "err", err.Error())
 		return nil
