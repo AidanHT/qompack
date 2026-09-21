@@ -424,6 +424,7 @@ jobs:
       - run: go run ./tools/devtool gen-config-docs --check
       - run: go run ./tools/devtool gen-mcp-docs --check
       - run: go run ./tools/devtool gen-command-docs --check
+      - run: go test -count=1 ./test/docs/...
 
   # SP-17 Task 7. Every push proves the RELEASE path builds, not just the test path: the same gate
   # a tag runs (minus the tag/version agreement, which only a tag can satisfy) followed by the

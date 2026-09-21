@@ -167,7 +167,140 @@ func renderConfigDoc() ([]byte, error) {
 		b.WriteString("\n")
 	}
 
+	writeConfigMetadata(&b)
+
 	return []byte(b.String()), nil
+}
+
+// originMeanings is the one-phrase gloss each Origin gets in the Provenance origins table, taken
+// from that constant's doc comment in internal/config/config.go. It is keyed by the constant, not
+// by a spelling, so an origin that is renamed keeps its meaning and an origin that is ADDED loses
+// its row's prose rather than acquiring a wrong one: writeOriginSection then falls back to the
+// String() name alone, which is all the enum itself can tell a reader.
+var originMeanings = map[config.Origin]string{
+	config.OriginDefault:     "came from `config.Defaults()` and was never overridden",
+	config.OriginUserFile:    "set by `~/.qompack/config.json`",
+	config.OriginProjectFile: "set by `<project>/.qompack/config.json`",
+	config.OriginEnv:         "set by a `QOMPACK_*` environment variable",
+	config.OriginFlag:        "set by a `--set <dotted.key>=<value>` flag",
+}
+
+// writeConfigMetadata appends the four metadata sections: where a value came from, which blocks
+// carry their own schema version, which switches ship off behind a gate, and which keys are still
+// read but no longer mean what they used to.
+//
+// Every row is rendered from internal/config — Origin, config.VersionedSections,
+// config.MigrationGates, config.MigrationBuildGates and config.RetiredMeaningKeys — so this
+// generator holds no config key of its own and the page cannot describe a build it was not
+// generated from.
+func writeConfigMetadata(b *strings.Builder) {
+	writeOriginSection(b)
+	writeVersionedSection(b)
+	writeGateSection(b)
+	writeRetiredSection(b)
+}
+
+// writeOriginSection renders one row per Origin, ascending from OriginDefault. The enum bounds
+// itself: String() answers "unknown" for the first value the enum does not define, which is where
+// the table stops.
+func writeOriginSection(b *strings.Builder) {
+	b.WriteString("## Provenance origins\n\n")
+	b.WriteString("`qompack config print --provenance` labels every leaf with the layer that produced its\n")
+	b.WriteString("effective value. These are the labels, lowest precedence first.\n\n")
+	b.WriteString("| Origin | Meaning |\n")
+	b.WriteString("|---|---|\n")
+	for o := config.Origin(0); o.String() != "unknown"; o++ {
+		meaning := originMeanings[o]
+		if meaning == "" {
+			meaning = o.String()
+		}
+		fmt.Fprintf(b, "| `%s` | %s |\n", escapePipes(o.String()), escapePipes(meaning))
+	}
+	b.WriteString("\n")
+}
+
+// writeVersionedSection renders the independently versioned blocks and what a newer file does.
+func writeVersionedSection(b *strings.Builder) {
+	b.WriteString("## Versioned blocks\n\n")
+	b.WriteString("The blocks below carry their own `settingsVersion` and are versioned independently, so a\n")
+	b.WriteString("schema change to one never resets the other.\n\n")
+	b.WriteString("| Block | `settingsVersion` this build understands | Behaviour |\n")
+	b.WriteString("|---|---|---|\n")
+	for _, s := range config.VersionedSections() {
+		fmt.Fprintf(b, "| `%s` | `%d` | %s |\n", escapePipes(s.Path), s.Version,
+			escapePipes("a file written for a newer version has its whole block reset to defaults, "+
+				"so unknown future switches stay off"))
+	}
+	b.WriteString("\n")
+}
+
+// writeGateSection renders the two gate tables: the config switches that ship off behind a gate,
+// and the build gates that no config layer can reach at all.
+func writeGateSection(b *strings.Builder) {
+	b.WriteString("## Gated switches (ship off)\n\n")
+	b.WriteString("These leaves default to `false` and stay refused until their gate passes: a `true` value is\n")
+	b.WriteString("refused at load, the leaf falls back to its default and the refusal is reported as a\n")
+	b.WriteString("warning, so editing a config file cannot enable a capability this build does not support.\n\n")
+	b.WriteString("| Key | Default | Owner | Gate | Status |\n")
+	b.WriteString("|---|---|---|---|---|\n")
+	for _, g := range config.MigrationGates() {
+		fmt.Fprintf(b, "| `%s` | `%s` | %s | %s | %s |\n",
+			escapePipes(g.Key), escapePipes(gateDefaultCell(g.Key)),
+			escapePipes(g.Owner), escapePipes(g.Gate), gateStatus(g))
+	}
+	b.WriteString("\n")
+
+	b.WriteString("### Build gates (no config key)\n\n")
+	b.WriteString("These capabilities have no configuration leaf behind them. They cannot be set from any\n")
+	b.WriteString("config layer, and are reachable only from a build whose gate has passed.\n\n")
+	b.WriteString("| Key | Owner | Gate | Status |\n")
+	b.WriteString("|---|---|---|---|\n")
+	for _, g := range config.MigrationBuildGates() {
+		fmt.Fprintf(b, "| `%s` | %s | %s | %s |\n",
+			escapePipes(g.Key), escapePipes(g.Owner), escapePipes(g.Gate), gateStatus(g))
+	}
+	b.WriteString("\n")
+}
+
+// gateStatus renders a gate's Status cell.
+func gateStatus(g config.MigrationGate) string {
+	if g.Passed {
+		return "passed"
+	}
+	return "pending"
+}
+
+// gateDefaultCell reads a gated leaf's default out of the schema rather than asserting it: the
+// page must report what this build ships, and genconfigdocs_test.go is what requires that value
+// to be false.
+func gateDefaultCell(key string) string {
+	var schema schemaNode
+	if err := json.Unmarshal(config.Defaults().JSONSchema(), &schema); err != nil {
+		return ""
+	}
+	node := schema
+	for _, part := range strings.Split(key, ".") {
+		child, ok := node.Properties[part]
+		if !ok {
+			return ""
+		}
+		node = child
+	}
+	return renderJSONValue(node.Default)
+}
+
+// writeRetiredSection renders the keys whose value is still applied but whose meaning is retired.
+func writeRetiredSection(b *strings.Builder) {
+	b.WriteString("## Retired-meaning keys\n\n")
+	b.WriteString("These keys are still read and their value is still applied, so an existing config file keeps\n")
+	b.WriteString("loading. Setting one from any non-default layer produces a deprecation warning naming the\n")
+	b.WriteString("file and line it was set in, and what the key no longer means.\n\n")
+	b.WriteString("| Key | What it no longer means |\n")
+	b.WriteString("|---|---|\n")
+	for _, r := range config.RetiredMeaningKeys() {
+		fmt.Fprintf(b, "| `%s` | %s |\n", escapePipes(r.Key), escapePipes(r.Note))
+	}
+	b.WriteString("\n")
 }
 
 // collectRows walks n, appending one row per leaf. prefix is the dotted key path so far.

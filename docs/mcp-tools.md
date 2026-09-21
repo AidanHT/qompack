@@ -34,9 +34,9 @@ A model should call `already_tried` before committing to an approach: Before com
 |---|---|---|
 | [`recall`](#recall) | yes | Search captured archive material by content, path, or symbol; returns references and summaries. |
 | [`expand`](#expand) | yes | Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. |
-| [`re_read`](#re-read) | yes | The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. |
-| [`already_tried`](#already-tried) | yes | Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. |
-| [`record_eliminated`](#record-eliminated) | no | Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction. |
+| [`re_read`](#re_read) | yes | The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. |
+| [`already_tried`](#already_tried) | yes | Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. |
+| [`record_eliminated`](#record_eliminated) | no | Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction. |
 | [`timeline`](#timeline) | yes | Retrieve recorded session segments over a turn or timestamp range. |
 | [`why`](#why) | yes | Retrieve an attributed decision and its evidence from the checkpoint chain. |
 | [`dropped`](#dropped) | yes | Retrieve Qompack's recorded omissions for this session. |
