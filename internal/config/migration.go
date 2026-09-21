@@ -154,6 +154,27 @@ var retiredMeaningKeys = []retiredMeaningKey{
 	{"checkpoint.incrementalSpanInstruction", "custom_instructions is PreCompact input, not a summarizer setter; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration)"},
 }
 
+// RetiredMeaningKey is one retired-meaning key as the reference documentation reports it: the
+// dotted leaf a user may still set, and what that leaf no longer means. It is the exported shape
+// of retiredMeaningKeys, which stays the single source of the rows.
+type RetiredMeaningKey struct {
+	// Key is the dotted leaf path, still read and still applied.
+	Key string
+	// Note is what the key no longer means — the same sentence the deprecation warning carries.
+	Note string
+}
+
+// RetiredMeaningKeys returns the retired-meaning table in table order. The value behind each key
+// is still applied; setting one from a non-default layer produces a Deprecated Warning naming the
+// file it was set in (migrationDeprecations).
+func RetiredMeaningKeys() []RetiredMeaningKey {
+	out := make([]RetiredMeaningKey, 0, len(retiredMeaningKeys))
+	for _, r := range retiredMeaningKeys {
+		out = append(out, RetiredMeaningKey{Key: r.key, Note: r.note})
+	}
+	return out
+}
+
 // migrationDeprecations returns one Warning per retired-meaning key that a non-default layer set.
 // Reading prov rather than the merged value is deliberate: a user who writes the default value
 // explicitly still deserves the note, and a default that was never touched does not.
@@ -179,21 +200,38 @@ func migrationDeprecations(prov Provenance) []Warning {
 //
 // Two blocks carry their own version — runtime.migration (SP-19) and runtime.phase7 (SP-16) — and
 // they are reset independently: a refinement schema moving forward must not reset the pipeline's
-// own controls, and vice versa. Adding a third means adding a row here and nothing else.
+// own controls, and vice versa. The blocks are the rows of versionedSections, which is also what
+// VersionedSections() reports, so adding a third means adding a row there and nothing else.
 func applyVersionedSections(merged, defaults map[string]any, prov Provenance) []Warning {
 	var out []Warning
-	for _, s := range []struct {
-		section string
-		build   int
-	}{
-		{migrationSection, MigrationSettingsVersion},
-		{phase7Section, Phase7SettingsVersion},
-	} {
-		if w, reset := applyVersionedSection(merged, defaults, prov, s.section, s.build); reset {
+	for _, s := range versionedSections {
+		if w, reset := applyVersionedSection(merged, defaults, prov, s.Path, s.Version); reset {
 			out = append(out, w)
 		}
 	}
 	return out
+}
+
+// VersionedSection is one independently versioned config block: its dotted path, and the
+// settingsVersion this build understands for it.
+type VersionedSection struct {
+	// Path is the block's dotted path, e.g. "runtime.migration".
+	Path string
+	// Version is the settingsVersion this build understands. A merged document declaring a newer
+	// one has the whole block reset to defaults (applyVersionedSection).
+	Version int
+}
+
+// versionedSections is the row source both applyVersionedSections and VersionedSections read, so
+// the behaviour of the reset and the documentation of it cannot name different blocks.
+var versionedSections = []VersionedSection{
+	{Path: migrationSection, Version: MigrationSettingsVersion},
+	{Path: phase7Section, Version: Phase7SettingsVersion},
+}
+
+// VersionedSections returns a copy of the versioned-block table in reset order.
+func VersionedSections() []VersionedSection {
+	return append([]VersionedSection(nil), versionedSections...)
 }
 
 // applyVersionedSection resets the whole section block in merged to its defaults when the merged

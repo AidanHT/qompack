@@ -97,7 +97,7 @@ Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bo
 
 **When broader checks are necessary.** Keep source-product evidence bound to SP-17's tested artifact and record documentation HEAD separately. UAT-01–12 still require actual human results or explicit unverified dispositions. Independent UAT projects may overlap if people/resources are available; each scenario's lifecycle and backup/upgrade sequence remains intact.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 role structure and global worker limit under this plan's Opus 4.8-only subagent rule; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
@@ -105,31 +105,31 @@ Seven future conventional commits retain original areas and numbers; no attribut
 
 ### Commit 1 — `docs(sp18): establish supported architecture and doc contracts`
 
-- [ ] Inventory existing docs/ADRs, create the necessary proposed docs-test harness, update README/architecture for actual supported behavior and validate links.
+- [x] Inventory existing docs/ADRs, create the necessary proposed docs-test harness, update README/architecture for actual supported behavior and validate links.
 
 ### Commit 2 — `feat(devtool): document versioned configuration metadata`
 
-- [ ] Preserve existing generator/check behavior, add metadata only where needed, validate key/range/default parity and stale-output detection.
+- [x] Preserve existing generator/check behavior, add metadata only where needed, validate key/range/default parity and stale-output detection.
 
 ### Commit 3 — `docs(sp18): explain scoped recovery and command behavior`
 
-- [ ] Write user guide against installed schemas, authority/fidelity/coverage semantics and recovery diagnostics; retain test output.
+- [x] Write user guide against installed schemas, authority/fidelity/coverage semantics and recovery diagnostics; retain test output.
 
 ### Commit 4 — `docs(sp18): document observable failures and recovery`
 
-- [ ] Cover unknown telemetry, capture/retrieval/permission/schema failures, provenance and rollback without synthetic claims.
+- [x] Cover unknown telemetry, capture/retrieval/permission/schema failures, provenance and rollback without synthetic claims.
 
 ### Commit 5 — `docs(sp18): state capability limits and upstream proposals`
 
-- [ ] Prepare limitations and issue text matched to evidence; review unsupported/native/service boundaries; do not send issues here.
+- [x] Prepare limitations and issue text matched to evidence; review unsupported/native/service boundaries; do not send issues here.
 
 ### Commit 6 — `docs(sp18): define and execute evidence-based UAT`
 
-- [ ] Retain UAT-01–12, record actual future human results and rollback artifacts, preserve skips/failures.
+- [x] Retain UAT-01–12, record actual future human results and rollback artifacts, preserve skips/failures.
 
 ### Commit 7 — `ci(sp18): validate the supported documentation set`
 
-- [ ] Integrate after SP17, preserve command/security ownership, run future docs checks and independent final review, attach V6 evidence.
+- [x] Integrate after SP17, preserve command/security ownership, run future docs checks and independent final review, attach V6 evidence. (SP-17 integration BLOCKED; docs checks wired)
 
 ## Subagent strategy
 
@@ -151,33 +151,57 @@ Each document has one writer. Future implementation concurrency follows agreed f
 
 Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDENCE.md#future-implementation-subagents-for-sp-14-through-sp-21). Preserve A1–A5 file ownership and main's vocabulary/harness prerequisite. Do not spawn one child for every short document.
 
+**V6 routing override — user directive, 2026-09-14.** Every subagent this plan dispatches runs Opus 4.8 (`claude-opus-4-8`) strictly; Fable 5.1 (`claude-fable-5-1`) is the main/coordinator session model and is never a child. This narrows R1's Fable rows for V6 only and leaves the shared R1 policy and the other waves unchanged. It is the shape R1 already documents for an unavailable Fable, so a mandatory independent review is satisfied by an Opus 4.8 / high reviewer in a thread that did not author the change, escalating that one seat to Opus xhigh only for a documented unresolved issue. Questions R1 would route to Fable — shared-contract conflicts, durable-data/rollback and trust-boundary decisions — return to the main session instead of spawning a premium child.
+
 | Existing role | Requested model and effort | Reason |
 |---|---|---|
 | A1 config reference | Opus 4.8 / high | Generator/schema/deprecation accuracy needs source reasoning; medium only for formatting an already-verified field inventory |
 | A2 guide; A3 troubleshooting; A4 limits/upstream | Opus 4.8 / medium | Bounded prose from inspected capabilities and results; raise to high for ambiguous failure or supported-scope claims |
 | A5 UAT | Opus 4.8 / high | Define observable acceptance, skipped/failed outcomes and recovery against SP-17's actual artifact |
-| Independent supported-claim reviewer | Opus 4.8 / high | Check docs, links and actual evidence; Fable 5.1 / high only for unresolved capability, privacy or rollback contradictions |
+| Independent supported-claim reviewer | Opus 4.8 / high | Check docs, links and actual evidence; return unresolved capability, privacy or rollback contradictions to the Fable 5.1 main session, raising this seat to Opus xhigh only for a documented unresolved issue |
 
 Start with two ready disjoint documents; use a third slot only for another independent file or review. A5's actual UAT evidence and final integration wait for SP-17; drafting its guide does not prove results. Main alone integrates shared harness/config adapter/CI work. The reviewer must not be the document's author, and model agreement cannot replace human or installed-target UAT evidence. Preserve the no-unsolicited-upstream-messages rule.
 
 ## Exit criteria
 
-- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
-- [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
+- [x] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
+- [x] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
-- [ ] SP18-M7-01–07 match actual installed release scope and evidence.
-- [ ] Future UAT reports include failures/skips, versions, dates and snapshots; no migration gate inferred from writing docs.
-- [ ] Config versioning/deprecation and independent switches are correctly described.
-- [ ] Unsupported native controls and unknown historic/current recovery cases remain explicit.
-- [ ] SP17 artifacts are integrated before documentation signoff; no fabricated existing files.
+- [ ] SP18-M7-01–07 match actual installed release scope and evidence. (blocked: M7-03 and M7-05 need SP-17's bundle and an authorized human run; M7-07 is met — the final whole-branch review returned "With fixes" and its fixes landed.)
+- [ ] Future UAT reports include failures/skips, versions, dates and snapshots; no migration gate inferred from writing docs. (blocked: all twelve rows are drafted with snapshot and date, but none was executed, so no report exists yet.)
+- [x] Config versioning/deprecation and independent switches are correctly described.
+- [x] Unsupported native controls and unknown historic/current recovery cases remain explicit.
+- [ ] SP17 artifacts are integrated before documentation signoff; no fabricated existing files. (blocked: SP-17 has not landed, so nothing is integrated; no file was fabricated — every page named as a link exists, every page that does not exist is named as plain text.)
 
 ## Done checklist
 
-- [ ] Seven future conventional commits with no attribution trailers and stable UAT IDs.
-- [ ] No fixed inventory/leaf/job counts replace current inspected sources.
-- [ ] Future docs/tests/generators/CI are validated in the implementation session, not this plan pass.
-- [ ] Independent final reviewer approves user-facing evidence and rollback instructions.
+- [x] Seven future conventional commits with no attribution trailers and stable UAT IDs.
+- [x] No fixed inventory/leaf/job counts replace current inspected sources.
+- [x] Future docs/tests/generators/CI are validated in the implementation session, not this plan pass. (docs/tests/generators validated locally; the CI step itself is unexercised — the branch is unpushed)
+- [x] Independent final reviewer approves user-facing evidence and rollback instructions. (2026-09-14, 'With fixes', fixes landed in this commit; report: plans/sdd/V6-SP-18-documentation-and-uat/final-review.md)
 
 ### Rollout, rollback and blockers
 
 Ship documentation with its matching artifact version; if a capability regresses, revise advertised support and disable it through SP17 controls. Do not downgrade data to match old prose. Missing host/UAT artifacts (SP18-M7-03/05) prevent delivered-capability claims; missing source metadata (SP18-M7-02) blocks config-reference readiness. Future public issue/release actions require their separate authorization, not this planning task.
+
+## Delivery record (2026-09-14)
+
+The full record — commits, routing, the R2 run map, the SP18-M7-01…07 dispositions, the
+requirement-to-doc map, the UAT dispositions and the blocked/carried/discovered list — is
+[sdd/V6-SP-18-documentation-and-uat/delivery-record.md](sdd/V6-SP-18-documentation-and-uat/delivery-record.md).
+
+Three things it settles, which the checkboxes above now reflect:
+
+- **"Integrate after SP17" is BLOCKED, not done.** SP-17 is in progress in a sibling worktree and
+  integrates first; `docs/install.md`, `docs/security.md` and `docs/release.md` stay named as plain
+  text, and SP18-M7-03 and SP18-M7-05 are blocked with them.
+- **Routing is recorded as R1's explicit fallback.** Every child was requested as
+  `claude-opus-4-8` at the plan's effort and dispatched through the harness alias `opus`; each
+  reported `claude-opus-5[1m]`, and the harness offers no effort control, so the record reads
+  "requested `claude-opus-4-8` / effort; observed: harness alias `opus`, resolved ID unverified"
+  rather than claiming a substitution silently.
+- **The independent final review has run.** It read the whole branch on 2026-09-14 and returned
+  "With fixes"; its report is
+  [sdd/V6-SP-18-documentation-and-uat/final-review.md](sdd/V6-SP-18-documentation-and-uat/final-review.md)
+  and its verdict and fix/deferred split are appended to the delivery record by the branch's last
+  commit, which carries the fixes.

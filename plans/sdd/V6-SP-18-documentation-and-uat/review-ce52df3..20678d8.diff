@@ -1,0 +1,73 @@
+# Review package: ce52df3..20678d8
+
+## Commits
+20678d8 docs(sp18): replace the hook no-write claim with a probed result
+
+## Files changed
+ docs/user-guide.md | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+## Diff
+diff --git a/docs/user-guide.md b/docs/user-guide.md
+index 3dbd282..2ff1e24 100644
+--- a/docs/user-guide.md
++++ b/docs/user-guide.md
+@@ -99,24 +99,29 @@ Installed, and **not yet routed** in this build. The command file ships and the
+ `plugin/commands/checkpoint.md` runs `qompack checkpoint` — but that name is already the
+ `PreCompact` hook entry point (`internal/cli/hooks.go`, registered `Hook: true`), and no separate
+ local-seal route exists yet. `docs/commands.md` marks the subcommand column **not yet routed** for
+ exactly this reason, and `internal/cli/qompack_commands.go` declines to give the name a second
+ meaning: doing so needs the arch pre-step recorded as SP-14 handoff edge H3
+ (`plans/V5-report.md` §29 item 3).
+ 
+ So invoking it does not write a checkpoint on demand; it runs the hook. A hook reads a hook event
+ from stdin and **always exits `0`**, whatever happens inside it — `internal/cli/hooks.go` and the
+ exit-code policy in `internal/cli/dispatch.go` ("the ONLY code a hook subcommand may ever return"),
+-pinned by `internal/cli/qompack_commands_test.go`. Typed by hand, with no hook event arriving on
+-stdin, there is nothing for it to classify: it returns empty output and does not even create the
+-store (`internal/cli/hookclient.go`). Checkpoints are written at `PreCompact`, by the hook, from
+-the event the host supplies.
++pinned by `internal/cli/qompack_commands_test.go`. Checkpoints are written at `PreCompact`, by the
++hook, from the event the host supplies.
++
++**Typing it by hand is still a write.** Observed on this tree, running the built binary with empty
++stdin in a fresh directory outside the repository: it printed `{}` and exited `0` — and it created
++the full `.qompack/` layout there and started that project's daemon. No checkpoint was written
++(`.qompack/checkpoints` was empty), but the empty payload was classified and recorded as a capture,
++and the run's own state was persisted. So an interactive invocation is a write in that directory,
++not a no-op; it is simply not a way to take a checkpoint.
+ 
+ A frontend for a checkpoint-now command does exist (`internal/commands/cmd_checkpoint.go`, which
+ reports unavailable when its dependency is nil), but nothing routes to it in this build, so that is
+ not the behaviour you get from typing the command.
+ 
+ ### `/qompack:why`
+ 
+ Explains a recorded decision and the evidence behind it: `<decision-id>`, a `dec_<12 hex>` id taken
+ from a checkpoint or from a rehydrated decision list ([schema](commands.md#qompackwhy)). What it
+ returns is an attributed record of a decision, not a claim about what the model then did. Exit `2`
+@@ -386,21 +391,23 @@ Injection has its own kill switch, `runtime.migration.reinjection.sessionStartCo
+ ## Operator commands
+ 
+ These are run from a terminal rather than from a session. `qompack help` prints the same list.
+ 
+ **Which of them write.** `qompack status` creates `.qompack/` (index, logs, metrics, spool and the
+ rest of the layout) in the project directory it resolves, and starts that project's daemon. Running
+ it in a directory that has never been used with Qompack is therefore a write, in that directory —
+ verified by running the built binary in an empty scratch directory outside this repository.
+ `qompack config print` and `qompack version` did not create `.qompack/` or start a daemon in the
+ same probe. The hook entry points (`checkpoint`, `flush`, `observe prompt|stop|tool`,
+-`session-start`) are invoked by Claude Code and always exit 0.
++`session-start`) are invoked by Claude Code and always exit 0 — but exiting 0 is not the same as
++doing nothing: `qompack checkpoint` run by hand with empty stdin created `.qompack/` and started
++the daemon too, observed on this tree in the same probe. Treat every hook entry point as a write.
+ 
+ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration for that run.
+ 
+ | Command | What it does |
+ |---|---|
+ | `status` | the report described under [`/qompack:status`](#qompackstatus) |
+ | `config print [--provenance] [--json]` | the effective configuration; `--provenance` labels each leaf `default`, `user`, `project`, `env` or `flag` ([origins](config-reference.md#provenance-origins)) |
+ | `config schema` | the configuration JSON Schema — the machine-readable counterpart to [docs/config-reference.md](config-reference.md) |
+ | `self-test` | asserts every host contract and reports a table (or `{checks,mode,exit}` under `--json`). **The only command that may exit non-zero on a real finding** |
+ | `version` | the plugin version |
