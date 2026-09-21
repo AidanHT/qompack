@@ -1858,37 +1858,12 @@ func (s *fsckScan) checkPendingMarkers(row *fsckRowBuilder) {
 
 // ── 13. migration records and backups ──────────────────────────────────────────────────────────
 
-// fsckBackupManifest is a backup's manifest.json (store.BackupManifest's wire shape).
-type fsckBackupManifest struct {
-	Version    int    `json:"version"`
-	ID         string `json:"id"`
-	Root       string `json:"root"`
-	Consistent bool   `json:"consistent"`
-	Files      []struct {
-		Name   string `json:"name"`
-		Size   int64  `json:"size"`
-		SHA256 string `json:"sha256"`
-	} `json:"files"`
-}
-
-// checkMigrateAndBackups verifies each backup and parses the six migrate records.
-//
-// store.Migrator.VerifyBackup is the function that owns the rule, but NewMigrator refuses outright
-// while the legacy-import build gate is closed — and it is closed in every build that ships today
-// (config.LegacyImportGate). So fsck applies the same rule directly, re-hashing every file the
-// manifest names, and the row SAYS which of the two paths ran: a verification whose provenance is
-// unstated is a verification nobody can audit.
+// checkMigrateAndBackups uses the supported read-only backup verifier and keeps
+// migration schema inspection separate from import/cutover enablement.
 func (s *fsckScan) checkMigrateAndBackups() fsckCheck {
 	row := newFsckRow("migrate", contract.SevWarn)
 
-	gate := config.LegacyImportGate()
-	if gate.Passed {
-		row.note("the legacy-import gate %q has passed, so store.Migrator.VerifyBackup is available",
-			gate.Key)
-	} else {
-		row.note("the legacy-import gate %q is closed (owner %s), so NewMigrator refuses and each "+
-			"backup is verified by re-hashing its manifest's files directly", gate.Key, gate.Owner)
-	}
+	row.note("backups are checked by the read-only maintenance verifier; legacy import/cutover is separate")
 
 	backups := 0
 	entries, err := fsckReadDir(s.l.Backup)
@@ -1896,6 +1871,10 @@ func (s *fsckScan) checkMigrateAndBackups() fsckCheck {
 		row.defect("backup/ could not be listed, so no backup was verified: %v", err)
 	}
 	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") && strings.HasSuffix(e.Name(), ".certification-pending") {
+			row.defect("a backup has pending writer lease certification; retain the failed attempt and create a new backup")
+			continue
+		}
 		if !e.IsDir() {
 			continue
 		}
@@ -1910,33 +1889,8 @@ func (s *fsckScan) checkMigrateAndBackups() fsckCheck {
 // verifyOneBackup applies VerifyBackup's own rule to one backup directory: the manifest is a
 // version this build reads, and every file it names is present at the recorded size and digest.
 func (s *fsckScan) verifyOneBackup(row *fsckRowBuilder, id string) {
-	dir := filepath.Join(s.l.Backup, id)
-	raw, err := paths.ReadFileShared(filepath.Join(dir, "manifest.json"))
-	if err != nil {
-		row.defect("backup %q has no readable manifest.json, so it is not a rollback path: %v", id, err)
-		return
-	}
-	var man fsckBackupManifest
-	if jsonErr := json.Unmarshal(raw, &man); jsonErr != nil {
-		row.defect("backup %q: manifest.json does not parse: %v", id, jsonErr)
-		return
-	}
-	if man.Version != fsckKnownRecordVersion {
-		row.defect("backup %q: manifest version %d is not readable by this build", id, man.Version)
-		return
-	}
-	tree := filepath.Join(dir, "tree")
-	for _, f := range man.Files {
-		got, readErr := paths.ReadFileShared(filepath.Join(tree, filepath.FromSlash(f.Name)))
-		switch {
-		case readErr != nil:
-			row.defect("backup %q: %s is missing; a partially valid backup is not a rollback path: %v",
-				id, f.Name, readErr)
-		case int64(len(got)) != f.Size:
-			row.defect("backup %q: %s is %d bytes and the manifest says %d", id, f.Name, len(got), f.Size)
-		case hex.EncodeToString(fsckRawDigest(got)) != f.SHA256:
-			row.defect("backup %q: %s: digest mismatch against the manifest", id, f.Name)
-		}
+	if _, err := store.VerifyBackupAt(s.ctx, s.root, id); err != nil {
+		row.defect("backup %q is not a verified recovery path: %v", id, err)
 	}
 }
 

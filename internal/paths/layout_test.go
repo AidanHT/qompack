@@ -95,6 +95,13 @@ func TestEnsureLayout_WriteAtomicFailureIsPropagated(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = exec.Command("icacls", l.Dot, "/remove:d", u.Username).CombinedOutput()
 	})
+	probePath := filepath.Join(l.Dot, "permission-fixture-probe")
+	probe, probeErr := os.OpenFile(probePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if probeErr == nil {
+		require.NoError(t, probe.Close())
+		t.Skip("platform: current token bypasses the test-owned deny ACE; file-create permission scenario unverified")
+	}
+	require.True(t, os.IsPermission(probeErr), "the fixture must fail for access denial: %v", probeErr)
 
 	err = paths.EnsureLayout(l)
 	require.Error(t, err)

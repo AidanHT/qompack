@@ -33,6 +33,7 @@ func All() []Cmd {
 	cmds = append(cmds, evalCmds()...)
 	cmds = append(cmds, slashCommandCmds()...)
 	cmds = append(cmds, adminCmds()...)
+	cmds = append(cmds, backupCmds()...)
 	cmds = append(cmds, fsckCmds()...)
 	cmds = append(cmds, doctorCmds()...)
 	for _, ni := range notImplemented {
