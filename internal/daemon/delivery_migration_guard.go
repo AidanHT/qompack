@@ -13,7 +13,7 @@ import (
 // that an older executable will enforce the same refusal.
 func refuseDeliveryRecreation(state string) error {
 	for _, name := range []string{
-		"delivery-generations", "delivery-journal.json", "delivery-segments",
+		"delivery-generations", "delivery-journal.json", "delivery-segments", "delivery-terminal",
 	} {
 		_, err := os.Lstat(paths.Long(filepath.Join(state, name)))
 		if !os.IsNotExist(err) {

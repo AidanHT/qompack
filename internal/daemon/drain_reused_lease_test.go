@@ -19,61 +19,16 @@ import (
 	"github.com/qompack/qompack/internal/store"
 )
 
-// TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent was carried defect SP08-D2's
-// evidence test and is now its proof. It was INVERTED when the defect was fixed: it used to assert
-// that the observer wrote a second capture and a second set of supersede marks for one host event,
-// and it now asserts that it writes neither. The name is kept deliberately, so that
-// plans/CARRIED-DEFECTS.tsv's evidence column, the x09 comment block and V5-report §21 all stay
-// valid references to the same test; the row's summary is what was rewritten to say the defect is
-// closed.
+// TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent retains its original
+// evidence identifier. It verifies the same publication-before-frontier crash cut
+// with the current ordering contract: a later leased read in the SAME session
+// waits until replay acknowledges its predecessor. Both the read and Stop replay
+// reuse their observation and append no duplicate record.
 //
-// The window is unchanged, and so is the daemon's half of the contract. ingest.go's dispatch
-// contract says "Restart does not retain this set, so handlers must tolerate at-least-once
-// delivery": a delivery the live path LEASED and whose handler RAN — the sidecar is durable, the
-// observer's reference writes landed — but whose acknowledgement never reached the journal because
-// the process died between publication and commitDelivery (ingest.go, stage 3). The next daemon
-// starts with an empty seenSet, finds the WAL copy the dying process never drained (and the
-// client's fallback copy, spooled because the one-byte transport ACK never left that process),
-// re-takes the SAME lease (delivery_lease.go lease is idempotent for a known delivery) and
-// dispatches it once more under the SAME ObservationID (observer.WithObservation). Reusing the
-// identity is correct and MUST stay: the assertion that the handler runs a second time under the
-// first delivery's identity is kept below, unchanged in meaning.
-//
-// What changed is what the second run does. This test now drives the REAL observer over a REAL
-// store rather than a counting stub, because the absorption is the observer's and a stub cannot
-// show it. Both sites are exercised in one session:
-//
-//   - (P2) observer/stop.go captureSubagent used to mint SubagentCaptureID(e.SessionID, st.Turn)
-//     from the fresh process's turn counter (0 on restart) instead of from the reused observation
-//     identity, so a second SubagentStop capture blob and index record appeared for one event —
-//     x09's phantom subagent_<session>_0. It now recognizes the capture this observation already
-//     published, through the capture sidecar, and writes nothing.
-//   - (P3) the read-supersede path used to let a replayed read whose content is OLDER supersede
-//     records appended AFTER it, because a replay re-ran supersession with the redelivery's own
-//     clock. A record and the marks it authors now land in one index write, so a replay that
-//     records nothing marks nothing.
-//
-// The cut is placed where the crash is: the ingest worker's journal resolver answers the lease at
-// Accept but refuses the frontier write, the shape TestCrashCutBetweenReferenceAndFrontierRedelivers
-// (delivery_publication_test.go) gives the drain-side worker. Withholding the acknowledgement this
-// way, rather than failing the handler, is deliberate: a handler that returns an error is the
-// SP05-D1 retry (TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending,
-// TestDrainRejectedResponseIsRetryableAfterRestart) and has no side effects to absorb, and
-// deleting the ack line afterwards changes nothing the open journal reads. Only "handler
-// committed, frontier did not" is the window.
-//
-// This file must not be confused with TestDrainDoesNotRedeliverAnAcknowledgedClientCopy (F4-P1),
-// whose delivery IS on the frontier and must not be dispatched at all; here the frontier is
-// genuinely empty and the redelivery is legitimate.
-//
-// The pin is not vacuous in either direction. A seenSet that already held the keys as completed
-// (what "the set survived the restart" would look like) takes the drain's completed branch and
-// never dispatches, and the second-invocation assertions below are the ones that would fail — the
-// crash-cut leaves the key out of the set anyway, since seenSet.finish drops an unacknowledged
-// key, so a same-process retry redelivers too; the restart shape is used because it is the one x09
-// produced. And on the pre-fix tree the three index assertions fail: the redelivered Stop appends a
-// second SubagentStop record, and the redelivered read appends a supersede mark naming a record
-// that landed after it.
+// The historical supersession regression is also exercised at the observer
+// boundary after the later read commits: redundant delivery of the original
+// observation must not supersede that later read. Current daemon ordering no
+// longer produces the old fixture's out-of-order publication deliberately.
 func TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent(t *testing.T) {
 	root := t.TempDir()
 	dd, opts, ids := newRealObserverDaemon(t, root)
@@ -94,7 +49,7 @@ func TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent(t *testing.T)
 		if err != nil || cutToken == "" {
 			return j, err
 		}
-		if _, leased := j.leases[cutToken]; leased {
+		if lease, leased := j.leases[cutToken]; leased && sp08d2Seen(ids(), lease.ObservationID) > 0 {
 			return nil, deliveryJournalError() // the frontier write, and only it, is cut
 		}
 		return j, nil
@@ -108,14 +63,30 @@ func TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent(t *testing.T)
 	require.True(t, dd.dispatchOp(ctx, readReq).OK)
 	drainRing(t, dd)
 
-	// 2. A LATER read of the same content, fully acknowledged. It supersedes the first, which is
-	//    what makes an INVERTED mark reachable: when the first read is replayed, a supersession
-	//    re-run from the replay's own clock sees this record as "earlier" and marks it superseded by
-	//    a read that actually predates it (x09 v3_x09_test.go:358).
+	// The later read is admitted and leased, but cannot publish over the cut.
 	laterToken := testDeliveryToken('a')
 	cutToken = ""
 	require.True(t, dd.dispatchOp(ctx, sp08d2Read(laterToken, sess, "toolu_sp08d2_later")).OK)
 	drainRing(t, dd)
+	_, err := opts.Store.ToolUse(ctx, "toolu_sp08d2_later")
+	require.ErrorIs(t, err, core.ErrNotFound, "same-session successor waits for the earlier ACK")
+	journal, err := dd.deliveryJournal()
+	require.NoError(t, err)
+	readLease := journal.leases[readToken]
+	require.False(t, journal.acknowledged(readToken), "the first publication reached no frontier")
+	require.Equal(t, 1, sp08d2Seen(ids(), readLease.ObservationID), "the ACK cut follows a real handler")
+
+	// Replay closes that cut before publishing the later read. It may then
+	// supersede the first record in the original causal order.
+	n, err := dd.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, n)
+	require.True(t, journal.acknowledged(readToken))
+	require.True(t, journal.acknowledged(laterToken))
+	beforeReplay := sp08d2Index(t, root)
+	response := dd.runIngested(observer.WithObservation(ctx, readLease.ObservationID), readReq)
+	require.True(t, response.OK, "historical duplicate observation remains absorbable after a successor")
+	require.Equal(t, beforeReplay, sp08d2Index(t, root), "old replay must not invert later supersession")
 
 	// 3. A SubagentStop whose acknowledgement the shutdown cuts: site P2's delivery.
 	stopToken := testDeliveryToken('b')
@@ -125,13 +96,13 @@ func TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent(t *testing.T)
 	drainRing(t, dd)
 	cutToken = ""
 
-	journal, err := dd.deliveryJournal()
+	journal, err = dd.deliveryJournal()
 	require.NoError(t, err)
 	readLease, readLeased := journal.leases[readToken]
 	require.True(t, readLeased, "fixture: the live path took the read's lease")
 	stopLease, stopLeased := journal.leases[stopToken]
 	require.True(t, stopLeased, "fixture: the live path took the stop's lease")
-	require.False(t, journal.acknowledged(readToken), "fixture: the read's frontier was not committed")
+	require.True(t, journal.acknowledged(readToken), "fixture: replay committed the read before its successor")
 	require.False(t, journal.acknowledged(stopToken), "fixture: the stop's frontier was not committed")
 	require.True(t, journal.acknowledged(laterToken), "fixture: the later read IS on the frontier")
 	require.Len(t, sidecarFiles(t, root), 3, "fixture: stage 1 is durable for all three deliveries")
@@ -156,18 +127,15 @@ func TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent(t *testing.T)
 	dd.ing.seen = newSeenSet(seenCapacity)
 	dd.drain.Load().cfg.Seen = dd.ing.seen
 
-	n, err := dd.Drain(ctx)
+	n, err = dd.Drain(ctx)
 	require.NoError(t, err)
 
-	// The daemon's half, unchanged and still asserted: BOTH cut deliveries are dispatched a second
-	// time, under the identity they were first assigned. Nothing in the daemon absorbs this, and
-	// nothing should — the frontier was empty, so the redelivery is the contract working.
-	require.Equal(t, 2, sp08d2Seen(ids(), readLease.ObservationID),
-		"SP08-D2: the at-least-once redelivery runs the handler again under the same ObservationID "+
-			"(ingest.go dispatch: handlers must tolerate at-least-once delivery)")
+	// The earlier read's replay and the explicit historical observer replay
+	// retain its identity. Stop crosses the crash window here for the first time.
+	require.Equal(t, 3, sp08d2Seen(ids(), readLease.ObservationID))
 	require.Equal(t, 2, sp08d2Seen(ids(), stopLease.ObservationID),
-		"the same for the Stop: one delivery, two dispatches, one identity")
-	require.Equal(t, 2, n, "the WAL copies are dispatched; the client copy is the same delivery")
+		"one Stop delivery, two handler calls, one durable identity")
+	require.Equal(t, 1, n, "only the unacknowledged Stop is dispatched after restart")
 
 	// The observer's half, INVERTED: the second run writes nothing at all. This single assertion
 	// covers both sites, because the index file is where both defects were visible.
@@ -181,8 +149,8 @@ func TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, store.StatusOK, later.Status,
 		"P3: a replayed read must not supersede a record appended AFTER it")
-	require.Equal(t, int64(2), dd.m.Counter("observer.redelivery_absorbed").Value(),
-		"both redeliveries must be counted as absorbed rather than silently skipped")
+	require.Equal(t, int64(3), dd.m.Counter("observer.redelivery_absorbed").Value(),
+		"both crash replays and the historical observer replay are counted as absorbed")
 
 	// The correct half, as before: one identity, one delivery, one sidecar each, frontier reached.
 	require.Len(t, sidecarFiles(t, root), 3, "the identity is reused, not re-minted")

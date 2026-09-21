@@ -166,6 +166,8 @@ type ingest struct {
 	// stays in the WAL pending recovery and is neither ACKed nor dispatched without
 	// identity. Legacy callers without a nonce retain explicit unleased coverage.
 	journal func() (*deliveryJournal, error)
+	// Recheck physical scope after queueing, before capture publication.
+	admit func(ipc.Request) admissionVerdict
 
 	wg sync.WaitGroup
 }
@@ -671,6 +673,36 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		return // retain the WAL and blob for recovery
 	}
 	work := func() error {
+		if j.leased {
+			retired, err := terminalForDelivery(i.journal, j.lease)
+			if err != nil || retired {
+				// Drain accounts for the retired WAL source; this worker must
+				// neither capture it nor turn its denial into a capture ACK.
+				return nil
+			}
+		}
+		if i.admit != nil {
+			verdict := i.admit(req)
+			if verdict.Denied || verdict.Failed {
+				if verdict.Denied && j.leased {
+					_ = retireDelivery(i.journal, ctx, j.lease)
+				}
+				return nil // Drain accounts for the retained WAL and disposition.
+			}
+			req = verdict.Request
+		}
+		// Ordering gate (SP08-D3 issue 1, delivery-order-decision.md): a leased observer event may
+		// publish only after every earlier leased arrival of its session has reached the committed
+		// frontier. A blocked predecessor makes this delivery retryable — publish nothing, run
+		// nothing, leave the WAL bytes and any blob intact, and release seen ownership (acknowledged
+		// stays false), so a later drain re-dispatches it once the predecessor is acknowledged. It
+		// never waits on another worker.
+		if !i.leasedPredecessorsReady(j.lease, j.leased) {
+			if i.m != nil {
+				i.m.Counter(counterOrderingDeferred).Add(1)
+			}
+			return nil
+		}
 		// Publication order, stage 1: the durable object. A capture that cannot be made durable
 		// blocks the reference and the frontier behind it; the delivery stays retryable and the
 		// host's own result is untouched either way (invariant 4).

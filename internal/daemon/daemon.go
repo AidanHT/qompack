@@ -319,6 +319,7 @@ func New(o Options) (Daemon, error) {
 	// The delivery journal belongs to the singleton Lock Run acquires later, so both the ingest
 	// queue and the drainer reach it through this accessor rather than holding it.
 	d.ing.journal = d.deliveryJournal
+	d.ing.admit = d.admitDelivery
 
 	d.routes = buildRoutes(&o, d)
 
