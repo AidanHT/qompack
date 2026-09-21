@@ -421,10 +421,145 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	// so every later Drain failed before reading a single spool file. The bytes of a held segment past
 	// its synced size wait the same way, as a trailing incomplete line does: unconsumed, and pending.
 	r := bufio.NewReaderSize(io.LimitReader(f, max(end-fs.Offset, 0)), drainReadBufferBytes)
+	// The durable OFFSET advances only over the contiguous consumed prefix from the front; the READ
+	// position runs ahead of it. Bounded leased-delivery ordering (delivery-order-decision.md): a
+	// leased line whose earlier same-session arrival is not yet acknowledged is DEFERRED — its bytes
+	// and blob are left intact and the offset never passes it — while the pass looks ahead (bounded)
+	// for the line that holds the missing predecessor, which a restart can place LATER in the same
+	// file because WAL fsync order and lease-arrival order are separate batches. `processed` records
+	// lines consumed out of order so the front can roll forward over them once the deferred prefix
+	// clears; a still-deferred prefix at end of pass is left for a later scheduled pass (cross-file
+	// predecessors), never spun on and never advanced over.
 	offset := fs.Offset
+	readPos := fs.Offset
 	count := 0
 	canceled := false
 	var readErr error
+	processed := map[int64]int64{}
+	var deferred []deferredLine
+
+	consume := func(start, next int64) {
+		if start != offset {
+			// Consumed out of order; the front rolls over it later. Bounded (item 3): past the roll-
+			// forward memory cap we stop recording it — the line is already dispatched and ACKED, so a
+			// later pass re-reads it, finds it on the committed frontier, and absorbs it there. This is
+			// what keeps the map from growing without bound behind a stuck prefix.
+			if len(processed) < orderingProcessedCap {
+				processed[start] = next
+			}
+			return
+		}
+		offset = next
+		for {
+			n, ok := processed[offset]
+			if !ok {
+				break
+			}
+			delete(processed, offset)
+			offset = n
+		}
+		fs.Offset = offset
+	}
+
+	// processOne runs one line through the frontier, ordering, seen and dispatch stages. done means
+	// the line was consumed (roll the offset); deferIt means it is blocked on an unacknowledged
+	// predecessor (retryable); dispatched means a real publication happened, so it counts; a hard
+	// error ends the pass. It serves a freshly read line and a deferred re-attempt alike.
+	processOne := func(dl deferredLine) (done, deferIt, dispatched bool, hardErr error) {
+		if dl.leased {
+			retired, err := terminalForDelivery(dr.cfg.Journal, dl.lease)
+			if err != nil {
+				return false, false, false, err
+			}
+			if retired {
+				gaps.add(base, DrainGapDenied, "replay retired by policy denial")
+				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
+					fs.PendingBlobs = append(fs.PendingBlobs, blob)
+				}
+				return true, false, false, nil
+			}
+		}
+		if dl.leased && dr.acknowledgedDelivery(dl.lease, dl.leased) {
+			if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
+				fs.PendingBlobs = append(fs.PendingBlobs, blob)
+			}
+			return true, false, false, nil
+		}
+		if !dr.leasedPredecessorsReady(dl.lease, dl.leased) {
+			return false, true, false, nil
+		}
+		if dr.cfg.Seen != nil {
+			completed, acquired := dr.cfg.Seen.begin(dl.key)
+			if completed {
+				if dl.leased && !dr.acknowledgedDelivery(dl.lease, dl.leased) {
+					gaps.add(base, DrainGapUnacknowledged, "in-memory completion has no frontier record")
+				}
+				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
+					fs.PendingBlobs = append(fs.PendingBlobs, blob)
+				}
+				return true, false, false, nil
+			}
+			if !acquired {
+				return false, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
+			}
+		}
+		blob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased)
+		if dr.cfg.Seen != nil {
+			dr.cfg.Seen.finish(dl.key, dispatchErr == nil)
+		}
+		if errors.Is(dispatchErr, errReplayDenied) {
+			gaps.add(base, DrainGapDenied, "policy denied before replay publication")
+			if blob != "" {
+				fs.PendingBlobs = append(fs.PendingBlobs, blob)
+			}
+			return true, false, false, nil
+		}
+		if dispatchErr != nil {
+			gaps.add(base, DrainGapUnacknowledged, "publication did not reach the frontier")
+			return false, false, false, dispatchErr
+		}
+		if blob != "" {
+			fs.PendingBlobs = append(fs.PendingBlobs, blob)
+		}
+		return true, false, true, nil
+	}
+
+	// reattempt re-runs the deferred lines after a consume may have acknowledged a predecessor, to a
+	// fixpoint. It never blocks: a line that is still deferred is simply kept for a later pass.
+	reattempt := func() error {
+		for {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			progressed := false
+			for idx := 0; idx < len(deferred); {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				done, _, dispatched, err := processOne(deferred[idx])
+				if err != nil {
+					return err
+				}
+				if !done {
+					idx++
+					continue
+				}
+				dl := deferred[idx]
+				consume(dl.start, dl.next)
+				if dispatched {
+					count++
+				}
+				if dr.cfg.Metrics != nil {
+					dr.cfg.Metrics.Counter(counterDrainOrderingResolved).Add(1)
+				}
+				deferred = append(deferred[:idx], deferred[idx+1:]...)
+				progressed = true
+			}
+			if !progressed {
+				return nil
+			}
+		}
+	}
 
 readLoop:
 	for {
@@ -443,11 +578,13 @@ readLoop:
 			readErr = err
 			break readLoop
 		}
-		nextOffset := offset + int64(len(raw))
+		lineStart := readPos
+		nextOffset := readPos + int64(len(raw))
+		readPos = nextOffset
 
 		line := bytes.TrimSuffix(raw, []byte{'\n'})
 		if len(bytes.TrimSpace(line)) == 0 {
-			offset, fs.Offset = nextOffset, nextOffset
+			consume(lineStart, nextOffset)
 			continue // lenient to blank lines, though the writer never emits them
 		}
 
@@ -458,7 +595,7 @@ readLoop:
 			}
 			dr.cfg.Log.Warn("daemon: drain: corrupt line", "path", path, "err", decErr)
 			gaps.add(base, DrainGapCorruptLine, "line did not decode")
-			offset, fs.Offset = nextOffset, nextOffset
+			consume(lineStart, nextOffset)
 			continue
 		}
 
@@ -467,34 +604,44 @@ readLoop:
 		// first policy removed. A record that carries none is decided here, before it is dispatched
 		// and therefore before anything it would cause can be persisted.
 		verdict := dr.admitLine(req)
+		// A previous lease can survive a later policy change. A proven denial
+		// retires it durably before the offset; uncertainty retains the source.
+		if verdict.Denied || verdict.Failed {
+			lease, held, err := dr.existingLease(req)
+			if err == nil && held && verdict.Denied {
+				err = dr.retireDeniedDelivery(ctx, lease)
+			}
+			if err != nil || (held && verdict.Failed) {
+				if dr.cfg.Metrics != nil {
+					dr.cfg.Metrics.Counter(counterDrainLeasedDenyPending).Add(1)
+				}
+				gaps.add(base, DrainGapUnadmitted, "refused replay has unresolved delivery identity or policy")
+				continue
+			}
+		}
 		switch {
 		case verdict.Denied:
-			// A denial is terminal: retrying produces the same answer, so the offset advances and
-			// the record is released. Nothing was persisted and nothing will be.
 			gaps.add(base, DrainGapDenied, verdict.Reason)
-			offset, fs.Offset = nextOffset, nextOffset
+			if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
+				fs.PendingBlobs = append(fs.PendingBlobs, blob)
+			}
+			consume(lineStart, nextOffset)
+			if err := reattempt(); err != nil {
+				readErr = err
+				break readLoop
+			}
 			continue
 		case verdict.Failed:
-			// A failure is terminal FOR THIS RECORD, and the offset advances past it.
-			//
-			// This branch used to leave the line where it was, on the reasoning that a later pass
-			// — with a readable policy, or a repaired configuration — could still admit it. That
-			// reasoning holds for a policy that failed to compile, but the decision is BAKED INTO
-			// the spooled bytes: no later pass can change this record's Capture, so no later pass
-			// can ever admit it. Leaving it in place wedged the file permanently — the same
-			// offset, the same verdict, the same abandonment on every startup and every idle tick
-			// — and every record BEHIND it was never delivered for the life of the project, while
-			// the records in front of it were re-dispatched on every pass.
-			//
-			// Losing one unadmittable record LOUDLY is correct; losing everything behind it
-			// silently is not. The gap is recorded, counted and announced, and the drain goes on.
+			// A never-leased failure is terminal FOR THIS RECORD, and the offset advances past it. The
+			// decision is baked into the spooled bytes, so no later pass can admit it; losing it LOUDLY
+			// is correct while losing everything behind it silently is not.
 			if dr.cfg.Metrics != nil {
 				dr.cfg.Metrics.Counter(counterDrainUnadmitted).Add(1)
 			}
 			dr.cfg.Log.Loud("daemon: drain: capture not admitted; record skipped",
 				"path", path, "reason", verdict.Reason)
 			gaps.add(base, DrainGapUnadmitted, verdict.Reason)
-			offset, fs.Offset = nextOffset, nextOffset
+			consume(lineStart, nextOffset)
 			continue
 		case verdict.Degraded:
 			// The policy decided and the decision is degraded. It is admitted exactly as the live
@@ -512,63 +659,45 @@ readLoop:
 				break readLoop
 			}
 		}
-		// The committed frontier is consulted BEFORE the seen set, for every leased line. One
-		// delivery can reach the drain as two copies: the daemon's own WAL copy, and the hook
-		// client's fallback copy (ipc spoolAndReturn, taken when the one-byte transport ACK misses
-		// its deadline AFTER the daemon had already leased, published and acknowledged the
-		// request). The seen set cannot witness either across a restart — it is process memory,
-		// empty on a fresh daemon — but the frontier is durable, and delivery_lease.go's
-		// acknowledge states the contract for a copy it already names: "a redelivery already
-		// acknowledged returns without appending, which is what lets a drained line advance a
-		// spool offset without republishing anything". Dispatching such a copy re-ran the observer
-		// through fresh handlers for a delivery the frontier held (F4-P1). The copy takes exactly
-		// the path the completed branch below takes for its acknowledged case: its blob stays
-		// pending until this file's consumed offset is persisted, the offset advances, and nothing
-		// is dispatched, gapped or recorded in the seen set. A leased copy the frontier does NOT
-		// name — the crash window between publication and acknowledgement — falls through and is
-		// re-dispatched under its reused lease, as before.
-		if leased && dr.acknowledgedDelivery(lease, leased) {
-			if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
-				fs.PendingBlobs = append(fs.PendingBlobs, blob)
+
+		// The frontier, ordering, seen and dispatch stages, all through processOne. An unleased line
+		// is never ordering-gated (leasedPredecessorsReady is true for it) and follows its existing
+		// qualified path. See the frontier/seen rationale preserved in processOne.
+		dl := deferredLine{
+			req: req, lease: lease, leased: leased,
+			key: deliveryIdentityKey(lease, leased, line), start: lineStart, next: nextOffset,
+		}
+		done, deferIt, dispatched, err := processOne(dl)
+		if err != nil {
+			readErr = err
+			break readLoop
+		}
+		if deferIt {
+			if dr.cfg.Metrics != nil {
+				dr.cfg.Metrics.Counter(counterDrainOrderingDeferred).Add(1)
 			}
-			offset, fs.Offset = nextOffset, nextOffset
+			// Item 3: do NOT stop at the buffer bound — stopping re-reads the same prefix every pass
+			// and never reaches a predecessor deeper in the file. Buffer this line's request only while
+			// under the memory cap; past it, drop the buffered copy (no full-request allocation per
+			// unbounded record) but KEEP SCANNING. The overflow line is not consumed — the offset never
+			// passes an unresolved record — so a later pass re-reads it; meanwhile a ready predecessor
+			// found further on IS dispatched and acknowledged this pass, which is what unblocks the
+			// prefix on the next pass. Liveness is claimed only within these demonstrated bounds.
+			if len(deferred) < orderingLookaheadBound {
+				deferred = append(deferred, dl)
+			}
 			continue
 		}
-		key := deliveryIdentityKey(lease, leased, line)
-		if dr.cfg.Seen != nil {
-			completed, acquired := dr.cfg.Seen.begin(key)
-			if completed {
-				if leased && !dr.acknowledgedDelivery(lease, leased) {
-					gaps.add(base, DrainGapUnacknowledged, "in-memory completion has no frontier record")
-				}
-				// A live worker's acknowledgement was in memory only. Keep its blob until this
-				// file's consumed offset is persisted below.
-				if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
-					fs.PendingBlobs = append(fs.PendingBlobs, blob)
-				}
-				offset, fs.Offset = nextOffset, nextOffset
-				continue
+		if done {
+			consume(lineStart, nextOffset)
+			if dispatched {
+				count++
 			}
-			if !acquired {
-				readErr = fmt.Errorf("daemon: drain: delivery still in progress")
+			if err := reattempt(); err != nil {
+				readErr = err
 				break readLoop
 			}
 		}
-
-		blob, dispatchErr := dr.dispatchPending(ctx, req, lease, leased)
-		if dr.cfg.Seen != nil {
-			dr.cfg.Seen.finish(key, dispatchErr == nil)
-		}
-		if dispatchErr != nil {
-			gaps.add(base, DrainGapUnacknowledged, "publication did not reach the frontier")
-			readErr = dispatchErr
-			break readLoop
-		}
-		if blob != "" {
-			fs.PendingBlobs = append(fs.PendingBlobs, blob)
-		}
-		offset, fs.Offset = nextOffset, nextOffset
-		count++
 	}
 	_ = f.Close() // must happen before the delete-if-drained check below (Windows cannot remove an open file)
 
@@ -1007,6 +1136,19 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 	if err != nil {
 		return "", err
 	}
+	verdict := dr.admitLine(resolved)
+	if verdict.Denied {
+		if leased {
+			if err := retireDelivery(dr.cfg.Journal, ctx, lease); err != nil {
+				return "", err
+			}
+		}
+		return blob, errReplayDenied
+	}
+	if verdict.Failed {
+		return "", core.ErrDegraded
+	}
+	resolved = verdict.Request
 	if leased {
 		if err := publishCapture(dr.cfg.Root, resolved, lease); err != nil {
 			return "", fmt.Errorf("daemon: drain: capture not durable: %w", err)

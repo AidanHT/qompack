@@ -70,6 +70,9 @@ type deliveryJournal struct {
 	ackBytes  int64
 	ackChain  core.Hash
 	acks      map[string]deliveryAck
+	// terminal records replay retirement by an explicit policy denial. It is
+	// distinct from an acknowledgement of captured content, and guarded by st.
+	terminal map[string]deliveryTerminal
 
 	// st guards fault, closed, closing and inflight, and every write of the admitted state: bytes,
 	// chain, leases and arrivals, and ackBytes, ackChain and acks. It is taken below Lock.mu and
@@ -231,6 +234,11 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 	// The acknowledgement journal is recovered under the same held lock and in the same open, so a
 	// caller can never see assignments without the frontier that decides which of them are done.
 	if err := j.openAckLocked(); err != nil {
+		_ = j.poison(deliveryJournalError())
+		_ = j.closeLocked()
+		return nil, err
+	}
+	if err := j.loadTerminalDispositions(); err != nil {
 		_ = j.poison(deliveryJournalError())
 		_ = j.closeLocked()
 		return nil, err
