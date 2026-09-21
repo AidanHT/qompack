@@ -175,6 +175,10 @@ func (s *FSStore) loadToolUse() error {
 		s.count("store.index.badline", int64(bad))
 		s.log.Warn("store: skipped malformed tool_use index lines", "file", s.toolUsePath(), "lines", bad)
 	}
+	// The observation sidecar is replayed AFTER the tool_use index it derives completeness from, in
+	// the same open pass (observation_publication.go). It never fails the open: a malformed intent is
+	// counted and reported unavailable, exactly as a malformed tool_use line is skipped.
+	s.loadObservationsLocked()
 	return nil
 }
 
@@ -200,14 +204,32 @@ func (s *FSStore) putToolUseLocked(rec ToolUseRecord) {
 
 // RecordToolUse appends rec to index/tool_use.jsonl.
 //
-// It is safe to replay: re-recording an ID that is already present with the SAME Root is a silent
-// no-op, which is what lets the daemon replay its WAL after a crash without producing duplicate
-// index lines. Re-recording an ID with a DIFFERENT Root is an append-only violation — a tool_use
-// id identifies one tool call, and one tool call has one result.
+// When rec.Observation is set it goes through the intent-first publication path (observation_publication.go)
+// so a crash between the record and its observation binding is recoverable; otherwise it is the plain
+// legacy append. Either way it is safe to replay: re-recording an ID that is already present with the
+// SAME Root is a silent no-op; a DIFFERENT Root is an append-only violation.
 func (s *FSStore) RecordToolUse(ctx context.Context, rec ToolUseRecord) error {
 	if err := s.mutate(); err != nil {
 		return err
 	}
+	if rec.Observation != "" {
+		_, _, err := s.publishObservation(ctx, rec, nil)
+		return err
+	}
+	// Serialise the plain write's reservation admission against reservations/publishes: a legacy insert
+	// must not land a reserved id between a reservation's conflict check and its reserved-map install.
+	s.obsPubMu.Lock()
+	defer s.obsPubMu.Unlock()
+	if err := s.mutate(); err != nil {
+		return err
+	}
+	return s.recordToolUseCore(ctx, rec)
+}
+
+// recordToolUseCore is the plain legacy append, with no observation wiring. Its caller has already
+// taken the write guard. It also honours an existing reservation: a writer that is NOT the reserver may
+// not land the reserved id under different immutable metadata (reservedIdentityConflictLocked).
+func (s *FSStore) recordToolUseCore(ctx context.Context, rec ToolUseRecord) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -231,6 +253,10 @@ func (s *FSStore) RecordToolUse(ctx context.Context, rec ToolUseRecord) error {
 		}
 		s.mu.Unlock()
 		return nil
+	}
+	if err := s.reservedIdentityConflictLocked(rec); err != nil {
+		s.mu.Unlock()
+		return err
 	}
 	s.mu.Unlock()
 
@@ -314,6 +340,23 @@ func (s *FSStore) RecordToolUseSuperseding(ctx context.Context, rec ToolUseRecor
 	if err := s.mutate(); err != nil {
 		return nil, false, err
 	}
+	if rec.Observation != "" {
+		return s.publishObservation(ctx, rec, older)
+	}
+	s.obsPubMu.Lock()
+	defer s.obsPubMu.Unlock()
+	if err := s.mutate(); err != nil {
+		return nil, false, err
+	}
+	return s.recordSupersedingCore(ctx, rec, older)
+}
+
+// recordSupersedingCore is the atomic record-plus-marks batch with no observation wiring; the public
+// method (which has taken the write guard) routes an observation-bearing record through
+// publishObservation instead.
+func (s *FSStore) recordSupersedingCore(ctx context.Context, rec ToolUseRecord,
+	older []core.ToolUseID,
+) ([]core.ToolUseID, bool, error) {
 	// One ctx check, before any write and before the index is consulted, so a cancelled call is
 	// indistinguishable from one that never ran (the property the SP08-D2 sweep rests on).
 	if err := ctx.Err(); err != nil {
@@ -336,6 +379,10 @@ func (s *FSStore) RecordToolUseSuperseding(ctx context.Context, rec ToolUseRecor
 			return nil, false, fmt.Errorf("%w: tool_use %s already recorded", core.ErrAppendOnly, rec.ID)
 		}
 		return nil, false, nil
+	}
+	if err := s.reservedIdentityConflictLocked(rec); err != nil {
+		s.mu.RUnlock()
+		return nil, false, err
 	}
 	marks := make([]core.ToolUseID, 0, len(older))
 	for _, id := range older {
@@ -390,6 +437,52 @@ func (s *FSStore) RecordToolUseSuperseding(ctx context.Context, rec ToolUseRecor
 	return marks, true, nil
 }
 
+// completeSupersedeMarks appends, in one write, the supersede marks in targets that are still missing
+// for `by` (an id the index already holds), and applies them in memory. It is the recovery half of the
+// record-plus-marks batch: the record persisted but some marks did not. It never touches a target that
+// is already superseded — by an earlier pass or by a LATER record — so later supersession is preserved.
+func (s *FSStore) completeSupersedeMarks(ctx context.Context, by core.ToolUseID, targets []core.ToolUseID) ([]core.ToolUseID, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	s.mu.RLock()
+	marks := make([]core.ToolUseID, 0, len(targets))
+	for _, id := range targets {
+		if id == by {
+			continue
+		}
+		prior, ok := s.toolUse[id]
+		if !ok || prior.Status == StatusSuperseded {
+			continue // an unknown target, or one already superseded (later supersession preserved)
+		}
+		marks = append(marks, id)
+	}
+	s.mu.RUnlock()
+	if len(marks) == 0 {
+		return nil, nil
+	}
+	ts := s.now()
+	var buf []byte
+	for _, id := range marks {
+		line, lerr := marshalLine(tuSupersedeRec{V: indexRecordVersion, Op: "supersede", ID: id, By: by, TS: ts})
+		if lerr != nil {
+			return nil, lerr
+		}
+		buf = append(buf, line...)
+	}
+	if err := s.tuW.write(buf); err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	for _, id := range marks {
+		if prior, ok := s.toolUse[id]; ok && prior.Status == StatusOK {
+			prior.Status, prior.SupersededBy = StatusSuperseded, by
+		}
+	}
+	s.mu.Unlock()
+	return marks, nil
+}
+
 // ToolUse looks up one tool_use record.
 func (s *FSStore) ToolUse(ctx context.Context, id core.ToolUseID) (ToolUseRecord, error) {
 	if err := s.use(); err != nil {
@@ -436,6 +529,13 @@ func (s *FSStore) ToolUsesByPath(ctx context.Context, path string, limit int) ([
 // index/tool_use.jsonl append-only (§7.4). Marking the same pair twice is a no-op that writes
 // nothing, so a replayed hook cannot grow the file without bound.
 func (s *FSStore) MarkSuperseded(ctx context.Context, older core.ToolUseID, by core.ToolUseID) error {
+	if err := s.mutate(); err != nil {
+		return err
+	}
+	// An observation intent snapshots and completes a selected supersession
+	// under this same barrier. A later mark must not slip between those stages.
+	s.obsPubMu.Lock()
+	defer s.obsPubMu.Unlock()
 	if err := s.mutate(); err != nil {
 		return err
 	}

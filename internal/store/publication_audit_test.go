@@ -68,7 +68,7 @@ func TestAuditPublication_ClassifiesCaptureSidecars(t *testing.T) {
 
 	seedCapture(t, tp.Root, "tool-published", auditOpObserveTool, true, core.OutcomeOK, body)
 	seedCapture(t, tp.Root, "tool-gap", auditOpObserveTool, false, core.OutcomeOK, body)
-	seedCapture(t, tp.Root, "stop-gap", auditOpObserveStop, false, core.OutcomeOK, body)
+	seedCapture(t, tp.Root, "stop-gap", auditOpObserveStop, false, core.OutcomeOK, []byte(`{"hook_event_name":"SubagentStop"}`))
 	seedCapture(t, tp.Root, "prompt-open", auditOpObservePrompt, false, core.OutcomeOK, body)
 	seedCapture(t, tp.Root, "tool-denied", auditOpObserveTool, false, core.OutcomeDenied, nil)
 	seedCapture(t, tp.Root, "tool-ok-nobytes", auditOpObserveTool, false, core.OutcomeOK, nil)
@@ -77,10 +77,10 @@ func TestAuditPublication_ClassifiesCaptureSidecars(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 6, a.CapturesScanned, "every sidecar on disk must be examined")
-	require.Equal(t, 2, a.UnpublishedCaptures,
-		"only the ok+durable-bytes tool and stop deliveries are gaps (fsck calibration rule 2)")
-	require.Equal(t, 3, a.LegitimatelyUnpublished,
-		"a prompt, a denied capture and an ok-without-bytes capture are all legitimately unpublished")
+	require.Equal(t, 3, a.UnpublishedCaptures,
+		"tool, prompt and subagent stop require a publication reference under the current contract")
+	require.Equal(t, 2, a.LegitimatelyUnpublished,
+		"denied and ok-without-bytes captures require no reference")
 	require.True(t, a.HasGaps())
 	require.False(t, a.Incomplete,
 		"a fully readable, known-schema, known-outcome tree is a COMPLETE accounting")
@@ -377,4 +377,28 @@ func zeroHex() string { return core.Hash{}.String()[len("sha256:"):] }
 // nonzeroHex is the hex of a real, non-zero digest, for a durable bytes_hash in a raw sidecar.
 func nonzeroHex() string {
 	return core.HashBytes(core.DomainChunk, []byte("durable")).String()[len("sha256:"):]
+}
+
+func TestAuditPublication_StopReferenceRequirementIsQualified(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		body       []byte
+		outcome    core.EvidenceOutcome
+		gaps       int
+		incomplete bool
+	}{
+		{"ordinary stop", []byte(`{"hook_event_name":"Stop"}`), core.OutcomeOK, 0, false},
+		{"subagent stop", []byte(`{"hook_event_name":"SubagentStop"}`), core.OutcomeOK, 1, false},
+		{"unknown stop", []byte(`{"future_field":true}`), core.OutcomeOK, 0, true},
+		{"denied stop", nil, core.OutcomeDenied, 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tp := newTestStore(t)
+			seedCapture(t, tp.Root, tc.name, auditOpObserveStop, false, tc.outcome, tc.body)
+			audit, err := tp.Store.AuditPublication(context.Background(), DefaultPublicationScanCap())
+			require.NoError(t, err)
+			require.Equal(t, tc.gaps, audit.UnpublishedCaptures)
+			require.Equal(t, tc.incomplete, audit.Incomplete)
+		})
+	}
 }

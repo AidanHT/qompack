@@ -425,6 +425,11 @@ func (x *Maintenance) proveReader(ctx context.Context, staging string, proof *Re
 	fs := ro.fs
 
 	perr := func() error {
+		var audit PublicationAudit
+		fs.auditObservationBindings(ctx, &scanBudget{entriesLeft: defaultMaxEntries}, &audit)
+		if audit.Incomplete {
+			return errors.New("store: restored observation publication is incomplete or unavailable")
+		}
 		for _, h := range maintRootHashes(fs) {
 			if err := ctx.Err(); err != nil {
 				return err

@@ -292,6 +292,18 @@ func readOnlyRefusals(seeded core.Hash) []storeOp {
 		{"Quarantine", func(_ context.Context, s *FSStore) error {
 			return s.Quarantine(seeded, "readonly refusal probe")
 		}},
+		// The observation-binding writers: reserving an intent and completing its publication both
+		// mutate, so a read-only store must refuse them like any other writer.
+		{"ReserveObservation", func(ctx context.Context, s *FSStore) error {
+			return s.ReserveObservation(ctx, "obs-readonly", ToolUseRecord{
+				ID: "toolu_01READONLYOBSAAAAAAAAA", Session: "sess-readonly", Turn: 3, TS: 3,
+				Tool: "Bash", Root: seeded,
+			}, nil)
+		}},
+		{"RecoverToolUseByObservation", func(ctx context.Context, s *FSStore) error {
+			_, err := s.RecoverToolUseByObservation(ctx, "obs-readonly")
+			return err
+		}},
 	}
 }
 
@@ -379,22 +391,22 @@ func TestReadOnly_EveryExportedMethodIsClassified(t *testing.T) {
 // method writes nothing, and the test above makes that claim mandatory: a new method that is not
 // delegated, not swept and not listed fails, whether or not it took the mutate() guard.
 var readOnlyReadsAllowlist = map[string]string{
-	"PromptFrontier":   "bounded read of the loaded tool-use index, without filesystem writes",
-	"ContentOrigins":   "bounded read of loaded roots, tool uses and file history",
-	"AuditPublication": "bounded read-only audit of capture metadata and object names",
+	"PromptFrontier": "bounded read of the loaded tool-use index, without filesystem writes",
+	"ContentOrigins": "bounded read of loaded roots, tool uses and file history",
 	"Has": "a map lookup under an RLock, with a stat only when the index says no; it opens " +
 		"and writes nothing",
-	"ObjectOnDisk":   "one stat per candidate object spelling; it opens, decodes and writes nothing",
-	"Open":           "returns a reader over already-loaded chunk refs; objects are read, never written",
-	"OpenSpan":       "Open's bounded form, over the same read path",
-	"Search":         "materializes candidates through the same object reads Open uses",
-	"FileHistory":    "reads the in-memory per-path version list",
-	"FileAt":         "the same list, resolved at a timestamp",
-	"ChangedSince":   "compares caller-supplied deps against the loaded file index",
-	"ToolUse":        "an in-memory tool_use lookup",
-	"ToolUsesByPath": "the same index, by path",
-	"RecentSessions": "reads the loaded session index",
-	"ApproxRefs":     "reads the in-memory refcount map",
+	"ObjectOnDisk":         "one stat per candidate object spelling; it opens, decodes and writes nothing",
+	"Open":                 "returns a reader over already-loaded chunk refs; objects are read, never written",
+	"OpenSpan":             "Open's bounded form, over the same read path",
+	"Search":               "materializes candidates through the same object reads Open uses",
+	"FileHistory":          "reads the in-memory per-path version list",
+	"FileAt":               "the same list, resolved at a timestamp",
+	"ChangedSince":         "compares caller-supplied deps against the loaded file index",
+	"ToolUse":              "an in-memory tool_use lookup",
+	"ToolUsesByPath":       "the same index, by path",
+	"ToolUseByObservation": "a committed in-memory observation → tool_use lookup; it writes nothing",
+	"RecentSessions":       "reads the loaded session index",
+	"ApproxRefs":           "reads the in-memory refcount map",
 	"Segments": "returns the segment log, which carries its own refusal in segLog.append " +
 		"(TestOpenReadOnly_TheSegmentLogRefusesWrites)",
 }

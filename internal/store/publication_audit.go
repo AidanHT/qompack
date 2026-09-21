@@ -23,11 +23,10 @@ import (
 // fsck cannot disagree about what a gap is:
 //
 //   - An unpublished PUBLISHABLE capture. fsck's calibration rule 2: `published:false` ALONE is not a
-//     gap — it is the state of every ordinary in-flight turn. The one reportable state is a TOOL (or,
-//     per main's ruling, STOP) delivery whose Outcome is core.OutcomeOK and whose BytesHash is
-//     durable, with no reference ever joined (fsck.go:1111-1118). A denied/absent/error capture
-//     admitted no bytes and a PROMPT delivery produces no ToolUseRecord — both are legitimately
-//     unpublished, never gaps.
+//     gap — it is the state of every ordinary in-flight turn. A tool, prompt or subagent-stop
+//     delivery with OutcomeOK and durable BytesHash requires a reference. A denied/absent/error
+//     capture admits no bytes; ordinary Stop produces no derived record. Unknown stop provenance
+//     remains incomplete.
 //   - An unindexed OBJECT CANDIDATE. An object file no live index chunk references (F4-1). It is a
 //     CANDIDATE, not a proven failed publication: a tombstoned-but-not-yet-GC-swept object is also
 //     absent from the live index, and telling the two apart needs a tombstone-history replay this
@@ -77,7 +76,7 @@ const (
 // lifetime is exactly the case where a startup pass must stop and say it was truncated.
 const (
 	defaultMaxCaptureScan = 8192
-	defaultMaxObjectScan  = 16384
+	defaultMaxObjectScan  = 16384 //nomagic:allow bounded diagnostic work, not a configurable object budget.
 	// defaultMaxEntries bounds the TOTAL directory entries any one pass visits. It is generous enough
 	// for a healthy fanout (up to 256 capture shards, plus a bounded object tree) and small enough
 	// that a directory bomb reports truncation instead of walking forever.
@@ -151,12 +150,12 @@ type PublicationAudit struct {
 	CapturesScanned int
 	ObjectsScanned  int
 
-	// UnpublishedCaptures is the count of PUBLISHABLE captures with a genuine gap: a tool/stop
+	// UnpublishedCaptures counts publishable tool, prompt or subagent-stop captures:
 	// delivery whose Outcome is core.OutcomeOK and whose BytesHash is durable, still unpublished
 	// (fsck calibration rule 2). This is the V6-RECOVERY-1 capture gap.
 	UnpublishedCaptures int
 	// LegitimatelyUnpublished is the count of sidecars that are unpublished for a GOOD reason, not a
-	// gap: a prompt delivery (never publishes a reference), a non-ok outcome (a denied/absent/error
+	// gap: an ordinary Stop, a non-ok outcome (a denied/absent/error
 	// capture admitted no bytes), or an ok capture that retained no durable bytes. Counted only so the
 	// aggregate shows they were seen and correctly set aside, never silently promoted to a gap.
 	LegitimatelyUnpublished int
@@ -237,6 +236,7 @@ func (s *FSStore) AuditPublication(ctx context.Context, scanCap PublicationScanC
 	bud := &scanBudget{entriesLeft: scanCap.MaxEntries, bytesLeft: scanCap.MaxBytes}
 
 	var a PublicationAudit
+	s.auditObservationBindings(ctx, bud, &a)
 	s.auditCaptures(ctx, scanCap.MaxCaptures, bud, &a)
 	pending := s.pendingObjectChunks(ctx, bud, &a)
 	s.auditObjects(ctx, scanCap.MaxObjects, bud, &a, pending)
@@ -314,6 +314,7 @@ type captureAuditView struct {
 	Published bool                 `json:"published"`
 	Outcome   core.EvidenceOutcome `json:"outcome"`
 	BytesHash core.Hash            `json:"bytes_hash"`
+	Bytes     []byte               `json:"bytes,omitempty"`
 }
 
 // auditCaptures classifies every capture sidecar under records/captures/, bounded by maxCaptures and
@@ -401,26 +402,27 @@ func (s *FSStore) classifyCaptureView(v captureAuditView, a *PublicationAudit) {
 	if v.Published {
 		return
 	}
-	switch v.Op {
-	case auditOpObservePrompt:
-		// A verbatim prompt capture publishes no tool_use reference, ever. Permanently unpublished by
-		// design, never a gap.
-		a.LegitimatelyUnpublished++
-	case auditOpObserveTool, auditOpObserveStop:
-		switch {
-		case !isKnownOutcome(v.Outcome):
-			// A missing or future outcome is not this build's to interpret: unknown, hence incomplete.
-			a.note("capture sidecar with an unrecognized or missing outcome")
-		case v.Outcome == core.OutcomeOK && !v.BytesHash.IsZero():
-			// fsck calibration rule 2: ok outcome, durable bytes, no reference — the one real gap.
-			a.UnpublishedCaptures++
-		default:
-			// A non-ok outcome (denied/absent/error) admitted no bytes, or an ok capture retained
-			// none: nothing durable to publish a reference to. Legitimately unpublished, not a gap.
-			a.LegitimatelyUnpublished++
-		}
-	default:
+	if v.Op != auditOpObserveTool && v.Op != auditOpObservePrompt && v.Op != auditOpObserveStop {
 		a.note("capture sidecar with an unrecognized op")
+		return
+	}
+	if !isKnownOutcome(v.Outcome) {
+		a.note("capture sidecar with an unrecognized or missing outcome")
+		return
+	}
+	if v.Outcome != core.OutcomeOK || v.BytesHash.IsZero() {
+		a.LegitimatelyUnpublished++
+		return
+	}
+	required, known := CaptureRequiresReference(v.Op, v.Bytes)
+	if !known {
+		a.note("capture publication requirement is unknown")
+		return
+	}
+	if required {
+		a.UnpublishedCaptures++
+	} else {
+		a.LegitimatelyUnpublished++
 	}
 }
 
@@ -621,4 +623,30 @@ func (s *FSStore) readPublicationFile(name string, limit int64) ([]byte, error) 
 		return b, core.ErrBudget
 	}
 	return b, err
+}
+
+// CaptureRequiresReference describes the current observer contract. Ordinary Stop
+// has no derived record; SubagentStop does. An unreadable retained event cannot
+// establish that distinction. Old prompt records may predate reference capture;
+// their missing link is unverified under today's contract, not repaired here.
+func CaptureRequiresReference(op string, retained []byte) (required, known bool) {
+	switch op {
+	case auditOpObserveTool, auditOpObservePrompt:
+		return true, true
+	case auditOpObserveStop:
+		var event struct {
+			Name     string `json:"hook_event_name"`
+			Subagent bool   `json:"subagent"`
+		}
+		if json.Unmarshal(retained, &event) != nil {
+			return false, false
+		}
+		if event.Name == "SubagentStop" || event.Subagent {
+			return true, true
+		}
+		if event.Name == "Stop" {
+			return false, true
+		}
+	}
+	return false, false
 }

@@ -58,11 +58,14 @@ type ToolUseRecord struct {
 	// Subagent is "" for the main agent, or the subagent's name for a SubagentStop capture.
 	Subagent string
 	// Observation is the durable delivery identity this record was published for. It is IN-PROCESS
-	// ONLY: MarshalJSON does not emit it, because this record's wire shape is reproduced byte for
-	// byte by testdata/golden/contracts/store/want/tool_use_line.jsonl (Rule W-2) and may not grow a
-	// field. The durable form of the same join is the additive capture sidecar, which records this
-	// record'''s ID and Root against the observation identity — see LinkCaptureReference. Reading a
-	// record back from index/tool_use.jsonl therefore leaves this zero, by design.
+	// ONLY on this type: MarshalJSON does not emit it, and neither does the private index line (tuRec),
+	// because both wire shapes are frozen — the exported type by
+	// testdata/golden/contracts/store/want/tool_use_line.jsonl (Rule W-2) and the private line by
+	// testdata/golden/store/tool_use.jsonl. The durable observation↔record join lives in the versioned
+	// sidecar index/observations.jsonl (00-ARCHITECTURE.md §0.2), written as a publication INTENT
+	// before the legacy record and completed by ObservationRecovery (observation_publication.go);
+	// ToolUseByObservation is the committed lookup over it. Reading a record back from
+	// index/tool_use.jsonl therefore still leaves this field zero, by design.
 	Observation core.ObservationID
 }
 

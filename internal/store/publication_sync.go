@@ -16,7 +16,15 @@ type PublicationSync interface {
 	SyncPublication(context.Context, core.Hash) error
 }
 
+const (
+	publicationRootLimit   = 4096 //nomagic:allow recovery-closure safety bound, not a configuration default.
+	publicationObjectLimit = 65536
+)
+
 func (s *FSStore) publicationObjects(ctx context.Context, root core.Hash) (map[core.Hash]bool, error) {
+	if root.IsZero() {
+		return nil, ctx.Err() // metadata-only capture; its index still needs syncing
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	seen := make(map[core.Hash]bool)
@@ -38,11 +46,11 @@ func (s *FSStore) publicationObjects(ctx context.Context, root core.Hash) (map[c
 		}
 		for _, chunk := range entry.Root.Chunks {
 			objects[chunk.Hash] = true
-			if len(objects) > 65536 {
+			if len(objects) > publicationObjectLimit {
 				return nil, core.ErrDegraded
 			}
 		}
-		if len(seen) > 4096 || len(objects) > 65536 {
+		if len(seen) > publicationRootLimit || len(objects) > publicationObjectLimit {
 			return nil, core.ErrDegraded
 		}
 		for _, related := range []core.Hash{entry.Deltas, entry.Orig, entry.Base} {
