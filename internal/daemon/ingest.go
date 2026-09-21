@@ -162,8 +162,9 @@ type ingest struct {
 	// journal resolves the daemon's held delivery journal. It is a function rather than a field
 	// because the journal belongs to the singleton Lock, which Run acquires after the ingest queue
 	// is constructed and releases before it is torn down. A nil journal (or one that answers an
-	// error) is a recorded gap: the delivery still reaches the WAL, it simply has no durable
-	// identity, and nothing downstream may pretend otherwise.
+	// error) is a recorded gap. With a configured journal and a nonce, the delivery
+	// stays in the WAL pending recovery and is neither ACKed nor dispatched without
+	// identity. Legacy callers without a nonce retain explicit unleased coverage.
 	journal func() (*deliveryJournal, error)
 
 	wg sync.WaitGroup
@@ -272,6 +273,12 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 		// process it. A redelivery of the same nonce — the client's spool fallback, a drained WAL
 		// line after restart — takes the same lease back unchanged and reuses this identity.
 		lease, leased := i.leaseDelivery(context.Background(), req)
+		if req.Nonce != "" && i.journal != nil && !leased {
+			// The WAL is durable but publication has no identity. Preserve it
+			// for retry; do not ACK or run an unleased substitute observation.
+			i.log.Loud("daemon: delivery identity unavailable; durable WAL retained for recovery")
+			return core.ErrDegraded
+		}
 		j := job{
 			req:    req,
 			recv:   core.NowMilli(i.clk),

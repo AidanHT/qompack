@@ -506,6 +506,11 @@ readLoop:
 		lease, leased := dr.leaseDelivery(ctx, req)
 		if !leased {
 			gaps.add(base, DrainGapUnleased, "delivery has no durable identity")
+			if req.Nonce != "" && dr.cfg.Journal != nil {
+				dr.cfg.Log.Loud("daemon: drain: delivery identity unavailable; spool retained for recovery")
+				readErr = core.ErrDegraded
+				break readLoop
+			}
 		}
 		// The committed frontier is consulted BEFORE the seen set, for every leased line. One
 		// delivery can reach the drain as two copies: the daemon's own WAL copy, and the hook

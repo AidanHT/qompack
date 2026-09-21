@@ -183,7 +183,8 @@ func TestDispatchOpPersistsADegradedCaptureAsEvidence(t *testing.T) {
 
 	token := testDeliveryToken('7')
 	req := observeRequest(token, "sess-oversize", `{"hook_ev`)
-	req.Event = nil // hookio derived none, and none may be invented from a payload it refused
+	req.Capture.Bytes = nil // V6: the hook drops prefixes whose scope cannot be proved.
+	req.Event = nil         // hookio derived none, and none may be invented from a payload it refused
 	req.Capture.Outcome, req.Capture.Fidelity = core.OutcomeUnavailable, core.FidelityTruncated
 	req.Capture.CaptureError, req.Capture.Truncated = core.CaptureErrorOversize, true
 	req.Capture.SourceBytes = 4 << 20
@@ -197,7 +198,7 @@ func TestDispatchOpPersistsADegradedCaptureAsEvidence(t *testing.T) {
 	require.Equal(t, core.CaptureErrorOversize, sc.CaptureError)
 	require.True(t, sc.Truncated)
 	require.Equal(t, 4<<20, sc.SourceBytes, "the observed delivery size survives even when the bytes do not")
-	require.Equal(t, []byte(`{"hook_ev`), sc.Bytes, "the bounded permitted prefix is the evidence")
+	require.Empty(t, sc.Bytes, "scope-unprovable bytes are withheld; classification is the evidence")
 
 	require.Equal(t, 0, calls(),
 		"a capture with no derived Event publishes evidence, never a synthetic observation")

@@ -33,52 +33,12 @@ const sp20d6HandlerCost = 100 * time.Millisecond
 // pins is derived from it, and no assertion anywhere below compares a real duration to a threshold.
 const sp20d6DialBudget = 10 * time.Second
 
-// TestCarriedDefect_SP20D6_GatedBASampleExcludesThePreACKHandler is EVIDENCE for the carried defect
-// SP20-D6. It pins the CURRENT behaviour, which is WRONG. A fix must invert the first subtest: the
-// assertion that the recorded hook.controlled sample equals recvTS - req.TS + hotPathTailAllowance,
-// and the one that it is strictly less than the handler's own cost, are what fail once the sample
-// accounts for the region the hook actually waits on.
-//
-// What the contract says. 00-ARCHITECTURE.md:281 defines budget B-A as `hook_controlled — client
-// main() entry → exit (connect + write + ACK)`, p99 < 15 ms, gated in CI. The ACK wait is INSIDE the
-// budgeted region by that definition, not beside it.
-//
-// What is measured instead. internal/daemon/handlers.go calls recordHotPathSample AFTER callHandler
-// has returned, but the value it records is computed only from the two timestamps that bracket the
-// daemon's READ: `observed := time.Duration(int64(recvTS)-int64(req.TS)) * time.Millisecond`, plus
-// hotPathTailAllowance. The handler's own duration is excluded by construction — it is never read
-// from any clock, so no amount of work inside the route can move the sample. hotPathTailAllowance
-// (internal/daemon/budget.go:14-26) is 1 ms, and its doc comment says it estimates "the ACK read plus
-// process exit, after the daemon has stopped timing" and that over-counting is "the safe direction".
-//
-// Why that is wrong rather than merely approximate. internal/ipc/server.go runs
-// `resp := s.dispatch(ctx, h, req)` BEFORE it writes the ACK byte or the response line, so the hook
-// client is blocked on the full handler, not on the daemon's read. Since SP20-D1 — this wave — the
-// observe.tool route runs the durable ingest.Accept (WAL append + fsync, lease journal, seal) inside
-// that pre-ACK region; internal/config/deadlines.go's derivation comment records a measured B-B p99
-// of 36.864 ms on this Windows host. So the hook's real main()→exit time is (B-A observed) + up to
-// ~37 ms while the gated sample is (B-A observed) + 1 ms. The 1 ms allowance UNDER-counts the tail by
-// the whole B-B region — the opposite of what budget.go's comment claims — and the §8.1 spool
-// fallback (00-ARCHITECTURE.md:307-309: "B-A p99 exceeds budget for 3 consecutive 512-sample
-// windows") therefore cannot fire on a breach the hook actually pays. internal/config/defaults.go
-// sets HotPath.BudgetMs = 15 as a single value with no per-platform switch, so there is no Windows
-// relaxation absorbing it either, as there is for B-B.
-//
-// Determinism. Nothing here sleeps, polls or compares a measured duration to a threshold. The
-// "handler took 100 ms" is a fake-clock advance inside the route, and every ordering is a channel.
-// The histogram reports Max exactly (internal/obs/hist.go tracks it in whole microseconds,
-// independent of bucketing), so a single observation can be asserted to the nanosecond; the
-// percentiles could not be, because they return a bucket's upper bound.
-//
-// What is NOT pinned here. The second subtest pins that the ACK byte is observed only after the
-// handler returned, which is deterministic in the direction that holds today: the close of
-// handlerReturned happens-before the handler's return, which happens-before the server's ACK write,
-// which happens-before the client's read. Its NEGATIVE control is not deterministic — an
-// implementation that ACKed before dispatching could still be scheduled such that the handler
-// finished first — so that subtest is a statement of the current ordering, not the assertion that
-// flips. The assertion that flips is the histogram equality in the first subtest.
-func TestCarriedDefect_SP20D6_GatedBASampleExcludesThePreACKHandler(t *testing.T) {
-	t.Run("the gated sample excludes the handler the hook waits on", func(t *testing.T) {
+// TestCarriedDefect_SP20D6_GatedBASampleIncludesThePreACKHandler is the corrected
+// regression for the old ExcludesThePreACKHandler identifier. A deterministic
+// fake-clock handler delay must reach both the histogram and fallback detector;
+// transport ordering is independently checked by the second subtest.
+func TestCarriedDefect_SP20D6_GatedBASampleIncludesThePreACKHandler(t *testing.T) {
+	t.Run("the gated sample includes the handler the hook waits on", func(t *testing.T) {
 		root := t.TempDir()
 		clk := newFakeClock(epoch)
 		cfg := testConfig()
@@ -130,33 +90,14 @@ func TestCarriedDefect_SP20D6_GatedBASampleExcludesThePreACKHandler(t *testing.T
 		require.Equal(t, sp20d6WireDelay, lower.Max,
 			"hook_controlled_observed is recvTS - req.TS and nothing else")
 
-		// SP20-D6: the GATED B-A series — the one §8.1's breach detector and CI read — is that same
-		// lower bound plus a flat 1 ms, with the entire pre-ACK handler missing. This is the
-		// assertion that flips when SP20-D6 is fixed: any fix that makes the sample account for the
-		// region the hook actually blocks on (feeding the handler duration in, or re-defining B-A to
-		// stop at daemon receipt) changes this value.
 		gated := dd.m.Hist(histName(obs.BA)).Snapshot()
 		require.Equal(t, int64(1), gated.N)
-		require.Equal(t, sp20d6WireDelay+hotPathTailAllowance, gated.Max,
-			"SP20-D6: the gated B-A sample is recvTS - req.TS + hotPathTailAllowance; the handler "+
-				"the hook waits on contributes nothing to it")
-		require.Less(t, gated.Max, sp20d6HandlerCost,
-			"SP20-D6: the recorded sample is smaller than the handler's own cost alone, so the ACK "+
-				"wait 00-ARCHITECTURE.md:281 puts inside B-A is not in the number B-A gates on")
-
-		// The breach detector consumes that same under-counted estimate, which is why the §8.1
-		// fallback cannot fire on this breach: the estimate is comfortably inside the budget while
-		// the region the contract defines is many times over it.
-		require.Len(t, dd.hotSamples, 1, "the estimate must reach the breach-detector channel")
-		require.Equal(t, sp20d6WireDelay+hotPathTailAllowance, <-dd.hotSamples)
-
+		expected := sp20d6WireDelay + sp20d6HandlerCost + hotPathTailAllowance
+		require.Equal(t, expected, gated.Max, "the pre-ACK handler must be included")
+		require.Len(t, dd.hotSamples, 1)
+		require.Equal(t, expected, <-dd.hotSamples)
 		budget := time.Duration(cfg.Runtime.HotPath.BudgetMs) * time.Millisecond
-		require.Less(t, gated.Max, budget,
-			"SP20-D6: the sample §8.1 gates on is inside budget B-A")
-		require.Greater(t, sp20d6WireDelay+sp20d6HandlerCost, budget,
-			"SP20-D6: while client main() entry -> exit, which 00-ARCHITECTURE.md:281 is the "+
-				"definition of B-A, is over it — and no window of these samples can ever close a "+
-				"breach, because the breach is not in them")
+		require.Greater(t, gated.Max, budget, "the fallback detector must receive the actual breach")
 	})
 
 	t.Run("the ack byte is observed only after the handler returned", func(t *testing.T) {
