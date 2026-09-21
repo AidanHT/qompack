@@ -18,6 +18,7 @@ import (
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -68,6 +69,17 @@ var _ logging.Logger = (*mcpOpLogger)(nil)
 // "rehydrator not present in this build" one: both render available:false, and a test that could
 // not tell them apart would pass against a build with no drop reporter at all.
 type mcpOpDrops struct{ calls int }
+
+type mcpOpRedactor struct{ policy redact.Redactor }
+
+func (r mcpOpRedactor) Redact(input []byte) ([]byte, []string) {
+	output, matches := r.policy.Redact(input)
+	rules := make([]string, len(matches))
+	for i, match := range matches {
+		rules[i] = match.Rule
+	}
+	return output, rules
+}
 
 // CurrentDrops reports nothing dropped, counting the call.
 func (d *mcpOpDrops) CurrentDrops(context.Context, core.SessionID) ([]checkpoint.DropEntry, error) {
@@ -125,6 +137,7 @@ func newMCPOpFixture(t *testing.T) *mcpOpFixture {
 	drops := &mcpOpDrops{}
 	require.NoError(t, InstallMCPOp(&o, mcp.ToolDeps{
 		Store:       st,
+		Redactor:    mcpOpRedactor{policy: redact.New(cfg)},
 		Rehydrator:  drops,
 		Cfg:         cfg,
 		ProjectRoot: root,

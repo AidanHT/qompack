@@ -21,6 +21,7 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -158,10 +159,11 @@ type daemon struct {
 	// addr has no reader anywhere today (the only occurrence of d.addr in the package is Run's own
 	// write), so it is not racing on its own account; it is published through the same mutex as
 	// its two siblings so that adding the first reader cannot silently re-open the defect.
-	startMu sync.Mutex
-	lock    *Lock
-	server  ipc.Server
-	addr    ipc.Addr
+	startMu       sync.Mutex
+	lock          *Lock
+	borrowedLease bool // the composition root closes its writers before releasing this lease
+	server        ipc.Server
+	addr          ipc.Addr
 
 	startTS core.UnixMilli
 
@@ -515,7 +517,12 @@ func (d *daemon) Run(ctx context.Context) error {
 	}
 	d.setAddr(addr)
 
-	lock, err := AcquireLock(d.root, addr, d.clk)
+	lock := d.currentLock()
+	if lock == nil {
+		lock, err = AcquireLock(d.root, addr, d.clk)
+	} else {
+		err = lock.Heartbeat()
+	}
 	if err != nil {
 		if errors.Is(err, ErrLockHeld) {
 			return nil // another daemon owns this project: success, not failure.
@@ -538,10 +545,9 @@ func (d *daemon) Run(ctx context.Context) error {
 	// ordered before Run's store and therefore before this line, so stopBegun sees it. If Run's
 	// store came first, Stop observed a non-nil cancel and the select loop below unwinds normally.
 	if d.stopBegun() {
-		if relErr := lock.Release(); relErr != nil {
+		if relErr := d.releaseRunLease(lock, "run: shutdown mid-startup"); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after a shutdown that arrived mid-startup", "err", relErr)
 		}
-		reportSealDowngradeResidual(lock, d.log, "run: shutdown mid-startup")
 		return nil
 	}
 
@@ -575,10 +581,9 @@ func (d *daemon) Run(ctx context.Context) error {
 		// invariant is "every exit from Run joins them", not "every exit that looked risky".
 		cancel()
 		d.runWG.Wait()
-		if relErr := lock.Release(); relErr != nil {
+		if relErr := d.releaseRunLease(lock, "run: listen failure"); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after listen failure", "err", relErr)
 		}
-		reportSealDowngradeResidual(lock, d.log, "run: listen failure")
 		return fmt.Errorf("daemon: run: listen: %w", err)
 	}
 	d.setServer(server)
@@ -592,6 +597,12 @@ func (d *daemon) Run(ctx context.Context) error {
 		d.log.Warn("daemon: startup drain failed", "err", err)
 	}
 	d.sweepCheckpointIntegrity(runCtx)
+	// Account for crash residues even when no operator has invoked fsck. This
+	// bounded startup snapshot may be incomplete; counters and LOUD preserve that
+	// qualification in status rather than promoting zero observations to clean.
+	auditCtx, auditCancel := context.WithTimeout(runCtx, publicationStartupBound)
+	d.LoudPublicationGaps(auditCtx)
+	auditCancel()
 
 	hbTicker := time.NewTicker(heartbeatInterval)
 	defer hbTicker.Stop()
@@ -832,7 +843,22 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 			return ipc.Response{OK: true, Data: json.RawMessage(`{"outcome":"unavailable","reason":"observer not configured"}`)}
 		}
 	case ipc.OpObservePrompt:
+		// The sentinel scan is independent of capture and runs regardless.
 		d.scanSentinelForPrompt(ev)
+		// SP08-D3 (Option A): the AUTHORITATIVE verbatim capture. Both the live worker (ingest) and
+		// the drain replay reach here with the leased observation identity on ctx (WithObservation),
+		// so ObservePrompt records under it — idempotent for a redelivery via the sidecar join, and
+		// error-returning for a leased delivery. A capture that is not durable returns non-OK, which
+		// ingest.dispatch/drain leave un-acknowledged: the delivery stays pending, never counted as
+		// restored. The returned Output is discarded — a replay never injects (no late output). A
+		// prompt that reached the daemon only by replay is therefore captured, not lost, which is the
+		// defect; and because the turn advances here, a later live prompt can no longer take turn 0.
+		if d.svc.ObservePrompt != nil {
+			if _, err := d.svc.ObservePrompt(observer.WithPromptCaptureOnly(ctx), *ev); err != nil {
+				d.log.Warn("daemon: ObservePrompt capture not durable; WAL retained for retry")
+				return ipc.Response{Err: "prompt capture failed"}
+			}
+		}
 	}
 	if ctx.Err() != nil {
 		return ipc.Response{Err: "observation handling interrupted"}
@@ -870,13 +896,13 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
 	switch {
 	case req.Op.HotPath():
-		resp := d.runIngested(ctx, req)
-		// A replayed observe.prompt is acknowledged with no verbatim capture (SP08-D3). Counted
-		// here, never in runIngested, which the live worker shares.
-		if resp.OK && req.Op == ipc.OpObservePrompt && d.m != nil {
-			d.m.Counter(counterPromptReplayedUncaptured).Add(1)
-		}
-		return resp
+		// SP08-D3 (Option A): a replayed observe.prompt is now VERBATIM-CAPTURED by runIngested under
+		// the leased observation identity — no longer a loss to count. counterPromptReplayedUncaptured
+		// is retired to zero here (its name is kept for dashboard/compat); a capture that could not be
+		// made durable returns non-OK from runIngested and is left un-acknowledged (retried) by the
+		// caller, which is a genuine failure the existing gap/counter machinery already records —
+		// distinct from an empty or degraded input, which is not a lost prompt.
+		return d.runIngested(ctx, req)
 	case req.Op == ipc.OpFlush:
 		return d.flushRoute(ctx, req, false)
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
@@ -963,10 +989,9 @@ func (d *daemon) Stop(ctx context.Context) error {
 		d.owned.closeAll(d.log)
 
 		if lk := d.currentLock(); lk != nil {
-			if err := lk.Release(); err != nil && stopErr == nil {
+			if err := d.releaseRunLease(lk, "stop"); err != nil && stopErr == nil {
 				stopErr = err
 			}
-			reportSealDowngradeResidual(lk, d.log, "stop")
 		}
 	})
 	return stopErr

@@ -16,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/pluginmanifest"
 	"github.com/qompack/qompack/internal/redact"
@@ -297,7 +298,7 @@ func (d *daemon) callHandler(ctx context.Context, h ipc.Handler, req ipc.Request
 }
 
 // recordHotPathSample computes hook.controlled.observed (a strict lower bound on B-A: recvTS -
-// req.TS) and hook.controlled (that value plus hotPathTailAllowance), records both into the
+// req.TS) and hook.controlled (through handler completion plus an estimated client tail), records both into the
 // metrics registry, and hands the estimate to the breach-detector worker via a non-blocking send
 // — a full channel drops the sample rather than blocking the caller, which is this package's
 // standing rule for anything that would otherwise sit on the ACK path.
@@ -310,7 +311,8 @@ func (d *daemon) recordHotPathSample(req ipc.Request, recvTS core.UnixMilli) {
 	}
 
 	observed := time.Duration(int64(recvTS)-int64(req.TS)) * time.Millisecond
-	estimated := observed + hotPathTailAllowance
+	handler := max(time.Duration(int64(core.NowMilli(d.clk))-int64(recvTS))*time.Millisecond, 0)
+	estimated := observed + handler + hotPathTailAllowance
 
 	if d.m != nil {
 		d.m.Hist(histHookControlledObserved).Observe(observed)
@@ -515,16 +517,16 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 	// event that could vanish with zero observability (fix round 2, FR-2): §12.1's "nothing fails
 	// silently" applies to this WAL append exactly as it does to a contract degradation.
 	line, err := ipc.EncodeRequest(req)
+	if err == nil {
+		err = d.ing.Accept(withCapture(ctx, req), line)
+	}
 	if err != nil {
-		d.log.Warn("daemon: observe.prompt: failed to encode request for the WAL", "err", err)
+		d.log.Warn("daemon: observe.prompt: durable acceptance failed", "err", err)
 		if d.m != nil {
 			d.m.Counter(counterL0AcceptError).Add(1)
 		}
-	} else if err := d.ing.Accept(withCapture(ctx, req), line); err != nil {
-		d.log.Warn("daemon: observe.prompt: WAL append failed", "err", err)
-		if d.m != nil {
-			d.m.Counter(counterL0AcceptError).Add(1)
-		}
+		empty := hookio.Empty()
+		return ipc.Response{OK: false, Err: err.Error(), Output: &empty}
 	}
 
 	out := hookio.Empty()
@@ -575,7 +577,12 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 		// startPromptRecording's recover runs after this send; ch is buffered, so it never blocks.
 		r := result{err: errPromptCapturePanicked}
 		defer func() { ch <- r }()
-		r.out, r.err = d.svc.ObservePrompt(rec, e)
+		// SP08-D3 (Option A): the reply is the WARNING only. The verbatim capture is the
+		// worker/replay's, under the leased observation identity, so a prompt no daemon captured
+		// live is still captured and a later live prompt cannot take a turn 0 the replay owed. The
+		// reply-only marker makes ObservePrompt drain the pending warning under the session lock and
+		// record nothing.
+		r.out, r.err = d.svc.ObservePrompt(observer.WithPromptReplyOnly(rec), e)
 	}) {
 		return hookio.Empty()
 	}
@@ -1169,10 +1176,17 @@ const (
 	counterAdmissionFailed   = "l0_admission_failed"
 	counterAdmissionDegraded = "l0_admission_degraded"
 	counterAdmissionDaemon   = "l0_admission_daemon"
-	counterEvidenceOnly      = "l0_capture_evidence_only"
-	counterDeliveryUnleased  = "l0_delivery_unleased"
-	counterDeliveryAckFailed = "l0_delivery_ack_failed"
-	counterSidecarFailed     = "l0_capture_sidecar_failed"
+	// counterAdmissionScopeDenied counts PROVEN out-of-project refusals by the path-scope trust
+	// boundary (V6-AUTH-1), and counterAdmissionScopeUnavailable counts refusals where containment
+	// could not be proven. Both are distinct from a content-policy denial so an operator can tell an
+	// out-of-project (or unprovable) capture refusal from a redaction refusal (authority-review §7
+	// #7). Neither carries any path text.
+	counterAdmissionScopeDenied      = "l0_admission_scope_denied"
+	counterAdmissionScopeUnavailable = "l0_admission_scope_unavailable"
+	counterEvidenceOnly              = "l0_capture_evidence_only"
+	counterDeliveryUnleased          = "l0_delivery_unleased"
+	counterDeliveryAckFailed         = "l0_delivery_ack_failed"
+	counterSidecarFailed             = "l0_capture_sidecar_failed"
 )
 
 // admissionVerdict is the daemon-side privacy gate's answer for one delivery.
@@ -1228,13 +1242,25 @@ func (d *daemon) admitDelivery(req ipc.Request) admissionVerdict {
 		case c.Outcome == core.OutcomeDenied:
 			return admissionVerdict{Request: req, Denied: true, Reason: "policy denied"}
 		case c.Outcome == core.OutcomeOK:
+			// A supplied OK decision is taken as given for CONTENT — re-running the policy could
+			// only work from the derived Event and might restore what the first policy removed. Path
+			// SCOPE is a separate boundary and is NOT trusted from the client: every byte source this
+			// delivery would make durable is scoped (see scopeSupplied). A forged OK capture that
+			// names an out-of-project path in its Event, its already-redacted Capture.Bytes, or its
+			// Raw extras — or one whose path cannot be proven — is refused, persisting nothing
+			// (authority-review §5, forged-OKcap bypass).
+			if v := d.scopeRefusal(req); v != nil {
+				return *v
+			}
 			return admissionVerdict{Request: req}
 		case captureIsDecided(c):
-			// A degraded DECISION is admitted, not refused. This branch used to return Failed,
-			// which made the live daemon throw away exactly the record the hook client mints for
-			// an over-budget payload — and, because ipc.WithCapture downgrades any capture whose
-			// bytes will not fit the frame, threw away the Event beside it: on the shipped
-			// default every hook payload above ~384 KiB was dropped whole, observation included.
+			// A degraded DECISION is admitted as evidence, not refused — UNLESS a byte source it
+			// would persist fails scope. This branch used to return before scoping, so a degraded
+			// capture whose retained prefix carried an out-of-project (or unprovable) path was a
+			// durable leak.
+			if v := d.scopeRefusal(req); v != nil {
+				return *v
+			}
 			return admissionVerdict{Request: req, Degraded: true, Reason: string(c.CaptureError)}
 		default:
 			return admissionVerdict{Request: req, Failed: true, Reason: string(c.CaptureError)}
@@ -1251,6 +1277,12 @@ func (d *daemon) admitDelivery(req ipc.Request) admissionVerdict {
 	raw, rawErr := reconstructedPayload(req)
 	if rawErr != nil {
 		return admissionVerdict{Request: req, Failed: true, Reason: string(core.CaptureErrorNotJSON)}
+	}
+	// The path-scope trust boundary runs before the content policy: an out-of-project (or
+	// unprovable) file capture is refused whether or not redaction would have admitted it, and
+	// refusing here means the policy is never even run over bytes that must not be retained.
+	if v := d.scopeRefusal(req); v != nil {
+		return *v
 	}
 	capture, _, err := hookio.CaptureHook(raw, cfg.Runtime.HotPath.MaxPayloadBytes,
 		redact.CapturePolicyVersion, payload, hookio.CaptureFragment{Policy: fragment})
@@ -1271,6 +1303,63 @@ func (d *daemon) admitDelivery(req ipc.Request) admissionVerdict {
 		return admissionVerdict{Request: req, Failed: true, Reason: string(capture.CaptureError)}
 	}
 	return admissionVerdict{Request: req}
+}
+
+// scopeRefusal returns a non-nil refusal verdict when any byte source a supplied or reconstructed
+// delivery would make durable fails the path-scope boundary, and nil when it may proceed. A PROVEN
+// escape is Denied — a decision, terminal, persist nothing. An UNPROVABLE source is Failed — a gap
+// recorded as unavailable, never a false absence, because "cannot prove inside" is not "proven
+// outside". Both persist nothing; the finer denied-vs-unavailable distinction the client mints on
+// the Capture itself cannot be expressed on a WAL-identical request the daemon must not rewrite, so
+// the daemon refuses and records which kind under its own closed counter (authority-review §7 #7).
+func (d *daemon) scopeRefusal(req ipc.Request) *admissionVerdict {
+	switch d.scopeSupplied(req) {
+	case hookio.ScopeOutOfProject:
+		if d.m != nil {
+			d.m.Counter(counterAdmissionScopeDenied).Add(1)
+		}
+		return &admissionVerdict{Request: req, Denied: true, Reason: hookio.ScopeOutOfProject.Reason()}
+	case hookio.ScopeUnprovable:
+		if d.m != nil {
+			d.m.Counter(counterAdmissionScopeUnavailable).Add(1)
+		}
+		return &admissionVerdict{Request: req, Failed: true, Reason: hookio.ScopeUnprovable.Reason()}
+	default:
+		return nil
+	}
+}
+
+// scopeSupplied scopes EVERY byte source a delivery would make durable and returns the worst
+// verdict: the reconstructed Event+Raw the object-store record derives from, the already-redacted
+// Capture.Bytes the sidecar persists, and the Raw extras on their own (a forged Raw the reconstructed
+// merge masks behind the Event's own fields). Parsing the redacted bytes reintroduces nothing — they
+// are exactly what would be written. A request that cannot be reconstructed cannot be proven inside.
+func (d *daemon) scopeSupplied(req ipc.Request) hookio.ScopeVerdict {
+	raw, err := reconstructedPayload(req)
+	if err != nil {
+		return hookio.ScopeUnprovable
+	}
+	worst := hookio.CaptureScopeRaw(d.root, raw).Verdict
+	if req.Capture != nil && len(req.Capture.Bytes) > 0 {
+		worst = worseScope(worst, hookio.CaptureScopeRaw(d.root, req.Capture.Bytes).Verdict)
+	}
+	if len(req.Raw) > 0 {
+		worst = worseScope(worst, hookio.CaptureScopeRaw(d.root, req.Raw).Verdict)
+	}
+	return worst
+}
+
+// worseScope returns the more restrictive of two verdicts: a proven escape dominates an unprovable
+// one, which dominates allow. It is how one out-of-scope source among several refuses the whole.
+func worseScope(a, b hookio.ScopeVerdict) hookio.ScopeVerdict {
+	switch {
+	case a == hookio.ScopeOutOfProject || b == hookio.ScopeOutOfProject:
+		return hookio.ScopeOutOfProject
+	case a == hookio.ScopeUnprovable || b == hookio.ScopeUnprovable:
+		return hookio.ScopeUnprovable
+	default:
+		return hookio.ScopeAllow
+	}
 }
 
 // capturePolicies compiles the configured rule set at most once per configuration. Compilation is

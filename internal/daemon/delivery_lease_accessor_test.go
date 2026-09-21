@@ -52,16 +52,14 @@ func TestDeliveryJournal_AccessorOwnershipIsRecheckedPerBatch(t *testing.T) {
 			"nor commit a frontier record")
 		require.False(t, journal.acknowledged(leased.Delivery))
 
-		// On the live path the delivery still reaches the WAL and is ACKed, as an unleased gap.
+		// The WAL retains the delivery, but a lost owner cannot ACK or dispatch it.
 		nonce, err := ipc.NewDeliveryNonce()
 		require.NoError(t, err)
 		req := ipc.Request{Op: ipc.OpObserveTool, Session: "t20", TS: benchLeasedBaseTS, Nonce: nonce}
 		line, err := ipc.EncodeRequest(req)
 		require.NoError(t, err)
-		require.NoError(t, ing.Accept(req, line))
-		require.Len(t, ing.ring, 1)
-		queued := <-ing.ring
-		require.False(t, queued.leased, "a delivery the journal refused carries no identity")
+		require.ErrorIs(t, ing.Accept(req, line), core.ErrDegraded)
+		require.Empty(t, ing.ring, "a refused lease cannot dispatch an identity-free substitute")
 
 		require.Equal(t, journalBefore, readTestFile(t, journal.path), "nothing was appended for the old owner")
 		require.Equal(t, positionBefore, readTestFile(t, positionPath), "nothing was sealed for the old owner")

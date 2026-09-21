@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
-	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -24,34 +22,11 @@ import (
 // fails the refusal assertion, which is the negative control this test was checked against.
 const sp20d4LeaseCap = 1 << 16
 
-// TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap is EVIDENCE for the
-// open carried defect SP20-D4. It pins the CURRENT behaviour, which is WRONG, and the V6
-// retention/compaction fix must invert it: with that fix, the project below leases its next
-// delivery and every assertion labelled SP20-D4 fails.
-//
-// delivery_lease.go caps the lease journal (state/delivery-leases.jsonl) at
-// deliveryLeaseMaxEntries = 65,536 entries and 64 MiB, and the acknowledgement journal
-// (delivery-acks.jsonl) at the same two bounds. Its comment calls them admission safety bounds
-// and leaves "measured retention/compaction" to "a separate migration task", which does not
-// exist: only the daemon writes either file, it only appends, and store GC (gcrun.go) only reads
-// them. No lease is ever retired, even for a delivery acknowledged long ago, so once a project
-// has leased 65,536 deliveries, lease refuses every later one with ErrBudget, for the life of
-// the project.
-//
-// A delivery past the cap is not dropped; it loses its identity. It still reaches the WAL, the
-// hook client is still ACKed and the observer still runs, but ingest.leaseDelivery counts it
-// l0_delivery_unleased and queues it with no ObservationID, so publication stage 1 (the capture
-// sidecar) is skipped, stage 3 (the committed frontier) is a no-op, and dedup falls back to a
-// content hash held in process memory. The drain is refused a lease for its copy too and records
-// an unleased gap; with no lease there is no frontier to consult, so after a restart that
-// precedes the drain the copy is dispatched a second time, where the frontier would have
-// suppressed it (F4-P1).
-//
-// The fixture is what 65,536 COMPLETED deliveries leave behind: every lease acknowledged, none in
-// flight, well inside the byte bound, so the refusal is the entry cap and not back-pressure. It is
-// written in one pass (sp20d4WriteCompletedHistory) instead of 65,536 fsynced leases, and loaded
-// by the real openDeliveryJournal. The pin is not vacuous: doubling deliveryLeaseMaxEntries leaves
-// this history under the cap, the fresh lease succeeds, and the refusal assertion fails.
+// TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap retains
+// the original capacity identifier. The cap remains a documented availability
+// limitation. The corrected behavior refuses publication and retains durable
+// input instead of ACKing, dispatching and later replaying an unleased delivery.
+// This is a partial mitigation, not a claim of unbounded journal capacity.
 func TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -89,51 +64,27 @@ func TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap(t 
 	require.ErrorIs(t, err, core.ErrBudget,
 		"SP20-D4: once 65,536 deliveries are leased, every later delivery is refused a lease")
 
-	// The same refusal on the live route, which is where it costs something. The delivery reaches
-	// the WAL, Accept's ingest.leaseDelivery is refused and counts the gap, and the hook client is
-	// still ACKed: dispatchOp answers OK, and ipc's server writes ACK for a fire-and-forget request
-	// exactly when it does.
+	// Exhaustion is an explicit pending delivery, never an unleased substitute.
 	req := observeRequest(testDeliveryToken('d'), "sess-sp20d4", `{"hook_event_name":"PostToolUse"}`)
 	resp := dd.dispatchOp(ctx, req)
-	require.True(t, resp.OK, "SP20-D4: a delivery past the cap is still ACKed to the hook client")
-	require.Empty(t, resp.Err)
-	require.Equal(t, int64(1), dd.m.Counter(counterDeliveryUnleased).Value(),
-		"SP20-D4: the live path counts every delivery past the cap as an identity gap")
-	require.Len(t, dd.ing.ring, 1)
-	queued := <-dd.ing.ring
-	require.False(t, queued.leased, "SP20-D4: the queued job carries no durable identity")
-	require.Equal(t, deliveryLease{}, queued.lease)
-	line, err := ipc.EncodeRequest(req)
-	require.NoError(t, err)
-	require.Equal(t, core.HashBytes(walHashDomain, bytes.TrimSuffix(line, []byte{'\n'})), queued.key,
-		"SP20-D4: with no identity, dedup falls back to the wire line's content, in process memory")
-
-	// It is processed regardless: the observer runs, with no ObservationID. Publication stage 1 (the
-	// capture sidecar) is skipped for an unleased job and stage 3 (the committed frontier) is a
-	// no-op for one, so the delivery leaves no durable object and no frontier record.
-	dd.ing.dispatch(ctx, dd.runIngested, queued)
-	require.Equal(t, []core.ObservationID{""}, ids(),
-		"SP20-D4: the delivery is observed with no observation identity")
-	require.Empty(t, sidecarFiles(t, root), "SP20-D4: no capture sidecar is written")
-	sp20d4RequireHistoryOnly(t, root, journal, leaseBytes, ackBytes)
-
-	// The drain's copy, after a restart that came before the WAL line was drained: the seen set is
-	// process memory. The drain asks the journal again, is refused again and records an unleased
-	// gap. With no lease there is no frontier to consult, so the copy is dispatched a second time,
-	// again with no identity, and its offset is released as though it had been published. Below
-	// the cap this copy would have been found on the frontier and skipped.
+	require.False(t, resp.OK, "the client must retain its fallback when identity cannot be assigned")
+	require.NotEmpty(t, resp.Err)
+	require.Equal(t, int64(1), dd.m.Counter(counterDeliveryUnleased).Value())
+	require.Empty(t, dd.ing.ring, "no unleased observation may run")
+	require.Empty(t, ids())
+	require.Empty(t, sidecarFiles(t, root))
 	require.NoError(t, dd.ing.Close())
 	dd.ing.seen = newSeenSet(seenCapacity)
 	dd.drain.Load().cfg.Seen = dd.ing.seen
 	n, err := dd.Drain(ctx)
+	require.ErrorIs(t, err, core.ErrDegraded)
+	require.Zero(t, n, "a retry without identity must remain pending")
+	require.Empty(t, ids(), "restart cannot replay an unleased substitute")
+	require.False(t, dd.DrainGaps().Complete)
+	require.Contains(t, gapKinds(dd.DrainGaps()), DrainGapUnleased)
+	entries, err := os.ReadDir(paths.Of(root).Spool)
 	require.NoError(t, err)
-	require.Equal(t, 1, n, "SP20-D4: the drain re-dispatches a delivery the live worker already ran")
-	require.Equal(t, []core.ObservationID{"", ""}, ids())
-	gaps := dd.DrainGaps()
-	require.False(t, gaps.Complete,
-		"SP20-D4: a replay that reads a delivery past the cap is never complete")
-	require.Contains(t, gapKinds(gaps), DrainGapUnleased)
-	require.Empty(t, sidecarFiles(t, root))
+	require.NotEmpty(t, entries, "the durable source remains available for recovery")
 	sp20d4RequireHistoryOnly(t, root, journal, leaseBytes, ackBytes)
 }
 

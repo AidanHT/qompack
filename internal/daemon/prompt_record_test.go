@@ -146,15 +146,17 @@ func TestObservePrompt_RecordingOutlivesTheReplyDeadline(t *testing.T) {
 	case <-time.After(promptRecordWait):
 		require.FailNow(t, "the recording never finished")
 	}
-	require.Equal(t, 1, seam.callCount())
+	require.Equal(t, 1, seam.callCount(), "the reply path calls the seam once, for the warning")
 	require.Equal(t, int64(1), dd.m.Counter(counterPromptReplyLate).Value(),
 		"a reply that went out before its capture finished must be counted")
 
-	// No double recording: the WAL line this route appended replays through runIngested — the
-	// worker pool's job and the drain's dispatch alike — which must never call the seam again.
-	require.True(t, dd.runIngested(context.Background(), req).OK)
-	require.True(t, dd.drainDispatch(context.Background(), req).OK)
-	require.Equal(t, 1, seam.callCount(), "a replayed observe.prompt must not record the prompt twice")
+	// SP08-D3 (Option A): the authoritative verbatim capture is the WORKER/REPLAY's, so replaying
+	// this WAL line through runIngested DOES call the seam (that is the fix — a replayed prompt is
+	// captured, not lost). "No double recording" is therefore guaranteed by the observation-identity
+	// join (observationRecord), not by never re-calling the seam; it is pinned end to end, with a real
+	// store and sidecar, by TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero. This held-seam
+	// rig has no sidecar, so it cannot express that convergence and no longer asserts the obsolete
+	// sentinel-only contract here.
 }
 
 // TestObservePrompt_CancelledRequestIsNotAnOverrun: a request whose own context is cancelled —
@@ -523,6 +525,12 @@ func TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock(t *testing
 	case <-time.After(promptRecordWait):
 		require.FailNow(t, "the gated tool observation never finished")
 	}
+
+	// SP08-D3 (Option A): the reply path is the WARNING only; the authoritative verbatim capture is
+	// the worker's. The prompt's WAL line queued behind the held session lock is captured when the
+	// ingest ring drains — which is exactly the "lands behind a held session lock" this test pins,
+	// now on the worker rather than the reply goroutine.
+	drainRing(t, dd)
 
 	// A tool use does not advance the turn (only a prompt and a Stop do), so the prompt is turn 0.
 	id := observer.VerbatimPromptID(sess, 0)

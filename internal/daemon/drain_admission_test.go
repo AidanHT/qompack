@@ -156,6 +156,7 @@ func TestDrainPersistsADegradedCaptureAsEvidence(t *testing.T) {
 	req.Capture.Outcome, req.Capture.Fidelity = core.OutcomeUnavailable, core.FidelityTruncated
 	req.Capture.CaptureError, req.Capture.Truncated = core.CaptureErrorOversize, true
 	req.Capture.SourceBytes = 4 << 20
+	req.Capture.Bytes = nil // opaque prefixes cannot prove file scope; retain classification only
 	writeSpoolLines(t, root, "client-00009.ndjson", req)
 
 	n, err := dd.Drain(context.Background())
@@ -167,6 +168,7 @@ func TestDrainPersistsADegradedCaptureAsEvidence(t *testing.T) {
 	require.Equal(t, core.OutcomeUnavailable, sc.Outcome)
 	require.Equal(t, core.CaptureErrorOversize, sc.CaptureError)
 	require.Equal(t, 4<<20, sc.SourceBytes)
+	require.Empty(t, sc.Bytes)
 
 	gaps := dd.DrainGaps()
 	require.True(t, gaps.Complete, "an admitted degraded record is not a hole: %+v", gaps.Gaps)

@@ -22,30 +22,12 @@ import (
 // design §4.4's "after a clean stop: v1 is on disk" would stop being true with nothing saying so,
 // and the operator would find out from an older binary that will not start.
 //
-// reportSealDowngradeResidual is what turns it into a signal, and the three Release sites in
-// daemon.go are what call it. Two of those three cannot be reached behaviourally at all: Run's
-// mid-startup and listen-failure aborts release a lock that has never opened a delivery journal,
-// so their residual is structurally nil and a value test there asserts the absence of a line that
-// could never appear.
-//
-// Lock.journal has exactly one assignment, inside openDeliveryJournal (declared at
-// internal/daemon/delivery_lease.go:146, assigned at :209), and the one route to that function is
-// daemon.deliveryJournal — wired in two places and called from exactly five: the ingest's
-// leaseDelivery and commitDelivery, and the drainer's leaseDelivery, commitDelivery and
-// acknowledgedDelivery. Every one of the five needs an accepted request or a Drain pass, and
-// neither abort can have had either. The first runs before ing.Start, with no workers, no drainer
-// and no server. The second runs AFTER ing.Start, which is why "ingest has not started" is the
-// wrong reason for it: Start only spawns workers that block on an empty ring, the endpoint whose
-// bind just failed never existed for a request to arrive on, the startup Drain is past that
-// failure, and the re-drain blocks on firstServed, which only a dispatched request closes.
-//
-// Delete both calls and every BEHAVIOURAL test still passes — measured, not assumed, and
-// re-measured with this file in the tree: internal/daemon stays green and the Run row below is what
-// fails.
-//
-// So the wiring is pinned structurally, the way sharedreaders_test.go pins a property no value test
-// can see. internal/daemon's TestDeliverySeal_AResidualReachesTheOperatorFromStop owns the other
-// half: that the line Stop actually emits names the repair.
+// ReleaseWithReport is the shared release boundary for daemon-owned and CLI-owned
+// leases. A borrowed lease outlives Run/Stop until the composition root closes its
+// writers; reporting from Stop would run before the journal closes and miss the
+// residual. The guard pins the actual Release/report pair and accounts for every
+// direct Release in the daemon package. Behavioural tests cover owned and borrowed
+// shutdown paths, including a failed downgrade reported exactly once.
 
 // sealResidualReleaseSites are the production functions that release the singleton daemon lock.
 //
@@ -60,14 +42,8 @@ var sealResidualReleaseSites = []struct {
 	why      string
 }{
 	{
-		file: "internal/daemon/daemon.go", fn: "Run", releases: 2,
-		why: "the two startup aborts — a Stop that arrived mid-startup, and a listen failure — each " +
-			"of which hands the lock back so a replacement daemon can take the project",
-	},
-	{
-		file: "internal/daemon/daemon.go", fn: "Stop", releases: 1,
-		why: "the ordinary shutdown, and the one release whose lock CAN carry an open delivery " +
-			"journal, so the one whose residual is not structurally nil",
+		file: "internal/daemon/borrowed_lease.go", fn: "ReleaseWithReport", releases: 1,
+		why: "both daemon-owned and composition-owned leases report after their actual release",
 	},
 }
 

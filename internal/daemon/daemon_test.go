@@ -206,9 +206,10 @@ func TestObservePromptWALFailureIsObservable(t *testing.T) {
 	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-1", CWD: root}
 	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObservePrompt, Session: "sess-1", Reply: true, Event: ev})
 
-	// The reply flow is unaffected: observe.prompt still ACKs even though its WAL append failed
-	// — a prompt is never blocked or refused because of it.
-	require.True(t, resp.OK)
+	// The transport NAK preserves the client's fallback; the hook still passes
+	// the user's prompt through while recording remains unavailable.
+	require.False(t, resp.OK)
+	require.NotEmpty(t, resp.Err)
 	require.Equal(t, int64(1), dd.m.Counter(counterL0AcceptError).Value(),
 		"a failed WAL append must be observable via the counter")
 }
@@ -545,7 +546,7 @@ func writeClientSpoolLine(t *testing.T, root, name string, req ipc.Request) stri
 func spooledObserveTool(root string, sess core.SessionID) ipc.Request {
 	return ipc.Request{
 		Op: ipc.OpObserveTool, Session: sess, TS: 1,
-		Event: &hookio.Event{HookEventName: "PostToolUse", SessionID: sess, CWD: root, ToolName: "Read"},
+		Event: &hookio.Event{HookEventName: "PostToolUse", SessionID: sess, CWD: root, ToolName: "Read", ToolInput: json.RawMessage(`{"file_path":"src/a.go"}`)},
 	}
 }
 
