@@ -85,6 +85,12 @@ type readOnlyStore struct{ fs *FSStore }
 // TestOpenReadOnly_TheValueIsNotAStore, which asserts the assertion fails.
 var _ ReadOnlyStore = readOnlyStore{}
 
+// AuditPublication is an optional read capability. It exposes diagnostics
+// without widening the frozen ReadOnlyStore interface or granting mutations.
+func (r readOnlyStore) AuditPublication(ctx context.Context, cap PublicationScanCap) (PublicationAudit, error) {
+	return r.fs.AuditPublication(ctx, cap)
+}
+
 // GetRoot resolves root against the loaded index.
 func (r readOnlyStore) GetRoot(ctx context.Context, root core.Hash) (Root, error) {
 	return r.fs.GetRoot(ctx, root)

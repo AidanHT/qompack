@@ -246,6 +246,31 @@ type FSStore struct {
 	// ── tool_use.jsonl ──
 	toolUse  map[core.ToolUseID]*ToolUseRecord
 	byPathTU map[string][]core.ToolUseID
+	// The observation binding lives in the versioned sidecar index/observations.jsonl, not on the
+	// frozen tool_use line (00-ARCHITECTURE.md §0.2; observation_publication.go / observation_lookup.go).
+	// obsBindings holds the ORIGINAL, immutable intent (with its canonical bytes) for every known
+	// observation, committed or pending — completion and idempotence always compare the stored original,
+	// never a caller-modified replay. obsAmbiguous holds an observation two intents disagree on;
+	// obsUnavailable an observation whose intent is unreadable/lost. obsReserved binds a tool_use id to
+	// its reserved identity so a foreign writer cannot rebind it. All are guarded by s.mu and reservation
+	// vs legacy admission is serialised by obsPubMu (both the reservation path and the plain no-observation
+	// write path take it), so the reservation check and install cannot race a legacy insert.
+	obsBindings    map[core.ObservationID]*obsBinding
+	obsAmbiguous   map[core.ObservationID]struct{}
+	obsUnavailable map[core.ObservationID]struct{}
+	obsReserved    map[core.ToolUseID]reservedIdentity
+	// obsSidecarUncertain (guarded by s.mu) is set when completeness cannot be proved — a malformed,
+	// truncated, oversized, unreadable or over-capacity sidecar at load, or a partial/failed intent
+	// write. It fails closed for the process lifetime: an UNKNOWN observation is unavailable rather than
+	// absent, and a new reservation is refused, until a full store reopen re-derives it. There is no
+	// runtime clear and no fsck repair.
+	obsSidecarUncertain bool
+	// obsSidecarBytes/Entries track the sidecar's lifetime size so append is capped, not merely bounded
+	// at load. obsSyncData is the intent fsync, a seam a test can fail to inject an uncertain I/O error.
+	obsSidecarBytes   int64
+	obsSidecarEntries int
+	obsSyncData       func(*os.File) error
+	obsPubMu          sync.Mutex
 
 	// ── files.jsonl ──
 	fileHist map[string][]FileVersion
@@ -392,7 +417,11 @@ func (s *FSStore) ApproxRefs(h core.Hash) uint32 {
 // reports nil rather than an error.
 func (s *FSStore) Close() error {
 	var err error
-	s.closeOnce.Do(func() { err = s.closeBody() })
+	s.closeOnce.Do(func() {
+		s.obsPubMu.Lock()
+		defer s.obsPubMu.Unlock()
+		err = s.closeBody()
+	})
 	return err
 }
 
