@@ -5,11 +5,11 @@ record another human can audit. Each one states what must be true before it star
 and host actions it performs, the exact fields to read, the evidence to keep, and what a failure or
 a skip means.
 
-**Nothing on this page has been executed.** There is no installable release artifact on this tree
-(the packaged bundle is planned (SP-17)), and no run was authorized in the session that wrote the
-page, so every Result block below records `not executed — capability unverified`. No output, date,
-executor or verdict on this page was invented, and the blocks are the place a real run gets
-written down — not a place a run gets claimed.
+**The human scenarios below have not been executed.** SP-17 provides packaging (`go run
+./tools/devtool bundle` assembles the bundle; see [docs/install.md](install.md)). Automated package
+and installation tests have separate evidence; they do not fill these human Result blocks. No
+release has been published. Every Result block below retains `not executed — capability unverified`
+until an actual scenario run records its executor, artifact, date and outcome.
 
 What the commands, slash commands and MCP tools *are* is [docs/user-guide.md](user-guide.md); what
 each observation does and does not license you to conclude is
@@ -24,10 +24,10 @@ throwaway files, opened in a Claude Code session started for the run and discard
 - **Never run a scenario against an active user session.** Several steps compact a session, resume
   it, fork it, or edit files while it is running. A destructive probe belongs nowhere near work
   someone cares about.
-- **Every diagnostic here writes.** `qompack status`, `qompack self-test` and every hook entry point
+- **Some diagnostics write.** `qompack status`, `qompack self-test` and hook entry points can
   create `<project>/.qompack/` in the project directory they resolve and start that project's daemon
   ([docs/troubleshooting.md](troubleshooting.md#1-start-with-provenance)). Running one in a fresh
-  directory is a write, in that directory.
+  directory can write there. `qompack doctor` and default `qompack fsck` are read-only.
 - **One project per scenario.** Scenarios 08, 09 and 11 deliberately leave records behind; sharing a
   project between them makes a later row's `absent` or `active` unreadable.
 - **Terminate only the daemon you started.** Daemons are per project and the `pid` is in
@@ -42,10 +42,11 @@ unverified**, and the record has to say which capability that is: the row is the
 learns that nobody has seen the thing work. The same is true of a step that could not be reached —
 record the step number, the reason, and stop, rather than substituting a step that was reachable.
 
-A step marked `[requires SP-17 artifact]` needs the packaged, installable bundle, an upgrade path or
-an uninstall path, none of which exists on this tree. Those steps are written out in full so that
-the scenario is executable the day the artifact exists; until then they are the reason the row is a
-skip rather than a pass.
+A step marked `[requires SP-17 artifact]` needs an assembled, installable bundle and a host to
+install, upgrade or uninstall it against. SP-17 shipped the tooling that produces the bundle and
+documented those procedures in [docs/install.md](install.md). Each human run must identify its own
+tested bundle and isolation directory; an automated installation record does not complete these
+steps. A missing artifact or a failed prerequisite leaves the row unverified.
 
 ## The record every row carries
 
@@ -56,10 +57,18 @@ skip rather than a pass.
 | `Date` | the date of the run, in the operator's own time zone, stated |
 | `Executed by` | who ran it |
 | `Evidence` | where the captured output lives (free text; see each row's evidence block) |
-| `Rollback verified` | whether the pre-run `.qompack/` was restored and the restore was checked |
+| `Rollback verified` | verified backup/frontier identity, compatible reader, restored-content checks and treatment of later writes; otherwise `unverified` with the missing step |
 
 A `fail` keeps its evidence exactly as a `pass` does. A failed scenario that was cleaned up before
 anyone looked is a scenario that has to be run again.
+
+**Recovery acceptance remains blocked at the operator interface.** A stopped-writer filesystem
+copy and a clean `fsck` are useful precautions for disposable tests; neither proves an
+engine-supported consistent backup, stable import frontier, or post-upgrade reader compatibility.
+The store API rehearsal tests exercise those mechanisms with an explicit test gate, but this build
+has no operator backup/restore command and its production migration gate remains closed. UAT-12's
+recovery portion stays unverified until an owner provides and rehearses that supported path. Do not
+write `Rollback verified: yes` merely because the copy and audit succeeded.
 
 ## How to run a scenario
 
@@ -68,21 +77,30 @@ anyone looked is a scenario that has to be run again.
    empty scratch directory outside the repository; it created no `.qompack/` there). Record beside
    it the git SHA the bundle was built from, the host OS and its version, and the Claude Code
    version, so the row names one build and not a family of them.
-2. **Take the pre-run copy of `.qompack/`.** Before the first write of the scenario, copy the whole
-   `<project>/.qompack/` directory (or record that it does not exist yet, which is itself the
-   pre-run state). This is a filesystem copy made by the operator: there is no operator backup
-   command in this build, and `TakeBackup`/`RestoreBackup` are unreachable behind a closed build
-   gate ([docs/troubleshooting.md](troubleshooting.md#9-backup-rollback-and-recovery)) — it is this
-   page's interim precaution for a test run, not the operator procedure planned (SP-17).
+2. **Take the pre-run copy of `.qompack/`.** Before the first write of the scenario — while no writer
+   is running — copy the whole `<project>/.qompack/` directory (or record that it does not exist yet,
+   which is itself the pre-run state). This is a filesystem copy made by the operator: there is no
+   operator backup command in this build, and `TakeBackup`/`RestoreBackup` are unreachable behind a
+   closed build gate ([docs/troubleshooting.md](troubleshooting.md#9-backup-rollback-and-recovery)).
+   It is this page's interim precaution for a test run — the copy-and-`fsck` form of the interim
+   rollback SP-17 documents in [docs/release.md §5](release.md#5-rollback) — not a verified engine
+   backup.
 3. **Run the steps in order**, capturing each command's stdout, stderr and exit status.
 4. **Read the expected-result block field by field**, not impressionistically. Where the block says a
    string is "to be confirmed at execution", the first run's job is to record what the string
    actually was — not to decide whether it was close enough.
-5. **Restore and verify.** Delete the post-run `<project>/.qompack/` and put the pre-run copy back,
-   then verify the restore by comparing the index files — `.qompack/index/roots.jsonl` and
-   `.qompack/index/tool_use.jsonl` — line for line against the copy, and the checkpoint manifest
-   `.qompack/checkpoints/MANIFEST.jsonl` the same way. Record the comparison's result in
-   `Rollback verified`. A restore nobody compared is not a verified restore.
+5. **Stop the writers, restore, and check.** First stop the daemon you started — wait for its idle
+   exit, or verify the process belongs to this disposable project before terminating it. A lock
+   file's PID alone is insufficient. Confirm that no writer remains before you
+   restore. Move the post-run `<project>/.qompack/` aside as evidence (never delete a failed run's
+   store), then put the pre-run copy back. Run **`qompack fsck --project <root>`** as the recovery
+   check: it opens the restored store read-only and reports whether it reads back cleanly, and it is
+   the engine-supported check the interim rollback in [docs/release.md §5](release.md#5-rollback)
+   names. A file-by-file comparison of the restored `.qompack/` against the copy —
+   `.qompack/index/roots.jsonl`, `.qompack/index/tool_use.jsonl` and
+   `.qompack/checkpoints/MANIFEST.jsonl` — is a useful operator sanity check, but it is not what
+   certifies a complete rollback. Record both observations and keep `Rollback verified` unverified
+   when the engine backup/frontier and compatible-reader checks above are missing.
 6. **Fill the Result block in this file** (or in the run's own copy of it) and file the evidence.
 
 Do not repair a disagreement by editing data: `checkpoints/`, `pins/` and `sketches/tried.bloom` are
@@ -171,8 +189,9 @@ from the two files above with no explanation; a `self-test` row reporting a cont
 so. A **skip** is: no installable artifact, so steps 1, 5 and the host halves of 6 cannot run; the
 capability left unverified is installed-host discovery.
 
-Rollback: delete `<project>/.qompack/` if the scenario created it, restore the pre-run copy if there
-was one, and compare the index files. Uninstalling the plugin is `[requires SP-17 artifact]`.
+Rollback: stop the daemon you started, move the post-run `<project>/.qompack/` aside as evidence,
+restore the pre-run copy if there was one, and run `qompack fsck` as the recovery check. Uninstalling
+the plugin is `[requires SP-17 artifact]`.
 
 **Result**
 
@@ -249,9 +268,9 @@ recorded anywhere; a fidelity of `exact` on a capture that was demonstrably cut;
 printing `0` where no instrument exists. A **skip** is: no host session, leaving permitted-capture
 identity and fidelity unverified.
 
-Rollback: stop at the daemon's idle exit or terminate the `pid` in `.qompack/run/daemon.lock`,
-delete `<project>/.qompack/`, restore the pre-run copy (here: confirm the directory is gone again),
-and record the comparison.
+Rollback: stop at the daemon's idle exit or terminate the `pid` in `.qompack/run/daemon.lock`, move
+`<project>/.qompack/` aside as evidence, restore the pre-run copy (here: confirm the directory is
+gone again), and run `qompack fsck` as the recovery check if there is a store to check.
 
 **Result**
 
@@ -297,9 +316,9 @@ checkpoint presented as the current one.
 **Expected observable result**
 
 - Step 2: a new artifact exists and the manifest's last entry names it with its `sha256`
-  (`internal/paths/manifest.go`; the manifest is append-only and is the record `qompack fsck` is
-  meant to re-hash — `fsck` itself prints `qompack fsck: not implemented in this build` and exits
-  `1`, read from `internal/cli/commands.go`).
+  (`internal/paths/manifest.go`; the manifest is append-only and is the record `qompack fsck`
+  re-hashes — SP-17 implemented `fsck`, which verifies the checkpoint tier read-only and, with
+  `--repair --yes`, can append a MANIFEST line for a clean orphan without deleting anything).
 - Step 3: the artifact carries its frontier and its references. Concretely, the fields named in
   `internal/checkpoint/types.go` are `encoded_segments` (what the frontier has consumed),
   `pointers.files` (path plus `hash`) and `pointers.tools` (`tool_use_id` plus `hash`), alongside
@@ -332,9 +351,10 @@ that is replaced by an older one **without** any statement that the fallback hap
 no host session to compact, leaving durable-checkpoint recovery unverified; the gated durable
 frontier is unverified either way and the row says so.
 
-Rollback: restore the pre-run `.qompack/` copy and compare `.qompack/checkpoints/MANIFEST.jsonl` and
-`.qompack/index/*.jsonl` against it. Note that the append-only directories cannot be trimmed in
-place; the restore is a directory replacement.
+Rollback: stop the daemon you started, restore the pre-run `.qompack/` copy, and run `qompack fsck`
+as the recovery check. A comparison of `.qompack/checkpoints/MANIFEST.jsonl` and
+`.qompack/index/*.jsonl` against the copy is an operator sanity check, not the certification. Note
+that the append-only directories cannot be trimmed in place; the restore is a directory replacement.
 
 **Result**
 
@@ -418,8 +438,8 @@ A **fail** is: a compaction that does not proceed while Qompack is installed; a 
 that loses or rewrites its previous entry after a failed compaction; any native-shrink claim. A
 **skip** is: no host session, leaving veto-freedom and the failed-compaction outcome unverified.
 
-Rollback: remove the deliberately broken project config file, restore the pre-run `.qompack/` copy,
-and compare the index files and the manifest.
+Rollback: stop the daemon you started, remove the deliberately broken project config file, restore
+the pre-run `.qompack/` copy, and run `qompack fsck` as the recovery check.
 
 **Result**
 
@@ -507,8 +527,8 @@ superseded it; an overflow that appears nowhere — no `overflow`/`tier1` entry,
 counted tail — while content is missing. A **skip** is: no host session, leaving budget adherence and
 authority order unverified end to end.
 
-Rollback: restore the pre-run `.qompack/` copy and compare the index files; remove any `--set` or
-config override used for step 5.
+Rollback: stop the daemon you started, restore the pre-run `.qompack/` copy, run `qompack fsck` as
+the recovery check, and remove any `--set` or config override used for step 5.
 
 **Result**
 
@@ -580,9 +600,9 @@ A **fail** is: an obsolete intent appearing as the current one after any compact
 summary-derived original intent; any dependency on a post-compaction event. A **skip** is: no host
 session — leaving repeated-cycle intent stability unverified.
 
-Rollback: restore the pre-run `.qompack/` copy and compare the index files and the checkpoint
-manifest. Forked sessions leave their own state files under `.qompack/state/`; the restore replaces
-the directory wholesale.
+Rollback: stop the daemon you started, restore the pre-run `.qompack/` copy, and run `qompack fsck`
+as the recovery check. Forked sessions leave their own state files under `.qompack/state/`; the
+restore replaces the directory wholesale.
 
 **Result**
 
@@ -660,8 +680,8 @@ A **fail** is: step 6 returning the edited on-disk contents; a failed lookup rep
 handle from a hit that does not resolve. A **skip** is: no host session or no MCP client, leaving
 exact/path/symbol/handle discoverability unverified.
 
-Rollback: restore the edited project file, restore the pre-run `.qompack/` copy, and compare the
-index files.
+Rollback: stop the daemon you started, restore the edited project file, restore the pre-run
+`.qompack/` copy, and run `qompack fsck` as the recovery check.
 
 **Result**
 
@@ -732,9 +752,10 @@ is `true`; an `already_tried` `active` answer missing `reason`, `evidence`, `sco
 `depends_on`; an `absent` returned for the approach that was just recorded. A **skip** is: no MCP
 client, leaving the scoped claim and its confirmation fields unverified.
 
-Rollback: restore the pre-run `.qompack/` copy — the elimination record is append-only and is
-removed by replacing the directory, never by editing the file — then compare the index files and
-confirm `records/eliminations.jsonl` matches the pre-run copy.
+Rollback: stop the daemon you started, then restore the pre-run `.qompack/` copy — the elimination
+record is append-only and is removed by replacing the directory, never by editing the file — and run
+`qompack fsck` as the recovery check. Confirming `records/eliminations.jsonl` matches the pre-run
+copy is an operator sanity check, not the certification.
 
 **Result**
 
@@ -810,9 +831,10 @@ A **fail** is: a changed dependency that leaves the state `active`; a `drop` con
 staleness into `absent`; an `unavailable` without `degraded`; any response whose text forbids the
 approach. A **skip** is: no MCP client, leaving stale and uncertain reporting unverified.
 
-Rollback: restore the edited project file and the pre-run `.qompack/` copy, remove the `drop`
-configuration, and compare `.qompack/index/*.jsonl` and `records/eliminations.jsonl` against the
-copy.
+Rollback: stop the daemon you started, restore the edited project file and the pre-run `.qompack/`
+copy, remove the `drop` configuration, and run `qompack fsck` as the recovery check. Comparing
+`.qompack/index/*.jsonl` and `records/eliminations.jsonl` against the copy is an operator sanity
+check, not the certification.
 
 **Result**
 
@@ -899,8 +921,9 @@ leaves the accounting surface unverified — and note that "no assertions report
 that has hosted none is the honest answer, not a skip
 ([docs/troubleshooting.md](troubleshooting.md#1-start-with-provenance)).
 
-Rollback: restore the pre-run `.qompack/` copy and compare the index files. Reading commands still
-create the layout, so a project that had none before the run should have none after it.
+Rollback: stop the daemon you started, restore the pre-run `.qompack/` copy, and run `qompack fsck`
+as the recovery check. Reading commands still create the layout, so a project that had none before
+the run should have none after it.
 
 **Result**
 
@@ -986,8 +1009,9 @@ loader refused; a modified or dropped host payload; a pointer that does not reso
 host session for steps 5–6, leaving pointer resolution unverified — steps 1–4 are runnable today
 against a locally built binary in a scratch directory.
 
-Rollback: remove every test config file, restore the pre-run `.qompack/` copy, and compare the index
-files and `config-violations.json` against it.
+Rollback: stop the daemon you started, remove every test config file, restore the pre-run `.qompack/`
+copy, and run `qompack fsck` as the recovery check. Comparing the index files and
+`config-violations.json` against the copy is an operator sanity check, not the certification.
 
 **Result**
 
@@ -1033,10 +1057,13 @@ restored afterwards, with the restore verified — across an upgrade and an unin
 6. Upgrade the plugin to a newer bundle. `[requires SP-17 artifact]`
 7. Run a hook and confirm the layout still appears; read the day log for version-block and
    retired-meaning warnings.
-8. Restore the pre-run copy over `<project>/.qompack/` and verify: compare
-   `.qompack/index/roots.jsonl`, `.qompack/index/tool_use.jsonl` and
-   `.qompack/checkpoints/MANIFEST.jsonl` line for line against the copy, and record the comparison
-   command and its output.
+8. Stop the verified scenario writer, retain the post-run store separately, then restore the
+   pre-run copy into the disposable project and check
+   it: run `qompack fsck --project <root>` as the recovery check and record its output. A
+   line-for-line comparison of `.qompack/index/roots.jsonl`, `.qompack/index/tool_use.jsonl` and
+   `.qompack/checkpoints/MANIFEST.jsonl` against the copy is a useful operator sanity check to record
+   alongside it. Neither establishes the required engine backup/frontier and reader-compatibility
+   evidence; without that supported path, record this recovery step as blocked.
 9. Uninstall the plugin. `[requires SP-17 artifact]`
 10. Confirm `<project>/.qompack/` is still on disk after the uninstall, and that deleting it is the
     only way to remove it.
@@ -1060,8 +1087,9 @@ restored afterwards, with the restore verified — across an upgrade and an unin
   line. Read all three in the *new* build's reference
   ([docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)). The
   layout reappearing after a hook run is the confirmation that capture still loads.
-- Step 8: the three comparisons are byte-identical to the copy. A restore nobody compared is not a
-  verified restore, and this is the only `Rollback verified: yes` this page recognizes.
+- Step 8: record the `qompack fsck` result and optional file comparison as diagnostic observations.
+  Keep `Rollback verified` unverified unless the engine-supported backup, stable frontier,
+  compatible-reader and later-write requirements in the shared recovery prerequisites are met.
 - Step 10: `<project>/.qompack/` survives the uninstall with everything already recorded in it;
   removing the plugin stops it being invoked and deletes nothing
   ([docs/troubleshooting.md](troubleshooting.md#8-safe-disable)).
@@ -1071,8 +1099,8 @@ restored afterwards, with the restore verified — across an upgrade and an unin
 **Evidence to record**
 
 `uat/UAT-12/`: the pre-run copy of `.qompack/` itself (it is the rollback artifact), every MCP
-response with its byte size, the day log across the upgrade, the step-8 comparison commands and
-their full output, and directory listings before and after the uninstall.
+response with its byte size, the day log across the upgrade, the step-8 `qompack fsck` output and any
+comparison commands and their full output, and directory listings before and after the uninstall.
 
 **Failure and rollback outcome**
 
@@ -1082,8 +1110,9 @@ differs; a `.qompack/` deleted or altered by an upgrade or an uninstall. A **ski
 uninstall path, which leaves the upgrade and uninstall halves unverified — steps 1–5 and 8 are
 runnable without them, and a row that ran only those says so in its Result.
 
-Rollback: step 8 **is** the rollback, and it is verified rather than assumed. If the comparison
-differs, keep both directories as evidence and do not reconcile them by editing either.
+Rollback: step 8 **is** the rollback, and `qompack fsck` verifies it rather than it being assumed. If
+`fsck` reports a defect or the comparison differs, keep both directories as evidence and do not
+reconcile them by editing either.
 
 **Result**
 
@@ -1108,7 +1137,12 @@ Rollback verified: —
 - [docs/architecture.md](architecture.md) — the contracts behind all of it
 - [docs/adr/README.md](adr/README.md) — every architecture decision record, with its status
 
-Planned, and not yet written — named as plain text on purpose, because none of these files exists:
+Packaging and release, added by SP-17:
 
-- planned (SP-17): docs/install.md, docs/security.md and docs/release.md, and the packaged bundle
+- [docs/install.md](install.md) — installing, upgrading and uninstalling the bundle
+- [docs/security.md](security.md) — the security and recovery posture
+- [docs/release.md](release.md) — how a release is cut and what it claims to support
+
+The packaged bundle itself is assembled by `go run ./tools/devtool bundle`; none is committed on this
+tree.
   every `[requires SP-17 artifact]` step above depends on

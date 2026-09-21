@@ -29,7 +29,8 @@ number is changed by this page.
 
 ## Supported environments
 
-What is actually built and tested is what `.github/workflows/ci.yml` runs. Every job pins Go
+The following checks are configured in `.github/workflows/ci.yml`; this table does not establish
+that the current candidate passed them. Go jobs pin
 `1.26.6` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
 disagree):
 
@@ -44,19 +45,25 @@ disagree):
 | `crossbuild` | ubuntu-latest | `devtool build-all` — six targets: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64, windows/arm64 |
 | `cover`, `replay-gate`, `plugin-validate`, `security`, `docs` | ubuntu-latest | coverage floors, the replay gate, the plugin bundle check, `govulncheck` and the import allowlist, and the generated-document drift check |
 
-So: Linux, macOS and Windows are exercised in CI on the runners' own architectures, and six
-GOOS/GOARCH pairs are cross-compiled.
+The workflow targets Linux, macOS and Windows on the runners' own architectures, and configures
+cross-compilation for six GOOS/GOARCH pairs. Candidate results remain separate from that configuration.
 
-**What that does not cover.** Compatibility with an *installed* Claude Code host is
-`implemented_unverified` (`plans/V5-report.md` §24, item B01). The host's own validator accepts the
-committed bundle where it sits in this repository, but the plugin has not been installed into a
-host and run from there, so installed manifest resolution, `${CLAUDE_PLUGIN_ROOT}` expansion and
-launcher discovery inside a live session are unverified. Verifying it means installing the bundle
-in a real Claude Code host and running a session against it.
+**What that does not cover.** Installed-host verification exists only where a committed record says
+so. On **windows/amd64** SP-17 installed the bundle into Claude Code 2.1.263 and the launcher
+resolved from the host's plugin cache, which is why that one target reads `installed-verified`
+([docs/release.md](docs/release.md#3-supported-scope) §3). The other five release targets have no
+install record and read `unknown`, so installed manifest resolution, `${CLAUDE_PLUGIN_ROOT}`
+expansion and launcher discovery are unverified there. No target has been exercised in a live
+session against a live model — the acceptance scenarios in [docs/uat.md](docs/uat.md) have not been
+executed. The generated scope table in [docs/release.md](docs/release.md#3-supported-scope) is the
+release's actual claim.
 
-There is also no installable release artifact yet. Planned (SP-17): `docs/install.md` and
-`docs/security.md`, plus the packaged bundle and `docs/release.md`. None of those files exists; they
-are named here as plain text, not as links, on purpose.
+Packaging and release tooling shipped with SP-17: [docs/install.md](docs/install.md) and
+[docs/security.md](docs/security.md) cover installing the bundle and its security and recovery
+posture, and [docs/release.md](docs/release.md) covers how a release is cut and what it claims. The
+bundle is assembled by `go run ./tools/devtool bundle`; no release has been published from this
+repository yet, and no release workflow has run ([docs/release.md](docs/release.md#7-not-claimed)
+§7).
 
 ## Building from source
 

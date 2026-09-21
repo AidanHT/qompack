@@ -327,33 +327,41 @@ These are the limits that can move. Each names the gate or the owner that would 
 - **Recorded at.** [docs/commands.md](commands.md#qompackcheckpoint) ("Not available in this
   build"); `plans/V5-report.md` §29 item 3.
 
-### `doctor` and `fsck` are unimplemented
+### No operator backup, restore or rollback command; `bench` unimplemented
 
-- **Limit.** `qompack doctor` and `qompack fsck` do nothing. Each prints
-  `qompack <name>: not implemented in this build` and exits 1.
-- **Why.** Neither has been implemented; the exit code says so rather than pretending success. (The
-  `bench` survivor is in the same state and is SP-17's to implement or deprecate.)
-- **What Qompack does instead.** `qompack self-test` is the diagnostic that exists, and
-  [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance) is the procedure that
-  uses it.
+- **Limit.** No command takes a backup, restores one, or performs a rollback. The store carries the
+  machinery — `TakeBackup`, `VerifyBackup`, `RestoreBackup` and `RehearseRollback`
+  (`internal/store/backup.go`) — but it is reachable only from Go, through a migrator the closed
+  `store.migrate.legacyImportCutover` build gate refuses to construct. `qompack bench` is also
+  unimplemented and prints `qompack bench: not implemented in this build`.
+- **Why.** The migration/rollback path stays behind a build gate that has no config key until its
+  acceptance evidence lands (`internal/config/migration.go`), and `bench` is carried as an open row
+  for a later subplan (`plans/V5-report.md` §29 item 7).
+- **What Qompack does instead.** SP-17 shipped the read-only diagnostics `qompack fsck` and `qompack
+  doctor`. `fsck` is the recovery **check** — it reports on backup and migration state and, with
+  `--repair --yes`, performs five explicit additive repairs that never delete data — and `doctor`
+  reports capability, scope and control rows. The interim rollback procedure is
+  [docs/release.md §5](release.md#5-rollback).
 - **Recorded at.** [docs/user-guide.md](user-guide.md#operator-commands);
   [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery);
-  `plans/V5-report.md` §29 item 7.
+  [docs/release.md §5](release.md#5-rollback); `plans/V5-report.md` §29 item 7.
 
-### Installed-host compatibility is `implemented_unverified`
+### Installation rehearsed on windows/amd64; live sessions unverified
 
-- **Limit.** No claim on this tree is backed by a run against an installed Claude Code. Compatibility
-  is verified at the repository-validator level only.
-- **Why.** `plans/V5-report.md` §24 records installed-host compatibility as `implemented_unverified`
-  (B01), and `plans/MIGRATION-EVIDENCE.md` states it flatly: "No test or document in either tree
-  claims installed-host verification for any capability; B01 stands." Four host contracts have no
-  recorded observation for the same reason — `hook.additional_context_delivered`,
-  `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and
-  `mcp.server_registered` report `not-yet-implemented` in `qompack self-test`, which runs them
-  against a zero `daemon.Services`; a live daemon declares each of those producers only when the
-  matching seam is bound (`internal/daemon/options.go` `DeclareProducers`, guarded by
-  `s.PreCompact`/`s.Checkpoints`, `s.Rehydrate` and `s.MCPInitialized`), and what such a run would
-  observe against an installed host has never been recorded.
+- **Limit.** Installed-host verification exists for **windows/amd64 only**, and only at the install
+  and launcher-resolution level. On that one target SP-17 installed the bundle into Claude Code
+  2.1.263 and the launcher resolved from the host's plugin cache, so it reads `installed-verified`
+  ([docs/release.md](release.md#3-supported-scope) §3). The other five release targets read
+  `unknown`, and no target has been exercised in a live session against a live model.
+- **Why.** SP-17's record raises only windows/amd64, from a directory install and a launcher that
+  resolved in the host's cache; `${CLAUDE_PLUGIN_ROOT}` expansion in a live session and the four host
+  contracts below stay unobserved. `qompack self-test` runs them against a zero `daemon.Services`, so
+  `hook.additional_context_delivered`, `precompact.has_time_to_write`,
+  `precompact.custom_instructions_accepted` and `mcp.server_registered` report `not-yet-implemented`;
+  a live daemon declares each of those producers only when the matching seam is bound
+  (`internal/daemon/options.go` `DeclareProducers`, guarded by `s.PreCompact`/`s.Checkpoints`,
+  `s.Rehydrate` and `s.MCPInitialized`), and what such a run would observe against an installed host
+  has never been recorded.
 - **What Qompack does instead.** It reports the producer-absent state honestly instead of reading it
   as success, and pins that reading with a test over `internal/contract/observation.go`'s spellings
   table.

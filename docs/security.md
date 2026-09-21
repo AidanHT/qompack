@@ -1,10 +1,8 @@
 # Security and recovery
 
-What Qompack protects, what it measures rather than assumes, and — in as much detail as the
-protections themselves — what it does **not** do. Everything below was exercised against the
-packaged binary on windows/amd64; the records are under
-`plans/sdd/V6-SP-17-packaging-hardening-and-release/`. Where a measurement contradicted a design
-comment, the measurement is what this page says.
+What Qompack protects and what remains unverified. SP-17's historical packaged measurements are
+under `plans/sdd/V6-SP-17-packaging-hardening-and-release/`. The subsequent V6 checks found
+authorization bypasses described below; release acceptance is blocked while they remain unresolved.
 
 Configuration keys are named here but never described: `docs/config-reference.md` is generated from
 the schema and is the only place that documents a default. Tool schemas are in `docs/mcp-tools.md`,
@@ -15,13 +13,20 @@ commands in `docs/commands.md`.
 Qompack stores what the host has already given the model and hands it back on request. Two
 boundaries carry that, and both run in one direction only.
 
-**Host permission outranks the archive.** A stored content hash or a host `tool_use_id` is an
-*address*, never a credential. Supplying a well-formed one is not authorization to materialize the
-bytes behind it: `recall` re-checks every hit before it builds a preview, and `expand` and `re_read`
-re-check before they touch the store at all. The rule enforced is the one a live read of that path
-would face **today**, not the one that applied when the content was captured. The check resolves the
-path on disk — every component, junction-aware on Windows — and refuses when it lands outside the
-project root, so a directory replaced by a link after capture is denied rather than served.
+**Required boundary: host permission outranks the archive.** A stored content hash or a host
+`tool_use_id` is an address, never a credential. The current implementation does not fully meet
+that requirement. Path-bearing `recall` hits, `expand` by tool-use ID and `re_read` check the current
+filesystem scope, including directory junctions. However, root-hash and chunk-hash expansion bypass
+that check. A captured Read whose out-of-project path was discarded also passes the empty-path
+check when expanded by ID. V6 reproduced both behaviors against the packaged binary, including a
+real in-project hook capture whose parent directory was subsequently replaced by an outside link.
+The ID route refused that changed path while both hash routes returned its captured bytes.
+
+These are release blockers, not accepted exceptions. Redaction of credential patterns does not
+authorize an otherwise denied archived read. The existing filesystem-scope check also does not
+consume the host's current permission decisions, so it cannot establish compliance with host deny
+rules for an in-project file. V6 evidence and the required owner corrections are recorded in
+`plans/sdd/V6-VERIFY/`; no production-ready trust claim follows from the earlier scoped tests.
 
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and

@@ -507,7 +507,7 @@ menus or file layout, because it cannot verify them from this repository.
 **What keeps being written.** Nothing new. `<project>/.qompack/` stays on disk with everything
 already recorded in it, and deleting that directory is the only way to remove it.
 
-The install and uninstall procedure is planned (SP-17): docs/install.md.
+The install and uninstall procedure is in [docs/install.md](install.md).
 
 ## 9. Backup, rollback and recovery
 
@@ -523,9 +523,12 @@ is closed — it returns `ErrMigrationGateClosed`, "store: legacy import/cutover
 before doing anything else (`internal/store/migrate.go`). The gate,
 `store.migrate.legacyImportCutover`, has no configuration key and cannot be opened from a config
 file ([Build gates](config-reference.md#gated-switches-ship-off)). No `qompack` subcommand
-constructs a migrator; `qompack help` lists `admin delivery-seal` as its only admin entry point; and
-`doctor`, `fsck` and `bench` each print `qompack <name>: not implemented in this build` and exit 1
-(observed on this tree for all three).
+constructs a migrator, so no backup, restore or rollback runs from the command line; `qompack help`
+lists `admin delivery-seal` as its only admin entry point. What SP-17 did add are two read-only
+diagnostics: `qompack fsck` reports on backup and migration state (and `fsck --repair --yes` performs
+five explicit additive repairs that never delete data), and `qompack doctor` reports capability,
+scope and control rows — neither touches a backup. `bench` remains unimplemented and prints
+`qompack bench: not implemented in this build`.
 
 **What is verified.** `plans/V5-report.md` §24 records "resumable migration/backup/rollback
 (I-06.19)" among the SP-20 gates that are `verified_in_target` — every gate in that group except
@@ -536,13 +539,19 @@ records a rollback rehearsal — a `--no-ff` merge reverted with `git revert -m 
 new artifact is a sidecar" and an older reader drops the `runtime.migration` block as an unknown
 section with a warning.
 
-**What is not.** There is no operator backup command, no operator restore command and no operator
-rollback command. This page does not describe a manual copy-and-restore procedure either: the backup
-layout under `.qompack/backup/` is produced by `TakeBackup`, which writes a manifest a restore
-verifies against, and a hand-made copy is not that. An operator-facing procedure is planned (SP-17).
-The interim procedure the acceptance scenarios use is the operator's own pre-run copy of
-`.qompack/` compared afterwards against the index files ([docs/uat.md](uat.md)); it is a manual
-precaution for a test run, not a verified restore and not the planned SP-17 operator procedure.
+**What is not.** There is still no operator backup command, no operator restore command and no
+operator rollback command; `TakeBackup`, `RestoreBackup` and `RehearseRollback` remain Go-only behind
+the closed build gate. SP-17 documented the interim rollback in
+[docs/release.md §5](release.md#5-rollback): disable the feature with its switch
+([docs/release.md §4](release.md#4-switches)), restore a backup from the store API **or from your own
+copy**, run `qompack fsck` as the recovery check, and re-enable only after that check passes. The
+acceptance scenarios in [docs/uat.md](uat.md) follow the copy-and-`fsck` form because no operator
+restore command exists: the operator's own pre-run copy of `.qompack/` is the restore, and `qompack
+fsck` is the check. A file-by-file comparison of the restored `.qompack/` against the copy is an
+operator sanity check. A clean `fsck` reports only its inspected integrity checks: it does not
+establish a stable import frontier, backup consistency, compatible readers or recovery of later
+writes. The operator-facing recovery gate in [docs/uat.md](uat.md#the-record-every-row-carries)
+remains unverified until those requirements have a supported, rehearsed path.
 
 **Do not downgrade data to match old prose.** If a document describes a recovery step this build
 does not implement, the document is the thing that is wrong. Do not delete, truncate or rewrite
@@ -585,6 +594,8 @@ exactly that instinct.
   [what is not supported](architecture.md#10-what-is-not-supported)
 - [docs/adr/README.md](adr/README.md) — every architecture decision record, with its status
 
-Planned, and not yet written — named as plain text on purpose, because none of these files exists:
+Packaging and release, added by SP-17:
 
-- planned (SP-17): docs/install.md, docs/security.md and docs/release.md
+- [docs/install.md](install.md) — installing, upgrading and uninstalling the bundle
+- [docs/security.md](security.md) — the security and recovery posture
+- [docs/release.md](release.md) — how a release is cut and what it claims to support
