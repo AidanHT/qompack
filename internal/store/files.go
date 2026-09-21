@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/qompack/qompack/internal/core"
-	"github.com/qompack/qompack/internal/paths"
 )
 
 // fileVersionRec is one index/files.jsonl line: the append-only truth behind the index/files.json
@@ -26,13 +25,6 @@ type fileVersionRec struct {
 	Turn  core.TurnIndex `json:"turn"`
 	Root  core.Hash      `json:"root"`
 	Bytes int64          `json:"bytes"`
-}
-
-// filesView is the materialized index/files.json document.
-type filesView struct {
-	Version   int                      `json:"version"`
-	Generated core.UnixMilli           `json:"generated"`
-	Files     map[string][]FileVersion `json:"files"`
 }
 
 // filesLogPath is index/files.jsonl, the append-only log.
@@ -85,7 +77,7 @@ func (s *FSStore) loadFiles() error {
 // bytes observed at two different points in the session are two observations, and §8.3's
 // staleness comparison reads the newest one.
 func (s *FSStore) AppendFileVersion(ctx context.Context, path string, v FileVersion) error {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
@@ -215,10 +207,13 @@ func (s *FSStore) ChangedSince(ctx context.Context, deps []core.Dep) ([]core.Dep
 
 // materializeFilesJSON regenerates index/files.json from the in-memory history. Flush calls it;
 // nothing on the hot path does.
+//
+// It shares writeFilesView with RegenerateFilesView, the exported regenerator `qompack fsck
+// --repair` runs, so the document a repair leaves is the document a Flush would have left.
 func (s *FSStore) materializeFilesJSON() error {
 	s.mu.RLock()
-	view := filesView{
-		Version:   indexRecordVersion,
+	view := FilesView{
+		Version:   FilesViewVersion,
 		Generated: s.now(),
 		Files:     make(map[string][]FileVersion, len(s.fileHist)),
 	}
@@ -229,11 +224,5 @@ func (s *FSStore) materializeFilesJSON() error {
 	}
 	s.mu.RUnlock()
 
-	// encoding/json sorts map keys itself, which is exactly the lexicographic path order the view
-	// is specified to have; the per-path slices are already ascending by TS.
-	b, err := json.Marshal(view)
-	if err != nil {
-		return err
-	}
-	return paths.WriteAtomic(s.filesViewPath(), b, 0o600)
+	return writeFilesView(s.filesViewPath(), view)
 }

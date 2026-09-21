@@ -162,11 +162,18 @@ func resolveVersion() string {
 	return ""
 }
 
-// versionLdflags builds the -ldflags value shared by the build and build-all tasks. An empty
-// version omits the -X entirely, so the binary reports internal/core.Version's compiled-in value.
+// versionLdflags builds the -ldflags value shared by the build, build-all and bundle tasks. An
+// empty version omits the -X entirely, so the binary reports internal/core.Version's compiled-in
+// value.
+//
+// -buildid= is SP-17's addition and is a determinism flag: the linker otherwise embeds a build ID
+// derived from the action graph, which differs between two builds of the same source made in
+// different working directories. A bundle's checksums.txt asserts that it does not, so the ID is
+// cleared rather than hashed.
 func versionLdflags(version string) string {
+	const base = "-s -w -buildid="
 	if version == "" {
-		return "-s -w"
+		return base
 	}
-	return "-s -w -X " + modulePath + "/internal/core.Version=" + version
+	return base + " -X " + modulePath + "/internal/core.Version=" + version
 }

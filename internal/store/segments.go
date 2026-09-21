@@ -88,6 +88,12 @@ type segLog struct {
 	// which is what lets FSStore.Segments keep returning a non-nil log after Close without
 	// changing a §5.8 signature.
 	degraded bool
+	// readOnly marks a log openSegLogReadOnly loaded (readonly.go). It is LOADED — every read
+	// method answers from it, which is the whole point — but it holds no append handle, so a write
+	// must refuse rather than nil-dereference the handle it does not have. Every public writer
+	// consults writable() before it validates anything, and append refuses again as the last line
+	// of defence for a writer added later that forgets to.
+	readOnly bool
 	// warnedNoTokens records which segments have already produced the missing-tokens warning, so
 	// a reopened log does not repeat it per call.
 	warnedNoTokens map[core.SegmentID]bool
@@ -111,6 +117,30 @@ func openSegLog(p string, clk core.Clock, log logging.Logger) (*segLog, error) {
 	}
 	if err := l.load(p); err != nil {
 		_ = f.close()
+		return nil, err
+	}
+	return l, nil
+}
+
+// openSegLogReadOnly replays index/segments.jsonl WITHOUT opening an append handle.
+//
+// openSegLog opens the file O_CREATE, which is why OpenReadOnly (readonly.go) cannot use it: asking
+// a project how many segments it has would create the log in a project that has none. scanIndexJSONL
+// already treats a missing file as an empty one, so this reads what is there and nothing else.
+//
+// The log it returns is NOT degraded. A degraded log answers every read with core.ErrDegraded and
+// reports no segments at all, which would make the one question a diagnostic asks — how many
+// segments does this project hold — answerable only as a confident zero. Reads answer; writes refuse
+// with ErrReadOnly (writable, and append behind it).
+func openSegLogReadOnly(p string, clk core.Clock, log logging.Logger) (*segLog, error) {
+	l := &segLog{
+		byID:           make(map[core.SegmentID]*Segment),
+		clk:            clk,
+		log:            log,
+		readOnly:       true,
+		warnedNoTokens: make(map[core.SegmentID]bool),
+	}
+	if err := l.load(p); err != nil {
 		return nil, err
 	}
 	return l, nil
@@ -191,7 +221,14 @@ func (l *segLog) insert(seg *Segment) {
 func (l *segLog) now() core.UnixMilli { return core.UnixMilli(l.clk.Now().UnixMilli()) }
 
 // append writes one record. The caller holds l.mu.
+//
+// It is the segment log's write guard as well as its writer: every record any method appends comes
+// through here, so refusing a read-only log at this one point covers Open, Close, MarkEncoded,
+// PublishFilter and anything added after them.
 func (l *segLog) append(v any) error {
+	if l.readOnly {
+		return ErrReadOnly
+	}
 	line, err := marshalLine(v)
 	if err != nil {
 		return err
@@ -220,6 +257,23 @@ func (l *segLog) degrade() {
 	}
 }
 
+// writable is the segment log's write guard, the sibling of FSStore.mutate.
+//
+// It is consulted BEFORE any validation, so a caller of a read-only log hears why the call cannot
+// happen at all rather than what would have been wrong with it: MarkEncoded on a still-open segment
+// otherwise answered "segment not closed" from a log that would have refused either way. append
+// carries the same refusal as the last line of defence, for a writer added later that forgets this.
+// The caller holds l.mu.
+func (l *segLog) writable() error {
+	if l.degraded {
+		return core.ErrDegraded
+	}
+	if l.readOnly {
+		return ErrReadOnly
+	}
+	return nil
+}
+
 // Open appends a new, unclosed Segment and returns its assigned ID.
 //
 // A zero s.ID allocates maxID+1, so IDs are 1-based and monotonic per project. A non-zero ID at or
@@ -228,8 +282,8 @@ func (l *segLog) degrade() {
 func (l *segLog) Open(ctx context.Context, s Segment) (core.SegmentID, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.degraded {
-		return 0, core.ErrDegraded
+	if err := l.writable(); err != nil {
+		return 0, err
 	}
 	if err := ctx.Err(); err != nil {
 		return 0, err
@@ -269,8 +323,8 @@ func (l *segLog) Open(ctx context.Context, s Segment) (core.SegmentID, error) {
 func (l *segLog) Close(ctx context.Context, id core.SegmentID, endTurn core.TurnIndex, feats map[string]float64) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.degraded {
-		return core.ErrDegraded
+	if err := l.writable(); err != nil {
+		return err
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -414,8 +468,8 @@ func (l *segLog) Current(ctx context.Context, s core.SessionID) (Segment, error)
 func (l *segLog) MarkEncoded(ctx context.Context, ids []core.SegmentID, seq core.CheckpointSeq) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.degraded {
-		return core.ErrDegraded
+	if err := l.writable(); err != nil {
+		return err
 	}
 	if err := ctx.Err(); err != nil {
 		return err

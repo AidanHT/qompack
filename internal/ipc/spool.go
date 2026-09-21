@@ -63,8 +63,25 @@ type spool struct {
 
 // NewSpool returns a SpoolWriter rooted at dir, which is <root>/.qompack/spool in every real
 // caller. Constructing always succeeds and creates nothing.
+//
+// Its §12.3 "drop the event, Loud once" goes to a Nop, so prefer NewSpoolWithObs wherever a logger
+// exists. This form stays for callers that genuinely have none.
 func NewSpool(dir string) (SpoolWriter, error) {
 	return newSpool(dir, logging.Nop(), nil), nil
+}
+
+// NewSpoolWithObs is NewSpool with the caller's own logger and registry, so a refused spool write
+// reaches the caller's log instead of a discarded Nop.
+//
+// It exists because of finding F-2. internal/cli's hook path built its spool through NewSpool, and
+// an ordinary write failure is the one case spool.Append handles ENTIRELY internally — it drops,
+// counts and Louds, and returns nil — so the client's own drop branch never ran and the whole
+// §12.3 announcement went to logging.Nop(). A project whose .qompack was made read-only underneath
+// a live session therefore left no durable evidence of the degradation at all: test/platform swept
+// logs/, LOUD.log, metrics/, records/, the spool and state/ and found nothing changed, with stderr
+// empty.
+func NewSpoolWithObs(dir string, log logging.Logger, m obs.Registry) SpoolWriter {
+	return newSpool(dir, log, m)
 }
 
 // newSpool is NewSpool's body with the logger/registry a real Client already has to hand, so

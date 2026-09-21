@@ -33,6 +33,8 @@ func All() []Cmd {
 	cmds = append(cmds, evalCmds()...)
 	cmds = append(cmds, slashCommandCmds()...)
 	cmds = append(cmds, adminCmds()...)
+	cmds = append(cmds, fsckCmds()...)
+	cmds = append(cmds, doctorCmds()...)
 	for _, ni := range notImplemented {
 		cmds = append(cmds, Cmd{Name: ni.name, Summary: ni.summary, Run: notImplementedRun(ni.name)})
 	}
@@ -42,11 +44,10 @@ func All() []Cmd {
 // notImplemented is every §2.3 subcommand whose owning subplan has not merged. Keeping the list as
 // data — rather than as absent entries — is what makes the dispatch table complete on day one.
 // SP-14 removed status, recall, pin, why, dropped and eval from this list: slashCommandCmds now
-// registers them against internal/commands. checkpoint was never here — it is a hook entry point,
-// and giving that name a second non-hook meaning is handoff edge H3.
+// registers them against internal/commands. SP-17 removed fsck and doctor, which fsckCmds and
+// doctorCmds now register. checkpoint was never here — it is a hook entry point, and giving that
+// name a second non-hook meaning is handoff edge H3.
 var notImplemented = []struct{ name, summary string }{
-	{"fsck", "verify store and checkpoint integrity (SP-17)"},
-	{"doctor", "diagnose installation and host contract problems (SP-17)"},
 	{"bench", "run the hot-path latency harness (SP-05)"},
 }
 

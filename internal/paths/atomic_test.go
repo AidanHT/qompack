@@ -2,7 +2,10 @@ package paths_test
 
 import (
 	"os"
+	"os/exec"
+	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -110,9 +113,61 @@ func TestWriteAtomic_DestinationParentMissing(t *testing.T) {
 	l := newLayout(t)
 	// l.State exists, but "missing" under it does not: the rename destination's parent directory
 	// is absent, so the finishing rename — and the retry's Chmod, since the destination does not
-	// exist either — both fail.
+	// exist either — both fail. Staging still happens in l.Tmp and must be cleaned up.
 	target := filepath.Join(l.State, "missing", "file.json")
 
 	err := paths.WriteAtomic(target, []byte("x"), 0o600)
 	require.Error(t, err)
+
+	_, statErr := os.Stat(target)
+	require.True(t, os.IsNotExist(statErr), "a failed atomic write must not create the destination")
+
+	entries, readDirErr := os.ReadDir(l.Tmp)
+	require.NoError(t, readDirErr)
+	for _, e := range entries {
+		require.False(t, strings.HasPrefix(e.Name(), "wa-"), "leftover staging file: %s", e.Name())
+	}
+}
+
+// TestWriteAtomic_CreateTempFailureLeavesNoStaging pins the other clean-failure door: when the
+// project tmp directory refuses a new staging file, WriteAtomic errors before any destination
+// exists and leaves no wa- debris behind.
+func TestWriteAtomic_CreateTempFailureLeavesNoStaging(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("platform: icacls is windows-specific")
+	}
+	u, err := user.Current()
+	if err != nil {
+		t.Skipf("platform: could not determine current user: %v", err)
+	}
+
+	l := newLayout(t)
+	target := filepath.Join(l.State, "thing.json")
+
+	if out, denyErr := exec.Command("icacls", l.Tmp, "/deny", u.Username+":(WD)").CombinedOutput(); denyErr != nil {
+		t.Skipf("platform: icacls deny unavailable in this environment: %v: %s", denyErr, out)
+	}
+	denied := true
+	t.Cleanup(func() {
+		if denied {
+			_, _ = exec.Command("icacls", l.Tmp, "/remove:d", u.Username).CombinedOutput()
+		}
+	})
+
+	err = paths.WriteAtomic(target, []byte("x"), 0o600)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, core.ErrAppendOnly)
+
+	_, statErr := os.Stat(target)
+	require.True(t, os.IsNotExist(statErr), "a failed staging create must not create the destination")
+
+	if out, clearErr := exec.Command("icacls", l.Tmp, "/remove:d", u.Username).CombinedOutput(); clearErr != nil {
+		t.Fatalf("remove test-owned deny ACE: %v: %s", clearErr, out)
+	}
+	denied = false
+	entries, readDirErr := os.ReadDir(l.Tmp)
+	require.NoError(t, readDirErr)
+	for _, e := range entries {
+		require.False(t, strings.HasPrefix(e.Name(), "wa-"), "leftover staging file: %s", e.Name())
+	}
 }

@@ -203,6 +203,58 @@ func TestRedact_AssignmentValueOnly(t *testing.T) {
 		string(out))
 }
 
+// npmrcProbe is a credential-shaped run written split across a `+` for the reason
+// internal/testutil/secrettokens.go gives: the runtime value is exact while no contiguous
+// credential-shaped run appears in this source for a scanner to match.
+//
+//nolint:gosec // G101: a redaction-rule fixture, not a credential.
+var npmrcProbe = "Kq4Rm8Tv2Wy6" + "Ze0AbCdEfGhIj"
+
+// TestRedact_AssignmentReachesUnderscoredAndBareAuthKeys is finding S-5, measured by test/security
+// against the packaged product.
+//
+// The assignment family gated its whole key alternation behind ONE leading word boundary, and a
+// word boundary cannot match between an underscore and a letter — so `_authToken=`, which is
+// exactly how npm writes a registry credential into `.npmrc` and how it appears in every
+// `npm config set` command line, was outside the rule, as was `_password=`.
+//
+// `_auth=` was outside it twice over, and the second reason is the independent one: the alternation
+// carried `auth[_-]?token` and no bare `auth` branch, so plain `auth=` was unmatched too. A remedy
+// that merely allowed a leading underscore would not have reached either spelling, which is why
+// both halves are asserted here.
+func TestRedact_AssignmentReachesUnderscoredAndBareAuthKeys(t *testing.T) {
+	for _, tc := range []struct{ name, line string }{
+		{"npmrc_auth_token", "//registry.npmjs.org/:_authToken=" + npmrcProbe},
+		{"underscored_password", "_password=" + npmrcProbe},
+		{"underscored_bare_auth", "_auth=" + npmrcProbe},
+		{"bare_auth", "auth=" + npmrcProbe},
+		{"bare_auth_colon", "auth: " + npmrcProbe},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out, ms := newR(t).Redact([]byte(tc.line))
+			require.Len(t, ms, 1, "%s must produce exactly one match, got %v", tc.line, ruleNamesOf(ms))
+			require.Equal(t, "assignment_secret", ms[0].Rule)
+			require.NotContains(t, string(out), npmrcProbe,
+				"the credential must not survive in %q", string(out))
+		})
+	}
+}
+
+// TestRedact_AssignmentStillIgnoresEmbeddedKeyNames is the other half of S-5: widening the leading
+// boundary to admit an underscore must not turn every word ENDING in a key name into a key, and the
+// bare `auth` branch must not fire on `Authorization`, `author` or `oauth`.
+func TestRedact_AssignmentStillIgnoresEmbeddedKeyNames(t *testing.T) {
+	for _, line := range []string{
+		"mypassword=" + npmrcProbe,
+		"xsecret=" + npmrcProbe,
+		"author=" + npmrcProbe,
+		"oauth=" + npmrcProbe,
+	} {
+		_, ms := newR(t).Redact([]byte(line))
+		require.Empty(t, ms, "%q must not be read as a secret assignment", line)
+	}
+}
+
 // TestRedact_DotenvGatedByKeyName asserts the .env rule is gated on the KEY/TOKEN/SECRET/… key-name
 // vocabulary: Redact has no path argument, so an unguarded "NAME=value" rule would scrub every
 // ordinary configuration line in a tool result.
