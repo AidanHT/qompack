@@ -180,6 +180,9 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 	_, journalErr := os.Lstat(paths.Long(p))
 	_, positionErr := os.Lstat(paths.Long(positionPath))
 	if os.IsNotExist(journalErr) && os.IsNotExist(positionErr) {
+		if err := refuseDeliveryRecreation(filepath.Dir(p)); err != nil {
+			return nil, err
+		}
 		if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
 			return nil, deliveryJournalError()
 		}
@@ -1073,6 +1076,9 @@ func (j *deliveryJournal) openAckLocked() error {
 	_, journalErr := os.Lstat(paths.Long(j.ackPath))
 	_, positionErr := os.Lstat(paths.Long(positionPath))
 	if os.IsNotExist(journalErr) && os.IsNotExist(positionErr) {
+		if err := refuseDeliveryRecreation(filepath.Dir(j.path)); err != nil {
+			return err
+		}
 		if err := paths.WriteAtomic(j.ackPath, nil, 0o600); err != nil {
 			return deliveryJournalError()
 		}
