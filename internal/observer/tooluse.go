@@ -107,6 +107,28 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	}
 	pathKey := scope.PrimaryKey
 
+	// Recover the original publication before deriving new bytes or supersession.
+	// A replay may run under changed transformation settings; its leased identity
+	// still names the first accepted delivery.
+	obs := ObservationFrom(ctx)
+	if prior, ok, err := o.observationRecord(ctx, obs, e.SessionID, opObserveTool); err != nil {
+		return hookio.Empty(), err
+	} else if ok {
+		if prior.Tool != display || (e.ToolUseID != "" && prior.ID != e.ToolUseID) {
+			return hookio.Empty(), o.unpublished(stageIndex)
+		}
+		if err := o.finishObservation(ctx, obs, prior); err != nil {
+			return hookio.Empty(), err
+		}
+		if prior.Turn > st.Turn {
+			st.Turn = prior.Turn
+		}
+		o.rememberToolUseOnce(st, prior)
+		o.repairFileVersion(ctx, prior.ID, prior.Tool, prior.Path, prior.Root.IsZero())
+		o.count(counterRedelivery)
+		return hookio.Empty(), nil
+	}
+
 	// 5. §8.1 item 1. The observer never chunks, redacts or canonicalizes by hand: the store does
 	//    redact → canonicalize → chunk internally, and this call's contribution to O2 is the
 	//    per-tool canonicalizer SELECTION carried by Tool, Path and Canon.Strip.
@@ -144,47 +166,17 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 		Root: res.Root.Hash, Path: pathKey, Bytes: res.Root.RawBytes, Tokens: tok,
 		Signature: res.Signature, Status: store.StatusOK, Ephemeral: ephemeral,
 	}
-	obs := ObservationFrom(ctx)
 	rec.Observation = obs
 	if e.ToolUseID == "" {
-		// A payload with no tool_use_id still gets a stable, session-local identity, because a
-		// record the graph cannot name is a record nothing can retrieve.
-		//
-		// SP08-D2: that identity is DERIVED from this process's state, so a redelivery re-derives a
-		// different one and records twice for one host event. Two guards, in this order.
 		rec.ID = derivedToolUseID(e.SessionID, st.Turn, len(st.ToolUses))
-		switch prior, ok := o.observationRecord(ctx, obs, e.SessionID, opObserveTool); {
-		case ok && prior.Root == res.Root.Hash:
-			// Recognized: reuse the id this observation already published, and let the store's own
-			// dedup absorb the rest.
-			rec.ID = prior.ID
-		case obs != "":
-			// Either nobody has published this delivery, or one did and its root DIFFERS from this
-			// run's — a changed canonicalization config, a different payload cap, a moved
-			// truncation boundary. The root check is what stops the second case from adopting an id
-			// it then cannot record: same id with a different root is ErrAppendOnly, which becomes
-			// ErrUnpublished, which makes the drain break its read loop WITHOUT advancing the
-			// offset, so every later drain retries that line forever with the rest of the spool
-			// file stuck behind it. Falling through to a freshly minted id keeps the base's
-			// self-healing duplicate instead of converting it into a permanent stall.
-			//
-			// The mint is probed rather than taken on faith, for the reason stop.go step 0(b)
-			// gives: a restarted process starts this window at 0 again, so the id it derives may
-			// already be held — by a record with a different root, which is the same stall.
-			//
-			// What the probe moves here is the WINDOW POSITION, while rememberToolUse below appends
-			// exactly one entry whatever position was probed — so after a skip the probed index and
-			// len(st.ToolUses) diverge, and a later mint in the same process can re-derive an id
-			// this one just used. For a leased delivery that self-heals, because the next probe
-			// steps over it; for an unleased one the probe is gated off and the collision keeps the
-			// base's behaviour by design (ErrAppendOnly → ErrUnpublished, a self-healing duplicate).
-			// The mixed regime is reachable only when leasing itself fails — SP20-D4's entry cap —
-			// so closing the divergence belongs to that row and not to this one.
-			if n, found := o.freeDerivedTurn(ctx, len(st.ToolUses), func(i int) core.ToolUseID {
+		if obs != "" {
+			n, found := o.freeDerivedTurn(ctx, len(st.ToolUses), func(i int) core.ToolUseID {
 				return derivedToolUseID(e.SessionID, st.Turn, i)
-			}); found {
-				rec.ID = derivedToolUseID(e.SessionID, st.Turn, n)
+			})
+			if !found {
+				return hookio.Empty(), o.unpublished(stageIndex)
 			}
+			rec.ID = derivedToolUseID(e.SessionID, st.Turn, n)
 		}
 	}
 	// 6a. The write. The record and every supersede mark it authors land in ONE index write
@@ -192,6 +184,11 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     the record and its marks leaves a record whose marks never landed, and the at-least-once
 	//     redelivery that follows appends those marks alone, behind a record line that predates the
 	//     flush — a supersede mark with no new record behind it, which x09's flush arm rejects.
+	if obs != "" {
+		if err := o.syncObservation(ctx, rec.Root); err != nil {
+			return hookio.Empty(), err
+		}
+	}
 	superseded, recorded, recErr := o.publishRecord(ctx, rec, res, empty)
 	if recErr != nil {
 		return hookio.Empty(), o.unpublished(stageIndex)
@@ -206,9 +203,10 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     It runs BEFORE the replay check below on purpose: a first run killed between its record
 	//     and this link left a durable record with no join, and the redelivery completing that join
 	//     is the only thing that can repair it.
-	if err := o.linkObservation(obs, rec); err != nil {
-		return hookio.Empty(), o.unpublished(stageLink)
+	if err := o.finishObservation(ctx, obs, rec); err != nil {
+		return hookio.Empty(), err
 	}
+
 	// 6c. A redelivery the store recognized: the index already holds this record with this root, so
 	//     the marks it authored landed with it and there is nothing left to publish. Everything
 	//     below is DERIVED state of the first run, and recomputing it from the redelivering

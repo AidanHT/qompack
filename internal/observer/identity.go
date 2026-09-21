@@ -8,41 +8,13 @@ import (
 	"github.com/qompack/qompack/internal/store"
 )
 
-// Delivery identity: how a handler recognizes a redelivery of work it has already published, and
-// how it mints a derived id that nothing else already holds. This is carried defect SP08-D2.
-//
-// internal/daemon's dispatch contract is explicit that "Restart does not retain this set, so
-// handlers must tolerate at-least-once delivery": a delivery whose handler RAN but whose
-// acknowledgement never reached the journal — the pre-flush shutdown cancels the worker between the
-// observer's append and commitDelivery — is redelivered under its STORED lease, with the same
-// delivery token and the same ObservationID, and the handler runs a second time. That redelivery is
-// correct and must stay. What has to change is what the second run does.
-//
-// There are two identity regimes, and only one of them needs help:
-//
-//   - A HOST-identified record (a payload carrying tool_use_id) already names itself. The store's
-//     own append-only dedup recognizes the second delivery, because the id and the root are the
-//     same bytes either time; no observation is consulted, and none could be — two deliveries
-//     carrying one host id are indistinguishable at this layer.
-//   - A DERIVED-id record (a SubagentStop capture, a tool payload with no tool_use_id) is named
-//     from this process's per-session turn counter, which a second process re-derives differently
-//     (0 on a fresh daemon, or whatever state/observer.json last held). Nothing in the id ties it to
-//     the delivery, so the store sees a novel record and appends a second one for one host event.
-//
-// The join that fixes the second case is the capture sidecar. The daemon writes it before every
-// dispatch, keyed by the ObservationID; LinkCaptureReference stamps the published reference into it
-// once the index record lands. So "has this delivery already published a record?" is answerable
-// from durable state, in one file read, and observationRecord is that question.
+// Leased replay identity is independent of content and host tool IDs. A durable
+// observation intent binds the original legacy record before publication; the
+// capture sidecar links it afterward. Replays complete that intent without
+// deriving a second record from a restarted process's turn counter.
 
-// derivedTurnProbe bounds how far freeDerivedTurn looks for an unoccupied derived id.
-//
-// It is a bound on work, not a configuration default (§11.6 D11): the first probed id is free in
-// every normal run, and the probe exists for the case where this process's turn counter lags the
-// index — a restored state file, or a turn another in-flight handler for the same session already
-// took. 64 consecutive occupied turns at or after st.Turn is a state file lagging the index by more
-// than a session's worth of captures, which no shutdown path produces; past it the mint falls back
-// to today's behaviour and says so through a counter rather than probing unboundedly on the hot
-// path.
+// derivedTurnProbe bounds the search for a free legacy derived ID. Exhaustion
+// or an unavailable lookup retains the leased delivery for recovery.
 const derivedTurnProbe = 64
 
 // The capture sidecar's Op values this package matches against, spelled as literals because §3.2
@@ -67,61 +39,85 @@ const (
 	// saying "this process's observer is on the legacy path" and not as a rate: a value of 1 with a
 	// million events through it means every one of those events took the separate-writes path.
 	counterLegacySupersede = "observer.legacy_supersede_path"
-	// counterTurnExhausted counts mints that probed derivedTurnProbe OCCUPIED ids and gave up,
-	// taking today's collision behaviour. Its documented cause — this many consecutive derived ids
-	// already in the index — is a state file lagging the index, which is where it sends a reader.
+	// counterTurnExhausted counts a bounded search with every candidate occupied.
+	// It does not establish why the process's local state trails those records.
 	counterTurnExhausted = "observer.derived_turn_exhausted"
 	// counterProbeUnanswered counts mints whose probe stopped because the store could not ANSWER
 	// whether an id was taken: core.ErrDegraded from a closed store, or any other failure that is
 	// not ErrNotFound.
 	//
-	// It is separate from counterTurnExhausted because the two have the same fallback and entirely
-	// different causes. Folding them would make a degraded store report itself as "64 consecutive
-	// occupied ids" and send an operator looking for a lagging state file, which is the one place
-	// the answer is not.
+	// A failed lookup is counted separately from a range of occupied IDs.
 	counterProbeUnanswered = "observer.derived_turn_probe_unanswered"
 )
 
-// observationRecord returns the index record delivery obs already published, and whether there is
-// one. It is the recognition half of the identity rule.
-//
-// The evidence is the capture sidecar's verified reference — the ToolUseID and Root
-// LinkCaptureReference stamped after the record landed — CONFIRMED against the index, because a
-// sidecar is written by the daemon and the index is written here: a reference naming a record the
-// index does not hold (a link that outlived its record line through a power loss before the index
-// was flushed) must read as "not published", not as an id to reuse.
-//
-// sess and op are checked against the sidecar as well, and that check is load-bearing rather than
-// defensive. ObservationID is H(session‖arrival) over the delivery journal's dense per-session
-// arrival counter, and nothing retires that counter today (carried defect SP20-D4 pins exactly
-// that). A future retention or compaction pass that restarts those counters would recycle
-// ObservationIDs, and a recycled id whose old sidecar is still Published would otherwise make this
-// function swallow a genuinely new capture. A sidecar describing a different session, or a
-// different op, is not this delivery's publication whatever its id says.
-//
-// Every failure answers false, and that direction is deliberate: an unreadable, missing or pruned
-// sidecar degrades recognition to a miss, which is today's duplicate — the defect this is fixing,
-// not a worse one. The invariant it does depend on is stated in SP08-D2's Resolution: an
-// ObservationID is never reused for a different delivery, and a sidecar outlives its delivery's
-// redelivery window.
+// observationRecord completes a durable publication intent or confirms a legacy
+// capture link against the index. Missing bindings permit a first publication;
+// conflicting, incomplete or unreadable evidence retains the leased delivery.
+// Session and operation must agree before either recovery path can be accepted.
 func (o *observer) observationRecord(ctx context.Context, obs core.ObservationID,
 	sess core.SessionID, op string,
-) (store.ToolUseRecord, bool) {
+) (store.ToolUseRecord, bool, error) {
 	if obs == "" {
-		return store.ToolUseRecord{}, false // an unleased delivery or an in-process caller
+		return store.ToolUseRecord{}, false, nil
 	}
 	sc, err := store.ReadCaptureSidecar(o.opt.ProjectRoot, obs)
-	if err != nil || !sc.Published || sc.ToolUseID == "" {
-		return store.ToolUseRecord{}, false
+	if err != nil {
+		return store.ToolUseRecord{}, false, o.unpublished(stageLink)
 	}
 	if sc.Session != sess || sc.Op != op {
-		return store.ToolUseRecord{}, false
+		return store.ToolUseRecord{}, false, o.unpublished(stageLink)
 	}
-	rec, err := o.opt.Store.ToolUse(ctx, sc.ToolUseID)
-	if err != nil || rec.Root != sc.Root {
-		return store.ToolUseRecord{}, false
+	recovery, ok := o.opt.Store.(store.ObservationRecovery)
+	if !ok {
+		return store.ToolUseRecord{}, false, o.unpublished(stageIndex)
 	}
-	return rec, true
+	rec, recoveryErr := recovery.RecoverToolUseByObservation(ctx, obs)
+	if recoveryErr == nil {
+		if rec.Session != sess || !recordMatchesObservationOp(rec, op) {
+			return store.ToolUseRecord{}, false, o.unpublished(stageIndex)
+		}
+		return rec, true, nil
+	}
+	if !errors.Is(recoveryErr, core.ErrNotFound) {
+		return store.ToolUseRecord{}, false, o.unpublished(stageIndex)
+	}
+	// Compatible recovery for a legacy published capture without a publication intent.
+	if sc.Published && sc.ToolUseID != "" {
+		rec, lookupErr := o.opt.Store.ToolUse(ctx, sc.ToolUseID)
+		if lookupErr == nil && rec.Root == sc.Root && rec.Session == sess && recordMatchesObservationOp(rec, op) {
+			return rec, true, nil
+		}
+		return store.ToolUseRecord{}, false, o.unpublished(stageIndex)
+	}
+	return store.ToolUseRecord{}, false, nil
+}
+
+func recordMatchesObservationOp(rec store.ToolUseRecord, op string) bool {
+	switch op {
+	case opObservePrompt:
+		return rec.Tool == userPromptSubmit
+	case opObserveStop:
+		return rec.Tool == subagentStop
+	case opObserveTool:
+		return rec.Tool != userPromptSubmit && rec.Tool != subagentStop
+	default:
+		return false
+	}
+}
+
+// finishObservation makes the referent and index durable before linking them to
+// the accepted delivery. A failed or unavailable stage must retain that delivery.
+func (o *observer) finishObservation(ctx context.Context, obs core.ObservationID, rec store.ToolUseRecord) error {
+	if obs == "" {
+		return nil
+	}
+	if err := o.syncObservation(ctx, rec.Root); err != nil {
+		return err
+	}
+	if err := o.linkObservation(obs, rec); err != nil {
+		return o.unpublished(stageLink)
+	}
+	return nil
 }
 
 // linkObservation is publication order's SECOND stage for any record: the verified reference joined
@@ -139,49 +135,11 @@ func (o *observer) linkObservation(obs core.ObservationID, rec store.ToolUseReco
 	})
 }
 
-// freeDerivedTurn returns the first index at or after start whose derived id the index does not
-// already hold, and whether it found one inside derivedTurnProbe.
-//
-// The index it walks is whichever component of the derived id is free to move: the TURN for a
-// SubagentStop capture (subagent_<s>_<turn>), where the turn, the id, the record and the capture
-// blob's own Turn field all move together and stay in agreement; the WINDOW POSITION for a tool
-// record with no host id (tu_<s>_<turn>_<n>), where the turn is the session's own and may not be
-// rewritten to dodge a collision. mint spells the id, so the probe and the caller can never
-// disagree about it — the same discipline SubagentCaptureID is exported under.
-//
-// This is what makes a derived id collision-aware, and it closes a class the recognition rule alone
-// does not. Recognition absorbs a redelivery of a record that WAS published; it says nothing about
-// a delivery nobody has ever processed, minted by a process whose turn counter points into a range
-// another handler already used. That is reachable in ordinary operation, not only after a crash:
-// the ingest worker pool has at least two workers, the turn is taken inside the handler under the
-// session lock, and the transport ACK is written before any worker touches the job — so two Stops of
-// one session can be in flight together and take their turns in an order that is not the WAL's.
-// Minting blind into that range makes RecordToolUse answer ErrAppendOnly (a different root: the
-// capture blob carries its own TS), the capture is soft-dropped, and one host event ends up with no
-// record at all.
-//
-// Probing is cheap: FSStore.ToolUse is an in-memory map read under a read lock, no I/O, and the
-// first probed id is free in every normal run.
-//
-// The caller gates this on the delivery carrying an observation identity, and that asymmetry is
-// deliberate. A leased delivery is one the system promised to record durably, so losing its capture
-// to an id collision is the failure this row exists to remove; an in-process caller has no delivery
-// to lose, and TestOnStop_CaptureIsDeterministic pins the behaviour it must keep — a second
-// observer replaying the same session over the same store re-mints the SAME id, dedups completely
-// and adds no object. An ungated probe would step past that id and write a novel blob.
-//
-// There are two ways to give up and they are COUNTED APART, here rather than at the call sites, so
-// that the function which knows why it stopped is the one that names the cause. Only ErrNotFound
-// means "free" and only a nil error means "taken"; anything else is the store declining to answer
-// (core.ErrDegraded from a closed store is the reachable one, through FSStore.ToolUse's s.use()
-// guard), and treating that as "taken" would burn all derivedTurnProbe iterations and then report
-// exhaustion — a cause an operator would go looking for in the state file, where it is not. The
-// FALLBACK is the same either way: start, i.e. today's behaviour, which is a duplicate or a
-// soft-dropped capture and never a wrong record.
-//
-// The opposite case is already right and is worth stating because it is not obvious: FSStore.ToolUse
-// makes no ctx check at all, so a probe running under the cancelled context of a pre-flush shutdown
-// still gets truthful answers rather than reporting every id as occupied.
+// freeDerivedTurn probes a bounded range of legacy IDs for a new leased event.
+// A subagent record moves its turn; a tool record moves only its window position.
+// Only ErrNotFound proves a free ID. The caller retains work if no trustworthy
+// answer is available, and the store independently enforces pending reservations.
+// Unleased in-process calls retain their historical deterministic ID behavior.
 func (o *observer) freeDerivedTurn(ctx context.Context, start int,
 	mint func(int) core.ToolUseID,
 ) (int, bool) {

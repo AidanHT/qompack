@@ -100,8 +100,10 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 	// no second record, no re-run turn bookkeeping — and the session is moved past it. This is the
 	// SP08-D2 identity rule, now reached for prompts too.
 	obs := ObservationFrom(ctx)
-	if rec, ok := o.observationRecord(ctx, obs, e.SessionID, opObservePrompt); ok {
-		if err := o.syncPrompt(ctx, rec.Root); err != nil {
+	if rec, ok, err := o.observationRecord(ctx, obs, e.SessionID, opObservePrompt); err != nil {
+		return hookio.Empty(), err
+	} else if ok {
+		if err := o.finishObservation(ctx, obs, rec); err != nil {
 			return hookio.Empty(), err
 		}
 		adoptTurn(st, rec)

@@ -130,7 +130,9 @@ func (o *observer) onStop(ctx context.Context, e Event, subagent bool) (Output, 
 	defer st.mu.Unlock()
 
 	if subagent {
-		o.captureSubagent(ctx, st, e, now)
+		if err := o.captureSubagent(ctx, st, e, now); err != nil {
+			return hookio.Empty(), err
+		}
 	} else {
 		o.mainAgentStop(ctx, st, now)
 	}
@@ -159,7 +161,7 @@ func (o *observer) mainAgentStop(ctx context.Context, st *sessionState, now core
 // other, and only then does the turn advance (resolved decision 4). Step 0's turn resolution runs
 // BEFORE the blob is built for exactly that reason — it moves st.Turn, so it has to move it while
 // the four still agree.
-func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Event, now core.UnixMilli) {
+func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Event, now core.UnixMilli) error {
 	// 0. SP08-D2, the identity rule. A SubagentStop payload carries no tool_use_id, so the record's
 	//    id is DERIVED from this process's turn counter — which a redelivery re-derives differently
 	//    (0 on a fresh daemon, or the restored turn) and so writes a second capture for one host
@@ -184,10 +186,15 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 	//
 	//        TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock pins the first two.
 	obs := ObservationFrom(ctx)
-	if prior, ok := o.observationRecord(ctx, obs, e.SessionID, opObserveStop); ok {
+	if prior, ok, err := o.observationRecord(ctx, obs, e.SessionID, opObserveStop); err != nil {
+		return err
+	} else if ok {
+		if err := o.finishObservation(ctx, obs, prior); err != nil {
+			return err
+		}
 		adoptTurn(st, prior)
 		o.count(counterRedelivery)
-		return
+		return nil
 	}
 	//    (b) Collision-aware minting, for a delivery nobody has published yet. Recognition cannot
 	//        help there, and the turn this process holds may already be spoken for: two Stops of one
@@ -202,6 +209,8 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 			return SubagentCaptureID(e.SessionID, core.TurnIndex(i))
 		}); found {
 			st.Turn = core.TurnIndex(t)
+		} else {
+			return o.unpublished(stageIndex)
 		}
 	}
 
@@ -236,8 +245,11 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 		// Unreachable for this struct — every field is a string, an int or a slice of those — but
 		// absorbed rather than ignored, because a capture that was never serialized must not be
 		// followed by an index entry pointing at an object that does not exist.
+		if obs != "" {
+			return o.unpublished(stageStopMarshal)
+		}
 		o.soft(stageStopMarshal, err)
-		return
+		return nil
 	}
 
 	// 5. §8.1 item 1's single choke point. verbatimOptions for the same reason a prompt gets it:
@@ -247,12 +259,15 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 		Tool: subagentStop, Path: "", Canon: verbatimOptions(), KeepRaw: true,
 	})
 	if err != nil {
-		// The capture is lost; the TURN is not. Renumbering every later artifact around a turn the
-		// session actually took would be the larger corruption (prompt.go makes the same trade).
+		// Leased failures retain the event and turn for recovery. Legacy in-process
+		// callers keep their prior soft-failure behavior.
+		if obs != "" {
+			return o.unpublished(stageStopPut)
+		}
 		o.soft(stageStopPut, err)
 		st.Turn++
 		st.LastTS = now
-		return
+		return nil
 	}
 	tok := res.Root.Tokens
 	if tok == 0 && o.opt.Tokens != nil {
@@ -268,17 +283,18 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 		Root: res.Root.Hash, Bytes: int64(len(blob)), Tokens: tok,
 		Status: store.StatusOK, Subagent: agent, Observation: obs,
 	}
+	if obs != "" {
+		if err := o.syncObservation(ctx, rec.Root); err != nil {
+			return err
+		}
+	}
 	if err := o.opt.Store.RecordToolUse(ctx, rec); err != nil {
+		if obs != "" {
+			return o.unpublished(stageIndex)
+		}
 		o.soft(stageIndex, err)
-	} else {
-		// 6a. Publication order's second stage, which the Stop path did not previously complete:
-		//     the reference joined to the capture sidecar this delivery already made durable. It is
-		//     what step 0 recognizes a redelivery BY, so without it a Stop can only ever be
-		//     re-captured. It stays SOFT here, unlike the tool path's: a Stop that reaches this line
-		//     has already stored its blob and its record, and refusing the delivery over a failed
-		//     link would redeliver a capture that is durably published — trading a missing join for
-		//     a duplicate capture, which is the defect this closes.
-		o.soft(stageLink, o.linkObservation(obs, rec))
+	} else if err := o.finishObservation(ctx, obs, rec); err != nil {
+		return err
 	}
 
 	// 7. §8.1 item 4. This is the one node set SP-08 still builds by hand — a subagent capture is
@@ -305,6 +321,7 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 	st.LastTS = now
 	o.count(counterSubagentCapture)
 	o.soft(stageStopFlush, o.opt.Graph.Flush(ctx))
+	return nil
 }
 
 // subagentName reads the subagent's name out of the ONE Extra key the daemon restores.

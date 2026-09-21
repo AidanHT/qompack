@@ -10,6 +10,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // SP08-D3 (Option A) observer-side behaviour: the reply path records nothing and only shows the
@@ -64,22 +65,29 @@ func TestOnUserPrompt_WorkerRecordsAndAdvancesTurn(t *testing.T) {
 	require.Equal(t, core.TurnIndex(1), h.state(sess).Turn, "the turn advances past the captured prompt")
 }
 
+type failingPromptPut struct {
+	*store.FSStore
+	calls int
+}
+
+func (s *failingPromptPut) PutBytes(context.Context, []byte, store.PutOptions) (store.PutResult, error) {
+	s.calls++
+	return store.PutResult{}, errors.New("injected prompt object write failure")
+}
+
 func TestOnUserPrompt_LeasedCaptureFailurePropagates(t *testing.T) {
-	h := newHarness(t)
-	h.Store.PutErr = errors.New("store closed")
-	const sess = core.SessionID("sess-leased-fail")
-
-	// A LEASED delivery (an observation identity on the context) whose Put fails must return an
-	// error so the daemon leaves the frontier unacknowledged and the delivery stays pending. No
-	// sidecar exists on disk, so observationRecord answers "not published" without touching the
-	// store, and the failing Put is reached.
-	ctx := WithObservation(context.Background(), core.ObservationID("obs-leased-fail"))
-	_, err := h.obs.OnUserPrompt(ctx, promptEvent(sess, "will-not-persist"))
-	require.ErrorIs(t, err, ErrUnpublished, "a leased lost capture is not silently acknowledged")
-
-	require.Empty(t, h.Store.Records, "no index record names bytes that never landed")
-	require.Equal(t, core.TurnIndex(0), h.state(sess).Turn, "a failed leased capture does not advance the turn")
-	require.Equal(t, int64(1), h.counter("observer.err."+stagePromptPut))
+	r := newRdxRig(t)
+	id := r.sidecar(1, "observe.prompt")
+	st, ok := r.st.(*store.FSStore)
+	require.True(t, ok)
+	failure := &failingPromptPut{FSStore: st}
+	r.o.opt.Store = failure
+	_, err := r.o.OnUserPrompt(WithObservation(context.Background(), id), promptOf("will-not-persist"))
+	require.ErrorIs(t, err, ErrUnpublished)
+	require.Equal(t, 1, failure.calls, "the failure must come from the object write")
+	require.Empty(t, r.index())
+	require.Equal(t, core.TurnIndex(0), r.o.session(testSession).Turn)
+	require.Equal(t, int64(1), r.counter("observer.err."+stagePromptPut))
 }
 
 func TestOnUserPrompt_UnleasedCaptureFailureIsSoftAndAdvances(t *testing.T) {
