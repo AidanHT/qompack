@@ -4,16 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/qompack/qompack/internal/canon"
 	"github.com/qompack/qompack/internal/core"
-	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/store"
-	"github.com/qompack/qompack/internal/tokens"
 )
 
 // The UserPromptSubmit half of L0: §8.1 item 7's verbatim capture (G2.3) and §8.1 item 6's thrash
@@ -60,12 +57,22 @@ func (o *observer) OnUserPrompt(ctx context.Context, e Event) (Output, error) {
 	return out, err
 }
 
-// onUserPrompt is resolved decision 3's three durable artifacts followed by the turn bookkeeping
-// of decision 4: store the bytes, index them, put a KindUserPrompt node in the graph and enrol it
-// in the open segment, append the user symbol, close the user turn, sample the §6.6 features, and
-// drain whatever PostToolUse queued.
+// onUserPrompt has two paths, split by the SP08-D3 reply-only context marker (Option A):
 //
-// It returns an error ONLY for ctx.Err(); every I/O failure is absorbed by soft (decision 7).
+//   - The LIVE REPLY path (promptReplyOnly): drain the pending thrash warning under the session
+//     lock and return it. It records NOTHING and advances NO turn — the authoritative verbatim
+//     capture is the worker/replay's, so a prompt no daemon captured live is still captured, and a
+//     later live prompt can no longer take a turn 0 the replay was supposed to fill.
+//   - The WORKER / DRAIN-REPLAY path (normal context, carrying the leased observation identity):
+//     resolved decision 3's three durable artifacts followed by decision 4's turn bookkeeping,
+//     made idempotent under the leased identity exactly as the tool path is (SP08-D2). A recognized
+//     redelivery is absorbed; a fresh capture records, links its observation reference, and closes
+//     the turn.
+//
+// It returns an error for ctx.Err() and — on the worker/replay path for a LEASED delivery — for a
+// lost required write (ErrUnpublished), so the frontier is never acknowledged over a capture that
+// did not become durable. An unleased in-process caller keeps the base behaviour: every I/O failure
+// is absorbed by soft and the session moves on (decision 7).
 func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 	// 1. Nothing before the ctx check, and the clock is read exactly once (decision 11).
 	if err := ctx.Err(); err != nil {
@@ -73,14 +80,34 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 	}
 	// An empty prompt is not a user turn. Capturing it would mint an object, an index entry and a
 	// graph node for no content, and — worse — would advance the turn counter past a turn that
-	// never happened, which every stored artifact downstream is numbered against.
+	// never happened, which every stored artifact downstream is numbered against. This holds on
+	// both paths: an empty prompt is neither a warning to show nor a capture to make.
 	if e.Prompt == "" {
 		return hookio.Empty(), nil
 	}
-	now := o.now()
 	st := o.session(e.SessionID)
 	st.mu.Lock()
 	defer st.mu.Unlock()
+
+	// The live reply path's whole job is the synchronous warning; it records nothing (Option A).
+	if promptReplyOnly(ctx) {
+		return o.promptReplyOutput(st), nil
+	}
+
+	now := o.now()
+
+	// Recognition: a redelivery this observation already published is absorbed — no second object,
+	// no second record, no re-run turn bookkeeping — and the session is moved past it. This is the
+	// SP08-D2 identity rule, now reached for prompts too.
+	obs := ObservationFrom(ctx)
+	if rec, ok := o.observationRecord(ctx, obs, e.SessionID, opObservePrompt); ok {
+		if err := o.syncPrompt(ctx, rec.Root); err != nil {
+			return hookio.Empty(), err
+		}
+		adoptTurn(st, rec)
+		o.count(counterRedelivery)
+		return hookio.Empty(), nil
+	}
 
 	// 2-3. Artifact (a): the user's bytes, content-addressed. verbatimOptions is the whole of what
 	//      makes this capture verbatim, and KeepRaw is what keeps the canonicalizer's deltas so
@@ -91,14 +118,21 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 		KeepRaw: true, Ephemeral: false,
 	})
 	if err != nil {
-		// The capture is lost; the TURN is not. Steps 4 and 5 are skipped, because no index entry
-		// and no DAG node may point at an object that was never written (tooluse.go's "never a
-		// dangling index record"), but everything from the grammar symbol onward still runs: a
-		// prompt whose bytes failed to land is still a prompt the session took, and renumbering
-		// every later artifact around it would be the larger corruption.
+		// A leased delivery must not be frontier-acknowledged over a lost capture: propagate so the
+		// daemon keeps it pending and a later drain re-runs it (SP08-D3). An unleased in-process
+		// caller has no frontier, so it keeps the base behaviour — the capture is lost, the TURN is
+		// not, and renumbering every later artifact around it would be the larger corruption.
+		if obs != "" {
+			return hookio.Empty(), o.unpublished(stagePromptPut)
+		}
 		o.soft(stagePromptPut, err)
 	} else {
-		o.recordPrompt(ctx, st, e, res, body, now)
+		if recovered, err := o.recoverPrompt(ctx, st, e, obs); err != nil || recovered {
+			return hookio.Empty(), err
+		}
+		if recErr := o.recordPromptDurable(ctx, st, e, res, body, now, obs); recErr != nil {
+			return hookio.Empty(), recErr
+		}
 	}
 
 	// 6. §8.1 item 6, the user half of the action stream.
@@ -121,66 +155,18 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 	}
 	st.LastTS = now
 
-	// 9. The ONE place o.mode() is consulted (decision 10). Degraded-passive keeps every write
-	//    above and emits nothing, because §12 forbids injection while the contract is degraded.
-	out := hookio.Empty()
-	if o.mode() == ModeFull {
-		if lines := o.pendingThrashLines(st); len(lines) > 0 {
-			// hookio carries no UserPromptSubmit constructor yet; adding one is V3-VERIFY's.
-			out.HookSpecificOutput = &hookio.HSO{
-				HookEventName:     userPromptSubmit,
-				AdditionalContext: strings.Join(lines, thrashLineSep),
-			}
-		}
+	// Preserve the direct observer API. Only the explicitly marked worker path
+	// leaves warnings queued for the live reply.
+	if !promptCaptureOnly(ctx) {
+		return o.promptReplyOutput(st), nil
 	}
-	return out, nil
+	return hookio.Empty(), nil
 }
 
-// recordPrompt writes artifacts (b) and (c) of resolved decision 3: the append-only tool_use entry
-// under VerbatimPromptID, and the KindUserPrompt node enrolled in the currently open segment.
-//
-// It runs only on a successful Put, so every record it writes names an object that exists.
-func (o *observer) recordPrompt(ctx context.Context, st *sessionState, e Event,
-	res store.PutResult, body []byte, now core.UnixMilli,
-) {
-	// 4. The index entry. Its id is DERIVED rather than carried: a UserPromptSubmit payload has no
-	//    tool_use_id, and a record the graph cannot name is a record nothing can retrieve.
-	id := VerbatimPromptID(e.SessionID, st.Turn)
-	tok := res.Root.Tokens
-	if tok == 0 && o.opt.Tokens != nil {
-		tok = o.opt.Tokens.EstimateString(e.Prompt, tokens.ClassProse)
-	}
-	digest, preview := store.ArgsDigest(promptArgs(e.Prompt))
-	o.soft(stageIndex, o.opt.Store.RecordToolUse(ctx, store.ToolUseRecord{
-		ID: id, Session: e.SessionID, Turn: st.Turn, TS: now, Tool: userPromptSubmit,
-		ArgsDigest: digest, ArgsPreview: preview,
-		Root: res.Root.Hash, Bytes: int64(len(body)), Tokens: tok,
-		Status: store.StatusOK,
-	}))
-
-	// 5. dag.BuildUserPrompt emits userprompt:<turn> and userprompt:<turn> --consumes-->
-	//    assistant:<turn>: the prompt is the producer end (SP-07 D-1), and §4.4 makes that edge
-	//    the ONLY path by which a backward slice from a tool use deep in a session reaches the
-	//    request that set it off.
-	o.soft(stageDAG, dag.BuildUserPrompt(o.opt.Graph, dag.ObservedPrompt{
-		Turn: st.Turn, TS: now, Pos: o.advancePos(st, tok), Tokens: tok, Ref: string(id),
-	}))
-	// 5b. The bridging consumes edge, userprompt:<turn> → assistant:<turn+1>. The plan carries an
-	//     internal contradiction here: decision 4 records the prompt AT Turn and then increments,
-	//     and BuildToolUse — the only AssistantNode minter — mints assistant nodes only at the
-	//     post-increment tool turns, yet BuildUserPrompt's own edge targets AssistantNode(Turn),
-	//     a node no path ever creates. Under decision 4 the assistant turn that ANSWERS this
-	//     prompt always sits at Turn+1, so this hand-emitted edge is the §4.4 backward-slice path
-	//     from the work back to the request that set it off. The builder's same-turn edge stays:
-	//     it dangles, a dangling edge is legal (D-6) and no slice from a real node traverses it.
-	//     V3-VERIFY should fold this bridge into an amended BuildUserPrompt(AssistantNode(Turn+1))
-	//     together with SP-07, at which point this AddEdge becomes redundant and is removed.
-	o.soft(stageDAG, o.opt.Graph.AddEdge(dag.Edge{
-		From: dag.UserPromptNode(st.Turn), To: dag.AssistantNode(st.Turn + 1),
-		Kind: dag.EdgeConsumes, Weight: edgeWeight, Turn: st.Turn,
-	}))
-	o.enrol(st, dag.UserPromptNode(st.Turn))
-}
+// The durable artifacts of resolved decision 3 (index record, observation-reference link, DAG node)
+// now live in recordPromptDurable (prompt_delivery.go), which is idempotent under the leased
+// observation identity and error-returning for a leased delivery. onUserPrompt's worker/replay path
+// calls it; §5b's turn+1 bridge edge and its rationale moved with it.
 
 // VerbatimPromptID is the tool_use identity of one captured prompt: "prompt_<session>_<turn>".
 //
@@ -252,6 +238,9 @@ func (o *observer) collectThrash(st *sessionState) {
 			continue
 		}
 		st.WarnedRules[rule.ID] = true
+		if len(st.PendingThrash) == 0 {
+			st.WarningTurn = st.Turn + 1
+		}
 		st.PendingThrash = append(st.PendingThrash, rule)
 	}
 }
@@ -261,7 +250,15 @@ func (o *observer) collectThrash(st *sessionState) {
 // The rendering goes through grammar.FormatWarning rather than a local Sprintf: §5.11 leaves the
 // wording open, SP-01 closed it there, and SP-15 asserts it byte-for-byte, so a second formatter
 // in this package would be a second answer to a question that already has one.
+//
+// Direct formatter callers use their current turn. The split live path uses
+// WarningTurn, fixed when the queue first becomes nonempty, so worker/reply
+// scheduling cannot change the warning's label.
 func (o *observer) pendingThrashLines(st *sessionState) []string {
+	return o.pendingThrashAt(st, st.Turn)
+}
+
+func (o *observer) pendingThrashAt(st *sessionState, turn core.TurnIndex) []string {
 	if len(st.PendingThrash) == 0 {
 		return nil
 	}
@@ -272,7 +269,7 @@ func (o *observer) pendingThrashLines(st *sessionState) []string {
 			Rule:    rule,
 			Repeats: rule.Uses,
 			Message: thrashAdvice,
-			Turns:   []core.TurnIndex{st.Turn},
+			Turns:   []core.TurnIndex{turn},
 		}))
 	}
 	st.PendingThrash = nil

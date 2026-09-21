@@ -345,6 +345,7 @@ func TestOnUserPrompt_ThrashWarningInFullMode(t *testing.T) {
 	// PostToolUse is where a thrashing nonterminal becomes visible, and it has no channel to say
 	// so through: the warning has to wait for the next prompt.
 	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
+	// The direct observer API preserves its warning and recording behavior.
 	out := h.submit("keep going")
 
 	require.NotNil(t, out.HookSpecificOutput)
@@ -377,6 +378,7 @@ func TestOnUserPrompt_ThrashWarnedOncePerRule(t *testing.T) {
 	})
 
 	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
+	// Direct callers retain once-per-rule warnings.
 	first := h.submit("keep going")
 	h.drive(readOf("toolu_2", "src/a.ts", "alpha\n"))
 	second := h.submit("still going")

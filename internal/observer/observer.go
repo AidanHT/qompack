@@ -290,6 +290,8 @@ type sessionState struct {
 
 	// PendingThrash is collected in OnToolUse and drained by OnUserPrompt.
 	PendingThrash []grammar.Rule
+	// WarningTurn is fixed when the queue becomes nonempty, before worker/reply scheduling.
+	WarningTurn core.TurnIndex
 }
 
 // observer is the real L0 implementation.
