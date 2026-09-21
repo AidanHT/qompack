@@ -509,6 +509,7 @@ func fsckScanProject(ctx context.Context, root string, repairing, sealCheck bool
 		s.checkFiles(),
 		s.checkSegments(),
 		s.checkCaptures(),
+		s.checkPublication(),
 		s.checkCheckpoints(),
 		s.checkPins(),
 		s.checkNegativeKnowledge(),
@@ -1063,6 +1064,7 @@ type fsckSidecarLine struct {
 	Published     bool   `json:"published"`
 	Outcome       string `json:"outcome"`
 	BytesHash     string `json:"bytes_hash"`
+	Bytes         []byte `json:"bytes,omitempty"`
 }
 
 // checkCaptures walks records/captures/** for the two states that are gaps, and records every
@@ -1109,7 +1111,11 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 				d.Name(), sc.Version)
 		}
 		if !sc.Published {
-			if sc.Op == string(ipc.OpObserveTool) && sc.Outcome == string(core.OutcomeOK) &&
+			required, known := store.CaptureRequiresReference(sc.Op, sc.Bytes)
+			if !known && sc.Outcome == string(core.OutcomeOK) && sc.BytesHash != "" && !fsckIsZeroHash(sc.BytesHash) {
+				row.defect("capture publication requirement is unknown")
+			}
+			if required && sc.Outcome == string(core.OutcomeOK) &&
 				sc.BytesHash != "" && !fsckIsZeroHash(sc.BytesHash) {
 				row.defect("capture sidecar %s for a %s delivery is at stage 1 only: outcome %q with "+
 					"bytes %s durable and no reference joined to it",
