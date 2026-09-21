@@ -1,0 +1,384 @@
+{
+  "kind": "verification-authoring-child-usage-not-product-evaluation",
+  "requested_model": "claude-opus-4-8",
+  "requested_effort": "high",
+  "records": [
+    {
+      "file": "routing/docs-result.json",
+      "session_id": "948e3d1f-2de6-4f6c-b224-0db3808791e5",
+      "model_usage": {
+        "claude-opus-4-8": {
+          "inputTokens": 132,
+          "outputTokens": 81758,
+          "cacheReadInputTokens": 9479111,
+          "cacheCreationInputTokens": 171116,
+          "webSearchRequests": 0,
+          "costUSD": 8.495325500000002,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 52112,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "total_cost_usd_reported": 8.495325500000002,
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "file": "routing/inventory-a-route.json",
+      "session_id": "948e3d1f-2de6-4f6c-b224-0db3808791e5",
+      "model_usage": {
+        "claude-opus-4-8": {
+          "inputTokens": 2,
+          "outputTokens": 15,
+          "cacheReadInputTokens": 15168,
+          "cacheCreationInputTokens": 15397,
+          "webSearchRequests": 0,
+          "costUSD": 0.161939,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "total_cost_usd_reported": 0.161939,
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "file": "routing/inventory-result.json",
+      "session_id": "a86089b5-643a-4f68-a102-d5702add6600",
+      "model_usage": {
+        "claude-opus-4-8": {
+          "inputTokens": 64,
+          "outputTokens": 67888,
+          "cacheReadInputTokens": 3426673,
+          "cacheCreationInputTokens": 162071,
+          "webSearchRequests": 0,
+          "costUSD": 5.031566499999999,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 25781,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "total_cost_usd_reported": 5.031566499999999,
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "file": "routing/inventory-revision-result.json",
+      "session_id": "a86089b5-643a-4f68-a102-d5702add6600",
+      "model_usage": {
+        "claude-opus-4-8": {
+          "inputTokens": 56,
+          "outputTokens": 22606,
+          "cacheReadInputTokens": 5979095,
+          "cacheCreationInputTokens": 36094,
+          "webSearchRequests": 0,
+          "costUSD": 3.9159175,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 7870,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "total_cost_usd_reported": 3.9159175,
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "file": "routing/inventory-route.json",
+      "session_id": "a86089b5-643a-4f68-a102-d5702add6600",
+      "model_usage": {
+        "claude-opus-4-8": {
+          "inputTokens": 2,
+          "outputTokens": 15,
+          "cacheReadInputTokens": 16852,
+          "cacheCreationInputTokens": 15414,
+          "webSearchRequests": 0,
+          "costUSD": 0.162951,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "total_cost_usd_reported": 0.162951,
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "file": "routing/reviewer-result.json",
+      "session_id": "2433be0b-b75d-45fc-91ac-1a19528c4745",
+      "model_usage": {
+        "claude-opus-4-8": {
+          "inputTokens": 32,
+          "outputTokens": 24763,
+          "cacheReadInputTokens": 1241964,
+          "cacheCreationInputTokens": 81581,
+          "webSearchRequests": 0,
+          "costUSD": 2.0560270000000003,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 14175,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "total_cost_usd_reported": 2.0560270000000003,
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "file": "routing/reviewer-route.json",
+      "session_id": "2433be0b-b75d-45fc-91ac-1a19528c4745",
+      "model_usage": {
+        "claude-opus-4-8": {
+          "inputTokens": 2,
+          "outputTokens": 15,
+          "cacheReadInputTokens": 16852,
+          "cacheCreationInputTokens": 15428,
+          "webSearchRequests": 0,
+          "costUSD": 0.16309099999999999,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "total_cost_usd_reported": 0.16309099999999999,
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "file": "routing/final-review-result.json",
+      "session_id": "2433be0b-b75d-45fc-91ac-1a19528c4745",
+      "model_usage": {
+        "claude-opus-4-8": {
+          "inputTokens": 38,
+          "outputTokens": 25604,
+          "cacheReadInputTokens": 2966426,
+          "cacheCreationInputTokens": 65810,
+          "webSearchRequests": 0,
+          "costUSD": 2.781603,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 7439,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "total_cost_usd_reported": 2.781603,
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    }
+  ],
+  "aggregation": "Not summed: resumed result counters may overlap earlier session totals.",
+  "completeness": "Partial. Main-session usage, cache TTL, retries/compaction attribution, invoice and allowance consumption unknown. Preliminary SP18 routing probe raw JSON was not saved; observed model claude-opus-4-8 and reported estimate USD 0.323265 in tool output only.",
+  "pricing": "Raw child modelUsage says costBasis=list and provider=firstParty. These are CLI-reported estimates, not an independently rate-table-calculated estimate or invoice. Rate-table date and subscription marginal cash cost unknown.",
+  "product_trials": "None; no product model chosen by planning-child routing.",
+  "roles": {
+    "948e3d1f-2de6-4f6c-b224-0db3808791e5": "docs author; inventory-a-route.json is its initial route probe",
+    "a86089b5-643a-4f68-a102-d5702add6600": "inventory author",
+    "2433be0b-b75d-45fc-91ac-1a19528c4745": "independent non-authoring trust/final reviewer"
+  }
+}

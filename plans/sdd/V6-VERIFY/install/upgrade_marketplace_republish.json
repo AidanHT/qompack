@@ -1,0 +1,20 @@
+{
+  "name": "upgrade_marketplace_republish",
+  "capability": "upgrade",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "claude plugin marketplace update + plugin update qompack -s user: 0.1.0 -\u003e 0.1.1 enabled, the old cache directory was RETAINED by the host (docs: about fourteen days), .qompack/ byte-identical across the upgrade, fsck exit 0 and recall answered 9 hit(s) through the new launcher",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-21"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.1",
+    "target": "windows/amd64",
+    "binary_sha256": "1bcb615f430598f8b76c21f1787bbb68e31a73f93b7a95728a328c3ee8369479"
+  },
+  "artifact": "commit8-install-windows-amd64/upgrade_marketplace_republish.json"
+}

@@ -1,0 +1,36 @@
+{
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-640-g301a8e9",
+    "binary_sha256": "f171f46200b93a5cc476b12a41c9f623656f34c82da0cfd3394ae245f53a3ef7"
+  },
+  "records": [
+    "archive_trust_captured_file_replaced_by_link_outside",
+    "archive_trust_lexical_parent_escape_in_a_stored_record",
+    "archive_trust_parent_directory_replaced_by_link_outside",
+    "posture_out_of_project_capture_is_archived",
+    "posture_telemetry_is_refused",
+    "privacy_backup_take",
+    "privacy_eval_export",
+    "privacy_surface_backup",
+    "privacy_surface_checkpoints",
+    "privacy_surface_dag",
+    "privacy_surface_dot_root",
+    "privacy_surface_eval_export",
+    "privacy_surface_index",
+    "privacy_surface_logs",
+    "privacy_surface_mcp_retrieval",
+    "privacy_surface_metrics",
+    "privacy_surface_objects",
+    "privacy_surface_pins",
+    "privacy_surface_records",
+    "privacy_surface_run",
+    "privacy_surface_sketches",
+    "privacy_surface_spool",
+    "privacy_surface_state"
+  ]
+}

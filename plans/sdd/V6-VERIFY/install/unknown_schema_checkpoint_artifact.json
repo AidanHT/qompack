@@ -1,0 +1,20 @@
+{
+  "name": "unknown_schema_checkpoint_artifact",
+  "capability": "unknown_schema",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "a checkpoints/ artifact declaring schema version 2 (build reads 1): a whole session still records, fsck's checkpoints row stays ok and names it \"written by a newer plugin\", and the artifact's bytes are unchanged",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-21"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.0",
+    "target": "windows/amd64",
+    "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+  },
+  "artifact": "commit8-install-windows-amd64/unknown_schema_checkpoint_artifact.json"
+}

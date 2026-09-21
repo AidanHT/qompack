@@ -1,0 +1,28 @@
+{
+  "id": "forensic-bundle",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "bundle",
+    "--version",
+    "v0.2.0-640-g301a8e9-dirty",
+    "--target",
+    "windows/amd64",
+    "--out",
+    "dist/v6/candidate"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "M README.md\n M docs/cannot-do.md\n M docs/release.md\n M docs/security.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n?? plans/sdd/V6-VERIFY/\n?? test/fault/v6_fsck_test.go\n?? test/security/v6_authorization_test.go",
+  "started_at": "2026-09-20T21:31:11.723314-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "passed",
+  "log": "forensic-bundle.log",
+  "exit_code": 0,
+  "elapsed_seconds": 3.389,
+  "finished_at": "2026-09-20T21:31:15.113188-04:00",
+  "log_sha256": "f96d6b98d3d15c7af716b5c09e392b27a3d693a25d30d239f3a0fdea883e99a5"
+}

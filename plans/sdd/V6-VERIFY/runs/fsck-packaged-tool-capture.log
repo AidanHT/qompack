@@ -1,0 +1,6 @@
+{"ImportPath":"github.com/qompack/qompack/test/fault [github.com/qompack/qompack/test/fault.test]","Action":"build-output","Output":"# github.com/qompack/qompack/test/fault [github.com/qompack/qompack/test/fault.test]\n"}
+{"ImportPath":"github.com/qompack/qompack/test/fault [github.com/qompack/qompack/test/fault.test]","Action":"build-output","Output":"test\\fault\\v6_fsck_test.go:89:62: sc.ObservationID.String undefined (type core.ObservationID has no field or method String)\n"}
+{"ImportPath":"github.com/qompack/qompack/test/fault [github.com/qompack/qompack/test/fault.test]","Action":"build-fail"}
+{"Time":"2026-09-20T21:15:08.4529756-04:00","Action":"start","Package":"github.com/qompack/qompack/test/fault"}
+{"Time":"2026-09-20T21:15:08.4529756-04:00","Action":"output","Package":"github.com/qompack/qompack/test/fault","Output":"FAIL\tgithub.com/qompack/qompack/test/fault [build failed]\n"}
+{"Time":"2026-09-20T21:15:08.4529756-04:00","Action":"fail","Package":"github.com/qompack/qompack/test/fault","Elapsed":0,"FailedBuild":"github.com/qompack/qompack/test/fault [github.com/qompack/qompack/test/fault.test]"}

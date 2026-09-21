@@ -1,0 +1,282 @@
+[
+  {
+    "name": "install_launcher_resolves_in_cache",
+    "capability": "install",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "the installed C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstall728397772\\001\\claude-home\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.0\\bin\\qompack.exe runs, reports version 0.1.0 and hashes to the bundle's binary_sha256; shell resolution is commit2-evidence.md's",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/install_launcher_resolves_in_cache.json"
+  },
+  {
+    "name": "install_marketplace_user_scope",
+    "capability": "install",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "claude plugin marketplace add + install qompack@qompack-rehearsal -s user: enabledPlugins names it, the cache holds the bundle with 11 checksums.txt lines verifying, and plugin list --json reports it enabled at user scope",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/install_marketplace_user_scope.json"
+  },
+  {
+    "name": "install_validate_bundle_strict",
+    "capability": "install",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "claude plugin validate --strict --json: exit 0, success true, zero errors and zero warnings",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/install_validate_bundle_strict.json"
+  },
+  {
+    "name": "rollback_after_first_new_write",
+    "capability": "rollback",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "RehearseRollback(after-first-new-format-write) against the actual new artifact: OK, 1 write enumerated in unreadable_by_old_reader (fdefaf25d11a), legacy ids still 3, automatic_downgrade false",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/rollback_after_first_new_write.json"
+  },
+  {
+    "name": "rollback_before_first_new_write",
+    "capability": "rollback",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "RehearseRollback(before-first-new-format-write) on a project recorded by the real launcher: refused as a RESULT beside a live daemon (\"the incompatible writers could not be stopped: the qompack daemon (pid 45744) still holds C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite3566648839\\\\004\\\\project\\\\.qompack\\\\run\\\\daemon.lock\"), then OK with the daemon stopped — backup verified, reader proved, writers stopped, 3 legacy ids retained, automatic_downgrade false, evidence retained",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/rollback_before_first_new_write.json"
+  },
+  {
+    "name": "rollback_restored_root_reads_through_the_launcher",
+    "capability": "rollback",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "the restored root opened by the installed launcher: status --json parses, fsck exit 0 with no defect row, and MCP recall answered 10 hit(s) of which 10 carry a root identity the live project holds",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/rollback_restored_root_reads_through_the_launcher.json"
+  },
+  {
+    "name": "rollback_sealed_checkpoint_restore",
+    "capability": "rollback",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "RehearseRollback over a project that sealed a checkpoint: OK, backup verified, reader proved, writers stopped, automatic_downgrade false, evidence retained; the restored root holds the checkpoint artifact byte-for-byte. Fixed in commit 6 (ada54d1, commit6-evidence.md row 19) and its round 2: RestoreBackup writes protected artifacts through paths.CreateNew and the append-only logs through paths.RestoreLog, so the restored root can seal again (internal/store/backup.go RestoreBackup).",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/rollback_sealed_checkpoint_restore.json"
+  },
+  {
+    "name": "uninstall_default",
+    "capability": "uninstall",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "claude plugin uninstall qompack -s user (no --keep-data): exit 0, enabledPlugins entry gone, plugin list empty; payload cache retained=true; the project tree outside .qompack/ and .git/ is byte-identical to the pre-install snapshot, .qompack/ survives with its objects, and the documented manual deletion then restores the tree to its pre-install state exactly",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.1",
+      "target": "windows/amd64",
+      "binary_sha256": "1bcb615f430598f8b76c21f1787bbb68e31a73f93b7a95728a328c3ee8369479"
+    },
+    "artifact": "commit8-install-windows-amd64/uninstall_default.json"
+  },
+  {
+    "name": "uninstall_keep_data",
+    "capability": "uninstall",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "claude plugin uninstall qompack -s user --keep-data: exit 0, enabledPlugins entry gone, plugin list empty; payload cache retained=true, plugins/data present=false (this host never created a data directory: the plugin was installed, never run in a live session)",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.1",
+      "target": "windows/amd64",
+      "binary_sha256": "1bcb615f430598f8b76c21f1787bbb68e31a73f93b7a95728a328c3ee8369479"
+    },
+    "artifact": "commit8-install-windows-amd64/uninstall_keep_data.json"
+  },
+  {
+    "name": "unknown_schema_capture_sidecar",
+    "capability": "unknown_schema",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "a records/captures sidecar at v2 (build reads v1): readable and degraded — fsck's captures row stays ok and names it, and the sidecar is never repaired or swept",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/unknown_schema_capture_sidecar.json"
+  },
+  {
+    "name": "unknown_schema_checkpoint_artifact",
+    "capability": "unknown_schema",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "a checkpoints/ artifact declaring schema version 2 (build reads 1): a whole session still records, fsck's checkpoints row stays ok and names it \"written by a newer plugin\", and the artifact's bytes are unchanged",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/unknown_schema_checkpoint_artifact.json"
+  },
+  {
+    "name": "unknown_schema_config_settings_version",
+    "capability": "unknown_schema",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "runtime.migration.settingsVersion 2 with experiments.enabled true (gated; Validate restores false on any build) and reinjection.sessionStartCompact false (ungated, default true; build reads settingsVersion 1): LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); state/config-violations.json names the reset; the effective block is defaults (sessionStartCompact true); hooks exit 0; a daemon comes up; config print --provenance still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/unknown_schema_config_settings_version.json"
+  },
+  {
+    "name": "unknown_schema_delivery_seal_v2",
+    "capability": "unknown_schema",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "a v2 delivery position seal: fsck's delivery row classifies it by its declared version and leaves the bytes alone; an OLDER binary's refusal of a v2 seal is internal/daemon's own rollback row (delivery_seal_format2_test.go), cited here rather than duplicated",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.0",
+      "target": "windows/amd64",
+      "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+    },
+    "artifact": "commit8-install-windows-amd64/unknown_schema_delivery_seal_v2.json"
+  },
+  {
+    "name": "upgrade_marketplace_republish",
+    "capability": "upgrade",
+    "scope": "installed_cli",
+    "outcome": "verified",
+    "reason": "claude plugin marketplace update + plugin update qompack -s user: 0.1.0 -\u003e 0.1.1 enabled, the old cache directory was RETAINED by the host (docs: about fourteen days), .qompack/ byte-identical across the upgrade, fsck exit 0 and recall answered 9 hit(s) through the new launcher",
+    "target": {
+      "provider": "claude-code",
+      "version": "2.1.263",
+      "platform": "windows/amd64",
+      "date": "2026-09-21"
+    },
+    "bundle": {
+      "name": "qompack",
+      "version": "0.1.1",
+      "target": "windows/amd64",
+      "binary_sha256": "1bcb615f430598f8b76c21f1787bbb68e31a73f93b7a95728a328c3ee8369479"
+    },
+    "artifact": "commit8-install-windows-amd64/upgrade_marketplace_republish.json"
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "id": "lint-new-tests",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "run",
+    "-modfile=tools/pinned/go.mod",
+    "github.com/golangci/golangci-lint/cmd/golangci-lint",
+    "run",
+    "./test/security",
+    "./test/fault"
+  ],
+  "source_head": "7eb390a465fb5285cb5780fffcc9f7d16b54ded2",
+  "source_dirty": "M plans/V6-VERIFY-production-readiness-and-uat.md\n?? plans/V6-report.md\n?? plans/sdd/V6-VERIFY/",
+  "started_at": "2026-09-20T21:40:48.794433-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "passed",
+  "log": "lint-new-tests.log",
+  "exit_code": 0,
+  "elapsed_seconds": 126.231,
+  "finished_at": "2026-09-20T21:42:55.026237-04:00",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

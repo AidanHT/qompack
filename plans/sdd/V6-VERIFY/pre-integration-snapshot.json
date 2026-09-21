@@ -1,0 +1,126 @@
+{
+  "captured_at": "2026-09-20T11:23:39.3796359-04:00",
+  "kind": "v6-preflight-not-runtime-verification",
+  "root_head": "7f92af5353a6bd084aa49043351e4183ecbcb2ad",
+  "develop_head": "9c84e31d596ff2357cceeed42af240c8b6642dd5",
+  "sp17_head": "6efe2239e0cff556029bb248faa37127f29714fc",
+  "sp18_head": "34d058e9ebbc2f59df41987dce69f47256400274",
+  "root_status_before": [
+    " M Qompack.md",
+    " M plans/00-ARCHITECTURE.md",
+    " M plans/QOMPACK-ERRATA.md",
+    " M plans/README.md",
+    " M plans/TRACEABILITY.md",
+    " M plans/V4-SP-10-checkpointer-l4.md",
+    " M plans/V4-SP-11-rehydrator-l5.md",
+    " M plans/V4-SP-12-scheduler-l3.md",
+    " M plans/V4-SP-13-mcp-retrieval-layer.md",
+    " M plans/V4-VERIFY-checkpoint-rehydrate-schedule-retrieval.md",
+    " M plans/V5-SP-14-slash-commands-and-observability.md",
+    " M plans/V5-SP-15-analyzer-selection-and-grammar.md",
+    " M plans/V5-SP-16-phase7-refinements.md",
+    " M plans/V5-VERIFY-commands-selection-grammar-and-refinements.md",
+    " M plans/V6-SP-17-packaging-hardening-and-release.md",
+    " M plans/V6-SP-18-documentation-and-uat.md",
+    " M plans/V6-VERIFY-production-readiness-and-uat.md",
+    "?? .claude/",
+    "?? LIVE-UAT-RUNBOOK.md",
+    "?? cover-full.txt",
+    "?? cover-full2.txt",
+    "?? docs/architecture-and-design.md",
+    "?? internal/sketch/testdata/",
+    "?? plans/MIGRATION-EVIDENCE.md",
+    "?? plans/V4-SP-19-migration-reconciliation.md",
+    "?? plans/V4-SP-20-capture-storage-and-state-remediation.md",
+    "?? plans/V5-SP-21-deterministic-admission-control.md",
+    "?? \"plans/research references\"",
+    "?? v3-bench.txt",
+    "?? v3-benchstat.txt",
+    "?? v3-hotpath.json"
+  ],
+  "develop_status": [],
+  "sp17_status": [],
+  "sp18_status": [],
+  "preserved_file_hashes": [
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\Qompack.md",
+      "sha256": "bb78d15a5558cfa03783ab7420d43b12caa5ef0211423a6bc9b99a9f3df4467a"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\00-ARCHITECTURE.md",
+      "sha256": "d6235aff9dcc9350000e8888f60744be02370979d2f6144d6f6520daf6fbe16a"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\QOMPACK-ERRATA.md",
+      "sha256": "0fa7b49679ba5a3e2d78ae314e5642c65468b5b33f237db7b9df0782de309614"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\README.md",
+      "sha256": "53c0628a6bf5e5c38442b897e121defaf377ce1b009192809f9d0ab2d19c0b3a"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\TRACEABILITY.md",
+      "sha256": "4f6e948b61a2e79f4c878266576306652ff68485f57368ce905840ef2c9b7ed2"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-SP-10-checkpointer-l4.md",
+      "sha256": "be7af1579c4d29e16c06507e94d76f1acccd0dad0ede6e8962fd87494bf86a79"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-SP-11-rehydrator-l5.md",
+      "sha256": "b119308eb239ae2cfeb2f6e5129181abac4ebcc69ec09db3e3d87a835f0d4a93"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-SP-12-scheduler-l3.md",
+      "sha256": "cf20be9805d3acd1b85c830d6ffce422e7ce978a18f5438b6d72b94c6b1d902a"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-SP-13-mcp-retrieval-layer.md",
+      "sha256": "a74c2af73a021969d869826d3fc94e0c4fdc91981702ec2df45631b277388fc1"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-VERIFY-checkpoint-rehydrate-schedule-retrieval.md",
+      "sha256": "20629641f2b7dd4127368477115e47c855b7c9f3f135887ba79d02789b419a0b"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V5-SP-14-slash-commands-and-observability.md",
+      "sha256": "541ab4511449aa92461f1d592023b43c8b77f61fad08526e2070af7cffb968c0"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V5-SP-15-analyzer-selection-and-grammar.md",
+      "sha256": "2a49cf3005f1539d707af4fcf63ac362359b48c57b341aab618cd316fd4dcfc9"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V5-SP-16-phase7-refinements.md",
+      "sha256": "747f1257b16cff060501b9423650228057eb5032a73a717b4d59b8a7188ea6c9"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V5-VERIFY-commands-selection-grammar-and-refinements.md",
+      "sha256": "efa31d79bdfe1dcef4a52ee83655566d1a2b43b11320943bda9a304be4a7789e"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V6-SP-17-packaging-hardening-and-release.md",
+      "sha256": "0ea5f81d97f6a907e79ade90d613d18ff23178dd69556d2a36d67b007ff90ad3"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V6-SP-18-documentation-and-uat.md",
+      "sha256": "3c9d13554d969952b78214e20d7fa3d190c83ac3c424fd8cb8e4910e83d947a7"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V6-VERIFY-production-readiness-and-uat.md",
+      "sha256": "764953e7e58bec4a1b87b88192467021ec8342798370713ce943d18f22a765e0"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V1-report.md",
+      "sha256": "7d7550292de5343a62b28ac146e99b88509cd4d6a5353bb062e180d4290f7bff"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V2-report.md",
+      "sha256": "949e85bd93506bb0c3f6fee0acfcfc33f46d474184c5d4ae2fbfc57f5a3cf372"
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V3-report.md",
+      "sha256": "f4d9823c0fe4ac2351dabd8f0f963079b5d8545817e593127da2a007e915b568"
+    }
+  ]
+}

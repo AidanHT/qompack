@@ -1,0 +1,26 @@
+{
+  "id": "diagnostics-focused",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=10m",
+    "-json",
+    "./internal/cli",
+    "-run",
+    "^(TestFsck_ReportsEachSeededDefectAndRepairsNone|TestFsck_ReportsEveryDanglingReferenceClass|TestFsck_RepairPerformsOnlyTheFiveAdditiveKinds|TestFsck_RepairIsRefusedWhileADaemonHoldsTheLock|TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt|TestDoctor_EveryMigrationGateIsPendingInThisBuild|TestDoctor_AgreesWithStatusOnModeAndProvenance)$"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "?? plans/sdd/V6-VERIFY/\n?? test/security/v6_authorization_test.go",
+  "started_at": "2026-09-20T21:09:43.375301-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "passed",
+  "log": "diagnostics-focused.log",
+  "exit_code": 0,
+  "elapsed_seconds": 5.769,
+  "finished_at": "2026-09-20T21:09:49.145725-04:00",
+  "log_sha256": "0c986cbfcd12888b547a2416e89073794f96d957c247ac06c79eabe40e054017"
+}

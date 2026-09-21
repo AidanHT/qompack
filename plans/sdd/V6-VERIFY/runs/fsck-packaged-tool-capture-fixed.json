@@ -1,0 +1,27 @@
+{
+  "id": "fsck-packaged-tool-capture-fixed",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=15m",
+    "-json",
+    "./test/fault",
+    "-run",
+    "^TestV6_FsckReportsUnpublishedCaptureWithoutDiscardingEvidence$"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "M README.md\n M docs/cannot-do.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n?? plans/sdd/V6-VERIFY/\n?? test/fault/v6_fsck_test.go\n?? test/security/v6_authorization_test.go",
+  "started_at": "2026-09-20T21:15:25.548654-04:00",
+  "environment": {
+    "GOMAXPROCS": "2",
+    "QOMPACK_FAULT_ARTIFACTS": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6\\plans\\sdd\\V6-VERIFY\\fsck-tool-capture-verified"
+  },
+  "status": "passed",
+  "log": "fsck-packaged-tool-capture-fixed.log",
+  "exit_code": 0,
+  "elapsed_seconds": 9.428,
+  "finished_at": "2026-09-20T21:15:34.977461-04:00",
+  "log_sha256": "ca62a80adeffe6b802df5042503e34d9c06e56d076e8ef447677757840f2d17a"
+}

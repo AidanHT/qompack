@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-09-20T21:41:34.522510-04:00",
+  "inventory_ids": 304,
+  "run_log_hashes_checked": 14,
+  "failures": [
+    "lint-new-tests.json: still running",
+    "plans\\V6-report.md: missing link sdd/V6-VERIFY/final-review.md"
+  ],
+  "scope": "Evidence integrity only; does not change any product capability verdict."
+}

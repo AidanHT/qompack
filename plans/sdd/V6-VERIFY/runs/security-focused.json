@@ -1,0 +1,27 @@
+{
+  "id": "security-focused",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=15m",
+    "-json",
+    "./test/security",
+    "-run",
+    "^(TestSecurity_OutOfProjectCaptureIsArchivedWithItsPathDropped|TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject|TestSecurity_NoSecretReachesAnyDurableSurface|TestSecurity_TelemetryCannotBeTurnedOn)$"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "",
+  "started_at": "2026-09-20T21:03:08.672600-04:00",
+  "environment": {
+    "GOMAXPROCS": "2",
+    "QOMPACK_SECURITY_ARTIFACTS": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6\\plans\\sdd\\V6-VERIFY\\security"
+  },
+  "status": "passed",
+  "log": "security-focused.log",
+  "exit_code": 0,
+  "elapsed_seconds": 20.275,
+  "finished_at": "2026-09-20T21:03:28.951358-04:00",
+  "log_sha256": "4126ac15bbee9c91f35e7d9f6751741325367067425856e4456411dec84f55f6"
+}

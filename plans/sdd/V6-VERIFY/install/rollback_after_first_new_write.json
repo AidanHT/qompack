@@ -1,0 +1,20 @@
+{
+  "name": "rollback_after_first_new_write",
+  "capability": "rollback",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "RehearseRollback(after-first-new-format-write) against the actual new artifact: OK, 1 write enumerated in unreadable_by_old_reader (fdefaf25d11a), legacy ids still 3, automatic_downgrade false",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-21"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.0",
+    "target": "windows/amd64",
+    "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+  },
+  "artifact": "commit8-install-windows-amd64/rollback_after_first_new_write.json"
+}

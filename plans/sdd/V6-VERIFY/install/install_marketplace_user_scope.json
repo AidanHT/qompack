@@ -1,0 +1,20 @@
+{
+  "name": "install_marketplace_user_scope",
+  "capability": "install",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "claude plugin marketplace add + install qompack@qompack-rehearsal -s user: enabledPlugins names it, the cache holds the bundle with 11 checksums.txt lines verifying, and plugin list --json reports it enabled at user scope",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-21"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.0",
+    "target": "windows/amd64",
+    "binary_sha256": "4b9e80f28e12ec35b18bf3c91e5eadad6a20157fda61764a095685b85fe2b63f"
+  },
+  "artifact": "commit8-install-windows-amd64/install_marketplace_user_scope.json"
+}

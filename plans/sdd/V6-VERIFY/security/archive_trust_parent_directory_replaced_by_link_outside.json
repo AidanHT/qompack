@@ -1,0 +1,17 @@
+{
+  "name": "archive_trust_parent_directory_replaced_by_link_outside",
+  "capability": "archive_trust",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-640-g301a8e9",
+    "binary_sha256": "f171f46200b93a5cc476b12a41c9f623656f34c82da0cfd3394ae245f53a3ef7"
+  },
+  "outcome": "verified",
+  "reason": "for parent_directory_replaced_by_link_outside, neither expand-by-id nor re_read-by-path materialized content for the escaping address; no byte of the file outside the project root appeared in any response, no refusal echoed the offending path, and the stored objects were untouched.",
+  "detail": "escape built with an NTFS directory junction (mklink /J); envelopes: expand=denied(found=false) re_read=denied(found=false) recall=non_json({\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"refresh token rotati…)"
+}

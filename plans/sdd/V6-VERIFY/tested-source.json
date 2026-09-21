@@ -1,0 +1,43 @@
+{
+  "committed_source_head": "7eb390a465fb5285cb5780fffcc9f7d16b54ded2",
+  "production_source_base": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "files": [
+    {
+      "path": "test/security/v6_authorization_test.go",
+      "sha256": "168de7cc4bab6b235a0fc587c2bf0d7de23d85c50e97210d5b8eb664a56ec67e"
+    },
+    {
+      "path": "test/fault/v6_fsck_test.go",
+      "sha256": "0019db731c17d10ecc8b58b9579433cb51246ecf110873ed02df70c8dfb11780"
+    },
+    {
+      "path": "README.md",
+      "sha256": "44d53367f6aa43ddeb2ccba881f10288cfd190f7993a13e50e2f08af796d5dd2"
+    },
+    {
+      "path": "docs/cannot-do.md",
+      "sha256": "576e2e6de0c6a8d6f324bf4396bc40207be836d77b7b9b1c3c0f3a7f8bc3a52c"
+    },
+    {
+      "path": "docs/release.md",
+      "sha256": "fe5c5697a96e0662970f4151f5904c69cae6778be8392923ec1223512295b197"
+    },
+    {
+      "path": "docs/security.md",
+      "sha256": "53ca98bd04105f7d20c65fb2039f0de411e0516188eee80f7249bd2b9916399b"
+    },
+    {
+      "path": "docs/troubleshooting.md",
+      "sha256": "2c1e5b4aea9ea78c7c0442335b4cac4b54f0e262d12726b862d4177d47871af9"
+    },
+    {
+      "path": "docs/uat.md",
+      "sha256": "e6605a53f61c07a7201cf9a1c852573dfc849c442cc5343d3e21b7d268b9719e"
+    },
+    {
+      "path": "docs/user-guide.md",
+      "sha256": "d34a31a20f51578c7d1abebd964f68c0ed733510b09d5978b8fcc5b039dbb969"
+    }
+  ],
+  "limitation": "Intermediate uncommitted test fixture revisions were not individually snapshotted. Original failure logs/artifacts survive; committed final fixtures plus their specific run records are the reproducible authority. These hashes describe final tested source/documentation, not intermediate revisions."
+}

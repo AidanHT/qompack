@@ -1,0 +1,27 @@
+{
+  "id": "security-regressions-original",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=15m",
+    "-json",
+    "./test/security",
+    "-run",
+    "^TestV6_(ArchivedReadRetainsItsAuthorizationBoundary|HashAddressesDoNotBypassPathAuthorization)$"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "?? plans/sdd/V6-VERIFY/\n?? test/security/v6_authorization_test.go",
+  "started_at": "2026-09-20T21:07:46.430618-04:00",
+  "environment": {
+    "GOMAXPROCS": "2",
+    "QOMPACK_SECURITY_ARTIFACTS": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6\\plans\\sdd\\V6-VERIFY\\security-regressions-original"
+  },
+  "status": "failed",
+  "log": "security-regressions-original.log",
+  "exit_code": 1,
+  "elapsed_seconds": 13.188,
+  "finished_at": "2026-09-20T21:07:59.620968-04:00",
+  "log_sha256": "8668fdb93a40639cd79851896e599726aa5ad3bdf3c8e15e38dfc6fe21b576b4"
+}

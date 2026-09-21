@@ -1,0 +1,17 @@
+{
+  "name": "privacy_backup_take",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-640-g301a8e9",
+    "binary_sha256": "f171f46200b93a5cc476b12a41c9f623656f34c82da0cfd3394ae245f53a3ef7"
+  },
+  "outcome": "verified",
+  "reason": "a consistent backup of 48 files was taken through the real store.Migrator.TakeBackup with the legacy-import gate supplied by the test (it ships closed, so no shipped build reaches this code); its tree is swept as its own surface.",
+  "detail": "manifest consistent=true"
+}

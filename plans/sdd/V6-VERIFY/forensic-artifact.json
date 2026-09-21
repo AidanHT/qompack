@@ -1,0 +1,6 @@
+{
+  "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6\\dist\\v6\\candidate\\qompack-plugin-v0.2.0-640-g301a8e9-dirty-windows-amd64",
+  "bundle_json_sha256": "e29b6de3e5a8f1575865c17307a62e7dd050265c023fa40c86ea77bcb606e2f2",
+  "purpose": "Local failure reproduction only; not a release candidate approved for rollout.",
+  "scope": "Binary SHA matches security-real-capture and fsck-tool-capture-verified. This separately assembled directory was not installed in those tests; bundle identity is not substituted for their per-run identities."
+}

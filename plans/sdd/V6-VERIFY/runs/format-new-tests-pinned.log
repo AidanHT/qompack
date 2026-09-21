@@ -1,0 +1,1 @@
+go: -modfile=tools/pinned/go: file does not have .mod extension

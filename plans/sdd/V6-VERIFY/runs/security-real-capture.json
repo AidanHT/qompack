@@ -1,0 +1,27 @@
+{
+  "id": "security-real-capture",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=15m",
+    "-json",
+    "./test/security",
+    "-run",
+    "^TestV6_HashAddressesDoNotBypassPathAuthorization$"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "M README.md\n M docs/cannot-do.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n?? plans/sdd/V6-VERIFY/\n?? test/fault/v6_fsck_test.go\n?? test/security/v6_authorization_test.go",
+  "started_at": "2026-09-20T21:20:20.393590-04:00",
+  "environment": {
+    "GOMAXPROCS": "2",
+    "QOMPACK_SECURITY_ARTIFACTS": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6\\plans\\sdd\\V6-VERIFY\\security-real-capture"
+  },
+  "status": "failed",
+  "log": "security-real-capture.log",
+  "exit_code": 1,
+  "elapsed_seconds": 10.649,
+  "finished_at": "2026-09-20T21:20:31.054056-04:00",
+  "log_sha256": "cd8bf47a0e560fb51f6a8c32d0c31e832200a00a066d9ff1d1e143de4490ed5a"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "format-new-tests",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "tool",
+    "gofumpt",
+    "-l",
+    "test/security/v6_authorization_test.go",
+    "test/fault/v6_fsck_test.go"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "M README.md\n M docs/cannot-do.md\n M docs/release.md\n M docs/security.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n?? plans/sdd/V6-VERIFY/\n?? test/fault/v6_fsck_test.go\n?? test/security/v6_authorization_test.go",
+  "started_at": "2026-09-20T21:31:20.576680-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "failed",
+  "log": "format-new-tests.log",
+  "exit_code": 2,
+  "elapsed_seconds": 0.156,
+  "finished_at": "2026-09-20T21:31:20.733796-04:00",
+  "log_sha256": "20da6b8df7fbfb4629b9480c6ad532b7fe573d875aa542e357d1efbc9d000763"
+}

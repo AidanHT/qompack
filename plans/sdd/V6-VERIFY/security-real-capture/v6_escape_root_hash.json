@@ -1,0 +1,17 @@
+{
+  "name": "v6_escape_root_hash",
+  "capability": "archive_trust",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-640-g301a8e9-dirty",
+    "binary_sha256": "6811df18dc0e8583a5e2184e44b2f64891d19f9b8de5ba51e3d5bdf16c13ab51"
+  },
+  "outcome": "failed",
+  "reason": "the archived address did not retain its path authorization boundary; owner internal/mcp + internal/observer",
+  "detail": "envelope=content(34 bytes); synthetic forbidden marker exposed=true"
+}

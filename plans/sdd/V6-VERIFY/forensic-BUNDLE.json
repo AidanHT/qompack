@@ -1,0 +1,70 @@
+{
+  "name": "qompack",
+  "version": "v0.2.0-640-g301a8e9-dirty",
+  "target": {
+    "os": "windows",
+    "arch": "amd64"
+  },
+  "go": "go1.26.6",
+  "source": {
+    "commit": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+    "dirty": true
+  },
+  "files": [
+    {
+      "path": ".claude-plugin/plugin.json",
+      "sha256": "1c87362f9a1d69b48173bee3883eee8c654570cde09a5f1faffc9bc87442bc2a",
+      "bytes": 308
+    },
+    {
+      "path": ".mcp.json",
+      "sha256": "90277ce38e85f33f2f65e7bb654e9cf05bdb8a37496a68ed2889c94e14c67e64",
+      "bytes": 141
+    },
+    {
+      "path": "bin/qompack.exe",
+      "sha256": "6811df18dc0e8583a5e2184e44b2f64891d19f9b8de5ba51e3d5bdf16c13ab51",
+      "bytes": 8328704
+    },
+    {
+      "path": "commands/checkpoint.md",
+      "sha256": "7c4ef8a52021641320d70fbab643f85b93791acc76fb1922f30518eccd7ad5d0",
+      "bytes": 246
+    },
+    {
+      "path": "commands/dropped.md",
+      "sha256": "2fe3851069f017fbdcce72313b93cf2043fa24584d0194ac63354cd0981c912c",
+      "bytes": 257
+    },
+    {
+      "path": "commands/eval.md",
+      "sha256": "21db752eb5485a8708804f2379ca476c23c76f232a6ebace9d679c1d0da65cab",
+      "bytes": 258
+    },
+    {
+      "path": "commands/pin.md",
+      "sha256": "7d48a7d37859de10c28f4001ea3ecdf6eec52d0bb2585f4a2fa2be71cc147147",
+      "bytes": 228
+    },
+    {
+      "path": "commands/recall.md",
+      "sha256": "bd9a7a1d39f2e573054997caa2b51bb01db4ccc652ef1be977c8ec2e5e4f1667",
+      "bytes": 253
+    },
+    {
+      "path": "commands/status.md",
+      "sha256": "b002f0354d266a9d80492fd3db4687d9ea64f92cf2e0bcc1a4cf9e4a8be5eb67",
+      "bytes": 257
+    },
+    {
+      "path": "commands/why.md",
+      "sha256": "71aefa2f488b7734a9517b260b81eaea405f7be8253d4e1fc53b46a4b4a28729",
+      "bytes": 242
+    },
+    {
+      "path": "hooks/hooks.json",
+      "sha256": "e28e82b310ae30e67692ed5358528fdaec701b52e634f38abe707bdcfc97e3ab",
+      "bytes": 1661
+    }
+  ]
+}

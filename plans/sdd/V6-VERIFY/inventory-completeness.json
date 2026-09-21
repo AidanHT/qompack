@@ -1,0 +1,7 @@
+{
+  "retained_ids": 304,
+  "distinct_ids": 304,
+  "matches_user_plan_ids": true,
+  "runtime_acceptance": false,
+  "note": "Structural completeness only; incomplete source mappings and runtime gates remain explicit."
+}

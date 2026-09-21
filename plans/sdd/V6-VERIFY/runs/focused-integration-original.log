@@ -1,0 +1,20 @@
+--- FAIL: TestNoPlannedPointerToAnExistingPage (0.05s)
+    pointers_test.go:69: README.md:57: names docs/install.md as planned, but that file exists: make it a link
+    pointers_test.go:69: README.md:58: names docs/security.md as planned, but that file exists: make it a link
+    pointers_test.go:69: README.md:58: names docs/release.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/user-guide.md:12: names docs/install.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/user-guide.md:12: names docs/security.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/user-guide.md:473: names docs/install.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/user-guide.md:473: names docs/security.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/user-guide.md:473: names docs/release.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/troubleshooting.md:510: names docs/install.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/troubleshooting.md:590: names docs/install.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/troubleshooting.md:590: names docs/security.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/troubleshooting.md:590: names docs/release.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/uat.md:1113: names docs/install.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/uat.md:1113: names docs/security.md as planned, but that file exists: make it a link
+    pointers_test.go:69: docs/uat.md:1113: names docs/release.md as planned, but that file exists: make it a link
+FAIL
+FAIL	github.com/qompack/qompack/test/docs	3.079s
+ok  	github.com/qompack/qompack/tools/devtool	45.696s
+FAIL

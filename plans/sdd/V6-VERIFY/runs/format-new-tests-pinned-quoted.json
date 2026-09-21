@@ -1,0 +1,25 @@
+{
+  "id": "format-new-tests-pinned-quoted",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "run",
+    "-modfile=tools/pinned/go.mod",
+    "mvdan.cc/gofumpt",
+    "-l",
+    "test/security/v6_authorization_test.go",
+    "test/fault/v6_fsck_test.go"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "M README.md\n M docs/cannot-do.md\n M docs/release.md\n M docs/security.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n?? plans/sdd/V6-VERIFY/\n?? test/fault/v6_fsck_test.go\n?? test/security/v6_authorization_test.go",
+  "started_at": "2026-09-20T21:32:13.736818-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "passed",
+  "log": "format-new-tests-pinned-quoted.log",
+  "exit_code": 0,
+  "elapsed_seconds": 3.031,
+  "finished_at": "2026-09-20T21:32:16.769480-04:00",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

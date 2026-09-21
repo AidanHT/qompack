@@ -1,0 +1,27 @@
+{
+  "id": "install-recovery",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=20m",
+    "-json",
+    "./test/e2e",
+    "-run",
+    "^(TestInstall_HostCLIInstallUpgradeUninstall|TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite|TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting)$"
+  ],
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_dirty": "M README.md\n M docs/user-guide.md\n?? plans/sdd/V6-VERIFY/\n?? test/security/v6_authorization_test.go",
+  "started_at": "2026-09-20T21:11:36.206639-04:00",
+  "environment": {
+    "GOMAXPROCS": "2",
+    "QOMPACK_INSTALL_ARTIFACTS": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6\\plans\\sdd\\V6-VERIFY\\install"
+  },
+  "status": "passed",
+  "log": "install-recovery.log",
+  "exit_code": 0,
+  "elapsed_seconds": 53.388,
+  "finished_at": "2026-09-20T21:12:29.596117-04:00",
+  "log_sha256": "002cdc7f17977eb481662a3eee8030ff2ffa90b6f41c24b6fa302afbf8d32eb3"
+}

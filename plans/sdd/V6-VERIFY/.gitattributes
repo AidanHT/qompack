@@ -1,0 +1,5 @@
+# Preserve raw evidence bytes across platforms; run records contain log SHA256.
+runs/*.log -text whitespace=cr-at-eol
+routing/*.json -text whitespace=cr-at-eol
+/forensic-BUNDLE.json -text whitespace=cr-at-eol
+/forensic-checksums.txt -text whitespace=cr-at-eol
