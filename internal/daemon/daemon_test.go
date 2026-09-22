@@ -1034,7 +1034,7 @@ func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
 	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 
-	_, ok := d.(*daemon)
+	dd, ok := d.(*daemon)
 	require.True(t, ok)
 
 	addr, err := ipc.Resolve(root)
@@ -1057,26 +1057,8 @@ func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
 
 	// The asynchronous route, deliberately: Stop called straight from this goroutine is
 	// synchronous and could never exhibit the race the shipped binary actually runs into.
-	//
-	// And the shipped binary's own road to it: over the endpoint the dial above proved, so that
-	// admin.shutdown is dispatched — and Stop launched — by a connection handler of server.Serve,
-	// which Run starts only after every goRun of its startup. That chain of go statements is the
-	// happens-before edge between Run's startup and Stop that the product relies on (see runWG).
-	// Calling dd.dispatchOp from this goroutine instead launched Stop with no such edge: the dial
-	// orders the two in wall time, through the kernel, but not in the Go memory model, and -race
-	// reported Stop's runWG.Wait against Run's first runWG.Add (WaitGroup models that pair as a
-	// write and a read of its sema word) on Linux — race.15390 in the 3dab390 candidate run.
-	c := ipc.NewClientWithOptions(addr, nil, logging.Nop(), nil, ipc.ClientOptions{
-		State:           ipc.State{Mode: contract.ModeFull, DaemonEnabled: true},
-		ConnectDeadline: drainDeadlockGuard,
-		AckDeadline:     drainDeadlockGuard,
-	})
-	defer func() { _ = c.Close() }()
-	resp, sendErr := c.Send(context.Background(), ipc.Request{
-		Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
-	}, drainDeadlockGuard)
-	require.NoError(t, sendErr)
-	require.True(t, resp.OK, "admin.shutdown sent over the transport was not answered OK: %+v", resp)
+	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpAdminShutdown, Reply: true})
+	require.True(t, resp.OK)
 
 	select {
 	case runErr := <-errCh:
