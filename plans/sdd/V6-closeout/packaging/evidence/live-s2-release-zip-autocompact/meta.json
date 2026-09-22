@@ -1,0 +1,45 @@
+{
+  "pid": 48724,
+  "args": [
+    "C:\\Users\\Quant\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-haiku-4-5-20251001",
+    "--max-turns",
+    "3",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Read",
+    "--plugin-dir",
+    "<scratch>/rel/qompack-plugin-0.3.0-rc.pkg-windows-amd64.zip"
+  ],
+  "cwd": "<scratch>/s2/project",
+  "turns": [
+    {
+      "msg": "Read notes.txt and tell me the release codeword. Reply in one short sentence.",
+      "ok": true,
+      "wall_s": 19.45
+    },
+    {
+      "msg": "Read notes.txt once more and tell me the config port. One short sentence.",
+      "ok": true,
+      "wall_s": 95.723
+    },
+    {
+      "msg": "Without reading any file again: what was the release codeword and which port must the config keep? One short sentence.",
+      "ok": true,
+      "wall_s": 58.059
+    }
+  ],
+  "exit": 0,
+  "wall_s": 177.323
+}

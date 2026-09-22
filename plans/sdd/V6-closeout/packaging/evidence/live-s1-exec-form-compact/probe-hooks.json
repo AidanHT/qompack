@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "shell": "powershell", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" version", "timeout": 10 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" version", "timeout": 10 },
+          { "type": "command", "shell": "powershell", "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe", "args": ["version"], "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

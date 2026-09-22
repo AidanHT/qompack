@@ -1,0 +1,108 @@
+{
+ "transcript_files": [
+  "33e326bf-1cbc-4758-a7e9-5d293c59e05b.jsonl"
+ ],
+ "bytes": 617538,
+ "contains_validation_failed": false,
+ "contains_ParserError": false,
+ "hooks": [
+  {
+   "type": "hook_success",
+   "hookName": "SessionStart:startup",
+   "hookEvent": "SessionStart",
+   "exitCode": 0,
+   "durationMs": 2585
+  },
+  {
+   "type": "hook_success",
+   "hookName": "PostToolUse:Read",
+   "hookEvent": "PostToolUse",
+   "exitCode": 0,
+   "durationMs": 350
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 127
+  },
+  {
+   "type": "hook_success",
+   "hookName": "SessionStart:compact",
+   "hookEvent": "SessionStart",
+   "exitCode": 0,
+   "durationMs": 7294
+  },
+  {
+   "type": "hook_success",
+   "hookName": "PostToolUse:Read",
+   "hookEvent": "PostToolUse",
+   "exitCode": 0,
+   "durationMs": 4420
+  },
+  {
+   "type": "hook_success",
+   "hookName": "SessionStart:compact",
+   "hookEvent": "SessionStart",
+   "exitCode": 0,
+   "durationMs": 2490
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 466
+  },
+  {
+   "type": "hook_success",
+   "hookName": "SessionStart:compact",
+   "hookEvent": "SessionStart",
+   "exitCode": 0,
+   "durationMs": 10284
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 754
+  }
+ ],
+ "compact_boundaries": [
+  {
+   "trigger": "auto",
+   "preTokens": 25830,
+   "postTokens": 2327,
+   "durationMs": 19409
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 25399,
+   "postTokens": 2247,
+   "durationMs": 35510
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 26062,
+   "postTokens": 2751,
+   "durationMs": 20739
+  }
+ ],
+ "additional_context_heads": [
+  {
+   "hookName": "SessionStart",
+   "head": "<!-- qompack-contract-probe qompack-contract-740a29ce472b -->"
+  },
+  {
+   "hookName": "SessionStart",
+   "head": "<!-- qompack:injected seq=2 ver=1 -->\n# Qompack rehydration \u2014 checkpoint 0002, session 33e326bf\n\n## 2. Original user int"
+  },
+  {
+   "hookName": "SessionStart",
+   "head": "<!-- qompack:injected seq=3 ver=1 -->\n# Qompack rehydration \u2014 checkpoint 0003, session 33e326bf\n\n## 2. Original user int"
+  }
+ ],
+ "local_command_stdout": []
+}

@@ -1,0 +1,5 @@
+qompack doctor --json, version section, run from the exec-form windows/amd64 bundle (0.3.0-rc.pkg, assembled from 33ed57f + uncommitted C7.5 work, hence dirty=true) with CLAUDE_PLUGIN_ROOT set to that bundle, 2026-09-22
+{"id": "version.plugin", "status": "ok", "observed": "0.3.0-rc.pkg", "detail": "internal/core.Version, which the release build stamps with -ldflags -X"}
+{"id": "version.buildinfo", "status": "ok", "observed": "(devel)", "detail": "main module github.com/qompack/qompack; -trimpath=true CGO_ENABLED=0 GOARCH=amd64 GOOS=windows"}
+{"id": "version.bundle", "status": "degraded", "observed": "0.3.0-rc.pkg windows/amd64", "detail": "source commit 33ed57f78845e4da3c05d0c8123990bd8afca661, dirty=true (a bundle assembled from a dirty tree cannot be reproduced from its commit)"}
+{"id": "version.pluginRoot", "status": "ok", "observed": "set and resolves", "detail": "<scratch>\\rel\\qompack-plugin-0.3.0-rc.pkg-windows-amd64\\bin\\qompack.exe"}

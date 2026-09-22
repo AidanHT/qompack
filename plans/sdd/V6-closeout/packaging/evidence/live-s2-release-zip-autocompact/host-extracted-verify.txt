@@ -1,0 +1,15 @@
+sha256sum: .claude-plugin/plugin.json: No such file or directory
+.claude-plugin/plugin.json: FAILED open or read
+sha256sum: .mcp.json: No such file or directory
+.mcp.json: FAILED open or read
+bin/qompack.exe: OK
+commands/checkpoint.md: OK
+commands/dropped.md: OK
+commands/eval.md: OK
+commands/pin.md: OK
+commands/recall.md: OK
+commands/status.md: OK
+commands/why.md: OK
+hooks/hooks.json: OK
+sha256sum: WARNING: 2 listed files could not be read
+verify-exit=1
