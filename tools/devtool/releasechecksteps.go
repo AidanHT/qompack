@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,7 +72,80 @@ func releaseCheckSteps() []releaseCheckStep {
 		releaseCheckStep{"plugin-validate", func(releaseCheckOptions) releaseCheckOutcome {
 			return rcTask(taskPluginValidate)
 		}},
+		releaseCheckStep{"marketplace", releaseCheckMarketplace},
 	)
+}
+
+// releaseCheckMarketplace is C7.5's gate on the marketplace path, run BEFORE anything is built.
+//
+// The archives do not exist yet at this point in release.yml, so the generator is exercised for
+// this release's tag over placeholder digests (sha256 of each asset name) and held to the same
+// validator the real document is; release.yml generates the real one from the uploaded archives'
+// checksums.txt after `bundle --archive`. When the claude CLI is on PATH the generated document is
+// also put to `claude plugin validate --strict --json`; when it is not — every hosted runner — the
+// detail says host validation was NOT run, never that it passed. A committed
+// .claude-plugin/marketplace.json, once a published release has put one there, is validated too.
+func releaseCheckMarketplace(o releaseCheckOptions) releaseCheckOutcome {
+	return releaseCheckMarketplaceWith(o, osClaudeProbe(), root)
+}
+
+// releaseCheckMarketplaceWith is releaseCheckMarketplace with its CLI probe and repository root
+// injected, so every verdict branch is testable without the CLI.
+func releaseCheckMarketplaceWith(o releaseCheckOptions, probe claudeProbe, repoRoot string) releaseCheckOutcome {
+	version, versionSrc := releaseCheckDeterminismVersion(o)
+	tag := "v" + strings.TrimPrefix(version, "v")
+	sums := map[string]string{}
+	for _, t := range releaseTargets {
+		asset := archiveName(bundleDirName(strings.TrimPrefix(tag, "v"), bundleTarget{OS: t.GOOS, Arch: t.GOARCH}), t.GOOS)
+		sum := sha256.Sum256([]byte(asset))
+		sums[asset] = hex.EncodeToString(sum[:])
+	}
+	doc, err := buildMarketplace(tag, marketplaceRepoDefault, sums)
+	if err != nil {
+		return rcFailf("generating the marketplace for %s: %v", tag, err)
+	}
+	raw, err := marshalBundleJSON(doc)
+	if err != nil {
+		return rcFailf("%v", err)
+	}
+	if _, err := validateMarketplace(raw, marketplaceRepoDefault); err != nil {
+		return rcFailf("the marketplace generated for %s fails validation: %v", tag, err)
+	}
+
+	committed := "no committed " + marketplaceCommittedPath + " yet (a published release opens the PR that adds it)"
+	if b, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(marketplaceCommittedPath))); err == nil {
+		v, verr := validateMarketplace(b, marketplaceRepoDefault)
+		if verr != nil {
+			return rcFailf("the committed %s is invalid: %v", marketplaceCommittedPath, verr)
+		}
+		committed = fmt.Sprintf("the committed %s is valid and pins v%s", marketplaceCommittedPath, v)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return rcFailf("reading %s: %v", marketplaceCommittedPath, err)
+	}
+
+	dir, err := os.MkdirTemp("", "qompack-marketplace-")
+	if err != nil {
+		return rcFailf("creating a temporary directory: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	if err := os.MkdirAll(filepath.Join(dir, ".claude-plugin"), bundleDirPerm); err != nil {
+		return rcFailf("%v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".claude-plugin", marketplaceFileName), raw, bundleFilePerm); err != nil {
+		return rcFailf("%v", err)
+	}
+	rec := runHostValidationWith(probe, dir, bundleIdentity{Name: bundleProductName, Version: version})
+	switch rec.Outcome {
+	case outcomeAccepted:
+		return rcPassf("marketplace for %s (version from %s) is valid and `claude plugin validate --strict "+
+			"--json` accepted it (%s); %s", tag, versionSrc, rec.ClaudeCLI, committed)
+	case outcomeUnverified:
+		return rcPassf("marketplace for %s (version from %s) is structurally valid; host validation was NOT "+
+			"run (%s); %s", tag, versionSrc, rec.Unverified, committed)
+	}
+	return rcFailf("`claude plugin validate --strict --json` gave the marketplace for %s the outcome %q "+
+		"(exit %s, %s): %s%s", tag, rec.Outcome, exitCodeString(rec.ExitCode), rec.VerdictSource,
+		rec.Stderr, string(rec.Output))
 }
 
 // rcTask runs a devtool task as one gate step.
