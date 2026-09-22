@@ -131,3 +131,79 @@ func TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites(t *testin
 	require.NoError(t, r.Close())
 	require.Equal(t, payload, gotBytes)
 }
+
+// TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot (V6 close-out C1.10, gate
+// 3): store GC runs WHILE the journal rotates, pass after pass, and after the rotations stop. A root an
+// unsettled lease references is never collected, whichever segment the lease was archived into; a root
+// only a settled lease referenced becomes collectible. Every pass either completes or halts (a rotation
+// moved the authority under it) — a halted pass deletes nothing. The negative control is
+// plans/sdd/V6-closeout/rollover/gc-negative-control.sh: with GC's segmented harvest reduced to segment 0,
+// this test fails.
+func TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot(t *testing.T) {
+	setRollover(t, 1) // every lease after the first in a segment rotates
+	ctx := context.Background()
+	root := t.TempDir()
+	s, err := store.Open(root, config.Defaults(), store.Deps{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = s.Close() })
+	const n = 14
+	roots := make([]core.Hash, n)
+	j := openRolloverJournal(t, root)
+	policy := store.GCPolicy{RetainDays: -1, RetainSessions: -1}
+	leases := make([]deliveryLease, n)
+	settled := map[int]bool{}
+	completed, halted := 0, 0
+	for i := 0; i < n; i++ {
+		// Delivery i's content is written and leased first (an earlier pass must never see it while it
+		// is still unreferenced); then a filler delivery (referencing no content) rotates the journal
+		// WHILE a GC pass runs, so every judged lease was committed before the pass began.
+		put, err := s.PutBytes(ctx, []byte(fmt.Sprintf("payload referenced only by delivery %d\n", i)), store.PutOptions{})
+		require.NoError(t, err)
+		roots[i] = put.Root.Hash
+		l, err := j.lease(ctx, genNonce(i), "gc-live", roots[i])
+		require.NoError(t, err)
+		leases[i] = l
+		done := make(chan error, 1)
+		go func(i int) {
+			_, err := j.lease(ctx, genNonce(1000+i), "gc-filler", testDeliveryRequest(genNonce(1000+i)))
+			done <- err
+		}(i)
+		rep, err := s.GC(ctx, policy)
+		require.NoError(t, err)
+		require.NoError(t, <-done)
+		if rep.RetentionRootsError {
+			halted++
+			require.Zero(t, rep.DeletedObjects, "a halted pass deletes nothing")
+		} else {
+			completed++
+		}
+		for k := 0; k <= i; k++ {
+			if settled[k] {
+				continue
+			}
+			_, err := s.GetRoot(ctx, roots[k])
+			require.NoError(t, err, "pass %d: delivery %d is unsettled (active segment %d); its root must be retained", i, k, j.segment)
+		}
+		// Settle every third delivery once it is archived, so settled roots become collectible across
+		// segments; its acknowledgement lands in a later segment than its lease.
+		if i%3 == 0 {
+			require.NoError(t, j.acknowledge(ctx, leases[i].Delivery, leases[i].ObservationID, core.Hash{}))
+			settled[i] = true
+		}
+	}
+	require.GreaterOrEqual(t, j.segment, uint64(2*n-1), "every lease after the first rotated")
+
+	// With the rotations stopped, a pass completes: every unsettled root stays, every settled one goes.
+	rep, err := s.GC(ctx, policy)
+	require.NoError(t, err)
+	require.False(t, rep.RetentionRootsError, "a quiet pass completes")
+	for k := 0; k < n; k++ {
+		_, err := s.GetRoot(ctx, roots[k])
+		if settled[k] {
+			require.ErrorIs(t, err, core.ErrNotFound, "delivery %d was settled; its root is collectible", k)
+			continue
+		}
+		require.NoError(t, err, "delivery %d is unsettled; its root is retained", k)
+	}
+	t.Logf("GC passes during rotation: %d completed, %d halted by a moving authority", completed, halted)
+}
