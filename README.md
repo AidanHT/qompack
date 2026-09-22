@@ -80,14 +80,17 @@ The plugin bundle lives in `plugin/`:
 ```
 plugin/
   .claude-plugin/plugin.json   name, version, description, homepage
-  .mcp.json                    registers the `qompack` MCP server as `${CLAUDE_PLUGIN_ROOT}/bin/qompack mcp`
-  hooks/hooks.json             the seven hook registrations, each invoking a `qompack` subcommand
+  .mcp.json                    registers the `qompack` MCP server: `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, args `["mcp"]`
+  hooks/hooks.json             the seven hook registrations, each launching the binary with a subcommand
   commands/*.md                the slash commands
 ```
 
-Every generated file in that tree refers to the binary as `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, which
-the host expands to the installed plugin directory. All four files are generated from one typed
-value in `internal/pluginmanifest`, and
+Every hook and the MCP server are exec form: `command` is exactly the bundled executable and `args`
+the subcommand, so the host spawns the binary directly and no shell — Git Bash, `sh` or PowerShell —
+ever parses the string. The committed tree is the linux/darwin rendering, naming
+`${CLAUDE_PLUGIN_ROOT}/bin/qompack`; each release bundle is rendered for its own target, and the
+windows bundles name `bin/qompack.exe`. All four files are generated from one typed value in
+`internal/pluginmanifest`, and
 
 ```
 go run ./tools/devtool plugin-validate

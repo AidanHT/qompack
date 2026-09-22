@@ -29,10 +29,30 @@ It is a directory, not an archive. An archive would interpose a compression form
 and a modification time between the bytes this repository produces and the bytes a host reads, and
 each of those is a place where two builds of the same source stop agreeing.
 
-**There is no shell launcher.** The manifest is identical on all six targets: every hook and the MCP
-server invoke `${CLAUDE_PLUGIN_ROOT}/bin/qompack <subcommand>`, which the host expands to the
-installed plugin directory. One manifest for every OS is what keeps the generated tree a single
-source; see the open question in §7 about how that string resolves on Windows.
+**There is no shell launcher, and no shell.** Every hook and the MCP server are EXEC form: `command`
+is exactly the executable this bundle ships and `args` is the subcommand, for example
+
+```json
+{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe", "args": ["observe", "tool"], "timeout": 5 }
+```
+
+in a windows bundle and `${CLAUDE_PLUGIN_ROOT}/bin/qompack` in the other four. The Claude Code hooks
+reference (fetched 2026-09-22) is explicit about why: "Exec form runs when `args` is present. Claude
+Code resolves `command` as an executable on `PATH` and spawns it directly with `args` as the argument
+vector. There is no shell ... path placeholders like `${CLAUDE_PLUGIN_ROOT}` are substituted into
+`command` and into each `args` element as plain strings"; "On Windows, exec form requires `command`
+to resolve to a real executable such as a `.exe`." A shell-form `command` is run through "`sh -c` on
+macOS and Linux, Git Bash on Windows, or PowerShell when Git Bash isn't installed", and the quoted
+string this bundle used to ship is a PowerShell `ParserError: Unexpected token 'observe'` (C1.11,
+reproduced by `test/platform`'s `TestPlatform_HookLauncherForms`).
+
+So the manifest is rendered **per target** (`pluginmanifest.ForTarget`), and the two windows bundles
+differ from the other four only in the executable's `.exe`. The committed `plugin/` tree in this
+repository is the linux/darwin rendering (`pluginmanifest.Default`, `CommittedGOOS = "linux"`): it
+exists so a change to the manifest is a reviewable diff and `devtool plugin-validate` has something
+to compare against. It holds no `bin/` and is not itself an installable plugin; install a bundle.
+
+Exec form needs Claude Code 2.1.139 or later, the release that added the hook `args` field.
 
 ## 2. Identity — `BUNDLE.json`
 
@@ -168,7 +188,10 @@ executed, that a host loaded the manifest, or that the launcher was discovered o
 
 These are deliberately unanswered here. Guessing at them is exactly what a matrix exists to stop.
 
-1. **Windows resolution of `bin/qompack`.** The manifest names `${CLAUDE_PLUGIN_ROOT}/bin/qompack`
+1. **Answered by C1.11 (2026-09-22).** Windows no longer resolves anything: each bundle's manifest
+   names its exact executable in exec form (§1), and `test/platform`'s `TestPlatform_HookLauncherForms`
+   spawns every entry from a spaced, non-ASCII install directory. The question as first asked:
+   **Windows resolution of `bin/qompack`.** The manifest names `${CLAUDE_PLUGIN_ROOT}/bin/qompack`
    on every target, while the Windows bundle ships `bin/qompack.exe`. Whether a Windows host appends
    the extension when it executes the hook command — and whether that differs between the hook
    runner and the MCP server launcher — is unverified. The alternatives if it does not (an
