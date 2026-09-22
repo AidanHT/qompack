@@ -81,6 +81,7 @@ const (
 	liveDaemonStopBound       = 60 * time.Second
 	liveDefaultIdleExit       = 120
 	liveCommandOutputKeep     = 16 << 10
+	liveMTimeMargin           = 2 * time.Second
 	liveDirPerm               = 0o755
 	liveFilePerm              = 0o644
 )
@@ -393,6 +394,9 @@ func (lt liveTrialRun) run(ctx context.Context) (eval.LiveTrial, error) {
 	}
 	defer func() { _ = writeJSONFile(filepath.Join(trialDir, "trial.json"), rec) }()
 
+	// A filesystem timestamp can trail the wall clock by its resolution; the margin keeps a directory
+	// the host creates in the trial's first instant from reading as older than the trial.
+	trialStart := env.now().Add(-liveMTimeMargin)
 	before, err := env.guardSnapshot()
 	if err != nil {
 		rec.HarnessError = "guard: " + err.Error()
@@ -475,7 +479,7 @@ func (lt liveTrialRun) run(ctx context.Context) (eval.LiveTrial, error) {
 	if lt.arm == eval.ArmQompack && o.install == liveInstallMarketplace {
 		guard.Leftovers = append(guard.Leftovers, env.removeOrphanedMarketplaceCache(before, lt.plugin.BundleSHA256)...)
 	}
-	guard.Leftovers = append(guard.Leftovers, env.removeCreatedPluginData(before)...)
+	guard.Leftovers = append(guard.Leftovers, env.removeCreatedPluginData(before, trialStart)...)
 
 	after, err := env.guardSnapshot()
 	var guardErr error
