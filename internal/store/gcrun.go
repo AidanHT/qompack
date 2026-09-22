@@ -287,6 +287,37 @@ type markResult struct {
 // it into a pass that collects nothing and says so, never into an empty retention set.
 var errRetentionRootsUnavailable = errors.New("qompack: gc retention roots unavailable")
 
+// retentionUnavailable wraps errRetentionRootsUnavailable with context, so GC halts the pass with
+// RetentionRootsError rather than reading a failed read as an empty retention set.
+func retentionUnavailable(format string, args ...any) error {
+	return fmt.Errorf("%w: %s", errRetentionRootsUnavailable, fmt.Sprintf(format, args...))
+}
+
+// rootedLstat Lstats base inside dir through an os.Root, symlink-non-following. The FileInfo it returns
+// is HANDLE-based, so os.SameFile can compare it against an opened handle's Stat — on Windows a plain
+// os.Lstat (via FindFirstFile) does not populate the file-identity fields SameFile needs, and comparing
+// against it always reports "not the same file". Errors keep os.IsNotExist's shape.
+func rootedLstat(dir, base string) (os.FileInfo, error) {
+	root, err := os.OpenRoot(paths.Long(dir))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	return root.Lstat(base)
+}
+
+// gcDirBatch bounds how many directory entries one ReadDir call materialises, so enumerating a
+// retention directory never allocates the whole listing at once and can answer the budget between
+// batches.
+const gcDirBatch = 512
+
+// maxRetentionSources caps the TOTAL number of retention-root files one mark phase will accumulate
+// across every directory (checkpoints, the pending-write registry, and every delivery segment). A
+// bounded per-batch read does not bound the accumulated slice, so a runaway or hostile directory could
+// still grow it without limit; hitting this ceiling truncates the WHOLE mark (nothing collected, no
+// sweep) rather than proceeding against a set the phase decided to stop building.
+const maxRetentionSources = 1 << 20
+
 // mark computes the live chunk set and the live root set.
 //
 // It is the narrow, long-standing view of markPass: the two sets the sweep and the tombstone phase
@@ -588,6 +619,11 @@ type gcRootFile struct {
 	// false to skip the line entirely. Only .jsonl files whose records are one-per-line may set
 	// it — a multi-line .json document has no line semantics to read.
 	lines func(line []byte) (RetentionClass, string, bool)
+	// required marks a source that MUST exist. An optional source that is absent is normal (a producer
+	// that never shipped); a REQUIRED source that is absent — a committed delivery segment's lease/ack
+	// journal, proved present at resolve time — is a referenced file that vanished mid-harvest, and it
+	// halts the pass rather than being silently skipped as "empty".
+	required bool
 }
 
 // gcRootFiles returns every file whose hash references keep content alive.
@@ -602,35 +638,107 @@ type gcRootFile struct {
 // retention roots (rollback/backup material), committed checkpoints, and the pending-write
 // registry. Delta bases are not a file - they are a relation, closed over in
 // coupleRecoveryRootsLocked.
-func (s *FSStore) gcRootFiles() []gcRootFile {
+//
+// The two directory sources (checkpoints, pending) are enumerated through listRetentionDir, so a
+// directory that only "has not been created yet" is normal absence, but a LISTING FAILURE, an aliased
+// (symlinked) directory or a non-directory in its place HALTS the pass with RetentionRootsError rather
+// than dropping every root that directory would have named (main's durable-data adjudication). It
+// answers to the budget, so a deadline truncates the pass rather than the file list.
+func (s *FSStore) gcRootFiles(budget *gcBudget) ([]gcRootFile, dsegView, bool, error) {
 	out := []gcRootFile{
-		{filepath.Join(s.l.Pins, invariantsFile), RetentionPin, "referenced by a pinned invariant", nil},
-		{filepath.Join(s.l.Records, eliminationsFile), RetentionEvidence, "referenced by elimination evidence", nil},
-		{filepath.Join(s.l.Records, evidenceRootsFile), RetentionEvidence, "referenced by an evidence record", nil},
-		{
-			filepath.Join(s.l.State, deliveryLeaseFile), RetentionLease, openLeaseReason,
-			openLeaseLines(s.acknowledgedDeliveries()),
-		},
-		{
-			filepath.Join(s.l.State, retentionRootsFile), RetentionRollback, declaredRootReason,
-			s.declaredRetentionLines(),
-		},
+		{filepath.Join(s.l.Pins, invariantsFile), RetentionPin, "referenced by a pinned invariant", nil, false},
+		{filepath.Join(s.l.Records, eliminationsFile), RetentionEvidence, "referenced by elimination evidence", nil, false},
+		{filepath.Join(s.l.Records, evidenceRootsFile), RetentionEvidence, "referenced by an evidence record", nil, false},
 	}
-	if entries, err := os.ReadDir(paths.Long(s.l.Checkpoints)); err == nil {
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
-			}
-			switch filepath.Ext(e.Name()) {
-			case ".json", ".jsonl":
-				out = append(out, gcRootFile{
-					filepath.Join(s.l.Checkpoints, e.Name()), RetentionCheckpoint,
-					"referenced by committed checkpoint " + e.Name(), nil,
-				})
-			}
+	// Delivery leases: the legacy segment on an unmigrated tree, or every committed and staged segment
+	// once the daemon has rotated. A torn/missing/conflicting/unknown segment authority halts here. The
+	// returned frontier is rechecked AFTER the harvest (harvestHashes).
+	leaseFiles, frontier, err := s.deliveryLeaseSources(budget)
+	if err != nil {
+		return nil, dsegView{}, false, err
+	}
+	out = append(out, leaseFiles...)
+	out = append(out, gcRootFile{
+		filepath.Join(s.l.State, retentionRootsFile), RetentionRollback, declaredRootReason,
+		s.declaredRetentionLines(), false,
+	})
+
+	checkpoints, truncated, err := s.listRetentionDir(s.l.Checkpoints, budget, maxRetentionSources-len(out), func(e fs.DirEntry) (gcRootFile, bool) {
+		if e.IsDir() {
+			return gcRootFile{}, false
+		}
+		switch filepath.Ext(e.Name()) {
+		case ".json", ".jsonl":
+			return gcRootFile{
+				filepath.Join(s.l.Checkpoints, e.Name()), RetentionCheckpoint,
+				"referenced by committed checkpoint " + e.Name(), nil, false,
+			}, true
+		}
+		return gcRootFile{}, false
+	})
+	if err != nil || truncated {
+		return nil, dsegView{}, truncated, err
+	}
+	out = append(out, checkpoints...)
+
+	pending, truncated, err := s.pendingRootFiles(budget, maxRetentionSources-len(out))
+	if err != nil || truncated {
+		return nil, dsegView{}, truncated, err
+	}
+	return append(out, pending...), frontier, false, nil
+}
+
+// deliveryLeaseSources returns the open-lease harvest sources for every delivery segment GC must read,
+// and the frontier witness for the post-harvest stable-frontier recheck.
+//
+// On a genuinely unmigrated tree it is the single legacy lease journal, harvested exactly as before
+// segments existed. Once the daemon has rotated, it is the lease journal of every COMMITTED segment
+// (whose four files resolveDeliverySegments has already proved present, and which are marked REQUIRED so
+// a mid-harvest disappearance halts) plus every STAGED (uncommitted) segment, whose lease roots are
+// conservatively retained but not required. ACKs are folded across ALL segments first, so an
+// acknowledgement recorded in a newer segment settles an older segment's lease. Any unreadable or
+// conflicting authority is returned as errRetentionRootsUnavailable, which halts the pass — the reader
+// never reverts to the legacy segment when a rotation's authority is present but cannot be read.
+func (s *FSStore) deliveryLeaseSources(budget *gcBudget) ([]gcRootFile, dsegView, error) {
+	view, err := s.resolveDeliverySegments(budget)
+	if err != nil {
+		return nil, dsegView{}, err
+	}
+	segs := make([]uint64, 0, len(view.committed)+len(view.staged))
+	segs = append(segs, view.committed...)
+	segs = append(segs, view.staged...)
+
+	ackPaths := make([]string, 0, len(segs))
+	for _, seq := range segs {
+		ackPaths = append(ackPaths, filepath.Join(s.dsegSegmentDir(seq), deliveryAckFile))
+	}
+	acked := s.acknowledgedDeliveriesFrom(ackPaths)
+
+	out := make([]gcRootFile, 0, len(segs))
+	for _, seq := range segs {
+		staged := !view.legacy && !containsSeq(view.committed, seq)
+		reason, required := openLeaseReason, false
+		switch {
+		case staged:
+			reason = "held by a staged (uncommitted) delivery segment lease"
+		case !view.legacy:
+			required = true // a committed segment's lease journal must exist for the whole harvest
+		}
+		out = append(out, gcRootFile{
+			filepath.Join(s.dsegSegmentDir(seq), deliveryLeaseFile), RetentionLease, reason,
+			openLeaseLines(acked), required,
+		})
+	}
+	return out, view, nil
+}
+
+func containsSeq(xs []uint64, x uint64) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
 		}
 	}
-	return append(out, s.pendingRootFiles()...)
+	return false
 }
 
 // pendingRootFiles lists the durable pending-write registry: one marker per Put that has written
@@ -640,23 +748,102 @@ func (s *FSStore) gcRootFiles() []gcRootFile {
 // spares an object younger than the running pass, which covers the window only for as long as the
 // process lives; a marker survives the crash itself, so the next pass - hours or days later - still
 // sees the write and does not collect content whose index line never landed.
-func (s *FSStore) pendingRootFiles() []gcRootFile {
+//
+// A registry directory that has never been created is normal absence (no Put has left a marker yet);
+// a listing failure or a non-directory in its place HALTS, so the registry is never silently dropped.
+func (s *FSStore) pendingRootFiles(budget *gcBudget, limit int) ([]gcRootFile, bool, error) {
 	dir := filepath.Join(s.l.State, pendingWriteDir)
-	entries, err := os.ReadDir(paths.Long(dir))
-	if err != nil {
-		return nil
-	}
-	out := make([]gcRootFile, 0, len(entries))
-	for _, e := range entries {
+	return s.listRetentionDir(dir, budget, limit, func(e fs.DirEntry) (gcRootFile, bool) {
 		if e.IsDir() || filepath.Ext(e.Name()) != pendingWriteSuffix {
-			continue
+			return gcRootFile{}, false
 		}
-		out = append(out, gcRootFile{
+		return gcRootFile{
 			filepath.Join(dir, e.Name()), RetentionPending,
-			"written but not yet rooted (pending marker " + e.Name() + ")", nil,
-		})
+			"written but not yet rooted (pending marker " + e.Name() + ")", nil, false,
+		}, true
+	})
+}
+
+// listRetentionDir enumerates one retention directory in bounded batches, returning a gcRootFile for
+// every entry want accepts. A directory that does not exist yet is normal absence (a producer that has
+// not shipped). A symlink component anywhere between the trusted project root and the directory, a
+// symlink alias or non-directory in its place, an identity change under the open handle, or a listing
+// that fails partway is an UNREADABLE retention source and halts the pass with errRetentionRootsUnavailable
+// rather than being read as an empty listing.
+//
+// limit caps how many entries this call may ADD (the caller passes its remaining share of
+// maxRetentionSources); reaching it truncates the whole mark. ctx and the deadline are checked BETWEEN
+// batches: ctx cancellation is an error (never a truncation), an expired deadline truncates (nothing
+// collected, resumable next pass).
+func (s *FSStore) listRetentionDir(
+	dir string, budget *gcBudget, limit int, want func(fs.DirEntry) (gcRootFile, bool),
+) ([]gcRootFile, bool, error) {
+	// Reject a symlink/reparse component between the trusted project root and this directory, so an
+	// aliased .qompack or .qompack/state cannot redirect the enumeration outside the project.
+	if nf := maintNoFollow(s.root, dir); nf != nil {
+		if os.IsNotExist(nf) {
+			return nil, false, nil // a component (or the dir) has not been created: normal absence
+		}
+		return nil, false, retentionUnavailable("confine retention dir %s: %v", dir, nf)
 	}
-	return out
+	fi, lerr := rootedLstat(filepath.Dir(dir), filepath.Base(dir))
+	switch {
+	case lerr != nil && os.IsNotExist(lerr):
+		return nil, false, nil // never created; see gcRootFiles
+	case lerr != nil:
+		return nil, false, retentionUnavailable("stat retention dir %s: %v", dir, lerr)
+	case fi.Mode()&fs.ModeSymlink != 0:
+		return nil, false, retentionUnavailable("retention dir %s is a symlink alias", dir)
+	case !fi.IsDir():
+		return nil, false, retentionUnavailable("retention dir %s is not a directory", dir)
+	}
+	d, oerr := os.Open(paths.Long(dir))
+	if oerr != nil {
+		// It existed at the Lstat above; if it is gone or unopenable now, that is observed evidence
+		// failing under the pass, not absence.
+		return nil, false, retentionUnavailable("open retention dir %s: %v", dir, oerr)
+	}
+	defer func() { _ = d.Close() }()
+	dfi, serr := d.Stat()
+	if serr != nil {
+		return nil, false, retentionUnavailable("stat retention dir %s: %v", dir, serr)
+	}
+	if !dfi.IsDir() || !os.SameFile(fi, dfi) {
+		// A non-directory, or a different object than the one Lstat accepted (swapped between the
+		// Lstat and the open): refuse rather than enumerate what we cannot vouch for.
+		return nil, false, retentionUnavailable("retention dir %s changed identity while opening", dir)
+	}
+
+	var out []gcRootFile
+	for {
+		ents, rerr := d.ReadDir(gcDirBatch)
+		for _, e := range ents {
+			f, ok := want(e)
+			if !ok {
+				continue
+			}
+			if len(out) >= limit {
+				return nil, true, nil // total retention-source ceiling: truncate the whole mark
+			}
+			out = append(out, f)
+		}
+		if rerr != nil {
+			if errors.Is(rerr, io.EOF) {
+				return out, false, nil
+			}
+			return nil, false, retentionUnavailable("read retention dir %s: %v", dir, rerr)
+		}
+		// A batch returned entries and there may be more. Check the budget BETWEEN batches — never before
+		// the first read — so a trivially small (or empty) directory always completes, exactly as the old
+		// os.ReadDir did, while a genuinely large enumeration still answers to ctx and the deadline. ctx
+		// cancellation is an error; an expired deadline truncates (nothing collected, resumable).
+		if cerr := budget.ctx.Err(); cerr != nil {
+			return nil, false, cerr
+		}
+		if !budget.deadline.IsZero() && time.Now().After(budget.deadline) {
+			return nil, true, nil
+		}
+	}
 }
 
 // compactRetentionRoots sheds duplicate declarations from retention-roots.jsonl at the end of a
@@ -709,31 +896,71 @@ const deliveryAckSetMax = 1 << 16
 // store cannot import it back (00-ARCHITECTURE.md §3.2).
 //
 // Every failure direction answers "fewer acknowledgements", never "more". A missing, unopenable,
-// truncated, oversized or half-parseable journal yields only the acks actually read, so any lease
-// it could not vouch for stays open and stays retained: over-retention costs disk, under-retention
-// is data loss.
-func (s *FSStore) acknowledgedDeliveries() map[string]struct{} {
-	f, err := os.Open(paths.Long(filepath.Join(s.l.State, deliveryAckFile)))
-	if err != nil {
-		return nil
-	}
-	defer func() { _ = f.Close() }()
-
-	acked := make(map[string]struct{})
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, scannerInitialBuf), scannerMaxBuf)
-	for sc.Scan() && len(acked) < deliveryAckSetMax {
-		var rec struct {
-			Delivery      string `json:"delivery"`
-			ObservationID string `json:"observation_id"`
+// non-regular, truncated, oversized or half-parseable journal yields only the acks actually read, so
+// any lease it could not vouch for stays open and stays retained: over-retention costs disk,
+// under-retention is data loss. An ack is admitted only under a KNOWN version and a VALID observation
+// identity, and it is indexed by nonce AND observation, because releasing a lease is a join on both:
+// an ack whose version this build cannot read, or whose observation identity is malformed, must not
+// free anything.
+//
+// The journal is opened through the same confined, non-regular-rejecting, shared handle the retention
+// files use: a directory, symlink or FIFO where the ack journal belongs is refused BEFORE any blocking
+// os.Open (a FIFO would otherwise hang), and the parent is confined so another tree's file cannot
+// stand in. Because failing to read acks only RETAINS more, any such refusal is swallowed to nil here
+// rather than halting the pass.
+//
+// The return is keyed nonce → the set of observation identities acknowledged under it. openLeaseLines
+// releases a lease only when its own observation identity is one of them (main's adjudication:
+// invalid/unknown/conflicting ack evidence conservatively retains, never releases a different lease).
+//
+// ackPaths is one ack journal per delivery segment (segment 0 alone in the legacy case). An ACK in a
+// LATER segment may settle an OLDER lease, so every segment's acks fold into the ONE returned set,
+// which openLeaseLines then applies to every segment's lease file. The deliveryAckSetMax cap is on the
+// TOTAL admitted (nonce, observation) pairs ACROSS all segments; hitting it leaves the rest of the
+// leases open (over-retain). A per-file open/read failure contributes nothing and never halts.
+func (s *FSStore) acknowledgedDeliveriesFrom(ackPaths []string) map[string]map[core.ObservationID]struct{} {
+	acked := make(map[string]map[core.ObservationID]struct{})
+	total := 0 // total admitted (nonce, observation) pairs across all segments
+	for _, path := range ackPaths {
+		if total >= deliveryAckSetMax {
+			break
 		}
-		// A torn final line is the normal shape of a crash mid-append and does not parse, so the
-		// delivery it was about is simply not acknowledged yet. Both fields are required because
-		// both are what an acknowledgement means: this delivery, under this identity.
-		if json.Unmarshal(sc.Bytes(), &rec) != nil || rec.Delivery == "" || rec.ObservationID == "" {
-			continue
+		f, missing, err := s.openRetentionRoot(path)
+		if err != nil || missing || f == nil {
+			continue // an unreadable ack journal retains more; never hang, never halt
 		}
-		acked[rec.Delivery] = struct{}{}
+		sc := bufio.NewScanner(f)
+		sc.Buffer(make([]byte, 0, scannerInitialBuf), scannerMaxBuf)
+		for sc.Scan() {
+			if total >= deliveryAckSetMax {
+				break // stopping leaves the remaining leases OPEN — the safe, over-retaining direction
+			}
+			var rec struct {
+				Version       int                `json:"v"`
+				Delivery      string             `json:"delivery"`
+				ObservationID core.ObservationID `json:"observation_id"`
+			}
+			// A torn final line is the normal shape of a crash mid-append and does not parse, so the
+			// delivery it was about is simply not acknowledged yet. An unknown version has semantics this
+			// build cannot vouch for, and a malformed/zero identity cannot be joined to a lease: either
+			// way the safe direction is to admit no acknowledgement for it.
+			if json.Unmarshal(sc.Bytes(), &rec) != nil || rec.Version != core.EvidenceVersion || rec.Delivery == "" {
+				continue
+			}
+			if !validRetentionObservation(string(rec.ObservationID)) {
+				continue
+			}
+			set := acked[rec.Delivery]
+			if set == nil {
+				set = make(map[core.ObservationID]struct{})
+				acked[rec.Delivery] = set
+			}
+			if _, dup := set[rec.ObservationID]; !dup {
+				set[rec.ObservationID] = struct{}{}
+				total++
+			}
+		}
+		_ = f.Close()
 	}
 	return acked
 }
@@ -743,22 +970,51 @@ func (s *FSStore) acknowledgedDeliveries() map[string]struct{} {
 // A line the filter cannot read is treated as open. That is deliberate and is the same direction
 // every other guard here takes: a lease whose nonce GC cannot recover must keep retaining, because
 // the alternative is collecting content a delivery still in flight is about to publish.
-func openLeaseLines(acked map[string]struct{}) func([]byte) (RetentionClass, string, bool) {
+//
+// Releasing is a JOIN on nonce AND observation identity AND a known version, not on the nonce alone:
+// an acknowledgement for delivery N under observation A must not release a lease for delivery N under
+// observation B, and a lease whose version this build cannot read is retained. A lease that predates
+// the observation_id field carries no identity to match; the nonce uniquely names the delivery, so a
+// valid acknowledgement for it still releases the legacy lease, while a lease that DOES carry an
+// identity is released only on an exact match (main's adjudication: never release a different lease).
+func openLeaseLines(acked map[string]map[core.ObservationID]struct{}) func([]byte) (RetentionClass, string, bool) {
 	return func(line []byte) (RetentionClass, string, bool) {
 		if len(acked) == 0 {
 			return RetentionLease, openLeaseReason, true
 		}
 		var rec struct {
-			Delivery string `json:"delivery"`
+			Version       int             `json:"v"`
+			Delivery      string          `json:"delivery"`
+			ObservationID json.RawMessage `json:"observation_id"`
 		}
 		if json.Unmarshal(line, &rec) != nil || rec.Delivery == "" {
 			return RetentionLease, openLeaseReason, true
 		}
-		if _, done := acked[rec.Delivery]; done {
-			return "", "", false
+		obsSet, seen := acked[rec.Delivery]
+		if !seen || rec.Version != core.EvidenceVersion {
+			// No acknowledgement for this nonce, or a lease shape this build cannot vouch for: open.
+			return RetentionLease, openLeaseReason, true
 		}
-		return RetentionLease, openLeaseReason, true
+		if len(rec.ObservationID) == 0 {
+			return "", "", false // legacy lease with no identity: a valid ack for its unique nonce releases it
+		}
+		var observation string
+		if json.Unmarshal(rec.ObservationID, &observation) != nil || !validRetentionObservation(observation) {
+			return RetentionLease, openLeaseReason, true
+		}
+		if _, ok := obsSet[core.ObservationID(observation)]; ok {
+			return "", "", false // acknowledged under this exact identity: released
+		}
+		return RetentionLease, openLeaseReason, true // an ack exists, but for a different observation: retain
 	}
+}
+
+// Observation identities on current leases are canonical, nonzero hashes. Only
+// a genuinely absent field selects the historical nonce-only compatibility path;
+// null, empty, zero and alternate hash spellings cannot authorize collection.
+func validRetentionObservation(raw string) bool {
+	h, err := core.ParseHash(raw)
+	return err == nil && !h.IsZero() && h.String() == raw
 }
 
 // declaredRetentionLines returns the per-line reader for state/retention-roots.jsonl, so the class
@@ -837,13 +1093,81 @@ func (s *FSStore) retentionFromSources(ctx context.Context, into map[core.Hash]R
 // as a short set - a partial harvest is a live set with references missing from it.
 func (s *FSStore) harvestHashes(budget *gcBudget) (map[core.Hash]RetentionRoot, bool, error) {
 	out := make(map[core.Hash]RetentionRoot)
-	for _, f := range s.gcRootFiles() {
+	files, frontier, truncated, err := s.gcRootFiles(budget)
+	if err != nil || truncated {
+		return nil, truncated, err
+	}
+	for _, f := range files {
 		truncated, err := s.harvestFile(f, out, budget)
 		if err != nil || truncated {
 			return nil, truncated, err
 		}
 	}
+	// Stable-frontier recheck AFTER every retention source has been harvested: prove the delivery
+	// segment authority did not switch, and no required segment file vanished, under the pass. A
+	// committed rotation is a durable log append that precedes the head checkpoint, so this recheck
+	// covers the head AND the whole log. Any change halts — nothing is swept against a stale frontier.
+	if err := s.dsegRecheckFrontier(frontier); err != nil {
+		return nil, false, err
+	}
 	return out, false, nil
+}
+
+// openRetentionRoot opens a GC retention-root file, distinguishing the states the collector must
+// never confuse (main's durable-data adjudication):
+//
+//   - the parent directory, or the file itself, was NEVER CREATED → missing=true, normal absence (a
+//     producer that has not shipped);
+//   - the parent exists but the entry is a directory, a symlink or any other non-regular alias, or a
+//     stat/open fails, or the entry vanished after we had just stat'd it → errRetentionRootsUnavailable
+//     (an UNREADABLE source is not an empty one; reading it as empty would sweep what it names);
+//   - a regular file → handed back for reading.
+//
+// Confinement and aliasing. Every path COMPONENT between the trusted project root (s.root) and the
+// target is checked with maintNoFollow, so an aliased .qompack, .qompack/state, or any ancestor within
+// the project cannot redirect the read outside it — pinning only the immediate parent through os.Root
+// would still follow an already-aliased parent. A directory, FIFO or other non-regular entry AT the
+// target is then rejected by os.Lstat, statically, before any open. The read itself goes through
+// paths.OpenShared so a concurrent WriteAtomic replace (the daemon's journal rewrite, retention-roots
+// compaction) is never blocked on Windows; OpenShared opens BY PATH, so os.SameFile compares the Lstat
+// with the opened handle and refuses a mismatch — this DETECTS a swap between the Lstat and the open.
+// It does NOT prevent a symlink being followed during a blocking open, and a path-based shared open
+// does not itself pin every ancestor (maintNoFollow does the ancestor check, once, before the open):
+// those residual concurrent-swap/FIFO races are documented in the work record and bounded by the
+// retention paths living under the project's own .qompack tree, not a shared location.
+func (s *FSStore) openRetentionRoot(path string) (fh *os.File, missing bool, err error) {
+	if nf := maintNoFollow(s.root, path); nf != nil {
+		if os.IsNotExist(nf) {
+			return nil, true, nil // a component (or the file) has not been created: normal absence
+		}
+		return nil, false, retentionUnavailable("confine %s: %v", path, nf)
+	}
+	li, lerr := rootedLstat(filepath.Dir(path), filepath.Base(path))
+	switch {
+	case lerr != nil && os.IsNotExist(lerr):
+		return nil, true, nil // the file itself has not been created: still absence, not a failure
+	case lerr != nil:
+		return nil, false, retentionUnavailable("stat retention root %s: %v", path, lerr)
+	case !li.Mode().IsRegular():
+		return nil, false, retentionUnavailable("retention root %s is not a regular file", path)
+	}
+
+	f, oerr := paths.OpenShared(path)
+	if oerr != nil {
+		// The entry was a regular file at the Lstat a moment ago. If it is gone or unopenable now, that
+		// is observed evidence disappearing under the pass, NOT a producer that never shipped.
+		return nil, false, retentionUnavailable("open retention root %s: %v", path, oerr)
+	}
+	ofi, serr := f.Stat()
+	if serr != nil {
+		_ = f.Close()
+		return nil, false, retentionUnavailable("stat retention root %s: %v", path, serr)
+	}
+	if !ofi.Mode().IsRegular() || !os.SameFile(li, ofi) {
+		_ = f.Close()
+		return nil, false, retentionUnavailable("retention root %s changed identity while opening", path)
+	}
+	return f, false, nil
 }
 
 // harvestFile adds every hash-shaped string one root file names.
@@ -855,18 +1179,31 @@ func (s *FSStore) harvestHashes(budget *gcBudget) (map[core.Hash]RetentionRoot, 
 //
 // The FIRST file to name a hash owns its retention class. gcRootFiles returns a fixed order, so
 // the reason a report gives for one hash is stable across passes.
+//
+// A read that stops SHORT of the file's end — an unreadable/aliased path, a line past scannerMaxBuf,
+// a torn or malformed record (harvestTokens) — is an INCOMPLETE harvest: the references after the
+// break were never seen, and sweeping against the short set would delete them as if they were absent.
+// Every such case therefore halts the pass with errRetentionRootsUnavailable (main's adjudication:
+// over-retain by collecting nothing, never sweep against unreadable evidence), and this build repairs
+// nothing on disk.
 func (s *FSStore) harvestFile(f gcRootFile, into map[core.Hash]RetentionRoot, budget *gcBudget) (bool, error) {
-	fh, err := os.Open(paths.Long(f.path))
+	fh, missing, err := s.openRetentionRoot(f.path)
 	if err != nil {
-		return false, nil // missing is normal; see gcRootFiles
+		return false, err
+	}
+	if missing {
+		if f.required {
+			// A required source proved present at resolve time but is absent now: a referenced file
+			// vanished mid-harvest. Never silently skip it as an optional empty source.
+			return false, retentionUnavailable("required retention source %s vanished during the harvest", f.path)
+		}
+		return false, nil
 	}
 	defer func() { _ = fh.Close() }()
 
 	if f.lines == nil {
 		return s.harvestTokens(fh, f.class, f.reason, into, budget)
 	}
-	// A scan that stops early — an unreadable handle, a line past scannerMaxBuf — keeps what it
-	// already collected, exactly as a mid-file decode error does below.
 	sc := bufio.NewScanner(fh)
 	sc.Buffer(make([]byte, 0, scannerInitialBuf), scannerMaxBuf)
 	for sc.Scan() {
@@ -883,6 +1220,11 @@ func (s *FSStore) harvestFile(f gcRootFile, into map[core.Hash]RetentionRoot, bu
 			return truncated, harvestErr
 		}
 	}
+	if scErr := sc.Err(); scErr != nil {
+		// An overlong line or a mid-file read error cut the scan short: the lines after it were
+		// never read, so the harvest is incomplete and the pass must not sweep against it.
+		return false, fmt.Errorf("%w: read retention root %s: %w", errRetentionRootsUnavailable, f.path, scErr)
+	}
 	return false, nil
 }
 
@@ -890,9 +1232,12 @@ func (s *FSStore) harvestFile(f gcRootFile, into map[core.Hash]RetentionRoot, bu
 // given class and reason.
 //
 // json.Decoder.Token streams through CONCATENATED top-level values, so one decoder handles a
-// single-document .json and a many-document .jsonl identically. A decode error stops the walk but
-// keeps what was already collected: a half-written final line must not cost the whole file's
-// references.
+// single-document .json and a many-document .jsonl identically. A CLEAN end of stream (io.EOF) is the
+// normal terminator and keeps what was collected. Any OTHER decode error is a torn or malformed
+// retention document: the tokens after the break — which may name live references — were never read,
+// so treating the file as fully harvested would sweep them as absent. Such a stream halts the pass
+// with errRetentionRootsUnavailable rather than silently truncating the live set (main's durable-data
+// adjudication). This build never repairs the file.
 func (s *FSStore) harvestTokens(
 	r io.Reader, class RetentionClass, reason string, into map[core.Hash]RetentionRoot, budget *gcBudget,
 ) (bool, error) {
@@ -903,7 +1248,10 @@ func (s *FSStore) harvestTokens(
 		}
 		tok, tokErr := dec.Token()
 		if tokErr != nil {
-			return false, nil
+			if errors.Is(tokErr, io.EOF) {
+				return false, nil // the clean end of the token stream
+			}
+			return false, fmt.Errorf("%w: parse retention json (%s): %w", errRetentionRootsUnavailable, reason, tokErr)
 		}
 		str, ok := tok.(string)
 		if !ok || !hashToken.MatchString(str) {
