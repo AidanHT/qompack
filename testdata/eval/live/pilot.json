@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "id": "qompack-live-pilot-v1",
+  "description": "Harness validation only (C5.4). Disjoint from qompack-live-v1: its outcomes say nothing about the plugin and are never pooled with confirmatory trials.",
+  "defaults": {
+    "max_turns": 6,
+    "allowed_tools": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash(go:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "PowerShell(go:*)",
+      "mcp__plugin_qompack_qompack"
+    ]
+  },
+  "analysis": {
+    "model": "claude-haiku-4-5-20251001",
+    "confidence": 0.95,
+    "non_inferiority_margin": 0.2,
+    "trials_per_arm": 1
+  },
+  "tasks": [
+    {
+      "id": "pilot-codeword",
+      "title": "Harness validation: a program's output recalled after /compact",
+      "category": "harness-validation",
+      "variant": "base",
+      "held_out": false,
+      "fixture": "fixtures/pilot",
+      "hidden_fixture": "hidden/pilot",
+      "steps": [
+        {
+          "id": "run",
+          "prompt": "Run go run ./cmd/code and tell me the code word it prints, in one line."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "write",
+          "prompt": "Without running any program again, write the code word the program printed into CODE.txt at the project root, then tell me the code word in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "answer-before",
+          "outcome": "recovery",
+          "kind": "answer_matches",
+          "description": "the code word was read before compaction",
+          "step": "run",
+          "pattern": "2c1a7a62c3"
+        },
+        {
+          "id": "code-file",
+          "outcome": "recovery",
+          "kind": "file_matches",
+          "description": "CODE.txt holds the code word",
+          "path": "CODE.txt",
+          "pattern": "^\\s*2c1a7a62c3\\s*$"
+        },
+        {
+          "id": "answer-after",
+          "outcome": "recovery",
+          "kind": "answer_matches",
+          "description": "the code word is recalled after compaction",
+          "step": "write",
+          "pattern": "2c1a7a62c3"
+        },
+        {
+          "id": "no-rerun",
+          "outcome": "constraint",
+          "kind": "tool_not_used_after",
+          "description": "the code word was not re-derived",
+          "step": "compact",
+          "pattern": "(?i)cmd/code|go run"
+        },
+        {
+          "id": "gomod",
+          "outcome": "constraint",
+          "kind": "file_unchanged",
+          "description": "go.mod is unchanged",
+          "path": "go.mod"
+        },
+        {
+          "id": "hidden",
+          "outcome": "task",
+          "kind": "command",
+          "description": "the hidden test reads CODE.txt",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        }
+      ]
+    }
+  ]
+}
