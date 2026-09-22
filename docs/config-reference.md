@@ -10,7 +10,15 @@ Values are resolved from five layers, lowest precedence first:
 
 An invalid value is never fatal: the offending leaf falls back to its default, the violation is
 reported through the `Loud` channel and recorded in `.qompack/state/config-violations.json`,
-and loading continues (§11.3). Unknown keys produce a warning, never an error.
+and loading continues (§11.3). Unknown keys produce a warning, never an error. A value of the
+wrong type is ignored with a warning, and the leaf keeps the value from the layer below.
+
+The hooks load configuration by the same per-leaf rules, with two kinds of problem that stop
+recording rather than fall back: input the hooks cannot read safely (a config file that does
+not parse, is not a plain file or is over its size bound, or an oversized `QOMPACK_*` or
+`--set` value), and any problem inside `runtime.redact`, where a fallback would record under
+a privacy policy you did not write. `qompack self-test` reports either as `config.capture`; see
+[docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility).
 
 A default that differs by platform names every value in its Default cell, portable one first.
 
