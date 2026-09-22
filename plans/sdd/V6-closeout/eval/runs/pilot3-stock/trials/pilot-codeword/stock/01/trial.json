@@ -1,0 +1,274 @@
+{
+  "schema": 1,
+  "run_id": "20260922T225300Z-b5a63f",
+  "task_id": "pilot-codeword",
+  "arm": "stock",
+  "trial": 1,
+  "category": "harness-validation",
+  "variant": "base",
+  "held_out": false,
+  "model": "claude-haiku-4-5-20251001",
+  "install": "none",
+  "claude_code_version": "2.1.280",
+  "session_id": "48a6e1e5-c345-47b3-9e82-ce5060b785c6",
+  "started_at": "2026-09-22T22:53:00Z",
+  "wall_ms": 42669,
+  "exit_code": 0,
+  "steps": [
+    {
+      "id": "run",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 2,
+      "wall_ms": 13647,
+      "permission_denials": 0,
+      "answer": "The code word is **2c1a7a62c3**."
+    },
+    {
+      "id": "compact",
+      "compact": true,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 0,
+      "wall_ms": 11097,
+      "permission_denials": 0,
+      "local_output": [
+        "Compacted"
+      ]
+    },
+    {
+      "id": "write",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 2,
+      "wall_ms": 5735,
+      "permission_denials": 0,
+      "answer": "The code word is **2c1a7a62c3**."
+    }
+  ],
+  "completed": true,
+  "plugin_expected": false,
+  "plugin_loaded": false,
+  "checks": [
+    {
+      "id": "answer-before",
+      "outcome": "recovery",
+      "kind": "answer_matches",
+      "passed": true,
+      "detail": "answer matched \"2c1a7a62c3\""
+    },
+    {
+      "id": "code-file",
+      "outcome": "recovery",
+      "kind": "file_matches",
+      "passed": true,
+      "detail": "matched \"2c1a7a62c3\""
+    },
+    {
+      "id": "answer-after",
+      "outcome": "recovery",
+      "kind": "answer_matches",
+      "passed": true,
+      "detail": "answer matched \"2c1a7a62c3\""
+    },
+    {
+      "id": "no-rerun",
+      "outcome": "constraint",
+      "kind": "tool_not_used_after",
+      "passed": true,
+      "detail": "none of 1 tool call(s) after compact matched"
+    },
+    {
+      "id": "gomod",
+      "outcome": "constraint",
+      "kind": "file_unchanged",
+      "passed": true,
+      "detail": "identical to the fixture"
+    },
+    {
+      "id": "hidden",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./... exited 0"
+    }
+  ],
+  "task_success": true,
+  "constraint_violations": 0,
+  "recovered": true,
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 25075,
+      "post_tokens": 1324,
+      "duration_ms": 10928
+    }
+  ],
+  "account": {
+    "turns": [
+      {
+        "turn": 0,
+        "compacted": false,
+        "main_model": "claude-haiku-4-5-20251001",
+        "main_loop": {
+          "input": 18,
+          "output": 215,
+          "cache_read": 42296,
+          "cache_write": 7470,
+          "cache_write_5m": 0,
+          "cache_write_1h": 7470,
+          "thinking": 110
+        },
+        "delta": {
+          "claude-haiku-4-5-20251001": {
+            "input": 18,
+            "output": 215,
+            "cache_read": 42296,
+            "cache_write": 7470
+          }
+        },
+        "host_cost_delta_usd": 0.020262600000000002,
+        "steps_match_result": true
+      },
+      {
+        "turn": 1,
+        "local_command": "compact",
+        "compacted": true,
+        "main_model": "claude-haiku-4-5-20251001",
+        "main_loop": {
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "cache_write_5m": 0,
+          "cache_write_1h": 0,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-haiku-4-5-20251001": {
+            "input": 1487,
+            "output": 1169,
+            "cache_read": 24783,
+            "cache_write": 149,
+            "thinking": 502
+          }
+        },
+        "beside": {
+          "claude-haiku-4-5-20251001": {
+            "input": 1487,
+            "output": 1169,
+            "cache_read": 24783,
+            "cache_write": 149,
+            "thinking": 502
+          }
+        },
+        "beside_kind": "compaction",
+        "host_cost_delta_usd": 0.009996550000000003
+      },
+      {
+        "turn": 2,
+        "compacted": false,
+        "main_model": "claude-haiku-4-5-20251001",
+        "main_loop": {
+          "input": 18,
+          "output": 269,
+          "cache_read": 45463,
+          "cache_write": 2787,
+          "cache_write_5m": 0,
+          "cache_write_1h": 2787,
+          "thinking": 136
+        },
+        "delta": {
+          "claude-haiku-4-5-20251001": {
+            "input": 18,
+            "output": 269,
+            "cache_read": 45463,
+            "cache_write": 2787,
+            "thinking": 136
+          }
+        },
+        "host_cost_delta_usd": 0.011483300000000002,
+        "steps_match_result": true
+      }
+    ],
+    "total": {
+      "claude-haiku-4-5-20251001": {
+        "input": 1523,
+        "output": 1653,
+        "cache_read": 112542,
+        "cache_write": 10406
+      }
+    },
+    "host_cost_usd": 0.04174245000000001,
+    "consistent": true
+  },
+  "host_cost_usd": 0.04174245000000001,
+  "estimate": {
+    "micros": 41556,
+    "currency": "USD"
+  },
+  "estimate_complete": false,
+  "estimate_missing": [
+    "cache_write_5m",
+    "cache_write_1h"
+  ],
+  "rate_table_date": "2026-09-22",
+  "categories": {
+    "cache_read": {
+      "known": 112542,
+      "known_records": 4,
+      "unknown_records": 0
+    },
+    "cache_write_1h": {
+      "known": 10257,
+      "known_records": 3,
+      "unknown_records": 1
+    },
+    "cache_write_5m": {
+      "known": 0,
+      "known_records": 3,
+      "unknown_records": 1
+    },
+    "input": {
+      "known": 1523,
+      "known_records": 4,
+      "unknown_records": 0
+    },
+    "output": {
+      "known": 905,
+      "known_records": 4,
+      "unknown_records": 0
+    },
+    "thinking_output": {
+      "known": 748,
+      "known_records": 4,
+      "unknown_records": 0
+    }
+  },
+  "compact_attempts": [
+    {
+      "result": "success"
+    }
+  ],
+  "home_guard": {
+    "checked": true,
+    "unchanged": true,
+    "before": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json eaee1ba9ed3958c3a28e61514187f4281bcdb0138551cd399f15e909b06e69b6"
+    ],
+    "after": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json eaee1ba9ed3958c3a28e61514187f4281bcdb0138551cd399f15e909b06e69b6"
+    ]
+  },
+  "preregistered_model": true,
+  "notes": [
+    "project: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3815845520\\project",
+    "host transcript: C:\\Users\\Quant\\.claude\\projects\\C--Users-Quant-AppData-Local-Temp-qompack-live-3815845520-project\\48a6e1e5-c345-47b3-9e82-ce5060b785c6.jsonl"
+  ]
+}

@@ -1,0 +1,157 @@
+{
+  "run_id": "20260922T225300Z-b5a63f",
+  "confidence": 0.95,
+  "arms": {
+    "stock": {
+      "arm": "stock",
+      "trials": 1,
+      "completed": 1,
+      "plugin_mismatch": 0,
+      "task_success": {
+        "k": 1,
+        "n": 1,
+        "rate": 1,
+        "low": 0.20654931411298355,
+        "high": 1
+      },
+      "constraint_clean": {
+        "k": 1,
+        "n": 1,
+        "rate": 1,
+        "low": 0.20654931411298355,
+        "high": 1
+      },
+      "constraint_violations": 0,
+      "recovery": {
+        "k": 1,
+        "n": 1,
+        "rate": 1,
+        "low": 0.20654931411298355,
+        "high": 1
+      },
+      "mean_usage": {
+        "input": 1523,
+        "output": 1653,
+        "cache_read": 112542,
+        "cache_write": 10406
+      },
+      "mean_host_cost_usd": 0.04174245000000001,
+      "mean_estimate_micros": 41556,
+      "estimate_incomplete": 1,
+      "mean_wall_ms": 42669,
+      "hook_problem_trials": 0,
+      "categories": {
+        "cache_read": {
+          "known": 112542,
+          "known_records": 4,
+          "unknown_records": 0
+        },
+        "cache_write_1h": {
+          "known": 10257,
+          "known_records": 3,
+          "unknown_records": 1
+        },
+        "cache_write_5m": {
+          "known": 0,
+          "known_records": 3,
+          "unknown_records": 1
+        },
+        "input": {
+          "known": 1523,
+          "known_records": 4,
+          "unknown_records": 0
+        },
+        "output": {
+          "known": 905,
+          "known_records": 4,
+          "unknown_records": 0
+        },
+        "thinking_output": {
+          "known": 748,
+          "known_records": 4,
+          "unknown_records": 0
+        }
+      }
+    }
+  },
+  "by_task": {
+    "pilot-codeword": [
+      {
+        "arm": "stock",
+        "trials": 1,
+        "completed": 1,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 1,
+          "n": 1,
+          "rate": 1,
+          "low": 0.20654931411298355,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 1,
+          "n": 1,
+          "rate": 1,
+          "low": 0.20654931411298355,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 1,
+          "n": 1,
+          "rate": 1,
+          "low": 0.20654931411298355,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 1523,
+          "output": 1653,
+          "cache_read": 112542,
+          "cache_write": 10406
+        },
+        "mean_host_cost_usd": 0.04174245000000001,
+        "mean_estimate_micros": 41556,
+        "estimate_incomplete": 1,
+        "mean_wall_ms": 42669,
+        "hook_problem_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 112542,
+            "known_records": 4,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 10257,
+            "known_records": 3,
+            "unknown_records": 1
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 3,
+            "unknown_records": 1
+          },
+          "input": {
+            "known": 1523,
+            "known_records": 4,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 905,
+            "known_records": 4,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 748,
+            "known_records": 4,
+            "unknown_records": 0
+          }
+        }
+      }
+    ]
+  },
+  "decision": {
+    "verdict": "not-applicable",
+    "reason": "both arms are needed for a comparison"
+  },
+  "failed": null
+}

@@ -1,0 +1,38 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-haiku-4-5-20251001",
+    "--max-turns",
+    "6",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "84b276bf-20dd-4fdf-aad3-409286ae54eb",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack",
+    "--plugin-dir",
+    "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/cxeval/bundle/qompack-plugin-0.3.0-live.pilot-windows-amd64"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-742743538\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "messages": [
+    "Run go run ./cmd/code and tell me the code word it prints, in one line.",
+    "/compact",
+    "Without running any program again, write the code word the program printed into CODE.txt at the project root, then tell me the code word in one line."
+  ],
+  "step_timeout": 480000000000,
+  "session_timeout": 1200000000000
+}

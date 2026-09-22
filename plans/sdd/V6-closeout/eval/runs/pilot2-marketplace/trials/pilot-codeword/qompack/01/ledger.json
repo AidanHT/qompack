@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "id": "pilot-codeword-qompack-01-t00-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 42742
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 7944
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 18
+        },
+        "output": {
+          "known": true,
+          "value": 105
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 141
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "pilot-codeword-qompack-01-t01-main",
+      "kind": "compaction",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true
+        },
+        "cache_write_1h": {
+          "known": true
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true
+        },
+        "output": {
+          "known": true
+        },
+        "thinking_output": {
+          "known": true
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "pilot-codeword-qompack-01-t01-beside-claude-haiku-4-5-20251001",
+      "parent_id": "pilot-codeword-qompack-01-t01-main",
+      "kind": "compaction",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 25229
+        },
+        "input": {
+          "known": true,
+          "value": 1487
+        },
+        "output": {
+          "known": true,
+          "value": 744
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 448
+        }
+      },
+      "missing": [
+        "cache_write_5m",
+        "cache_write_1h"
+      ],
+      "retries": 0,
+      "aborted": false,
+      "notes": "running-total change beside the main loop (compaction); cache_write 177 tokens, TTL split unknown"
+    },
+    {
+      "id": "pilot-codeword-qompack-01-t02-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 46799
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 4171
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 18
+        },
+        "output": {
+          "known": true,
+          "value": 133
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 180
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    }
+  ],
+  "schedule": null,
+  "compaction": null
+}

@@ -1,0 +1,166 @@
+{
+  "run_id": "20260922T225004Z-ced0e6",
+  "confidence": 0.95,
+  "arms": {
+    "qompack": {
+      "arm": "qompack",
+      "trials": 1,
+      "completed": 1,
+      "plugin_mismatch": 0,
+      "task_success": {
+        "k": 1,
+        "n": 1,
+        "rate": 1,
+        "low": 0.20654931411298355,
+        "high": 1
+      },
+      "constraint_clean": {
+        "k": 1,
+        "n": 1,
+        "rate": 1,
+        "low": 0.20654931411298355,
+        "high": 1
+      },
+      "constraint_violations": 0,
+      "recovery": {
+        "k": 1,
+        "n": 1,
+        "rate": 1,
+        "low": 0.20654931411298355,
+        "high": 1
+      },
+      "mean_usage": {
+        "input": 1523,
+        "output": 1751,
+        "cache_read": 114770,
+        "cache_write": 12292
+      },
+      "mean_host_cost_usd": 0.046206250000000004,
+      "mean_estimate_micros": 45985,
+      "estimate_incomplete": 1,
+      "mean_wall_ms": 93204,
+      "mean_store_bytes": 143682,
+      "hook_p50_ms": 665,
+      "hook_p95_ms": 5999,
+      "hook_problem_trials": 1,
+      "categories": {
+        "cache_read": {
+          "known": 114770,
+          "known_records": 4,
+          "unknown_records": 0
+        },
+        "cache_write_1h": {
+          "known": 12115,
+          "known_records": 3,
+          "unknown_records": 1
+        },
+        "cache_write_5m": {
+          "known": 0,
+          "known_records": 3,
+          "unknown_records": 1
+        },
+        "input": {
+          "known": 1523,
+          "known_records": 4,
+          "unknown_records": 0
+        },
+        "output": {
+          "known": 982,
+          "known_records": 4,
+          "unknown_records": 0
+        },
+        "thinking_output": {
+          "known": 769,
+          "known_records": 4,
+          "unknown_records": 0
+        }
+      }
+    }
+  },
+  "by_task": {
+    "pilot-codeword": [
+      {
+        "arm": "qompack",
+        "trials": 1,
+        "completed": 1,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 1,
+          "n": 1,
+          "rate": 1,
+          "low": 0.20654931411298355,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 1,
+          "n": 1,
+          "rate": 1,
+          "low": 0.20654931411298355,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 1,
+          "n": 1,
+          "rate": 1,
+          "low": 0.20654931411298355,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 1523,
+          "output": 1751,
+          "cache_read": 114770,
+          "cache_write": 12292
+        },
+        "mean_host_cost_usd": 0.046206250000000004,
+        "mean_estimate_micros": 45985,
+        "estimate_incomplete": 1,
+        "mean_wall_ms": 93204,
+        "mean_store_bytes": 143682,
+        "hook_p50_ms": 665,
+        "hook_p95_ms": 5999,
+        "hook_problem_trials": 1,
+        "categories": {
+          "cache_read": {
+            "known": 114770,
+            "known_records": 4,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 12115,
+            "known_records": 3,
+            "unknown_records": 1
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 3,
+            "unknown_records": 1
+          },
+          "input": {
+            "known": 1523,
+            "known_records": 4,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 982,
+            "known_records": 4,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 769,
+            "known_records": 4,
+            "unknown_records": 0
+          }
+        }
+      }
+    ]
+  },
+  "decision": {
+    "verdict": "not-applicable",
+    "reason": "both arms are needed for a comparison"
+  },
+  "failed": null,
+  "notes": [
+    "1 of 1 qompack trial(s) ran with a hook failure the host reported; they are counted, not dropped, and each trial record names the failure"
+  ]
+}
