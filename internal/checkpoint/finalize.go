@@ -229,7 +229,7 @@ func keepResolvableFiles(in []FilePointer, drops []DropEntry) []FilePointer {
 // pointer that names a chunk directly is still honoured through Has.
 func keepResolvableTools(ctx context.Context, in []ToolPointer, drops []DropEntry, src SourceSet) ([]ToolPointer, []DropEntry) {
 	out := in[:0:0]
-	present := objectPresent(src.Store)
+	present := oncePerHash(objectPresent(src.Store))
 	for _, p := range in {
 		if toolResultResolvable(ctx, src.Store, present, p.Hash) {
 			out = append(out, p)
@@ -265,21 +265,47 @@ func objectPresent(s store.Store) func(core.Hash) bool {
 	return s.Has
 }
 
+// oncePerHash memoizes present for the length of one keepResolvableTools call, so a chunk shared
+// by several tool pointers — a file read twice, a test re-run whose output deduped — is statted
+// once per Finalize rather than once per pointer (SP10-D1). The answer is the same point-in-time
+// observation either way: a Finalize already reads each object's presence at some instant during
+// the call, and nothing orders one pointer's stat against another's.
+func oncePerHash(present func(core.Hash) bool) func(core.Hash) bool {
+	seen := map[core.Hash]bool{}
+	return func(h core.Hash) bool {
+		if v, ok := seen[h]; ok {
+			return v
+		}
+		v := present(h)
+		seen[h] = v
+		return v
+	}
+}
+
 // toolResultResolvable reports whether h — a tool result's root, or a chunk named directly — can
 // still be materialized from the store: the object itself is on disk, or the root resolves and every
 // chunk it lists is on disk. A root whose chunks were collected is unresolvable even though the
 // root index still remembers it, because expand(hash) reads chunks, not index entries.
 //
+// The two arms are asked in the cheap order, and the order cannot change the verdict because
+// neither arm has a side effect: GetRoot is an in-memory index lookup, and a tool pointer names a
+// ROOT, which is never an object file itself. Asking present(h) first — as this function did until
+// SP10-D1 — cost every pointer two failing stats (one per candidate spelling) before the index was
+// consulted, which on Windows was most of BenchmarkFinalize. A chunk named directly still gets
+// its stat, one lookup later.
+//
 // present is objectPresent's predicate, resolved once by the caller rather than per pointer.
 func toolResultResolvable(ctx context.Context, s store.Store, present func(core.Hash) bool, h core.Hash) bool {
-	if present(h) {
+	if root, err := s.GetRoot(ctx, h); err == nil && allChunksPresent(root.Chunks, present) {
 		return true
 	}
-	root, err := s.GetRoot(ctx, h)
-	if err != nil {
-		return false
-	}
-	for _, c := range root.Chunks {
+	return present(h)
+}
+
+// allChunksPresent reports whether present holds for every chunk, stopping at the first that is
+// missing.
+func allChunksPresent(chunks []store.ChunkRef, present func(core.Hash) bool) bool {
+	for _, c := range chunks {
 		if !present(c.Hash) {
 			return false
 		}
