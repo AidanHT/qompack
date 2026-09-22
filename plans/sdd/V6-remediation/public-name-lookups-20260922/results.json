@@ -1,0 +1,79 @@
+{
+  "queries": [
+    {
+      "name": "npm",
+      "url": "https://registry.npmjs.org/qompack",
+      "time": "2026-09-22T14:18:06.844277-04:00",
+      "status": 404,
+      "response_url": "https://registry.npmjs.org/qompack",
+      "http_date": "Tue, 22 Sep 2026 18:18:07 GMT",
+      "etag": null,
+      "artifact": "npm.response",
+      "sha256": "c8d3eae160a892e32837db3dcae515e843e5383fef52b8141940c8bcf8b6d59f",
+      "outcome": "endpoint_not_found"
+    },
+    {
+      "name": "pypi",
+      "url": "https://pypi.org/pypi/qompack/json",
+      "time": "2026-09-22T14:18:06.845640-04:00",
+      "status": 404,
+      "response_url": "https://pypi.org/pypi/qompack/json",
+      "http_date": "Tue, 22 Sep 2026 18:18:07 GMT",
+      "etag": null,
+      "artifact": "pypi.response",
+      "sha256": "b82014934f66beeb9e05a37f65357c4b50db0349d25d68d818ed0319dd4feb40",
+      "outcome": "endpoint_not_found"
+    },
+    {
+      "name": "crates",
+      "url": "https://crates.io/api/v1/crates/qompack",
+      "time": "2026-09-22T14:18:06.846257-04:00",
+      "status": 404,
+      "response_url": "https://crates.io/api/v1/crates/qompack",
+      "http_date": "Tue, 22 Sep 2026 18:18:07 GMT",
+      "etag": null,
+      "artifact": "crates.response",
+      "sha256": "83559d4bc1d8fea0a245d460be081edc7b5d419862c0875bdab259e4d4716d4b",
+      "outcome": "endpoint_not_found"
+    },
+    {
+      "name": "claude-official",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-plugins-official/main/.claude-plugin/marketplace.json",
+      "time": "2026-09-22T14:18:07.056918-04:00",
+      "status": 200,
+      "response_url": "https://raw.githubusercontent.com/anthropics/claude-plugins-official/main/.claude-plugin/marketplace.json",
+      "http_date": "Tue, 22 Sep 2026 18:18:07 GMT",
+      "etag": "\"5371212c2ce0f09a7a26a59efb08d4a7694885febb188aff6ff5bb858b1ad7cc\"",
+      "artifact": "claude-official.response",
+      "sha256": "3d6d2c63ec154110438c76ba39a60a60baaa2d05e9153be264c232fc8c9c69d4",
+      "outcome": "response_received",
+      "exact_name_matches": []
+    },
+    {
+      "name": "declared-homepage",
+      "url": "https://api.github.com/repos/qompack/qompack",
+      "time": "2026-09-22T14:18:07.072614-04:00",
+      "status": 404,
+      "response_url": "https://api.github.com/repos/qompack/qompack",
+      "http_date": "Tue, 22 Sep 2026 18:18:07 GMT",
+      "etag": null,
+      "artifact": "declared-homepage.response",
+      "sha256": "4f50e254a719a6b1b06b529bdaa08980e4acf0878aad0090cba7771f6ebdf0b9",
+      "outcome": "endpoint_not_found"
+    },
+    {
+      "name": "origin-public",
+      "url": "https://api.github.com/repos/AidanHT/qompack",
+      "time": "2026-09-22T14:18:07.123763-04:00",
+      "status": 200,
+      "response_url": "https://api.github.com/repos/AidanHT/qompack",
+      "http_date": "Tue, 22 Sep 2026 18:18:07 GMT",
+      "etag": "W/\"f59a5d53ae4357b60d0d3d1c481b65658eea2ab9412737ae6e63efd584dcf33c\"",
+      "artifact": "origin-public.response",
+      "sha256": "f59a5d53ae4357b60d0d3d1c481b65658eea2ab9412737ae6e63efd584dcf33c",
+      "outcome": "response_received"
+    }
+  ],
+  "scope": "Public read-only exact-name lookups; no authentication, reservations, submissions or account changes.",
+  "limit": "A 404 or an absent marketplace entry is not a guarantee of registrability, trademark clearance, private namespace ownership, or future availability. GitHub 404 does not distinguish private from absent."
+}

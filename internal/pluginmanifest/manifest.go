@@ -225,7 +225,7 @@ func Default(version string) Manifest {
 			Version:     version,
 			Description: "Cache-aware, retrieval-backed context compaction",
 			Author:      Author{Name: "Qompack"},
-			Homepage:    "https://github.com/qompack/qompack",
+			Homepage:    "https://github.com/AidanHT/qompack",
 			Keywords:    []string{"compaction", "context", "memory", "cache"},
 		},
 		Hooks: HooksJSON{Hooks: hooks},
