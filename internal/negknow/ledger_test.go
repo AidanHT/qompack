@@ -216,9 +216,9 @@ func seedActive(t *testing.T, l *ledger, n int, depsFor func(i int) []Dep) {
 		idx := len(l.recs)
 		l.recs = append(l.recs, r)
 		l.byID[r.ID] = idx
-		mh := r.Desc.MatchHex()
+		mh := r.Desc.matchHash()
 		l.byMatch[mh] = append(l.byMatch[mh], idx)
-		l.byKey[dedupHex(r)] = idx
+		l.byKey[dedupOf(r)] = idx
 	}
 }
 

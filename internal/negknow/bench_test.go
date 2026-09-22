@@ -101,6 +101,10 @@ const (
 	// The ruling revises the row to 5 MB and explicitly does NOT re-key the indices on the raw
 	// 32-byte key, which is the one change that would move the number materially (it would halve
 	// the 128 B row). That stays available to a later task.
+	//
+	// V6 close-out (SP09-D1) is that later task: byMatch and byKey are now keyed on the raw
+	// 32-byte digests, for Open's CPU rather than for this row, so the 128 B line above is the
+	// pre-V6 layout. The budget itself is unchanged.
 	budgetResidentBytes = 5 * (1 << 20)
 )
 

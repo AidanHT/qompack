@@ -217,7 +217,15 @@ func replayLogSized(r io.Reader, sizeHint int, log logging.Logger, m obs.Registr
 		log.Warn(msg, append([]any{"line", lineNo}, kv...)...)
 	}
 
-	var interned wireInterner
+	var (
+		interned wireInterner
+		// ln is decoded into once per line and reset before each: it escapes to the heap through
+		// decodeLogLine and recoverLine, so declaring it per line cost one ~300-byte allocation
+		// and its zeroing per line of the log (SP09-D1). Nothing keeps a pointer to it past the
+		// line — recordFromWire copies the wire record by value, and the slices the decode
+		// allocated belong to the record they were decoded for, not to ln.
+		ln logLine
+	)
 	apply := func(line []byte, lineNo int) {
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
@@ -233,7 +241,7 @@ func replayLogSized(r io.Reader, sizeHint int, log logging.Logger, m obs.Registr
 		// fast path, which produces exactly the logLine json.Unmarshal would (SP09-D1). Every
 		// other line — control lines, hand-written or foreign lines, damaged ones — is declined
 		// by it untouched and decoded here exactly as before.
-		var ln logLine
+		ln = logLine{}
 		if err := decodeLogLine(line, &ln, &interned); err != nil {
 			outcome, rerr := recoverLine(line, &ln)
 			switch outcome {
