@@ -369,8 +369,11 @@ func coerceLeafValue(li leafInfo, v any) (any, bool) {
 		f, ok := v.(float64)
 		return f, ok
 	case kindInt:
+		// A whole number is not enough: it must also fit the Go int it decodes into. 1e300 is a whole
+		// float64, and before this bound it passed here and then failed fromMap's decode, which
+		// answers a failed decode with Defaults() — one leaf silently discarded every layer.
 		f, ok := v.(float64)
-		if !ok || f != math.Trunc(f) {
+		if !ok || f != math.Trunc(f) || f < float64(math.MinInt) || f >= -float64(math.MinInt) {
 			return nil, false
 		}
 		return f, true
@@ -505,8 +508,11 @@ func parseLeafString(li leafInfo, raw string) (any, bool) {
 	case kindString:
 		return raw, true
 	case kindFloat:
+		// ParseFloat accepts "NaN" and "Inf", which no leaf can hold: JSON cannot encode them, so a
+		// nonfinite value used to fail fromMap's marshal and reset EVERY layer to Defaults() without
+		// a word. It is an unparseable value for this one leaf, like any other.
 		f, err := strconv.ParseFloat(raw, 64)
-		if err != nil {
+		if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
 			return nil, false
 		}
 		return f, true
@@ -528,7 +534,7 @@ func parseLeafString(li leafInfo, raw string) (any, bool) {
 			return nil, true
 		}
 		f, err := strconv.ParseFloat(raw, 64)
-		if err != nil {
+		if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
 			return nil, false
 		}
 		return f, true
