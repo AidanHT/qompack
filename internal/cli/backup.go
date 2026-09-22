@@ -84,14 +84,18 @@ func runBackup(ctx context.Context, env Env, action string, args []string, out, 
 	if !isDir(paths.Of(root).Dot) {
 		return errors.New("backup: source project has no existing store")
 	}
-	cfg, _, violations, err := config.LoadForCapture(config.Env{
+	cfg, _, violations, warnings, err := config.LoadForCapture(config.Env{
 		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
 	})
 	if err != nil {
 		return fmt.Errorf("backup: configuration unavailable: %w", err)
 	}
-	if len(violations) != 0 {
-		return errors.New("backup: resolve configuration violations before maintenance")
+	// Maintenance runs only on the configuration exactly as written. A key the capture loader now
+	// drops with a warning (V6 close-out C1.8) used to refuse here through the error above, and it
+	// still refuses: backup keeps that stricter admission rather than inheriting the hook path's
+	// per-leaf fallback.
+	if len(violations) != 0 || len(warnings) != 0 {
+		return errors.New("backup: resolve configuration violations and warnings before maintenance")
 	}
 	ctx, lease, release, err := acquireWriterLease(ctx, root)
 	if err != nil {
