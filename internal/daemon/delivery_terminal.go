@@ -120,6 +120,9 @@ func readTerminal(root *os.Root, name string) (deliveryTerminal, error) {
 // loadTerminalDispositions runs during journal open under the owner lock.
 // Missing data leaves a lease pending; corrupt or unjoined data refuses open.
 func (j *deliveryJournal) loadTerminalDispositions() error {
+	if j.gen != nil {
+		return j.loadActiveTerminalDispositions()
+	}
 	root, err := j.terminalDirectory(false)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -179,10 +182,21 @@ func (j *deliveryJournal) retireDenied(ctx context.Context, lease deliveryLease)
 	if !j.owner.owned() || !j.usable() {
 		return deliveryJournalError()
 	}
+	if err := j.enterTerminalOperation(); err != nil {
+		return err
+	}
+	defer j.leave()
 	j.st.Lock()
-	known := j.leases[lease.Delivery]
+	known, held := j.leases[lease.Delivery]
 	previous, exists := j.terminal[lease.Delivery]
 	j.st.Unlock()
+	if !held && j.gen != nil {
+		var err error
+		known, held, err = j.gen.resolveLease(ctx, lease.Delivery)
+		if err != nil || !held {
+			return deliveryJournalError()
+		}
+	}
 	if known != lease || lease.Delivery == "" {
 		return deliveryJournalError()
 	}
@@ -191,7 +205,7 @@ func (j *deliveryJournal) retireDenied(ctx context.Context, lease deliveryLease)
 		if previous != record {
 			return deliveryJournalError()
 		}
-		return nil
+		return j.commitTerminalGeneration(ctx, record)
 	}
 	name, err := terminalFileName(lease.ObservationID)
 	if err != nil {
@@ -235,11 +249,16 @@ func (j *deliveryJournal) retireDenied(ctx context.Context, lease deliveryLease)
 	if err != nil || verified != record || !j.owner.owned() {
 		return j.poison(deliveryJournalError())
 	}
+	if err := j.commitTerminalGeneration(ctx, record); err != nil {
+		return j.poison(deliveryJournalError())
+	}
 	j.st.Lock()
 	if j.terminal == nil {
 		j.terminal = make(map[string]deliveryTerminal)
 	}
-	j.terminal[lease.Delivery] = record
+	if j.gen == nil || j.leases[lease.Delivery] == lease {
+		j.terminal[lease.Delivery] = record
+	}
 	j.st.Unlock()
 	return nil
 }
@@ -281,6 +300,13 @@ func (j *deliveryJournal) terminalDenied(lease deliveryLease) (bool, error) {
 	if !j.owner.owned() {
 		return false, deliveryJournalError()
 	}
+	if err := j.enterTerminalOperation(); err != nil {
+		return false, err
+	}
+	defer j.leave()
+	if j.gen != nil {
+		return j.archivedTerminalDenied(lease)
+	}
 	j.st.Lock()
 	defer j.st.Unlock()
 	if j.closing || j.closed || j.fault != nil || j.leases[lease.Delivery] != lease {
@@ -291,6 +317,19 @@ func (j *deliveryJournal) terminalDenied(lease deliveryLease) (bool, error) {
 		return false, deliveryJournalError()
 	}
 	return exists, nil
+}
+
+// The caller holds owner.mu. Do not wait for rotation while holding that lock:
+// defer this replay instead. Counting this operation excludes rotation from its
+// file publication and generation update, just as the journal pipelines do.
+func (j *deliveryJournal) enterTerminalOperation() error {
+	j.st.Lock()
+	defer j.st.Unlock()
+	if j.closing || j.closed || j.rotating || j.fault != nil {
+		return deliveryJournalError()
+	}
+	j.inflight++
+	return nil
 }
 
 func terminalForDelivery(get func() (*deliveryJournal, error), lease deliveryLease) (bool, error) {

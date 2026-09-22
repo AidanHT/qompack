@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"context"
+
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
 )
@@ -27,7 +29,7 @@ const (
 	// >bound reversed prefix from wedging: "stop at the bound" would re-read the same prefix forever.
 	//
 	orderingLookaheadBound = 1024 //nomagic:allow bounded look-ahead memory, independent of configurable budgets.
-	orderingProcessedCap = 4096 //nomagic:allow offset memory bound; overflow relies on the durable frontier.
+	orderingProcessedCap   = 4096 //nomagic:allow offset memory bound; overflow relies on the durable frontier.
 
 	// counterOrderingDeferred / counterDrainOrderingDeferred count leased dispatches deferred because
 	// an earlier arrival of the session was not yet acknowledged (live worker / drain). The delivery
@@ -68,11 +70,17 @@ func (j *deliveryJournal) predecessorsAcknowledged(session core.SessionID, arriv
 	}
 	j.st.Lock()
 	defer j.st.Unlock()
-	if j.closing || j.closed || j.fault != nil {
+	if j.closing || j.closed || j.rotating || j.fault != nil {
 		return false
 	}
 	if arrival <= 1 {
 		return true // journal readable and owned AND first arrival: no predecessor
+	}
+	if j.gen != nil {
+		frontier, pending, err := j.gen.sessionFrontier(context.Background(), session)
+		if err != nil || (pending && frontier < arrival) {
+			return false
+		}
 	}
 	for _, l := range j.leases {
 		if l.Session != session || l.ArrivalSeq >= arrival {
@@ -100,10 +108,13 @@ func (j *deliveryJournal) leaseHeld(nonce string) (deliveryLease, bool, error) {
 	}
 	j.st.Lock()
 	defer j.st.Unlock()
-	if j.closing || j.closed || j.fault != nil {
+	if j.closing || j.closed || j.rotating || j.fault != nil {
 		return deliveryLease{}, false, deliveryJournalError()
 	}
 	l, ok := j.leases[nonce]
+	if !ok && j.gen != nil {
+		return j.gen.resolveLease(context.Background(), nonce)
+	}
 	return l, ok, nil
 }
 
