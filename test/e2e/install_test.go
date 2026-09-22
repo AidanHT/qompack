@@ -564,10 +564,20 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 
 	// (b) a capture sidecar from a newer build: readable, degraded, never repaired — sidecars are
 	//     evidence, and `op` is a prompt delivery so the stage-1 gap rule does not apply.
-	sidecarPath := filepath.Join(l.Records, "captures", "newer-plugin.json")
+	//
+	//     It is planted where every build writes a sidecar — store.CaptureSidecarPath, i.e.
+	//     records/captures/<2 hex>/<digest>.json, the only layout since a6faab0 — under a
+	//     digest-shaped observation id, because that is where a newer build's sidecar would be.
+	//     A file dropped at records/captures/ itself is no build's sidecar: V6's bounded publication
+	//     audit (80a3e04) walks the two fixed fanout levels and reports such a file as an unexpected
+	//     entry, which is a different question from the one this row asks. Planted here, the newer
+	//     schema is actually READ by both the captures row and the publication audit.
+	newerObs := core.ObservationID(core.HashBytes("qompack.e2e.unknown-schema", []byte("newer-plugin")).String())
+	sidecarPath, err := store.CaptureSidecarPath(root, newerObs)
+	require.NoError(t, err)
 	plant(sidecarPath, []byte(fmt.Sprintf(
-		`{"v":%d,"observation_id":"obs-newer-plugin","op":"observe.prompt","published":false,"outcome":"ok"}`+"\n",
-		store.CaptureSidecarVersion+1)))
+		`{"v":%d,"observation_id":%q,"op":"observe.prompt","published":false,"outcome":"ok"}`+"\n",
+		store.CaptureSidecarVersion+1, newerObs)))
 
 	// A whole session over both: every hook exits 0, the daemon still comes up, and recording
 	// continues — a newer artifact beside the live data is a support gap, not a stop.
