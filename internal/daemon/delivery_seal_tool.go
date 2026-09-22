@@ -305,7 +305,8 @@ func (o DeliverySealOptions) runSegmented(lock *Lock, state string, auth segment
 	}
 
 	for i := range auth.transitions {
-		if err := o.checkSegment(ctx, stateRoot, segsRoot, auth.transitions[i], gv); err != nil {
+		last := i == len(auth.transitions)-1
+		if err := o.checkSegment(ctx, stateRoot, segsRoot, auth.transitions[i], gv, last); err != nil {
 			return err
 		}
 	}
@@ -324,10 +325,11 @@ func (o DeliverySealOptions) runSegmented(lock *Lock, state string, auth segment
 // checkSegment validates one committed segment read-only, THROUGH a pinned os.Root: its four files
 // present (and re-verified under the pinned identity), its lease journal against its seal with arrivals
 // resuming from the segment's predecessor (base) root, and its ack journal against its seal with every
-// acknowledgement joined to its original lease in the generation store. Segment 0 is the legacy four
+// acknowledgement joined to its original lease — in the active segment's own window (active is true for
+// the last committed segment, which is archived only when it rotates) or in the generation store. Segment 0 is the legacy four
 // files under the state root (arrivals from 1); a later segment is pinned under the segments root and
 // resumes from base_root.
-func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRoot *os.Root, t segTransition, gv *genReadonly) error {
+func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRoot *os.Root, t segTransition, gv *genReadonly, active bool) error {
 	segRoot := stateRoot
 	if t.Active >= 1 {
 		pinned, err := pinDeliveryChild(segsRoot, segmentSeqName(t.Active), false)
@@ -361,7 +363,7 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRo
 		arrivalBase = func(s core.SessionID) (uint64, bool, error) { return gv.arrivalAt(ctx, br, s) }
 	}
 
-	leasePos, err := gv.checkLeaseJournal(ctx, segRoot, deliveryLeaseFile, deliveryPositionFile, arrivalBase)
+	leasePos, window, err := gv.checkLeaseJournal(ctx, segRoot, deliveryLeaseFile, deliveryPositionFile, arrivalBase, !active)
 	if err != nil {
 		return fmt.Errorf("%s: segment %d: the lease journal does not check read-only against its seal, "+
 			"its predecessor arrivals and the generation store; nothing was written: %w",
@@ -370,7 +372,11 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRo
 	fmt.Fprintf(o.Out, "  segment %d lease journal: loads, %d entries, %d bytes, chain %s\n",
 		t.Active, leasePos.Count, leasePos.Bytes, leasePos.Chain)
 
-	ackPos, err := gv.checkAckJournal(ctx, segRoot, deliveryAckFile, deliveryAckPositionFile)
+	// The active segment is not archived yet: its acknowledgements join its own window first.
+	if !active {
+		window = nil
+	}
+	ackPos, err := gv.checkAckJournal(ctx, segRoot, deliveryAckFile, deliveryAckPositionFile, window)
 	if err != nil {
 		return fmt.Errorf("%s: segment %d: the ack journal does not check read-only against its seal and "+
 			"the generation store; nothing was written: %w", deliverySealToolName, t.Active, err)
