@@ -1,0 +1,112 @@
+{
+  "source": "claude transcript JSONL (session_context, prompt_snapshot and message bodies deliberately NOT copied); extracted by the C5.4 fix seat 2026-09-22",
+  "hooks": [
+    {
+      "type": "hook_success",
+      "hookName": "SessionStart:startup",
+      "hookEvent": "SessionStart",
+      "exitCode": 0,
+      "durationMs": 2828
+    },
+    {
+      "type": "hook_success",
+      "hookName": "PostToolUse:Read",
+      "hookEvent": "PostToolUse",
+      "exitCode": 0,
+      "durationMs": 250
+    },
+    {
+      "type": "hook_success",
+      "hookName": "Stop",
+      "hookEvent": "Stop",
+      "exitCode": 0,
+      "durationMs": 269
+    },
+    {
+      "type": "hook_success",
+      "hookName": "SessionStart:compact",
+      "hookEvent": "SessionStart",
+      "exitCode": 0,
+      "durationMs": 1111
+    },
+    {
+      "type": "hook_success",
+      "hookName": "PostToolUse:Read",
+      "hookEvent": "PostToolUse",
+      "exitCode": 0,
+      "durationMs": 605
+    },
+    {
+      "type": "hook_success",
+      "hookName": "SessionStart:compact",
+      "hookEvent": "SessionStart",
+      "exitCode": 0,
+      "durationMs": 1056
+    },
+    {
+      "type": "hook_success",
+      "hookName": "Stop",
+      "hookEvent": "Stop",
+      "exitCode": 0,
+      "durationMs": 269
+    },
+    {
+      "type": "hook_success",
+      "hookName": "SessionStart:compact",
+      "hookEvent": "SessionStart",
+      "exitCode": 0,
+      "durationMs": 255
+    },
+    {
+      "type": "hook_success",
+      "hookName": "Stop",
+      "hookEvent": "Stop",
+      "exitCode": 0,
+      "durationMs": 317
+    }
+  ],
+  "additional_context": [
+    {
+      "hookName": "SessionStart",
+      "content": [
+        "<!-- qompack-contract-probe qompack-contract-4796dd059a31 -->"
+      ]
+    },
+    {
+      "hookName": "SessionStart",
+      "content": [
+        "<!-- qompack:injected seq=2 ver=1 -->\n# Qompack rehydration — checkpoint 0002, session 7da3e4cd\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\n> Read notes.txt and tell me the release codeword. One short sentence.\n\n## 7. No longer in context\n- pointer_git_unavailable — checkpoint: no .git at the project root\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n<!-- /qompack:injected -->\n<!-- qompack-contract-probe qompack-contract-9a4a4b998c52 -->"
+      ]
+    },
+    {
+      "hookName": "SessionStart",
+      "content": [
+        "<!-- qompack:injected seq=3 ver=1 -->\n# Qompack rehydration — checkpoint 0003, session 7da3e4cd\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\n> Read notes.txt and tell me the release codeword. One short sentence.\n\n## 7. No longer in context\n- pointer_git_unavailable — checkpoint: no .git at the project root\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n<!-- /qompack:injected -->\n<!-- qompack-contract-probe qompack-contract-f54c30ca5ee3 -->"
+      ]
+    },
+    {
+      "hookName": "SessionStart",
+      "content": [
+        "<!-- qompack:injected seq=4 ver=1 -->\n# Qompack rehydration — checkpoint 0004, session 7da3e4cd\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\n> Read notes.txt and tell me the release codeword. One short sentence.\n\n## 7. No longer in context\n- pointer_git_unavailable — checkpoint: no .git at the project root\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n<!-- /qompack:injected -->\n<!-- qompack-contract-probe qompack-contract-549557365b9d -->"
+      ]
+    }
+  ],
+  "compact_boundaries": [
+    {
+      "trigger": "auto",
+      "preTokens": 25637,
+      "durationMs": 16039
+    },
+    {
+      "trigger": "auto",
+      "preTokens": 39748,
+      "durationMs": 20357
+    },
+    {
+      "trigger": "auto",
+      "preTokens": 49417,
+      "durationMs": 31164
+    }
+  ],
+  "local_command_stdout": []
+}

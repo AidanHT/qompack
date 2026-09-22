@@ -1,0 +1,49 @@
+package eval
+
+// TEMPORARY contract stubs for the stream/transcript/accounting/rates half of the live layer.
+// The implementer of that half deletes this file and supplies these exact signatures elsewhere.
+
+import (
+	"fmt"
+	"io"
+
+	"github.com/qompack/qompack/internal/core"
+)
+
+// ParseStream parses one host process's --output-format stream-json output.
+func ParseStream(r io.Reader) (LiveStream, error) {
+	return LiveStream{}, fmt.Errorf("eval: ParseStream: %w", core.ErrNotImplemented)
+}
+
+// ParseTranscript parses one host transcript JSONL file.
+func ParseTranscript(r io.Reader) (LiveTranscript, error) {
+	return LiveTranscript{}, fmt.Errorf("eval: ParseTranscript: %w", core.ErrNotImplemented)
+}
+
+// HookLatency reduces host-measured hook durations to per-event percentiles (milliseconds).
+func HookLatency(runs []TranscriptHookRun) map[string]Percentiles { return nil }
+
+// AccountStreams turns one trial's ordered host processes into per-turn usage deltas, final
+// totals and a request ledger, never double-counting cumulative or resumed usage.
+func AccountStreams(streams []LiveStream) LiveAccounting { return LiveAccounting{} }
+
+// CanonicalModel strips a dated suffix and a context-window tag from a model ID.
+func CanonicalModel(id string) string { return id }
+
+// LoadLiveRateTable reads and validates a rate table.
+func LoadLiveRateTable(path string) (LiveRateTable, error) {
+	return LiveRateTable{}, fmt.Errorf("eval: LoadLiveRateTable: %w", core.ErrNotImplemented)
+}
+
+// Validate checks the table's provenance and values.
+func (t LiveRateTable) Validate() error {
+	return fmt.Errorf("eval: LiveRateTable.Validate: %w", core.ErrNotImplemented)
+}
+
+// Schedule returns the RateSchedule for model, or false when the table does not price it.
+func (t LiveRateTable) Schedule(model string) (RateSchedule, bool) { return RateSchedule{}, false }
+
+// EstimateLiveLedger prices a (possibly multi-model) ledger against t.
+func EstimateLiveLedger(l RequestLedger, t LiveRateTable) (Money, Completeness) {
+	return Money{}, Completeness{}
+}

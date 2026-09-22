@@ -1,0 +1,43 @@
+{
+  "pid": 47396,
+  "args": [
+    "C:\\Users\\Quant\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-haiku-4-5-20251001",
+    "--max-turns",
+    "4",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Read"
+  ],
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/smoke1/project",
+  "turns": [
+    {
+      "msg": "Read notes.txt and tell me the release codeword. Reply in one short sentence.",
+      "ok": true,
+      "wall_s": 7.081
+    },
+    {
+      "msg": "/compact",
+      "ok": true,
+      "wall_s": 16.453
+    },
+    {
+      "msg": "Without reading any file again: what was the release codeword and which port must the config keep? One short sentence.",
+      "ok": true,
+      "wall_s": 2.42
+    }
+  ],
+  "exit": 0,
+  "wall_s": 26.357
+}
