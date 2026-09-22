@@ -56,7 +56,9 @@ func TestSearch_ReadsASharedChunkOncePerSearch(t *testing.T) {
 	ro, err := OpenReadOnly(tp.Root, tp.Store.cfg, Deps{Metrics: m, Clock: tp.Clock})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = ro.Close() })
-	fs := ro.(readOnlyStore).fs
+	rs, ok := ro.(readOnlyStore)
+	require.True(t, ok, "fixture: OpenReadOnly must return the package's readOnlyStore")
+	fs := rs.fs
 
 	hits, err := fs.Search(ctx, Query{Text: "needle"})
 	require.NoError(t, err)
