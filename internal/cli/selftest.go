@@ -114,6 +114,7 @@ func runSelfTestChecks(ctx context.Context, root string, env Env, clk core.Clock
 
 	cfg, cfgCheck := selfTestConfigLoad(env, root)
 	checks = append(checks, cfgCheck)
+	checks = append(checks, selfTestCaptureConfig(env, root))
 	checks = append(checks, selfTestWritable(root))
 	checks = append(checks, selfTestAppendOnlyGuard(root))
 
@@ -145,6 +146,43 @@ func selfTestConfigLoad(env Env, root string) (config.Config, selfTestCheck) {
 	return cfg, selfTestCheck{
 		ID: "config.load", OK: true, Severity: contract.SevInfo,
 		Expected: "configuration loads", Observed: "loaded",
+	}
+}
+
+// selfTestCaptureConfig asks the question config.load cannot: can the HOOK path load this
+// configuration, and does it apply all of it?
+//
+// config.load exercises the soft loader, which never refuses, so it said `ok` for a configuration
+// every hook refused — SP-18 found a project recording nothing while self-test passed, and that is
+// half of V6 close-out item C1.8. This runs the hook path's own config.LoadForCapture, read-only (it
+// persists nothing, unlike config.load's LoadConfigAndReport), and is never ok when capture would
+// refuse or degrade:
+//
+//   - refused: SevCritical, because every hook then admits nothing. The detail is the loader's own
+//     error, which names the structural class and never an input value;
+//   - applied with a fallback or a dropped key: SevWarn, naming every key, because capture continues;
+//   - applied as written: ok.
+func selfTestCaptureConfig(env Env, root string) selfTestCheck {
+	const expected = "hooks load the configuration as written"
+	_, _, violations, warnings, err := config.LoadForCapture(config.Env{
+		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
+	})
+	if err != nil {
+		return selfTestCheck{
+			ID: "config.capture", Severity: contract.SevCritical, Expected: expected,
+			Observed: "refused: every hook admits nothing", Detail: err.Error(),
+		}
+	}
+	if len(violations)+len(warnings) > 0 {
+		return selfTestCheck{
+			ID: "config.capture", Severity: contract.SevWarn, Expected: expected,
+			Observed: captureConfigDegradedSummary(violations, warnings),
+			Detail:   captureConfigKeys(violations, warnings),
+		}
+	}
+	return selfTestCheck{
+		ID: "config.capture", OK: true, Severity: contract.SevInfo, Expected: expected,
+		Observed: "applied as written",
 	}
 }
 
