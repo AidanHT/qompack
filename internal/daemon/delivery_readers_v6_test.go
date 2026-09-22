@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,8 +105,37 @@ func TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites(t *testin
 	t.Cleanup(func() { _ = lock.Release() })
 	m, err := store.NewMaintenance(s, root, store.MaintenanceOptions{Cfg: cfg, WriterLeaseHeld: lock.Heartbeat})
 	require.NoError(t, err)
-	_, err = m.TakeBackup(ctx, "segmented")
+	man, err := m.TakeBackup(ctx, "segmented")
 	require.NoError(t, err)
+	_, err = m.VerifyBackup("segmented")
+	require.NoError(t, err, "the segmented backup verifies")
+	// The backup holds every piece of segmented delivery state: the authority and its log, each
+	// segment's four journal/seal files (segment 0's seals frozen), and the generation store's
+	// manifest, head, packs and root pointers.
+	names := map[string]bool{}
+	packs, rootPointers := 0, 0
+	for _, f := range man.Files {
+		names[f.Name] = true
+		switch {
+		case strings.HasPrefix(f.Name, "state/delivery-generations/pages/packs/") && strings.HasSuffix(f.Name, radixPackSuffix):
+			packs++
+		case strings.HasPrefix(f.Name, "state/delivery-generations/pages/") && strings.HasSuffix(f.Name, radixRootSuffix):
+			rootPointers++
+		}
+	}
+	for _, want := range []string{
+		"state/" + deliverySegmentHeadFile, "state/" + deliverySegmentLogFile,
+		"state/delivery-generations/" + genLogFile, "state/delivery-generations/" + genHeadFile,
+		"state/" + deliveryLeaseFile, "state/" + deliveryPositionFile, "state/" + deliveryAckFile, "state/" + deliveryAckPositionFile,
+		"state/delivery-segments/00000000000000000002/" + deliveryLeaseFile,
+		"state/delivery-segments/00000000000000000002/" + deliveryPositionFile,
+		"state/delivery-segments/00000000000000000002/" + deliveryAckFile,
+		"state/delivery-segments/00000000000000000002/" + deliveryAckPositionFile,
+	} {
+		require.True(t, names[want], "the backup covers %s", want)
+	}
+	require.Positive(t, packs, "the backup covers the generation packs")
+	require.Positive(t, rootPointers, "the backup covers the generation root pointers")
 	restoreRoot := filepath.Join(t.TempDir(), "restored")
 	proof, err := m.Restore(ctx, "segmented", restoreRoot)
 	require.NoError(t, err)
