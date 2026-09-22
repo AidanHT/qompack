@@ -517,11 +517,19 @@ func parseLeafString(li leafInfo, raw string) (any, bool) {
 		}
 		return f, true
 	case kindInt:
-		n, err := strconv.ParseInt(raw, 10, 64)
+		// Parse at the platform int's width, then apply coerceLeafValue's own bound to the float64
+		// the merge carries. Parsing at 64 bits let a 32-bit target through past MaxInt32, and even
+		// at 64 bits every value from 2^63-512 to MaxInt64 rounds up to 2^63 as a float64, which
+		// fails fromMap's decode and so reset every layer to Defaults(), exactly like a NaN.
+		n, err := strconv.ParseInt(raw, 10, strconv.IntSize)
 		if err != nil {
 			return nil, false
 		}
-		return float64(n), true
+		f := float64(n)
+		if f < float64(math.MinInt) || f >= -float64(math.MinInt) {
+			return nil, false
+		}
+		return f, true
 	case kindStringSlice:
 		parts := strings.Split(raw, ",")
 		out := make([]any, len(parts))

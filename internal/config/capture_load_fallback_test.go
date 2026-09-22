@@ -90,6 +90,26 @@ func captureFallbackCases() []captureFallbackCase {
 			},
 		},
 		{
+			// 9223372036854775807 parses as an int64 and then rounds to 2^63 as a float64, which no
+			// Go int decodes: it must cost this leaf, not refuse the capture over the decode.
+			name:    "largest int64 environment value",
+			project: `{"checkpoint":{"budgetTokens":9000}}`,
+			env:     map[string]string{"QOMPACK_RUNTIME__DAEMON__MAXSESSIONS": "9223372036854775807"},
+			check: func(t *testing.T, cfg config.Config) {
+				require.Equal(t, def.Runtime.Daemon.MaxSessions, cfg.Runtime.Daemon.MaxSessions)
+				require.Equal(t, 9000, cfg.Checkpoint.BudgetTokens, "every other layer still applies")
+			},
+		},
+		{
+			name:    "largest int64 flag value",
+			project: `{"checkpoint":{"budgetTokens":9000}}`,
+			flags:   map[string]string{"runtime.daemon.maxSessions": "9223372036854775807"},
+			check: func(t *testing.T, cfg config.Config) {
+				require.Equal(t, def.Runtime.Daemon.MaxSessions, cfg.Runtime.Daemon.MaxSessions)
+				require.Equal(t, 9000, cfg.Checkpoint.BudgetTokens, "every other layer still applies")
+			},
+		},
+		{
 			name:  "unknown flag",
 			flags: map[string]string{"unknown.capture.option": "capture-secret"},
 		},
