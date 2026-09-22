@@ -240,7 +240,10 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		HeldOutIncluded: o.includeHeldOut, Host: runtime.GOOS + "/" + runtime.GOARCH,
 		Agent: "agent-executed on the real installed host (owner decision D3); not human UAT",
 	}
-	if contains(o.arms, eval.ArmQompack) {
+	if !contains(o.arms, eval.ArmQompack) {
+		// --install describes how the plugin reaches the host; a run with no plugin arm has none.
+		o.install, plan.Install = "none", "none"
+	} else {
 		id, idErr := readLiveBundle(o.bundle)
 		if idErr != nil {
 			return idErr

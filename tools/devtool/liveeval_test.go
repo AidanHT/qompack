@@ -105,6 +105,7 @@ func TestRunLiveEval_DryRunAndTheGate(t *testing.T) {
 	o := liveOptions{tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock"}, out: t.TempDir(), dryRun: true}
 	require.NoError(t, runLiveEval(context.Background(), o, env, &out))
 	require.Contains(t, out.String(), "plan: pilot-codeword/stock/1")
+	require.Contains(t, out.String(), "install none", "a run with no plugin arm installs nothing")
 	require.Contains(t, out.String(), "no session started")
 
 	o.arms = []string{"stock", "qompack"}
