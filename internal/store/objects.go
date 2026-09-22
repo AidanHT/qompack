@@ -281,14 +281,15 @@ func (s *FSStore) putObject(h core.Hash, plain []byte) (int64, bool, error) {
 // barrier must cover the object before committing a reference/frontier. Readers verify the
 // bytes they find; Has is an optimistic presence hint, not an integrity or durability witness.
 func (s *FSStore) writeStaged(tmp string, payload []byte) error {
-	f, err := paths.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	const flags = os.O_WRONLY | os.O_CREATE | os.O_EXCL | stagingOpenFlags
+	f, err := paths.OpenFile(tmp, flags, 0o600)
 	if err != nil {
 		// .qompack/tmp is created by EnsureLayout at Open, so the common path needs no MkdirAll at
 		// all. Create it only when it has actually gone missing, and retry once.
 		if mkErr := os.MkdirAll(paths.Long(s.l.Tmp), 0o700); mkErr != nil {
 			return err
 		}
-		if f, err = paths.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600); err != nil {
+		if f, err = paths.OpenFile(tmp, flags, 0o600); err != nil {
 			return err
 		}
 	}

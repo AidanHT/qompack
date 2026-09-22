@@ -4,6 +4,8 @@ package store
 
 import "os"
 
+// stagingOpenFlags adds nothing to writeStaged's exclusive create here.
+const stagingOpenFlags = 0
 
 // openObjectLeaf is the portable path-verified open, with no platform flags: Lstat, open, then a
 // Stat of the handle that os.SameFile must match. None of the three release targets

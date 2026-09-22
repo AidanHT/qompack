@@ -22,6 +22,11 @@ import (
 // darwin newFile already declines to poll a regular file, so the flag costs nothing there either.
 const objectOpenFlags = syscall.O_NOFOLLOW | syscall.O_NONBLOCK
 
+// stagingOpenFlags are added to writeStaged's exclusive create, for the second of the reasons above:
+// a staging file is a regular file this call creates, so O_NONBLOCK changes nothing about how it is
+// written, and it saves the same four fcntl calls on every novel object's open. O_NOFOLLOW is not
+// needed there: O_CREAT|O_EXCL already refuses to follow a link at the leaf.
+const stagingOpenFlags = syscall.O_NONBLOCK
 
 // openObjectLeaf opens the object at long through openObjectChecked, with the no-follow flags. The
 // Lstat stays: it keeps a device node or any other nonregular leaf from being opened at all, and on
