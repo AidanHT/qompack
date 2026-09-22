@@ -200,8 +200,10 @@ including `runtime.redact.enabled` and which keys are *refused* rather than disa
 configuration, check `state/config-violations.json` — it is where the product records any value it
 refused, including a newer `settingsVersion` reset.
 
-Recording can be disabled for privacy (`runtime.mode: "off"`) while whatever was already recorded
-stays retrievable: retrieval remains scoped to what host permission allows **today**, re-checked at
+Recording can be disabled for privacy (`runtime.mode: "off"`, spelled exactly; a value the hooks
+cannot apply, such as `"OFF"`, also stops recording but is reported as a configuration failure —
+[troubleshooting §6](troubleshooting.md#6-configuration-and-schema-compatibility)) while whatever
+was already recorded stays retrievable: retrieval remains scoped to what host permission allows **today**, re-checked at
 every request, not at capture time.
 
 ## 8. Scope
