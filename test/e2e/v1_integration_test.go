@@ -26,6 +26,7 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
@@ -63,8 +64,7 @@ type v1Call struct {
 	// payload carries.
 	//
 	// SessionStart's additionalContext carries a live §12.1 sentinel token the daemon mints per
-	// process (fix round 1, Minor M-2). PreCompact's customInstructions are a real sealed
-	// checkpoint's focus instruction, built from what this lifecycle actually observed.
+	// process (fix round 1, Minor M-2). It is the only call in the lifecycle that answers this way.
 	answersThroughHookOutput bool
 }
 
@@ -83,19 +83,16 @@ var v1Lifecycle = []v1Call{
 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", derive: asBashToolUse, logHook: "PostToolUse", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop"}, fixture: "stop", logHook: "Stop", wantStdout: "{}\n"},
 	{
-		// THIS ROW ONCE EXPECTED "{}", AND THAT WAS THE BUG, NOT THE CONTRACT. The shipped daemon
-		// could not seal a checkpoint on the first PreCompact of its life: wireCheckpointSources
-		// published a SourceSet whose Ledger was nil (negknow.Open is lazy on purpose),
-		// FileWriter.SetSources dropped it in silence, and the seam answered
-		// `hookSpecificOutput: null` behind a single Warn. A minimal "{}" here is that defect's
-		// own signature, so do not "restore" it: what it means is that a compaction threw the
-		// session's context away with nothing written down.
+		// "{}" IS THE HOST CONTRACT HERE, AND IT IS NOT, BY ITSELF, EVIDENCE OF A SEAL. Claude Code
+		// has no PreCompact hookSpecificOutput variant and rejects the whole response over one
+		// (C1.12: 2.1.280 answered this row's former focus-instruction output with "Hook JSON
+		// output validation failed"), and it discards a PreCompact systemMessage, so the empty
+		// object is the only conforming answer, sealed or not.
 		//
-		// PreCompact now answers the way SessionStart does -- through a hookSpecificOutput naming
-		// itself -- and carries the sealed checkpoint's focus instruction. See the PreCompact
-		// block in the loop below for what is asserted in place of the byte compare.
-		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact",
-		answersThroughHookOutput: true,
+		// That is why the first-PreCompact defect this row once guarded — no checkpoint on a
+		// daemon's first compaction, answered with that same "{}" — is caught by the artifact
+		// instead: see the PreCompact block in the loop below.
+		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact", wantStdout: "{}\n",
 	},
 	{argv: []string{"flush"}, fixture: "session_end", logHook: "SessionEnd", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop", "--subagent"}, fixture: "subagent_stop", logHook: "Stop", wantStdout: "{}\n"},
@@ -211,25 +208,27 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 			require.Equal(t, call.wantStdout, string(stdout), "call %d (%v): exact response shape", i+1, call.argv)
 		}
 
-		// PreCompact is the ONE call in this lifecycle that answers with content rather than with
-		// an acknowledgement, so it gets its own assertions. The customInstructions it returns are
-		// the only bytes this plugin ever puts back into the model's context, and §5.14 permits them
-		// to be built from the SourceSet -- durable, original content -- and from nothing else.
+		// PreCompact answers the host with nothing, so what it DID is read from what it left behind.
+		// The seal: a checkpoint artifact, which is exactly what the first-PreCompact defect never
+		// wrote. The rendered focus instruction: the route records it in the contract history
+		// (capped at 256 runes), the one durable surface it still reaches, and §5.14 permits it to be
+		// built from the SourceSet -- durable, original content -- and from nothing else, so no
+		// payload secret may appear there.
 		if call.logHook == "PreCompact" {
-			instr := out.HookSpecificOutput.CustomInstructions
-			require.NotEmpty(t, instr,
-				"call %d (%v): a sealed checkpoint must come back as customInstructions; empty here is "+
-					"the first-PreCompact defect, whose signature was a bare \"{}\" response", i+1, call.argv)
-			// Paragraph 1 is §8.5's standing focus instruction: always emitted, always first, and the
-			// whole of the first LINE, which is what contract.probePhrase scans a transcript tail for.
-			// It is computed from the package rather than pasted, so this row cannot drift from the
-			// text the daemon actually emits (and cannot re-key that probe by asserting a paraphrase).
+			require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root),
+				"call %d (%v): the PreCompact must seal a checkpoint; none here is the first-PreCompact "+
+					"defect, whose host-visible answer was the same \"{}\"", i+1, call.argv)
+			recorded := contract.LoadHistory(contract.HistoryPath(p.Root)).PrecompactInstr
+			require.NotEmpty(t, recorded, "call %d (%v): the route records the instruction it rendered", i+1, call.argv)
+			// Paragraph 1 is §8.5's standing focus instruction: always rendered, always first. It is
+			// computed from the package rather than pasted, so this row cannot drift from the text the
+			// daemon actually renders.
 			standing := checkpoint.FocusInstructions(checkpoint.Checkpoint{}, checkpoint.Ref{}, checkpoint.FocusOptions{})
-			require.Equal(t, standing, cpFirstLine(instr),
-				"the emitted instruction's first line is the standing focus paragraph\ninstructions:\n%s", instr)
+			require.True(t, strings.HasPrefix(standing, cpFirstLine(recorded)),
+				"the recorded instruction's first line is the standing focus paragraph, capped\nrecorded:\n%s", recorded)
 			for _, secret := range v1Secrets {
-				require.NotContains(t, instr, secret,
-					"customInstructions is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
+				require.NotContains(t, recorded, secret,
+					"the focus instruction is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
 			}
 		}
 	}

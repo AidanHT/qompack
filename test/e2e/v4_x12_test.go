@@ -77,7 +77,7 @@ func TestV4_DegradedPassiveWithEverySubsystem(t *testing.T) {
 
 	fullAC := rf.CompactStart(t, x12v4Session)
 	require.NotEmpty(t, fullAC, "in ModeFull a compact SessionStart DOES inject")
-	_, fullInstr := rf.PreCompact(t, x12v4Session)
+	_, fullInstr := rf.PreCompactReply(t, x12v4Session)
 	require.NotEmpty(t, fullInstr, "in ModeFull a PreCompact DOES emit customInstructions")
 
 	// ── The row proper: the same composition, degraded before the daemon exists ──────────────────
@@ -118,7 +118,7 @@ func TestV4_DegradedPassiveWithEverySubsystem(t *testing.T) {
 	}
 
 	// No customInstructions, no scheduler-initiated checkpoint, no drop report.
-	_, instr := r.PreCompact(t, x12v4Session)
+	_, instr := r.PreCompactReply(t, x12v4Session)
 	require.Empty(t, instr,
 		"the shipped route calls Services.PreCompact only when mode.MayAct(): degraded means the "+
 			"seam is never called at all")
