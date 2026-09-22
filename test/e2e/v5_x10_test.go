@@ -439,7 +439,7 @@ func x10v5FullModeArm(t *testing.T) {
 		"every echoed prompt is still captured verbatim — suppression is about the grammar, not recording")
 
 	// ── The checkpoint: the warning lands on no durable surface ──────────────────────────────────
-	cpOut, instr := r.PreCompact(t, x10v5Session)
+	cpOut, instr := r.PreCompactReply(t, x10v5Session)
 	require.NotNil(t, cpOut.HookSpecificOutput, "in ModeFull the PreCompact seam answers through hookSpecificOutput")
 	require.NotEmpty(t, instr, "a full-mode PreCompact emits customInstructions")
 	require.Equal(t, []string{"0001.json"}, cpCheckpointArtifacts(t, p.Root), "exactly one artifact must be sealed")

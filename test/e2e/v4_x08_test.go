@@ -83,7 +83,7 @@ func TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint(t *tes
 		"the payload the daemon emits is itself tagged, so the NEXT rehydration can strip it too")
 
 	// The next checkpoint, sealed from the same L0 material after that rehydration.
-	_, instr := r.PreCompact(t, x8v4Session)
+	_, instr := r.PreCompactReply(t, x8v4Session)
 	require.NotEmpty(t, instr)
 	require.NotContains(t, instr, x8v4Nonce,
 		"the emitted customInstructions must not carry the re-injected span either")

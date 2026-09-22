@@ -3,7 +3,9 @@
 // Wired: internal/store's SegmentLog closes and encodes real segments; internal/daemon's
 // advance_frontier idle task drives internal/checkpoint's FrontierAdvancer (unit G) over them; the
 // frontier the advancer commits is what FocusInstructions renders the span paragraph from; and the
-// paragraph itself arrives on `qompack checkpoint`'s stdout as a real process's customInstructions.
+// paragraph itself is read from the daemon's checkpoint reply over the real IPC transport. It no
+// longer reaches `qompack checkpoint`'s stdout: the host has no PreCompact hookSpecificOutput and
+// rejects one (C1.12), so the hook client withholds it (v4Rig.PreCompactReply).
 //
 // RETIRED CLAUSE (reconciliation map §4.3, row V4-SP10-13): this is LOCAL draft progress, not a
 // native O(1) context boundary. Nothing here asserts any host-side compaction effect, and the
@@ -72,7 +74,7 @@ func TestV4_O1SpanInstructionFromARealCheckpointFrontier(t *testing.T) {
 	r.SeedTurns(t, x3v4Session, "v4x03", 4)
 
 	// ── Arm 1, the negative control: no encoded evidence, so no span past turn 0 ──────────────────
-	_, instrNoEvidence := r.PreCompact(t, x3v4Session)
+	_, instrNoEvidence := r.PreCompactReply(t, x3v4Session)
 	require.NotEmpty(t, instrNoEvidence, "PreCompact must still emit instructions with no frontier")
 	artNoEvidence := x3v4ReadPreCompactArtifact(t, p.Root)
 	require.Equal(t, core.TurnIndex(0), artNoEvidence.Frontier,
@@ -115,7 +117,7 @@ func TestV4_O1SpanInstructionFromARealCheckpointFrontier(t *testing.T) {
 				"the committed frontier stands on", int(id))
 	}
 
-	_, instr := r.PreCompact(t, x3v4Session)
+	_, instr := r.PreCompactReply(t, x3v4Session)
 	require.NotEmpty(t, instr)
 	art := x3v4ReadPreCompactArtifact(t, p.Root)
 	require.Equal(t, x3v4FrontierTurn, art.Frontier,

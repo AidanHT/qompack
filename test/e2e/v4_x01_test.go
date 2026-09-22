@@ -93,7 +93,7 @@ func TestV4_PreCompactToCheckpointToRehydrateRoundTrip(t *testing.T) {
 	r.SeedTurns(t, x1v4Session, "v4x01", 6)
 
 	// ── PreCompact: the real writer seals the artifact ───────────────────────────────────────────
-	out, instr := r.PreCompact(t, x1v4Session)
+	out, instr := r.PreCompactReply(t, x1v4Session)
 	require.NotNil(t, out.HookSpecificOutput,
 		"in ModeFull the bound Services.PreCompact seam must answer through hookSpecificOutput")
 	require.NotEmpty(t, instr, "a full-mode PreCompact must emit customInstructions")

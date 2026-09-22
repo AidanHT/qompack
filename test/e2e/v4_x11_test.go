@@ -61,8 +61,9 @@ func TestV4_LiveSessionWriteSetAppendOnlyAndImmutability(t *testing.T) {
 	cpCloseObserverSegment(t, r.Segs, x11v4Session)
 	cpCloseSegment(t, r.Segs, x11v4Session, 0, 9)
 	r.RunIdle(t)
-	_, instr := r.PreCompact(t, x11v4Session)
-	require.NotEmpty(t, instr, "the row needs a sealed checkpoint to assert immutability on")
+	r.PreCompact(t, x11v4Session)
+	require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root),
+		"the row needs a sealed checkpoint to assert immutability on")
 	obsRunHook(t, r.Bin, []string{"flush"}, obsFlushPayload(t, p.Root, x11v4Session), env)
 
 	// SETTLE BEFORE SNAPSHOT — do not drop this, and do not move it below the assertions.
