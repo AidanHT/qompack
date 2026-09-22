@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
@@ -16,25 +17,44 @@ import (
 // permitted).
 const maxDecodedSize = 64 << 20
 
-// encoderPool holds package-level, reusable *zstd.Encoder values at zstd.SpeedDefault
+// maxEncoderConcurrency caps how many EncodeAll calls the shared encoder runs at once, and so how
+// many encoder states it keeps. It is klauspost/compress's own cap for its decoder's concurrency,
+// applied to the encoder: object writes spend most of their time in file operations rather than
+// in EncodeAll, so a fifth concurrent put waits for one chunk's encode, not for another put.
+const maxEncoderConcurrency = 4
+
+// sharedEncoder is the one *zstd.Encoder every Encode uses, at zstd.SpeedDefault
 // (00-ARCHITECTURE.md §3.3 "zstd-compressed"; §14.1 of
-// plans/V1-SP-01-foundation-toolchain-and-contracts.md). Constructing a zstd.Encoder allocates
-// internal tables that are expensive to rebuild per call, so Encode borrows one from this pool
-// instead of constructing one per invocation.
-var encoderPool = sync.Pool{
-	New: func() any {
-		// A nil io.Writer is the documented, supported way to build an Encoder for EncodeAll-only
-		// use (see the klauspost/compress/zstd README's own global-encoder example): EncodeAll
-		// never touches the underlying writer, so none is needed. NewWriter can only fail on a
-		// rejected option, and zstd.WithEncoderLevel(zstd.SpeedDefault) is always valid, so this
-		// panics rather than threading an unreachable error through sync.Pool.New's signature.
-		enc, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedDefault))
-		if err != nil {
-			panic(fmt.Sprintf("store: constructing pooled zstd.Encoder: %v", err))
-		}
-		return enc
-	},
-}
+// plans/V1-SP-01-foundation-toolchain-and-contracts.md). klauspost/compress documents EncodeAll as
+// safe for concurrent calls: the Encoder holds one encoder state per concurrency slot and lends
+// each call one of them.
+//
+// It is built once and kept for the life of the process, and that is the point of it (SP06-D2).
+// It replaces a sync.Pool of encoders, and a sync.Pool is emptied by every second garbage
+// collection — which is exactly what falls between the Encodes of a cold put. Each miss built a
+// new Encoder whose initialization allocates a match-table set (about 1.3 MB at SpeedDefault) for
+// EVERY concurrency slot, and the default is GOMAXPROCS slots: 28 MiB per rebuild on a 22-thread
+// host, most of it for slots the call never used. Kept, the encoder costs its slots' tables once.
+//
+// Concurrency does not reach the output: each EncodeAll encodes its input into one frame with one
+// slot's state, reset for the call, so an object's bytes are what a fresh encoder writes
+// (TestEncode_IsByteIdenticalToAFreshEncoder).
+var sharedEncoder = sync.OnceValue(func() *zstd.Encoder {
+	slots := runtime.GOMAXPROCS(0)
+	if slots > maxEncoderConcurrency {
+		slots = maxEncoderConcurrency
+	}
+	// A nil io.Writer is the documented, supported way to build an Encoder for EncodeAll-only use
+	// (see the klauspost/compress/zstd README's own global-encoder example): EncodeAll never
+	// touches the underlying writer, so none is needed. NewWriter can only fail on a rejected
+	// option, and both options here are always valid, so this panics rather than threading an
+	// unreachable error through every Encode.
+	enc, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedDefault), zstd.WithEncoderConcurrency(slots))
+	if err != nil {
+		panic(fmt.Sprintf("store: constructing the shared zstd.Encoder: %v", err))
+	}
+	return enc
+})
 
 // decoderPool holds package-level, reusable *zstd.Decoder values, each bounded to maxDecodedSize
 // so Decode can never be tricked into an unbounded allocation by a compression bomb (§13
@@ -44,7 +64,7 @@ var decoderPool = sync.Pool{
 		// A nil io.Reader is likewise the documented, supported way to build a Decoder for
 		// DecodeAll-only use. NewReader can only fail on a rejected option, and
 		// WithDecoderMaxMemory(maxDecodedSize) is always valid, so this panics for the same
-		// reason encoderPool.New does.
+		// reason sharedEncoder does.
 		dec, err := zstd.NewReader(nil, zstd.WithDecoderMaxMemory(maxDecodedSize))
 		if err != nil {
 			panic(fmt.Sprintf("store: constructing pooled zstd.Decoder: %v", err))
@@ -57,22 +77,7 @@ var decoderPool = sync.Pool{
 // plaintext object. A raw MaxPutBytes limit would reject valid incompressible encoded input.
 // The same configured encoder used by Encode defines the supported on-disk representation.
 func encodedObjectLimit() int64 {
-	pooled := encoderPool.Get()
-	enc, ok := pooled.(*zstd.Encoder)
-	if !ok {
-		// encoderPool is package-private and its New returns nothing but a *zstd.Encoder, so a
-		// value of any other type is a programming error in this package, not a runtime condition
-		// a caller could recover from. Unlike Encode and Decode this function has no error to
-		// return, and every limit it could invent instead is wrong in a way that fails silently: 0
-		// rejects every object, and an unpadded MaxPutBytes rejects valid incompressible input,
-		// which is the exact bug this function exists to avoid. Building a throwaway encoder would
-		// hide the same corruption behind an allocation on every call. So it panics, naming the
-		// type it actually got, exactly as encoderPool.New already panics on an option it cannot
-		// reject.
-		panic(fmt.Sprintf("store: encodedObjectLimit: encoder pool returned %T, want *zstd.Encoder", pooled))
-	}
-	defer encoderPool.Put(enc)
-	return int64(enc.MaxEncodedSize(MaxPutBytes))
+	return int64(sharedEncoder().MaxEncodedSize(MaxPutBytes))
 }
 
 // EncodedObjectLimit is the largest .zst object file readObjectFile will read before refusing it
@@ -89,15 +94,7 @@ func EncodedObjectLimit() int64 { return encodedObjectLimit() }
 // SP-06's real Put/PutBytes calls it directly to produce objects/ab/cd/<sha256>.zst, so it must
 // work correctly today even though the rest of this package is a stub.
 func Encode(b []byte) ([]byte, error) {
-	// The failed assertion's own variable is a typed nil, so %T on it would print the type this
-	// was hoping for rather than the one that arrived. The pooled value is what names the fault.
-	pooled := encoderPool.Get()
-	enc, ok := pooled.(*zstd.Encoder)
-	if !ok {
-		return nil, fmt.Errorf("store: Encode: encoder pool returned %T, want *zstd.Encoder", pooled)
-	}
-	defer encoderPool.Put(enc)
-	return enc.EncodeAll(b, make([]byte, 0, len(b))), nil
+	return sharedEncoder().EncodeAll(b, make([]byte, 0, len(b))), nil
 }
 
 // Decode returns the decompressed form of b, as produced by Encode. The decoder is bounded to
@@ -105,7 +102,9 @@ func Encode(b []byte) ([]byte, error) {
 // cap fails with an error instead of allocating without bound (§13 invariant 7). This is a real
 // implementation, not a stub — see Encode's doc comment.
 func Decode(b []byte) ([]byte, error) {
-	pooled := decoderPool.Get() // see Encode's own note on why the pooled value, not dec, names the fault
+	// The failed assertion's own variable is a typed nil, so %T on it would print the type this
+	// was hoping for rather than the one that arrived. The pooled value is what names the fault.
+	pooled := decoderPool.Get()
 	dec, ok := pooled.(*zstd.Decoder)
 	if !ok {
 		return nil, fmt.Errorf("store: Decode: decoder pool returned %T, want *zstd.Decoder", pooled)
