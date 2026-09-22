@@ -592,7 +592,16 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	//     delivery position is LIVE daemon state, not an archival artifact: a hand-written seal
 	//     beside a running daemon makes loadDeliveryPosition refuse the journal and publication
 	//     stalls, which would measure a race rather than a reader.
+	//
+	//     So it is also taken back out before the next daemon runs. Since c78f610 a delivery whose
+	//     journal refuses it is RETAINED pending rather than recorded without an identity, so a
+	//     session driven beside this seal indexes nothing by design; before that change the same
+	//     session was silently recorded unleased, which is the only reason (d) below ever passed with
+	//     the seal still in place. The daemon's own position bytes are kept and restored, and the
+	//     seal's bytes are checked unchanged at the point its only readers (fsck, doctor) are done.
 	sealPath := filepath.Join(l.State, "delivery-ack-position.json")
+	daemonSeal, err := os.ReadFile(paths.Long(sealPath))
+	require.NoError(t, err, "the daemon's own delivery position must exist after two sessions")
 	plant(sealPath, []byte(`{"v":2,"offset":0,"seq":0}`+"\n"))
 
 	report := installFsck(t, bin, root, home)
@@ -614,6 +623,14 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	stdout, stderr, code := Run(t, bin, []string{"doctor", "--project", root, "--json"}, nil, installEnvFor(root, home))
 	require.Equal(t, 0, code, "doctor --json: %s", stderr)
 	installAssertDoctorJSON(t, stdout, root)
+
+	// The seal's readers are done: neither rewrote it, and the daemon's own position goes back
+	// before any daemon runs over this project again (see (c) above).
+	sealSum, err := installFileSHA256(sealPath)
+	require.NoError(t, err)
+	require.Equal(t, planted[sealPath], sealSum, "a newer-than-this-build seal must never be rewritten")
+	require.NoError(t, os.WriteFile(paths.Long(sealPath), daemonSeal, 0o600))
+	delete(planted, sealPath)
 
 	// (d) a config section whose settingsVersion is newer than this build understands, with a
 	//     switch a newer file could set planted beside it so the reset is observable.
