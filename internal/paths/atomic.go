@@ -36,12 +36,14 @@ func rootOf(p string) (string, bool) {
 	}
 }
 
-// tmpDirFor returns the directory WriteAtomic stages into for a write to p: <root>/.qompack/tmp
-// when p resolves to a project root, so the finishing rename is same-volume by construction and
-// can never cross a volume boundary; filepath.Dir(p) otherwise, for callers exercising
-// WriteAtomic outside any .qompack tree.
-func tmpDirFor(p string) string {
-	if root, ok := rootOf(p); ok {
+// tmpDirFor returns the directory WriteAtomic stages into for a write to p, given rootOf(p)'s
+// answer (root, inRoot): <root>/.qompack/tmp when p resolves to a project root, so the finishing
+// rename is same-volume by construction and can never cross a volume boundary; filepath.Dir(p)
+// otherwise, for callers exercising WriteAtomic outside any .qompack tree. It takes the walk's
+// result rather than walking again, because WriteAtomic has already walked for its protected-path
+// check and each walk costs up to one stat per ancestor directory.
+func tmpDirFor(p, root string, inRoot bool) string {
+	if inRoot {
 		return Of(root).Tmp
 	}
 	return filepath.Dir(p)
@@ -116,6 +118,20 @@ func fsyncDir(dir string) error {
 // no-op on Windows.
 func SyncDir(dir string) error { return fsyncDir(dir) }
 
+// ownerWriteBit is the permission bit Windows' os.Chmod reads: it maps the whole mode onto the
+// FILE_ATTRIBUTE_READONLY attribute, set when this bit is clear and cleared when it is set.
+const ownerWriteBit fs.FileMode = 0o200
+
+// chmodChangesStagingFile reports whether WriteAtomic's Chmod of its fresh staging file to perm can
+// change anything. Off Windows it always can: a POSIX mode has more than one bit, and umask may have
+// narrowed what os.CreateTemp created. On Windows os.Chmod only sets or clears READONLY
+// (GOROOT/src/syscall/syscall_windows.go Chmod), and os.CreateTemp's 0o600 create never sets it, so
+// a perm that keeps the owner-write bit asks to clear an attribute the file does not have — and the
+// call would still spend a GetFileAttributes and a SetFileAttributes path lookup saying so.
+func chmodChangesStagingFile(perm fs.FileMode) bool {
+	return runtime.GOOS != "windows" || perm&ownerWriteBit == 0
+}
+
 // WriteAtomic writes b to p durably and atomically: stage in a temp file under the project's
 // .qompack/tmp (same volume as p by construction), Sync the temp file, Chmod it to perm, Rename
 // it onto p, then fsync p's parent directory. It refuses outright to write a §7.4 protected
@@ -128,7 +144,7 @@ func WriteAtomic(p string, b []byte, perm fs.FileMode) error {
 		return fmt.Errorf("%w: WriteAtomic on protected path %s", core.ErrAppendOnly, p)
 	}
 
-	dir := tmpDirFor(p)
+	dir := tmpDirFor(p, root, ok)
 	if err := os.MkdirAll(Long(dir), 0o700); err != nil {
 		return err
 	}
@@ -137,7 +153,15 @@ func WriteAtomic(p string, b []byte, perm fs.FileMode) error {
 		return err
 	}
 	tmp := f.Name()
-	defer func() { _ = os.Remove(Long(tmp)) }()
+	// The staging file is removed on every path that leaves it behind, and only on those: after a
+	// successful rename it no longer exists, and removing it anyway cost a failed delete and a
+	// failed rmdir on every successful write.
+	renamed := false
+	defer func() {
+		if !renamed {
+			_ = os.Remove(Long(tmp))
+		}
+	}()
 
 	if _, err := f.Write(b); err != nil {
 		_ = f.Close()
@@ -150,11 +174,14 @@ func WriteAtomic(p string, b []byte, perm fs.FileMode) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	if err := os.Chmod(Long(tmp), perm); err != nil {
-		return err
+	if chmodChangesStagingFile(perm) {
+		if err := os.Chmod(Long(tmp), perm); err != nil {
+			return err
+		}
 	}
 	if err := renameWithRetry(Long(tmp), Long(p)); err != nil {
 		return err
 	}
+	renamed = true
 	return fsyncDir(filepath.Dir(p))
 }
