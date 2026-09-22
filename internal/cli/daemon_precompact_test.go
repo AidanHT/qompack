@@ -100,13 +100,15 @@ func TestDaemonFirstPreCompactSealsCheckpoint(t *testing.T) {
 
 	out := runCheckpointHook(t, root, sess)
 
-	// The host's half of the contract: a PreCompact that sealed something says so, and what it
-	// says is the O1 focus paragraph. `hookSpecificOutput: null` is exactly what the defect
-	// produced.
-	require.NotNil(t, out.HookSpecificOutput,
-		"the first PreCompact of a daemon's life must return customInstructions, not a null hookSpecificOutput")
-	require.NotEmpty(t, out.HookSpecificOutput.CustomInstructions,
-		"the emitted customInstructions must be the O1 focus paragraph")
+	// The host's half of the contract is the EMPTY response. This row used to require
+	// customInstructions on stdout, as its signal that the seal happened; Claude Code 2.1.280
+	// rejects exactly that shape ("hookSpecificOutput.hookEventName: expected one of …", C1.12),
+	// because no PreCompact hookSpecificOutput variant exists. So the seal is proven below from the
+	// artifact itself — which is what the defect this row was written for actually lacked — and
+	// stdout is held to the documented contract instead.
+	require.Nil(t, out.HookSpecificOutput,
+		"PreCompact accepts no hookSpecificOutput; the host rejects the whole response over one")
+	require.Empty(t, out.SystemMessage, "the host discards a PreCompact systemMessage")
 
 	// The durable half: an artifact on disk, chained at seq 1, readable and verifiable through the
 	// shipped reader rather than by re-parsing the file this test just found.
