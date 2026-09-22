@@ -133,6 +133,22 @@ func TestRunLiveEval_OfflineTrialsBothArms(t *testing.T) {
 	out := t.TempDir()
 	t.Setenv(liveEvalGateEnv, "1")
 
+	// Mirror what 2.1.280 did in the marketplace rehearsal: install copies the bundle into the
+	// global plugin cache, and uninstall leaves that copy behind marked .orphaned_at.
+	cache := filepath.Join(home, "plugins", "cache", liveMarketplaceName, livePluginName, "9.9.9-test")
+	recordCLI := env.cli
+	env.cli = func(ctx context.Context, dir string, args ...string) liveCLIResult {
+		if len(args) > 1 && args[0] == "plugin" {
+			switch args[1] {
+			case "install":
+				require.NoError(t, copyTree(bundle, cache))
+			case "uninstall":
+				require.NoError(t, os.WriteFile(filepath.Join(cache, orphanedMarker), []byte("1"), 0o600))
+			}
+		}
+		return recordCLI(ctx, dir, args...)
+	}
+
 	o := liveOptions{
 		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock", "qompack"}, out: out,
 		install: liveInstallMarketplace, bundle: bundle, idleExit: 1, trials: 1,
@@ -178,6 +194,9 @@ func TestRunLiveEval_OfflineTrialsBothArms(t *testing.T) {
 		"plugin marketplace add", "plugin install qompack@qompack-live-eval --scope local -y",
 		"plugin uninstall qompack@qompack-live-eval --scope local -y", "plugin marketplace remove qompack-live-eval",
 	}, cliCalls)
+
+	require.NoDirExists(t, filepath.Join(home, "plugins", "cache", liveMarketplaceName),
+		"the orphaned copy of this run's bundle is removed")
 
 	var sum eval.LiveSummary
 	readJSON(t, filepath.Join(out, "summary.json"), &sum)
@@ -454,4 +473,44 @@ func readJSON(t *testing.T, path string, v any) {
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(raw, v))
+}
+
+// TestRemoveOrphanedMarketplaceCache: after `plugin uninstall` Claude Code 2.1.280 keeps the
+// uninstalled copy under plugins/cache/<marketplace>/ with an .orphaned_at marker for its own later
+// sweep (observed in the marketplace rehearsal). The driver removes that copy only when the trial
+// created it, the host marked every version orphaned, and every version is this run's bundle.
+func TestRemoveOrphanedMarketplaceCache(t *testing.T) {
+	bundleJSON := []byte(`{"name":"qompack","version":"1"}`)
+	setup := func(t *testing.T, orphaned bool, identity []byte) (*liveEnv, string) {
+		t.Helper()
+		home := t.TempDir()
+		v := filepath.Join(home, "plugins", "cache", liveMarketplaceName, livePluginName, "1")
+		require.NoError(t, os.MkdirAll(v, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(v, identityFileName), identity, 0o600))
+		if orphaned {
+			require.NoError(t, os.WriteFile(filepath.Join(v, ".orphaned_at"), []byte("1790117032484"), 0o600))
+		}
+		return &liveEnv{home: home}, filepath.Join(home, "plugins", "cache", liveMarketplaceName)
+	}
+	sum := sha256Hex(bundleJSON)
+
+	env, dir := setup(t, true, bundleJSON)
+	require.Empty(t, env.removeOrphanedMarketplaceCache(liveGuardSnap{}, sum))
+	require.NoDirExists(t, dir)
+
+	env, dir = setup(t, false, bundleJSON)
+	left := env.removeOrphanedMarketplaceCache(liveGuardSnap{}, sum)
+	require.Len(t, left, 1)
+	require.Contains(t, left[0], "not marked orphaned")
+	require.DirExists(t, dir)
+
+	env, dir = setup(t, true, []byte(`{"someone":"else"}`))
+	left = env.removeOrphanedMarketplaceCache(liveGuardSnap{}, sum)
+	require.Len(t, left, 1)
+	require.Contains(t, left[0], "not this run's bundle")
+	require.DirExists(t, dir)
+
+	env, dir = setup(t, true, bundleJSON)
+	require.Empty(t, env.removeOrphanedMarketplaceCache(liveGuardSnap{"plugins/cache/" + liveMarketplaceName: "present"}, sum))
+	require.DirExists(t, dir, "a cache that existed before the trial is never touched")
 }

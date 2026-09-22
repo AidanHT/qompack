@@ -469,6 +469,9 @@ func (lt liveTrialRun) run(ctx context.Context) (eval.LiveTrial, error) {
 	for i := len(cleanup) - 1; i >= 0; i-- {
 		guard.Leftovers = append(guard.Leftovers, cleanup[i]()...)
 	}
+	if lt.arm == eval.ArmQompack && o.install == liveInstallMarketplace {
+		guard.Leftovers = append(guard.Leftovers, env.removeOrphanedMarketplaceCache(before, lt.plugin.BundleSHA256)...)
+	}
 	guard.Leftovers = append(guard.Leftovers, env.removeCreatedPluginData(before)...)
 
 	after, err := env.guardSnapshot()

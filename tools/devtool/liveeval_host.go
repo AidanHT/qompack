@@ -547,3 +547,40 @@ func (e *liveEnv) removeCreatedPluginData(before liveGuardSnap) []string {
 	}
 	return left
 }
+
+// orphanedMarker is the file Claude Code writes into a plugin cache version it no longer uses after
+// `plugin uninstall`; the host sweeps such versions later on its own schedule.
+const orphanedMarker = ".orphaned_at"
+
+// removeOrphanedMarketplaceCache removes <home>/plugins/cache/<liveMarketplaceName> when the trial
+// created it (absent from before), the host marked every version in it orphaned, and every version
+// is this run's bundle (its BUNDLE.json hashes to bundleSHA). That copy is the run's own artifact,
+// left for the host's later sweep, and removing it is what returns the operator's configuration to
+// the state the guard recorded. Anything else is named for the guard and never removed.
+func (e *liveEnv) removeOrphanedMarketplaceCache(before liveGuardSnap, bundleSHA string) []string {
+	rel := "plugins/cache/" + liveMarketplaceName
+	if before[rel] == "present" {
+		return nil
+	}
+	dir := filepath.Join(e.home, filepath.FromSlash(rel))
+	versions, err := filepath.Glob(filepath.Join(dir, "*", "*"))
+	if err != nil || len(versions) == 0 {
+		if _, statErr := os.Stat(dir); statErr == nil {
+			return []string{rel + " (created by the trial; holds no plugin version the driver recognises)"}
+		}
+		return nil
+	}
+	for _, v := range versions {
+		if _, err := os.Stat(filepath.Join(v, orphanedMarker)); err != nil {
+			return []string{rel + " (created by the trial and not marked orphaned by the host: the uninstall did not complete)"}
+		}
+		raw, err := os.ReadFile(filepath.Join(v, identityFileName))
+		if err != nil || sha256Hex(raw) != bundleSHA {
+			return []string{rel + " (created by the trial but " + filepath.Base(v) + " is not this run's bundle)"}
+		}
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return []string{rel + " (orphaned copy of this run's bundle could not be removed: " + err.Error() + ")"}
+	}
+	return nil
+}
