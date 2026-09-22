@@ -277,11 +277,4 @@ func nonEmptyLines(data []byte) int {
 // clipRunes bounds a detail string so one failed check cannot bloat a trial record.
 const clipRunes = 160
 
-func clip(s string) string {
-	s = strings.TrimSpace(s)
-	r := []rune(s)
-	if len(r) <= clipRunes {
-		return s
-	}
-	return string(r[:clipRunes]) + "…"
-}
+func clip(s string) string { return boundRunes(s, clipRunes) }

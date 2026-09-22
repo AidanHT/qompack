@@ -73,32 +73,42 @@ func TestLiveTaskSet_ValidationRefusesEveryMalformedShape(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &m))
 		return m
 	}
-	task := func(m map[string]any) map[string]any { return m["tasks"].([]any)[0].(map[string]any) }
-	check := func(m map[string]any, i int) map[string]any { return task(m)["checks"].([]any)[i].(map[string]any) }
+	obj := func(v any) map[string]any {
+		m, ok := v.(map[string]any)
+		require.True(t, ok, "%T is not an object", v)
+		return m
+	}
+	arr := func(v any) []any {
+		a, ok := v.([]any)
+		require.True(t, ok, "%T is not an array", v)
+		return a
+	}
+	task := func(m map[string]any) map[string]any { return obj(arr(m["tasks"])[0]) }
+	check := func(m map[string]any, i int) map[string]any { return obj(arr(task(m)["checks"])[i]) }
 
 	cases := map[string]struct {
 		mutate func(m map[string]any)
 		want   string
 	}{
 		"unknown key":      {func(m map[string]any) { task(m)["chekcs"] = []any{} }, "unknown field"},
-		"no model":         {func(m map[string]any) { m["analysis"].(map[string]any)["model"] = "" }, "pre-registered model"},
+		"no model":         {func(m map[string]any) { obj(m["analysis"])["model"] = "" }, "pre-registered model"},
 		"escaping fixture": {func(m map[string]any) { task(m)["fixture"] = "../outside" }, "stay beneath"},
 		"compaction first": {func(m map[string]any) {
-			steps := task(m)["steps"].([]any)
+			steps := arr(task(m)["steps"])
 			task(m)["steps"] = []any{steps[1], steps[0], steps[2]}
 		}, "nothing to compact"},
 		"no compaction": {func(m map[string]any) {
-			steps := task(m)["steps"].([]any)
+			steps := arr(task(m)["steps"])
 			task(m)["steps"] = []any{steps[0], steps[2]}
 		}, "no compaction step"},
-		"slash prompt":         {func(m map[string]any) { task(m)["steps"].([]any)[0].(map[string]any)["prompt"] = "/clear" }, "may not start with '/'"},
+		"slash prompt":         {func(m map[string]any) { obj(arr(task(m)["steps"])[0])["prompt"] = "/clear" }, "may not start with '/'"},
 		"answer on compact":    {func(m map[string]any) { check(m, 0)["step"] = "compact" }, "not a prompt step"},
 		"tool check on prompt": {func(m map[string]any) { check(m, 3)["step"] = "run" }, "not a compaction step"},
 		"arbitrary command":    {func(m map[string]any) { check(m, 5)["argv"] = []any{"rm", "-rf", "."} }, "may run only"},
 		"bad regex":            {func(m map[string]any) { check(m, 1)["pattern"] = "(" }, "missing closing"},
 		"unknown outcome":      {func(m map[string]any) { check(m, 1)["outcome"] = "vibes" }, "not task, constraint or recovery"},
 		"duplicate check": {func(m map[string]any) {
-			checks := task(m)["checks"].([]any)
+			checks := arr(task(m)["checks"])
 			task(m)["checks"] = append(checks, checks[0])
 		}, "declared twice"},
 	}
