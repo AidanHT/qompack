@@ -1,0 +1,74 @@
+=== RUN   TestPlatform_HookLauncherForms
+    shell_test.go:155: exec plain PostToolUse: exit 0
+          exe:    C:\Users\Quant\AppData\Local\Temp\qompack-platform-4109896606\plugplain\bin\qompack.exe
+          argv:   ["observe" "tool"]
+          stdout: {}
+        
+          stderr: 
+    shell_test.go:155: exec spaced PostToolUse: exit 0
+          exe:    C:\Users\Quant\AppData\Local\Temp\qompack-platform-4109896606\plug in ünï\bin\qompack.exe
+          argv:   ["observe" "tool"]
+          stdout: {}
+        
+          stderr: 
+    shell_test.go:155: exec spaced UserPromptSubmit: exit 0
+          exe:    C:\Users\Quant\AppData\Local\Temp\qompack-platform-4109896606\plug in ünï\bin\qompack.exe
+          argv:   ["observe" "prompt"]
+          stdout: {}
+        
+          stderr: 
+    shell_test.go:155: exec spaced Stop: exit 0
+          exe:    C:\Users\Quant\AppData\Local\Temp\qompack-platform-4109896606\plug in ünï\bin\qompack.exe
+          argv:   ["observe" "stop"]
+          stdout: {}
+        
+          stderr: 
+    shell_test.go:155: exec spaced SessionStart: exit 0
+          exe:    C:\Users\Quant\AppData\Local\Temp\qompack-platform-4109896606\plug in ünï\bin\qompack.exe
+          argv:   ["session-start"]
+          stdout: {}
+        
+          stderr: 
+    shell_test.go:155: exec spaced PreCompact: exit 0
+          exe:    C:\Users\Quant\AppData\Local\Temp\qompack-platform-4109896606\plug in ünï\bin\qompack.exe
+          argv:   ["checkpoint"]
+          stdout: {}
+        
+          stderr: 
+    shell_test.go:155: exec spaced SessionEnd: exit 0
+          exe:    C:\Users\Quant\AppData\Local\Temp\qompack-platform-4109896606\plug in ünï\bin\qompack.exe
+          argv:   ["flush"]
+          stdout: {}
+        
+          stderr: 
+    shell_test.go:155: exec spaced SubagentStop: exit 0
+          exe:    C:\Users\Quant\AppData\Local\Temp\qompack-platform-4109896606\plug in ünï\bin\qompack.exe
+          argv:   ["observe" "stop" "--subagent"]
+          stdout: {}
+        
+          stderr: 
+    shell_test.go:173: platform hook-exec-form: verified — every hooks.json entry and .mcp.json is exec form naming exactly ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe; spawned directly as the host does, each exits 0 with parseable stdout from a spaced, non-ASCII install directory
+          detail:   control "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-4109896606\\plugplain" exited 0; 7 entries run from "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-4109896606\\plug in ünï"; `shell` absent and ignored by the host when args is set, so no host shell choice reaches these launches
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_HookLauncherForms1275232424\001\hook-exec-form.json
+    shell_test.go:183: platform shell-form-contrast-gitbash: verified — recorded contrast, not asserted: the pre-C1.11 shell-form hook string under Git Bash
+          detail:   shell C:\Program Files\Git\usr\bin\bash.exe (found at the Git for Windows install location under %ProgramFiles%); script "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe tool"; CLAUDE_PLUGIN_ROOT="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-4109896606\\plug in ünï"; exit 0; stderr: 
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_HookLauncherForms1275232424\001\shell-form-contrast-gitbash.json
+    shell_test.go:183: platform shell-form-contrast-powershell: verified — recorded contrast, not asserted: the pre-C1.11 shell-form hook string under PowerShell, the shell a Windows host uses when Git Bash is not installed
+          detail:   shell C:\Program Files\PowerShell\7\pwsh.exe; script "\"${env:CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe tool"; CLAUDE_PLUGIN_ROOT="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-4109896606\\plug in ünï"; exit 1; stderr: ParserError: 
+        Line |
+           1 |  "${env:CLAUDE_PLUGIN_ROOT}/bin/qompack" observe tool
+             |                                          ~~~~~~~
+             | Unexpected token 'observe' in expression or statement.
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_HookLauncherForms1275232424\001\shell-form-contrast-powershell.json
+    shell_test.go:183: shell-form contrast under PowerShell: exit 1
+        ParserError: 
+        Line |
+           1 |  "${env:CLAUDE_PLUGIN_ROOT}/bin/qompack" observe tool
+             |                                          ~~~~~~~
+             | Unexpected token 'observe' in expression or statement.
+    shell_test.go:189: platform hook-launcher-forms: verified — the hook launcher matrix ran (10 launches); the shipped exec form passed every one it asserts
+          detail:   10 launches against "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-4109896606\\plugplain" and "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-4109896606\\plug in ünï"
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_HookLauncherForms1275232424\001\hook-launcher-forms.json
+--- PASS: TestPlatform_HookLauncherForms (44.61s)
+PASS
+ok  	github.com/qompack/qompack/test/platform	48.313s
