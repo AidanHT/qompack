@@ -468,6 +468,26 @@ func TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything(t *testing.T) {
 			file: `{"checkpoint":{"budgetTokens":9000},"retrieval":{"promoteAfterExpansions":1e300}}`,
 			key:  "retrieval.promoteAfterExpansions",
 		},
+		// MaxInt64 parses as an int64, but float64 cannot hold it: every value from 2^63-512 up
+		// rounds to 2^63, which no Go int decodes. On a 32-bit target anything past MaxInt32 fails
+		// the same decode. Either way it must be this one leaf's warning.
+		{
+			name: "largest int64 environment value",
+			file: `{"checkpoint":{"budgetTokens":9000}}`,
+			env:  map[string]string{"QOMPACK_RUNTIME__DAEMON__MAXSESSIONS": "9223372036854775807"},
+			key:  "runtime.daemon.maxSessions",
+		},
+		{
+			name:  "largest int64 flag value",
+			file:  `{"checkpoint":{"budgetTokens":9000}}`,
+			flags: map[string]string{"runtime.daemon.maxSessions": "9223372036854775807"},
+			key:   "runtime.daemon.maxSessions",
+		},
+		{
+			name: "largest int64 literal in a file",
+			file: `{"checkpoint":{"budgetTokens":9000},"runtime":{"daemon":{"maxSessions":9223372036854775807}}}`,
+			key:  "runtime.daemon.maxSessions",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := baseEnv(t)
