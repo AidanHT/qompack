@@ -369,16 +369,22 @@ func equalFold(buf []byte, lit string) bool {
 // anyway, so emitting one would only cost a slot in the sort.
 func ruleMatches(in []byte, rules []reRule) []Match {
 	var dst []Match
+	// A buffer with no carriage return and no ESC anywhere has only plain lines, which is the
+	// common case; asking once here spares every per-line rule re-scanning every line for them.
+	allPlain := isPlainLine(in)
 	for i := range rules {
 		r := &rules[i]
 		if r.perLine {
 			forEachLine(in, func(start, end int) {
 				line := in[start:end]
 				switch {
-				case !r.triggered(line):
-				case r.plain != nil && isPlainLine(line):
-					dst = appendPlainLineSpans(dst, r, line, start)
-				default:
+				case r.plain != nil && (allPlain || isPlainLine(line)):
+					// The lead check first: it looks at the line's first few bytes, where the
+					// need literals' search reads the whole line. Both are necessary conditions.
+					if hasPlainLead(line, r.plainLead) && r.triggered(line) {
+						dst = appendPlainLineSpans(dst, r, line, start)
+					}
+				case r.triggered(line):
 					dst = appendRuleSpans(dst, r, line, start)
 				}
 			})
@@ -412,11 +418,7 @@ func appendRuleSpans(dst []Match, r *reRule, buf []byte, base int) []Match {
 // at the start of the line and matches no empty string, so the whole-line scan it replaces could
 // not have found a second one either.
 func appendPlainLineSpans(dst []Match, r *reRule, line []byte, base int) []Match {
-	k := 0
-	for k < len(line) && (line[k] == ' ' || line[k] == '\t') {
-		k++
-	}
-	if !bytes.HasPrefix(line[k:], []byte(r.plainLead)) {
+	if !hasPlainLead(line, r.plainLead) {
 		return dst
 	}
 	loc := r.plain.FindSubmatchIndex(line)
@@ -431,6 +433,15 @@ func appendPlainLineSpans(dst []Match, r *reRule, line []byte, base int) []Match
 		dst = append(dst, Match{Offset: base + lo, Len: hi - lo, Token: r.token, Class: r.class})
 	}
 	return dst
+}
+
+// hasPlainLead reports whether line, past its leading spaces and tabs, begins with lead.
+func hasPlainLead(line []byte, lead string) bool {
+	k := 0
+	for k < len(line) && (line[k] == ' ' || line[k] == '\t') {
+		k++
+	}
+	return bytes.HasPrefix(line[k:], []byte(lead))
 }
 
 // isPlainLine reports whether line holds neither a carriage return nor an ESC byte, which is when a
