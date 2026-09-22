@@ -468,3 +468,63 @@ func TestGCSegments_UnmigratedTreeStaysLegacy(t *testing.T) {
 	_, err = tp.Store.GetRoot(ctx, leased.Hash)
 	require.NoError(t, err, "the legacy segment 0 lease is harvested exactly as before segments existed")
 }
+
+// frozenSealBytes renders a canonical frozen segment-0 seal (the daemon's old-reader barrier, mirrored
+// by dsealFrozen) sealing an empty journal with the given seed.
+func frozenSealBytes(t *testing.T, seed core.Hash) []byte {
+	t.Helper()
+	b, err := json.Marshal(dsealFrozen{Format: dsealFrozenFormat, Segment: 0, Chain: seed})
+	require.NoError(t, err)
+	require.True(t, dsealParseFrozen(b, seed), "fixture: a canonical frozen seal")
+	return b
+}
+
+// TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment: once the store has rotated, segment
+// 0's seals are frozen and GC harvests it normally. The same document is refused anywhere it cannot
+// legitimately be: on a later segment, or on segment 0 while it is still the active segment.
+func TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment(t *testing.T) {
+	ctx := context.Background()
+	freeze := func(t *testing.T, tp *testProject, active uint64) {
+		t.Helper()
+		dir := segDirOf(tp, active)
+		require.NoError(t, os.WriteFile(paths.Long(filepath.Join(dir, deliveryLeasePositionFile)),
+			frozenSealBytes(t, dsealLeaseSeed), 0o600))
+		require.NoError(t, os.WriteFile(paths.Long(filepath.Join(dir, deliveryAckPositionFile)),
+			frozenSealBytes(t, dsealAckSeed), 0o600))
+	}
+
+	t.Run("archived segment 0", func(t *testing.T) {
+		tp := newTestStore(t)
+		leased := gcSeed(t, tp, "src/leased.txt", "held by an open lease in segment 1\n")
+		installSegAuthority(t, tp, []segSpec{{0, ""}, {1, segBaseRoot("seg1")}})
+		freeze(t, tp, 0)
+		writeSegJournal(t, tp, 1, deliveryLeaseFile,
+			leaseLine(deliveryNonce("1"), leased.Hash.String(), obsIDText("frozen")))
+		rep, err := tp.Store.GC(ctx, forceCollect)
+		require.NoError(t, err)
+		require.False(t, rep.RetentionRootsError, "a frozen seal on the archived legacy segment is accepted")
+		_, err = tp.Store.GetRoot(ctx, leased.Hash)
+		require.NoError(t, err)
+	})
+	for _, tc := range []struct {
+		name   string
+		specs  []segSpec
+		frozen uint64
+	}{
+		{"a later segment", []segSpec{{0, ""}, {1, segBaseRoot("seg1")}}, 1},
+		{"segment 0 while active", []segSpec{{0, ""}}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tp := newTestStore(t)
+			doomed := gcSeed(t, tp, "src/doomed.txt", "collectable only if the pass runs\n")
+			installSegAuthority(t, tp, tc.specs)
+			freeze(t, tp, tc.frozen)
+			rep, err := tp.Store.GC(ctx, forceCollect)
+			require.NoError(t, err)
+			require.True(t, rep.RetentionRootsError, "a frozen seal where none can be halts the pass")
+			require.Zero(t, rep.DeletedObjects)
+			_, err = tp.Store.GetRoot(ctx, doomed.Hash)
+			require.NoError(t, err)
+		})
+	}
+}

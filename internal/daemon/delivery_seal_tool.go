@@ -363,7 +363,9 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRo
 		arrivalBase = func(s core.SessionID) (uint64, bool, error) { return gv.arrivalAt(ctx, br, s) }
 	}
 
-	leasePos, window, err := gv.checkLeaseJournal(ctx, segRoot, deliveryLeaseFile, deliveryPositionFile, arrivalBase, !active)
+	// Only the ARCHIVED legacy segment carries frozen seals (the old-reader barrier).
+	frozenOK := t.Active == 0 && !active
+	leasePos, window, err := gv.checkLeaseJournal(ctx, segRoot, deliveryLeaseFile, deliveryPositionFile, arrivalBase, !active, frozenOK)
 	if err != nil {
 		return fmt.Errorf("%s: segment %d: the lease journal does not check read-only against its seal, "+
 			"its predecessor arrivals and the generation store; nothing was written: %w",
@@ -376,7 +378,7 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRo
 	if !active {
 		window = nil
 	}
-	ackPos, err := gv.checkAckJournal(ctx, segRoot, deliveryAckFile, deliveryAckPositionFile, window)
+	ackPos, err := gv.checkAckJournal(ctx, segRoot, deliveryAckFile, deliveryAckPositionFile, window, frozenOK)
 	if err != nil {
 		return fmt.Errorf("%s: segment %d: the ack journal does not check read-only against its seal and "+
 			"the generation store; nothing was written: %w", deliverySealToolName, t.Active, err)

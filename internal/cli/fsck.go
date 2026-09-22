@@ -1659,6 +1659,23 @@ func (s *fsckScan) checkDelivery() fsckCheck {
 	return row.build()
 }
 
+// deliveryActiveSegment reads the active segment the delivery segment authority's head names
+// (state/delivery-journal.json), and reports false when there is no head or it does not read. It is a
+// classification aid for the read-only row only; the authority's full validation is --seal-check's.
+func (s *fsckScan) deliveryActiveSegment() (uint64, bool) {
+	raw, err := paths.ReadFileShared(filepath.Join(s.l.State, "delivery-journal.json"))
+	if err != nil {
+		return 0, false
+	}
+	var head struct {
+		Active *uint64 `json:"active"`
+	}
+	if json.Unmarshal(raw, &head) != nil || head.Active == nil {
+		return 0, false
+	}
+	return *head.Active, true
+}
+
 // checkDeliveryPositions classifies each position seal and, when the project is quiet, runs the
 // offline tool's own full check.
 func (s *fsckScan) checkDeliveryPositions(row *fsckRowBuilder) {
@@ -1677,6 +1694,19 @@ func (s *fsckScan) checkDeliveryPositions(row *fsckRowBuilder) {
 			// A v2 seal is a binary A/B image, not JSON. Its slots are the offline tool's to read.
 			row.note("state/%s is not JSON, which is what a v2 sealed position looks like; "+
 				"its slots are read below", name)
+			continue
+		}
+		if sealed, entries, frozen := daemon.FrozenDeliverySeal(name, raw); frozen {
+			// The old-reader barrier: once the store has rotated, segment 0's seals are frozen so a build
+			// that predates segments refuses the journal. It is only ever legitimate beside an authority
+			// naming a later segment.
+			if active, ok := s.deliveryActiveSegment(); ok && active >= 1 {
+				row.note("state/%s is the frozen seal of the archived legacy segment (%d entries, %d bytes); "+
+					"the store has rotated to segment %d, whose journals --seal-check reads", name, entries, sealed, active)
+			} else {
+				row.defect("state/%s is a frozen legacy-segment seal, but no readable segment authority "+
+					"names a later segment", name)
+			}
 			continue
 		}
 		switch {

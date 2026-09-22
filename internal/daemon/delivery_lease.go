@@ -253,6 +253,14 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		switch {
 		case authExists:
 			active = s.activeSeg()
+			// An archived legacy segment carries the old-reader barrier; restore it if a rotation
+			// stopped between its transition and the freeze, before anything else is read or written.
+			if active >= 1 {
+				if err := ensureLegacyFrozen(stateDir); err != nil {
+					_ = s.close()
+					return nil, err
+				}
+			}
 		case migrationEvidenceExists(stateDir):
 			_ = s.close()
 			return nil, deliveryJournalError()
@@ -1550,6 +1558,18 @@ func (j *deliveryJournal) switchToSegment(seq uint64, baseRoot radixHash) error 
 		j.ackSeal = nil
 		if err := s.close(); err != nil {
 			return deliveryJournalError()
+		}
+	}
+	// The outgoing segment is archived. When it is the legacy segment 0 — the four files every build
+	// that predates segments would open and append to — freeze its two seals now, with no handle left
+	// on them, so such a build refuses the journal instead of re-minting arrivals past the transition
+	// just committed (delivery_frozen_seal.go). A later open repeats this if a crash intervenes.
+	if j.segment == 0 {
+		if err := freezeLegacySeals(j.stateDir,
+			deliveryPosition{Version: core.EvidenceVersion, Bytes: j.bytes, Count: len(j.leases), Chain: j.chain},
+			deliveryPosition{Version: core.EvidenceVersion, Bytes: j.ackBytes, Count: len(j.acks), Chain: j.ackChain},
+		); err != nil {
+			return err
 		}
 	}
 
