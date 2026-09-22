@@ -3,7 +3,6 @@ package negknow
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -329,13 +328,19 @@ type ledger struct {
 	blind bool
 	recs  []Record
 	byID  map[string]int
-	// byMatch maps MatchHex to the record indices carrying it, in insertion order. This is the
-	// index Query reads, which is why the query path performs no scan.
-	byMatch map[string][]int
-	// byKey maps dedupHex(session, scope, Desc.Key()) to the most recently appended record with
-	// that identity — the idempotence index. Status is read from recs, so MarkStale never touches
-	// this map.
-	byKey map[string]int
+	// byMatch maps a descriptor's match digest (MatchKey, the digest MatchHex spells) to the
+	// record indices carrying it, in insertion order. This is the index Query reads, which is why
+	// the query path performs no scan.
+	//
+	// Both indices are keyed on the raw 32-byte digests rather than on their 64-character hex
+	// spelling, which is the re-keying ruling R27 left available (see budgetResidentBytes): the
+	// hex form cost two string allocations per record at every Open and a 64-byte hash per lookup,
+	// and it named exactly the same thing (SP09-D1).
+	byMatch map[core.Hash][]int
+	// byKey maps dedupDigest(session, scope, Desc.Key()) — the digest dedupHex spells — to the
+	// most recently appended record with that identity: the idempotence index. Status is read from
+	// recs, so MarkStale never touches this map.
+	byKey map[core.Hash]int
 	// ring is the bounded history of the last signalRing observations, for the heuristic detector.
 	ring []Observation
 	lay  paths.Layout
@@ -395,8 +400,8 @@ func Open(root string, cfg config.Config, b *sketch.Bloom, deps Deps) (Ledger, e
 		root:    root,
 		cfg:     cfg,
 		byID:    make(map[string]int),
-		byMatch: make(map[string][]int),
-		byKey:   make(map[string]int),
+		byMatch: make(map[core.Hash][]int),
+		byKey:   make(map[core.Hash]int),
 		lay:     paths.Of(root),
 		deps:    deps,
 		log:     deps.Log,
@@ -514,7 +519,7 @@ func (l *ledger) loadRecords() []recordKeys {
 func (l *ledger) goBlind(err error) {
 	l.blind = true
 	l.recs, l.byID = nil, make(map[string]int)
-	l.byMatch, l.byKey = make(map[string][]int), make(map[string]int)
+	l.byMatch, l.byKey = make(map[core.Hash][]int), make(map[core.Hash]int)
 	l.m.Counter(counterBlindMode).Add(1)
 	l.log.Loud("negknow: elimination records unreadable; already_tried will answer unavailable for everything",
 		"path", logPath(l.root), "err", err)
@@ -530,17 +535,16 @@ type recordKeys struct{ key, match core.Hash }
 // identity — and it returns them, keys[i] for recs[i], because the rebuild Open owes next is built
 // from exactly those digests; handing them over is what spares Open deriving each one twice.
 func (l *ledger) reindex() []recordKeys {
-	l.byMatch = make(map[string][]int, len(l.recs))
-	l.byKey = make(map[string]int, len(l.recs))
+	l.byMatch = make(map[core.Hash][]int, len(l.recs))
+	l.byKey = make(map[core.Hash]int, len(l.recs))
 	keys := make([]recordKeys, len(l.recs))
 	for i := range l.recs {
 		r, k := &l.recs[i], &keys[i]
 		k.key, k.match = r.Desc.keyHash(), r.Desc.matchHash()
-		mh := hexString(k.match) // r.Desc.MatchHex()
-		l.byMatch[mh] = append(l.byMatch[mh], i)
+		l.byMatch[k.match] = append(l.byMatch[k.match], i)
 		// The LAST line with an identity wins: byKey is the idempotence index, and what a caller
 		// re-recording an identity should collapse onto is the most recent one.
-		l.byKey[dedupHexKey(r.Session, r.Scope, k.key)] = i // dedupHex(*r)
+		l.byKey[dedupDigest(r.Session, r.Scope, k.key)] = i // dedupHex(*r), as a digest
 	}
 	return keys
 }
@@ -706,17 +710,25 @@ func (l *ledger) visibleActiveCount() int {
 // duplicate line for it.
 func dedupHex(r Record) string { return dedupHexKey(r.Session, r.Scope, r.Desc.keyHash()) }
 
+// dedupOf is dedupHex as the digest byKey is keyed on.
+func dedupOf(r Record) core.Hash { return dedupDigest(r.Session, r.Scope, r.Desc.keyHash()) }
+
 // dedupHexKey is dedupHex over a record's parts, for a caller holding its descriptor key as an
 // already-derived digest. The preimage is dedupHex's exactly — session, fieldSep, scope,
 // fieldSep, then the key's 32 bytes — assembled by append into a stack buffer.
 func dedupHexKey(sess core.SessionID, scope Scope, key core.Hash) string {
+	return hexString(dedupDigest(sess, scope, key))
+}
+
+// dedupDigest is the digest dedupHexKey spells in hex, and the key byKey is indexed on.
+func dedupDigest(sess core.SessionID, scope Scope, key core.Hash) core.Hash {
 	var buf [keyPreimageBuf]byte
 	b := append(buf[:0], sess...)
 	b = append(b, fieldSep)
 	b = append(b, scope...)
 	b = append(b, fieldSep)
 	b = append(b, key[:]...)
-	return hexString(core.HashBytes(domainDedup, b))
+	return core.HashBytes(domainDedup, b)
 }
 
 // redact applies Deps.Redact to each field in place, when one was supplied.
@@ -788,7 +800,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 	// retries and the heuristic detector both re-propose. A hit that is STALE falls through: a
 	// re-record after a staleness flip is exactly the re-verification §8.3 asks for, and it must
 	// produce a new active record.
-	dk := dedupHex(r)
+	dk := dedupOf(r)
 	if i, ok := l.byKey[dk]; ok && l.recs[i].Status == StatusActive {
 		l.m.Counter(counterRecordsDeduped).Add(1)
 		return l.recs[i].ID, nil
@@ -830,7 +842,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 	idx := len(l.recs)
 	l.recs = append(l.recs, r)
 	l.byID[r.ID] = idx
-	mh := r.Desc.MatchHex()
+	mh := r.Desc.matchHash()
 	l.byMatch[mh] = append(l.byMatch[mh], idx)
 	l.byKey[dk] = idx
 	// Both keys: Key is the identity, MatchKey is what Query tests. Effective capacity
@@ -869,7 +881,8 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 
 	// The reason is unknown at query time, which is exactly why MatchKey excludes it.
 	d := Canonicalize(target, approach, "")
-	mk := d.MatchKey()
+	mh := d.matchHash()
+	mk := mh[:] // d.MatchKey(), whose array is this call's own
 
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -890,7 +903,7 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 		return Answer{State: AnswerAbsent}, nil
 	}
 
-	idx := l.byMatch[hex.EncodeToString(mk)]
+	idx := l.byMatch[mh]
 	cands := make([]Record, 0, len(idx))
 	for _, i := range idx {
 		if l.visible(l.recs[i], scope) {

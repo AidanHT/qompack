@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
@@ -281,6 +282,7 @@ func decodeRecord(b []byte) (Record, []string, error) {
 // between the two entry points, which is what keeps the codec's behaviour single-sourced.
 func recordFromWire(w recordWire) (Record, []string) {
 	var warnings []string
+	evidence, evidenceOK := parseHash(w.Evidence)
 	rec := Record{
 		ID:       w.ID,
 		Session:  core.SessionID(w.Session),
@@ -294,7 +296,7 @@ func recordFromWire(w recordWire) (Record, []string) {
 			ApproachClass:  w.Desc.ApproachClass,
 			ReasonHash:     parseHashOrZero(w.Desc.ReasonHash),
 		},
-		Evidence:     parseHashOrZero(w.Evidence),
+		Evidence:     evidence,
 		Scope:        Scope(w.Scope),
 		Status:       Status(w.Status),
 		StaleSince:   core.UnixMilli(w.StaleSince),
@@ -309,7 +311,7 @@ func recordFromWire(w recordWire) (Record, []string) {
 	}
 
 	if w.Evidence != "" {
-		if _, err := core.ParseHash(w.Evidence); err != nil {
+		if !evidenceOK {
 			warnings = append(warnings,
 				fmt.Sprintf("zeroed evidence: unparseable hash %q", w.Evidence))
 		}
@@ -318,8 +320,8 @@ func recordFromWire(w recordWire) (Record, []string) {
 	if len(w.DependsOn) > 0 {
 		deps := make([]Dep, 0, len(w.DependsOn))
 		for _, d := range w.DependsOn {
-			h, err := core.ParseHash(d.Hash)
-			if err != nil {
+			h, ok := parseHash(d.Hash)
+			if !ok {
 				warnings = append(warnings,
 					fmt.Sprintf("dropped depends_on entry %q: unparseable hash %q", d.Path, d.Hash))
 				continue
@@ -337,11 +339,47 @@ func recordFromWire(w recordWire) (Record, []string) {
 // decodes to the zero core.Hash, which core.Hash.IsZero reports as unset, rather than failing the
 // line. See decodeRecord for who then decides what to do about it.
 func parseHashOrZero(s string) core.Hash {
-	h, err := core.ParseHash(s)
-	if err != nil {
-		return core.Hash{}
-	}
+	h, _ := parseHash(s)
 	return h
+}
+
+// parseHash is core.ParseHash's acceptance rule — an optional "sha256:" prefix, then exactly
+// sixty-four hex digits of either case — reporting failure as false and the zero Hash instead of
+// an error. It exists because replaying a log parses several digests per record (the descriptor's
+// reason hash, the evidence root, one per dependency) and core.ParseHash allocates a decode buffer
+// and, on failure, an error for each; at 20 000 records that was a measurable share of Open's
+// allocations (SP09-D1). TestParseHash_AgreesWithCore holds the two to the same answers.
+func parseHash(s string) (core.Hash, bool) {
+	s = strings.TrimPrefix(s, hashTextPrefix)
+	var h core.Hash
+	if len(s) != 2*len(h) {
+		return core.Hash{}, false
+	}
+	for i := range h {
+		hi, okHi := hexNibble(s[2*i])
+		lo, okLo := hexNibble(s[2*i+1])
+		if !okHi || !okLo {
+			return core.Hash{}, false
+		}
+		h[i] = hi<<4 | lo
+	}
+	return h, true
+}
+
+// hashTextPrefix is the prefix core.Hash's text form carries and core.ParseHash strips.
+const hashTextPrefix = "sha256:"
+
+// hexNibble decodes one hex digit of either case, as encoding/hex does.
+func hexNibble(c byte) (byte, bool) {
+	switch {
+	case c >= '0' && c <= '9':
+		return c - '0', true
+	case c >= 'a' && c <= 'f':
+		return c - 'a' + 10, true
+	case c >= 'A' && c <= 'F':
+		return c - 'A' + 10, true
+	}
+	return 0, false
 }
 
 // normalizeRecord makes r fit to append: redaction first, then the §12.3 byte and entry bounds,
