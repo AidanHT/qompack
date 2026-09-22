@@ -213,4 +213,48 @@ go run ./tools/devtool bundle --target windows/amd64   # one target
 go run ./tools/devtool bundle --version v1.2.3         # override the version rule
 go run ./tools/devtool bundle --out /tmp/b             # assemble somewhere else
 go run ./tools/devtool bundle --host-validate --evidence <path>   # assemble, then ask the host
+go run ./tools/devtool bundle --archive --version 0.3.0           # also pack six zips + checksums.txt
+go run ./tools/devtool marketplace --tag v0.3.0                   # marketplace.json from checksums.txt
+go run ./tools/devtool marketplace --tag v0.3.0 --check           # regenerate and compare
+go run ./tools/devtool marketplace --validate .claude-plugin/marketplace.json
 ```
+
+## 9. Archives and the marketplace (C7.5)
+
+**Archives.** `bundle --archive` packs every target's bundle into
+`qompack-plugin-<version>-<os>-<arch>.zip` — all six targets, because a Claude Code marketplace
+`archive` source is a "Zip archive downloaded over HTTPS" (plugin-marketplaces, fetched
+2026-09-22). Members sit at the zip root ("Claude Code looks for `.claude-plugin/` at the top of the
+archive, then inside a single top-level folder"), are sorted by slash path, carry the DOS epoch as
+their time and no extra fields, and record Unix modes — 0755 under `bin/`, 0644 elsewhere — with
+the Unix creator host, so an extractor that honours modes restores the executable bit. The four
+POSIX targets shipped `.tar.gz` before C7.5. `checksums.txt` covers the six zips.
+
+**The marketplace document.** `devtool marketplace --tag vX.Y.Z` reads that `checksums.txt` and
+writes `marketplace.json`: marketplace `qompack`, one `archive` entry per target named
+`qompack-<os>-<arch>`, each pointing at
+`https://github.com/AidanHT/qompack/releases/download/vX.Y.Z/qompack-plugin-X.Y.Z-<os>-<arch>.zip`
+and pinned by that zip's sha256. No entry carries `version` — "Avoid setting `version` in both
+`plugin.json` and the marketplace entry" — because each zip's `plugin.json` already does. It refuses
+a checksums file missing a target or naming any other qompack archive, and every document it writes
+passes the same validator `--validate` applies. `--check` regenerates and compares.
+
+**Where it goes.** `release.yml` uploads it beside the zips (the draft stays a draft).
+`marketplace.yml` runs when a release is PUBLISHED: it re-downloads the zips, re-verifies them
+against the release's `checksums.txt`, regenerates `.claude-plugin/marketplace.json` from the
+served bytes, requires it to equal the uploaded document and opens a pull request onto `develop`.
+`release-check`'s `marketplace` step validates the generator for the tag and any committed document.
+
+**Evidence (2026-09-22, Claude Code 2.1.280, this host).** A real six-target
+`bundle --archive --version 0.3.0-rc.pkg` and the document generated from its `checksums.txt`:
+`claude plugin validate <marketplace dir> --strict --json` reported `success: true` with no errors
+or warnings, and each of the six bundle directories validated the same way
+(`plans/sdd/V6-closeout/packaging/evidence/c7.5-marketplace/`).
+
+**Not yet verified — owner action.** Installing an entry needs a PUBLISHED release: an archive URL
+must be HTTPS on a non-loopback host, so a local rehearsal cannot serve one. In particular, whether
+Claude Code keeps `bin/qompack`'s executable bit when it extracts the zip on linux/darwin is
+unobserved; it needs a published pre-release installed on a Linux or macOS host. The 2.1.269
+changelog's fix for "plugin archives extracted for a session ... keeping world-writable bits from
+the archive" suggests the session extractor reads recorded modes — which is neither the install
+path nor having seen it.

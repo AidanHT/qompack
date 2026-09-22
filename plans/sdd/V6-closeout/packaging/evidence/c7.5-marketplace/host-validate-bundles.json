@@ -1,0 +1,48 @@
+{
+ "command": "claude plugin validate <bundle dir> --strict --json, per target",
+ "claude": "2.1.280 (Claude Code)",
+ "results": [
+  {
+   "bundle": "qompack-plugin-0.3.0-rc.pkg-darwin-amd64",
+   "success": true,
+   "strict": true,
+   "errors": 0,
+   "warnings": 0
+  },
+  {
+   "bundle": "qompack-plugin-0.3.0-rc.pkg-darwin-arm64",
+   "success": true,
+   "strict": true,
+   "errors": 0,
+   "warnings": 0
+  },
+  {
+   "bundle": "qompack-plugin-0.3.0-rc.pkg-linux-amd64",
+   "success": true,
+   "strict": true,
+   "errors": 0,
+   "warnings": 0
+  },
+  {
+   "bundle": "qompack-plugin-0.3.0-rc.pkg-linux-arm64",
+   "success": true,
+   "strict": true,
+   "errors": 0,
+   "warnings": 0
+  },
+  {
+   "bundle": "qompack-plugin-0.3.0-rc.pkg-windows-amd64",
+   "success": true,
+   "strict": true,
+   "errors": 0,
+   "warnings": 0
+  },
+  {
+   "bundle": "qompack-plugin-0.3.0-rc.pkg-windows-arm64",
+   "success": true,
+   "strict": true,
+   "errors": 0,
+   "warnings": 0
+  }
+ ]
+}

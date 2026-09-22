@@ -20,13 +20,23 @@ current failure records.
 3. **Run the gate locally** — `go run ./tools/devtool release-check` — and fix whatever it stops on.
 4. **Tag and push the tag.** `.github/workflows/release.yml` is tag-triggered on `v*`.
 5. The workflow runs `release-check --tag "$GITHUB_REF_NAME"`, assembles and archives the six
-   bundles, uploads the host-validation record as a workflow artifact, renders the supported-scope
-   table into `dist/release-notes.md`, attests build provenance for the archives, and hands
-   everything to goreleaser.
+   bundles (a `.zip` each), generates `dist/bundle/marketplace.json` from their `checksums.txt`
+   (`devtool marketplace`), uploads the host-validation record as a workflow artifact, renders the
+   supported-scope table into `dist/release-notes.md`, attests build provenance for the archives
+   and the marketplace document, and hands everything to goreleaser.
 6. **goreleaser creates a DRAFT release.** It builds nothing — every build entry in
-   `.goreleaser.yaml` is skipped — and uploads the archives and `checksums.txt` that
-   `devtool bundle --archive` produced. A person reads the scope table in the draft's notes and
-   decides whether to publish. Nothing reaches users because a tag was pushed.
+   `.goreleaser.yaml` is skipped — and uploads the six zips, `checksums.txt` and `marketplace.json`.
+   A person reads the scope table in the draft's notes and decides whether to publish. Nothing
+   reaches users because a tag was pushed.
+7. **After publishing: review the marketplace pull request.** Publishing (not drafting, and not a
+   pre-release) triggers `.github/workflows/marketplace.yml`, which re-downloads the six zips from
+   the published release, re-verifies each against the release's `checksums.txt`, regenerates
+   `.claude-plugin/marketplace.json` from the served bytes, requires it to equal the uploaded
+   `marketplace.json`, and opens a pull request onto `develop`. Merging it is what makes
+   `claude plugin marketplace add AidanHT/qompack` offer the release. The repository setting "Allow
+   GitHub Actions to create and approve pull requests" must be on for the workflow to open it, and
+   a pull request opened with `GITHUB_TOKEN` does not start CI by itself. A pre-release is tested
+   by adding its `marketplace.json` asset by URL instead (`docs/install.md` §9).
 
 One build path produces every shipped byte: `goBuildArgs` in `tools/devtool/build.go`, used by
 `build`, `build-all` and `bundle` alike, with `-trimpath -buildvcs=false -ldflags "-s -w -buildid=
@@ -51,10 +61,11 @@ byte-identical, and `checksums.txt` is only meaningful because of them.
 | real-binary determinism | the host target assembled twice, with the real compiler, into two temp directories, compared file by file |
 | rollback rehearsal | the store's rollback drill before and after the first new-format write, a restored backup opening as a real store, and tamper detection. Each test name is confirmed with `-list` before it runs, because `go test -run` prints `ok` when its pattern matches nothing |
 | `plugin-validate` | the committed `plugin/` tree matches what `internal/pluginmanifest` generates |
+| marketplace | the marketplace generator's output for this tag passes the design validator (six `archive` entries pinned to this tag's zips, no entry `version`) and, where the `claude` CLI is on `PATH`, `claude plugin validate --strict --json`; where it is not, the step says host validation was NOT run. A committed `.claude-plugin/marketplace.json` is validated too |
 
 `ci.yml`'s `release-dry-run` job runs the same gate (minus the tag step, plus
 `--skip-vulncheck` because the `security` job already scans that commit) and then
-`bundle --archive`, on every push. A release path first exercised on the day of a release is a
+`bundle --archive --version 0.0.0-dryrun` and `marketplace --tag v0.0.0-dryrun`, on every push. A release path first exercised on the day of a release is a
 release path nobody has tested.
 
 ## 3. Supported scope

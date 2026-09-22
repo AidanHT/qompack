@@ -24,8 +24,10 @@ qompack-plugin-<version>-<os>-<arch>/
 └── checksums.txt          sha256sum-format listing of everything above
 ```
 
-A release ships each bundle as a `.zip` (windows) or `.tar.gz`, plus one `checksums.txt` over the
-archives (`devtool bundle --archive`, Task 7). Task 8 rehearsed the **directory** form: it verified
+A release ships each bundle as a `.zip` — all six targets, since C7.5 — plus one `checksums.txt`
+over the archives (`devtool bundle --archive`) and a `marketplace.json` generated from it (§9). The
+zip holds the bundle at its root, with `bin/` recorded as mode 0755. Task 8 rehearsed the
+**directory** form: it verified
 the bundle's own `checksums.txt` against the assembled tree (11 lines) and installed from that
 directory. Archive extraction was **recorded from host docs, not rehearsed**:
 
@@ -56,6 +58,9 @@ and `CLAUDE_CONFIG_DIR` relocates the whole home configuration if you want an in
 cannot touch your real one. Task 8 used `CLAUDE_CONFIG_DIR` for every host invocation.
 
 ## 3. Installing from a local directory
+
+Once a release is published, the public marketplace in §9 is the way to install; this section is
+for a bundle you assembled or downloaded yourself.
 
 A marketplace plugin `source` must be a `./`-relative path **beneath** the marketplace root — the
 directory holding `.claude-plugin/` — not relative to `marketplace.json`. A `..` segment is refused
@@ -209,3 +214,69 @@ every request, not at capture time.
 What is actually verified on which platform is in `docs/release.md` §3, and it is generated from
 committed records rather than written by hand. If your platform reads `unknown` there, the plugin
 may work perfectly — nobody has measured it, and this page will not pretend otherwise.
+
+## 9. Installing from the public marketplace
+
+**Status: nothing is published yet.** The marketplace below is generated and validated
+(`claude plugin validate --strict --json` accepted it on 2.1.280, 2026-09-22), but no release
+carrying it has been published, so installing through it has **not been rehearsed**. Everything in
+this section is recorded from the host docs and from that validation.
+
+**What it is.** One marketplace, `qompack`, with six entries — one per release target — each an
+`archive` source: a zip on the GitHub Release, pinned by sha256.
+
+| entry | install it on |
+| --- | --- |
+| `qompack-linux-amd64` | Linux, x86-64 |
+| `qompack-linux-arm64` | Linux, ARM64 |
+| `qompack-darwin-amd64` | macOS, Intel |
+| `qompack-darwin-arm64` | macOS, Apple silicon |
+| `qompack-windows-amd64` | Windows, x86-64 |
+| `qompack-windows-arm64` | Windows, ARM64 |
+
+**Install exactly one entry — the one for your machine.** Every entry is the same plugin (its
+`plugin.json` name is `qompack`) built for a different target; two installed at once would register
+the same seven hooks and the same MCP server twice. Archive sources need **Claude Code 2.1.224 or
+later** ("Requires Claude Code v2.1.224 or later"); older versions refuse the entry or fail to load
+the marketplace.
+
+```sh
+# once the post-publish pull request has put .claude-plugin/marketplace.json on the default branch
+claude plugin marketplace add AidanHT/qompack
+# or, for any published release (pre-releases included), straight from its assets
+claude plugin marketplace add https://github.com/AidanHT/qompack/releases/download/vX.Y.Z/marketplace.json
+
+claude plugin install qompack-linux-amd64@qompack -s user
+```
+
+The entry name is what the host keys the install by: "When a marketplace entry lists the plugin
+under a different name, the marketplace entry name is what `enabledPlugins` keys and `/plugin`
+use" (plugins-reference). Observed on 2.1.280 with a local probe marketplace, `claude plugin list
+--json` reports the install as `qompack-windows-amd64@qompack` while `claude plugin details` names
+the plugin `qompack`; the slash-command and MCP-tool namespace of a marketplace install has not been
+observed in a live session.
+
+**Checksums.** The host verifies every download against the entry's pin: "If the downloaded file
+doesn't match the pin, Claude Code refuses the install and reports `Plugin archive integrity check
+failed`." The same digests are in the release's `checksums.txt`; to check a zip yourself before
+extracting it by hand:
+
+```sh
+sha256sum --ignore-missing -c checksums.txt
+```
+
+**Updating.** Each release changes both `plugin.json`'s `version` (the host's update signal) and
+the entry's pin:
+
+```sh
+claude plugin marketplace update qompack
+claude plugin update qompack-linux-amd64@qompack -s user
+```
+
+**Still unverified: the executable bit on Linux and macOS.** The zip records `bin/qompack` as
+0755. Claude Code 2.1.269's changelog fixed "plugin archives extracted for a session ... keeping
+world-writable bits from the archive", which implies the session extractor (`--plugin-dir <zip>`,
+`--plugin-url`) reads recorded modes; whether the marketplace install path does the same has not
+been observed. It needs a published pre-release installed on a Linux or macOS host (owner
+action). If a hook reports `permission denied` there, `claude plugin list --json` gives the
+`installPath`, and `chmod +x <installPath>/bin/qompack` is the workaround until it is confirmed.

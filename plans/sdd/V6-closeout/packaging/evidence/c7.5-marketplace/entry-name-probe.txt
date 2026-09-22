@@ -1,0 +1,57 @@
+# Entry-name vs plugin.json-name probe (disposable CLAUDE_CONFIG_DIR=<scratch>/nscfg, claude 2.1.280, 2026-09-22)
+# marketplace.json:
+{
+  "name": "qompack",
+  "owner": { "name": "Qompack" },
+  "description": "Namespacing probe: one per-target entry whose name differs from plugin.json's",
+  "plugins": [
+    { "name": "qompack-windows-amd64", "source": "./qompack-windows-amd64", "description": "probe" }
+  ]
+}
+# claude plugin list --json:
+[
+  {
+    "id": "qompack-windows-amd64@qompack",
+    "version": "0.3.0-rc.pkg",
+    "scope": "user",
+    "enabled": true,
+    "installPath": "<scratch>\\nscfg\\plugins\\cache\\qompack\\qompack-windows-amd64\\0.3.0-rc.pkg",
+    "installedAt": "2026-09-22T22:59:04.207Z",
+    "lastUpdated": "2026-09-22T22:59:04.207Z",
+    "mcpServers": {
+      "qompack": {
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe",
+        "args": [
+          "mcp"
+        ]
+      }
+    }
+  }
+]
+# claude plugin details qompack-windows-amd64@qompack:
+qompack 0.3.0-rc.pkg
+  Description: probe
+  Source: qompack-windows-amd64@qompack
+
+Component inventory
+  Skills (7)  checkpoint, dropped, eval, pin, recall, status, why
+  Agents (0)
+  Hooks (7)  PostToolUse, PreCompact, SessionEnd, SessionStart, Stop, SubagentStop, UserPromptSubmit  (harness-only — no model context cost)
+  MCP servers (1)  qompack  (tool schemas resolved at runtime; not counted)
+  LSP servers (0)
+
+Projected token cost
+  Always-on:   ~120 tok   added to every session
+
+Per-component (rounded)
+  component   always-on  on-invoke
+  checkpoint       < 20        ~30
+  dropped           ~20        ~30
+  eval             < 20        ~30
+  pin              < 20        ~30
+  recall           < 20        ~30
+  status            ~20        ~30
+  why              < 20        ~30
+
+  On-invoke cost is paid each time a skill or agent fires.
+  Token counts are estimates and may differ from actual usage.
