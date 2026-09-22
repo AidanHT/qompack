@@ -1445,3 +1445,35 @@ func TestSegmentCount_NoSegmentLogIsZero(t *testing.T) {
 	require.Zero(t, bare.segmentCount(),
 		"a store with no segment log holds no segments; reading one must not panic")
 }
+
+// TestEnsureDir_CreatesAMissingFirstLevelAndAcceptsAnExistingLeaf covers ensureDir's create-first
+// branches: a leaf whose first fanout level is missing too is created together with that level, a
+// sibling leaf under a level that now exists is created, a leaf that already exists but that this
+// process never cached is accepted exactly as MkdirAll accepted it, and a leaf two missing levels
+// deep still comes into existence through the MkdirAll fallback.
+func TestEnsureDir_CreatesAMissingFirstLevelAndAcceptsAnExistingLeaf(t *testing.T) {
+	objects := t.TempDir()
+	requireDir := func(p string) {
+		t.Helper()
+		fi, err := os.Stat(paths.Long(p))
+		require.NoError(t, err)
+		require.True(t, fi.IsDir(), "%s must be a directory", p)
+	}
+
+	fresh := filepath.Join(objects, "ab", "cd")
+	require.NoError(t, ensureDir(fresh))
+	requireDir(fresh)
+
+	sibling := filepath.Join(objects, "ab", "ef")
+	require.NoError(t, ensureDir(sibling))
+	requireDir(sibling)
+
+	existing := filepath.Join(objects, "12", "34")
+	require.NoError(t, os.MkdirAll(paths.Long(existing), 0o700))
+	require.NoError(t, ensureDir(existing), "an existing leaf this process never cached is not an error")
+	requireDir(existing)
+
+	deep := filepath.Join(objects, "missing", "x", "y")
+	require.NoError(t, ensureDir(deep))
+	requireDir(deep)
+}
