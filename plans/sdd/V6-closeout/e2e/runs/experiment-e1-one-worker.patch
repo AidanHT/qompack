@@ -1,0 +1,13 @@
+diff --git a/internal/daemon/daemon.go b/internal/daemon/daemon.go
+index 4144120..112a6bd 100644
+--- a/internal/daemon/daemon.go
++++ b/internal/daemon/daemon.go
+@@ -556,7 +556,7 @@ func (d *daemon) Run(ctx context.Context) error {
+ 		d.svc.Sketches.Load(d.root, d.log)
+ 	}
+ 
+-	d.ing.Start(runCtx, 0, d.runIngested)
++	d.ing.Start(runCtx, 1, d.runIngested) // TEMPORARY EXPERIMENT E1, NEVER COMMIT
+ 	d.goRun(func() { d.hotPathWorker(runCtx) })
+ 
+ 	d.drain.Store(newDrainer(d.drainConfig()))

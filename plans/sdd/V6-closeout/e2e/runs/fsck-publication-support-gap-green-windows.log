@@ -1,0 +1,16 @@
+=== RUN   TestFsck_UnknownObservationIntentIsIncompleteAndReadOnly
+--- PASS: TestFsck_UnknownObservationIntentIsIncompleteAndReadOnly (0.94s)
+=== RUN   TestFsck_NewerCaptureSchemaIsASupportGapNotADefect
+--- PASS: TestFsck_NewerCaptureSchemaIsASupportGapNotADefect (0.45s)
+=== RUN   TestFsck_NewerCaptureSchemaDoesNotExcuseOtherIncompleteness
+--- PASS: TestFsck_NewerCaptureSchemaDoesNotExcuseOtherIncompleteness (0.40s)
+=== RUN   TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions
+--- PASS: TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions (0.65s)
+=== RUN   TestFsck_ToolUseNonMonotoneTurnNamesItsSession
+--- PASS: TestFsck_ToolUseNonMonotoneTurnNamesItsSession (0.54s)
+=== RUN   TestFsck_ToolUseSupersedeMarkIsNotATurnRegression
+--- PASS: TestFsck_ToolUseSupersedeMarkIsNotATurnRegression (0.75s)
+=== RUN   TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries
+--- PASS: TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries (0.61s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	4.950s

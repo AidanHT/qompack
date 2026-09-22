@@ -1,0 +1,9 @@
+# github.com/qompack/qompack/internal/store [github.com/qompack/qompack/internal/store.test]
+internal\store\publication_audit_support_gap_test.go:40:24: a.NewerSchemaCaptures undefined (type PublicationAudit has no field or method NewerSchemaCaptures)
+internal\store\publication_audit_support_gap_test.go:41:20: a.IncompleteOnlyForNewerSchemas undefined (type PublicationAudit has no field or method IncompleteOnlyForNewerSchemas)
+internal\store\publication_audit_support_gap_test.go:71:26: a.NewerSchemaCaptures undefined (type PublicationAudit has no field or method NewerSchemaCaptures)
+internal\store\publication_audit_support_gap_test.go:72:23: a.IncompleteOnlyForNewerSchemas undefined (type PublicationAudit has no field or method IncompleteOnlyForNewerSchemas)
+internal\store\publication_audit_support_gap_test.go:86:20: a.NewerSchemaCaptures undefined (type PublicationAudit has no field or method NewerSchemaCaptures)
+internal\store\publication_audit_support_gap_test.go:87:21: a.IncompleteOnlyForNewerSchemas undefined (type PublicationAudit has no field or method IncompleteOnlyForNewerSchemas)
+FAIL	github.com/qompack/qompack/internal/store [build failed]
+FAIL

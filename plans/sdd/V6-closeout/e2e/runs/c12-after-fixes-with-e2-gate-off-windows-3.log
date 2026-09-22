@@ -1,0 +1,34 @@
+=== RUN   TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+    install_test.go:537: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:537: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-653259469 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:537: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:695: install unknown_schema_config_settings_version: verified — runtime.migration.settingsVersion 2 with experiments.enabled true (gated; Validate restores false on any build) and reinjection.sessionStartCompact false (ungated, default true; build reads settingsVersion 1): LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); state/config-violations.json names the reset; the effective block is defaults (sessionStartCompact true); hooks exit 0; a daemon comes up; config print --provenance still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting2194483535\003\unknown_schema_config_settings_version.json
+    install_test.go:704: install unknown_schema_checkpoint_artifact: verified — a checkpoints/ artifact declaring schema version 2 (build reads 1): a whole session still records, fsck's checkpoints row stays ok and names it "written by a newer plugin", and the artifact's bytes are unchanged
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting2194483535\003\unknown_schema_checkpoint_artifact.json
+    install_test.go:709: install unknown_schema_capture_sidecar: verified — a records/captures sidecar at v2 (build reads v1): readable and degraded — fsck's captures row stays ok and names it, and the sidecar is never repaired or swept
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting2194483535\003\unknown_schema_capture_sidecar.json
+    install_test.go:713: install unknown_schema_delivery_seal_v2: verified — a v2 delivery position seal: fsck's delivery row classifies it by its declared version and leaves the bytes alone; an OLDER binary's refusal of a v2 seal is internal/daemon's own rollback row (delivery_seal_format2_test.go), cited here rather than duplicated
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting2194483535\003\unknown_schema_delivery_seal_v2.json
+    zz_debug_keep_test.go:41: DEBUG: kept C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting2194483535\002\project at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\keepE2c\unknown-schema
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- PASS: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (26.39s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	26.770s
