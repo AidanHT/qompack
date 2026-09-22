@@ -28,7 +28,7 @@ func All() []Cmd {
 		Cmd{Name: "config schema", Summary: "print the configuration JSON Schema", Run: runConfigSchema},
 		Cmd{Name: "daemon", Summary: "run the resident per-project daemon", Run: runDaemon},
 		Cmd{Name: "mcp", Summary: "run the MCP server over stdio", Run: runMCP},
-		Cmd{Name: "self-test", Summary: "assert every host contract; the only command that may exit non-zero", Run: runSelfTest},
+		Cmd{Name: "self-test", Summary: "report host-contract and subsystem checks; exit non-zero on a critical failure", Run: runSelfTest},
 	)
 	cmds = append(cmds, evalCmds()...)
 	cmds = append(cmds, slashCommandCmds()...)

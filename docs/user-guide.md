@@ -409,11 +409,14 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 | `status` | the report described under [`/qompack:status`](#qompackstatus) |
 | `config print [--provenance] [--json]` | the effective configuration; `--provenance` labels each leaf `default`, `user`, `project`, `env` or `flag` ([origins](config-reference.md#provenance-origins)) |
 | `config schema` | the configuration JSON Schema — the machine-readable counterpart to [docs/config-reference.md](config-reference.md) |
-| `self-test` | asserts every host contract and reports a table (or `{checks,mode,exit}` under `--json`). **The only command that may exit non-zero on a real finding** |
+| `self-test` | reports host-contract and subsystem checks as a table (or `{checks,mode,exit}` under `--json`); exits 1 for a critical failed check |
 | `doctor [--project <root>] [--json]` | version, scope, per-capability evidence, disabled controls and gaps; read-only |
 | `fsck [--project <root>] [--json] [--repair] [--yes]` | store, index, checkpoint and backup integrity; read-only unless `--repair --yes`, which performs five explicit additive repairs and deletes nothing |
 | `version` | the plugin version |
 | `admin delivery-seal [--project <root>] (--check \| --to v1)` | checks or converts the delivery journals' position seals. **The daemon must be stopped** |
+| `backup create --project <root> --id <name> [--json]` | takes a consistent backup with the source daemon stopped |
+| `backup verify --project <root> --id <name> [--json]` | validates the named backup's manifest and bytes |
+| `backup restore --project <root> --id <name> --destination <fresh-project> [--json]` | restores into a fresh destination, proves same-build reads and runs integrity checks; source and later writes remain intact ([procedure](backup.md)) |
 | `eval import` | imports recorded Claude Code transcripts as a redacted replay corpus |
 | `daemon` | runs the resident per-project daemon in the foreground |
 | `mcp` | runs the MCP server over stdio; the host starts this, you normally do not |

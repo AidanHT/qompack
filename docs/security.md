@@ -1,8 +1,9 @@
 # Security and recovery
 
 What Qompack protects and what remains unverified. SP-17's historical packaged measurements are
-under `plans/sdd/V6-SP-17-packaging-hardening-and-release/`. The subsequent V6 checks found
-authorization bypasses described below; release acceptance is blocked while they remain unresolved.
+under `plans/sdd/V6-SP-17-packaging-hardening-and-release/`. Original V6 failures remain under
+`plans/sdd/V6-VERIFY/`; corrections and new evidence are tracked separately under
+`plans/sdd/V6-remediation/`. A source correction alone does not establish release acceptance.
 
 Configuration keys are named here but never described: `docs/config-reference.md` is generated from
 the schema and is the only place that documents a default. Tool schemas are in `docs/mcp-tools.md`,
@@ -14,19 +15,19 @@ Qompack stores what the host has already given the model and hands it back on re
 boundaries carry that, and both run in one direction only.
 
 **Required boundary: host permission outranks the archive.** A stored content hash or a host
-`tool_use_id` is an address, never a credential. The current implementation does not fully meet
-that requirement. Path-bearing `recall` hits, `expand` by tool-use ID and `re_read` check the current
-filesystem scope, including directory junctions. However, root-hash and chunk-hash expansion bypass
-that check. A captured Read whose out-of-project path was discarded also passes the empty-path
-check when expanded by ID. V6 reproduced both behaviors against the packaged binary, including a
-real in-project hook capture whose parent directory was subsequently replaced by an outside link.
-The ID route refused that changed path while both hash routes returned its captured bytes.
+`tool_use_id` is an address, never a credential. Path-bearing `recall` hits, `expand` by tool-use ID
+and `re_read` check current filesystem scope, including directory junctions. Root and chunk hashes
+must establish every recorded origin before reading bytes; a permissive duplicate cannot hide a
+restricted origin. Missing or incomplete provenance returns unavailable. File captures with a lost
+path are refused; known pathless producers remain subject to current redaction.
 
-These are release blockers, not accepted exceptions. Redaction of credential patterns does not
-authorize an otherwise denied archived read. The existing filesystem-scope check also does not
+Redaction of credential patterns does not authorize an otherwise denied archived read.
+The filesystem-scope check does not
 consume the host's current permission decisions, so it cannot establish compliance with host deny
 rules for an in-project file. V6 evidence and the required owner corrections are recorded in
-`plans/sdd/V6-VERIFY/`; no production-ready trust claim follows from the earlier scoped tests.
+`plans/sdd/V6-VERIFY/` and `plans/sdd/V6-remediation/`; no host-permission claim follows from a
+containment test. Checkpoint summaries and drop reasons receive retrieval-time redaction too;
+evidence hashes remain metadata, and their contents require a separate authorized expansion.
 
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and
@@ -80,13 +81,12 @@ twelve-character hash prefix and a reason, never a span of the content.
   already admitted, and the capture path redacts before handing anything over — measured clean. But
   the backup walk copies the spool, so anything a capture retains is copied with it. The protection
   is upstream, not at the copy.
-- **A capture for a path outside the project root is archived, with its path dropped.** A tool
-  result whose `tool_input.file_path` names a file in a sibling directory has its **content** stored
-  like any other capture; the path key falls to empty, so the out-of-project path itself never
-  reaches a durable surface. This is settled behaviour, not a missing guard: there is **no
-  capture-time refusal**, because the host had already permitted the read and the model had already
-  seen the bytes. The trust boundary is retrieval-time authorization plus redaction at capture
-  (finding S-6; ruled documented rather than fixed).
+- **Structured file targets must remain inside the project before capture.** The hook client and
+  daemon reject out-of-project targets before retaining payload bytes. The observer also checks
+  scope before writing objects. This corrects the earlier S-6 dropped-path behavior; it does not
+  erase old records or backups. Legacy file records with missing provenance remain unavailable to
+  retrieval. Shell command text is not interpreted as a complete file-access policy, so pathless
+  shell output still depends on content redaction and remains untrusted.
 - **Redaction is not erasure across media.** Nothing here promises secure physical erasure of a
   credential already written to a backup, a copy, or a filesystem with snapshots.
 
@@ -227,8 +227,8 @@ rewritten, and nothing is ever deleted.
 
 Open at this release, stated here rather than left to discovery.
 
-- **No capture-time refusal for an out-of-project path** (S-6). See §2. The content is archived; the
-  path is dropped. The boundary is retrieval-time authorization, not capture-time refusal.
+- **Current native Read authorization is a separate host boundary.** Project containment and
+  capture-time policy cannot establish a later live, managed or command-line host permission.
 - **Whether a live gap is visible depends on whether a daemon is running when you look.** Counters
   that name a degradation live in the daemon's status snapshot, so `qompack status --json` after a
   session ended does not carry them. Ask while the session is live, or ask `qompack fsck`.

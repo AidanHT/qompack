@@ -51,8 +51,8 @@ type selfTestReport struct {
 	Exit   int             `json:"exit"`
 }
 
-// runSelfTest implements `qompack self-test [--json]` (task-6-spec.md): the ONLY subcommand
-// permitted a non-zero exit (§2.3). It runs config load, .qompack/ writability, the append-only
+// runSelfTest implements `qompack self-test [--json]` (task-6-spec.md). It reports critical
+// check failures with a non-zero exit. It runs config load, .qompack/ writability, the append-only
 // guard, ipc.Resolve, daemon reachability, an admin.ping round trip, an ops-coverage summary, and
 // contract.StandardAssertions against a synthetic Env built from the persisted SessionHistory, in
 // that order, then reports a fixed-width table (or, under --json, {checks,mode,exit}). Exit 0 iff no
