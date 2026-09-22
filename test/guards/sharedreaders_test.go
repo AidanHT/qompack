@@ -68,11 +68,9 @@ var sharedReaders = []sharedReader{
 	},
 	{
 		file: "internal/store/backup.go",
-		fn:   "refuseIfTheProjectMoved",
-		// It re-reads every backupLiveWriterFiles entry, which is four files, not two. The two
-		// journals are named here so the failure says what the handle really covers; they are
-		// absent from why for the reason the list's own comment gives — they are appended, never
-		// WriteAtomic-replaced, so no writer of theirs is one this reader can stall.
+		fn:   "backupFileDigest",
+		// refuseIfTheProjectMoved delegates the actual open/read here. This streams
+		// journals, seals and generation/segment authority through the shared reader.
 		holds: "state/delivery-lease-position.json, state/delivery-ack-position.json and (more " +
 			"briefly, and appended rather than replaced, which is why no writer of theirs is named " +
 			"below) the two delivery journals beside them",

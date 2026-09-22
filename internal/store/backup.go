@@ -75,6 +75,18 @@ const (
 	deliveryLeasePositionFile = "delivery-lease-position.json"
 	// deliveryAckPositionFile is the acknowledgement journal's sealed position, sealed the same way.
 	deliveryAckPositionFile = "delivery-ack-position.json"
+	// The SP20-D4 generation store internal/daemon keeps under state/delivery-generations/. Named as
+	// literals for the same reason as the sidecars: daemon imports store, so store cannot import daemon
+	// back (00-ARCHITECTURE.md §3.2). Only the manifest and its atomic head are watched — the
+	// content-addressed page files under pages/ are immutable (a page's name IS its content hash), so a
+	// captured page always equals the live one and cannot move under the walk; what CAN move is the
+	// store advancing a generation, which rewrites the head and appends the manifest.
+	deliveryGenerationsDir          = "delivery-generations"
+	deliveryGenerationsManifestFile = "manifest.jsonl"
+	deliveryGenerationsHeadFile     = "manifest-head.json"
+	deliveryJournalAuthorityFile    = "delivery-journal.json"
+	deliveryJournalTransitionFile   = "delivery-journal-log.jsonl"
+	deliverySegmentsDirectory       = "delivery-segments"
 )
 
 // backupLiveWriterFiles are the DELIVERY-state files a running daemon can change under the walk, as
@@ -93,23 +105,44 @@ const (
 // rewritten IN PLACE, so a mid-write copy is neither the old record nor the new one, and the
 // daemon's own reader refuses such an image OUTRIGHT rather than reading a prefix of it, which takes
 // the restored project's delivery journal with it (risk R10).
+//
+// The two generation-store files (SP20-D4) are here for a related but distinct reason: multi-file
+// snapshot consistency. The generation store is a directory — an append-only manifest, an atomic head
+// that names the last committed root, and immutable content-addressed pages. Per-file atomicity does
+// NOT make a tree copy of it consistent: a walk can capture the pages, then the daemon commits a new
+// generation (new pages + a rewritten head + an appended manifest), and the copied head can end up
+// naming a root whose newest pages the walk never saw, or the copied manifest can hold a different
+// frontier from the copied head. Compare both files before, during and after the copy. A change
+// before the file's own turn in the walk must be detected too. Immutable page closure still depends
+// on the writer protocol and restore validation; this check alone does not prove that closure. These
+// files exist only when rollover is enabled (default off, delivery_generation.go); until then the
+// directory is absent and refuseIfTheProjectMoved's "not copied, still absent → continue" branch makes
+// watching them a no-op.
+// The active segment authority is watched too; refuseIfTheProjectMoved adds
+// each copied segment's mutable journals/seals to the same comparison.
 var backupLiveWriterFiles = []string{
 	"state/" + deliveryLeaseFile,
 	"state/" + deliveryAckFile,
 	"state/" + deliveryLeasePositionFile,
 	"state/" + deliveryAckPositionFile,
+	"state/" + deliveryGenerationsDir + "/" + deliveryGenerationsManifestFile,
+	"state/" + deliveryGenerationsDir + "/" + deliveryGenerationsHeadFile,
+	"state/" + deliveryJournalAuthorityFile,
+	"state/" + deliveryJournalTransitionFile,
 }
 
 // BackupWatchedFiles is backupLiveWriterFiles, copied, as slash-relative names under .qompack.
 //
-// It is exported for one caller and one purpose: internal/daemon owns these four filenames as
-// constants, store must name them as string literals (daemon imports store, so store cannot import
-// daemon back — 00-ARCHITECTURE.md §3.2), and nothing otherwise holds the two spellings together.
-// The journals at least have a functional cross-check, since store's own GC reads them; the two
-// seal sidecars have none, and store never opens them for any other purpose. So a daemon-side
-// rename would take refuseIfTheProjectMoved's `!copied && os.IsNotExist → continue` branch for both,
-// turn the R10 guard into a silent no-op for the very files it exists for, and leave every test
-// passing — this package's own included, since its fixtures write the literals themselves.
+// It is exported for one caller and one purpose: internal/daemon owns these filenames as constants,
+// store must name them as string literals (daemon imports store, so store cannot import daemon back —
+// 00-ARCHITECTURE.md §3.2), and nothing otherwise holds the two spellings together. The four delivery
+// journal/sidecar names are cross-checked from the daemon side; the two generation-store names
+// (manifest + head) are the additive SP20-D4 rows. The journals at least have a functional cross-check,
+// since store's own GC reads them; the two seal sidecars have none, and store never opens them for any
+// other purpose. So a daemon-side rename would take refuseIfTheProjectMoved's
+// `!copied && os.IsNotExist → continue` branch, turn the R10 guard into a silent no-op for the very
+// files it exists for, and leave every test passing — this package's own included, since its fixtures
+// write the literals themselves.
 //
 // TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites asserts the containment from the
 // side that has the constants. The copy is deliberate: a caller must not be able to shorten the
@@ -164,8 +197,8 @@ func (m *Migrator) backupDir(id string) string { return filepath.Join(m.l.Backup
 // whole copy, so no other STORE writer is running; the store is flushed first, so buffered writes
 // are on disk before anything is read; every copied byte is hashed as it is written, so the
 // manifest describes what was actually captured rather than what was intended; and the project's
-// delivery state (backupLiveWriterFiles) is re-read at the end and must still hold exactly what was
-// captured (refuseIfTheProjectMoved), so a daemon that sealed a delivery under the walk fails the
+// delivery state (backupLiveWriterFiles) must match before, during and after the copy
+// (refuseIfTheProjectMoved), so a daemon that sealed a delivery under the walk fails the
 // backup instead of being recorded as consistent. That last condition covers the delivery state and
 // says so: the other files a daemon writes without a store lease are append-only tails a reader
 // steps over, and backupLiveWriterFiles names them and why.
@@ -206,6 +239,10 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 
 	if err := m.s.Flush(ctx); err != nil {
 		return BackupManifest{}, fmt.Errorf("store: backup %q: flush: %w", id, err)
+	}
+	beforeWriters, err := m.snapshotBackupWriters(ctx)
+	if err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup %q: initial writer frontier: %w", id, err)
 	}
 
 	cur, err := m.Cursor()
@@ -282,7 +319,10 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 	if m.afterBackupWalk != nil {
 		m.afterBackupWalk()
 	}
-	if err := m.refuseIfTheProjectMoved(man); err != nil {
+	if err := m.refuseIfTheProjectMoved(ctx, man, beforeWriters); err != nil {
+		if !errors.Is(err, ErrBackupMoved) {
+			return BackupManifest{}, fmt.Errorf("store: backup %q: %w", id, err)
+		}
 		// This refusal, and only this one, releases the id with the copy. It is the one failure
 		// that is EXPECTED beside a live daemon rather than exceptional — any delivery or
 		// acknowledgement batch during the walk produces it — so leaving a full junk tree behind
@@ -316,18 +356,13 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 	return man, nil
 }
 
-// refuseIfTheProjectMoved re-reads every backupLiveWriterFiles entry after the copy walk and
-// reports ErrBackupMoved unless the live file still holds exactly what the walk captured: the
-// same size and the same digest for a file the manifest names, and still no file at all for one
-// it does not.
+// refuseIfTheProjectMoved compares the pre-copy frontier, captured bytes, and
+// post-copy files. Post-copy equality alone misses a file changed before its own
+// copy. Pre/post equality alone misses a torn read of an in-place seal. Presence,
+// size and digest must agree in all three observations. This relies on the
+// journal's monotonic writer protocol; it is not a lock against arbitrary ABA edits.
 //
-// It is a comparison against the CAPTURED bytes, not against a second live read, because the
-// hazard is a reader that is not atomic against a concurrent writer: a read of a 32 KiB seal can
-// return a mixture of the bytes before and after a 480-byte WriteAt, and that mixture equals
-// neither the file the walk started from nor the file on disk now. A seal write always changes
-// the slot's record, so any write under the walk is a difference here.
-//
-// The read itself goes through paths.ReadFileShared for the reason every other reader of a file a
+// The read itself streams through paths.OpenShared for the reason every other reader of a file a
 // daemon replaces does: an os.ReadFile handle grants no FILE_SHARE_DELETE on Windows, so for as
 // long as it is open the daemon's paths.WriteAtomic of that same sidecar fails. This function
 // exists to stop the daemon damaging the backup; reading it the ordinary way would have the backup
@@ -337,14 +372,39 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 // It therefore also refuses a copy that is whole but stale — the daemon sealed a batch after this
 // file was read and before the walk ended — and that is deliberate: the manifest's Consistent
 // claim is about the whole tree, and a tree copied around a live writer does not support it.
-func (m *Migrator) refuseIfTheProjectMoved(man BackupManifest) error {
+func (m *Migrator) refuseIfTheProjectMoved(ctx context.Context, man BackupManifest, before map[string]BackupFile) error {
 	captured := make(map[string]BackupFile, len(man.Files))
 	for _, f := range man.Files {
 		captured[f.Name] = f
 	}
+	set := make(map[string]bool)
 	for _, name := range backupLiveWriterFiles {
-		live, rerr := paths.ReadFileShared(filepath.Join(m.l.Dot, filepath.FromSlash(name)))
+		set[name] = true
+	}
+	for name := range before {
+		set[name] = true
+	}
+	for name := range captured {
+		if backupSegmentMutableFile(name) {
+			set[name] = true
+		}
+	}
+	watch := make([]string, 0, len(set))
+	for name := range set {
+		watch = append(watch, name)
+	}
+	sort.Strings(watch)
+	for _, name := range watch {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		p := filepath.Join(m.l.Dot, filepath.FromSlash(name))
+		info, rerr := os.Lstat(paths.Long(p))
 		f, copied := captured[name]
+		initial, existed := before[name]
+		if existed != copied || (copied && initial != f) {
+			return fmt.Errorf("%w: %s differs from the pre-copy frontier", ErrBackupMoved, name)
+		}
 		switch {
 		case !copied && os.IsNotExist(rerr):
 			continue
@@ -353,12 +413,42 @@ func (m *Migrator) refuseIfTheProjectMoved(man BackupManifest) error {
 		case rerr != nil:
 			return fmt.Errorf("%w: %s: %v", ErrBackupMoved, name, rerr)
 		}
-		sum := sha256.Sum256(live)
-		if int64(len(live)) != f.Size || hex.EncodeToString(sum[:]) != f.SHA256 {
+		if !info.Mode().IsRegular() || info.Size() != f.Size {
+			return fmt.Errorf("%w: %s changed under the copy", ErrBackupMoved, name)
+		}
+		digest, err := backupFileDigest(ctx, p, info)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil || digest != f.SHA256 {
 			return fmt.Errorf("%w: %s changed under the copy; take the backup with the daemon stopped", ErrBackupMoved, name)
 		}
 	}
 	return nil
+}
+
+// Stream through the Windows shared-delete reader. A manifest can grow much
+// larger than a seal; watching it must not allocate its entire lifetime size.
+// Verify the opened identity before reading and the pathname again afterward.
+func backupFileDigest(ctx context.Context, path string, before os.FileInfo) (string, error) {
+	f, err := paths.OpenShared(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	opened, err := f.Stat()
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(before, opened) || opened.Size() != before.Size() {
+		return "", ErrBackupMoved
+	}
+	digest, n, err := maintStreamCopyHash(ctx, f, nil, before.Size())
+	if err != nil {
+		return "", err
+	}
+	after, err := os.Lstat(paths.Long(path))
+	if err != nil || n != before.Size() || !after.Mode().IsRegular() || !os.SameFile(opened, after) || after.Size() != before.Size() {
+		return "", ErrBackupMoved
+	}
+	return digest, nil
 }
 
 // VerifyBackup re-hashes every file the manifest names and reports the manifest only if all of
