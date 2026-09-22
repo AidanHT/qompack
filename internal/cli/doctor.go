@@ -307,7 +307,9 @@ func (s *doctorState) bundleRow() doctorRow {
 
 // pluginRootRow reports CLAUDE_PLUGIN_ROOT's three outcomes: unset, set and resolving to a binary,
 // or set with no binary under it. The third is the one that breaks every hook silently, because the
-// host invokes ${CLAUDE_PLUGIN_ROOT}/bin/qompack and a missing file is the host's error, not ours.
+// host spawns ${CLAUDE_PLUGIN_ROOT}/bin/qompack (bin/qompack.exe on windows) directly — exec form,
+// the exact path, no shell to resolve an extension (C1.11) — and a missing file is the host's
+// error, not ours. The path checked here is that exact path for this platform.
 func (s *doctorState) pluginRootRow() doctorRow {
 	get := s.env.Getenv
 	if get == nil {
