@@ -313,7 +313,8 @@ host change could lift — as prepared proposals, none of which has been filed.
   record while a settings file exists but cannot be read or parsed, and takes the more refusing
   reading wherever the documentation leaves one open. The refusal never echoes the path or the rule
   — [docs/security.md §1](security.md#1-trust-boundaries).
-- **Recorded at.** `internal/hostperm`'s package comment; `plans/sdd/V6-closeout/hostperm/report.md`.
+- **Recorded at.** `internal/hostperm`'s package comment; the evidence under
+  `plans/sdd/V6-closeout/hostperm/runs/`.
 
 ### Redaction is applied at capture, and telemetry is hardwired off
 
