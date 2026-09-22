@@ -68,10 +68,13 @@ func captureFallbackCases() []captureFallbackCase {
 			},
 		},
 		{
+			// Not runtime.mode: an unappliable capture switch refuses on this path
+			// (TestLoadForCapture_RefusesAnyCaptureSwitchProblem).
 			name:    "invalid value beside an unknown key",
-			project: `{"runtime":{"mode":"sideways","notAKey":1},"checkpoint":{"budgetTokens":9000}}`,
+			project: `{"retrieval":{"defaultSpan":"sideways"},"runtime":{"notAKey":1},"checkpoint":{"budgetTokens":9000}}`,
 			check: func(t *testing.T, cfg config.Config) {
-				require.Equal(t, def.Runtime.Mode, cfg.Runtime.Mode, "the invalid leaf falls back to its default")
+				require.Equal(t, def.Retrieval.DefaultSpan, cfg.Retrieval.DefaultSpan,
+					"the invalid leaf falls back to its default")
 				require.Equal(t, 9000, cfg.Checkpoint.BudgetTokens, "every other leaf still applies")
 			},
 		},

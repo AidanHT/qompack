@@ -58,15 +58,32 @@ func TestSelfTest_ReportsACaptureConfigRefusal(t *testing.T) {
 	require.Equal(t, ExitError, report.Exit)
 }
 
+// TestSelfTest_ReportsACaptureSwitchRefusal: a runtime.mode the hook path cannot apply as written is
+// a refusal of every delivery (config.TestLoadForCapture_RefusesAnyCaptureSwitchProblem), so
+// self-test reports it as one — while config.load, whose soft loader still falls back, reads ok.
+func TestSelfTest_ReportsACaptureSwitchRefusal(t *testing.T) {
+	code, report := selfTestJSONFor(t, `{"runtime":{"mode":"PRIVATE-OFF"}}`)
+
+	check := selfTestFindCheck(t, report, "config.capture")
+	require.False(t, check.OK, "a configuration the hook path refuses is never ok: %+v", check)
+	require.Equal(t, contract.SevCritical, check.Severity, "every hook recording nothing is critical")
+	require.Contains(t, check.Observed, "refused")
+	require.Contains(t, check.Detail, "runtime.mode", "the refusal names its structural class")
+	require.NotContains(t, check.Detail, "PRIVATE-", "the refusal never echoes a configured value")
+	require.True(t, selfTestFindCheck(t, report, "config.load").OK,
+		"the soft loader falls back for the same file, which is why config.load alone is not the answer")
+	require.Equal(t, ExitError, code)
+}
+
 // TestSelfTest_ReportsACaptureConfigDegradation: a configuration the hook path loads with a fallback
 // or an ignored key is not "ok" either — it is a warning naming the keys, and capture continues.
 func TestSelfTest_ReportsACaptureConfigDegradation(t *testing.T) {
-	code, report := selfTestJSONFor(t, `{"runtime":{"mode":"sideways","notAKey":1}}`)
+	code, report := selfTestJSONFor(t, `{"retrieval":{"defaultSpan":"sideways"},"runtime":{"notAKey":1}}`)
 
 	check := selfTestFindCheck(t, report, "config.capture")
 	require.False(t, check.OK, "a degraded capture configuration is never reported ok: %+v", check)
 	require.Equal(t, contract.SevWarn, check.Severity, "capture continues, so this is not critical")
-	require.Contains(t, check.Detail, "runtime.mode")
+	require.Contains(t, check.Detail, "retrieval.defaultSpan")
 	require.Contains(t, check.Detail, "runtime.notAKey")
 	require.Equal(t, ExitOK, code)
 }
@@ -98,7 +115,11 @@ func TestDoctor_ReportsTheCaptureConfiguration(t *testing.T) {
 			status: doctorDegraded, observed: "refused", detail: "runtime.redact",
 		},
 		{
-			name: "degraded", body: `{"runtime":{"mode":"sideways","notAKey":1}}`,
+			name: "refused switch", body: `{"runtime":{"mode":false}}`,
+			status: doctorDegraded, observed: "refused", detail: "runtime.mode",
+		},
+		{
+			name: "degraded", body: `{"retrieval":{"defaultSpan":"sideways"},"runtime":{"notAKey":1}}`,
 			status: doctorDegraded, observed: "fell back", detail: "runtime.notAKey",
 		},
 	} {

@@ -65,7 +65,9 @@ func dayLogText(t *testing.T, root string) string {
 // falls back to its default and is recorded, and that an unknown key only warns; both must hold on
 // the hook path, together, in the same file.
 func TestHookCapture_UnknownKeyAndInvalidLeafStillCapture(t *testing.T) {
-	root := runPromptHookForConfig(t, `{"runtime":{"mode":"sideways","notAKey":1}}`)
+	// The invalid leaf is not runtime.mode: an unappliable capture switch refuses on the hook path
+	// (TestHookCapture_UnappliableCaptureSwitchRecordsNothing).
+	root := runPromptHookForConfig(t, `{"retrieval":{"defaultSpan":"sideways"},"runtime":{"notAKey":1}}`)
 
 	req := onlySpooledRequest(t, root)
 	require.NotNil(t, req.Event, "the delivery was admitted, so it carries its Event")
@@ -74,20 +76,39 @@ func TestHookCapture_UnknownKeyAndInvalidLeafStillCapture(t *testing.T) {
 
 	raw, err := os.ReadFile(filepath.Join(paths.Of(root).State, configViolationsFile))
 	require.NoError(t, err, "the invalid leaf's fallback must be recorded in state/config-violations.json")
-	require.Contains(t, string(raw), "runtime.mode")
+	require.Contains(t, string(raw), "retrieval.defaultSpan")
 	require.NotContains(t, string(raw), "runtime.notAKey",
 		"an unknown key is a warning, never a §11.3 violation (docs/troubleshooting.md §1)")
 
 	log := dayLogText(t, root)
 	require.Contains(t, log, "runtime.notAKey", "the unknown key must be reported where an operator looks")
 	require.Contains(t, log, "unknown key")
-	require.Contains(t, log, "runtime.mode")
+	require.Contains(t, log, "retrieval.defaultSpan")
+}
+
+// TestHookCapture_UnappliableCaptureSwitchRecordsNothing is the exception to the test above, end to
+// end through a real hook: runtime.mode decides whether anything is captured at all, so a setting of
+// it that cannot be applied as written — here an operator's "OFF" — refuses the delivery the way
+// "off" would, instead of falling back to "auto" and recording. The refusal is reported where the
+// hook reports every refusal, naming its class and never the value.
+func TestHookCapture_UnappliableCaptureSwitchRecordsNothing(t *testing.T) {
+	root := runPromptHookForConfig(t, `{"runtime":{"mode":"OFF"}}`)
+
+	require.NoDirExists(t, paths.Of(root).Spool, "a refused capture spools nothing")
+	matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "hook-quiet-*.jsonl"))
+	require.NoError(t, err)
+	require.Len(t, matches, 1, "the refusal must be reported where the hook reports refusals")
+	raw, err := os.ReadFile(matches[0])
+	require.NoError(t, err)
+	require.Contains(t, string(raw), "runtime.mode setting cannot be applied as written")
+	require.NotContains(t, string(raw), "OFF", "a refusal never echoes the configured value")
 }
 
 // TestHookCapture_MistypedLeafStillCaptures is the wrong-type half: a leaf of the wrong JSON type
 // keeps the value from the layer below (the default here), the delivery is captured, and the type
-// error is reported. Only the capture privacy policy is exempt — see
-// TestHookCapture_RefusesBeforeSpoolAndDaemonStart's mistyped runtime.redact.patterns row.
+// error is reported. Only the capture privacy policy and the capture switch are exempt — see
+// TestHookCapture_RefusesBeforeSpoolAndDaemonStart's mistyped runtime.redact.patterns and
+// runtime.mode rows.
 func TestHookCapture_MistypedLeafStillCaptures(t *testing.T) {
 	body := `{"checkpoint":{"budgetTokens":"9000"},"runtime":{"notAKey":1}}`
 	root := runPromptHookForConfig(t, body)
