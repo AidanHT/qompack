@@ -212,6 +212,17 @@ Capture, fidelity and coverage may be partial or unknown, and the response says 
 At `PreCompact` the checkpointer finalizes a checkpoint artifact; after the compaction, the
 rehydrator builds the payload that `SessionStart source=compact` injects.
 
+`qompack checkpoint` answers the host with the empty object and nothing else. The hooks reference
+gives PreCompact no `hookSpecificOutput` variant and says the host discards its `systemMessage` and
+`continue`, and Claude Code 2.1.280 rejected the focus instruction Qompack used to return there
+(C1.12). The daemon still renders that instruction and records it, but it travels no further than
+the IPC reply: every hook client passes the daemon's reply through `internal/hookio`'s
+`ConformOutput`, which keeps only the fields the host accepts and acts on for the event being
+answered — `additionalContext` and `systemMessage` for `SessionStart`, `UserPromptSubmit` and
+`PostToolUse`, `systemMessage` for `Stop`/`SubagentStop`, nothing for `PreCompact` and `SessionEnd`,
+and never `continue`. The table is pinned against a transcription of the documented schema in
+`testdata/host/hooks-output-schema.json`.
+
 Two things about that payload are load-bearing, per `internal/rehydrate`'s package comment. Its
 **order** is normative — `ItemKind`'s constants are the importance order, and a rehydration that
 reorders them is wrong even if it fits the budget, because position decides what survives

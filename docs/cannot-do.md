@@ -116,18 +116,31 @@ host change could lift — as prepared proposals, none of which has been filed.
 ### No summarizer model substitution
 
 - **Limit.** Qompack cannot perform summarizer model substitution: it cannot choose, replace or
-  configure the model that writes the host's compaction summary, and `custom_instructions` does not
-  set the summarizer's output.
+  configure the model that writes the host's compaction summary, and it cannot hand the summarizer
+  any instruction at all. A plugin's PreCompact hook has no output channel for one.
 - **Why.** `Qompack.md` v1.5 §7.3 states the boundary: "`custom_instructions` is PreCompact input,
-  not a summarizer-output setter." The key that once implied otherwise,
-  `checkpoint.incrementalSpanInstruction`, is retired-meaning and read for compatibility only.
-  Whether the host accepts the instruction at all is itself unobserved here:
-  `precompact.custom_instructions_accepted` reports `not-yet-implemented` in `qompack self-test`'s
-  zero-`Services` run, and no installed-host run has observed it (B01).
+  not a summarizer-output setter." The hooks reference (fetched 2026-09-22) gives PreCompact only
+  top-level `decision: "block"`/`reason` and no `hookSpecificOutput` variant, and "Claude Code
+  discards a PreCompact hook's `systemMessage` and `continue` fields"; `custom_instructions` is what
+  the *user* typed after `/compact`. This was observed, not only read: Claude Code 2.1.280 rejected
+  the focus instruction Qompack used to return ("Hook JSON output validation failed —
+  hookSpecificOutput.hookEventName: expected one of …") and replayed the rejection into the
+  post-compaction context (C1.12,
+  [evidence](../plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt)). The only
+  documented ways to steer the summary are `/compact <instructions>`, typed by the user, and a
+  `# Compact instructions` section in the project's `CLAUDE.md`, which Qompack does not write. The
+  key that once implied otherwise, `checkpoint.incrementalSpanInstruction`, is retired-meaning and
+  read for compatibility only.
 - **What Qompack does instead.** It writes its own checkpoint at PreCompact, which is Qompack's
-  artifact and does not depend on what the summarizer produces.
-- **Recorded at.** `Qompack.md` v1.5 §12 and §7.3;
-  [docs/config-reference.md](config-reference.md#retired-meaning-keys).
+  artifact and does not depend on what the summarizer produces, and it answers the PreCompact hook
+  with the empty object — the only response the host accepts from it. The daemon still renders the
+  focus instruction and records it (`precompact.custom_instructions_accepted` is attributed to an
+  unsupported capability), but the hook client strips it before anything reaches the host
+  (`internal/hookio` `ConformOutput`).
+- **Recorded at.** `Qompack.md` v1.5 §12, §7.3 and §8.5 ("Retire O1's output setter");
+  [docs/config-reference.md](config-reference.md#retired-meaning-keys);
+  `testdata/host/hooks-output-schema.json`; proposal 2 in
+  [docs/upstream-issues.md](upstream-issues.md).
 
 ### The rehydration budget is Qompack-added material, not restored native context
 
