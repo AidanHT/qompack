@@ -31,9 +31,11 @@ Do not start from a symptom. Start from what this installation can currently obs
 **Symptom.** You want to know whether anything is wrong at all.
 
 **Diagnose.** Run it and read three columns: `OK`, `SEVERITY`, `OBSERVED`. `--json` gives the same
-rows as `{checks,mode,exit}`. It is the only command that may exit non-zero on a real finding, and
-it does so only when a check fails at critical severity (`internal/cli/selftest.go`, `runSelfTest`).
-(`doctor`, `fsck` and `bench` also exit 1, but only to say they are not implemented — §9.)
+rows as `{checks,mode,exit}`. A critical failed check returns exit 1
+(`internal/cli/selftest.go`, `runSelfTest`). `fsck` also returns exit 1 for a defect
+or an incomplete check. `doctor` reports capability and diagnostic states in its
+output; a successful command exit alone does not certify those capabilities.
+`bench` remains unimplemented and returns exit 1 (§9).
 
 The first seven rows are this build checking itself: `config.load`, `qompack.writable`,
 `paths.guard`, `ipc.resolve`, `daemon.reachable`, `admin.ping`, `ops.coverage`. The rest are the
@@ -511,47 +513,28 @@ The install and uninstall procedure is in [docs/install.md](install.md).
 
 ## 9. Backup, rollback and recovery
 
-**What exists.** `.qompack/backup/` and `.qompack/migrate/` are created with the rest of the layout
-(`internal/paths/layout.go`, and observed in every scratch project on this tree). `internal/store`
-implements the machinery that fills them: `TakeBackup`, `VerifyBackup`, `RestoreBackup` and
-`RehearseRollback` (`internal/store/backup.go`), plus the import/parity/cutover path
-(`internal/store/migrate.go`).
+The supported operator path is documented in [Backup and restore](backup.md). The `backup create`,
+`backup verify` and `backup restore` commands use writer exclusion and restore into a fresh
+project destination. Restore reads back with the same build and runs the packaged integrity checks;
+it does not activate an older reader or discard writes made after the backup.
 
-**What is reachable today: none of it, from any command.** All of those are methods on
-`*store.Migrator`, and `store.NewMigrator` refuses to return one while the legacy-import build gate
-is closed — it returns `ErrMigrationGateClosed`, "store: legacy import/cutover gate is closed",
-before doing anything else (`internal/store/migrate.go`). The gate,
-`store.migrate.legacyImportCutover`, has no configuration key and cannot be opened from a config
-file ([Build gates](config-reference.md#gated-switches-ship-off)). No `qompack` subcommand
-constructs a migrator, so no backup, restore or rollback runs from the command line; `qompack help`
-lists `admin delivery-seal` as its only admin entry point. What SP-17 did add are two read-only
-diagnostics: `qompack fsck` reports on backup and migration state (and `fsck --repair --yes` performs
-five explicit additive repairs that never delete data), and `qompack doctor` reports capability,
-scope and control rows — neither touches a backup. `bench` remains unimplemented and prints
-`qompack bench: not implemented in this build`.
+The legacy import/cutover gate remains closed. Historical V5 fixture rehearsals and Git rollback
+records remain historical evidence; neither certifies an installed older release reading this
+candidate's data. Human UAT, cross-version readers and supported-platform rehearsals must record
+the actual candidate and backup identities. Missing or failed checks remain unverified.
 
-**What is verified.** `plans/V5-report.md` §24 records "resumable migration/backup/rollback
-(I-06.19)" among the SP-20 gates that are `verified_in_target` — every gate in that group except
-uncertainty, which is partial for the reason §5 of this page gives. §23 (Q19) names the evidence:
-`internal/store/backup_test.go` and `migrate_test.go`. `plans/MIGRATION-EVIDENCE.md`
-records a rollback rehearsal — a `--no-ff` merge reverted with `git revert -m 1`, after which
-`git diff` against the baseline was empty — and records that "runtime rollback needs nothing: every
-new artifact is a sidecar" and an older reader drops the `runtime.migration` block as an unknown
-section with a warning.
+Startup publication accounting surfaces incomplete captures and object candidates through status
+counters and LOUD diagnostics. A bounded scan can be incomplete; zero observed gaps then means
+only a lower bound. `fsck` inspects integrity but never promises that missing content was restored.
 
-**What is not.** There is still no operator backup command, no operator restore command and no
-operator rollback command; `TakeBackup`, `RestoreBackup` and `RehearseRollback` remain Go-only behind
-the closed build gate. SP-17 documented the interim rollback in
-[docs/release.md §5](release.md#5-rollback): disable the feature with its switch
-([docs/release.md §4](release.md#4-switches)), restore a backup from the store API **or from your own
-copy**, run `qompack fsck` as the recovery check, and re-enable only after that check passes. The
-acceptance scenarios in [docs/uat.md](uat.md) follow the copy-and-`fsck` form because no operator
-restore command exists: the operator's own pre-run copy of `.qompack/` is the restore, and `qompack
-fsck` is the check. A file-by-file comparison of the restored `.qompack/` against the copy is an
-operator sanity check. A clean `fsck` reports only its inspected integrity checks: it does not
-establish a stable import frontier, backup consistency, compatible readers or recovery of later
-writes. The operator-facing recovery gate in [docs/uat.md](uat.md#the-record-every-row-carries)
-remains unverified until those requirements have a supported, rehearsed path.
+An uncertain observation-intent write stops new capture publication until the store is reopened
+and checked. After resolving a transient storage error, restart the daemon to retry retained input.
+A torn or conflicting intent may still prevent recovery after restart: preserve the original store
+and use a verified backup in a fresh destination. No `fsck` option repairs these intents by truncation.
+
+If a leased delivery loses its WAL/spool bytes, later deliveries in that session remain pending.
+They cannot safely bypass unknown earlier context. Restore the matching source history or use a
+verified backup; do not delete the lease to manufacture a fresh observation identity.
 
 **Do not downgrade data to match old prose.** If a document describes a recovery step this build
 does not implement, the document is the thing that is wrong. Do not delete, truncate or rewrite

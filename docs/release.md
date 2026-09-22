@@ -156,17 +156,18 @@ The plan's sequence, verbatim:
 > The rollback sequence is feature disablement, verified compatible reader/backup restoration,
 > recovery check, then only separately approved reenabling.
 
-**The mechanism exists and no command exposes it.** `internal/store` carries the whole migration and
+**The legacy migration rehearsal remains a separate API.** `internal/store` carries the migration and
 rollback API — `TakeBackup`, `VerifyBackup`, `RestoreBackup`, and `RehearseRollback`, which stops
 writers, verifies the backup, restores into a **scratch** root (never the live project), opens it as
 a real store, and re-reads every imported object through its old identity. Its drill record carries
 `AutomaticDowngrade`, and that field is **always false**: a drill that cannot pass is a *result*,
 not an error, and nothing in this product downgrades a format on its own.
 
-Today that API is reachable only from Go. `qompack fsck` and `qompack doctor` are **read-only** and
-report on backups and migration state without touching them. Until an operator command ships, a
-rollback is: disable the feature with its switch (§4), restore a backup with the store API or from
-your own copy, run `qompack fsck` as the recovery check, and re-enable only after that check passes.
+The operator [backup and restore commands](backup.md) expose consistent backup and restoration into
+a fresh destination without enabling legacy import or cutover. Stop the source writer, retain the
+original store and later writes, and restore with the identified candidate. The same-build reader
+proof and integrity results do not establish older-release compatibility. Activate a recovered
+project only after its intended reader, project snapshot and required UAT checks pass.
 
 `fsck --repair --yes` performs five explicit repairs and never deletes anything; see
 `docs/security.md` §7.
@@ -193,7 +194,11 @@ asserting.
   backups, copies or snapshotting filesystems.
 - **No automatic downgrade.** See §5.
 - **No network and no telemetry**, now or by configuration — `docs/security.md` §9.
-- **No workflow has ever run.** The `dist: dist/goreleaser` split (so `--clean` cannot delete
-  `dist/bundle/**` or `dist/release-notes.md`) and the host-validation upload
+- **The release workflow is unverified in the available evidence.** The `dist: dist/goreleaser` split (so `--clean` cannot
+  delete `dist/bundle/**` or `dist/release-notes.md`) and the host-validation upload
   (`--evidence dist/evidence/host-validation.json`, `if-no-files-found: error`) are YAML shape
-  only. No tag push has produced a draft, and no runner has uploaded the record.
+  only. The tag-triggered draft and host-validation upload remain unverified here. Other workflows
+  have run: `plans/sdd/V6-remediation/github-nightly-35704111100-jobs.json` records one nightly
+  run of 29 jobs, 26 success and 3 failure (`race-windows`, `bench-deep` on both runners). That run
+  was on a historical source (`9c84e31d`), not this candidate tree, so it is evidence a runner
+  exercised the CI graph once — not that the current source has passed CI.
