@@ -76,7 +76,7 @@ func TestOnToolUseDecodesTheToolResponseOnce(t *testing.T) {
 	require.Equal(t, want.GitCommit, sig[len(sig)-1].Signals.GitCommit)
 	require.True(t, want.TestPassed, "the fixture is a passing run")
 	require.True(t, want.GitCommit, "and a commit")
-	require.Equal(t, core.SessionID(testSession), sig[len(sig)-1].Session)
+	require.Equal(t, testSession, sig[len(sig)-1].Session)
 }
 
 // oracleResponseText is responseText as it was written before SP08-D1's close-out: every shape
