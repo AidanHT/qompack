@@ -21,13 +21,34 @@ must establish every recorded origin before reading bytes; a permissive duplicat
 restricted origin. Missing or incomplete provenance returns unavailable. File captures with a lost
 path are refused; known pathless producers remain subject to current redaction.
 
-Redaction of credential patterns does not authorize an otherwise denied archived read.
-The filesystem-scope check does not
-consume the host's current permission decisions, so it cannot establish compliance with host deny
-rules for an in-project file. V6 evidence and the required owner corrections are recorded in
-`plans/sdd/V6-VERIFY/` and `plans/sdd/V6-remediation/`; no host-permission claim follows from a
-containment test. Checkpoint summaries and drop reasons receive retrieval-time redaction too;
-evidence hashes remain metadata, and their contents require a separate authorized expansion.
+**The host's saved Read rules are re-checked on every retrieval (V6-HOST-1).** After the
+filesystem-scope check, every record that has a path is checked against the `permissions.deny` and
+`permissions.ask` rules for `Read` in the settings files Claude Code reads: managed
+(`managed-settings.json` and `managed-settings.d/` in the system directory, the Windows policy
+registry values, the cached server-managed settings), user (`~/.claude/settings.json`, or
+`$CLAUDE_CONFIG_DIR/settings.json`), project (`.claude/settings.json`) and local
+(`.claude/settings.local.json`). A file is re-read as soon as it changes, so a rule added mid-session
+applies to the next call. The check covers `expand` by tool-use ID, root hash and chunk hash;
+`re_read` in every `at` form, including a hash named under a different path; the hits and summaries
+of `recall`; the evidence preview of `why`; and pointers into the archive listed by `dropped`.
+`timeline` carries no path-bearing content. A deny rule answers `denied` with its own reason; an ask
+rule is refused too, with a different reason, because a plugin cannot prompt; and a settings file
+that exists but cannot be read or parsed makes every path-bearing answer `unavailable` ("host policy
+unavailable") until it is fixed. No refusal echoes the path or the rule. Records with no path
+(shell output, prompts) have nothing for a path rule to match and keep the behaviour above.
+
+**That is the part of the host's decision a plugin can read, not the decision itself.** Rules added
+for one session only, `--allowedTools`/`--disallowedTools`/`--settings`/`--setting-sources` flags,
+PreToolUse hooks, an embedding host's managed settings, a managed `policyHelper`'s output and the
+session's working directory (when it is not the project root) are invisible to a plugin. A macOS
+configuration profile cannot be decoded, so its presence makes path-bearing content unavailable.
+Where the documentation leaves a reading open, Qompack takes the one that refuses more; see
+`internal/hostperm`'s package comment and [docs/cannot-do.md](cannot-do.md#5-trust-boundary).
+Redaction of credential patterns does not authorize an otherwise denied archived read. V6 evidence
+and the required owner corrections are recorded in `plans/sdd/V6-VERIFY/`,
+`plans/sdd/V6-remediation/` and `plans/sdd/V6-closeout/hostperm/`. Checkpoint summaries and drop
+reasons receive retrieval-time redaction too; evidence hashes remain metadata, and their contents
+require a separate authorized expansion.
 
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and
@@ -227,8 +248,14 @@ rewritten, and nothing is ever deleted.
 
 Open at this release, stated here rather than left to discovery.
 
-- **Current native Read authorization is a separate host boundary.** Project containment and
-  capture-time policy cannot establish a later live, managed or command-line host permission.
+- **Host Read permission is reconstructed from settings files, not queried.** Archived retrieval
+  honours the Read deny and ask rules saved in the files Claude Code reads (§1), but a read the host
+  would refuse only through a session-only rule, a command-line flag, a hook or an embedding host's
+  policy can still be served from the archive. A path rule never matches a pathless record: the
+  output of `cat .env` archived as shell output is served even when `Read(./.env)` is denied. A
+  search result is judged by the directory it searched, as the host judges a Grep, so its lines may
+  quote a file a later rule denies. `CLAUDE_CONFIG_DIR` is seen only if the host passes it to
+  subprocesses (`CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` removes it).
 - **Whether a live gap is visible depends on whether a daemon is running when you look.** Counters
   that name a degradation live in the daemon's status snapshot, so `qompack status --json` after a
   session ended does not carry them. Ask while the session is live, or ask `qompack fsck`.
