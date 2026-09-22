@@ -64,9 +64,11 @@ type State struct {
 
 // ItemStat is one emitted Item's accounting row.
 //
-// There is no synthetic "overhead" row. The wrapper's cost is charged to the FIRST emitted item,
-// because Result.Tokens must equal the sum over Items exactly — an independent overhead row would
-// make the sum disagree with the total by construction, which the inherited conformance case
+// There is no synthetic "overhead" row. Result.Tokens is the estimator's price for the COMPLETE
+// assembled payload (wrapper and inter-section separators included), and each row's Tokens is an
+// ACCOUNTING ALLOCATION of that single number — the rows sum to the total exactly, but a row is not
+// the additive tokenization of its own bytes (V6 §5, inventory 1.6.18). An independent overhead row
+// would make the sum disagree with the total by construction, which the inherited conformance case
 // total_tokens_never_exceed_the_budget rejects at every budget.
 type ItemStat struct {
 	Kind      string      `json:"kind"`

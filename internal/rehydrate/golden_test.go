@@ -385,7 +385,7 @@ func TestState_MatchesFrozenGolden(t *testing.T) {
 
 	// Emitted is the daemon's stamp, not Build's: rehydrate.Build reads no clock at all, which is
 	// what lets this golden be byte-stable in the first place.
-	got, err := json.MarshalIndent(State{
+	current := State{
 		Session:  c.req.Session,
 		Seq:      res.Seq,
 		Emitted:  goldenEmitted,
@@ -394,14 +394,10 @@ func TestState_MatchesFrozenGolden(t *testing.T) {
 		Items:    stats,
 		Dropped:  res.Dropped,
 		Degraded: res.Degraded,
-	}, "", "  ")
-	require.NoError(t, err)
-	got = append(got, '\n')
+	}
 
 	want, err := os.ReadFile(filepath.Join(goldenRehydrateDir, "state.json"))
 	require.NoError(t, err, "the frozen state fixture is missing")
-	require.Equal(t, string(want), string(got),
-		"the rehydration state file drifted from its frozen shape")
 
 	// Rule W-2's round trip: the frozen bytes must decode back into the declared type without
 	// loss, or the first implementation to read them would silently drop a field.
@@ -411,6 +407,34 @@ func TestState_MatchesFrozenGolden(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, string(want), string(again)+"\n",
 		"State does not model every field its own frozen fixture carries")
+
+	// V6 section 5 replaces additive fragment estimates with an estimate of the
+	// complete payload. Keep the original golden bytes and its lossless reader
+	// contract above; compare every current state field except the retired token
+	// prices. Check the replacement criterion against the independently frozen
+	// rendered payload, not a reconstruction through the implementation renderer.
+	frozenText, err := os.ReadFile(filepath.Join(goldenRehydrateDir, c.name+".txt"))
+	require.NoError(t, err)
+	require.Equal(t, string(frozenText), res.Text, "the payload itself remains frozen")
+	require.Equal(t, c.deps.Tokens.Estimate(frozenText, tokens.ClassProse), current.Tokens)
+	var allocated core.Tokens
+	for i := range current.Items {
+		require.GreaterOrEqual(t, int(current.Items[i].Tokens), 0)
+		allocated += current.Items[i].Tokens
+		current.Items[i].Tokens = 0
+	}
+	require.Equal(t, current.Tokens, allocated, "item shares account for the assembled estimate")
+	current.Tokens = 0
+	back.Tokens = 0
+	for i := range back.Items {
+		back.Items[i].Tokens = 0
+	}
+	gotShape, err := json.MarshalIndent(current, "", "  ")
+	require.NoError(t, err)
+	wantShape, err := json.MarshalIndent(back, "", "  ")
+	require.NoError(t, err)
+	require.Equal(t, string(wantShape), string(gotShape),
+		"all non-price state fields and the frozen wire shape remain compatible")
 }
 
 // TestState_GoldenAccountsForEveryToken is the arithmetic the state file must satisfy: the total

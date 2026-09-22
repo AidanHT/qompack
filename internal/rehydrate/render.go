@@ -185,11 +185,18 @@ func renderText(r Request, items []Item) string {
 //
 // Two things it does are load-bearing for the inherited conformance suite. Items are emitted in
 // renderOrder with Rank as the 0-based position among EMITTED items, so an omitted kind consumes
-// no rank (runItemOrderCase). And the wrapper's cost — the open tag, the header line and the
-// close tag, all charged before anything was admitted — is attributed to the FIRST emitted item
-// rather than to a synthetic overhead row, so Result.Tokens is exactly the sum over Items
-// (runBudgetCase).
-func render(r Request, _ Deps, fills map[ItemKind]*admitted, all map[ItemKind]built, overhead core.Tokens) (Result, []ItemStat) {
+// no rank (runItemOrderCase). And Result.Tokens is exactly the sum over Items (runBudgetCase) — but
+// that total is the ASSEMBLED estimate, not a running sum of per-fragment prices.
+//
+// The distinction is the V6 §5 / inventory 1.6.18 correction. Each item's a.used is the sum of its
+// units' and heading's INDEPENDENT estimates, and the wrapper overhead is three more independent
+// estimates; summing them double-counts the estimator's per-fragment rounding and, worse, prices
+// none of the blank-line separators renderBody inserts between sections. So those per-fragment
+// numbers are kept only as non-negative WEIGHTS, and the reported total is the estimator applied to
+// the complete rendered payload (wrapper and separators included). allocateAssembledTokens then
+// re-charges the rows so their arithmetic sum equals that assembled total exactly, which keeps the
+// sum-over-Items identity true without claiming any single row is an additive tokenization.
+func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]built, overhead core.Tokens) (Result, []ItemStat) {
 	var res Result
 	units := make(map[ItemKind]int, len(renderOrder))
 	seen := make(map[ItemKind]int, len(renderOrder))
@@ -209,12 +216,14 @@ func render(r Request, _ Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 			continue
 		}
 
+		// a.used + (on the first emitted item) the wrapper overhead is this row's heuristic WEIGHT:
+		// the estimator's per-fragment price for what this section contributes. The assembled total
+		// below re-normalizes it, so it never has to be exact — only proportional and non-negative.
 		it := Item{Kind: k, Rank: len(res.Items), Tokens: a.used, Text: text, Truncated: a.truncated}
 		if len(res.Items) == 0 {
 			it.Tokens += overhead
 		}
 		res.Items = append(res.Items, it)
-		res.Tokens += it.Tokens
 		units[k] = len(a.units)
 		seen[k] = b.seen
 	}
@@ -226,7 +235,65 @@ func render(r Request, _ Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 		return res, nil
 	}
 	res.Text = renderText(r, res.Items)
+	// The reported cost is the estimator's price for the COMPLETE assembled payload — wrapper and
+	// inter-section separators included — never the sum of the per-fragment weights above.
+	res.Tokens = estimate(d, res.Text)
+	allocateAssembledTokens(res.Items, res.Tokens)
 	return res, itemStats(res.Items, units, seen)
+}
+
+// allocateAssembledTokens re-charges each item's accounting row so that the arithmetic sum over
+// Items equals the assembled total exactly, using the rows' current values as non-negative weights.
+//
+// It is a deterministic ALLOCATION, not a tokenization: the estimator prices the whole payload once,
+// and this spreads that single number back across the rows the state file and SP-16 read. A positive
+// difference (the assembled payload cost MORE than the fragment weights, e.g. because of unpriced
+// separators) is charged to the FIRST emitted item — the one that already carries the wrapper
+// overhead. A negative difference (the usual case: per-fragment rounding over-counted) is deducted
+// from the tail backward, so the most important early rows keep their weight, and each deduction is
+// bounded by the row's own value so no row is ever charged a negative cost. A negative target is
+// clamped to zero purely so the arithmetic cannot fabricate a negative row; no supported estimator
+// produces one (see assembled-budget-work.md).
+func allocateAssembledTokens(items []Item, target core.Tokens) {
+	if len(items) == 0 {
+		return
+	}
+	if target < 0 {
+		target = 0
+	}
+	var sum core.Tokens
+	for i := range items {
+		if items[i].Tokens < 0 {
+			items[i].Tokens = 0
+		}
+		sum += items[i].Tokens
+	}
+	switch diff := target - sum; {
+	case diff == 0:
+		return
+	case diff > 0:
+		items[0].Tokens += diff
+	default:
+		deficit := -diff
+		for i := len(items) - 1; i >= 0 && deficit > 0; i-- {
+			take := items[i].Tokens
+			if take > deficit {
+				take = deficit
+			}
+			items[i].Tokens -= take
+			deficit -= take
+		}
+	}
+}
+
+// syncStatTokens copies the re-allocated per-item costs onto their parallel accounting rows after a
+// hard-cap eviction re-measures the payload. stats and items stay index-aligned throughout the
+// eviction loop, so the copy keeps sum(stats.Tokens) == Result.Tokens the way itemStats did on the
+// first render.
+func syncStatTokens(stats []ItemStat, items []Item) {
+	for i := range items {
+		stats[i].Tokens = items[i].Tokens
+	}
 }
 
 // ── the §8.5 injection tags ──
