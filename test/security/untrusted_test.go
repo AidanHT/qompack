@@ -70,6 +70,9 @@ func TestSecurity_ArchivedTextIsDataNeverAnInstruction(t *testing.T) {
 	runHook(t, b.Bin, p, []string{"observe", "prompt"},
 		promptPayload(t, p.Root, untrustedSession, "summarise "+injectionPath))
 	requireIndexed(t, p.Root, injectionToolUseID)
+	// And its file version, or re_read below answers "nothing captured yet" — archived text it never
+	// carried, so its label would go unchecked (requireFileVersion).
+	requireFileVersion(t, p.Root, injectionPath)
 	// The Bash capture is waited for too. Without this the "a shell command was captured"
 	// half of the case could pass vacuously: an unindexed id makes expand answer found:false,
 	// nothing asserts on that, and the record would claim a capture that never happened.

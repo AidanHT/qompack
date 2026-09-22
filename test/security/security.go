@@ -1114,6 +1114,55 @@ func requireIndexed(t *testing.T, root, id string) {
 	}
 }
 
+// requireFileVersion waits until index/files.jsonl records a version of rel (a project-relative,
+// slash-separated path), so a re_read that follows asks about a version that has been captured.
+//
+// requireIndexed cannot stand in for it. The observer publishes the tool_use record first and
+// appends the §8.2 file version afterwards (internal/observer/tooluse.go, step 7), behind the
+// publication syncs and the capture-reference link of steps 6a-6b. In that window the record is
+// visible and re_read's answer — "no historical version has been captured for this path yet" — is
+// the correct one; on the Linux verification host the window measured 1.1-2.5 s, longer than the
+// MCP child takes to start, which is how TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+// failed 5 of 5 there while passing wherever the child happened to start later.
+func requireFileVersion(t *testing.T, root, rel string) {
+	t.Helper()
+	path := filepath.Join(paths.Of(root).Index, "files.jsonl")
+
+	ticker := time.NewTicker(daemonPollTick)
+	defer ticker.Stop()
+	deadline := time.NewTimer(indexBound)
+	defer deadline.Stop()
+	started := time.Now()
+	for {
+		if b, err := paths.ReadFileShared(path); err == nil && fileVersionNames(b, rel) {
+			if waited := time.Since(started); waited > slowChildNotice {
+				t.Logf("security: a version of %s was recorded after %s", rel, waited.Round(time.Millisecond))
+			}
+			return
+		}
+		select {
+		case <-ticker.C:
+		case <-deadline.C:
+			pid, held := daemonHoldingLock(root)
+			t.Fatalf("security: the observer never recorded a file version of %s into %s within %s "+
+				"(daemon lock pid %d held=%v)", rel, path, indexBound, pid, held)
+		}
+	}
+}
+
+// fileVersionNames reports whether any complete line of a files.jsonl image records rel.
+func fileVersionNames(b []byte, rel string) bool {
+	for _, line := range bytes.Split(b, []byte("\n")) {
+		var rec struct {
+			Path string `json:"path"`
+		}
+		if json.Unmarshal(line, &rec) == nil && rec.Path == rel {
+			return true
+		}
+	}
+	return false
+}
+
 // shutdownIfReachable dials root's resolved address and, if anything answers or a live process still
 // holds the lock, sends admin.shutdown until the daemon goes away.
 //

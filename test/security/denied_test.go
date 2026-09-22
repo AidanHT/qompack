@@ -264,6 +264,8 @@ func TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk(t *testing.T) {
 	runHook(t, b.Bin, p, []string{"observe", "tool"},
 		readToolPayload(t, p.Root, deniedSession, deniedToolUseID, deniedPath, body))
 	requireIndexed(t, p.Root, deniedToolUseID)
+	// re_read answers from the captured VERSION, which lands after the record: see requireFileVersion.
+	requireFileVersion(t, p.Root, deniedPath)
 
 	// The live file is replaced wholesale, and then removed.
 	writeProjectFile(t, p, deniedPath, "// "+liveMarker+"\n")
