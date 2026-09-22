@@ -256,12 +256,22 @@ func TestRemoveCreatedPluginData(t *testing.T) {
 	require.NoError(t, os.MkdirAll(full, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(full, "x"), []byte("x"), 0o600))
 
-	left := env.removeCreatedPluginData(before)
+	// A directory absent from the snapshot but older than the trial was made by someone else
+	// sharing this configuration (another lane's session): it is named, never removed.
+	foreign := filepath.Join(home, "plugins", "data", "qompack-shell-probe-inline")
+	require.NoError(t, os.MkdirAll(foreign, 0o755))
+	old := time.Now().Add(-time.Hour)
+	require.NoError(t, os.Chtimes(foreign, old, old))
+
+	left := env.removeCreatedPluginData(before, time.Now().Add(-time.Minute))
 	require.NoDirExists(t, empty)
 	require.DirExists(t, full)
 	require.DirExists(t, pre)
-	require.Len(t, left, 1)
-	require.Contains(t, left[0], "qompack-qompack-live-eval")
+	require.DirExists(t, foreign)
+	require.Len(t, left, 2)
+	joined := strings.Join(left, "\n")
+	require.Contains(t, joined, "qompack-qompack-live-eval")
+	require.Contains(t, joined, "qompack-shell-probe-inline")
 }
 
 // TestLiveTaskSet_ReferenceSolutionsPassEveryCheck proves every task is gradeable: a correct,

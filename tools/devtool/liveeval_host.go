@@ -533,14 +533,25 @@ func (e *liveEnv) guardSnapshot() (liveGuardSnap, error) {
 
 // removeCreatedPluginData removes a plugin data directory the trial created, when it is empty —
 // the host creates <home>/plugins/data/qompack-inline for a --plugin-dir session — and names one it
-// could not remove because it holds something.
-func (e *liveEnv) removeCreatedPluginData(before liveGuardSnap) []string {
+// could not remove because it holds something. "Created by the trial" means absent from the
+// before-snapshot AND modified no earlier than the trial started: another session sharing this
+// configuration (a concurrent close-out lane's --plugin-dir run) can create the same directory,
+// and that one is named for the guard, never removed.
+func (e *liveEnv) removeCreatedPluginData(before liveGuardSnap, since time.Time) []string {
 	var left []string
 	for _, rel := range e.liveGuardedDirs() {
 		if !strings.HasPrefix(rel, "plugins/data/") || before[rel] == "present" {
 			continue
 		}
 		p := filepath.Join(e.home, filepath.FromSlash(rel))
+		info, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		if info.ModTime().Before(since) {
+			left = append(left, rel+" (appeared during the trial but predates it: not created by this trial, left in place)")
+			continue
+		}
 		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
 			left = append(left, rel+" (created by the trial and not empty: "+err.Error()+")")
 		}
