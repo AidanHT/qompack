@@ -1,0 +1,115 @@
+# review red: finding 1 (MaxInt64 env/--set), on unmodified load.go at 1062c50 + new test rows, 2026-09-22T22:20:04Z, windows
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_top-level_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_nested_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type_keeps_the_lower_layer
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/section_that_is_not_an_object
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/integer_leaf_beyond_the_platform_int
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/invalid_value_beside_an_unknown_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_environment_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_environment_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_environment_value
+    capture_load_fallback_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:157
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: capture configuration unavailable: the effective configuration does not decode
+        	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_environment_value
+        	Messages:   	a per-leaf problem must not refuse the whole capture
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_flag_value
+    capture_load_fallback_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:157
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: capture configuration unavailable: the effective configuration does not decode
+        	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_flag_value
+        	Messages:   	a per-leaf problem must not refuse the whole capture
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_flag
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_flag_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_flag_value
+--- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing (5.40s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_top-level_key (0.59s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_nested_key (0.52s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type (0.59s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type_keeps_the_lower_layer (0.20s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/section_that_is_not_an_object (0.20s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/integer_leaf_beyond_the_platform_int (0.16s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/invalid_value_beside_an_unknown_key (0.10s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_environment_value (0.16s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_environment_value (0.36s)
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_environment_value (0.74s)
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_flag_value (0.24s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_flag (0.30s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_flag_value (0.51s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_flag_value (0.72s)
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_top-level_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_nested_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type_keeps_the_lower_layer
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/section_that_is_not_an_object
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/integer_leaf_beyond_the_platform_int
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/invalid_value_beside_an_unknown_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_environment_value
+    capture_load_fallback_test.go:179: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:179
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: capture configuration unavailable: the effective configuration does not decode
+        	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_flag_value
+    capture_load_fallback_test.go:179: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:179
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: capture configuration unavailable: the effective configuration does not decode
+        	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_flag_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_flag
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_flag_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_flag_value
+--- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem (3.78s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_top-level_key (0.46s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_nested_key (0.37s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type (0.32s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type_keeps_the_lower_layer (0.42s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/section_that_is_not_an_object (0.23s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/integer_leaf_beyond_the_platform_int (0.22s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/invalid_value_beside_an_unknown_key (0.13s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_environment_value (0.05s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_environment_value (0.06s)
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_environment_value (0.10s)
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_flag_value (0.50s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_flag (0.36s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_flag_value (0.38s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_flag_value (0.17s)
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/nonfinite_environment_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/infinite_flag_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/integer_beyond_the_platform_int
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_environment_value
+    load_test.go:502: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/load_test.go:502
+        	Error:      	Not equal: 
+        	            	expected: 9000
+        	            	actual  : 12000
+        	Test:       	TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_environment_value
+        	Messages:   	one unrepresentable leaf must not discard every other layer
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_flag_value
+    load_test.go:502: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/load_test.go:502
+        	Error:      	Not equal: 
+        	            	expected: 9000
+        	            	actual  : 12000
+        	Test:       	TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_flag_value
+        	Messages:   	one unrepresentable leaf must not discard every other layer
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_literal_in_a_file
+--- FAIL: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything (1.33s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/nonfinite_environment_value (0.18s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/infinite_flag_value (0.15s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/integer_beyond_the_platform_int (0.29s)
+    --- FAIL: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_environment_value (0.36s)
+    --- FAIL: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_flag_value (0.14s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_literal_in_a_file (0.21s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	11.925s
+FAIL
+exit=1

@@ -1,0 +1,60 @@
+# review red: finding 2, cli hook/self-test/doctor, on a8ead17 + new tests, unmodified capture_load.go, 2026-09-22T22:28:34Z, windows
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":"OFF"}}
+    capture_admission_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/capture_admission_test.go:97
+        	Error:      	Should be false
+        	Test:       	TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":"OFF"}}
+        	Messages:   	unavailable policy must precede daemon start
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":false}}
+    capture_admission_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/capture_admission_test.go:97
+        	Error:      	Should be false
+        	Test:       	TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":false}}
+        	Messages:   	unavailable policy must precede daemon start
+--- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart (15.92s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime": (0.82s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}} (0.18s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}} (0.51s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}} (2.59s)
+    --- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":"OFF"}} (7.56s)
+    --- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":false}} (4.26s)
+=== RUN   TestSelfTest_ReportsACaptureSwitchRefusal
+    capture_config_report_test.go:69: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/capture_config_report_test.go:69
+        	Error:      	Not equal: 
+        	            	expected: 0x2
+        	            	actual  : 0x1
+        	Test:       	TestSelfTest_ReportsACaptureSwitchRefusal
+        	Messages:   	every hook recording nothing is critical
+--- FAIL: TestSelfTest_ReportsACaptureSwitchRefusal (2.17s)
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/clean
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/refused
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/refused_switch
+    capture_config_report_test.go:134: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/capture_config_report_test.go:134
+        	Error:      	"capture continues: 0 setting(s) fell back to the default, 1 key(s) not applied" does not contain "refused"
+        	Test:       	TestDoctor_ReportsTheCaptureConfiguration/refused_switch
+        	Messages:   	row=map[detail:runtime.mode: invalid type for runtime.mode: expected string id:config.capture observed:capture continues: 0 setting(s) fell back to the default, 1 key(s) not applied status:degraded]
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/degraded
+--- FAIL: TestDoctor_ReportsTheCaptureConfiguration (3.22s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/clean (2.00s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/refused (0.47s)
+    --- FAIL: TestDoctor_ReportsTheCaptureConfiguration/refused_switch (0.42s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/degraded (0.33s)
+=== RUN   TestHookCapture_UnappliableCaptureSwitchRecordsNothing
+    capture_config_test.go:95: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/capture_config_test.go:95
+        	Error:      	directory "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestHookCapture_UnappliableCaptureSwitchRecordsNothing856038250\\001\\.qompack\\spool" exists
+        	Test:       	TestHookCapture_UnappliableCaptureSwitchRecordsNothing
+        	Messages:   	a refused capture spools nothing
+--- FAIL: TestHookCapture_UnappliableCaptureSwitchRecordsNothing (0.58s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	22.143s
+FAIL
+exit=1

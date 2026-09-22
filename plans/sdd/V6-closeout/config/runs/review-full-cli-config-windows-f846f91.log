@@ -1,0 +1,4 @@
+# review: full internal/config and internal/cli at f846f91, 2026-09-22T22:35:49Z, windows (co-loaded shared machine)
+ok  	github.com/qompack/qompack/internal/config	11.131s
+ok  	github.com/qompack/qompack/internal/cli	77.444s
+exit=0
