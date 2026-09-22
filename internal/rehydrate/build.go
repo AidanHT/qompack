@@ -268,9 +268,20 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 			res.Items[j].Rank = j
 			stats[j].Rank = j
 		}
-		res.Tokens -= gone.Tokens
-		res.Degraded = true
+		// A whole section removed by the hard cap is a NAMED overflow, not a silent erasure: the
+		// agent must be told which requirement is no longer in context, exactly as tier-1 overflow
+		// and the wrapper-alone case already are. It is appended to the same Dropped list dropped()
+		// answers from.
+		res.Dropped = append(res.Dropped, evictionDrop(gone.Kind))
+		// Re-measure against the assembled text after EACH eviction rather than decrementing by the
+		// evicted row's allocated share: the share was an allocation, and the true remaining cost is
+		// what the estimator prices the shorter payload at (wrapper and separators included). Then
+		// re-allocate the surviving rows to the new total and keep their stat rows in step.
 		res.Text = renderText(r, res.Items)
+		res.Tokens = estimate(d, res.Text)
+		allocateAssembledTokens(res.Items, res.Tokens)
+		syncStatTokens(stats, res.Items)
+		res.Degraded = true
 	}
 	if len(res.Items) == 0 {
 		res.Text = ""

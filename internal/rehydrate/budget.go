@@ -271,20 +271,41 @@ func tier1Drop(k ItemKind, u unit) checkpoint.DropEntry {
 	}
 }
 
+// dropIDEvicted marks a section that was emitted and then removed WHOLE by the hard-cap eviction
+// loop because the assembled payload overran its budget (V6 §5). The DropEntry keeps the section's
+// own Kind so the report says which requirement is gone; the ID is what Overflowed recognizes.
+const dropIDEvicted = "evicted"
+
+// evictionDrop is the DropEntry for a whole section the hard-cap loop evicted after assembly.
+//
+// The section's units were admitted and rendered, so they carry no drop of their own — removing them
+// silently would erase a current requirement without a word in the report. This names the kind
+// (never dropKindOverflow, so the report still says WHICH section is gone) and marks it ID "evicted"
+// so Overflowed treats it as the explicit overflow it is.
+func evictionDrop(k ItemKind) checkpoint.DropEntry {
+	return checkpoint.DropEntry{
+		Kind: k.String(),
+		ID:   dropIDEvicted,
+		Detail: "OVERFLOW: this section was emitted then evicted whole to keep the assembled payload " +
+			"within the hard budget cap — call dropped() for the full accounting",
+	}
+}
+
 // Overflowed reports whether dropped names an EXPLICIT overflow: essential content Build could
 // not represent inside the declared budget AT ALL, as opposed to the ordinary discretionary
 // truncation every other DropEntry in the report describes.
 //
-// It recognizes both shapes Build currently produces — the fixed injection wrapper alone
-// exceeding a zero/tiny budget (Kind dropKindOverflow), and a single tier-1/critical record too
-// large to admit whole (ID "tier1", Kind the item's own) — so a caller never has to know which
-// internal path produced the entry. This is the one predicate 00-ARCHITECTURE.md §5.15's "emit
-// explicit overflow" contract is checked against: Result.Degraded alone is not specific enough,
-// because a missing checkpoint or an unavailable rule scanner also degrade without ever losing a
-// record Build could not even partially represent.
+// It recognizes the three shapes Build produces — the fixed injection wrapper alone exceeding a
+// zero/tiny budget (Kind dropKindOverflow), a single tier-1/critical record too large to admit whole
+// (ID "tier1", Kind the item's own), and a whole section evicted after assembly to hold the hard cap
+// (ID dropIDEvicted, Kind the item's own) — so a caller never has to know which internal path
+// produced the entry. This is the one predicate 00-ARCHITECTURE.md §5.15's "emit explicit overflow"
+// contract is checked against: Result.Degraded alone is not specific enough, because a missing
+// checkpoint or an unavailable rule scanner also degrade without ever losing a record Build could
+// not even partially represent.
 func Overflowed(dropped []checkpoint.DropEntry) bool {
 	for _, e := range dropped {
-		if e.Kind == dropKindOverflow || e.ID == "tier1" {
+		if e.Kind == dropKindOverflow || e.ID == "tier1" || e.ID == dropIDEvicted {
 			return true
 		}
 	}

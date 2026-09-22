@@ -58,7 +58,11 @@ type Item struct {
 	Kind ItemKind
 	// Rank is this Item's position in the emitted order, ascending from the most important.
 	Rank int
-	// Tokens is this Item's token cost.
+	// Tokens is this Item's share of the payload's cost. It is an ACCOUNTING ALLOCATION, not an
+	// independent tokenization of Text: Result.Tokens is the estimator's price for the COMPLETE
+	// assembled payload (wrapper and inter-section separators included), and the per-item Tokens are
+	// re-charged to sum to that total exactly (V6 §5, inventory 1.6.18). Do not read a row as the
+	// additive token count of its own bytes.
 	Tokens core.Tokens
 	// Text is the rendered text.
 	Text string
@@ -104,7 +108,10 @@ type Result struct {
 	// and InjectionCloseTag so that a later read of the transcript can strip it back out and never
 	// re-encode it (§8.5, §4.6).
 	Text string
-	// Tokens is the payload's total token cost, which never exceeds Request.Budget.
+	// Tokens is the payload's total token cost, which never exceeds Request.Budget. It is the
+	// estimator applied to the COMPLETE assembled Text (wrapper and separators included), zero for an
+	// empty payload — an estimate for budgeting, never a claim of exact provider usage — and it equals
+	// the sum over Items.Tokens exactly.
 	Tokens core.Tokens
 	// Dropped is the explicit drop report (G4.5) backing the `dropped` retrieval tool.
 	Dropped []DropEntry
