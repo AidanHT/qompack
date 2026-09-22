@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -33,20 +34,33 @@ func TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity(t *testing.
 	}
 }
 
-func TestDeliveryMigration_PrecommitArtifactsKeepLegacyAnchorUsable(t *testing.T) {
+// Replaces the historical PrecommitArtifactsKeepLegacyAnchorUsable assertion.
+// Surviving migration artifacts without authority can also mean lost authority
+// after new writes; intact legacy anchors alone cannot authorize continuation.
+func TestDeliveryMigration_OrphanArtifactsPreserveLegacyAnchorsWithoutContinuing(t *testing.T) {
 	root, lock, journal := newTestDeliveryJournal(t)
 	lease, err := journal.lease(context.Background(), testDeliveryToken('a'), "s", testDeliveryRequest("first"))
 	require.NoError(t, err)
 	require.NoError(t, lock.Release())
-	require.NoError(t, os.Mkdir(filepath.Join(paths.Of(root).State, "delivery-generations"), 0o700))
+	state := paths.Of(root).State
+	before := make(map[string][]byte)
+	for _, name := range []string{deliveryLeaseFile, deliveryPositionFile, deliveryAckFile, deliveryAckPositionFile} {
+		before[name], err = os.ReadFile(filepath.Join(state, name))
+		require.NoError(t, err)
+	}
+	require.Contains(t, string(before[deliveryLeaseFile]), string(lease.ObservationID))
+	require.NoError(t, os.Mkdir(filepath.Join(state, "delivery-generations"), 0o700))
 	lock, err = acquireTestDeliveryLock(root)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = lock.Release() })
-	journal, err = lock.openDeliveryJournal()
-	require.NoError(t, err, "uncommitted artifacts cannot invalidate intact legacy anchors")
-	again, err := journal.lease(context.Background(), lease.Delivery, lease.Session, lease.RequestHash)
-	require.NoError(t, err)
-	require.Equal(t, lease, again)
+	_, err = lock.openDeliveryJournal()
+	require.ErrorIs(t, err, core.ErrDegraded, "orphan migration evidence must not authorize legacy continuation")
+	for name, want := range before {
+		got, readErr := os.ReadFile(filepath.Join(state, name))
+		require.NoError(t, readErr)
+		require.Equal(t, want, got, "refusal must preserve %s and its original identities", name)
+	}
+	require.DirExists(t, filepath.Join(state, "delivery-generations"))
 }
 
 func TestDeliveryMigration_MissingAckAnchorsAreNotRecreated(t *testing.T) {
