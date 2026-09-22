@@ -213,8 +213,8 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 		// Authorization runs BEFORE the root is even looked up: a tool_use_id resolved a stored
 		// path, and that path is re-checked against the CURRENT path/symlink policy — a hash or id
 		// is an address, not a credential (T13-TRUST / T20-M2-04).
-		if ok, reason := h.authorizeOrigin(rec.Tool, rec.Path); !ok {
-			return store.Root{}, "", "", nil, denied(reason), nil
+		if refusal := h.authorizeOrigin(ctx, rec.Tool, rec.Path); refusal != nil {
+			return store.Root{}, "", "", nil, refusal, nil
 		}
 		rt, gerr := h.store.GetRoot(ctx, rec.Root)
 		if errors.Is(gerr, store.ErrDamaged) {
@@ -287,8 +287,20 @@ func (h *handlers) reRead(ctx context.Context, r Request, raw json.RawMessage) (
 	// — its parent replaced by a link or a junction pointing out of the project — is a policy
 	// refusal, so it gets the explicit denied envelope: found:false, denied:true, no preview bytes,
 	// and a reason that does not echo the path back.
-	if ok, reason := h.authorizePath(norm); !ok {
-		return h.jsonResponse(ToolReRead, denied(reason), nil), nil
+	if refusal := h.authorizePath(ctx, norm); refusal != nil {
+		return h.jsonResponse(ToolReRead, refusal, nil), nil
+	}
+	// The hash form names content by address, and an address is not a credential: the path above
+	// was authorized, but the root it names may have been captured from a different path entirely.
+	// Its complete origin set is checked exactly as `expand` by hash checks it, or re_read would
+	// serve any archived object under the name of any path that passes (V6-AUTH-2's hash rule,
+	// which the path check alone did not cover here; found while enumerating C1.9's forms).
+	if strings.HasPrefix(a.At, "sha256:") {
+		if hash, perr := core.ParseHash(a.At); perr == nil {
+			if refusal := h.authorizeHash(ctx, hash); refusal != nil {
+				return h.jsonResponse(ToolReRead, refusal, nil), nil
+			}
+		}
 	}
 	key := paths.Key(norm)
 

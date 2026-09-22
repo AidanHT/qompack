@@ -8,6 +8,7 @@ import (
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
@@ -228,6 +229,11 @@ type ToolDeps struct {
 	// ProjectRoot is the worktree `re_read` resolves paths against and the tree the handshake
 	// observable is written under.
 	ProjectRoot string
+	// HostPolicy evaluates the host's current Read deny and ask rules for a stored path
+	// (V6-HOST-1). Nil means the real environment's policy for ProjectRoot, built by newHandlers,
+	// so no composition root can forget to wire it: a caller supplies one only to point it at a
+	// hermetic home and managed directory, as tests do.
+	HostPolicy *hostperm.Policy
 	// DisableWhy administratively gates `why` off: it reports itself unsupported regardless of
 	// whether Checkpoints is wired. This lets core archive retrieval (recall, expand, re_read,
 	// already_tried, record_eliminated, timeline) be verified and shipped independently of
