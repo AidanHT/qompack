@@ -18,16 +18,15 @@ import (
 	"github.com/qompack/qompack/internal/pluginmanifest"
 )
 
-// binaryRef is how every generated plugin file must refer to the platform binary. The host expands
+// binaryRef is how the committed plugin/ tree must refer to the platform binary. The host expands
 // ${CLAUDE_PLUGIN_ROOT} to the installed plugin directory, so a command that hard-coded a path — or
-// dropped the expansion — would work in this checkout and fail on every installed copy.
+// dropped the expansion — would work in this checkout and fail on every installed copy. The
+// committed tree is the linux/darwin rendering (pluginmanifest.CommittedGOOS); a windows bundle
+// names bin/qompack.exe instead, which test/platform and tools/devtool's bundle tests pin.
+//
+// Every entry uses it the same way: EXEC form, `command` exactly this path and the subcommand in
+// `args`, with no shell and therefore no quoting (C1.11).
 const binaryRef = "${CLAUDE_PLUGIN_ROOT}/bin/qompack"
-
-// quotedBinaryRef is the SHELL-form spelling hooks.json uses. A hooks.json `command` is handed to a
-// shell, so an install directory containing a space word-splits an unquoted expansion; .mcp.json
-// carries `args` and is exec form, where a quote would become part of the path. The two spellings
-// are asserted separately below for that reason (finding F-1).
-const quotedBinaryRef = `"` + binaryRef + `"`
 
 // TestCanary_PluginValidate is M0-03's "Validate the installed package using the Claude CLI's
 // documented plugin-validation command", and M0-G4's requirement that repository-only validation be
@@ -168,9 +167,10 @@ func TestCanary_PackagingShape(t *testing.T) {
 			for _, h := range g.Hooks {
 				commands++
 				require.Equal(t, "command", h.Type, "%s: hook type", event)
-				require.True(t, strings.HasPrefix(h.Command, quotedBinaryRef+" "),
-					"%s: %q must invoke the plugin binary through %s, or it cannot resolve once installed",
-					event, h.Command, quotedBinaryRef)
+				require.Equal(t, binaryRef, h.Command,
+					"%s: command must be exactly %s, or it cannot resolve once installed", event, binaryRef)
+				require.NotEmpty(t, h.Args,
+					"%s: without args the host runs %q through whatever shell it picks (C1.11)", event, h.Command)
 				require.Positive(t, h.Timeout, "%s: %q declares no timeout", event, h.Command)
 			}
 		}
@@ -194,10 +194,10 @@ func TestCanary_PackagingShape(t *testing.T) {
 	}
 	rec.Outcome = OutcomeVerified
 	rec.Reason = fmt.Sprintf("repository-level: the committed plugin/hooks/hooks.json declares the "+
-		"%d events internal/pluginmanifest declares, across %d command entries, each invoking %s "+
-		"with a timeout; plugin/.mcp.json launches the same binary unquoted, as exec form requires. "+
+		"%d events internal/pluginmanifest declares, across %d exec-form command entries, each "+
+		"launching %s with args and a timeout; plugin/.mcp.json launches the same binary. "+
 		"Installed-host version at the "+
 		"time of this record: %s. This is the packaging SHAPE, not evidence that an installed host "+
-		"resolves it.", len(wantEvents), commands, quotedBinaryRef, version)
+		"resolves it.", len(wantEvents), commands, binaryRef, version)
 	writeRecord(t, rec)
 }

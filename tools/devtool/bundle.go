@@ -310,9 +310,9 @@ func bundleDirName(version string, tgt bundleTarget) string {
 	return fmt.Sprintf("%s-plugin-%s-%s-%s", bundleProductName, version, tgt.OS, tgt.Arch)
 }
 
-// bundleBinPath is where the bundled binary sits, as a bundle-relative slash path. It is the path
-// ${CLAUDE_PLUGIN_ROOT}/bin/qompack resolves to once installed — see packaging/README.md for the
-// one open question this raises on Windows, which Task 2's platform matrix answers.
+// bundleBinPath is where the bundled binary sits, as a bundle-relative slash path. It is exactly
+// the path the target's hooks.json and .mcp.json name after ${CLAUDE_PLUGIN_ROOT}/
+// (pluginmanifest.BinaryRef), which TestAssembleBundle_Layout holds equal per target.
 func bundleBinPath(goos string) string {
 	return "bin/" + bundleProductName + exeSuffix(goos)
 }
@@ -337,7 +337,7 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 		return "", bundleIdentity{}, fmt.Errorf("clearing %s: %w", dir, err)
 	}
 
-	tree, err := pluginTreeFiles(a.version)
+	tree, err := pluginTreeFiles(a.version, tgt.OS)
 	if err != nil {
 		return "", bundleIdentity{}, err
 	}
@@ -386,14 +386,18 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 	return dir, id, nil
 }
 
-// pluginTreeFiles returns the generated plugin tree keyed by BUNDLE-relative slash path.
+// pluginTreeFiles returns the plugin tree generated for goos, keyed by BUNDLE-relative slash path.
+//
+// The tree is rendered per target because every hook and the MCP server name the exact executable
+// that target's bundle ships (bundleBinPath): exec form spawns `command` directly, and on Windows
+// "exec form requires command to resolve to a real executable such as a .exe" (C1.11).
 //
 // internal/pluginmanifest keys its output by repository path, so every key starts with "plugin/".
 // A bundle's root IS the plugin root, so the prefix comes off — and a key that does not carry it
 // is an error rather than a file written to an unexpected place, because that would mean the
 // generator's layout changed underneath the assembler.
-func pluginTreeFiles(version string) (map[string][]byte, error) {
-	files, err := pluginmanifest.Default(version).Files()
+func pluginTreeFiles(version, goos string) (map[string][]byte, error) {
+	files, err := pluginmanifest.ForTarget(version, goos).Files()
 	if err != nil {
 		return nil, fmt.Errorf("generating the plugin tree: %w", err)
 	}

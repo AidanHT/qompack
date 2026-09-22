@@ -479,9 +479,10 @@ type hooksManifest struct {
 	Hooks map[string][]struct {
 		Matcher string `json:"matcher"`
 		Hooks   []struct {
-			Type    string `json:"type"`
-			Command string `json:"command"`
-			Timeout int    `json:"timeout"`
+			Type    string   `json:"type"`
+			Command string   `json:"command"`
+			Args    []string `json:"args"`
+			Timeout int      `json:"timeout"`
 		} `json:"hooks"`
 	} `json:"hooks"`
 }
@@ -502,7 +503,8 @@ var v1ManifestPayload = map[string]string{
 // Crosses pluginmanifest -> plugin/hooks/hooks.json -> cli's dispatch table -> hookio. This is the
 // seam that breaks silently when a subcommand is renamed: the manifest is generated data, the
 // dispatch table is code, and nothing else in the tree executes one against the other. Every
-// command string is run VERBATIM, argv-split the way a shell would split it.
+// entry is run VERBATIM the way the host runs an exec-form hook: `command` is the executable and
+// `args` the argument vector, with no shell and no re-splitting (C1.11).
 func TestV1_PluginManifestCommandsExecuteAgainstRealBinary(t *testing.T) {
 	bin := Build(t)
 
@@ -544,7 +546,7 @@ func TestV1_PluginManifestCommandsExecuteAgainstRealBinary(t *testing.T) {
 				for _, h := range entry.Hooks {
 					require.Equal(t, "command", h.Type)
 
-					argv := v1SplitCommand(t, h.Command, pluginRoot, staged)
+					argv := v1ExecArgv(t, h.Command, h.Args, pluginRoot)
 
 					// The seam: every subcommand the manifest names must be one cli registers.
 					sub := v1SubcommandOf(argv)
@@ -690,32 +692,29 @@ func v1RegisteredSubcommands(t *testing.T, bin string) string {
 	return string(stdout) + string(stderr)
 }
 
-// v1SplitCommand argv-splits a manifest command string the way a shell would, after substituting
-// ${CLAUDE_PLUGIN_ROOT}.
+// v1ExecArgv is what the host does with an exec-form hook entry (C1.11): it substitutes
+// ${CLAUDE_PLUGIN_ROOT} into `command` and into each `args` element "as plain strings", and spawns
+// `command` with `args` as its argument vector — no shell, no splitting, no quoting.
 //
-// Since finding F-1 the executable word is DOUBLE-QUOTED — hooks.json is shell form and an install
-// directory containing a space word-splits an unquoted expansion — so the split honours exactly
-// that one shape: a leading `"…"` word, then a tail that carries no quoting at all. Anything else
-// fails here rather than being silently re-split, which is what keeps this faithful to what a shell
-// would do with the committed bytes.
-func v1SplitCommand(t *testing.T, command, pluginRoot, staged string) []string {
+// The committed tree is the linux/darwin rendering (pluginmanifest.CommittedGOOS), so its command
+// is the extensionless ${CLAUDE_PLUGIN_ROOT}/bin/qompack on every host this test runs on; a windows
+// bundle names bin/qompack.exe, which test/platform drives against a real assembled bundle. Here
+// the staged build is what runs, and the argument vector is returned exactly as the manifest
+// carries it.
+func v1ExecArgv(t *testing.T, command string, args []string, pluginRoot string) []string {
 	t.Helper()
-	require.True(t, strings.HasPrefix(command, `"`),
-		"the shell-form hook command must quote the plugin root: %q", command)
-
-	end := strings.Index(command[1:], `"`)
-	require.Positive(t, end, "unterminated quote in the manifest command %q", command)
-	exe := command[1 : 1+end]
-	tail := strings.TrimSpace(command[2+end:])
-	require.NotContains(t, tail, `"`, "only the executable word may be quoted: %q", command)
-	require.NotContains(t, tail, `'`, "manifest commands must not need shell quoting: %q", command)
-
+	require.NotEmpty(t, args, "an entry with no args is SHELL form, which C1.11 removed: %q", command)
+	require.NotContains(t, command, `"`, "exec form takes no shell quoting: %q", command)
 	require.Equal(t, filepath.ToSlash(filepath.Join(pluginRoot, "bin", "qompack")),
-		filepath.ToSlash(strings.ReplaceAll(exe, "${CLAUDE_PLUGIN_ROOT}", pluginRoot)),
-		"every manifest command must invoke ${CLAUDE_PLUGIN_ROOT}/bin/qompack")
+		filepath.ToSlash(strings.ReplaceAll(command, "${CLAUDE_PLUGIN_ROOT}", pluginRoot)),
+		"every manifest command must be exactly ${CLAUDE_PLUGIN_ROOT}/bin/qompack")
 
-	// exe is the manifest's extension-less path; the staged executable is what we can run.
-	return strings.Fields(tail)
+	argv := make([]string, len(args))
+	for i, a := range args {
+		require.NotContains(t, a, `"`, "exec form takes no shell quoting: %q", a)
+		argv[i] = strings.ReplaceAll(a, "${CLAUDE_PLUGIN_ROOT}", pluginRoot)
+	}
+	return argv
 }
 
 // v1SubcommandOf reconstructs the dispatch name from an argv tail, dropping flags. cli registers

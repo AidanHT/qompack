@@ -7,7 +7,7 @@
 // Every other suite in this tree drives a binary produced by `go build ./cmd/qompack` into a
 // temporary directory. That binary is not what a user runs. A user runs `bin/qompack[.exe]` from
 // inside an assembled plugin bundle, reached through `${CLAUDE_PLUGIN_ROOT}` as the host expands
-// it, with the manifest's own command strings and whatever the host's shell does to them. So this
+// it, with the manifest's own exec-form entries exactly as the host spawns them. So this
 // package assembles the host target's bundle ONCE per test binary, through the very task Task 1
 // committed (`go run ./tools/devtool bundle --target <os>/<arch> --out <dir>`), and every case
 // below drives the binary out of that bundle. A `go build` here would test a different artifact
@@ -23,8 +23,8 @@
 // platform axis instead of the capability axis.
 //
 // A `failed` record does NOT necessarily fail its Go test. Several cases exist precisely to
-// MEASURE a known-unverified contract — the manifest's unquoted `${CLAUDE_PLUGIN_ROOT}` against a
-// plugin root containing a space is the clearest — and the brief for this commit is explicit that
+// MEASURE a known-unverified contract — the pre-C1.11 shell-form hook string under each Windows
+// shell is the clearest (shell_test.go) — and the brief for this commit is explicit that
 // such a defect is recorded with its owning package, not weakened into a passing assertion and not
 // fixed from here. What each test does assert is the invariant that must hold regardless: hooks
 // exit 0, stdout parses, and nothing is written outside the product write set.
