@@ -134,7 +134,9 @@ func TestReplay_LiveModeSplicesTheForkIntoTheWindow(t *testing.T) {
 	t.Setenv("QOMPACK_EVAL_LIVE", "1")
 	h := eval.New(eval.Options{})
 	live := &fixedFork{actions: []eval.Action{{Turn: 4, Tool: "Grep"}, {Turn: 5, Tool: "Write", Paths: []string{"b.go"}}}}
-	h.(interface{ SetLiveRunner(eval.LiveRunner) }).SetLiveRunner(live)
+	setter, ok := h.(interface{ SetLiveRunner(eval.LiveRunner) })
+	require.True(t, ok, "the concrete harness exposes SetLiveRunner")
+	setter.SetLiveRunner(live)
 
 	s := forkSession()
 	det, err := h.Replay(context.Background(), s, eval.NewNullPolicy(config.Defaults()), eval.ReplayOptions{Deterministic: true, K: 3, Budget: eval.DefaultKeepBudget})
