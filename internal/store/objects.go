@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -145,12 +146,29 @@ func objectPresentAt(dst string) bool {
 var knownDirs sync.Map
 
 // ensureDir creates dir unless this process already created it.
+//
+// dir is a fanout leaf (objects/ab/cd), and a leaf this process has not yet cached is, on a store
+// of fewer objects than the 65 536 leaves, usually one that does not exist yet. So the create is
+// tried FIRST: one mkdir when the first fanout level is already there, and two more when it is not
+// (the leaf's ENOENT, then the level, then the leaf again). MkdirAll alone would have stat'ed the
+// leaf, stat'ed its parent, and only then created — three calls for the common case, five for a
+// new first level. Every other outcome — the leaf already there, a file in the way, a deeper
+// ancestor missing, a refusal — falls through to the same MkdirAll as before, which answers it
+// exactly as it did when it was the only call here, so no failure changes shape.
 func ensureDir(dir string) error {
 	if _, ok := knownDirs.Load(dir); ok {
 		return nil
 	}
-	if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
-		return err
+	err := os.Mkdir(paths.Long(dir), 0o700)
+	if errors.Is(err, fs.ErrNotExist) {
+		if perr := os.Mkdir(paths.Long(filepath.Dir(dir)), 0o700); perr == nil || errors.Is(perr, fs.ErrExist) {
+			err = os.Mkdir(paths.Long(dir), 0o700)
+		}
+	}
+	if err != nil {
+		if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
+			return err
+		}
 	}
 	knownDirs.Store(dir, struct{}{})
 	return nil
