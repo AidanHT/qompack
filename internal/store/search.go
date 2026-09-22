@@ -152,6 +152,7 @@ func (s *FSStore) materializeAll(ctx context.Context, cands []searchCand, needCo
 	if !needContent || len(cands) == 0 {
 		return out
 	}
+	reads := newSharedChunkReads(cands)
 
 	workers := searchFetchers
 	if workers > len(cands) {
@@ -168,7 +169,7 @@ func (s *FSStore) materializeAll(ctx context.Context, cands []searchCand, needCo
 				if i >= len(cands) || ctx.Err() != nil {
 					return
 				}
-				content, bounds, err := s.materialize(cands[i].root)
+				content, bounds, err := s.materializeWith(cands[i].root, reads)
 				out[i] = materializedBody{content: content, bounds: bounds, err: err}
 			}
 		}()
@@ -326,11 +327,17 @@ func exactSymbol(syms []symbols.Symbol, name string) (symbols.Symbol, bool) {
 // materialize decompresses a root's whole content and returns it with each chunk's END offset, so
 // a span can be widened outward to chunk boundaries.
 func (s *FSStore) materialize(entry *rootEntry) ([]byte, []int64, error) {
+	return s.materializeWith(entry, nil)
+}
+
+// materializeWith is materialize with the chunk reads of one Search shared through reads, which may
+// be nil (every chunk read on its own).
+func (s *FSStore) materializeWith(entry *rootEntry, reads *sharedChunkReads) ([]byte, []int64, error) {
 	chunks := entry.Root.Chunks
 	buf := make([]byte, 0, entry.Root.CanonBytes)
 	bounds := make([]int64, 0, len(chunks))
 	for _, c := range chunks {
-		plain, err := s.getObject(c.Hash, c.Len)
+		plain, err := reads.get(s, c)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -338,6 +345,73 @@ func (s *FSStore) materialize(entry *rootEntry) ([]byte, []int64, error) {
 		bounds = append(bounds, int64(len(buf)))
 	}
 	return buf, bounds, nil
+}
+
+// sharedChunkReads lets the candidates of ONE Search share a single verified read of every chunk
+// more than one of them references, so the object behind it is opened, decoded and hashed once per
+// Search rather than once per candidate.
+//
+// Sharing is what content addressing is for, so recall meets it constantly: a file read four times
+// is four tool-use records over one root, and a test run repeated with one new failure is two roots
+// that share every chunk but one. Without this, each such candidate paid the whole verify-on-read
+// cost (SP20-D2) again for bytes the Search had already verified.
+//
+// It is not a cache. It lives for one materializeAll call and is dropped with it; it holds only the
+// chunks two or more scanned candidates reference, so its bytes never exceed half of the
+// maxScanBytes the scan is already bounded by; and what it shares is getObject's own outcome — the
+// plaintext AFTER the length check and the DomainChunk content hash passed, or the error that
+// refused it — so nothing it hands out is unverified, and bytes verified against their content
+// address cannot be stale for that address. Entries are keyed by hash AND indexed length, so two
+// index lines that disagree about a chunk's length still get one getObject each, and the length
+// check refuses whichever is wrong, as it did before this existed.
+type sharedChunkReads struct {
+	shared map[ChunkRef]*sharedChunkRead
+}
+
+// sharedChunkRead is one shared chunk's single read.
+type sharedChunkRead struct {
+	once  sync.Once
+	plain []byte
+	err   error
+}
+
+// newSharedChunkReads counts every chunk reference across cands, from the in-memory index alone,
+// and keeps an entry for each reference that occurs more than once. It returns nil when nothing is
+// shared, which get treats as "read every chunk on its own".
+func newSharedChunkReads(cands []searchCand) *sharedChunkReads {
+	seen := make(map[ChunkRef]uint8)
+	var shared map[ChunkRef]*sharedChunkRead
+	for _, c := range cands {
+		for _, ref := range c.root.Root.Chunks {
+			switch seen[ref] {
+			case 0:
+				seen[ref] = 1
+			case 1:
+				seen[ref] = 2
+				if shared == nil {
+					shared = make(map[ChunkRef]*sharedChunkRead)
+				}
+				shared[ref] = &sharedChunkRead{}
+			}
+		}
+	}
+	if shared == nil {
+		return nil
+	}
+	return &sharedChunkReads{shared: shared}
+}
+
+// get returns ref's plaintext through getObject, once per Search for a shared reference and every
+// time for any other. The map is complete before the fetchers start and is never written after,
+// so concurrent lookups need no lock; the entry's Once is what makes the read itself single.
+func (r *sharedChunkReads) get(s *FSStore, ref ChunkRef) ([]byte, error) {
+	if r != nil {
+		if e, ok := r.shared[ref]; ok {
+			e.once.Do(func() { e.plain, e.err = s.getObject(ref.Hash, ref.Len) })
+			return e.plain, e.err
+		}
+	}
+	return s.getObject(ref.Hash, ref.Len)
 }
 
 // widenToChunks expands [lo, hi) outward to the boundaries of the chunks it intersects.
