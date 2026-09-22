@@ -97,13 +97,46 @@ jobs:
       #
       # test/e2e is excluded for the same reason ci.yml's `test` job excludes it, and with the
       # same measurement: under -race the package does not finish in 30 minutes on any runner, and
-      # the detector only ever instruments the harness, since every e2e test drives the real,
-      # plainly built binary. ci.yml's `test-e2e` runs the package alone, without -race. The
+      # a test-only -race flag instruments the harness rather than its go-build children.
+      # The race-product-child job below instruments selected real child paths separately.
+      # ci.yml's `test-e2e` runs the ordinary package alone. The
       # co-load declaration is the same one ci.yml's `test` job makes, for the same run shape.
       - shell: bash
         env:
           QOMPACK_UNDER_COLOAD: '1'
         run: go test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')
+
+  race-product-child:
+    # One executable per test process; GOFLAGS reaches Build(t)'s child go build.
+    # The independent build-info assertion fails if that inheritance is lost.
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '1'
+      GOFLAGS: '-race'
+      GOMAXPROCS: '2'
+      QOMPACK_REQUIRE_CHILD_RACE: '1'
+      QOMPACK_UNDER_COLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.6', cache: true }
+      - name: exercise instrumented product children
+        shell: bash
+        run: |
+          mkdir -p race-artifacts
+          export GORACE="halt_on_error=1 log_path=$PWD/race-artifacts/race"
+          rc=0
+          go test -count=1 -timeout=15m -v ./test/e2e -run '^(TestE2E_RequiredProductChildRaceInstrumentation|TestE2EHookRoundTrip|TestE2E_ObserverThroughDaemon|TestE2E_SupersessionVisibleAfterRestart|TestE2E_VerbatimPromptSurvivesRestart|TestE2E_SessionStartCompactRestoresCheckpointItems|TestStdioServerEndToEnd|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently)$' > race-artifacts/test.log 2>&1 || rc=$?
+          cat race-artifacts/test.log
+          if find race-artifacts -name 'race.*' -type f -size +0c | grep -q .; then
+            echo 'A product child or its harness reported a race.'
+            rc=1
+          fi
+          exit "$rc"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: race-product-child, path: race-artifacts/ }
 
   bench-deep:
     strategy:

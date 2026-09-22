@@ -227,12 +227,9 @@ jobs:
 
   test-e2e:
     # test/e2e alone on its own runner, and without -race: see the `test` job for why it is out
-    # of the whole-tree run. The race detector is deliberately not applied here at all rather
-    # than moved to nightly with a longer budget. It only ever instrumented the harness: every
-    # e2e test drives the REAL binary (Build(t), a plain `go build`), and the daemon, hooks and
-    # store under test run in that uninstrumented process whatever flags the test binary was
-    # built with. The in-process components the harness composes directly (negknow in X-09, the
-    # observer pipeline in X-10) are under -race in their own packages and in test/integration.
+    # of the whole-tree run. Timing judgements here use the ordinary product binary.
+    # nightly.yml's race-product-child job separately supplies GOFLAGS=-race, verifies
+    # instrumentation on the built executable, and exercises selected product paths.
     #
     # This job does NOT set QOMPACK_UNDER_COLOAD, on purpose: it is the isolation in which
     # test/e2e's wall-clock rows are judgeable, and TestV3_HotPathUnchangedWithLedgerResident
