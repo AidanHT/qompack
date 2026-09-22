@@ -316,8 +316,19 @@ func permuteInto(mins, a, b, hashes []uint64) {
 // checks the non-default widths against the same reference the default one is checked against — and
 // on the development host the constant-width form measures 323 µs against 580 µs for the 102 393
 // shingles of a 100 KiB document.
+//
+// The store's width gets a constant-width loop of its own for the same reason. Every shipped caller
+// asks for storeShingleSize bytes, not DefaultShingleSize: internal/canon's DefaultShingleSize and
+// the observer's minHashShingleSize are both 5, so until SP08-D1's close-out the production path
+// always took the variable-width loop below. hashShingles5 is fnv1a64 written out for five bytes
+// and is identical to it byte for byte; TestHashShingles_EveryWidthIsFNV1a pins that for every
+// width the options can reach.
 func hashShingles(dst []uint64, data []byte, off, w int) {
-	if w == DefaultShingleSize {
+	switch w {
+	case storeShingleSize:
+		hashShingles5(dst, data[off:off+len(dst)+storeShingleSize-1])
+		return
+	case DefaultShingleSize:
 		for i := range dst {
 			dst[i] = fnv1a64(data[off+i : off+i+DefaultShingleSize])
 		}
@@ -325,6 +336,28 @@ func hashShingles(dst []uint64, data []byte, off, w int) {
 	}
 	for i := range dst {
 		dst[i] = fnv1a64(data[off+i : off+i+w])
+	}
+}
+
+// storeShingleSize is the shingle width the store's near-duplicate signature is computed at: the
+// value of internal/canon's DefaultShingleSize and of the observer's minHashShingleSize, spelled
+// here because this package imports neither. It selects a faster loop and nothing else — a caller
+// asking for any other width gets the same hashes it always did.
+const storeShingleSize = 5
+
+// hashShingles5 is hashShingles at storeShingleSize over d, which holds exactly the bytes of
+// len(dst) consecutive shingles: fnv1a64's multiply chain unrolled for five bytes, so consecutive
+// shingles' chains overlap instead of serializing on a loop branch.
+func hashShingles5(dst []uint64, d []byte) {
+	d = d[:len(dst)+storeShingleSize-1]
+	for i := range dst {
+		s := d[i : i+storeShingleSize : i+storeShingleSize]
+		h := (uint64(fnvOffset64) ^ uint64(s[0])) * fnvPrime64
+		h = (h ^ uint64(s[1])) * fnvPrime64
+		h = (h ^ uint64(s[2])) * fnvPrime64
+		h = (h ^ uint64(s[3])) * fnvPrime64
+		h = (h ^ uint64(s[4])) * fnvPrime64
+		dst[i] = h
 	}
 }
 
