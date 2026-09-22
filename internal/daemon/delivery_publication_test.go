@@ -575,7 +575,10 @@ func TestCrashCutBetweenReferenceAndFrontierRedelivers(t *testing.T) {
 		if err != nil || !cut {
 			return j, err
 		}
-		if _, leased := j.leases[testDeliveryToken('6')]; leased {
+		// Ordering now reads the journal after leasing but before dispatch. Cut
+		// only after the reference callback actually ran, so this remains the
+		// reference-to-frontier boundary rather than an earlier admission failure.
+		if calls() > 0 {
 			return nil, deliveryJournalError() // the frontier write, and only it, is cut
 		}
 		return j, nil
@@ -592,6 +595,9 @@ func TestCrashCutBetweenReferenceAndFrontierRedelivers(t *testing.T) {
 	_, err := dd.Drain(context.Background())
 	require.Error(t, err, "an uncommitted frontier is not a completed drain")
 	require.Equal(t, 1, calls(), "the reference write ran")
+	beforeRetry, err := dd.deliveryJournal()
+	require.NoError(t, err)
+	require.False(t, beforeRetry.acknowledged(token), "the cut must precede the durable acknowledgement")
 
 	_, statErr := os.Stat(paths.Long(filepath.Join(paths.Of(root).Spool, "client-00003.ndjson")))
 	require.NoError(t, statErr, "the record that would let this be retried must not be released")
