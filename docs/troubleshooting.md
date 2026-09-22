@@ -152,6 +152,10 @@ exactly two entries:
 ]
 ```
 
+On this build only a read command such as `config print` writes the first of those entries. A hook in
+that project records nothing and writes neither, because a `runtime.mode` the hooks cannot apply as
+written refuses capture instead of falling back (§6).
+
 **Meaning.** This file carries two of §6's classes only. The first is an invalid value that fell
 back (`internal/config/validate.go`, `ViolationsFromWarnings`, which selects warnings whose message
 begins `invalid value, using default: `). A refused gated switch is recorded here as an invalid
@@ -342,9 +346,10 @@ to end; call `already_tried` for the authoritative answer, and apply §4 to what
 
 There are five ways a configuration value can be *accepted and not applied*. Both loaders treat them
 the same way, per leaf: `config.Load`, which every read command uses, and `config.LoadForCapture`,
-which every hook uses. The hook loader is stricter in exactly two places, and they are the
-subsection below, because they are the entry on this page most likely to be the answer when nothing
-is being recorded.
+which every hook uses. The hook loader is stricter in two ways — input it cannot read safely, and a
+setting of either control over what is recorded, `runtime.redact` or `runtime.mode`, that cannot be
+applied as written — and they are the subsection below, because they are the entry on this page most
+likely to be the answer when nothing is being recorded.
 
 | Class | What happens | Where you see it |
 |---|---|---|
@@ -353,6 +358,10 @@ is being recorded.
 | unknown key | a warning, never an error | `warn` in the day log only |
 | newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log; the hook path also records it in `config-violations.json` (§1) |
 | retired meaning | the value is still applied, with a deprecation warning naming the file and line | `warn` in the day log only |
+
+On the hook path the first three rows do not apply inside `runtime.redact` or to `runtime.mode`: a
+problem there refuses capture instead (below). `config print` and every other read command still
+fall back for them.
 
 `qompack self-test`'s `config.capture` row and `qompack doctor`'s `config.capture` row (in its
 recording-gaps section) report what the hooks made of your files: `applied as written`, or a
@@ -391,27 +400,30 @@ refusal names its class:
 |---|---|
 | `the project config file is not a single strict JSONC object` (or `the user config file …`) | a file that does not parse — a syntax error, a duplicate key, an empty trailing comma, an unterminated comment, invalid UTF-8 — cannot be applied per leaf, because nobody can tell which of its leaves were privacy rules. `config.Load` drops the whole layer with a `loud` warning instead |
 | `a runtime.redact setting cannot be applied as written` | an unknown key, a wrong type or an unparseable `QOMPACK_*`/`--set` value anywhere inside `runtime.redact`. Every fallback there would record under a weaker privacy policy than the one you wrote, so it fails closed, exactly as a redaction pattern that does not compile already does |
+| `a runtime.mode setting cannot be applied as written` | a value outside `auto\|full\|passive\|off` (`"OFF"`, `"sideways"`), a wrong type (`false`, `0`) or an unknown `--set` key under `runtime.mode`, from any layer. `runtime.mode` is the capture switch, and its fallback — `auto`, not a lower layer's value — would record in a project whose operator may have been switching recording off, so it fails closed: the hooks do what `off` would. A valid value applies as before |
 | `the project config file is not a bounded regular file` (or `the user config file …`) | a directory, a link, a file over 1 MiB, or one replaced between being checked and being opened |
 | `an environment or --set value exceeds the capture bounds or is not UTF-8` | one value over 64 KiB, all of them together over 1 MiB, or invalid UTF-8 |
 
-Observed on this tree, running the `observe prompt` hook once in each of ten scratch projects with
+Observed on this tree, running the `observe prompt` hook once in each of twelve scratch projects with
 one project config file each, then `qompack self-test`
-(`plans/sdd/V6-closeout/config/runs/repro-after-8b7a605-windows.log`):
+(`plans/sdd/V6-closeout/config/runs/repro-after-f846f91-windows.log`):
 
 | Project config | Delivery recorded | `config.capture` |
 |---|---|---|
 | `{}` | yes | `ok`, `applied as written` |
 | `{"runtime":{"notAKey":1}}` | yes | `warn`, names `runtime.notAKey: unknown key` |
 | `{"runtime":{"migration":{"settingsVersion":99}}}` | yes | `warn`, names the `runtime.migration` reset |
-| `{"runtime":{"mode":"sideways"}}` | yes | `warn`, names `runtime.mode` |
+| `{"runtime":{"mode":"sideways"}}` | **no** | critical, `a runtime.mode setting cannot be applied as written` |
 | `{"runtime":{"phase7":{"reuse":{"scopedCandidates":true}}}}` | yes | `warn`, names the refused gated switch |
 | `{"scheduler":{"youngDaly":{"enabled":true}}}` | yes | `ok`, `applied as written` |
 | `{"checkpoint":{"budgetTokens":"12000"}}` | yes | `warn`, `invalid type for checkpoint.budgetTokens: expected int` |
-| `{"runtime":{"mode":"sideways","notAKey":1}}` | yes | `warn`, names both keys |
+| `{"runtime":{"mode":"sideways","notAKey":1}}` | **no** | critical, `a runtime.mode setting cannot be applied as written` |
 | `{"runtime":{"redact":{"patterns":"PRIVATE-[A-Z]{12}"}}}` | **no** | critical, `a runtime.redact setting cannot be applied as written` |
 | `{"runtime":` | **no** | critical, `the project config file is not a single strict JSONC object` |
+| `{"runtime":{"mode":"OFF"}}` | **no** | critical, `a runtime.mode setting cannot be applied as written` |
+| `{"runtime":{"mode":false}}` | **no** | critical, `a runtime.mode setting cannot be applied as written` |
 
-Every hook run printed `{}` and exited 0, and `config.load` read `ok` in all ten. **`config.load`
+Every hook run printed `{}` and exited 0, and `config.load` read `ok` in all twelve. **`config.load`
 passing does not mean the hooks can load your config; `config.capture` is the row that says.**
 
 **Action.** Repair what `config.capture` names, then re-run `qompack self-test` until that row reads
@@ -518,6 +530,12 @@ payload bytes are admitted.
 printed `{}`, exited 0, and created no `.qompack/` layout at all. Read commands you run by hand
 still write — `qompack status` and `qompack self-test` create the layout and start a daemon
 whatever the mode says, because you asked them to.
+
+Spell it exactly `"off"`. A value the hooks cannot apply as written — `"OFF"`, `false`, any other
+value outside `auto|full|passive|off` — also records nothing from the hook path, because the hooks
+refuse that configuration rather than fall back to `auto` (§6); but `self-test` then reports
+`config.capture` as a critical failure rather than a clean off, and the read commands fall back to
+`auto`.
 
 ### Step 4 — `runtime.daemon.enabled = false`
 
