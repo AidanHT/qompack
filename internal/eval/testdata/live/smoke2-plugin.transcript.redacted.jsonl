@@ -1,0 +1,67 @@
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:startup", "toolUseID": "f15c4f6a-c7ae-45e6-9fea-ffbee2067d1e", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"<!-- qompack-contract-probe qompack-contract-bb2f78a5e3d8 -->\"}}\n", "stderr": "", "exitCode": 0, "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" session-start", "durationMs": 1249}}
+{"type": "attachment", "attachment": {"type": "hook_additional_context", "content": ["<!-- qompack-contract-probe qompack-contract-bb2f78a5e3d8 -->"], "hookName": "SessionStart", "toolUseID": "SessionStart", "hookEvent": "SessionStart"}}
+{"type": "user", "message": {"role": "user", "content": "[redacted user text]"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "redacted"}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "[redacted]"}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "[redacted]"}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "redacted", "content": "[redacted]"}]}}
+{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Read", "toolUseID": "toolu_01JbFuqdd2nvveMb5TXa2Dne", "hookEvent": "PostToolUse", "content": "", "stdout": "{}\n", "stderr": "", "exitCode": 0, "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe tool", "durationMs": 430}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "[redacted]"}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "[redacted]"}]}}
+{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "Stop", "toolUseID": "7c7f7a31-4111-4434-88ae-f10df92295b3", "hookEvent": "Stop", "content": "", "stdout": "{}\n", "stderr": "", "exitCode": 0, "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe stop", "durationMs": 331}}
+{"type": "system", "subtype": "stop_hook_summary", "hookCount": 1, "hookInfos": [{"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe stop", "durationMs": 331}], "hookErrors": []}
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "system", "subtype": "compact_boundary", "compactMetadata": {"trigger": "manual", "preTokens": 25598, "durationMs": 12934}}
+{"type": "user", "message": {"role": "user", "content": "[redacted user text]"}}
+{"type": "user", "message": {"role": "user", "content": "[redacted user text]"}}
+{"type": "user", "message": {"role": "user", "content": "[redacted user text]"}}
+{"type": "user", "message": {"role": "user", "content": "<local-command-stdout>Compacted PreCompact [\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" checkpoint] failed: Hook JSON output validation failed — hookSpecificOutput.hookEventName: expected one of \"PreToolUse\" | \"UserPromptSubmit\" | \"UserPromptExpansion\" | \"SessionStart\" | \"Setup\" | \"PreModelSwitch\" | …\n\nThe hook's output was: {\n  \"hookSpecificOutput\": {\n    \"hookEventName\": \"PreCompact\",\n    \"customInstructions\": \"Encode what a competent engineer with no session history would get wrong. Do not restate file contents, directory structure, or command output — those are retrievable. Prioritise: intent, decisions and their rationale, approaches eliminated and why, and constraints discovered empirically.\\n\\nDo not include code snippets: every file named above is available by path and hash through the qompack checkpoint, and a pointer costs roughly 20 tokens where a snippet costs roughly 500.\"\n  }\n}\n\nExpected schema:\n{\n  \"continue\": \"boolean (optional)\",\n  \"suppressOutput\": \"boolean (optional)\",\n  \"stopReason\": \"string (optional)\",\n  \"decision\": \"\\\"approve\\\" | \\\"block\\\" (optional)\",\n  \"reason\": \"string (optional)\",\n  \"systemMessage\": \"string (optional)\",\n  \"terminalSequence\": \"string (optional)\",\n  \"hookSpecificOutput\": {\n    \"for PreToolUse\": {\n      \"hookEventName\": \"\\\"PreToolUse\\\"\",\n      \"permissionDecision\": \"\\\"allow\\\" | \\\"deny\\\" | \\\"ask\\\" | \\\"defer\\\" (optional)\",\n      \"permissionDecisionReason\": \"string (optional)\",\n      \"updatedInput\": \"object (optional) - Modified tool input to use\"\n    },\n    \"for PermissionRequest\": {\n      \"hookEventName\": \"\\\"PermissionRequest\\\"\",\n      \"decision\": {\n        \"to allow\": {\n          \"behavior\": \"\\\"allow\\\"\",\n          \"updatedInput\": \"object (optional) - Modified tool input to use\",\n          \"updatedPermissions\": \"array (optional) - Permission updates\"\n        },\n        \"to deny\": {\n          \"behavior\": \"\\\"deny\\\"\",\n          \"message\": \"string (optional)\",\n          \"interrupt\": \"boolean (optional)\"\n        }\n      }\n    },\n    \"for UserPromptSubmit\": {\n      \"hookEventName\": \"\\\"UserPromptSubmit\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for PostToolUse\": {\n      \"hookEventName\": \"\\\"PostToolUse\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for PostToolBatch\": {\n      \"hookEventName\": \"\\\"PostToolBatch\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for Stop / SubagentStop\": {\n      \"hookEventName\": \"\\\"Stop\\\" | \\\"SubagentStop\\\"\",\n      \"additionalContext\": \"string (optional) - Feedback for the model; the conversation continues so the model can act on it\"\n    }\n  }\n}</local-command-stdout>"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:compact", "toolUseID": "9eba7e83-9c69-45eb-b23e-074cf13ab70c", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"<!-- qompack:injected seq=1 ver=1 -->\\n# Qompack rehydration — checkpoint 0001, session 9d21f1b7\\n\\n## 2. Original user intent (verbatim from L0 capture — never summarized)\\n> Read notes.txt and tell me the release codeword. Reply in one short sentence.\\n\\n## 7. No longer in context\\n- pointer_git_unavailable — checkpoint: no .git at the project root\\n\\n## 8. Retrieval\\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\\n<!-- /qompack:injected -->\\n<!-- qompack-contract-probe qompack-contract-3177116df881 -->\"}}\n", "stderr": "", "exitCode": 0, "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" session-start", "durationMs": 589}}
+{"type": "attachment", "attachment": {"type": "hook_additional_context", "content": ["<!-- qompack:injected seq=1 ver=1 -->\n# Qompack rehydration — checkpoint 0001, session 9d21f1b7\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\n> Read notes.txt and tell me the release codeword. Reply in one short sentence.\n\n## 7. No longer in context\n- pointer_git_unavailable — checkpoint: no .git at the project root\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n<!-- /qompack:injected -->\n<!-- qompack-contract-probe qompack-contract-3177116df881 -->"], "hookName": "SessionStart", "toolUseID": "SessionStart", "hookEvent": "SessionStart"}}
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "user", "message": {"role": "user", "content": "[redacted user text]"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "[redacted]"}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "[redacted]"}]}}
+{"type": "attachment", "attachment": {"type": "redacted"}}
+{"type": "redacted"}
+{"type": "redacted"}
+{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "Stop", "toolUseID": "e85fb678-7243-461e-a16d-af59d6262106", "hookEvent": "Stop", "content": "", "stdout": "{}\n", "stderr": "", "exitCode": 0, "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe stop", "durationMs": 338}}
+{"type": "system", "subtype": "stop_hook_summary", "hookCount": 1, "hookInfos": [{"command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe stop", "durationMs": 338}], "hookErrors": []}
+{"type": "redacted"}
+{"type": "redacted"}
