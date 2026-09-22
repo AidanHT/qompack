@@ -206,6 +206,12 @@ type DrainConfig struct {
 	// drain itself before any of it is consumed (drainer.durableEnd). A nil SyncedWAL treats every
 	// file as not held.
 	SyncedWAL func(path string) (synced int64, held bool)
+	// Released is told the session of every leased line the drain consumes — acknowledged by this
+	// pass, found already acknowledged or complete, or retired by a proven denial. The daemon wires
+	// the ingest's wakeSession: a live successor the worker pool parked behind that delivery
+	// (delivery_order.go's lanes) is then run again at once rather than at the next drain. It must
+	// not block. A nil Released tells nobody.
+	Released func(sess core.SessionID)
 }
 
 // drainer is a standalone drain engine (task-3-spec.md drain.go's algorithm), independent of the
@@ -546,6 +552,9 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				}
 				dl := deferred[idx]
 				consume(dl.start, dl.next)
+				if dl.leased {
+					dr.released(dl.lease)
+				}
 				if dispatched {
 					count++
 				}
@@ -606,6 +615,8 @@ readLoop:
 		verdict := dr.admitLine(req)
 		// A previous lease can survive a later policy change. A proven denial
 		// retires it durably before the offset; uncertainty retains the source.
+		var retired deliveryLease
+		retiredHeld := false
 		if verdict.Denied || verdict.Failed {
 			lease, held, err := dr.existingLease(req)
 			if err == nil && held && verdict.Denied {
@@ -618,6 +629,7 @@ readLoop:
 				gaps.add(base, DrainGapUnadmitted, "refused replay has unresolved delivery identity or policy")
 				continue
 			}
+			retired, retiredHeld = lease, held
 		}
 		switch {
 		case verdict.Denied:
@@ -626,6 +638,9 @@ readLoop:
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
 			consume(lineStart, nextOffset)
+			if retiredHeld {
+				dr.released(retired)
+			}
 			if err := reattempt(); err != nil {
 				readErr = err
 				break readLoop
@@ -690,6 +705,9 @@ readLoop:
 		}
 		if done {
 			consume(lineStart, nextOffset)
+			if dl.leased {
+				dr.released(dl.lease)
+			}
 			if dispatched {
 				count++
 			}
@@ -1422,6 +1440,13 @@ func (dr *drainer) leaseDelivery(ctx context.Context, req ipc.Request) (delivery
 		return deliveryLease{}, false
 	}
 	return lease, true
+}
+
+// released tells DrainConfig.Released that the drain consumed a line of lease's session.
+func (dr *drainer) released(lease deliveryLease) {
+	if dr.cfg.Released != nil {
+		dr.cfg.Released(lease.Session)
+	}
 }
 
 // commitDelivery writes the committed-frontier record for a drained delivery.
