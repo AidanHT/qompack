@@ -297,10 +297,19 @@ func (s *FSStore) readObjectFile(h core.Hash) (raw []byte, path string, compress
 
 var errObjectTooLarge = errors.New("store: physical object exceeds size limit")
 
+// errObjectNotRegular and errObjectChanged are readBoundedObject's two leaf refusals: the path names
+// something other than a regular file, or the file opened is not the one the leaf check examined.
+// readObjectFile maps both to ErrDamaged without quarantining, because the bytes were never checked.
+var (
+	errObjectNotRegular = errors.New("store: object is not a regular file")
+	errObjectChanged    = errors.New("store: object changed while opening")
+)
+
 // readBoundedObject rejects nonregular leaf paths and bounds allocation by the size the file's own
-// Stat reports, which is already checked against limit. SameFile detects a replaced leaf between
-// Lstat and Open; the plaintext hash check handles changed bytes. This is not a complete
-// authorization check for ancestor directories.
+// Stat reports, which is already checked against limit. The leaf check is openObjectLeaf's, per
+// platform: it never follows a symbolic link or reparse point at the leaf, and the file it returns
+// is the one it checked (object_open_*.go). The plaintext hash check handles changed bytes. This is
+// not a complete authorization check for ancestor directories.
 //
 // The bytes are read into ONE buffer pre-sized from the Stat'd size (W1: no io.ReadAll geometric
 // regrowth, no transient over-allocation), and the read then requires the file to be exactly that
@@ -309,30 +318,47 @@ var errObjectTooLarge = errors.New("store: physical object exceeds size limit")
 // after its Stat would be accepted on the strength of its valid PREFIX's content hash, since the
 // downstream hash would only ever see the prefix this function returned.
 func readBoundedObject(path string, limit int64) ([]byte, error) {
-	long := paths.Long(path) // W2: computed once; on Windows this allocates the \\?\-prefixed string.
-	before, err := os.Lstat(long)
-	if err != nil {
-		return nil, err
-	}
-	if !before.Mode().IsRegular() {
-		return nil, fmt.Errorf("store: object is not a regular file")
-	}
-	f, err := os.Open(long)
+	f, opened, err := openObjectLeaf(paths.Long(path))
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	opened, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
-		return nil, fmt.Errorf("store: object changed while opening")
-	}
 	if opened.Size() > limit {
 		return nil, errObjectTooLarge
 	}
 	return readExactSize(f, opened.Size())
+}
+
+// openObjectChecked is the path-verified object open: an Lstat refuses a nonregular leaf before
+// anything is opened, and the opened handle's own Stat must be a regular file that os.SameFile
+// matches with that Lstat, which detects a leaf replaced between the two. flags are added to
+// O_RDONLY; object_open_unix.go passes the no-follow flags that close the replacement window
+// instead of only detecting it.
+//
+// It is the whole leaf check where the platform offers nothing cheaper, and on Windows it is the
+// fallback for a leaf that is a reparse point (object_open_windows.go).
+func openObjectChecked(long string, flags int) (*os.File, os.FileInfo, error) {
+	before, err := os.Lstat(long)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !before.Mode().IsRegular() {
+		return nil, nil, errObjectNotRegular
+	}
+	f, err := os.OpenFile(long, os.O_RDONLY|flags, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	opened, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, nil, err
+	}
+	if !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
+		_ = f.Close()
+		return nil, nil, errObjectChanged
+	}
+	return f, opened, nil
 }
 
 // readExactSize reads exactly size bytes from r into a single pre-sized buffer, then requires r to be
