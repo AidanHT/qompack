@@ -171,3 +171,35 @@ func TestWriteAtomic_CreateTempFailureLeavesNoStaging(t *testing.T) {
 		require.False(t, strings.HasPrefix(e.Name(), "wa-"), "leftover staging file: %s", e.Name())
 	}
 }
+
+// TestWriteAtomic_AppliesPermToTheReplacement pins the mode WriteAtomic promises for the file it
+// installs, in both directions: a perm with the owner-write bit leaves the replacement writable —
+// even when the file it replaced was read-only — and one without it leaves the replacement
+// read-only. On Windows that is exactly the READONLY attribute os.Chmod maps a mode onto, which is
+// what WriteAtomic's skipped no-op Chmod must not change.
+func TestWriteAtomic_AppliesPermToTheReplacement(t *testing.T) {
+	l := newLayout(t)
+
+	writable := filepath.Join(l.State, "writable.json")
+	require.NoError(t, os.WriteFile(writable, []byte("old"), 0o600))
+	require.NoError(t, os.Chmod(writable, 0o444))
+	require.NoError(t, paths.WriteAtomic(writable, []byte("new"), 0o600))
+	fi, err := os.Stat(writable)
+	require.NoError(t, err)
+	require.NotZero(t, fi.Mode().Perm()&0o200, "a 0o600 replacement must be writable, got %v", fi.Mode())
+	if runtime.GOOS != "windows" {
+		require.Equal(t, os.FileMode(0o600), fi.Mode().Perm())
+	}
+
+	readOnly := filepath.Join(l.State, "read-only.json")
+	require.NoError(t, paths.WriteAtomic(readOnly, []byte("sealed"), 0o400))
+	fi, err = os.Stat(readOnly)
+	require.NoError(t, err)
+	require.Zero(t, fi.Mode().Perm()&0o200, "a 0o400 replacement must be read-only, got %v", fi.Mode())
+	if runtime.GOOS != "windows" {
+		require.Equal(t, os.FileMode(0o400), fi.Mode().Perm())
+	}
+	got, err := os.ReadFile(readOnly)
+	require.NoError(t, err)
+	require.Equal(t, "sealed", string(got))
+}
