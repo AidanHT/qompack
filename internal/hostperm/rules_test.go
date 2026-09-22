@@ -304,7 +304,7 @@ func TestWindowsPathsAreComparedInPOSIXFormWithoutCase(t *testing.T) {
 	}{
 		{
 			"//c/ is the drive root", deny("Read(//c/**/.env)"),
-			[]string{`C:\Proj\.env`, `c:\other\deep\.env`},
+			[]string{`C:\Proj\.env`, `c:\elsewhere\deep\.env`},
 			[]string{`D:\Proj\.env`},
 		},
 		{
