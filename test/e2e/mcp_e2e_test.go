@@ -84,6 +84,37 @@ func mcpE2EBody() string {
 	return b.String()
 }
 
+// syncBuffer is a concurrency-safe stderr sink for a live child process.
+//
+// os/exec drains cmd.Stderr from a goroutine it owns, via io.Copy, for the whole life of the
+// process (see the child's Start below). This test reads that same stderr on every send, await, and
+// finish, so it can explain a failure with what the child printed. Those two accesses overlap: the
+// copy writes while an assertion reads. A plain bytes.Buffer cannot serve both — its Write and
+// String touch len/cap and the backing slice without synchronization, which is exactly the race the
+// detector caught at mcp_e2e_test.go:151. Guarding one buffer with one mutex serializes them.
+//
+// It exposes only Write (so it satisfies io.Writer for cmd.Stderr) and String (so assertions can
+// read it). No bytes.Buffer method is promoted, so no caller can reach the buffer unlocked.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+// Write appends to the buffer under the lock. This is the side os/exec drives.
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+// String returns a snapshot of what the child has printed so far, under the lock. This is the side
+// the test's assertions drive, concurrently with the live copy.
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
 // mcpE2EChild is a running `qompack mcp` process with its stdio wired to this test.
 //
 // stdout is drained by a goroutine into a channel rather than read on demand, for the reason every
@@ -91,11 +122,14 @@ func mcpE2EBody() string {
 // the parent is blocked writing to its stdin deadlocks both. Draining continuously also makes the
 // "no response to a notification" assertion possible, because an unexpected line shows up as the
 // wrong id on the next await rather than as a hang.
+//
+// stderr is a syncBuffer, not a bytes.Buffer, for the same live-copy reason: os/exec writes it from
+// its own goroutine while the assertions below read it. See syncBuffer.
 type mcpE2EChild struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	lines  chan string
-	stderr *bytes.Buffer
+	stderr *syncBuffer
 }
 
 // mcpE2EStart launches the real binary's `mcp` subcommand against the project p.
@@ -124,7 +158,7 @@ func mcpE2EStartWithEnv(t *testing.T, bin string, env map[string]string) *mcpE2E
 	stdout, err := cmd.StdoutPipe()
 	require.NoError(t, err, "stdout pipe")
 
-	var stderr bytes.Buffer
+	var stderr syncBuffer
 	cmd.Stderr = &stderr
 
 	require.NoError(t, cmd.Start(), "starting %s mcp", bin)
