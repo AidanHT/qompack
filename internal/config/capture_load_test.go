@@ -245,7 +245,112 @@ func TestLoadForCapture_RefusesAnyPrivacyPolicyProblem(t *testing.T) {
 	}
 }
 
-// TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse is the boundary of the rule above: a `runtime`
+// TestLoadForCapture_RefusesAnyCaptureSwitchProblem: runtime.mode is the operator's other control
+// over whether anything is captured at all. "off" makes every hook admit nothing (internal/cli's
+// admitHookCapture), and docs/troubleshooting.md's safe-disable ladder tells an operator to use it.
+// A setting of it that cannot be applied as written therefore has no per-leaf fallback on the hook
+// path: the fallback — to the default "auto", or to whatever a lower layer said — records a project
+// whose operator may have been switching recording off, so the capture is refused instead, which is
+// what "off" would have done. The soft loader is unchanged: it clamps, warns and continues.
+//
+// Before C1.8 the mistyped rows refused, because every merge Warning did; the out-of-enum rows have
+// clamped to "auto" and recorded since S-7. Both are the V6 close-out C1.8 review's finding 2.
+func TestLoadForCapture_RefusesAnyCaptureSwitchProblem(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		user  string
+		file  string
+		env   map[string]string
+		flags map[string]string
+	}{
+		{name: "value outside the enum", file: `{"runtime":{"mode":"capture-secret"}}`},
+		{name: "off in the wrong case", file: `{"runtime":{"mode":"OFF"}}`},
+		{name: "wrong type", file: `{"runtime":{"mode":false}}`},
+		{
+			// Here a fallback would happen to keep the user's off; the refusal must not depend on
+			// what a lower layer said.
+			name: "wrong type over a lower layer's off",
+			user: `{"runtime":{"mode":"off"}}`,
+			file: `{"runtime":{"mode":0}}`,
+		},
+		{
+			// The clamp restores the DEFAULT, not the lower layer: this one would record.
+			name: "value outside the enum over a lower layer's off",
+			user: `{"runtime":{"mode":"off"}}`,
+			file: `{"runtime":{"mode":"capture-secret"}}`,
+		},
+		{name: "object where the switch belongs", file: `{"runtime":{"mode":{"capture-secret":true}}}`},
+		{name: "environment value outside the enum", env: map[string]string{"QOMPACK_RUNTIME__MODE": "capture-secret"}},
+		{name: "flag value outside the enum", flags: map[string]string{"runtime.mode": "capture-secret"}},
+		{name: "unknown flag under the switch", flags: map[string]string{"runtime.mode.capture-secret": "off"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := baseEnv(t)
+			if tc.user != "" {
+				writeConfigFile(t, env.HomeDir, tc.user)
+			}
+			if tc.file != "" {
+				writeConfigFile(t, env.ProjectRoot, tc.file)
+			}
+			if tc.env != nil {
+				env.Getenv = func(name string) string { return tc.env[name] }
+			}
+			env.Flags = tc.flags
+			requireCaptureRefusal(t, env, "capture-secret", tc.file)
+			_, _, _, _, err := config.LoadForCapture(env)
+			require.ErrorContains(t, err, "runtime.mode setting cannot be applied as written")
+
+			_, _, _, err = config.Load(env)
+			require.NoError(t, err, "the soft loader keeps its per-leaf fallback for the same input")
+		})
+	}
+}
+
+// TestLoadForCapture_AppliesEveryValidCaptureSwitchValue is the other side of the rule above: every
+// value the enum allows, from any layer, is applied as written and refuses nothing.
+func TestLoadForCapture_AppliesEveryValidCaptureSwitchValue(t *testing.T) {
+	for _, mode := range []string{"auto", "full", "passive", "off"} {
+		t.Run("file "+mode, func(t *testing.T) {
+			env := baseEnv(t)
+			writeConfigFile(t, env.ProjectRoot, `{"runtime":{"mode":"`+mode+`"}}`)
+			cfg, _, violations, warnings, err := config.LoadForCapture(env)
+			require.NoError(t, err)
+			require.Equal(t, mode, cfg.Runtime.Mode)
+			require.Empty(t, violations)
+			require.Empty(t, warnings)
+		})
+		t.Run("environment "+mode, func(t *testing.T) {
+			env := baseEnv(t)
+			env.Getenv = func(name string) string {
+				if name == "QOMPACK_RUNTIME__MODE" {
+					return mode
+				}
+				return ""
+			}
+			cfg, _, _, _, err := config.LoadForCapture(env)
+			require.NoError(t, err)
+			require.Equal(t, mode, cfg.Runtime.Mode)
+		})
+	}
+}
+
+// TestLoadForCapture_CaptureSwitchAncestorProblemDoesNotRefuse bounds the switch rule the way
+// TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse bounds the policy rule: a `runtime` that is
+// not an object is not a setting of runtime.mode, and the lower layer's off stays in force.
+func TestLoadForCapture_CaptureSwitchAncestorProblemDoesNotRefuse(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.HomeDir, `{"runtime":{"mode":"off"}}`)
+	writeConfigFile(t, env.ProjectRoot, `{"runtime":5}`)
+
+	cfg, _, _, warnings, err := config.LoadForCapture(env)
+	require.NoError(t, err)
+	require.Equal(t, "off", cfg.Runtime.Mode)
+	require.Len(t, warnings, 1)
+	require.Equal(t, "runtime", warnings[0].Key)
+}
+
+// TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse is the boundary of
+// TestLoadForCapture_RefusesAnyPrivacyPolicyProblem's rule: a `runtime`
 // that is not an object carries no privacy rule to lose. Its layer is dropped with a warning and the
 // policy a lower layer set stays exactly as written.
 func TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse(t *testing.T) {
@@ -266,15 +371,17 @@ func TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse(t *testing.T) {
 // Violation, so the hook path can put both where an operator looks.
 func TestLoadForCapture_ReturnsWhatItDidNotApply(t *testing.T) {
 	env := baseEnv(t)
+	// The invalid value is retrieval.defaultSpan's, not runtime.mode's: an unappliable capture switch
+	// is a refusal (TestLoadForCapture_RefusesAnyCaptureSwitchProblem), not a fallback.
 	writeConfigFile(t, env.ProjectRoot,
-		`{"runtime":{"mode":"sideways","notAKey":1},"checkpoint":{"budgetTokens":"9000"}}`)
+		`{"retrieval":{"defaultSpan":"sideways"},"runtime":{"notAKey":1},"checkpoint":{"budgetTokens":"9000"}}`)
 
 	_, prov, violations, warnings, err := config.LoadForCapture(env)
 	require.NoError(t, err)
 
 	require.Len(t, violations, 1)
-	require.Equal(t, "runtime.mode", violations[0].Key)
-	require.Equal(t, config.OriginDefault, prov["runtime.mode"].Origin, "provenance records the fallback")
+	require.Equal(t, "retrieval.defaultSpan", violations[0].Key)
+	require.Equal(t, config.OriginDefault, prov["retrieval.defaultSpan"].Origin, "provenance records the fallback")
 
 	byKey := map[string]string{}
 	for _, w := range warnings {

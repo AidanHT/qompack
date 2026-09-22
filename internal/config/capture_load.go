@@ -26,6 +26,11 @@ const (
 // (internal/redact's CapturePolicies reads runtime.redact.enabled and runtime.redact.patterns).
 const capturePolicySection = "runtime.redact"
 
+// captureSwitchKey is the operator's capture on/off switch: "off" makes every hook admit nothing
+// (internal/cli's admitHookCapture), and it is a rung of docs/troubleshooting.md's safe-disable
+// ladder.
+const captureSwitchKey = "runtime.mode"
+
 // The structural refusal classes. Each is a fixed phrase: a refusal names WHICH rule the input broke
 // so an operator can find it (self-test and doctor print it), and never echoes the input itself — no
 // value, no key the schema does not know, no path.
@@ -36,6 +41,8 @@ const (
 	refuseFileJSONC = "config file is not a single strict JSONC object"
 	refusePolicy    = "a " + capturePolicySection + " setting cannot be applied as written, and the " +
 		"capture privacy policy has no per-leaf fallback"
+	refuseSwitch = "a " + captureSwitchKey + " setting cannot be applied as written, and the " +
+		"capture on/off switch has no per-leaf fallback"
 	refuseDecode  = "the effective configuration does not decode"
 	refuseInvalid = "the effective configuration is still invalid after fallback"
 	refuseRules   = capturePolicySection + ".patterns exceeds the capture rule bounds"
@@ -56,9 +63,10 @@ const (
 // leaf of the wrong JSON type, a section that is not an object, or an environment or --set value
 // that does not parse for its leaf is dropped and returned as a Warning — the leaf keeps the value
 // the layer below gave it. A newer runtime.migration/runtime.phase7 settingsVersion resets that
-// block, returned as a Violation so the hook can record it. The configuration returned is exactly
-// the one Load returns for the same Env, which TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem
-// pins.
+// block, returned as a Violation so the hook can record it. Whenever this loader does not refuse, the
+// configuration returned is exactly the one Load returns for the same Env, which
+// TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem pins; the two keys it refuses over instead of
+// falling back — runtime.redact and runtime.mode — are in the list below.
 //
 // That used to be false twice over. Finding S-7 (ada54d1) made an out-of-range VALUE clamp instead of
 // refusing; V6 close-out item C1.8 is the rest of it. Every merge Warning still refused the whole
@@ -87,6 +95,13 @@ const (
 //     one configured — an ignored pattern list, or a mistyped `enabled` that leaves a lower layer's
 //     `false` in force — so the privacy policy keeps the all-or-nothing admission that
 //     internal/redact already applies to a pattern that does not compile;
+//   - ANY setting of runtime.mode that cannot be applied as written: a value outside its enum (an
+//     operator's "OFF"), a wrong type, an unknown key under it, or a fallback that would change it
+//     (refuseSwitch). It is the operator's other control over whether anything is captured, and
+//     its fallback — the default "auto", or a lower layer's value — records a project whose
+//     operator may have been switching recording off. Refusing does what "off" would have done;
+//     a valid value in any layer is applied exactly as before. This narrows S-7's clamp for this
+//     one key on this one path; config.Load still clamps it (C1.8 review, finding 2);
 //   - an effective configuration that does not decode, that no fallback can make valid, or whose
 //     pattern list exceeds the rule bounds (refuseDecode, refuseInvalid, refuseRules).
 func LoadForCapture(env Env) (Config, Provenance, []Violation, []Warning, error) {
@@ -154,6 +169,9 @@ func LoadForCapture(env Env) (Config, Provenance, []Violation, []Warning, error)
 		if inCapturePolicy(w.Key) {
 			return fail(refusePolicy)
 		}
+		if inCaptureSwitch(w.Key) {
+			return fail(refuseSwitch)
+		}
 	}
 	// defaults is a private, per-call copy used only to look up fallback values; restoreDefault
 	// deep-copies whatever it takes from it, so nothing merged holds can alias it.
@@ -170,7 +188,7 @@ func LoadForCapture(env Env) (Config, Provenance, []Violation, []Warning, error)
 	if !ok {
 		return fail(refuseDecode)
 	}
-	policy := cfg.Runtime.Redact
+	policy, mode := cfg.Runtime.Redact, cfg.Runtime.Mode
 
 	// §11.3's fallback, run through the same loop Load uses, with a STRICT re-decode: a map that
 	// stops decoding under the capture rules is a refusal, never a silent tolerance.
@@ -188,6 +206,11 @@ func LoadForCapture(env Env) (Config, Provenance, []Violation, []Warning, error)
 		// No fallback may rewrite the privacy policy either: not a rule named inside it, and not a
 		// section restore widened to one of its ancestors.
 		return fail(refusePolicy)
+	}
+	if cfg.Runtime.Mode != mode {
+		// The clamp restores the DEFAULT, "auto", not a lower layer's value, so a project's out-of-enum
+		// mode over a user's "off" would record. Neither may the capture switch be rewritten.
+		return fail(refuseSwitch)
 	}
 	if len(cfg.Runtime.Redact.Patterns) > captureConfigMaxRules {
 		return fail(refuseRules)
@@ -209,6 +232,13 @@ func LoadForCapture(env Env) (Config, Provenance, []Violation, []Warning, error)
 // merge leaves whatever policy the lower layers set untouched.
 func inCapturePolicy(key string) bool {
 	return key == capturePolicySection || strings.HasPrefix(key, capturePolicySection+".")
+}
+
+// inCaptureSwitch reports whether a warning's key is a setting of runtime.mode: the leaf itself, or
+// a key under it that only a --set can spell. As with the policy, an ancestor is not: a `runtime` that
+// is not an object sets no mode, and the lower layers' value stays in force.
+func inCaptureSwitch(key string) bool {
+	return key == captureSwitchKey || strings.HasPrefix(key, captureSwitchKey+".")
 }
 
 // decodeCaptureMap re-derives a Config from a merged map under the capture loader's strict rules.
