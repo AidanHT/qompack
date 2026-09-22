@@ -193,11 +193,35 @@ type daemon struct {
 	// merely signalled. The ingest worker pool has its own join (ing.Wait) and the connection
 	// handlers have theirs (ipc.Server.Close); this is the group nothing else covered.
 	//
-	// Every goRun call sits in Run's startup, ahead of the ipc.NewServer that binds the endpoint,
-	// and every way Stop can be reached — admin.shutdown, Run's ctx.Done arm, its idle-exit arm,
-	// its serveErrCh arm — is downstream of that endpoint existing or of Run's own select loop. So
-	// a goRun can never add to this group after Stop's join has already passed it.
+	// Every goRun call sits in Run's startup, and Stop joins this group only after startupMu tells
+	// it that startup is over (see startupMu). So a goRun can never add to this group after Stop's
+	// join has already passed it, and every Add happens before the Wait in the memory model's sense
+	// and not merely on the wall clock.
 	runWG sync.WaitGroup
+
+	// startupMu is held by Run for the whole of its startup — from before it publishes runCancel
+	// until the last thing Stop tears down has been published and nothing is left but the serve
+	// loop: the goRun goroutines, the ingest workers, the drainer, the server, state.bin — and Stop,
+	// once it has signalled the stop, takes it before it joins or closes any of that.
+	//
+	// "Stop is only ever reached downstream of the endpoint existing" was the ordering this struct
+	// used to rely on, and it is true of the WALL CLOCK only. admin.shutdown's `go Stop()` is
+	// ordered after Run's startup in the memory model when the request arrives through server.Serve
+	// — Run starts Serve after startup, and a chain of go statements carries the edge — but Stop is
+	// an exported method, and a caller that reached it any other way ran it with no edge at all:
+	// -race reported Stop's runWG.Wait against Run's first runWG.Add (V6 close-out, Linux,
+	// TestRunReturnsOnlyAfterAsyncStopHasFinished every run; TestAdminShutdownStopsTheDaemon about
+	// one run in seventy). A Stop that arrived between stopBegun's check and the first goRun was
+	// worse than a report: its Wait could see zero, return, and let Run start goroutines, bind a
+	// server and write state.bin after the join and the RemoveState that were meant to follow them.
+	//
+	// Holding the mutex costs Stop nothing it could have used. Stop cancels runCtx BEFORE it waits
+	// here, so the rest of the startup it waits out runs cancelled — the startup drain, the
+	// integrity sweep and the publication audit all answer to runCtx — and a Stop that begins
+	// before stopBegun's check still makes Run abort there, releasing the mutex on its way out. Run
+	// never calls Stop while holding it: its own Stop calls are all in the serve loop, after
+	// endStartup.
+	startupMu sync.Mutex
 
 	stopOnce sync.Once
 	// stopped closes near the START of Stop's cleanup sequence (before the actual work), so Run's
@@ -493,6 +517,18 @@ func (d *daemon) stopBegun() bool {
 
 // Run implements the daemon lifecycle of task-5-spec.md's daemon.go section.
 func (d *daemon) Run(ctx context.Context) error {
+	// Startup is one critical section against Stop (see startupMu). endStartup releases it exactly
+	// once: explicitly just before the serve loop, or by this defer on every earlier return.
+	d.startupMu.Lock()
+	startupHeld := true
+	endStartup := func() {
+		if startupHeld {
+			startupHeld = false
+			d.startupMu.Unlock()
+		}
+	}
+	defer endStartup()
+
 	// The run context is created and PUBLISHED first — ahead of the address resolve, the lock and
 	// everything it actually cancels. Stop reads d.runCancel under runCancelMu and calls it only
 	// if it is non-nil, so a Stop that reads it while it is still nil cancels nothing at all; Run
@@ -619,6 +655,10 @@ func (d *daemon) Run(ctx context.Context) error {
 	}
 	idleTicker := time.NewTicker(idleTick)
 	defer idleTicker.Stop()
+
+	// Everything Stop tears down is published; from here on a Stop may proceed. This precedes the
+	// serve loop and every Stop call in it, which would otherwise wait on Run's own mutex.
+	endStartup()
 
 	serveErrCh := make(chan error, 1)
 	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
@@ -934,6 +974,15 @@ func (d *daemon) Stop(ctx context.Context) error {
 			runCancel() // unblocks Run's own select loop and stops the worker pool below.
 		}
 
+		// Wait out whatever is left of Run's startup — cancelled now, so briefly — before joining or
+		// closing anything it publishes, and take the two things it published for this cleanup to
+		// close, its server and its lock, as they stand once it is over. Acquiring the mutex orders
+		// all of startup before everything below; see startupMu. A Run that never started, or has
+		// already reached its serve loop, holds nothing, and neither value changes after startup.
+		d.startupMu.Lock()
+		srv, lk := d.currentServer(), d.currentLock()
+		d.startupMu.Unlock()
+
 		// Cancelling is a request, not an acknowledgement. Join Run's own goroutines here, before
 		// anything below writes, so that no later step of this cleanup — and no caller who waits
 		// for this cleanup — can be racing a paths.WriteAtomic that the hot-path worker or the
@@ -968,13 +1017,13 @@ func (d *daemon) Stop(ctx context.Context) error {
 			d.log.Warn("daemon: stop: removing state.bin", "err", err)
 		}
 
-		// Read out under startMu, acted on outside it. Both fields are Run's, published from a
-		// goroutine this one has no ordering with (see startMu), and both calls below block on
-		// I/O — Close waits out the in-flight connection handlers, Release does three filesystem
-		// syscalls — so holding the mutex across either would put Run's startup behind them for
-		// no reason. A nil here is now a real observation, not the coin-flip the plain field's
-		// `!= nil` check was: it means Run genuinely had not published yet.
-		if srv := d.currentServer(); srv != nil {
+		// Read out above, under startMu and after startup; acted on here, outside both mutexes. Both
+		// fields are Run's, published from another goroutine (see startMu), and both calls below
+		// block on I/O — Close waits out the in-flight connection handlers, Release does three
+		// filesystem syscalls — so holding a mutex across either would serve no purpose. A nil is a
+		// real observation, not the coin-flip the plain field's `!= nil` check was: it means Run
+		// never published one (it never started, or it gave up before that point).
+		if srv != nil {
 			if err := srv.Close(); err != nil {
 				stopErr = err
 			}
@@ -989,7 +1038,7 @@ func (d *daemon) Stop(ctx context.Context) error {
 		// daemon by that definition.
 		d.owned.closeAll(d.log)
 
-		if lk := d.currentLock(); lk != nil {
+		if lk != nil {
 			if err := d.releaseRunLease(lk, "stop"); err != nil && stopErr == nil {
 				stopErr = err
 			}
