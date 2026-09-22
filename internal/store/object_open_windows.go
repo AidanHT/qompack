@@ -7,6 +7,9 @@ import (
 	"syscall"
 )
 
+// stagingOpenFlags adds nothing to writeStaged's exclusive create on Windows, where Go's open has no
+// poller registration to skip (object_open_unix.go).
+const stagingOpenFlags = 0
 
 // openObjectLeaf opens the object at long for reading without following a reparse point at the
 // leaf, and returns the file with the handle's own Stat.
