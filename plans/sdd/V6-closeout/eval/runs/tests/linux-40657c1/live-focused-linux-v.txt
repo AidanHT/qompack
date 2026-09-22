@@ -1,0 +1,191 @@
+=== RUN   TestAssembleBundle_HostRealBuild
+--- PASS: TestAssembleBundle_HostRealBuild (0.27s)
+=== RUN   TestRunHostValidation
+=== RUN   TestRunHostValidation/CLI_absent_is_recorded_as_unverified,_never_as_a_pass_or_a_failure
+=== RUN   TestRunHostValidation/zero_exit_and_success:true_is_the_only_accepted_shape
+=== RUN   TestRunHostValidation/a_non-zero_exit_is_not_overridden_by_success:true_in_the_payload
+=== RUN   TestRunHostValidation/success:false_with_a_zero_exit_is_still_a_rejection
+=== RUN   TestRunHostValidation/JSON_without_a_success_key_falls_back_to_the_exit_status_and_says_so
+=== RUN   TestRunHostValidation/JSON_without_a_success_key_and_a_non-zero_exit_is_a_rejection
+=== RUN   TestRunHostValidation/output_that_is_not_JSON_is_kept_raw_and_judged_on_the_exit_status
+=== RUN   TestRunHostValidation/a_warning_on_stderr_does_not_make_the_JSON_verdict_unparseable
+=== RUN   TestRunHostValidation/a_CLI_that_never_ran_is_could-not-run,_not_rejected
+=== RUN   TestRunHostValidation/a_deadline_kill_is_timed-out,_not_rejected
+--- PASS: TestRunHostValidation (0.00s)
+    --- PASS: TestRunHostValidation/CLI_absent_is_recorded_as_unverified,_never_as_a_pass_or_a_failure (0.00s)
+    --- PASS: TestRunHostValidation/zero_exit_and_success:true_is_the_only_accepted_shape (0.00s)
+    --- PASS: TestRunHostValidation/a_non-zero_exit_is_not_overridden_by_success:true_in_the_payload (0.00s)
+    --- PASS: TestRunHostValidation/success:false_with_a_zero_exit_is_still_a_rejection (0.00s)
+    --- PASS: TestRunHostValidation/JSON_without_a_success_key_falls_back_to_the_exit_status_and_says_so (0.00s)
+    --- PASS: TestRunHostValidation/JSON_without_a_success_key_and_a_non-zero_exit_is_a_rejection (0.00s)
+    --- PASS: TestRunHostValidation/output_that_is_not_JSON_is_kept_raw_and_judged_on_the_exit_status (0.00s)
+    --- PASS: TestRunHostValidation/a_warning_on_stderr_does_not_make_the_JSON_verdict_unparseable (0.00s)
+    --- PASS: TestRunHostValidation/a_CLI_that_never_ran_is_could-not-run,_not_rejected (0.00s)
+    --- PASS: TestRunHostValidation/a_deadline_kill_is_timed-out,_not_rejected (0.00s)
+=== RUN   TestRunHostValidation_CommandIsRecorded
+--- PASS: TestRunHostValidation_CommandIsRecorded (0.00s)
+=== RUN   TestHostPathRedactor
+=== RUN   TestHostPathRedactor/bundle_inside_the_repository
+=== RUN   TestHostPathRedactor/bundle_outside_the_repository
+=== RUN   TestHostPathRedactor/a_home_path_in_neither_is_still_redacted
+=== RUN   TestHostPathRedactor/nothing_to_redact_leaves_the_text_alone
+--- PASS: TestHostPathRedactor (0.00s)
+    --- PASS: TestHostPathRedactor/bundle_inside_the_repository (0.00s)
+    --- PASS: TestHostPathRedactor/bundle_outside_the_repository (0.00s)
+    --- PASS: TestHostPathRedactor/a_home_path_in_neither_is_still_redacted (0.00s)
+    --- PASS: TestHostPathRedactor/nothing_to_redact_leaves_the_text_alone (0.00s)
+=== RUN   TestParseLiveFlags
+--- PASS: TestParseLiveFlags (0.00s)
+=== RUN   TestPlanLiveTrials_AlternatesArmOrder
+--- PASS: TestPlanLiveTrials_AlternatesArmOrder (0.00s)
+=== RUN   TestSelectLiveTasks_HeldOutNeedsTheConfirmatoryFlag
+--- PASS: TestSelectLiveTasks_HeldOutNeedsTheConfirmatoryFlag (0.00s)
+=== RUN   TestLiveSessionArgs_IdenticalAcrossArmsButThePlugin
+--- PASS: TestLiveSessionArgs_IdenticalAcrossArmsButThePlugin (0.00s)
+=== RUN   TestRunLiveEval_DryRunAndTheGate
+--- PASS: TestRunLiveEval_DryRunAndTheGate (0.00s)
+=== RUN   TestRunLiveEval_OfflineTrialsBothArms
+--- PASS: TestRunLiveEval_OfflineTrialsBothArms (0.42s)
+=== RUN   TestRunLiveEval_GuardFailsClosed
+--- PASS: TestRunLiveEval_GuardFailsClosed (0.19s)
+=== RUN   TestRemoveCreatedPluginData
+--- PASS: TestRemoveCreatedPluginData (0.00s)
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/constraint-verbatim
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/constraint-verbatim
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/recall-user-fact
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/recall-user-fact
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/eliminated-approach
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/eliminated-approach
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/changing-requirement-format
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/changing-requirement-format
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/tool-output-recall
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/tool-output-recall
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/decision-rationale
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/decision-rationale
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/regression-guard
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/regression-guard
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/constraint-naming
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/constraint-naming
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/changing-requirement-slug
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/changing-requirement-slug
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/seed-recall
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/seed-recall
+=== RUN   TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/pilot-codeword
+=== PAUSE TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/pilot-codeword
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/constraint-verbatim
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/regression-guard
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/changing-requirement-format
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/decision-rationale
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/tool-output-recall
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/seed-recall
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/pilot-codeword
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/changing-requirement-slug
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/constraint-naming
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/eliminated-approach
+=== CONT  TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/recall-user-fact
+--- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck (0.00s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/constraint-verbatim (0.25s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/changing-requirement-format (0.27s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/decision-rationale (0.29s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/tool-output-recall (0.11s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/seed-recall (0.11s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/pilot-codeword (0.34s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/changing-requirement-slug (0.33s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/constraint-naming (0.35s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/recall-user-fact (0.25s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/regression-guard (1.05s)
+    --- PASS: TestLiveTaskSet_ReferenceSolutionsPassEveryCheck/eliminated-approach (0.53s)
+=== RUN   TestRemoveOrphanedMarketplaceCache
+--- PASS: TestRemoveOrphanedMarketplaceCache (0.00s)
+PASS
+ok  	github.com/qompack/qompack/tools/devtool	2.071s
+=== RUN   TestHostAutoCompactThreshold_200K
+--- PASS: TestHostAutoCompactThreshold_200K (0.00s)
+=== RUN   TestHostPadTokens
+--- PASS: TestHostPadTokens (0.00s)
+=== RUN   TestSpliceForks_WindowStopsAtTheNextCompaction
+--- PASS: TestSpliceForks_WindowStopsAtTheNextCompaction (0.00s)
+=== RUN   TestRequestLedger_Validate_ParentIDMustResolve
+--- PASS: TestRequestLedger_Validate_ParentIDMustResolve (0.00s)
+=== RUN   TestRequestLedger_GoldenFormatRoundTrip
+--- PASS: TestRequestLedger_GoldenFormatRoundTrip (0.00s)
+=== RUN   TestRequestLedger_Sum
+--- PASS: TestRequestLedger_Sum (0.00s)
+=== RUN   TestPhase0Ledger_RecordsWhatIsTrue
+--- PASS: TestPhase0Ledger_RecordsWhatIsTrue (0.00s)
+=== RUN   TestRequestLedger_Estimate_IsALowerBoundOverUnknowns
+--- PASS: TestRequestLedger_Estimate_IsALowerBoundOverUnknowns (0.00s)
+=== RUN   TestRequestLedger_Estimate_SubscriptionStaysAnEstimate
+--- PASS: TestRequestLedger_Estimate_SubscriptionStaysAnEstimate (0.00s)
+=== RUN   TestRequestLedger_Estimate_DerivesCacheRatesFromMultipliers
+--- PASS: TestRequestLedger_Estimate_DerivesCacheRatesFromMultipliers (0.00s)
+=== RUN   TestRequestLedger_Estimate_MissingRateIsNotAZeroPrice
+--- PASS: TestRequestLedger_Estimate_MissingRateIsNotAZeroPrice (0.00s)
+=== RUN   TestLoadRequestLedger_Errors
+--- PASS: TestLoadRequestLedger_Errors (0.00s)
+=== RUN   TestAccountHostStream_DifferencesRunningTotals
+--- PASS: TestAccountHostStream_DifferencesRunningTotals (0.00s)
+=== RUN   TestAccountHostStream_ResumedBaselineIsSubtracted
+--- PASS: TestAccountHostStream_ResumedBaselineIsSubtracted (0.00s)
+=== RUN   TestAccountHostStream_DecreasingTotalIsReportedNotRepaired
+--- PASS: TestAccountHostStream_DecreasingTotalIsReportedNotRepaired (0.00s)
+=== RUN   TestLedgerRecords_SplitThinkingAndKeepUnknownsUnknown
+--- PASS: TestLedgerRecords_SplitThinkingAndKeepUnknownsUnknown (0.00s)
+=== RUN   TestEstimateLive_MatchesTheHostsOwnListPrice
+--- PASS: TestEstimateLive_MatchesTheHostsOwnListPrice (0.00s)
+=== RUN   TestEstimateLive_UnpricedModelIsNamed
+--- PASS: TestEstimateLive_UnpricedModelIsNamed (0.00s)
+=== RUN   TestLiveRateTable_ValidatesProvenanceAndKeys
+--- PASS: TestLiveRateTable_ValidatesProvenanceAndKeys (0.00s)
+=== RUN   TestForkPrompt_KeptBlocksInPrefixOrderThenTheNextRequest
+--- PASS: TestForkPrompt_KeptBlocksInPrefixOrderThenTheNextRequest (0.00s)
+=== RUN   TestHostForkRunner_RunsOneSessionAndMapsItsRequests
+--- PASS: TestHostForkRunner_RunsOneSessionAndMapsItsRequests (0.00s)
+=== RUN   TestHostForkRunner_Failures
+--- PASS: TestHostForkRunner_Failures (0.00s)
+=== RUN   TestReplay_LiveModeSplicesTheForkIntoTheWindow
+--- PASS: TestReplay_LiveModeSplicesTheForkIntoTheWindow (0.00s)
+=== RUN   TestParseHostStream_StockCompactSession
+--- PASS: TestParseHostStream_StockCompactSession (0.00s)
+=== RUN   TestParseHostStream_PluginSessionReportsTheRejectedPreCompactOutput
+--- PASS: TestParseHostStream_PluginSessionReportsTheRejectedPreCompactOutput (0.00s)
+=== RUN   TestParseHostStream_AutoCompactionAndAFailedAttempt
+--- PASS: TestParseHostStream_AutoCompactionAndAFailedAttempt (0.00s)
+=== RUN   TestParseHostStream_ReceiveTimesGiveHookLatency
+--- PASS: TestParseHostStream_ReceiveTimesGiveHookLatency (0.00s)
+=== RUN   TestParseHostStream_TruncationAndCorruption
+--- PASS: TestParseHostStream_TruncationAndCorruption (0.00s)
+=== RUN   TestParseHookFailures_StderrForm
+--- PASS: TestParseHookFailures_StderrForm (0.00s)
+=== RUN   TestSummarizeLive_WilsonAndNewcombe
+--- PASS: TestSummarizeLive_WilsonAndNewcombe (0.00s)
+=== RUN   TestDecideLive_EachBranch
+--- PASS: TestDecideLive_EachBranch (0.00s)
+=== RUN   TestSummarizeLive_FailuresAreCountedAndNamed
+--- PASS: TestSummarizeLive_FailuresAreCountedAndNamed (0.00s)
+=== RUN   TestLiveTaskSet_TheFrozenSetIsValidAndShapedAsPreregistered
+--- PASS: TestLiveTaskSet_TheFrozenSetIsValidAndShapedAsPreregistered (0.00s)
+=== RUN   TestLiveTaskSet_ValidationRefusesEveryMalformedShape
+--- PASS: TestLiveTaskSet_ValidationRefusesEveryMalformedShape (0.00s)
+=== RUN   TestLiveStep_Message
+--- PASS: TestLiveStep_Message (0.00s)
+=== RUN   TestGradeLiveTrial_EveryKindAndItsUngradedCase
+--- PASS: TestGradeLiveTrial_EveryKindAndItsUngradedCase (0.00s)
+=== RUN   TestToolUsesAfterSteps_OnARealStream
+--- PASS: TestToolUsesAfterSteps_OnARealStream (0.00s)
+=== RUN   TestParseHostTranscript_HostMeasuredHooksAndTheRehydration
+--- PASS: TestParseHostTranscript_HostMeasuredHooksAndTheRehydration (0.00s)
+=== RUN   TestParseHostTranscript_TruncatedTailAndCorruptLine
+--- PASS: TestParseHostTranscript_TruncatedTailAndCorruptLine (0.00s)
+=== RUN   TestParseHostTranscript_UnseenHookRunTypeIsCounted
+--- PASS: TestParseHostTranscript_UnseenHookRunTypeIsCounted (0.00s)
+=== RUN   TestMergeHookProblems_OneFailureReportedTwiceIsOne
+--- PASS: TestMergeHookProblems_OneFailureReportedTwiceIsOne (0.00s)
+=== RUN   TestReplay_LiveModeRefusedWithoutEnv
+--- PASS: TestReplay_LiveModeRefusedWithoutEnv (0.00s)
+=== RUN   TestReplay_LiveRunnerAbsent
+--- PASS: TestReplay_LiveRunnerAbsent (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/eval	0.044s
+exit=0

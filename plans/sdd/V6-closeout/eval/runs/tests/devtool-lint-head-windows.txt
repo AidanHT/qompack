@@ -1,0 +1,11 @@
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (71 package(s) checked)
+PASS importgraph
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+exit=0
