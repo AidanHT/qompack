@@ -38,11 +38,35 @@ type Signals struct {
 // it; newly-completed detection compares against the session's previous list and therefore lives
 // in the observer's stateful path, because §5.21 requires this function to stay pure.
 func ExtractSignals(e Event) Signals {
+	return extractSignals(e, onceText(e))
+}
+
+// extractSignals is ExtractSignals over a tool_response already unwrapped, or unwrapped on demand:
+// text returns responseText(e), and the observer's own PostToolUse path passes the text it decoded
+// at step 3 rather than letting each extractor decode the payload again (SP08-D1). The result is the
+// same either way, because responseText is a pure function of e.
+func extractSignals(e Event, text func() []byte) Signals {
 	return Signals{
 		TodoCompleted: hasCompletedTodo(e),
-		TestPassed:    ExtractTestOutcome(e) == TestPass,
-		GitCommit:     isGitCommit(e),
+		TestPassed:    testOutcome(e, text) == TestPass,
+		GitCommit:     isGitCommit(e, text),
 		Paths:         PathsFromInput(e.ToolName, e.ToolInput),
+	}
+}
+
+// onceText returns responseText(e), computed on the first call and remembered: ExtractSignals's
+// extractors may both need the text (a test run chained into a commit), and neither may need it at
+// all (most events), so it is decoded at most once and only on demand.
+func onceText(e Event) func() []byte {
+	var (
+		text []byte
+		done bool
+	)
+	return func() []byte {
+		if !done {
+			text, done = responseText(e), true
+		}
+		return text
 	}
 }
 
@@ -118,11 +142,17 @@ var reGitNoop = regexp.MustCompile(`(?i)nothing to commit|no changes added to co
 // Failure is checked before success on purpose. A run that reports both — "2 failed, 40 passed" —
 // closed nothing.
 func ExtractTestOutcome(e Event) TestOutcome {
+	return testOutcome(e, onceText(e))
+}
+
+// testOutcome is ExtractTestOutcome with the tool_response text supplied by the caller; see
+// extractSignals.
+func testOutcome(e Event, text func() []byte) TestOutcome {
 	if !isShellTool(e.ToolName) || !reTestRunner.MatchString(commandOf(e)) {
 		return TestUnknown
 	}
 
-	body := responseText(e)
+	body := text()
 	for _, re := range reTestFail {
 		if re.Match(body) {
 			return TestFail
@@ -147,12 +177,13 @@ func isShellTool(hostName string) bool {
 	}
 }
 
-// isGitCommit reports whether this event was a git commit that actually committed something.
-func isGitCommit(e Event) bool {
+// isGitCommit reports whether this event was a git commit that actually committed something. text
+// supplies responseText(e); see extractSignals.
+func isGitCommit(e Event, text func() []byte) bool {
 	if !isShellTool(e.ToolName) || !reGitCommit.MatchString(commandOf(e)) {
 		return false
 	}
-	return !reGitNoop.Match(responseText(e))
+	return !reGitNoop.Match(text())
 }
 
 // todoStatusCompleted is the status value Claude Code writes for a finished todo item.
@@ -281,33 +312,21 @@ func responseText(e Event) []byte {
 		raw = raw[:maxScanBytes]
 	}
 
-	var text string
-	if err := json.Unmarshal(raw, &text); err == nil {
-		return []byte(text)
-	}
+	// Each attempt below is a full json.Unmarshal — a validating scan of the whole payload before
+	// any decoding — and on a large result they are most of this function's cost (SP08-D1). The
+	// first non-whitespace byte already rules attempts out without changing any answer: only a
+	// JSON string or null unmarshals into a string, and nothing but an object (null having been
+	// taken by the first attempt) unmarshals into toolResponse. Any other leading byte fails both
+	// attempts, and so still reaches the compact fallback, exactly as it did when both ran.
+	lead := firstJSONByte(raw)
 
-	var resp toolResponse
-	if err := json.Unmarshal(raw, &resp); err == nil {
-		if len(resp.Content) > 0 {
-			var content string
-			if err := json.Unmarshal(resp.Content, &content); err == nil {
-				return []byte(content)
-			}
-			var blocks []contentBlock
-			if err := json.Unmarshal(resp.Content, &blocks); err == nil {
-				parts := make([]string, len(blocks))
-				for i, block := range blocks {
-					parts[i] = block.Text
-				}
-				return []byte(strings.Join(parts, "\n"))
-			}
+	if lead != '{' {
+		var text string
+		if err := json.Unmarshal(raw, &text); err == nil {
+			return []byte(text)
 		}
-		if resp.Stdout != "" || resp.Stderr != "" {
-			if resp.Stderr == "" {
-				return []byte(resp.Stdout)
-			}
-			return []byte(resp.Stdout + "\n" + resp.Stderr)
-		}
+	} else if out, ok := objectResponseText(raw); ok {
+		return out
 	}
 
 	var compact bytes.Buffer
@@ -315,4 +334,46 @@ func responseText(e Event) []byte {
 		return raw
 	}
 	return compact.Bytes()
+}
+
+// objectResponseText is responseText's object branch: the "content" string, the "content" blocks
+// joined with newlines, or stdout plus a non-empty stderr behind a newline. ok is false when raw is
+// not such an object, and responseText then falls through to its compact form.
+func objectResponseText(raw []byte) ([]byte, bool) {
+	var resp toolResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, false
+	}
+	if len(resp.Content) > 0 {
+		var content string
+		if err := json.Unmarshal(resp.Content, &content); err == nil {
+			return []byte(content), true
+		}
+		var blocks []contentBlock
+		if err := json.Unmarshal(resp.Content, &blocks); err == nil {
+			parts := make([]string, len(blocks))
+			for i, block := range blocks {
+				parts[i] = block.Text
+			}
+			return []byte(strings.Join(parts, "\n")), true
+		}
+	}
+	if resp.Stdout != "" || resp.Stderr != "" {
+		if resp.Stderr == "" {
+			return []byte(resp.Stdout), true
+		}
+		return []byte(resp.Stdout + "\n" + resp.Stderr), true
+	}
+	return nil, false
+}
+
+// firstJSONByte returns the first byte of raw that is not JSON whitespace (space, tab, CR, LF), or
+// 0 when there is none.
+func firstJSONByte(raw []byte) byte {
+	for _, c := range raw {
+		if c != ' ' && c != '\t' && c != '\r' && c != '\n' {
+			return c
+		}
+	}
+	return 0
 }
