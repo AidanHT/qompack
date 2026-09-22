@@ -113,10 +113,16 @@ bound returned exactly 4096 bytes, marked truncated, with a cursor to page on.
 
 `runtime.hotPath.maxPayloadBytes` is bounded from **both** sides: a value above the hard capture cap
 is a violation that is restored to the cap with a warning, rather than one that silently refuses
-every delivery. And a configuration violation no longer disables capture wholesale: the hot-path
-loader applies the same per-leaf fallback `config print` does and records the violation in
-`state/config-violations.json`. **Check that file after changing configuration** — it is where the
-product says which of your values it refused.
+every delivery. And a configuration problem in one key no longer disables capture wholesale: the
+hot-path loader applies the same per-leaf fallback `config print` does — an invalid value falls back
+and is recorded in `state/config-violations.json`, and an unknown or mistyped key is dropped with a
+warning. Two kinds of problem still refuse every capture: input the hooks cannot read safely — a
+config file that does not parse, is not a plain file or is over its size bound — and any problem
+inside `runtime.redact`, the privacy policy itself, where a fallback would record under a policy you
+did not write. **Check that file, and `qompack self-test`'s `config.capture` row, after
+changing configuration** — they are where the product says which of your values it refused, and
+whether the hooks refused all of them
+([docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)).
 
 ## 4. Quarantine, retention and what a damaged object answers
 

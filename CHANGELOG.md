@@ -50,7 +50,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   containing a space no longer word-splits under a shell launcher.
 - A configuration violation no longer disables capture wholesale: the hot-path loader applies the
   same per-leaf fallback `config print` does and records the violation in
-  `state/config-violations.json`.
+  `state/config-violations.json`. An unknown key, a value of the wrong type or an unparseable
+  `QOMPACK_*`/`--set` value is now dropped with a warning on the hook path too, instead of making
+  every hook record nothing; only unreadable input and any problem inside `runtime.redact` still
+  refuse capture, and `qompack self-test` and `qompack doctor` report that as `config.capture`.
+- One nonfinite `QOMPACK_*`/`--set` float or out-of-range integer no longer resets every
+  configuration layer to the defaults; it is a per-leaf warning like any other bad value.
 
 ### Fixed
 

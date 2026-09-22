@@ -228,8 +228,9 @@ redacted or opaque says so rather than appearing as nothing.
 
 **Expected observable result**
 
-- Step 1's table is the seven self-checks (`config.load`, `qompack.writable`, `paths.guard`,
-  `ipc.resolve`, `daemon.reachable`, `admin.ping`, `ops.coverage`) followed by the nine host-contract
+- Step 1's table is the eight self-checks (`config.load`, `config.capture`, `qompack.writable`,
+  `paths.guard`, `ipc.resolve`, `daemon.reachable`, `admin.ping`, `ops.coverage`) followed by the nine
+  host-contract
   assertions ([docs/troubleshooting.md](troubleshooting.md#1-start-with-provenance)). In a real
   session's project, the assertions that read `first-session` or `not-yet-implemented` in an empty
   directory may read something else; what they read here is **to be confirmed at execution**.
@@ -396,10 +397,11 @@ never claims it made the host's own input smaller.
 3. Continue working until the host's own automatic compaction fires, and record the same two
    observations. `[requires SP-17 artifact]`
 4. Induce a failed compaction — the simplest reachable form is to make the `PreCompact` hook fail,
-   for example by pointing the project config at an unknown key so the capture loader refuses
-   (`{"runtime":{"notAKey":1}}`, the case recorded in
-   [docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)) — then
-   compact again. `[requires SP-17 artifact]`
+   for example by leaving the project config unparseable so the capture loader refuses
+   (`{"runtime":`, one of the refusals recorded in
+   [docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility); an
+   unknown key no longer does it, because it only warns) — then compact again.
+   `[requires SP-17 artifact]`
 5. After the failure, read `.qompack/checkpoints/MANIFEST.jsonl` and confirm the previous checkpoint
    is still the latest verifying one.
 6. Search every Qompack output captured in this scenario for a claim that the host's input, prompt
@@ -985,8 +987,9 @@ do reach the injected block all resolve to something.
 3. Restore the config file to `{}`, then force an unrecognized schema: set
    `runtime.migration.settingsVersion` to a value higher than this build understands, run a hook, and
    observe.
-4. Force a capture failure: put an unknown key in the project config (`{"runtime":{"notAKey":1}}`),
-   run a hook, and observe.
+4. Force a capture failure: make the project config unparseable (`{"runtime":`), run a hook, run
+   `qompack self-test`, and observe. Then replace it with an unknown key
+   (`{"runtime":{"notAKey":1}}`), run a hook and `qompack self-test` again, and observe.
 5. In a clean session, do work whose results are large or unusual, compact, and capture the injected
    block. `[requires SP-17 artifact]`
 6. For every pointer in section 6 of that block, call `expand` with its hash and `re_read` with its
@@ -999,17 +1002,19 @@ do reach the injected block all resolve to something.
   `invalid value, using default: true not in false` — a refused gated switch is recorded as an
   invalid value ([docs/troubleshooting.md](troubleshooting.md#1-start-with-provenance)).
 - Step 3: the whole `runtime.migration` block is reset to defaults, so unknown future switches stay
-  off, and the reset is a `warn`-level log line rather than a violation
-  ([Versioned blocks](config-reference.md#versioned-blocks),
+  off, capture continues, and the hook records the reset in `config-violations.json` as well as in
+  the day log ([Versioned blocks](config-reference.md#versioned-blocks),
   [docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)).
-- Steps 3 and 4 are the **pass-through** check, and the sharpest thing on this row: the capture
-  loader has no per-leaf fallback, so any merge warning or validation failure makes it return a
-  degraded error and **no capture is admitted at all**. The hook still prints `{}` and exits `0`, and
-  in a fresh directory `.qompack/` is not even created — observed on this tree for both the
-  unknown-key and the newer-`settingsVersion` cases
-  ([docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)). The
-  original host payload is untouched: Qompack recorded nothing and replaced nothing. That is what
-  pass-through means here, and it is within the privacy policy because nothing entered the store.
+- Step 4 is the **pass-through** check, and the sharpest thing on this row. With the unparseable
+  file the capture loader refuses — a layer that does not parse cannot be applied per leaf — so **no
+  capture is admitted at all**: the hook still prints `{}` and exits `0`, `.qompack/` holds nothing
+  but the config file in a fresh directory, and `self-test`'s `config.capture` row fails critically,
+  exit 1, naming `the project config file is not a single strict JSONC object`. The original host
+  payload is untouched: Qompack recorded nothing and replaced nothing. That is what pass-through
+  means here, and it is within the privacy policy because nothing entered the store. With the
+  unknown key, capture continues and `config.capture` is a warning that names the unknown key —
+  both observed on this tree
+  ([docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)).
 - Step 6: every pointer resolves through `expand` (by `hash`) or `re_read` (by `path`). Section 6's
   own heading says contents are **not** restored and that `expand`/`re_read` are how you get them
   (`internal/rehydrate/render.go`). A pointer that resolves to nothing is a **fail**; a pointer whose
@@ -1104,8 +1109,9 @@ restored afterwards, with the restore verified — across an upgrade and an unin
   defaults; a gated switch that was `true` in a build whose gate had passed is refused in one where
   it has not; a retired-meaning key is still applied with a deprecation warning naming the file and
   line. Read all three in the *new* build's reference
-  ([docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)). The
-  layout reappearing after a hook run is the confirmation that capture still loads.
+  ([docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)).
+  `qompack self-test`'s `config.capture` row reading `ok` or `warn`, and the layout reappearing after
+  a hook run, are the confirmation that capture still loads.
 - Step 8: record the `qompack fsck` result and optional file comparison as diagnostic observations.
   Keep `Rollback verified` unverified unless the engine-supported backup, stable frontier,
   compatible-reader and later-write requirements in the shared recovery prerequisites are met.
