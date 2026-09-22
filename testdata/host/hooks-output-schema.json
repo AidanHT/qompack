@@ -1,0 +1,55 @@
+{
+  "about": "What Claude Code accepts on a command hook's stdout for the seven events Qompack registers. Transcribed by hand from the hooks reference and from the 2.1.280 validator's own rejection text; it is test input, independent of internal/hookio's conformance table on purpose, so a mistake in one is caught by the other.",
+  "source": {
+    "url": "https://code.claude.com/docs/en/hooks",
+    "fetched": "2026-09-22",
+    "markdownSha256": "dc59d7c4fb28b246b15db67fd30819cbc6aca09392be662080b602eeab6d5422",
+    "hostVersion": "2.1.280",
+    "hostEvidence": "plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt"
+  },
+  "universal": ["continue", "stopReason", "suppressOutput", "systemMessage", "terminalSequence"],
+  "events": {
+    "SessionStart": {
+      "topLevel": [],
+      "hookSpecificOutput": ["additionalContext", "initialUserMessage", "sessionTitle", "watchPaths", "reloadSkills"],
+      "discarded": [],
+      "notes": "SessionStart decision control: context only, no blocking."
+    },
+    "UserPromptSubmit": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": ["additionalContext", "sessionTitle"],
+      "discarded": [],
+      "notes": "decision:block erases the prompt."
+    },
+    "PostToolUse": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": ["additionalContext", "classifierContext", "updatedToolOutput", "updatedMCPToolOutput"],
+      "discarded": [],
+      "notes": "decision:block adds reason next to the tool result."
+    },
+    "Stop": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": ["additionalContext"],
+      "discarded": [],
+      "notes": "decision:block and hookSpecificOutput.additionalContext both keep the conversation going."
+    },
+    "SubagentStop": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": ["additionalContext"],
+      "discarded": [],
+      "notes": "Same decision control as Stop, with hookEventName SubagentStop."
+    },
+    "PreCompact": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": null,
+      "discarded": ["systemMessage", "continue"],
+      "notes": "No hookSpecificOutput variant exists; 2.1.280 rejects hookEventName PreCompact. custom_instructions is PreCompact INPUT only. decision:block blocks compaction."
+    },
+    "SessionEnd": {
+      "topLevel": [],
+      "hookSpecificOutput": null,
+      "discarded": ["continue", "stopReason", "suppressOutput", "systemMessage", "terminalSequence"],
+      "notes": "SessionEnd has no decision control and Claude Code discards its JSON output fields."
+    }
+  }
+}
