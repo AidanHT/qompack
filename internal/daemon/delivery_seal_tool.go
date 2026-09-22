@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -164,10 +165,26 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 	report := &latchingWriter{w: o.Out}
 	o.Out = report
 	state := paths.Of(o.ProjectRoot).State
-	j := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
-	j.ackPath = filepath.Join(state, deliveryAckFile)
 
 	fmt.Fprintf(o.Out, "%s: %s\n", deliverySealToolName, o.ProjectRoot)
+
+	// A rotated (segmented) store is checked across its authority, every committed segment and the
+	// generation store — the legacy-only path below would check only segment 0 and report the whole
+	// store as fine while the active segment is corrupt. A genuinely unmigrated tree keeps the exact
+	// legacy behavior; migration evidence without an authority is head loss and refuses. This read is
+	// READ-ONLY: it never creates the log/dirs or recovers by writing a head (delivery_segment_readonly.go).
+	auth, migrated, aerr := readonlySegmentAuthority(context.Background(), state)
+	if aerr != nil {
+		return fmt.Errorf("%s: %s carries delivery migration evidence its authority cannot vouch for; "+
+			"nothing was written. Preserve it and roll back via a verified backup and a compatible "+
+			"reader: %w", deliverySealToolName, state, aerr)
+	}
+	if migrated {
+		return o.runSegmented(lock, state, auth)
+	}
+
+	j := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
+	j.ackPath = filepath.Join(state, deliveryAckFile)
 
 	sides, err := deliverySealSides(j)
 	if err != nil {
@@ -236,6 +253,137 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 			return halfConverted(err, sides[:i], "rerunning the same command converts only what is left")
 		}
 	}
+	return nil
+}
+
+// runSegmented is the tool against a rotated (segmented) store. --check validates the whole store
+// read-only: the generation manifest+head chain, and every committed segment's lease and ack journals
+// against their seals — segment 0 (the legacy four files) AND every later segment — with predecessor-
+// base arrivals and archived-ACK exact joins through the generation store. --to v1 is REFUSED, because
+// converting a seal does not make an old writer able to read the segmented authority/history.
+func (o DeliverySealOptions) runSegmented(lock *Lock, state string, auth segmentAuthorityReading) error {
+	if o.ToV1 {
+		return fmt.Errorf("%s: %s is a segmented delivery store; --to v1 is refused. A seal conversion "+
+			"does NOT make an old writer able to read the segment authority or history, and this tool will "+
+			"not pretend it does. Every file is preserved as it is; roll a segmented store back only through "+
+			"a verified backup restored by a compatible reader", deliverySealToolName, state)
+	}
+	if auth.recoveredTail {
+		fmt.Fprintf(o.Out, "  note: a complete committed transition beyond the atomic head is present and was "+
+			"carried forward as the active view; no on-disk checkpoint was written\n")
+	}
+	ctx := context.Background()
+	// Anchor the trusted state root; every descendant directory and file is reached through pinned
+	// os.Root handles (rejecting static symlink aliases and confirming SameFile), not absolute paths.
+	stateRoot, err := pinDeliveryDirectory(state)
+	if err != nil {
+		return fmt.Errorf("%s: %s could not be pinned as the trusted state root; nothing was written: %w",
+			deliverySealToolName, state, deliveryJournalError())
+	}
+	defer func() { _ = stateRoot.Close() }()
+
+	gv, genTail, err := openGenReadonly(ctx, stateRoot)
+	if err != nil {
+		return fmt.Errorf("%s: a segmented store requires its generation store, which did not validate "+
+			"read-only; nothing was written: %w", deliverySealToolName, err)
+	}
+	defer func() { _ = gv.close() }()
+	if genTail {
+		fmt.Fprintf(o.Out, "  note: a complete committed generation beyond the manifest head is present and "+
+			"was carried forward as the recovered root; no on-disk checkpoint was written\n")
+	}
+
+	// The segments directory is pinned once, only if any non-legacy segment exists.
+	var segsRoot *os.Root
+	if auth.transitions[len(auth.transitions)-1].Active >= 1 {
+		segsRoot, err = pinDeliveryChild(stateRoot, deliverySegmentsDir, false)
+		if err != nil {
+			return fmt.Errorf("%s: %s could not be pinned; nothing was written: %w",
+				deliverySealToolName, deliverySegmentsDir, deliveryJournalError())
+		}
+		defer func() { _ = segsRoot.Close() }()
+	}
+
+	for i := range auth.transitions {
+		if err := o.checkSegment(ctx, stateRoot, segsRoot, auth.transitions[i], gv); err != nil {
+			return err
+		}
+	}
+	// The lock is re-read after the whole read-only scan and before the verdict, exactly as the legacy
+	// path does: scanning many segments can outlive the staleness window, and a run that can no longer
+	// vouch for the lock refuses rather than pretending. Nothing was written regardless.
+	if err := o.holdsLock(lock, "after reading the segmented store"); err != nil {
+		return err
+	}
+	active := auth.transitions[len(auth.transitions)-1].Active
+	fmt.Fprintf(o.Out, "  checked %d committed segment(s) through segment %d and the generation store; "+
+		"nothing was written\n", len(auth.transitions), active)
+	return nil
+}
+
+// checkSegment validates one committed segment read-only, THROUGH a pinned os.Root: its four files
+// present (and re-verified under the pinned identity), its lease journal against its seal with arrivals
+// resuming from the segment's predecessor (base) root, and its ack journal against its seal with every
+// acknowledgement joined to its original lease in the generation store. Segment 0 is the legacy four
+// files under the state root (arrivals from 1); a later segment is pinned under the segments root and
+// resumes from base_root.
+func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRoot *os.Root, t segTransition, gv *genReadonly) error {
+	segRoot := stateRoot
+	if t.Active >= 1 {
+		pinned, err := pinDeliveryChild(segsRoot, segmentSeqName(t.Active), false)
+		if err != nil {
+			return fmt.Errorf("%s: segment %d: its directory is missing, not a directory, or a static "+
+				"alias; the authority names a segment whose evidence cannot be pinned, and nothing was "+
+				"written: %w", deliverySealToolName, t.Active, deliveryJournalError())
+		}
+		defer func() { _ = pinned.Close() }()
+		segRoot = pinned
+	}
+	// Verify the four files are present as regular files under the pinned identity before the scan.
+	for _, name := range []string{deliveryLeaseFile, deliveryPositionFile, deliveryAckFile, deliveryAckPositionFile} {
+		info, err := segRoot.Lstat(name)
+		if err != nil || !info.Mode().IsRegular() {
+			return fmt.Errorf("%s: segment %d: %s is missing or not a regular file; the authority names a "+
+				"segment whose evidence is incomplete, and nothing was written: %w",
+				deliverySealToolName, t.Active, name, deliveryJournalError())
+		}
+	}
+
+	var arrivalBase func(core.SessionID) (uint64, bool, error)
+	if t.Active >= 1 {
+		br, ok := hexToRadixHash(t.BaseRoot)
+		if !ok {
+			return fmt.Errorf("%s: segment %d: its base root is malformed; nothing was written: %w",
+				deliverySealToolName, t.Active, deliveryJournalError())
+		}
+		// The predecessor arrival is looked up at the segment's base root; a missing/corrupt page is an
+		// ERROR the scan propagates (never a silent "new session at 1").
+		arrivalBase = func(s core.SessionID) (uint64, bool, error) { return gv.arrivalAt(ctx, br, s) }
+	}
+
+	leasePos, err := gv.checkLeaseJournal(ctx, segRoot, deliveryLeaseFile, deliveryPositionFile, arrivalBase)
+	if err != nil {
+		return fmt.Errorf("%s: segment %d: the lease journal does not check read-only against its seal, "+
+			"its predecessor arrivals and the generation store; nothing was written: %w",
+			deliverySealToolName, t.Active, err)
+	}
+	fmt.Fprintf(o.Out, "  segment %d lease journal: loads, %d entries, %d bytes, chain %s\n",
+		t.Active, leasePos.Count, leasePos.Bytes, leasePos.Chain)
+
+	ackPos, err := gv.checkAckJournal(ctx, segRoot, deliveryAckFile, deliveryAckPositionFile)
+	if err != nil {
+		return fmt.Errorf("%s: segment %d: the ack journal does not check read-only against its seal and "+
+			"the generation store; nothing was written: %w", deliverySealToolName, t.Active, err)
+	}
+	// Re-verify the two journals still resolve to regular files under the pinned identity after the scan.
+	for _, name := range []string{deliveryLeaseFile, deliveryAckFile} {
+		if info, err := segRoot.Lstat(name); err != nil || !info.Mode().IsRegular() {
+			return fmt.Errorf("%s: segment %d: %s changed under the pinned scan; nothing was written: %w",
+				deliverySealToolName, t.Active, name, deliveryJournalError())
+		}
+	}
+	fmt.Fprintf(o.Out, "  segment %d ack journal: loads, %d entries, %d bytes (archived ACKs joined to "+
+		"their original leases)\n", t.Active, ackPos.Count, ackPos.Bytes)
 	return nil
 }
 
