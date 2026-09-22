@@ -1,0 +1,10 @@
+run_id=cx-linux-ingest-endpoint-7e5a141-7e5a141-20260922T214913Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=c34acb4^
+commit=7e5a141aadfaf252594c112d2f39621630ee3e4a
+bundle_sha256=29bdd12025def7d7f6f270d2404e4e41d8c8e5b95ff87f42aa1f2f31439b3ef6
+host_started_utc=2026-09-22T21:49:21Z
+inner_args=--no-race --coload --run ^(TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites|TestIntegration_DegradedPassiveStillWritesToTheRealStore|TestIntegration_HotPathWarmWithRealResidentState|TestSecurity_.*|TestFault_.*|TestV6Backup_.*|TestV6_.*)$ -- ./test/integration ./test/security ./test/fault
+host_finished_utc=2026-09-22T22:19:36Z
+container_exit=1

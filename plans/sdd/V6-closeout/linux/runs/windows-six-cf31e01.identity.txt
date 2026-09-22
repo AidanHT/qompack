@@ -1,0 +1,5 @@
+2026-09-22T21:22:15Z
+cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+go version go1.26.6 windows/amd64
+CGO_ENABLED=0
+?? plans/sdd/V6-closeout/

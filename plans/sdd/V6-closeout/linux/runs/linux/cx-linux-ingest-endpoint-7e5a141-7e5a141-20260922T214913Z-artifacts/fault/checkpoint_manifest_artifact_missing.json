@@ -1,0 +1,20 @@
+{
+  "name": "checkpoint_manifest_artifact_missing",
+  "phase": "publication",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "c5b1b8df642275792bed82dbee4b2ddfd852e4e8d2bb15316f92f34bee9ac3dc"
+  },
+  "boundary": "MANIFEST line whose artifact is missing",
+  "seed_method": "the sealed artifact is removed and its manifest line left in place (checkpoint/reader_test.go's ErrContract case); a real PreCompact through the installed binary sealed 1 artifact(s)",
+  "outcome": "explicit_incomplete",
+  "reason": "1 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[1]: qompack-20260922.log: ts=2026-09-22T22:08:25.664642602Z level=loud msg=\"checkpoint artifact missing; the manifest still claims it\" artifact=0001.json seq=1 path=/tmp/qompack-fault-122954679/proj/.qompack/checkpoints/0001.json sha256=sha256:…; loud[1]: ts=2026-09-22T22:08:25.664642602Z level=loud msg=\"checkpoint artifact missing; the manifest still claims it\" artifact=0001.json seq=1 path=/tmp/qompack-fault-122954679/proj/.qompack/checkpoints/0001.json sha256=sha256:1efaf89fcbc2d3a945ab25…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)",
+  "detail": "cut: removed 0001.json, leaving its MANIFEST.jsonl line\neverything the surfaces gained: daylog[2]: qompack-20260922.log: ts=2026-09-22T22:08:25.664642602Z level=loud msg=\"checkpoint artifact missing; the manifest still claims it\" artifact=0001.json seq=1 path=/tmp/qompack-fault-122954679/proj/.qompack/checkpoints/0001.json sha256=sha256:…; loud[1]: ts=2026-09-22T22:08:25.664642602Z level=loud msg=\"checkpoint artifact missing; the manifest still claims it\" artifact=0001.json seq=1 path=/tmp/qompack-fault-122954679/proj/.qompack/checkpoints/0001.json sha256=sha256:1efaf89fcbc2d3a945ab25…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)\nof which naming this cut (checkpoint, manifest, artifact): daylog[1]: qompack-20260922.log: ts=2026-09-22T22:08:25.664642602Z level=loud msg=\"checkpoint artifact missing; the manifest still claims it\" artifact=0001.json seq=1 path=/tmp/qompack-fault-122954679/proj/.qompack/checkpoints/0001.json sha256=sha256:…; loud[1]: ts=2026-09-22T22:08:25.664642602Z level=loud msg=\"checkpoint artifact missing; the manifest still claims it\" artifact=0001.json seq=1 path=/tmp/qompack-fault-122954679/proj/.qompack/checkpoints/0001.json sha256=sha256:1efaf89fcbc2d3a945ab25…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:1 dangling:0 reported:1}\naudit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:1 reported:0}\ndegradation (new since the cut): daylog[1]: qompack-20260922.log: ts=2026-09-22T22:08:25.664642602Z level=loud msg=\"checkpoint artifact missing; the manifest still claims it\" artifact=0001.json seq=1 path=/tmp/qompack-fault-122954679/proj/.qompack/checkpoints/0001.json sha256=sha256:…; loud[1]: ts=2026-09-22T22:08:25.664642602Z level=loud msg=\"checkpoint artifact missing; the manifest still claims it\" artifact=0001.json seq=1 path=/tmp/qompack-fault-122954679/proj/.qompack/checkpoints/0001.json sha256=sha256:1efaf89fcbc2d3a945ab25…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)\nnewly dangling: manifest_artifact(0001): checkpoints/MANIFEST.jsonl records this seq and its artifact is missing or does not re-hash to the recorded digest\nnewly reported: none\nremaining dangling after recovery: manifest_artifact(0001): checkpoints/MANIFEST.jsonl records this seq and its artifact is missing or does not re-hash to the recorded digest",
+  "dangling_before": 0,
+  "dangling_after": 1
+}

@@ -1,0 +1,9 @@
+FAIL      github.com/qompack/qompack/test/integration  (pass=2 fail=1 skip=0)
+    FAIL TestIntegration_HotPathWarmWithRealResidentState
+FAIL      github.com/qompack/qompack/test/security  (pass=22 fail=1 skip=0)
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+FAIL      github.com/qompack/qompack/test/fault  (pass=35 fail=4 skip=0)
+    FAIL TestFault_DaemonKilledMidIngest
+    FAIL TestFault_CheckpointDropsAnUnresolvablePointer
+    FAIL TestFault_PublicationBoundaries/wal_segment_truncated
+    FAIL TestFault_PublicationBoundaries/client_spool_truncated

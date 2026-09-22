@@ -1,0 +1,67 @@
+PASS      github.com/qompack/qompack/internal/ipc  (pass=139 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/paths  (pass=130 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/testutil  (pass=40 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/fault  (pass=12 fail=44 skip=0)
+    FAIL TestFault_AuditSeesADeletedObjectUnderALiveIndex
+    FAIL TestFault_MCPChildKilledMidRequest
+    FAIL TestFault_DaemonKilledMidIngest
+    FAIL TestFault_UnavailableHistoricalObject
+    FAIL TestFault_CheckpointDropsAnUnresolvablePointer
+    FAIL TestFault_CheckpointResolvabilityIsBlindToADeletedObject
+    FAIL TestFault_Lifecycle/startup
+    FAIL TestFault_Lifecycle/resume
+    FAIL TestFault_Lifecycle/fork
+    FAIL TestFault_Lifecycle/clear
+    FAIL TestFault_Lifecycle/compaction_manual
+    FAIL TestFault_Lifecycle/compaction_auto
+    FAIL TestFault_Lifecycle/compaction_failed
+    FAIL TestFault_Lifecycle/compaction_crossed
+    FAIL TestFault_Lifecycle/duplicate_precompact
+    FAIL TestFault_Lifecycle/missing_turn
+    FAIL TestFault_Lifecycle/out_of_order_precompact
+    FAIL TestFault_Lifecycle
+    FAIL TestFault_PublicationBoundaries/object_written_index_line_absent
+    FAIL TestFault_PublicationBoundaries/roots_last_line_truncated
+    FAIL TestFault_PublicationBoundaries/tool_use_truncated
+    FAIL TestFault_PublicationBoundaries/capture_sidecar_stage_one_only
+    FAIL TestFault_PublicationBoundaries/checkpoint_orphan_artifact
+    FAIL TestFault_PublicationBoundaries/checkpoint_manifest_artifact_missing
+    FAIL TestFault_PublicationBoundaries/checkpoint_manifest_digest_mismatch
+    FAIL TestFault_PublicationBoundaries/wal_segment_truncated
+    FAIL TestFault_PublicationBoundaries/client_spool_truncated
+    FAIL TestFault_PublicationBoundaries/stale_drain_progress
+    FAIL TestFault_PublicationBoundaries/delivery_seal_torn_slot
+    FAIL TestFault_PublicationBoundaries/retention_roots_truncated
+    FAIL TestFault_PublicationBoundaries/state_bin_corrupt
+    FAIL TestFault_PublicationBoundaries/config_json_corrupt
+    FAIL TestFault_PublicationBoundaries
+    FAIL TestFault_WriteFailures/disk_full
+    FAIL TestFault_WriteFailures/spool_full
+    FAIL TestFault_WriteFailures/spool_readonly
+    FAIL TestFault_WriteFailures
+    FAIL TestFault_ReadOnlyObjectsDirectory
+    FAIL TestFault_LockContention
+    FAIL TestV6Backup_RoundTripPreservesSourceLaterWritesAndBackup
+    FAIL TestV6Backup_RefusesLiveWriterAndTargetConflict
+    FAIL TestV6Backup_CorruptedAndUnknownSchemaRefusedWithoutOverwriting
+    FAIL TestV6_FsckReportsUnpublishedCaptureWithoutDiscardingEvidence
+    FAIL TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus
+FAIL      github.com/qompack/qompack/test/guards  (pass=157 fail=10 skip=0)
+    FAIL TestGuard_TheV1DeliveryPositionHasOneEncoder/every_deliveryPosition_marshal_site_is_named_here
+    FAIL TestGuard_TheV1DeliveryPositionHasOneEncoder
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D4
+    FAIL TestCarriedDefects_WaveReportRequiresResolution
+FAIL      github.com/qompack/qompack/test/integration  (pass=18 fail=4 skip=0)
+    FAIL TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites
+    FAIL TestIntegration_GCNeverCollectsALiveRootUnderIngest
+    FAIL TestIntegration_DegradedPassiveStillWritesToTheRealStore
+    FAIL TestIntegration_HotPathWarmWithRealResidentState
+FAIL      github.com/qompack/qompack/test/security  (pass=21 fail=2 skip=0)
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ArchivedTextIsDataNeverAnInstruction

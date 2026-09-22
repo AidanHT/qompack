@@ -1,0 +1,37 @@
+run_id=cx-linux-gc-fixed-f73b629-20260922T214939Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=f73b629
+commit=f73b629a471b853f8b2fd7fe786e6270fc261509
+bundle_sha256=631916ee6f0682a4382690ab7df33fed1734204a36c23339649f3fcc55cf14d2
+host_started_utc=2026-09-22T21:49:53Z
+inner_args=--run ^(TestIntegration_GCNeverCollectsALiveRootUnderIngest|TestListRetentionDir_.*|TestGC_.*)$ -- ./test/integration ./internal/store
+/work/cx-linux-gc-fixed-f73b629-20260922T214939Z.bundle: OK
+run_id=cx-linux-gc-fixed-f73b629-20260922T214939Z
+commit=f73b629a471b853f8b2fd7fe786e6270fc261509
+tree=45f96b4cb6e7a558aaf90b2316fa419ead263452
+bundle_sha256=631916ee6f0682a4382690ab7df33fed1734204a36c23339649f3fcc55cf14d2
+started_utc=2026-09-22T21:49:59Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^(TestIntegration_GCNeverCollectsALiveRootUnderIngest|TestListRetentionDir_.*|TestGC_.*)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/test/integration  (pass=1 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/internal/store  (pass=46 fail=1 skip=0)
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/cx-linux/runs/cx-linux-gc-fixed-f73b629-20260922T214939Z-artifacts
+exit=1
+exit=1

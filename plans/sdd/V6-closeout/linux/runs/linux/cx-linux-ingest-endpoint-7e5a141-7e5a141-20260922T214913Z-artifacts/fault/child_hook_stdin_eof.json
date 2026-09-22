@@ -1,0 +1,20 @@
+{
+  "name": "child_hook_stdin_eof",
+  "phase": "child",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "c5b1b8df642275792bed82dbee4b2ddfd852e4e8d2bb15316f92f34bee9ac3dc"
+  },
+  "boundary": "a hook whose stdin is stdin-eof, during a live session",
+  "seed_method": "the `stdin-eof` QOMPACK_FAULT site (internal/cli/fault.go), delivered to every hook subcommand of a live session",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout under stdin-eof, and the store the live session was writing gained no dangling reference",
+  "detail": "six hook subcommands driven under stdin-eof\naudit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:0 roots:0 sidecars:3 checkpoints:0 dangling:0 reported:0}",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,17 @@
+{
+  "name": "bounds_hook_capture_cap",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "74adf409f4048486a83ade89b6763c0c42ca5ed5d9cff864381ed5411f157229"
+  },
+  "outcome": "verified",
+  "reason": "a 6 MiB tool_response was refused by the hard capture cap: the hook still exited 0 with a parseable document, and no byte from the 64 KiB mark of the payload reached any file under .qompack/.",
+  "detail": "swept 28 files under .qompack/"
+}

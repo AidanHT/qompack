@@ -1,0 +1,17 @@
+{
+  "name": "v6_escape_root_hash",
+  "capability": "archive_trust",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "794ba99a393e26ee1c4f8481d30a84c53025a0e22f62ab70ff73ec0047456136"
+  },
+  "outcome": "verified",
+  "reason": "the packaged MCP server denied the address without materializing forbidden content",
+  "detail": "envelope=denied(found=false); synthetic forbidden marker exposed=false"
+}

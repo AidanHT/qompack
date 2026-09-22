@@ -1,0 +1,32 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/integration": {
+   "result": "fail",
+   "passed": 2,
+   "failed": [
+    "TestIntegration_HotPathWarmWithRealResidentState"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/security": {
+   "result": "fail",
+   "passed": 22,
+   "failed": [
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/fault": {
+   "result": "fail",
+   "passed": 35,
+   "failed": [
+    "TestFault_DaemonKilledMidIngest",
+    "TestFault_CheckpointDropsAnUnresolvablePointer",
+    "TestFault_PublicationBoundaries/wal_segment_truncated",
+    "TestFault_PublicationBoundaries/client_spool_truncated"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

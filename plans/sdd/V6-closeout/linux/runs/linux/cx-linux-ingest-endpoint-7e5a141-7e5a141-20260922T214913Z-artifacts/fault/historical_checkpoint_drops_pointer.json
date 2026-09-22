@@ -1,0 +1,20 @@
+{
+  "name": "historical_checkpoint_drops_pointer",
+  "phase": "historical",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "c5b1b8df642275792bed82dbee4b2ddfd852e4e8d2bb15316f92f34bee9ac3dc"
+  },
+  "boundary": "a checkpoint written after the object one of its pointers names went away",
+  "seed_method": "a real session, one stored object removed outright, then a real PreCompact through the installed binary, then one more observation so the judge has a measured \"did recording go on\" rather than an assumed one",
+  "outcome": "failed",
+  "reason": "a checkpoint sealed after the object went away carries 1 pointer(s) into bytes that are gone, with no DropEntry naming them: checkpoint_pointer(0001/file/src/alpha.ts): checkpoint 0001 points at file src/alpha.ts (e5ec33f50136), which does not resolve. Owner: internal/checkpoint.",
+  "detail": "removed: removed the object file for chunk 62706e319837\nartifacts 0 -\u003e 1 (sealed 1); pointers across them: 3\nnew drop entries: [pointer_git_unavailable() pointer_unresolvable(toolu_fault_historical_drop_01)], of which naming the cut: [pointer_unresolvable(toolu_fault_historical_drop_01)]\nrecovery observation toolu_fault_historical_drop_03 indexed: true\neverything the surfaces gained: daylog[1]: qompack-20260922.log: ts=2026-09-22T21:58:21.802937438Z level=warn msg=\"store: segment closed without a tokens feature; Segment.Tokens stays zero permanently\" segment=2 session=sess-fault-historical-drop; drop[2]: pointer_git_unavailable(); surfaces checkpoint DropEntry+day log (warn)\nof which naming this cut (quarantin, materialize, dangling, missing object, toolu_fault_historical_drop_01, 62706e319837): drop[1]: pointer_unresolvable(toolu_fault_historical_drop_01); surfaces checkpoint DropEntry\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:4 reported:0}",
+  "dangling_before": 0,
+  "dangling_after": 4
+}

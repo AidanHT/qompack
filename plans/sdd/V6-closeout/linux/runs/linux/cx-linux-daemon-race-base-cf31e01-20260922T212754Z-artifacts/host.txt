@@ -1,0 +1,10 @@
+run_id=cx-linux-daemon-race-base-cf31e01-20260922T212754Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=cf31e01
+commit=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+bundle_sha256=999d29153df49bb12ad0a61b0602b603d4e6251898855edd386b39268b78ef66
+host_started_utc=2026-09-22T21:28:15Z
+inner_args=--run ^TestRunReturnsOnlyAfterAsyncStopHasFinished$ --count 30 -- ./internal/daemon
+host_finished_utc=2026-09-22T21:29:34Z
+container_exit=1

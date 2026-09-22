@@ -1,0 +1,4 @@
+fatal: detected dubious ownership in repository at '/work/cx-linux-daemon-race-base-cf31e01-20260922T212754Z'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /work/cx-linux-daemon-race-base-cf31e01-20260922T212754Z

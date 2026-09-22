@@ -1,0 +1,13 @@
+{"Time":"2026-09-22T21:36:08.706350825Z","Action":"start","Package":"github.com/qompack/qompack/test/integration"}
+{"Time":"2026-09-22T21:36:08.717914362Z","Action":"run","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest"}
+{"Time":"2026-09-22T21:36:08.723408746Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"=== RUN   TestIntegration_GCNeverCollectsALiveRootUnderIngest\n"}
+{"Time":"2026-09-22T21:38:52.123761938Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"    appendonly_test.go:937: \n"}
+{"Time":"2026-09-22T21:38:52.124019819Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"        \tError Trace:\t/work/cx-linux-gc-bisect-7086bb5-7086bb5-20260922T213532Z/test/integration/appendonly_test.go:937\n"}
+{"Time":"2026-09-22T21:38:52.124075515Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"        \tError:      \tShould be true\n"}
+{"Time":"2026-09-22T21:38:52.12409456Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"        \tTest:       \tTestIntegration_GCNeverCollectsALiveRootUnderIngest\n"}
+{"Time":"2026-09-22T21:38:52.124109723Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"        \tMessages:   \tpass 0: a truncated pass must persist its cursor\n"}
+{"Time":"2026-09-22T21:38:53.062819637Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"--- FAIL: TestIntegration_GCNeverCollectsALiveRootUnderIngest (164.37s)\n"}
+{"Time":"2026-09-22T21:38:53.062894312Z","Action":"fail","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Elapsed":164.37}
+{"Time":"2026-09-22T21:38:53.062924346Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Output":"FAIL\n"}
+{"Time":"2026-09-22T21:38:53.074088721Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Output":"FAIL\tgithub.com/qompack/qompack/test/integration\t164.395s\n"}
+{"Time":"2026-09-22T21:38:53.075325597Z","Action":"fail","Package":"github.com/qompack/qompack/test/integration","Elapsed":164.397}

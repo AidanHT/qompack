@@ -1,0 +1,20 @@
+{
+  "name": "child_daemon_killed_mid_ingest",
+  "phase": "child",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "c5b1b8df642275792bed82dbee4b2ddfd852e4e8d2bb15316f92f34bee9ac3dc"
+  },
+  "boundary": "the daemon is killed during a burst of `observe tool` deliveries",
+  "seed_method": "a 6-delivery burst was cut by killing the daemon (killed=false) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 6 client-* spool file(s)",
+  "outcome": "failed",
+  "reason": "the restarted daemon introduced no dangling reference, but the recovery session's own observation never reached the index and no surface gained anything about it. Owner: internal/daemon.",
+  "detail": "spool wal/client 1/6 → 1/11; recording resumed: false\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; reported gaps: none\ndegradation (new since the kill): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,11 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 756,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}
