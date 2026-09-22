@@ -116,20 +116,31 @@ func (h *handlers) hostRules(ctx context.Context) (*hostperm.RuleSet, error) {
 	return snap.rules, snap.err
 }
 
-// authorizeHost applies the host's current Read deny and ask rules to one project-relative path
-// that has already passed containment. It returns nil when no rule this package can see refuses
-// the read; otherwise the refusal body to render.
+// authorizeHost applies the host's current Read deny and ask rules to one path that has already
+// passed containment. It returns nil when no rule this package can see refuses the read; otherwise
+// the refusal body to render.
+//
+// path is the spelling the record (or the caller) gave — project-relative or absolute — never the
+// paths.Norm result. Norm adopts an in-project symlink's target, and the host applies a deny rule
+// when EITHER a link's own path or its target matches: judging the normalized path alone lost the
+// link's spelling on every platform whose EvalSymlinks follows links (reproduced on Linux,
+// plans/sdd/V6-closeout/hostperm/runs/04-link-spelling-linux-red.log). hostperm resolves the
+// spelling itself, so both are checked.
 //
 // It is deliberately NOT a claim that the host would allow the read. Session-only rules, CLI
 // flags, hooks and an embedding host's policy are invisible to a plugin (internal/hostperm's
 // package comment lists them); what this enforces is every rule saved in a settings file the host
 // reads, fail-closed when one of those files cannot be read.
-func (h *handlers) authorizeHost(ctx context.Context, norm string) any {
+func (h *handlers) authorizeHost(ctx context.Context, path string) any {
 	rules, err := h.hostRules(ctx)
 	if err != nil {
 		return unavailable(hostUnavailableReason)
 	}
-	d := rules.Evaluate(filepath.Join(h.root, filepath.FromSlash(norm)))
+	abs := path
+	if !filepath.IsAbs(abs) {
+		abs = filepath.Join(h.root, filepath.FromSlash(path))
+	}
+	d := rules.Evaluate(abs)
 	switch d.Effect {
 	case hostperm.Deny:
 		h.m.Counter("mcp.host_policy_denied").Add(1)
@@ -157,7 +168,7 @@ func (h *handlers) authorizePath(ctx context.Context, path string) any {
 	if !paths.ResolvesInside(h.root, norm) {
 		return denied(authorizedDenialReason)
 	}
-	return h.authorizeHost(ctx, norm)
+	return h.authorizeHost(ctx, path)
 }
 
 // authorizeOrigin preserves legitimate pathless records without upgrading a lost

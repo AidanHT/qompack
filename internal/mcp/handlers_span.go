@@ -287,7 +287,7 @@ func (h *handlers) reRead(ctx context.Context, r Request, raw json.RawMessage) (
 	// — its parent replaced by a link or a junction pointing out of the project — is a policy
 	// refusal, so it gets the explicit denied envelope: found:false, denied:true, no preview bytes,
 	// and a reason that does not echo the path back.
-	if refusal := h.authorizePath(ctx, norm); refusal != nil {
+	if refusal := h.authorizePath(ctx, base); refusal != nil {
 		return h.jsonResponse(ToolReRead, refusal, nil), nil
 	}
 	// The hash form names content by address, and an address is not a credential: the path above
