@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -235,11 +236,25 @@ func TestDeliverySealSegment_UnmigratedLegacyTreeStillChecks(t *testing.T) {
 	require.Contains(t, out, "checked")
 }
 
-// genRootPagePath is the on-disk radix page file for a committed root (its content hash names it).
+// genRootPagePath is the on-disk root pointer for a committed root (its content hash names it); the
+// pointer names the pack record that holds the root page's bytes.
 func genRootPagePath(state, rootHex string) string {
 	b, _ := hex.DecodeString(rootHex)
 	shard := hex.EncodeToString(b[:1])
-	return filepath.Join(state, "delivery-generations", "pages", shard, rootHex+".page")
+	return filepath.Join(state, "delivery-generations", "pages", shard, rootHex+radixRootSuffix)
+}
+
+// corruptGenRootPage flips one byte of a committed root's PAGE bytes inside the pack its pointer names,
+// so the page no longer hashes to its name (the pointer itself stays intact).
+func corruptGenRootPage(t *testing.T, state, rootHex string) {
+	t.Helper()
+	pointer, err := os.ReadFile(paths.Long(genRootPagePath(state, rootHex)))
+	require.NoError(t, err)
+	require.Len(t, pointer, radixRootFileLen)
+	pack := binary.BigEndian.Uint64(pointer[len(radixRootMagic):])
+	off := binary.BigEndian.Uint64(pointer[len(radixRootMagic)+8:])
+	packPath := filepath.Join(state, "delivery-generations", "pages", radixPacksDir, radixPackName(pack))
+	flipPackByte(t, packPath, int64(off)+radixRecordHeaderLen+7)
 }
 
 // TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused is the fix for main's #1: the
@@ -274,9 +289,8 @@ func TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused(t *te
 	require.Equal(t, active, h.Active)
 	require.NotEmpty(t, h.BaseRoot, "the active segment has a real predecessor root")
 
-	pagePath := genRootPagePath(state, h.BaseRoot)
-	require.FileExists(t, pagePath)
-	require.NoError(t, os.WriteFile(paths.Long(pagePath), []byte("corrupt"), 0o600))
+	require.FileExists(t, genRootPagePath(state, h.BaseRoot))
+	corruptGenRootPage(t, state, h.BaseRoot)
 
 	_, err = checkSeal(t, root)
 	require.Error(t, err, "a corrupt predecessor page under a first-arrival lease must refuse, not be swallowed")

@@ -102,7 +102,7 @@ const (
 	genPagesDir  = "pages"
 	genLogFile   = "manifest.jsonl"
 	genHeadFile  = "manifest-head.json"
-	genFormat    = "qompack.delivery.generations.v1"
+	genFormat    = "qompack.delivery.generations.v2"
 	genVersion   = 1
 	genChainSalt = "qompack.delivery.generations.chain.v1"
 	genMaxLine   = 4096 //nomagic:allow generation metadata format bound, independent of config defaults.
@@ -301,9 +301,58 @@ func (g *deliveryGenerations) recover() error {
 	return g.writeHead(adopted.lastLen)
 }
 
+// radixReader is the read half both a committed radix and a write transaction offer: a lookup at an
+// explicit root. The generation helpers take one so a commit reads its own uncommitted pages while a
+// query reads only committed ones.
+type radixReader interface {
+	lookup(ctx context.Context, root radixHash, key []byte) ([]byte, bool, error)
+}
+
+// genTxnMaxHeld bounds the radix pages one write transaction holds in memory before the commit in
+// progress publishes what it has as a generation of its own and continues in a fresh transaction. It
+// is a memory bound, not a capacity bound: a large reconcile becomes several generations, each an
+// exact, valid superset of the one before. //nomagic:allow in-memory page bound, not a budget
+const genTxnMaxHeld = 1 << 15
+
+// genWriter is one commit call's running state: the transaction, the root it has reached, and the
+// generation store it publishes intermediate generations to when the transaction reaches its bound.
+type genWriter struct {
+	g    *deliveryGenerations
+	tx   *radixTxn
+	root radixHash
+}
+
+func (g *deliveryGenerations) writer() *genWriter {
+	return &genWriter{g: g, tx: g.radix.begin(), root: g.root}
+}
+
+// spill publishes the transaction's work so far as a generation when it holds more than the bound.
+// The caller holds g.mu.
+func (w *genWriter) spill(ctx context.Context) error {
+	if w.tx.held() < genTxnMaxHeld {
+		return nil
+	}
+	if _, err := w.g.finishCommit(ctx, w.tx, w.root); err != nil {
+		return err
+	}
+	w.tx = w.g.radix.begin()
+	return nil
+}
+
+func (w *genWriter) insert(ctx context.Context, key, value []byte) error {
+	next, err := w.tx.insert(ctx, w.root, key, value)
+	if err != nil {
+		return err
+	}
+	w.root = next
+	return nil
+}
+
 // commit stages every lease's keys into the radix from the current root and, if that changed the
-// root, commits ONE new generation. Re-committing already-recorded leases is idempotent (the root does
-// not move, so no generation is appended and the same identities stand).
+// root, commits a new generation. Re-committing already-recorded leases is idempotent (the root does
+// not move, so no generation is appended and the same identities stand). A batch large enough to reach
+// genTxnMaxHeld is published as several generations; a failure after the first leaves the earlier ones
+// committed, each an exact, valid record of leases that were really admitted, never a changed identity.
 func (g *deliveryGenerations) commit(ctx context.Context, leases []deliveryLease) (radixHash, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -313,48 +362,47 @@ func (g *deliveryGenerations) commit(ctx context.Context, leases []deliveryLease
 	if err := ctx.Err(); err != nil {
 		return radixHash{}, err
 	}
-	root := g.root
+	w := g.writer()
 	for _, l := range leases {
 		if !validDeliveryLease(l) {
 			return radixHash{}, core.ErrContract
 		}
-		prior, exists, err := g.leaseAtRoot(ctx, root, l.Delivery)
+		prior, exists, err := leaseIn(ctx, w.tx, w.root, l.Delivery)
 		if err != nil {
 			return radixHash{}, err
 		}
 		if exists && prior != l {
 			return radixHash{}, errGenerationConflict
 		}
-		nonce, assigned, err := g.nonceAtRoot(ctx, root, l.Session, l.ArrivalSeq)
+		nonce, assigned, err := nonceIn(ctx, w.tx, w.root, l.Session, l.ArrivalSeq)
 		if err != nil {
 			return radixHash{}, err
 		}
 		if assigned && nonce != l.Delivery {
 			return radixHash{}, errGenerationConflict
 		}
-		var next radixHash
-		if next, err = g.radix.insert(ctx, root, nonceGenKey(l.Delivery), mustLeaseValue(l)); err != nil {
+		if err := w.insert(ctx, nonceGenKey(l.Delivery), mustLeaseValue(l)); err != nil {
 			return radixHash{}, err
 		}
-		root = next
 		// The arrival watermark only ADVANCES: re-committing an already-recorded (older) lease must not
 		// regress it, which is what keeps a re-commit idempotent and dormant-session continuity monotonic.
-		cur, has, err := g.arrivalAtRoot(ctx, root, l.Session)
+		cur, has, err := arrivalIn(ctx, w.tx, w.root, l.Session)
 		if err != nil {
 			return radixHash{}, err
 		}
 		if !has || l.ArrivalSeq > cur {
-			if next, err = g.radix.insert(ctx, root, arrivalGenKey(l.Session), arrivalValue(l.ArrivalSeq)); err != nil {
+			if err := w.insert(ctx, arrivalGenKey(l.Session), arrivalValue(l.ArrivalSeq)); err != nil {
 				return radixHash{}, err
 			}
-			root = next
 		}
-		if next, err = g.radix.insert(ctx, root, orderGenKey(l.Session, l.ArrivalSeq), []byte(l.Delivery)); err != nil {
+		if err := w.insert(ctx, orderGenKey(l.Session, l.ArrivalSeq), []byte(l.Delivery)); err != nil {
 			return radixHash{}, err
 		}
-		root = next
+		if err := w.spill(ctx); err != nil {
+			return radixHash{}, err
+		}
 	}
-	return g.finishCommit(root)
+	return g.finishCommit(ctx, w.tx, w.root)
 }
 
 // commitAck records durable ACK membership and advances the per-session settled frontier. Each ack is
@@ -369,12 +417,12 @@ func (g *deliveryGenerations) commitAck(ctx context.Context, acks []deliveryAck)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	root := g.root
+	w := g.writer()
 	for _, a := range acks {
 		if a.Version != core.EvidenceVersion || !validDeliveryToken(a.Delivery) || a.ObservationID == "" {
 			return core.ErrContract
 		}
-		lease, found, err := g.leaseAtRoot(ctx, root, a.Delivery)
+		lease, found, err := leaseIn(ctx, w.tx, w.root, a.Delivery)
 		if err != nil {
 			return err
 		}
@@ -384,23 +432,24 @@ func (g *deliveryGenerations) commitAck(ctx context.Context, acks []deliveryAck)
 		if lease.ObservationID != a.ObservationID {
 			return errGenerationConflict
 		}
-		prior, exists, err := g.radix.lookup(ctx, root, ackGenKey(a.Delivery))
+		prior, exists, err := w.tx.lookup(ctx, w.root, ackGenKey(a.Delivery))
 		if err != nil {
 			return err
 		}
 		if exists && !bytes.Equal(prior, mustAckValue(a)) {
 			return errGenerationConflict
 		}
-		next, err := g.radix.insert(ctx, root, ackGenKey(a.Delivery), mustAckValue(a))
-		if err != nil {
+		if err := w.insert(ctx, ackGenKey(a.Delivery), mustAckValue(a)); err != nil {
 			return err
 		}
-		root = next
-		if root, err = g.advanceFrontier(ctx, root, lease.Session); err != nil {
+		if err := w.advanceFrontier(ctx, lease.Session); err != nil {
+			return err
+		}
+		if err := w.spill(ctx); err != nil {
 			return err
 		}
 	}
-	_, err := g.finishCommit(root)
+	_, err := g.finishCommit(ctx, w.tx, w.root)
 	return err
 }
 
@@ -417,12 +466,12 @@ func (g *deliveryGenerations) commitTerminal(ctx context.Context, terminals []de
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	root := g.root
+	w := g.writer()
 	for _, tm := range terminals {
 		if !validDeliveryLease(tm.Lease) || tm != terminalFor(tm.Lease) {
 			return core.ErrContract
 		}
-		lease, found, err := g.leaseAtRoot(ctx, root, tm.Lease.Delivery)
+		lease, found, err := leaseIn(ctx, w.tx, w.root, tm.Lease.Delivery)
 		if err != nil {
 			return err
 		}
@@ -432,24 +481,30 @@ func (g *deliveryGenerations) commitTerminal(ctx context.Context, terminals []de
 		if lease != tm.Lease {
 			return errGenerationConflict
 		}
-		next, err := g.radix.insert(ctx, root, termGenKey(lease.Delivery), []byte(lease.ObservationID))
-		if err != nil {
+		if err := w.insert(ctx, termGenKey(lease.Delivery), []byte(lease.ObservationID)); err != nil {
 			return err
 		}
-		root = next
-		if root, err = g.advanceFrontier(ctx, root, lease.Session); err != nil {
+		if err := w.advanceFrontier(ctx, lease.Session); err != nil {
+			return err
+		}
+		if err := w.spill(ctx); err != nil {
 			return err
 		}
 	}
-	_, err := g.finishCommit(root)
+	_, err := g.finishCommit(ctx, w.tx, w.root)
 	return err
 }
 
-// finishCommit appends one generation for a root that moved, or returns idempotently. The caller holds
-// g.mu and has verified fault/ctx.
-func (g *deliveryGenerations) finishCommit(root radixHash) (radixHash, error) {
+// finishCommit publishes one generation for a root that moved, or returns idempotently: the
+// transaction's pages become one durable pack and root pointer, then the manifest record commits the
+// generation. The caller holds g.mu and has verified fault/ctx. A pack that could not be written leaves
+// the committed state as it was; a manifest append that failed latches the store's fault.
+func (g *deliveryGenerations) finishCommit(ctx context.Context, tx *radixTxn, root radixHash) (radixHash, error) {
 	if root == g.root {
 		return g.root, nil // idempotent: nothing new to commit
+	}
+	if err := tx.commit(ctx, root); err != nil {
+		return radixHash{}, err
 	}
 	if err := g.appendGeneration(root); err != nil {
 		g.fault = errGenerationUnavailable
@@ -461,53 +516,53 @@ func (g *deliveryGenerations) finishCommit(root radixHash) (radixHash, error) {
 // advanceFrontier moves a session's settled-frontier watermark forward past every contiguous settled
 // arrival, and records the new value. The watermark is monotonic, so this crosses each arrival at most
 // once over the session's life — amortized O(1) per settlement, never a walk of all arrivals.
-func (g *deliveryGenerations) advanceFrontier(ctx context.Context, root radixHash, session core.SessionID) (radixHash, error) {
-	f, err := g.frontierAtRoot(ctx, root, session)
+func (w *genWriter) advanceFrontier(ctx context.Context, session core.SessionID) error {
+	f, err := frontierIn(ctx, w.tx, w.root, session)
 	if err != nil {
-		return radixHash{}, err
+		return err
 	}
-	last, hasLast, err := g.arrivalAtRoot(ctx, root, session)
+	last, hasLast, err := arrivalIn(ctx, w.tx, w.root, session)
 	if err != nil {
-		return radixHash{}, err
+		return err
 	}
 	if !hasLast {
-		return root, nil // no leases for this session yet: nothing to advance
+		return nil // no leases for this session yet: nothing to advance
 	}
 	moved := f
 	for moved <= last {
-		nonce, found, err := g.nonceAtRoot(ctx, root, session, moved)
+		nonce, found, err := nonceIn(ctx, w.tx, w.root, session, moved)
 		if err != nil {
-			return radixHash{}, err
+			return err
 		}
 		if !found {
 			break // a gap (should not occur for dense arrivals): stop rather than skip
 		}
-		settled, err := g.isSettled(ctx, root, nonce)
+		settled, err := isSettledIn(ctx, w.tx, w.root, nonce)
 		if err != nil {
-			return radixHash{}, err
+			return err
 		}
 		if !settled {
 			break
 		}
 		if moved == ^uint64(0) {
-			return radixHash{}, core.ErrBudget // the first-pending watermark cannot wrap to zero
+			return core.ErrBudget // the first-pending watermark cannot wrap to zero
 		}
 		moved++
 	}
 	if moved == f {
-		return root, nil
+		return nil
 	}
-	return g.radix.insert(ctx, root, frontierGenKey(session), arrivalValue(moved))
+	return w.insert(ctx, frontierGenKey(session), arrivalValue(moved))
 }
 
-// isSettled reports whether a nonce has a durable ack or terminal membership record.
-func (g *deliveryGenerations) isSettled(ctx context.Context, root radixHash, nonce string) (bool, error) {
-	if _, found, err := g.radix.lookup(ctx, root, ackGenKey(nonce)); err != nil {
+// isSettledIn reports whether a nonce has a durable ack or terminal membership record.
+func isSettledIn(ctx context.Context, rd radixReader, root radixHash, nonce string) (bool, error) {
+	if _, found, err := rd.lookup(ctx, root, ackGenKey(nonce)); err != nil {
 		return false, err
 	} else if found {
 		return true, nil
 	}
-	_, found, err := g.radix.lookup(ctx, root, termGenKey(nonce))
+	_, found, err := rd.lookup(ctx, root, termGenKey(nonce))
 	return found, err
 }
 
@@ -608,7 +663,12 @@ func (g *deliveryGenerations) resolveLease(ctx context.Context, delivery string)
 }
 
 func (g *deliveryGenerations) leaseAtRoot(ctx context.Context, root radixHash, delivery string) (deliveryLease, bool, error) {
-	raw, found, err := g.radix.lookup(ctx, root, nonceGenKey(delivery))
+	return leaseIn(ctx, g.radix, root, delivery)
+}
+
+// leaseIn is leaseAtRoot through any reader (a committed radix, or a commit's own transaction).
+func leaseIn(ctx context.Context, rd radixReader, root radixHash, delivery string) (deliveryLease, bool, error) {
+	raw, found, err := rd.lookup(ctx, root, nonceGenKey(delivery))
 	if err != nil {
 		return deliveryLease{}, false, err
 	}
@@ -669,7 +729,12 @@ func (g *deliveryGenerations) lastArrival(ctx context.Context, session core.Sess
 }
 
 func (g *deliveryGenerations) arrivalAtRoot(ctx context.Context, root radixHash, session core.SessionID) (uint64, bool, error) {
-	raw, found, err := g.radix.lookup(ctx, root, arrivalGenKey(session))
+	return arrivalIn(ctx, g.radix, root, session)
+}
+
+// arrivalIn is arrivalAtRoot through any reader.
+func arrivalIn(ctx context.Context, rd radixReader, root radixHash, session core.SessionID) (uint64, bool, error) {
+	raw, found, err := rd.lookup(ctx, root, arrivalGenKey(session))
 	if err != nil {
 		return 0, false, err
 	}
@@ -694,7 +759,12 @@ func (g *deliveryGenerations) nonceAtArrival(ctx context.Context, session core.S
 }
 
 func (g *deliveryGenerations) nonceAtRoot(ctx context.Context, root radixHash, session core.SessionID, arrival uint64) (string, bool, error) {
-	raw, found, err := g.radix.lookup(ctx, root, orderGenKey(session, arrival))
+	return nonceIn(ctx, g.radix, root, session, arrival)
+}
+
+// nonceIn is nonceAtRoot through any reader.
+func nonceIn(ctx context.Context, rd radixReader, root radixHash, session core.SessionID, arrival uint64) (string, bool, error) {
+	raw, found, err := rd.lookup(ctx, root, orderGenKey(session, arrival))
 	if err != nil {
 		return "", false, err
 	}
@@ -737,7 +807,12 @@ func (g *deliveryGenerations) sessionFrontier(ctx context.Context, session core.
 // frontierAtRoot reads a session's settled-frontier watermark, defaulting to 1 (arrivals start at 1, so
 // "nothing settled yet" is a frontier of 1). A malformed value is unavailable, never a guessed zero.
 func (g *deliveryGenerations) frontierAtRoot(ctx context.Context, root radixHash, session core.SessionID) (uint64, error) {
-	raw, found, err := g.radix.lookup(ctx, root, frontierGenKey(session))
+	return frontierIn(ctx, g.radix, root, session)
+}
+
+// frontierIn is frontierAtRoot through any reader.
+func frontierIn(ctx context.Context, rd radixReader, root radixHash, session core.SessionID) (uint64, error) {
+	raw, found, err := rd.lookup(ctx, root, frontierGenKey(session))
 	if err != nil {
 		return 0, err
 	}
