@@ -115,7 +115,7 @@ func (f *hpFixture) contentForms(t *testing.T) map[string]struct {
 	rt, err := f.Store.GetRoot(context.Background(), f.secretRoot)
 	require.NoError(t, err)
 	require.NotEmpty(t, rt.Chunks)
-	at := core.UnixMilli(core.NowMilli(f.Clock)).Time().Add(time.Hour).Format(time.RFC3339)
+	at := core.NowMilli(f.Clock).Time().Add(time.Hour).Format(time.RFC3339)
 	return map[string]struct {
 		tool string
 		args map[string]any
