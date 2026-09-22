@@ -770,3 +770,47 @@ microseconds independent of bucketing. Both negative controls were run in a `git
 copy, never the worktree, and each produced a real failure signature: timing the sample to after the
 handler fails the `hook_controlled_observed` assertion at 104 ms against 4 ms, and feeding the
 handler into the gated series alone fails the `hook_controlled` assertion at 105 ms against 5 ms.
+
+## V6 remediation update — 2026-09-21
+
+The earlier measurements and failure descriptions above remain historical evidence.
+
+**SP20-D6 — fixed accounting, no universal timing claim.** The gated estimate now adds
+measured handler duration (including durable ingest before ACK) to the receive-time
+lower bound and the existing estimated client-exit tail. The retained test maps
+`TestCarriedDefect_SP20D6_GatedBASampleExcludesThePreACKHandler` to
+`TestCarriedDefect_SP20D6_GatedBASampleIncludesThePreACKHandler`. Its controlled clock
+checks both histogram and fallback-channel samples and a resulting budget breach.
+The focused run `sdd/V6-remediation/runs/delivery-cap-and-preack-corrected.json` passed.
+The tail remains an estimate; actual platform latency and supported budgets remain
+separate V6 performance obligations.
+
+**SP20-D4 — partial mitigation, still unresolved.** Exhaustion or another failure of
+a configured delivery journal now refuses ACK and observer dispatch for identified
+requests. WAL/spool input remains pending; old identities and journal bytes survive.
+The same focused run exercises the retained 65,536-entry fixture and real admission
+and drain refusal. Automatic rollover has not been implemented, so this row remains
+`deferred:V6-VERIFY` and still blocks V6 sign-off. Never delete journals or reset
+arrival counters to conceal exhaustion.
+
+
+V6 prompt follow-up (2026-09-21): SP08-D3 maps the retained
+`TestCarriedDefect_SP08D3_DrainedPromptIsNeverCaptured` to
+`TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero`. Focused replay,
+restart, interrupted-link and missing-object checks passed in the new V6 remediation
+run series. The row stays open for concurrent session ordering and the inherited
+derived tool/stop publication cut; these are not certified by the prompt-only fix.
+
+V6 integration follow-up (2026-09-22): `99108a2`, `22ff16c`, and `c34acb4`
+add bound original publication intents and leased same-session ordering. Focused
+observer/publication/order runs and the Linux instrumented X10 crash-replay run
+pass on their identified snapshots; final candidate packaged recovery and
+acceptance are still outstanding. SP08-D3 remains deferred pending those gates.
+The segmented journal implementation and GC/offline readers pass focused identity,
+70-rotation retention, same-build backup/restore, and Linux race cases. Its
+production switch remains default-off because older readers/rollback and resource
+costs are not certified. SP20-D4 therefore remains deferred; this supersedes the
+earlier statement that no rollover implementation exists without claiming the
+enabled production capacity limitation is resolved. Evidence is recorded under
+`sdd/V6-remediation/reader-integration-resolution.md` and
+`sdd/V6-remediation/linux-runtime-resolution.md`.
