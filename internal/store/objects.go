@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -60,28 +61,53 @@ func hexOf(h core.Hash) string { return hex.EncodeToString(h[:]) }
 // compressing reports whether this store compresses objects.
 func (s *FSStore) compressing() bool { return s.cfg.Store.Compression != compressionNone }
 
-// objectDir returns the two-level fanout directory an object with hex name hx lives in.
-func (s *FSStore) objectDir(hx string) string {
-	return filepath.Join(s.l.Objects, hx[:fanoutWidth], hx[fanoutWidth:fanoutWidth*2])
+// compressedObjectPath returns <objects>/<hx[:2]>/<hx[2:4]>/<hx>.zst, the compressed spelling of
+// h's object path.
+//
+// It is filepath.Join(s.l.Objects, hx[:2], hx[2:4], hx+objectSuffix) spelled out, in one
+// allocation where Join takes several. The two are the same string: s.l.Objects comes from
+// paths.Of, whose filepath.Join has already cleaned it (and it ends in "objects", never in a
+// separator), and every appended component is lowercase hex or the suffix, none of which is a
+// separator, "." or "..", so there is nothing left for Join's Clean to change.
+// TestObjectPathFor_IsFilepathJoin pins that equivalence. Every object read and every object write
+// computes this path, which is why it is worth spelling out.
+func (s *FSStore) compressedObjectPath(h core.Hash) string {
+	var hx [2 * len(core.Hash{})]byte
+	hex.Encode(hx[:], h[:])
+	var b strings.Builder
+	b.Grow(len(s.l.Objects) + 3 + 2*fanoutWidth + len(hx) + len(objectSuffix))
+	b.WriteString(s.l.Objects)
+	b.WriteByte(filepath.Separator)
+	b.Write(hx[:fanoutWidth])
+	b.WriteByte(filepath.Separator)
+	b.Write(hx[fanoutWidth : fanoutWidth*2])
+	b.WriteByte(filepath.Separator)
+	b.Write(hx[:])
+	b.WriteString(objectSuffix)
+	return b.String()
+}
+
+// bareObjectPath returns the uncompressed spelling of an object path compressedObjectPath built:
+// the same string without its suffix, so it costs no allocation.
+func bareObjectPath(compressed string) string {
+	return compressed[:len(compressed)-len(objectSuffix)]
 }
 
 // objectPath returns the path this store WRITES h to, honouring store.compression.
 func (s *FSStore) objectPath(h core.Hash) string {
-	hx := hexOf(h)
-	name := hx
-	if s.compressing() {
-		name += objectSuffix
+	p := s.compressedObjectPath(h)
+	if !s.compressing() {
+		return bareObjectPath(p)
 	}
-	return filepath.Join(s.objectDir(hx), name)
+	return p
 }
 
 // objectCandidates returns the paths a reader tries for h, in order: the compressed name first,
 // then the bare one. Trying both is what lets a store keep reading objects written before
 // store.compression changed.
 func (s *FSStore) objectCandidates(h core.Hash) [2]string {
-	hx := hexOf(h)
-	dir := s.objectDir(hx)
-	return [2]string{filepath.Join(dir, hx+objectSuffix), filepath.Join(dir, hx)}
+	p := s.compressedObjectPath(h)
+	return [2]string{p, bareObjectPath(p)}
 }
 
 // objectExists reports whether any candidate file for h is present on disk.
@@ -100,8 +126,12 @@ func (s *FSStore) objectExists(h core.Hash) bool {
 // overwrite its own target, and checking the second candidate name costs an extra stat syscall on
 // every novel chunk. Readers still try both names — that is what makes a store whose
 // store.compression changed mid-life readable — but writers do not need to.
-func (s *FSStore) objectWritten(h core.Hash) bool {
-	_, err := os.Stat(paths.Long(s.objectPath(h)))
+func (s *FSStore) objectWritten(h core.Hash) bool { return objectPresentAt(s.objectPath(h)) }
+
+// objectPresentAt reports whether a file is present at the object path dst. It is objectWritten for
+// a caller that has already computed dst and would otherwise compute it a second time.
+func objectPresentAt(dst string) bool {
+	_, err := os.Stat(paths.Long(dst))
 	return err == nil
 }
 
@@ -194,7 +224,8 @@ func renameObject(tmp, dst string) error {
 // would be an unreadable lie, and reporting success for it would put an unrecoverable reference
 // into index/roots.jsonl.
 func (s *FSStore) putObject(h core.Hash, plain []byte) (int64, bool, error) {
-	if s.objectWritten(h) {
+	dst := s.objectPath(h)
+	if objectPresentAt(dst) {
 		return 0, false, nil
 	}
 
@@ -207,7 +238,6 @@ func (s *FSStore) putObject(h core.Hash, plain []byte) (int64, bool, error) {
 		payload = enc
 	}
 
-	dst := s.objectPath(h)
 	if err := ensureDir(filepath.Dir(dst)); err != nil {
 		return 0, false, fmt.Errorf("store: creating the fanout directory for %s: %w", h.Short(), err)
 	}
