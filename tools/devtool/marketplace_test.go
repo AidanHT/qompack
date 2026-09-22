@@ -142,25 +142,44 @@ func TestValidateMarketplace_Rejects(t *testing.T) {
 		}
 		return b
 	}
-	entry := func(m map[string]any, i int) map[string]any {
-		return m["plugins"].([]any)[i].(map[string]any)
+	plugins := func(m map[string]any) []any {
+		p, ok := m["plugins"].([]any)
+		if !ok {
+			t.Fatalf("plugins is %T", m["plugins"])
+		}
+		return p
 	}
-	src := func(m map[string]any, i int) map[string]any { return entry(m, i)["source"].(map[string]any) }
+	object := func(v any) map[string]any {
+		o, ok := v.(map[string]any)
+		if !ok {
+			t.Fatalf("%T is not an object", v)
+		}
+		return o
+	}
+	entry := func(m map[string]any, i int) map[string]any { return object(plugins(m)[i]) }
+	src := func(m map[string]any, i int) map[string]any { return object(entry(m, i)["source"]) }
+	url := func(m map[string]any, i int) string {
+		u, ok := src(m, i)["url"].(string)
+		if !ok {
+			t.Fatalf("entry %d url is %T", i, src(m, i)["url"])
+		}
+		return u
+	}
 
 	for name, raw := range map[string][]byte{
 		"entry sets version":   mutate(func(m map[string]any) { entry(m, 0)["version"] = "0.3.0" }),
 		"entry relaxes strict": mutate(func(m map[string]any) { entry(m, 1)["strict"] = false }),
 		"no description":       mutate(func(m map[string]any) { delete(m, "description") }),
-		"five entries":         mutate(func(m map[string]any) { m["plugins"] = m["plugins"].([]any)[:5] }),
+		"five entries":         mutate(func(m map[string]any) { m["plugins"] = plugins(m)[:5] }),
 		"renamed entry":        mutate(func(m map[string]any) { entry(m, 2)["name"] = "qompack" }),
 		"http url": mutate(func(m map[string]any) {
-			src(m, 0)["url"] = strings.Replace(src(m, 0)["url"].(string), "https://", "http://", 1)
+			src(m, 0)["url"] = strings.Replace(url(m, 0), "https://", "http://", 1)
 		}),
 		"foreign asset": mutate(func(m map[string]any) {
-			src(m, 0)["url"] = src(m, 1)["url"] // entry 0 pinned to entry 1's target
+			src(m, 0)["url"] = url(m, 1) // entry 0 pinned to entry 1's target
 		}),
 		"two versions": mutate(func(m map[string]any) {
-			src(m, 3)["url"] = strings.ReplaceAll(src(m, 3)["url"].(string), "0.3.0", "0.3.1")
+			src(m, 3)["url"] = strings.ReplaceAll(url(m, 3), "0.3.0", "0.3.1")
 		}),
 		"upper-case digest": mutate(func(m map[string]any) { src(m, 4)["sha256"] = strings.Repeat("A", 64) }),
 		"git source":        mutate(func(m map[string]any) { src(m, 5)["source"] = "github" }),
