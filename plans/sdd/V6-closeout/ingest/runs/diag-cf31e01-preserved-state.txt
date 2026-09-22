@@ -1,0 +1,21 @@
+# cf31e01 observer scenario (diag1): preserved .qompack state after 40 observe-tool hooks + 45 s, no drain
+## spool files
+client-24064.ndjson
+wal-sess-e2e-daemon.ndjson
+## state/drain.json
+{}
+## delivery-leases.jsonl lines
+40
+## delivery-acks.jsonl lines
+1
+## first two leases
+{"v":1,"delivery":"06e5435c5314863bbdedc612a403f8657fb398a719cc2e3b609b703505ee9c08","session":"sess-e2e-daemon","request":"sha256:35cd24495eb654910f70f3238660f7ad4a00e876db22c2bcfe3e417aec700020","arrival":1,"observation_id":"sha256:c4925b558c926015cb4bb593e511c22bfbe8a097a2d25194fdfe39d4da805871"}
+{"v":1,"delivery":"4a4f1d4cc6da898b8ec89b7cb92ec8f99a9490820c4e21af658ad81500bff6bd","session":"sess-e2e-daemon","request":"sha256:66eb91fa6f1767edaecfe1d5e8ac9d32c57c9c266611b1361961fbf48f63d143","arrival":2,"observation_id":"sha256:11441da86cdb187e7ffedfd921ad6e44e22be6e2683bc116e05d4ccfdfceaeef"}
+## acks
+{"v":1,"delivery":"06e5435c5314863bbdedc612a403f8657fb398a719cc2e3b609b703505ee9c08","observation_id":"sha256:c4925b558c926015cb4bb593e511c22bfbe8a097a2d25194fdfe39d4da805871","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+## index/tool_use.jsonl ids
+"id":"toolu_obs_00"
+## client spool line (op, tool_use_id, nonce)
+"op":"observe.tool"
+"tool_use_id":"toolu_obs_00"
+"n":"06e5435c5314863bbdedc612a403f8657fb398a719cc2e3b609b703505ee9c08"

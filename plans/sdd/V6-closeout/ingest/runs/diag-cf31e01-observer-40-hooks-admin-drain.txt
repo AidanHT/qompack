@@ -1,0 +1,73 @@
+hook 00 took 162.2889ms; index=0 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 01 took 104.4921ms; index=0 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 02 took 92.7325ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 03 took 85.8094ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 04 took 75.8277ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 05 took 122.9075ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 06 took 83.7667ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 07 took 90.5372ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 08 took 147.5122ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 09 took 78.6059ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 10 took 79.4959ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 11 took 80.2901ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 12 took 123.8778ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 13 took 106.1613ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 14 took 100.3971ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 15 took 119.0138ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 16 took 79.1736ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 17 took 89.2606ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 18 took 77.6449ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 19 took 84.4888ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 20 took 71.2779ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 21 took 105.6268ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 22 took 94.0776ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 23 took 76.1724ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 24 took 80.4044ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 25 took 92.0166ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 26 took 72.8611ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 27 took 139.8739ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 28 took 90.4295ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 29 took 84.5507ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 30 took 82.4943ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 31 took 102.6101ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 32 took 99.22ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 33 took 85.3631ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 34 took 81.9727ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 35 took 69.7076ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 36 took 68.4995ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 37 took 73.4092ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 38 took 80.4409ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+hook 39 took 103.6666ms; index=1 spool=[client-51720.ndjson wal-sess-e2e-daemon.ndjson]
+=== after-hooks at +3.7790265s: index=1 spool_files=2
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter l0_ordering_deferred=39
+  counter observer.tombstone=1
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":40,"P50":30720000,"P95":65536000,"P99":180224000,"P999":180224000,"Max":170000000},"hook_controlled_observed":{"N":40,"P50":11264000,"P95":16384000,"P99":24576000,"P999":24576000,"Max":24000000},"l0_ingest":{"N":40,"P50":11264000,"P95":32768000,"P99":147456000,"P999":147456000,"Max":139110000},"l0_process":{"N":40,"P50":8192000,"P95":13312000,"P99":147456000,"P999":147456000,"Max":142226000}}
+=== after-3s at +6.7890204s: index=1 spool_files=2
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter l0_ordering_deferred=39
+  counter observer.tombstone=1
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":40,"P50":30720000,"P95":65536000,"P99":180224000,"P999":180224000,"Max":170000000},"hook_controlled_observed":{"N":40,"P50":11264000,"P95":16384000,"P99":24576000,"P999":24576000,"Max":24000000},"l0_ingest":{"N":40,"P50":11264000,"P95":32768000,"P99":147456000,"P999":147456000,"Max":139110000},"l0_process":{"N":40,"P50":8192000,"P95":13312000,"P99":147456000,"P999":147456000,"Max":142226000}}
+admin drain took 5.0375931s
+=== after-admin-drain at +11.8548978s: index=10 spool_files=3
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter l0_ordering_deferred=39
+  counter observer.tombstone=10
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":40,"P50":30720000,"P95":65536000,"P99":180224000,"P999":180224000,"Max":170000000},"hook_controlled_observed":{"N":40,"P50":11264000,"P95":16384000,"P99":24576000,"P999":24576000,"Max":24000000},"l0_ingest":{"N":40,"P50":11264000,"P95":32768000,"P99":147456000,"P999":147456000,"Max":139110000},"l0_process":{"N":40,"P50":8192000,"P95":13312000,"P99":147456000,"P999":147456000,"Max":142226000}}
+=== after-admin-drain+2s at +13.9063393s: index=13 spool_files=3
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter l0_ordering_deferred=39
+  counter observer.tombstone=13
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":40,"P50":30720000,"P95":65536000,"P99":180224000,"P999":180224000,"Max":170000000},"hook_controlled_observed":{"N":40,"P50":11264000,"P95":16384000,"P99":24576000,"P999":24576000,"Max":24000000},"l0_ingest":{"N":40,"P50":11264000,"P95":32768000,"P99":147456000,"P999":147456000,"Max":139110000},"l0_process":{"N":40,"P50":8192000,"P95":13312000,"P99":147456000,"P999":147456000,"Max":142226000}}

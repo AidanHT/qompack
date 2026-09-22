@@ -1,0 +1,11 @@
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (28.18s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (10.68s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:368: x10Restart: attempt 1/3: no daemon became reachable at \\.\pipe\qompack.c1dc244e22c8
+    v3_x10_test.go:368: x10Restart: attempt 2/3: no daemon became reachable at \\.\pipe\qompack.c1dc244e22c8
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (32.83s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	72.489s
+exit=0

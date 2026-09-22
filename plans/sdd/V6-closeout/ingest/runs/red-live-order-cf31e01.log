@@ -1,0 +1,19 @@
+=== RUN   TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+    delivery_order_live_test.go:160: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_live_test.go:160
+        	Error:      	Condition never satisfied
+        	Test:       	TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+        	Messages:   	same-session arrivals did not all reach the committed frontier without a drain: 1 of 6 arrivals acknowledged, l0_ordering_deferred=5
+--- FAIL: TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain (30.41s)
+=== RUN   TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+    delivery_order_live_test.go:196: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_live_test.go:196
+        	Error:      	Condition never satisfied
+        	Test:       	TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+        	Messages:   	both arrivals did not reach the committed frontier without a drain: 1 of 2 arrivals acknowledged, l0_ordering_deferred=1
+--- FAIL: TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain (30.38s)
+=== RUN   TestDeliveryOrder_LiveOtherSessionsAreNotSerialized
+--- PASS: TestDeliveryOrder_LiveOtherSessionsAreNotSerialized (1.24s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	62.280s
+FAIL

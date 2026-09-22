@@ -1,0 +1,4 @@
+FAIL      github.com/qompack/qompack/test/e2e  (pass=2 fail=1 skip=0)
+    FAIL TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+PASS      github.com/qompack/qompack/test/fault  (pass=6 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=0 fail=0 skip=0)
