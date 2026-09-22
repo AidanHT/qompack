@@ -355,13 +355,16 @@ func parseHash(s string) (core.Hash, bool) {
 	if len(s) != 2*len(h) {
 		return core.Hash{}, false
 	}
+	// Every valid digit value is at most 0x0f and the invalid mark is 0xff, so one OR over every
+	// looked-up value says whether any digit was invalid, and the loop itself does not branch.
+	var bad byte
 	for i := range h {
-		hi, okHi := hexNibble(s[2*i])
-		lo, okLo := hexNibble(s[2*i+1])
-		if !okHi || !okLo {
-			return core.Hash{}, false
-		}
+		hi, lo := hexDigitValue[s[2*i]], hexDigitValue[s[2*i+1]]
+		bad |= hi | lo
 		h[i] = hi<<4 | lo
+	}
+	if bad > 0x0f {
+		return core.Hash{}, false
 	}
 	return h, true
 }
@@ -369,18 +372,27 @@ func parseHash(s string) (core.Hash, bool) {
 // hashTextPrefix is the prefix core.Hash's text form carries and core.ParseHash strips.
 const hashTextPrefix = "sha256:"
 
-// hexNibble decodes one hex digit of either case, as encoding/hex does.
-func hexNibble(c byte) (byte, bool) {
-	switch {
-	case c >= '0' && c <= '9':
-		return c - '0', true
-	case c >= 'a' && c <= 'f':
-		return c - 'a' + 10, true
-	case c >= 'A' && c <= 'F':
-		return c - 'A' + 10, true
-	}
-	return 0, false
-}
+// hexDigitValue maps every byte to its value as a hex digit of either case, or 0xff when it is
+// not one: encoding/hex's own reverse table, indexed instead of branched on, because the
+// digits of a digest are uniformly distributed and a per-digit branch mispredicts on a third
+// of them.
+const hexDigitValue = "" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\xff\xff\xff\xff\xff\xff" +
+	"\xff\x0a\x0b\x0c\x0d\x0e\x0f\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\x0a\x0b\x0c\x0d\x0e\x0f\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+	"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
 
 // normalizeRecord makes r fit to append: redaction first, then the §12.3 byte and entry bounds,
 // then one dependency per path in ascending path order.
