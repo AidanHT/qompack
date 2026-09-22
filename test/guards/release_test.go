@@ -158,13 +158,17 @@ func TestGoreleaserBuildsNothingAndDraftsTheRelease(t *testing.T) {
 
 	for _, glob := range []string{
 		"dist/bundle/*.zip",
-		"dist/bundle/*.tar.gz",
 		"dist/bundle/checksums.txt",
+		"dist/bundle/marketplace.json",
 	} {
 		require.Contains(t, release, glob,
 			"release.extra_files must name %s: the archives devtool assembled are the artifacts, and "+
 				"anything goreleaser does not upload is not in the release", glob)
 	}
+	// C7.5: every target ships a .zip, so nothing produces a *.tar.gz any more, and an extra_files
+	// glob that matches nothing fails goreleaser's upload rather than being skipped.
+	require.NotContains(t, release, "*.tar.gz",
+		"release.extra_files names *.tar.gz, which `devtool bundle --archive` no longer produces")
 }
 
 // TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck pins the ORDER of release.yml: the gate
