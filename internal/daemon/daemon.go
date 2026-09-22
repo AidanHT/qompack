@@ -767,7 +767,8 @@ func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 // grown since it was drained, is never deleted, whatever the registry says about its session.
 // HoldsWAL asks that ingest first, so the drainer leaves a segment it holds without forgetting it.
 // SyncedWAL is that ingest's synced size, so the drainer never leases a line of a held segment
-// before the WAL Sync covering the line has returned.
+// before the WAL Sync covering the line has returned. Released wakes the ingest's parked
+// same-session lane once the drain consumes one of the session's leased lines (C1.1).
 func (d *daemon) drainConfig() DrainConfig {
 	return DrainConfig{
 		Root:      d.root,
@@ -782,6 +783,7 @@ func (d *daemon) drainConfig() DrainConfig {
 		RemoveWAL: d.ing.removeDrainedWAL,
 		HoldsWAL:  d.ing.holdsWAL,
 		SyncedWAL: d.ing.syncedWAL,
+		Released:  d.ing.wakeSession,
 	}
 }
 

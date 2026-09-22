@@ -159,6 +159,12 @@ type ingest struct {
 	ring chan job
 	seen *seenSet
 
+	// lanes serializes each session's leased jobs in arrival order (delivery_order.go, C1.1), and
+	// wake hands the workers the lanes a drain released (wakeSession). wake has room for one signal:
+	// the ready list itself lives in lanes, so a signal is never lost, only merged.
+	lanes *dispatchLanes
+	wake  chan struct{}
+
 	// journal resolves the daemon's held delivery journal. It is a function rather than a field
 	// because the journal belongs to the singleton Lock, which Run acquires after the ingest queue
 	// is constructed and releases before it is torn down. A nil journal (or one that answers an
@@ -197,6 +203,8 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 		syncWAL:  (*os.File).Sync,
 		ring:     make(chan job, ringCapacity),
 		seen:     newSeenSet(seenCapacity),
+		lanes:    newDispatchLanes(laneCapacity),
+		wake:     make(chan struct{}, 1),
 	}
 }
 
@@ -636,8 +644,76 @@ func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Reque
 			if !ok {
 				return
 			}
-			i.dispatch(ctx, run, j)
+			i.route(ctx, run, j)
+		case <-i.wake:
+			i.runWoken(ctx, run)
 		}
+	}
+}
+
+// route hands a job to its session's lane (delivery_order.go). A leased job is dispatched only by
+// the worker that owns its lane, lowest arrival first, so a same-session successor never reaches the
+// ordering gate while its predecessor is still publishing. An unleased job is never ordering-gated
+// and keeps its existing qualified path: it is dispatched at once, in parallel with everything else.
+func (i *ingest) route(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, j job) {
+	if !j.leased {
+		i.dispatch(ctx, run, j)
+		return
+	}
+	own, full := i.lanes.join(j)
+	if full && i.m != nil {
+		i.m.Counter(counterOrderingLaneFull).Add(1)
+	}
+	if own {
+		i.runLane(ctx, run, j.lease.Session)
+	}
+}
+
+// runLane dispatches sess's queued jobs, lowest arrival first, for as long as this worker owns the
+// lane: until it empties, or its head stays pending with nothing to retry it for (the lane parks,
+// and a later join or wake runs it again). It stops between jobs once ctx is done; the jobs it
+// leaves are durable in the WAL.
+func (i *ingest) runLane(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, sess core.SessionID) {
+	for {
+		j, signals, ok := i.lanes.head(sess)
+		if !ok {
+			return
+		}
+		if ctx.Err() != nil {
+			i.lanes.park(sess)
+			return
+		}
+		if !i.lanes.settle(sess, j, i.dispatch(ctx, run, j), signals) {
+			return
+		}
+	}
+}
+
+// runWoken runs one lane a wake listed, first passing the signal on if more remain listed so another
+// idle worker takes the next one.
+func (i *ingest) runWoken(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response) {
+	sess, ok, more := i.lanes.claimReady()
+	if more {
+		i.signalWake()
+	}
+	if ok {
+		i.runLane(ctx, run, sess)
+	}
+}
+
+// wakeSession tells sess's lane that one of the session's leased deliveries was consumed outside the
+// worker pool -- the drain acknowledged, retired or absorbed it -- so a live successor parked behind
+// it runs again instead of waiting for the next drain (DrainConfig.Released). It never blocks.
+func (i *ingest) wakeSession(sess core.SessionID) {
+	if i.lanes.wake(sess) {
+		i.signalWake()
+	}
+}
+
+func (i *ingest) signalWake() {
+	select {
+	case i.wake <- struct{}{}:
+	default:
 	}
 }
 
@@ -650,7 +726,11 @@ func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Reque
 // bytes Drain might independently see share same-process ownership. Only a successful handler
 // acknowledgement enters the bounded completed set; rejection remains retryable. Restart does
 // not retain this set, so handlers must tolerate at-least-once delivery.
-func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, j job) {
+//
+// The outcome is what the job's lane needs to know (dispatchOutcome): settled once nothing is left
+// for a live dispatch to do, pending otherwise. It changes nothing about what the dispatch itself
+// publishes or retains.
+func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, j job) (outcome dispatchOutcome) {
 	defer func() {
 		if r := recover(); r != nil {
 			if i.m != nil {
@@ -660,9 +740,12 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		}
 	}()
 
-	_, acquired := i.seen.begin(j.key)
+	completed, acquired := i.seen.begin(j.key)
+	if completed {
+		return dispatchSettled
+	}
 	if !acquired {
-		return
+		return dispatchPending // another handler owns it; the drain wakes the lane when it is done
 	}
 	acknowledged := false
 	defer func() { i.seen.finish(j.key, acknowledged) }()
@@ -670,7 +753,7 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 	req, _, err := readBlob(i.root, j.req)
 	if err != nil {
 		i.log.Warn("daemon: ingest blob unavailable; WAL retained for retry", "op", string(j.req.Op))
-		return // retain the WAL and blob for recovery
+		return dispatchPending // retain the WAL and blob for recovery
 	}
 	work := func() error {
 		if j.leased {
@@ -678,14 +761,17 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 			if err != nil || retired {
 				// Drain accounts for the retired WAL source; this worker must
 				// neither capture it nor turn its denial into a capture ACK.
+				if err == nil {
+					outcome = dispatchSettled
+				}
 				return nil
 			}
 		}
 		if i.admit != nil {
 			verdict := i.admit(req)
 			if verdict.Denied || verdict.Failed {
-				if verdict.Denied && j.leased {
-					_ = retireDelivery(i.journal, ctx, j.lease)
+				if verdict.Denied && j.leased && retireDelivery(i.journal, ctx, j.lease) == nil {
+					outcome = dispatchSettled // retired: the gate now lets its successors pass
 				}
 				return nil // Drain accounts for the retained WAL and disposition.
 			}
@@ -695,8 +781,9 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		// publish only after every earlier leased arrival of its session has reached the committed
 		// frontier. A blocked predecessor makes this delivery retryable — publish nothing, run
 		// nothing, leave the WAL bytes and any blob intact, and release seen ownership (acknowledged
-		// stays false), so a later drain re-dispatches it once the predecessor is acknowledged. It
-		// never waits on another worker.
+		// stays false). It stays queued in its session's lane, which re-dispatches it when the lane is
+		// next joined or woken once the predecessor is acknowledged, and a drain retries it too
+		// (delivery_order.go). It never waits on another worker.
 		if !i.leasedPredecessorsReady(j.lease, j.leased) {
 			if i.m != nil {
 				i.m.Counter(counterOrderingDeferred).Add(1)
@@ -732,7 +819,9 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 				i.m.Counter(counterDeliveryAckFailed).Add(1)
 			}
 			i.log.Warn("daemon: delivery not acknowledged; WAL retained for retry", "op", string(j.req.Op), "err", err)
+			return nil
 		}
+		outcome = dispatchSettled
 		// The WAL still names any externalized blob. Only Drain's persisted offset may release
 		// it; an in-memory success is lost on restart and is not a durable acknowledgement.
 		return nil
@@ -742,6 +831,7 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 	} else {
 		_ = work()
 	}
+	return outcome
 }
 
 // CloseSession closes and forgets sess's cached WAL handle, releasing the file descriptor once a
