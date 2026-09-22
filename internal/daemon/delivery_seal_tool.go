@@ -259,14 +259,19 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 // runSegmented is the tool against a rotated (segmented) store. --check validates the whole store
 // read-only: the generation manifest+head chain, and every committed segment's lease and ack journals
 // against their seals — segment 0 (the legacy four files) AND every later segment — with predecessor-
-// base arrivals and archived-ACK exact joins through the generation store. --to v1 is REFUSED, because
-// converting a seal does not make an old writer able to read the segmented authority/history.
+// base arrivals and archived-ACK exact joins through the generation store.
+//
+// Rule R (--accept-torn-slot, with its confirmation) applies to the ACTIVE segment only: its seal is the
+// only one a crash can tear mid-write, since an archived segment's last seal completed before it
+// rotated, and an archived legacy segment 0 carries a frozen seal replaced whole. With --check the
+// accepted lines are reported and nothing is written. With --to v1 it is the repair: once the whole
+// store has checked, each ACCEPTED active-segment seal is rewritten as v1 at the position its journal's
+// full scan recovered, the journal made durable first. --to v1 without a torn slot to repair is
+// REFUSED, because converting a seal does not make an old writer able to read the segmented
+// authority/history, and this tool does not pretend it does.
 func (o DeliverySealOptions) runSegmented(lock *Lock, state string, auth segmentAuthorityReading) error {
-	if o.ToV1 {
-		return fmt.Errorf("%s: %s is a segmented delivery store; --to v1 is refused. A seal conversion "+
-			"does NOT make an old writer able to read the segment authority or history, and this tool will "+
-			"not pretend it does. Every file is preserved as it is; roll a segmented store back only through "+
-			"a verified backup restored by a compatible reader", deliverySealToolName, state)
+	if o.ToV1 && !o.AcceptTornSlot {
+		return o.refuseSegmentedConversion(state)
 	}
 	if auth.recoveredTail {
 		fmt.Fprintf(o.Out, "  note: a complete committed transition beyond the atomic head is present and was "+
@@ -304,11 +309,14 @@ func (o DeliverySealOptions) runSegmented(lock *Lock, state string, auth segment
 		defer func() { _ = segsRoot.Close() }()
 	}
 
+	var repairs []segmentSealRepair
 	for i := range auth.transitions {
 		last := i == len(auth.transitions)-1
-		if err := o.checkSegment(ctx, stateRoot, segsRoot, auth.transitions[i], gv, last); err != nil {
+		found, err := o.checkSegment(ctx, state, stateRoot, segsRoot, auth.transitions[i], gv, last)
+		if err != nil {
 			return err
 		}
+		repairs = append(repairs, found...)
 	}
 	// The lock is re-read after the whole read-only scan and before the verdict, exactly as the legacy
 	// path does: scanning many segments can outlive the staleness window, and a run that can no longer
@@ -317,24 +325,85 @@ func (o DeliverySealOptions) runSegmented(lock *Lock, state string, auth segment
 		return err
 	}
 	active := auth.transitions[len(auth.transitions)-1].Active
-	fmt.Fprintf(o.Out, "  checked %d committed segment(s) through segment %d and the generation store; "+
-		"nothing was written\n", len(auth.transitions), active)
+	if o.Check {
+		fmt.Fprintf(o.Out, "  checked %d committed segment(s) through segment %d and the generation store; "+
+			"nothing was written\n", len(auth.transitions), active)
+		return nil
+	}
+	if len(repairs) == 0 {
+		return o.refuseSegmentedConversion(state)
+	}
+	// As in the legacy path: an acceptance whose lines could not be reported refuses the repair before
+	// anything is synced or written, since the report is the whole record of what was accepted.
+	if report, ok := o.Out.(*latchingWriter); ok && report.err != nil {
+		return fmt.Errorf("%s: --accept-torn-slot admitted lines that could not be reported, and the "+
+			"report is the record of what was accepted; nothing was synced or written: %w",
+			deliverySealToolName, report.err)
+	}
+	for i := range repairs {
+		if err := o.syncSegmentJournal(repairs[i]); err != nil {
+			return err
+		}
+	}
+	for i := range repairs {
+		if err := o.holdsLock(lock, "before repairing the "+repairs[i].name+" seal of segment "+
+			fmt.Sprint(active)); err != nil {
+			return err
+		}
+		r := repairs[i]
+		if err := writeDeliveryPositionV1(r.seal, r.recovered.Bytes, r.recovered.Count, r.recovered.Chain); err != nil {
+			return fmt.Errorf("%s: segment %d %s: writing the v1 seal at %s: %w",
+				deliverySealToolName, active, r.name, r.seal, err)
+		}
+		fmt.Fprintf(o.Out, "  segment %d %s seal %s: wrote v1 at %d entries, %d bytes (the accepted record "+
+			"sealed %d entries, %d bytes)\n", active, r.name, r.seal, r.recovered.Count, r.recovered.Bytes,
+			r.accepted.Count, r.accepted.Bytes)
+	}
 	return nil
+}
+
+// refuseSegmentedConversion is the --to v1 refusal for a segmented store with nothing to repair.
+func (o DeliverySealOptions) refuseSegmentedConversion(state string) error {
+	return fmt.Errorf("%s: %s is a segmented delivery store; --to v1 is refused. A seal conversion "+
+		"does NOT make an old writer able to read the segment authority or history, and this tool will "+
+		"not pretend it does. Every file is preserved as it is; roll a segmented store back only through "+
+		"a verified backup restored by a compatible reader. (--to v1 --accept-torn-slot repairs a torn "+
+		"slot in the ACTIVE segment's seal, and nothing else.)", deliverySealToolName, state)
+}
+
+// segmentSealRepair is one active-segment seal Rule R accepted: the absolute journal and seal paths,
+// the record accepted, the position the journal's full scan recovered, and the journal file scanned.
+type segmentSealRepair struct {
+	name, journal, seal string
+	accepted, recovered deliveryPosition
+	info                os.FileInfo
+}
+
+// syncSegmentJournal makes a repaired journal durable before its seal is written to name its tail —
+// syncJournal's step, for a segment's journal: the file must still be the one the scan read, at the
+// length the scan ended at.
+func (o DeliverySealOptions) syncSegmentJournal(r segmentSealRepair) error {
+	side := deliverySealSide{
+		name: r.name, journal: r.journal, info: r.info,
+		recovered: func() deliveryPosition { return r.recovered },
+	}
+	return o.syncJournal(&side)
 }
 
 // checkSegment validates one committed segment read-only, THROUGH a pinned os.Root: its four files
 // present (and re-verified under the pinned identity), its lease journal against its seal with arrivals
 // resuming from the segment's predecessor (base) root, and its ack journal against its seal with every
 // acknowledgement joined to its original lease — in the active segment's own window (active is true for
-// the last committed segment, which is archived only when it rotates) or in the generation store. Segment 0 is the legacy four
-// files under the state root (arrivals from 1); a later segment is pinned under the segments root and
-// resumes from base_root.
-func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRoot *os.Root, t segTransition, gv *genReadonly, active bool) error {
+// the last committed segment, which is archived only when it rotates) or in the generation store.
+// Segment 0 is the legacy four files under the state root (arrivals from 1); a later segment is pinned
+// under the segments root and resumes from base_root. It returns the seals of this segment Rule R
+// accepted (only ever the active segment's), with the accepted lines already reported.
+func (o DeliverySealOptions) checkSegment(ctx context.Context, state string, stateRoot, segsRoot *os.Root, t segTransition, gv *genReadonly, active bool) ([]segmentSealRepair, error) {
 	segRoot := stateRoot
 	if t.Active >= 1 {
 		pinned, err := pinDeliveryChild(segsRoot, segmentSeqName(t.Active), false)
 		if err != nil {
-			return fmt.Errorf("%s: segment %d: its directory is missing, not a directory, or a static "+
+			return nil, fmt.Errorf("%s: segment %d: its directory is missing, not a directory, or a static "+
 				"alias; the authority names a segment whose evidence cannot be pinned, and nothing was "+
 				"written: %w", deliverySealToolName, t.Active, deliveryJournalError())
 		}
@@ -345,7 +414,7 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRo
 	for _, name := range []string{deliveryLeaseFile, deliveryPositionFile, deliveryAckFile, deliveryAckPositionFile} {
 		info, err := segRoot.Lstat(name)
 		if err != nil || !info.Mode().IsRegular() {
-			return fmt.Errorf("%s: segment %d: %s is missing or not a regular file; the authority names a "+
+			return nil, fmt.Errorf("%s: segment %d: %s is missing or not a regular file; the authority names a "+
 				"segment whose evidence is incomplete, and nothing was written: %w",
 				deliverySealToolName, t.Active, name, deliveryJournalError())
 		}
@@ -355,7 +424,7 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRo
 	if t.Active >= 1 {
 		br, ok := hexToRadixHash(t.BaseRoot)
 		if !ok {
-			return fmt.Errorf("%s: segment %d: its base root is malformed; nothing was written: %w",
+			return nil, fmt.Errorf("%s: segment %d: its base root is malformed; nothing was written: %w",
 				deliverySealToolName, t.Active, deliveryJournalError())
 		}
 		// The predecessor arrival is looked up at the segment's base root; a missing/corrupt page is an
@@ -363,36 +432,81 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, stateRoot, segsRo
 		arrivalBase = func(s core.SessionID) (uint64, bool, error) { return gv.arrivalAt(ctx, br, s) }
 	}
 
-	// Only the ARCHIVED legacy segment carries frozen seals (the old-reader barrier).
-	frozenOK := t.Active == 0 && !active
-	leasePos, window, err := gv.checkLeaseJournal(ctx, segRoot, deliveryLeaseFile, deliveryPositionFile, arrivalBase, !active, frozenOK)
+	// Only the ARCHIVED legacy segment carries frozen seals (the old-reader barrier), and only the
+	// ACTIVE segment's seals are within Rule R's reach.
+	opts := segSealOptions{frozenOK: t.Active == 0 && !active, ruleR: active && o.AcceptTornSlot}
+	dir := segmentDir(state, t.Active)
+	var repairs []segmentSealRepair
+	leasePos, window, leaseAccepted, err := gv.checkLeaseJournal(ctx, segRoot, deliveryLeaseFile, deliveryPositionFile, arrivalBase, !active, opts)
 	if err != nil {
-		return fmt.Errorf("%s: segment %d: the lease journal does not check read-only against its seal, "+
+		return nil, fmt.Errorf("%s: segment %d: the lease journal does not check read-only against its seal, "+
 			"its predecessor arrivals and the generation store; nothing was written: %w",
 			deliverySealToolName, t.Active, err)
 	}
 	fmt.Fprintf(o.Out, "  segment %d lease journal: loads, %d entries, %d bytes, chain %s\n",
 		t.Active, leasePos.Count, leasePos.Bytes, leasePos.Chain)
+	if leaseAccepted {
+		r, err := o.acceptedSegmentSeal(segRoot, "lease", dir, deliveryLeaseFile, deliveryPositionFile,
+			deliveryChainSeed, deliveryChainDomain, leasePos)
+		if err != nil {
+			return nil, err
+		}
+		repairs = append(repairs, r)
+	}
 
 	// The active segment is not archived yet: its acknowledgements join its own window first.
 	if !active {
 		window = nil
 	}
-	ackPos, err := gv.checkAckJournal(ctx, segRoot, deliveryAckFile, deliveryAckPositionFile, window, frozenOK)
+	ackPos, ackAccepted, err := gv.checkAckJournal(ctx, segRoot, deliveryAckFile, deliveryAckPositionFile, window, opts)
 	if err != nil {
-		return fmt.Errorf("%s: segment %d: the ack journal does not check read-only against its seal and "+
+		return nil, fmt.Errorf("%s: segment %d: the ack journal does not check read-only against its seal and "+
 			"the generation store; nothing was written: %w", deliverySealToolName, t.Active, err)
 	}
 	// Re-verify the two journals still resolve to regular files under the pinned identity after the scan.
 	for _, name := range []string{deliveryLeaseFile, deliveryAckFile} {
 		if info, err := segRoot.Lstat(name); err != nil || !info.Mode().IsRegular() {
-			return fmt.Errorf("%s: segment %d: %s changed under the pinned scan; nothing was written: %w",
+			return nil, fmt.Errorf("%s: segment %d: %s changed under the pinned scan; nothing was written: %w",
 				deliverySealToolName, t.Active, name, deliveryJournalError())
 		}
 	}
 	fmt.Fprintf(o.Out, "  segment %d ack journal: loads, %d entries, %d bytes (archived ACKs joined to "+
 		"their original leases)\n", t.Active, ackPos.Count, ackPos.Bytes)
-	return nil
+	if ackAccepted {
+		r, err := o.acceptedSegmentSeal(segRoot, "ack", dir, deliveryAckFile, deliveryAckPositionFile,
+			deliveryAckChainSeed, deliveryAckChainDomain, ackPos)
+		if err != nil {
+			return nil, err
+		}
+		repairs = append(repairs, r)
+	}
+	return repairs, nil
+}
+
+// acceptedSegmentSeal records one Rule R acceptance on the active segment and reports exactly which
+// lines it admitted (design §4.5): the record accepted, and every complete line past it.
+func (o DeliverySealOptions) acceptedSegmentSeal(segRoot *os.Root, name, dir, journal, seal string, seed core.Hash, domain string, recovered deliveryPosition) (segmentSealRepair, error) {
+	read, err := readSealConfined(segRoot, seal, seed, domain, segSealOptions{ruleR: true})
+	if err != nil || !read.accepted {
+		return segmentSealRepair{}, fmt.Errorf("%s: %s seal %s changed during the check; nothing was written: %w",
+			deliverySealToolName, name, seal, deliveryJournalError())
+	}
+	info, err := segRoot.Lstat(journal)
+	if err != nil || !info.Mode().IsRegular() || info.Size() != recovered.Bytes {
+		return segmentSealRepair{}, fmt.Errorf("%s: %s journal %s changed during the check; nothing was written: %w",
+			deliverySealToolName, name, journal, deliveryJournalError())
+	}
+	r := segmentSealRepair{
+		name: name, journal: filepath.Join(dir, journal), seal: filepath.Join(dir, seal),
+		accepted: read.position, recovered: recovered, info: info,
+	}
+	fmt.Fprintf(o.Out, "  %s seal %s: v2 with one torn slot; accepting %d entries, %d bytes\n",
+		name, r.seal, read.position.Count, read.position.Bytes)
+	side := deliverySealSide{name: name, journal: r.journal}
+	if err := o.reportAcceptedLines(&side, read.position); err != nil {
+		return segmentSealRepair{}, err
+	}
+	return r, nil
 }
 
 // halfConverted names the seals a conversion had already written when a later one failed.
