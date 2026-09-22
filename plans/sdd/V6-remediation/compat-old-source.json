@@ -1,0 +1,7 @@
+{
+  "source_head": "301a8e9da53a567ec4d42209b74e71a04e26a1e6",
+  "source_archive": "dist\\v6-remediation\\compat-old-301a8e9.tar",
+  "archive_sha256": "d31a5250f436f13a0a3e125104c9e7e3e66ed4946f46b7f77b5c7d418c7d65c7",
+  "version": "v0.2.0-640-g301a8e9",
+  "scope": "Older integrated SP17/SP18 source reference for isolated reader compatibility; not a released version or current candidate certification."
+}

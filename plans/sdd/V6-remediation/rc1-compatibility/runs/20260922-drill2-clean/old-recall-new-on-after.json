@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:016704a1b7931e2ca4b36a83e8cf674a3012c74aa5460d0dc738e63cf743cc83\",\"path\":\"src/newwrite.ts\",\"tool\":\"FileRead\",\"summary\":\"// QOMPACK-RC1-NEWWRITE-connection-pool-drain-2b7c91\",\"ts\":\"2026-09-22T20:51:39Z\",\"score\":0.33,\"tool_use_id\":\"toolu_rc1_newwrite_01\",\"span\":[0,3522]}],\"count\":1,\"found\":true,\"query\":{\"text\":\"QOMPACK-RC1-NEWWRITE-connection-pool-drain-2b7c91\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:605c16661327e0270e76b00123e3c1a0edb45fdc821150d5665d1c8878d5838d",
+      "tool_use_id": "qompack-mcp:ac24ec3785b5",
+      "untrusted": true
+    }
+  }
+}

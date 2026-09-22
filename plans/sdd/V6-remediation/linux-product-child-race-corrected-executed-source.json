@@ -1,0 +1,18 @@
+{
+  "snapshot": "linux-child-race-20260922-1432.json",
+  "archive_sha256": "b94f531e64aa44750357d45fac8db172860abe66286e4a3bbfb06dd07a232e5b",
+  "base_head": "36205d1ab17a095a7afeb0a8d1b753405cdd44bf",
+  "container": "qompack-v6-linux-verification",
+  "image_id": "sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",
+  "executed_workdir": "/work/linux-child-race-20260922-1432",
+  "run_id": "linux-product-child-race-corrected",
+  "script": "linux-product-child-race-corrected.sh",
+  "script_sha256": "f5a0bfbc227be1d4b6585c4a391a36dcf012769dd14d997ab028d1c31be67e69",
+  "post_run_source_check": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "",
+    "files": 2374
+  },
+  "limit": "The wrapper hashes the Windows worktree. This record identifies the immutable Linux source actually executed. Docker/WSL Linux with no installed Claude host; not an installed-host or release-package certification."
+}

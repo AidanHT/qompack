@@ -1,0 +1,20 @@
+{
+  "name": "rollback_restored_root_reads_through_the_launcher",
+  "capability": "rollback",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "the restored root opened by the installed launcher: status --json parses, fsck exit 0 with no defect row, and MCP recall answered 10 hit(s) of which 10 carry a root identity the live project holds",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-22"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.0",
+    "target": "windows/amd64",
+    "binary_sha256": "88fc569942d1da87b6d14d557666f0827c09e32d20093e2356700451094af9b1"
+  },
+  "artifact": "commit8-install-windows-amd64/rollback_restored_root_reads_through_the_launcher.json"
+}

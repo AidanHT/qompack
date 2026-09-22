@@ -1,0 +1,16 @@
+=== RUN   TestGCRetention_UnreadableCheckpointDirHaltsCollection
+    gc_retention_read_v6_test.go:188: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:188
+        	Error:      	Should be true
+        	Test:       	TestGCRetention_UnreadableCheckpointDirHaltsCollection
+        	Messages:   	a non-directory checkpoints source must be reported, not read as empty
+--- FAIL: TestGCRetention_UnreadableCheckpointDirHaltsCollection (0.09s)
+=== RUN   TestGCRetention_UnreadablePendingDirHaltsCollection
+    gc_retention_read_v6_test.go:210: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:210
+        	Error:      	Should be true
+        	Test:       	TestGCRetention_UnreadablePendingDirHaltsCollection
+--- FAIL: TestGCRetention_UnreadablePendingDirHaltsCollection (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.404s
+FAIL

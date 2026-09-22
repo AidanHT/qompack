@@ -1,0 +1,36 @@
+{
+  "id": "rc1-deterministic-replay",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "replay",
+    "--ci",
+    "--corpus",
+    "testdata/sessions/synthetic",
+    "--baseline",
+    "testdata/baseline/phase0-recall.json",
+    "--phase",
+    "0",
+    "--out",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-remediation/rc1-deterministic-replay.json"
+  ],
+  "source_head": "65bc8d7707fed78e1b7344c2d23d5fa948a0a9c1",
+  "source_dirty": "",
+  "source_snapshot": "rc1-deterministic-replay.source.json",
+  "source_snapshot_sha256": "6796120e1587043a211a43fab344b7d991b1e29eadebe411e1a4c5434f413f18",
+  "started_at": "2026-09-22T16:38:57.552680-04:00",
+  "status": "passed",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": "2"
+  },
+  "log": "rc1-deterministic-replay.log",
+  "exit_code": 0,
+  "elapsed_seconds": 4.286,
+  "finished_at": "2026-09-22T16:39:01.839150-04:00",
+  "source_changed_during_run": false,
+  "source_dirty_after": "",
+  "log_sha256": "32fc0e7acd97ea3297b70b33880809c05a86c53653c6ab017079c7aae1979d62"
+}

@@ -1,0 +1,14 @@
+# github.com/qompack/qompack/internal/store
+internal\store\fsstore.go:258:41: undefined: obsBinding
+internal\store\observation_lookup.go:48:20: s.obsCommitted undefined (type *FSStore has no field or method obsCommitted)
+internal\store\observation_lookup.go:55:21: s.obsPending undefined (type *FSStore has no field or method obsPending)
+internal\store\observation_publication.go:276:20: s.obsCommitted undefined (type *FSStore has no field or method obsCommitted)
+internal\store\observation_publication.go:280:19: s.obsPending undefined (type *FSStore has no field or method obsPending)
+internal\store\observation_publication.go:290:12: s.obsPending undefined (type *FSStore has no field or method obsPending)
+internal\store\observation_publication.go:291:5: s.obsCommitted undefined (type *FSStore has no field or method obsCommitted)
+internal\store\observation_publication.go:295:4: s.obsPending undefined (type *FSStore has no field or method obsPending)
+internal\store\observation_publication.go:619:30: s.obsCommitted undefined (type *FSStore has no field or method obsCommitted)
+internal\store\observation_publication.go:623:16: s.obsPending undefined (type *FSStore has no field or method obsPending)
+internal\store\observation_publication.go:295:4: too many errors
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL

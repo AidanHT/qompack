@@ -1,0 +1,19 @@
+--- FAIL: TestBuild_V6_ResultTokensIsTheAssembledEstimate (0.01s)
+    assembled_budget_v6_test.go:63: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/rehydrate/assembled_budget_v6_test.go:63
+        	Error:      	Not equal: 
+        	            	expected: 948
+        	            	actual  : 944
+        	Test:       	TestBuild_V6_ResultTokensIsTheAssembledEstimate
+        	Messages:   	budget 12000: Result.Tokens must equal Estimate([]byte(Text), ClassProse) — the assembled estimate, not the sum of per-fragment estimates
+--- FAIL: TestBuild_V6_UnpricedSeparatorsOverflowIsTrimmedAndAccounted (0.00s)
+    assembled_budget_v6_test.go:135: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/rehydrate/assembled_budget_v6_test.go:135
+        	Error:      	Not equal: 
+        	            	expected: 7725
+        	            	actual  : 6532
+        	Test:       	TestBuild_V6_UnpricedSeparatorsOverflowIsTrimmedAndAccounted
+        	Messages:   	Result.Tokens must be the remeasured assembled estimate after every trim
+FAIL
+FAIL	github.com/qompack/qompack/internal/rehydrate	1.750s
+FAIL

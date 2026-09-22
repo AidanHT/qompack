@@ -1,0 +1,7 @@
+{"ImportPath":"github.com/qompack/qompack/internal/observer","Action":"build-output","Output":"# github.com/qompack/qompack/internal/observer\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/observer","Action":"build-output","Output":"internal\\observer\\tooluse.go:102:11: undefined: CaptureScope\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/observer","Action":"build-output","Output":"internal\\observer\\tooluse.go:103:22: undefined: ScopeOutOfProject\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/observer","Action":"build-fail"}
+{"Time":"2026-09-21T11:57:01.5706425-04:00","Action":"start","Package":"github.com/qompack/qompack/internal/cli"}
+{"Time":"2026-09-21T11:57:01.5711771-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/cli","Output":"FAIL\tgithub.com/qompack/qompack/internal/cli [build failed]\n"}
+{"Time":"2026-09-21T11:57:01.5711771-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/cli","Elapsed":0.001,"FailedBuild":"github.com/qompack/qompack/internal/observer"}

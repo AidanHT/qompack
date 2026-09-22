@@ -1,0 +1,1255 @@
+{
+  "requested_child_model": "claude-opus-4-8",
+  "requested_effort": "high",
+  "coordinator_identity": "Codex; requested Fable coordinator identity not established",
+  "date": "2026-09-21",
+  "purpose": "implementation and independent review; not product quality or cost trials",
+  "aggregation": "No sum: resumed session counters may overlap. Reported list cost is not invoiced/subscription cash cost. Main usage, rate-table date, retry/compaction attribution and non-token charges unknown.",
+  "records": [
+    {
+      "artifact": "routing/capture-correction-result.json",
+      "sha256": "c7fa30434abe1078cec38ebe781d0d030fe95d1ea284d781ce5e29526186d83d",
+      "session_id": "b49bcae9-f114-4d11-a21f-71282d1e3767",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 66,
+          "outputTokens": 76098,
+          "cacheReadInputTokens": 9675333,
+          "cacheCreationInputTokens": 100504,
+          "webSearchRequests": 0,
+          "costUSD": 7.745486500000001,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 43284,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 7.745486500000001,
+      "usage_reported": {
+        "input_tokens": 66,
+        "cache_creation_input_tokens": 100504,
+        "cache_read_input_tokens": 9675333,
+        "output_tokens": 76098,
+        "output_tokens_details": {
+          "thinking_tokens": 43284
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 100504,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1446,
+            "cache_read_input_tokens": 325978,
+            "cache_creation_input_tokens": 721,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 721
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/capture-result.json",
+      "sha256": "f9f868d79513d1f5b1a6fd901c9721abc48091bee144d4a85d8bf304c7143264",
+      "session_id": "b49bcae9-f114-4d11-a21f-71282d1e3767",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 156,
+          "outputTokens": 101982,
+          "cacheReadInputTokens": 12357814,
+          "cacheCreationInputTokens": 193289,
+          "webSearchRequests": 0,
+          "costUSD": 10.662126999999998,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 61667,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 10.662126999999998,
+      "usage_reported": {
+        "input_tokens": 156,
+        "cache_creation_input_tokens": 193289,
+        "cache_read_input_tokens": 12357814,
+        "output_tokens": 101982,
+        "output_tokens_details": {
+          "thinking_tokens": 61667
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 193289,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1059,
+            "cache_read_input_tokens": 225693,
+            "cache_creation_input_tokens": 502,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 502
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/capture-route.json",
+      "sha256": "ecbf4aacb160909d7893294c5b9f13177a7171075f4cded079d3b81aa02e92ac",
+      "session_id": "b49bcae9-f114-4d11-a21f-71282d1e3767",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 2,
+          "outputTokens": 10,
+          "cacheReadInputTokens": 16852,
+          "cacheCreationInputTokens": 16054,
+          "webSearchRequests": 0,
+          "costUSD": 0.169226,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 0.169226,
+      "usage_reported": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 16054,
+        "cache_read_input_tokens": 16852,
+        "output_tokens": 10,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 16054,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 16852,
+            "cache_creation_input_tokens": 16054,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 16054
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/fault-packaged-result.json",
+      "sha256": "fcb70c617f48e279038911e7fdecb188d95966cac707bf317e2dd850847f2c92",
+      "session_id": "2edfe663-49aa-4299-8483-b551ec54c85a",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 50,
+          "outputTokens": 58200,
+          "cacheReadInputTokens": 11572090,
+          "cacheCreationInputTokens": 157616,
+          "webSearchRequests": 0,
+          "costUSD": 8.817455,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 44361,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 8.817455,
+      "usage_reported": {
+        "input_tokens": 50,
+        "cache_creation_input_tokens": 157616,
+        "cache_read_input_tokens": 11572090,
+        "output_tokens": 58200,
+        "output_tokens_details": {
+          "thinking_tokens": 44361
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 157616,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1295,
+            "cache_read_input_tokens": 521865,
+            "cache_creation_input_tokens": 287,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 287
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/fault-result.json",
+      "sha256": "aeb1b85ebc7bae306c90f9e266a30965889503855d632a61b9a8981308919616",
+      "session_id": "2edfe663-49aa-4299-8483-b551ec54c85a",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 70,
+          "outputTokens": 62938,
+          "cacheReadInputTokens": 6862117,
+          "cacheCreationInputTokens": 226323,
+          "webSearchRequests": 0,
+          "costUSD": 7.2680885,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 29729,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 7.2680885,
+      "usage_reported": {
+        "input_tokens": 70,
+        "cache_creation_input_tokens": 226323,
+        "cache_read_input_tokens": 6862117,
+        "output_tokens": 62938,
+        "output_tokens_details": {
+          "thinking_tokens": 29729
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 226323,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 2355,
+            "cache_read_input_tokens": 258101,
+            "cache_creation_input_tokens": 637,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 637
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/fault-revision-result.json",
+      "sha256": "d1694c82ca34f3128a1980501ebdd97daa32ea25aa94a2c37fa501b6512f0ba9",
+      "session_id": "2edfe663-49aa-4299-8483-b551ec54c85a",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 40,
+          "outputTokens": 60027,
+          "cacheReadInputTokens": 6511618,
+          "cacheCreationInputTokens": 105798,
+          "webSearchRequests": 0,
+          "costUSD": 5.8146640000000005,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 29443,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 5.8146640000000005,
+      "usage_reported": {
+        "input_tokens": 40,
+        "cache_creation_input_tokens": 105798,
+        "cache_read_input_tokens": 6511618,
+        "output_tokens": 60027,
+        "output_tokens_details": {
+          "thinking_tokens": 29443
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 105798,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1237,
+            "cache_read_input_tokens": 364110,
+            "cache_creation_input_tokens": 426,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 426
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/fault-route.json",
+      "sha256": "e53833bd01c5e2d85715e206c3ee7df426cda9ba6f823dc2edce4cf4a3b71f83",
+      "session_id": "2edfe663-49aa-4299-8483-b551ec54c85a",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 2,
+          "outputTokens": 10,
+          "cacheReadInputTokens": 32405,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.0164625,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 0.0164625,
+      "usage_reported": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 32405,
+        "output_tokens": 10,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 32405,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/recovery-hardening-result.json",
+      "sha256": "0c514338416486e6ec149222c11c5b38bf4fc14544fe7e5c5069efa38d37b612",
+      "session_id": "89a24348-b1c9-474f-b387-c546ba72dc0e",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 38,
+          "outputTokens": 60789,
+          "cacheReadInputTokens": 6428225,
+          "cacheCreationInputTokens": 79072,
+          "webSearchRequests": 0,
+          "costUSD": 5.524747499999999,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 32784,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 5.524747499999999,
+      "usage_reported": {
+        "input_tokens": 38,
+        "cache_creation_input_tokens": 79072,
+        "cache_read_input_tokens": 6428225,
+        "output_tokens": 60789,
+        "output_tokens_details": {
+          "thinking_tokens": 32784
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 79072,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1237,
+            "cache_read_input_tokens": 362593,
+            "cache_creation_input_tokens": 922,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 922
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/recovery-implementation-result.json",
+      "sha256": "9b57a348ece0d38c6a08e2beaf5401eda54c2502e17c889dd5eeed324ff986fa",
+      "session_id": "89a24348-b1c9-474f-b387-c546ba72dc0e",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 30,
+          "outputTokens": 65381,
+          "cacheReadInputTokens": 3859033,
+          "cacheCreationInputTokens": 78472,
+          "webSearchRequests": 0,
+          "costUSD": 4.348911500000001,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 41687,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 4.348911500000001,
+      "usage_reported": {
+        "input_tokens": 30,
+        "cache_creation_input_tokens": 78472,
+        "cache_read_input_tokens": 3859033,
+        "output_tokens": 65381,
+        "output_tokens_details": {
+          "thinking_tokens": 41687
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 78472,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1278,
+            "cache_read_input_tokens": 283924,
+            "cache_creation_input_tokens": 519,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 519
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/recovery-packaged-result.json",
+      "sha256": "0172cda3a6efb5b832053ee6705be763d2c70103bb918fe7c51a94b6e7e7457d",
+      "session_id": "89a24348-b1c9-474f-b387-c546ba72dc0e",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 32,
+          "outputTokens": 42110,
+          "cacheReadInputTokens": 6293551,
+          "cacheCreationInputTokens": 75081,
+          "webSearchRequests": 0,
+          "costUSD": 4.950495500000001,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 27995,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 4.950495500000001,
+      "usage_reported": {
+        "input_tokens": 32,
+        "cache_creation_input_tokens": 75081,
+        "cache_read_input_tokens": 6293551,
+        "output_tokens": 42110,
+        "output_tokens_details": {
+          "thinking_tokens": 27995
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 75081,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1204,
+            "cache_read_input_tokens": 437556,
+            "cache_creation_input_tokens": 1040,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 1040
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/recovery-result.json",
+      "sha256": "ceea9d9cb0aa25a3cb32303f82545d3e3dd66f1ea22e0b543b37105869ab9427",
+      "session_id": "89a24348-b1c9-474f-b387-c546ba72dc0e",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 34,
+          "outputTokens": 26876,
+          "cacheReadInputTokens": 2459667,
+          "cacheCreationInputTokens": 173566,
+          "webSearchRequests": 0,
+          "costUSD": 3.6375635,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 11992,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 3.6375635,
+      "usage_reported": {
+        "input_tokens": 34,
+        "cache_creation_input_tokens": 173566,
+        "cache_read_input_tokens": 2459667,
+        "output_tokens": 26876,
+        "output_tokens_details": {
+          "thinking_tokens": 11992
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 173566,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1096,
+            "cache_read_input_tokens": 205499,
+            "cache_creation_input_tokens": 472,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 472
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/recovery-review-result.json",
+      "sha256": "5b6c6b1a67aa67c06b31b5f0e2099ee9514c62017b15dac387548928cbd96220",
+      "session_id": "788ed24f-1a30-4096-b080-f98cfd4ab92d",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 22,
+          "outputTokens": 25063,
+          "cacheReadInputTokens": 2417888,
+          "cacheCreationInputTokens": 88045,
+          "webSearchRequests": 0,
+          "costUSD": 2.7160789999999997,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 15922,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 2.7160789999999997,
+      "usage_reported": {
+        "input_tokens": 22,
+        "cache_creation_input_tokens": 88045,
+        "cache_read_input_tokens": 2417888,
+        "output_tokens": 25063,
+        "output_tokens_details": {
+          "thinking_tokens": 15922
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 88045,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1390,
+            "cache_read_input_tokens": 254207,
+            "cache_creation_input_tokens": 6788,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 6788
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/recovery-route.json",
+      "sha256": "4b3711cb738c9e7b7c7067cc04d3a07cd7fdd6744c76110b41edf741e7096fb9",
+      "session_id": "89a24348-b1c9-474f-b387-c546ba72dc0e",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 2,
+          "outputTokens": 10,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 32405,
+          "webSearchRequests": 0,
+          "costUSD": 0.32431000000000004,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 0.32431000000000004,
+      "usage_reported": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 32405,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 10,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 32405,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 32405,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 32405
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/trust-result.json",
+      "sha256": "dd77ec4793df3e6c77ec8b9f45977d00eb7def1fbdc2973a4d585435181d73b8",
+      "session_id": "788ed24f-1a30-4096-b080-f98cfd4ab92d",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 34,
+          "outputTokens": 31816,
+          "cacheReadInputTokens": 1762831,
+          "cacheCreationInputTokens": 140332,
+          "webSearchRequests": 0,
+          "costUSD": 3.0803054999999997,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 17711,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 3.0803054999999997,
+      "usage_reported": {
+        "input_tokens": 34,
+        "cache_creation_input_tokens": 140332,
+        "cache_read_input_tokens": 1762831,
+        "output_tokens": 31816,
+        "output_tokens_details": {
+          "thinking_tokens": 17711
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 140332,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1567,
+            "cache_read_input_tokens": 163442,
+            "cache_creation_input_tokens": 9508,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 9508
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    },
+    {
+      "artifact": "routing/trust-route.json",
+      "sha256": "ca358fe45f4b83a78e7f166c8fb9181171ce8225e6fc9c914ce71df4ca0842cf",
+      "session_id": "788ed24f-1a30-4096-b080-f98cfd4ab92d",
+      "canonical_models": [
+        "claude-opus-4-8"
+      ],
+      "model_usage_reported": {
+        "claude-opus-4-8": {
+          "inputTokens": 2,
+          "outputTokens": 10,
+          "cacheReadInputTokens": 16852,
+          "cacheCreationInputTokens": 15766,
+          "webSearchRequests": 0,
+          "costUSD": 0.166346,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-4-8",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd_reported": 0.166346,
+      "usage_reported": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 15766,
+        "cache_read_input_tokens": 16852,
+        "output_tokens": 10,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 15766,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 16852,
+            "cache_creation_input_tokens": 15766,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 15766
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "is_error": false,
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      }
+    }
+  ]
+}

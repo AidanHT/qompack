@@ -1,0 +1,633 @@
+{
+  "meta": {
+    "run_id": "20260922-drill1",
+    "started_at": "2026-09-22T16:47:42.809002-04:00",
+    "identity": {
+      "current_version": "v0.2.0-670-g65bc8d7",
+      "old_version": "v0.2.0-640-g301a8e9",
+      "current_bin": {
+        "path": "/work/v6-rc1-compatibility/bundle/bin/qompack",
+        "sha256": "d6d16ad8bca739bb32d321d224fe8b9657649d78de5f2ce2ea8c9d029fbd4ade",
+        "expected": "d6d16ad8bca739bb32d321d224fe8b9657649d78de5f2ce2ea8c9d029fbd4ade",
+        "match": true
+      },
+      "old_bin": {
+        "path": "/work/compat-old-linux-301a8e9",
+        "sha256": "8cb4c0bcc3b98626a625cf0cf53898bab4316effd3d41820f85c3f38fa096bd0",
+        "expected": "8cb4c0bcc3b98626a625cf0cf53898bab4316effd3d41820f85c3f38fa096bd0",
+        "match": true
+      },
+      "bundle_tgz": {
+        "path": "/work/v6-rc1-compatibility/qompack-plugin-v0.2.0-670-g65bc8d7-linux-amd64.tar.gz",
+        "sha256": "90924bd8802de2a03d5920b66d0082d669e953fe8473b3c3c9d5c5f2615eb366",
+        "expected": "90924bd8802de2a03d5920b66d0082d669e953fe8473b3c3c9d5c5f2615eb366",
+        "match": true
+      }
+    },
+    "finished_at": "2026-09-22T16:48:03.467687-04:00",
+    "drill_root_in_container": "/work/v6-rc1-compatibility/drill-20260922-drill1"
+  },
+  "steps": [
+    {
+      "seq": 1,
+      "name": "old-session-start",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "session-start"
+      ],
+      "exit": 0,
+      "stdout_bytes": 140,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "a7eb250df251d79367d3d7165a926a105cf0197a9c4a7056ce8823eb03887997",
+      "at": "2026-09-22T16:47:45.301801-04:00"
+    },
+    {
+      "seq": 2,
+      "name": "old-daemon-up",
+      "argv": [
+        "(wait lock)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5,
+      "stderr_bytes": 0,
+      "note": "pid=15992",
+      "stdout_sha256": "c37b474b90d9d2009bcb75c6b888780cfe9db778f82808145510a2b05f162e46",
+      "at": "2026-09-22T16:47:45.743346-04:00"
+    },
+    {
+      "seq": 3,
+      "name": "old-observe-original",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "at": "2026-09-22T16:47:46.050918-04:00"
+    },
+    {
+      "seq": 4,
+      "name": "old-index-original",
+      "argv": [
+        "(wait index)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 7,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "658a3e8d64510f66bbe811380d78f20eca341518966804db136ecffddb4e0911",
+      "at": "2026-09-22T16:47:47.081744-04:00"
+    },
+    {
+      "seq": 5,
+      "name": "old-flush",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "flush"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "at": "2026-09-22T16:47:47.901085-04:00"
+    },
+    {
+      "seq": 6,
+      "name": "stop-old-seed",
+      "argv": [
+        "kill",
+        "-TERM",
+        "15992"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "stdout_sha256": "69bfbde2abfa5d5bab780e1cb30641bb2315506201861715f9268c4b3c113cef",
+      "at": "2026-09-22T16:47:48.496331-04:00"
+    },
+    {
+      "seq": 7,
+      "name": "cur-recall-original",
+      "argv": [
+        "/work/v6-rc1-compatibility/bundle/bin/qompack",
+        "recall",
+        "QOMPACK-RC1-ORIGINAL-pgbouncer-transaction-mode-8f3a2c",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 910,
+      "stderr_bytes": 0,
+      "note": "decoded=True found=True count=1",
+      "stdout_sha256": "a2aaed0bcc9969ec76166107031049f17498c7ae60359599f3d1a67a5ac5a253",
+      "at": "2026-09-22T16:47:49.237722-04:00",
+      "saved": "cur-recall-original.json"
+    },
+    {
+      "seq": 8,
+      "name": "stop-cur-recall",
+      "argv": [
+        "kill",
+        "-TERM",
+        "16092"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "stdout_sha256": "69bfbde2abfa5d5bab780e1cb30641bb2315506201861715f9268c4b3c113cef",
+      "at": "2026-09-22T16:47:49.962732-04:00"
+    },
+    {
+      "seq": 9,
+      "name": "cur-fsck-oldstore",
+      "argv": [
+        "/work/v6-rc1-compatibility/bundle/bin/qompack",
+        "fsck",
+        "--project",
+        "/work/v6-rc1-compatibility/drill-20260922-drill1/projectA",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3712,
+      "stderr_bytes": 0,
+      "note": "exit=0 decoded=True",
+      "stdout_sha256": "f3b86a6d37c4738900147c9361443989c005227f6ac70264e43e052d63a40791",
+      "at": "2026-09-22T16:47:50.191126-04:00",
+      "saved": "cur-fsck-oldstore.json"
+    },
+    {
+      "seq": 10,
+      "name": "cur-backup-create-before",
+      "argv": [
+        "backup",
+        "create",
+        "--id",
+        "before"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5401,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "ec2f7aceee3bfcd27371ac796aa0654ac50f39261ff361c2a518d1289c72e4a9",
+      "at": "2026-09-22T16:47:51.333068-04:00",
+      "saved": "backup-create-before.json"
+    },
+    {
+      "seq": 11,
+      "name": "cur-backup-verify-before",
+      "argv": [
+        "backup",
+        "verify",
+        "--id",
+        "before"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5401,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "2b7414eb749e02c998eab43f182b678d4d8d660b8e3a1ea65b12e1a56e0d193d",
+      "at": "2026-09-22T16:47:51.512473-04:00",
+      "saved": "backup-verify-before.json"
+    },
+    {
+      "seq": 12,
+      "name": "cur-session-start",
+      "argv": [
+        "/work/v6-rc1-compatibility/bundle/bin/qompack",
+        "session-start"
+      ],
+      "exit": 0,
+      "stdout_bytes": 140,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "74cc615f3ae3936ad28efbd31dc943f3a705530652efa2782b69f10d3e13f8c6",
+      "at": "2026-09-22T16:47:51.963410-04:00"
+    },
+    {
+      "seq": 13,
+      "name": "cur-daemon-up",
+      "argv": [
+        "(wait lock)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5,
+      "stderr_bytes": 0,
+      "note": "pid=16201",
+      "stdout_sha256": "7c6cc3be068020b8844fe1098432edf8b5c91efa8947d7666e8306132a24791e",
+      "at": "2026-09-22T16:47:52.233836-04:00"
+    },
+    {
+      "seq": 14,
+      "name": "cur-observe-new",
+      "argv": [
+        "/work/v6-rc1-compatibility/bundle/bin/qompack",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "at": "2026-09-22T16:47:52.393405-04:00"
+    },
+    {
+      "seq": 15,
+      "name": "cur-index-new",
+      "argv": [
+        "(wait index)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 7,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "658a3e8d64510f66bbe811380d78f20eca341518966804db136ecffddb4e0911",
+      "at": "2026-09-22T16:47:53.202500-04:00"
+    },
+    {
+      "seq": 16,
+      "name": "cur-flush",
+      "argv": [
+        "/work/v6-rc1-compatibility/bundle/bin/qompack",
+        "flush"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "at": "2026-09-22T16:47:54.289016-04:00"
+    },
+    {
+      "seq": 17,
+      "name": "stop-cur-write",
+      "argv": [
+        "kill",
+        "-TERM",
+        "16201"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "stdout_sha256": "69bfbde2abfa5d5bab780e1cb30641bb2315506201861715f9268c4b3c113cef",
+      "at": "2026-09-22T16:47:55.546584-04:00"
+    },
+    {
+      "seq": 18,
+      "name": "cur-backup-create-after",
+      "argv": [
+        "backup",
+        "create",
+        "--id",
+        "after"
+      ],
+      "exit": 0,
+      "stdout_bytes": 6980,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "07fa2ce01d7a4820fe2d1ba2882132d5c0c87835910495d029cc6558f4d07c31",
+      "at": "2026-09-22T16:47:56.712320-04:00",
+      "saved": "backup-create-after.json"
+    },
+    {
+      "seq": 19,
+      "name": "cur-backup-verify-after",
+      "argv": [
+        "backup",
+        "verify",
+        "--id",
+        "after"
+      ],
+      "exit": 0,
+      "stdout_bytes": 6980,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "76be08dc537cc14850fa7b36522c23460e6727e59763bf1b73ba5c99cfe6d114",
+      "at": "2026-09-22T16:47:56.965065-04:00",
+      "saved": "backup-verify-after.json"
+    },
+    {
+      "seq": 20,
+      "name": "cur-restore-before",
+      "argv": [
+        "backup",
+        "restore",
+        "--id",
+        "before",
+        "--dest",
+        "dest_before"
+      ],
+      "exit": 0,
+      "stdout_bytes": 2932,
+      "stderr_bytes": 0,
+      "note": "",
+      "stdout_sha256": "be049246405c2b21bf871eeeaf92b5b8f7210fb7a05d465ecd492c1e304e31ab",
+      "at": "2026-09-22T16:47:57.864553-04:00",
+      "saved": "restore-before.json"
+    },
+    {
+      "seq": 21,
+      "name": "cur-restore-after",
+      "argv": [
+        "backup",
+        "restore",
+        "--id",
+        "after",
+        "--dest",
+        "dest_after"
+      ],
+      "exit": 1,
+      "stdout_bytes": 839,
+      "stderr_bytes": 286,
+      "note": "",
+      "stdout_sha256": "8428f3df3d405a500076a7fd6581c4d184c65c698ec4b9934f1357b67399bde4",
+      "at": "2026-09-22T16:47:58.708000-04:00",
+      "saved": "restore-after.json"
+    },
+    {
+      "seq": 22,
+      "name": "old-fsck-dest_before",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "fsck",
+        "--project",
+        "dest_before",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3695,
+      "stderr_bytes": 0,
+      "note": "exit=0 decoded=True",
+      "stdout_sha256": "11b64dad48226d083d6a67c3f352259a5faf612afc8ff8ca394b04e466c59f5f",
+      "at": "2026-09-22T16:47:59.821295-04:00",
+      "saved": "old-fsck-dest_before.json"
+    },
+    {
+      "seq": 23,
+      "name": "old-fsck-dest_after",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "fsck",
+        "--project",
+        "dest_after",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 753,
+      "stderr_bytes": 0,
+      "note": "exit=0 decoded=True",
+      "stdout_sha256": "ebd0f74c3e3e72221d2feae845716b64fe468eecfbe2710ddea4f1304de752e4",
+      "at": "2026-09-22T16:47:59.965029-04:00",
+      "saved": "old-fsck-dest_after.json"
+    },
+    {
+      "seq": 24,
+      "name": "old-recall-original-on-after",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "recall",
+        "QOMPACK-RC1-ORIGINAL-pgbouncer-transaction-mode-8f3a2c",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 593,
+      "stderr_bytes": 0,
+      "note": "exit=0 found=False",
+      "stdout_sha256": "dc8387033d517ec9f0aa29b433be3eacc3bb22fa3d8ba82d4e61501d6cac052f",
+      "at": "2026-09-22T16:48:00.736926-04:00",
+      "saved": "old-recall-original-on-after.json"
+    },
+    {
+      "seq": 25,
+      "name": "old-recall-new-on-after",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "recall",
+        "QOMPACK-RC1-NEWWRITE-connection-pool-drain-2b7c91",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 588,
+      "stderr_bytes": 0,
+      "note": "exit=0 found=False",
+      "stdout_sha256": "5db737ea0639a1ff345c01a2c90bd5024d2c64865520031c939ba607129688ae",
+      "at": "2026-09-22T16:48:00.923036-04:00",
+      "saved": "old-recall-new-on-after.json"
+    },
+    {
+      "seq": 26,
+      "name": "stop-old-recall-after",
+      "argv": [
+        "kill",
+        "-TERM",
+        "16486"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "stdout_sha256": "69bfbde2abfa5d5bab780e1cb30641bb2315506201861715f9268c4b3c113cef",
+      "at": "2026-09-22T16:48:01.335736-04:00"
+    },
+    {
+      "seq": 27,
+      "name": "old-recall-original-on-before",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "recall",
+        "QOMPACK-RC1-ORIGINAL-pgbouncer-transaction-mode-8f3a2c",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 1338,
+      "stderr_bytes": 0,
+      "note": "exit=0 found=True",
+      "stdout_sha256": "7b9c6476badf6828ad791b5921dda0e59f371c6172a645da8d3cedbc9cbede78",
+      "at": "2026-09-22T16:48:01.917121-04:00",
+      "saved": "old-recall-original-on-before.json"
+    },
+    {
+      "seq": 28,
+      "name": "old-recall-new-on-before",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "recall",
+        "QOMPACK-RC1-NEWWRITE-connection-pool-drain-2b7c91",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 588,
+      "stderr_bytes": 0,
+      "note": "exit=0 found=False (expected NOT found: point-in-time)",
+      "stdout_sha256": "0d3cec7f40d2cd5257fcedab0eed16a8d6d5f3652a436e7fc85aa8907da88af7",
+      "at": "2026-09-22T16:48:02.064298-04:00",
+      "saved": "old-recall-new-on-before.json"
+    },
+    {
+      "seq": 29,
+      "name": "stop-old-recall-before",
+      "argv": [
+        "kill",
+        "-TERM",
+        "16558"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "stdout_sha256": "69bfbde2abfa5d5bab780e1cb30641bb2315506201861715f9268c4b3c113cef",
+      "at": "2026-09-22T16:48:02.458454-04:00"
+    }
+  ],
+  "fingerprints": {
+    "A_after_old_seed": {
+      "count": 10
+    },
+    "A_before_backup": {
+      "count": 11
+    },
+    "A_after_new_write": {
+      "count": 18
+    },
+    "dest_before": {
+      "count": 11
+    },
+    "dest_after": {
+      "count": 0
+    }
+  },
+  "verdicts": {
+    "forward_read_current_reads_old": {
+      "status": "PROVEN",
+      "detail": "current recall found the OLD-seeded original marker in the OLD-written store",
+      "evidence": {
+        "recall_found": true,
+        "fsck_exit": null
+      }
+    },
+    "current_fsck_old_store_readonly": {
+      "status": "OK",
+      "detail": "current fsck opened and reported on the OLD-written store; objects unchanged by the read",
+      "evidence": {
+        "decoded": true,
+        "objects_changed_by_read": []
+      }
+    },
+    "backup_roundtrip_preserves": {
+      "status": "UNVERIFIED",
+      "detail": "engine backup create+restore of before/after; source and both backups unchanged by restores",
+      "evidence": {
+        "create_before_ok": true,
+        "restore_before_ok": true,
+        "restore_after_ok": false,
+        "source_disturbed": [],
+        "backups_unchanged": true,
+        "new_objects_added": 8,
+        "original_disturbed_by_new_write": [
+          "32/53/3253892ab61193d30aef916f07ab0d5d8a0ae2ee7969b1b5ee122103c34ec11c.zst (gone)"
+        ]
+      }
+    },
+    "point_in_time_restore": {
+      "status": "UNVERIFIED",
+      "detail": "dest_before == pre-new-write objects; dest_after == post-new-write objects",
+      "evidence": {
+        "dest_before_matches": true,
+        "dest_after_matches": false
+      }
+    },
+    "old_reader_fsck_current_restored": {
+      "status": "OK",
+      "detail": "OLD binary read-only fsck of the current-restored copy holding CURRENT-written objects",
+      "evidence": {
+        "dest_after_fsck_exit": 0,
+        "dest_before_fsck_exit": 0,
+        "decoded_after": true,
+        "fsck_did_not_mutate_after": true,
+        "fsck_did_not_mutate_before": true
+      }
+    },
+    "old_reader_recall_original": {
+      "status": "UNVERIFIED",
+      "detail": "OLD recall found the ORIGINAL marker on the restored after-copy",
+      "evidence": {
+        "found": false
+      }
+    },
+    "old_reader_recall_new": {
+      "status": "UNVERIFIED",
+      "detail": "OLD recall found the CURRENT-written NEW marker on the restored after-copy (rollback read)",
+      "evidence": {
+        "found": false
+      }
+    },
+    "old_reader_point_in_time": {
+      "status": "PROVEN",
+      "detail": "on the before-copy the OLD reader finds the original and NOT the new (point-in-time)",
+      "evidence": {
+        "original_found": true,
+        "new_found": false
+      }
+    },
+    "old_reader_copy_mutation_inventory": {
+      "status": "RECORDED",
+      "detail": "whole-.qompack file delta on each disposable copy after the OLD daemon ran",
+      "evidence": {
+        "dest_after_delta": {
+          "added": [
+            ".gitignore",
+            "index/files.jsonl",
+            "index/roots.jsonl",
+            "index/segments.jsonl",
+            "index/sessions.jsonl",
+            "index/tool_use.jsonl",
+            "logs/qompack-20260922.log",
+            "metrics/latency.json",
+            "objects/54/9e/549e43cb51f809df59b6561ed804f09c21e4d09d586d2b64c5c9c7294c9d4e9f.zst",
+            "objects/ee/c4/eec464ce12bde4fadc8e6b7d00025efd142dfc63db2fe0fa994472ea1bac03d6.zst",
+            "state/chunktokens.bin",
+            "state/drain.json",
+            "state/store.json"
+          ],
+          "removed": [],
+          "changed": []
+        },
+        "dest_after_object_mutation": [],
+        "dest_before_delta": {
+          "added": [
+            "logs/qompack-20260922.log",
+            "metrics/latency.json",
+            "objects/b8/4f/b84fa0b035e57f6edbec7abbf9adb6156edaddbfba9a796deb0c6c55a3dbd4a6.zst",
+            "objects/ee/c4/eec464ce12bde4fadc8e6b7d00025efd142dfc63db2fe0fa994472ea1bac03d6.zst"
+          ],
+          "removed": [],
+          "changed": [
+            "index/roots.jsonl",
+            "index/tool_use.jsonl",
+            "state/chunktokens.bin",
+            "state/store.json"
+          ]
+        }
+      }
+    },
+    "orphan_daemons_after_drill": {
+      "status": "CLEAN",
+      "detail": "no drill daemon still holds a lock",
+      "evidence": {
+        "locks": {
+          "/work/v6-rc1-compatibility/drill-20260922-drill1/projectA": null,
+          "/work/v6-rc1-compatibility/drill-20260922-drill1/dest_before": null,
+          "/work/v6-rc1-compatibility/drill-20260922-drill1/dest_after": null
+        }
+      }
+    }
+  }
+}

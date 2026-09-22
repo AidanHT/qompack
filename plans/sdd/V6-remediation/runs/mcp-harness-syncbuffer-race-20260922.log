@@ -1,0 +1,6 @@
+=== RUN   TestSyncBufferConcurrentWriterReader
+=== PAUSE TestSyncBufferConcurrentWriterReader
+=== CONT  TestSyncBufferConcurrentWriterReader
+--- PASS: TestSyncBufferConcurrentWriterReader (0.58s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	4.120s

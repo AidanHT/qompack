@@ -1,0 +1,35 @@
+8cb4c0bcc3b98626a625cf0cf53898bab4316effd3d41820f85c3f38fa096bd0  /work/compat-old-linux-301a8e9
+qompack: unknown subcommand "--version"
+
+qompack v0.2.0-640-g301a8e9 — cache-aware, retrieval-backed context compaction
+
+usage: qompack <subcommand> [flags]
+
+commands:
+  admin delivery-seal check or convert the delivery journals' position seals (the daemon must be stopped)
+  bench            run the hot-path latency harness (SP-05)
+  config print     print the effective configuration
+  config schema    print the configuration JSON Schema
+  daemon           run the resident per-project daemon
+  doctor           report version, scope, per-capability evidence, disabled controls and gaps
+  dropped          Report what the last compaction dropped and how to get it back
+  eval             Run the replay harness and report the score against the baseline
+  eval import      import recorded Claude Code transcripts as a redacted replay corpus (SP-02)
+  fsck             verify store, index, checkpoint and backup integrity; repair only what is explicit
+  mcp              run the MCP server over stdio
+  pin              Pin an invariant so it is never summarized away
+  recall           Search stored tool output and file versions by content
+  self-test        assert every host contract; the only command that may exit non-zero
+  status           Qompack status — mode, contracts, store, latency, last decision
+  version          print the plugin version
+  why              Explain a recorded decision and the evidence behind it
+
+hook entry points (invoked by Claude Code, always exit 0):
+  checkpoint       PreCompact — write an immutable checkpoint (thin ipc client)
+  flush            SessionEnd — flush, compact, write the session index (thin ipc client)
+  observe prompt   UserPromptSubmit — capture user intent verbatim (thin ipc client)
+  observe stop     Stop/SubagentStop — capture subagent detail (thin ipc client)
+  observe tool     PostToolUse — chunk and store tool results (thin ipc client)
+  session-start    SessionStart — daemon start + contract monitor before any other work
+
+any subcommand accepts --set <dotted.key>=<value> to override configuration.

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:35db4865ef48d7c648ccfbee01b725889af143705a711a1a1bbc512f624cd7bd\",\"path\":\"src/original.ts\",\"tool\":\"FileRead\",\"summary\":\"// QOMPACK-RC1-ORIGINAL-pgbouncer-transaction-mode-8f3a2c\",\"ts\":\"2026-09-22T20:51:33Z\",\"score\":0.31,\"tool_use_id\":\"toolu_rc1_original_01\",\"span\":[0,4909]}],\"count\":1,\"found\":true,\"query\":{\"text\":\"QOMPACK-RC1-ORIGINAL-pgbouncer-transaction-mode-8f3a2c\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:8c861c8b7ce13b825a766dddac3b0a41b6a3e5676fc54c4aefe5265f02e2ed89",
+      "tool_use_id": "qompack-mcp:25b02c3963de",
+      "untrusted": true
+    }
+  }
+}

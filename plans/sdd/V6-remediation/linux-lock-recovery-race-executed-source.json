@@ -1,0 +1,18 @@
+{
+  "snapshot": "linux-lock-recovery-20260922-1439.json",
+  "archive_sha256": "18c821e3732efc7f27c6d32bd8decc89085dd64e82e556589f9ec507de9ebdf3",
+  "base_head": "36205d1ab17a095a7afeb0a8d1b753405cdd44bf",
+  "container": "qompack-v6-linux-verification",
+  "image_id": "sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",
+  "executed_workdir": "/work/linux-lock-recovery-20260922-1439",
+  "run_id": "linux-lock-recovery-race",
+  "script": "linux-lock-recovery-race.sh",
+  "script_sha256": "5ad4887a965a1a20575be4a89984f470cfec3fa803c57de820160cec0a569639",
+  "post_run_source_check": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "",
+    "files": 2376
+  },
+  "limit": "The wrapper hashes the Windows worktree. This record identifies the immutable Linux source actually executed. Docker/WSL Linux with no installed Claude host; not an installed-host or release-package certification."
+}

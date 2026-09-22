@@ -1,0 +1,68 @@
+{
+  "id": "rc1-integrated-whole-tree",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "test"
+  ],
+  "source_head": "65bc8d7707fed78e1b7344c2d23d5fa948a0a9c1",
+  "source_dirty": "",
+  "source_snapshot": "rc1-integrated-whole-tree.source.json",
+  "source_snapshot_sha256": "6796120e1587043a211a43fab344b7d991b1e29eadebe411e1a4c5434f413f18",
+  "started_at": "2026-09-22T16:25:14.160168-04:00",
+  "status": "interrupted",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": "2",
+    "QOMPACK_CANARY_ARTIFACTS": "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-remediation/rc1-whole-tree-artifacts/canary",
+    "QOMPACK_FAULT_ARTIFACTS": "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-remediation/rc1-whole-tree-artifacts/fault",
+    "QOMPACK_INSTALL_ARTIFACTS": "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-remediation/rc1-whole-tree-artifacts/install",
+    "QOMPACK_PLATFORM_ARTIFACTS": "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-remediation/rc1-whole-tree-artifacts/platform",
+    "QOMPACK_RELEASE_ARTIFACTS": "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-remediation/rc1-whole-tree-artifacts/release",
+    "QOMPACK_SECURITY_ARTIFACTS": "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-remediation/rc1-whole-tree-artifacts/security"
+  },
+  "log": "rc1-integrated-whole-tree.log",
+  "ended_at": "2026-09-22T16:52 (last log write; the coordinating session stopped, no exit code recorded)",
+  "log_sha256": "2252450e42d53fca3b11f2c8430bc1321932d7265d8467f0ff7352da10254bb1",
+  "finalized_by": "Claude Code coordinator takeover 2026-09-22; see plans/V6-CLOSEOUT-CHECKLIST.md C0.1",
+  "observed": {
+    "packages_reported": 78,
+    "failed_packages": [
+      "internal/daemon",
+      "test/e2e",
+      "test/fault"
+    ],
+    "never_reported": [
+      "test/guards",
+      "test/integration",
+      "test/platform",
+      "test/release",
+      "test/security",
+      "tools/devtool"
+    ],
+    "failed_tests": {
+      "internal/daemon": [
+        "TestDeliveryMigration_PrecommitArtifactsKeepLegacyAnchorUsable",
+        "TestCrashCutBetweenReferenceAndFrontierRedelivers"
+      ],
+      "test/e2e": [
+        "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting",
+        "TestE2E_ObserverThroughDaemon",
+        "TestE2E_ThinSliceDropsControlOnlyEdges",
+        "TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it",
+        "TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently"
+      ],
+      "test/fault": [
+        "TestFault_AuditSeesADeletedObjectUnderALiveIndex",
+        "TestFault_MCPChildKilledMidRequest",
+        "TestFault_DaemonKilledMidIngest",
+        "TestFault_UnavailableHistoricalObject",
+        "TestFault_CheckpointDropsAnUnresolvablePointer",
+        "TestFault_CheckpointResolvabilityIsBlindToADeletedObject"
+      ]
+    },
+    "verdict": "FAIL (incomplete run); not a candidate PASS"
+  }
+}

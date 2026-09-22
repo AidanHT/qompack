@@ -1,0 +1,11 @@
+{
+  "run": "runs/linux-publication-order-race-focused.json",
+  "source_snapshot": "linux-focused-publication-20260921-1823.json",
+  "archive_sha256": "27584ad10a98bfd56d3cecbce8785911c475fffe9b49c50effc8fbae27d2ccef",
+  "container": "qompack-v6-linux-verification",
+  "working_directory": "/work/linux-focused-publication-20260921-1823",
+  "execution_script": "set -eu\nsource_dir=/work/linux-focused-publication-20260921-1823\nif test -e \"$source_dir/go.mod\"; then echo 'Refusing to overwrite source snapshot'; exit 2; fi\nmkdir -p \"$source_dir\"\ntar -xf /work/linux-focused-publication-20260921-1823.tar -C \"$source_dir\"\ncd \"$source_dir\"\nexport GOMAXPROCS=2\nexport CGO_ENABLED=1\ngo version\ngo test -race ./internal/store ./internal/observer ./internal/daemon ./internal/cli -run '^TestObservation|^TestDerivedPublication_V6_|^TestDeliveryTerminal_|^TestFsck_UnknownObservationIntent|^TestCarriedDefect_SP08D2_' -count=1 -timeout=5m -v\n",
+  "execution_script_sha256": "9f9a78495ac8daf28487afd05c1ffcb8d2b0658baffcf97773aa5389d9e2b576",
+  "coverage": "Focused in-process Go race instrumentation of store, observer, daemon and CLI. No installed Claude host, child product process, human UAT or final candidate certification.",
+  "provenance": "The wrapper run records Windows workspace hashes. The executed Linux source is the isolated archive named here; later workspace edits cannot certify this snapshot."
+}

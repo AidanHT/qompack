@@ -1,0 +1,33 @@
+{
+  "id": "lint-remediation-packages",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "run",
+    "-modfile=tools/pinned/go.mod",
+    "github.com/golangci/golangci-lint/v2/cmd/golangci-lint",
+    "run",
+    "./internal/mcp",
+    "./internal/store",
+    "./internal/paths",
+    "./internal/cli",
+    "./internal/daemon",
+    "./internal/hookio",
+    "./internal/observer",
+    "./test/security",
+    "./test/fault",
+    "./test/integration"
+  ],
+  "source_head": "c9b5251fa94dad73cf345752f03be3ec5ab4dee6",
+  "source_dirty": "M docs/release.md\n M docs/security.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n M internal/cli/capture_admission.go\n M internal/cli/commands.go\n M internal/cli/daemon.go\n M internal/daemon/daemon.go\n M internal/daemon/handlers.go\n M internal/mcp/authorize.go\n M internal/observer/tooluse.go\n M internal/paths/appendonly_test.go\n M internal/paths/layout_test.go\n M internal/store/backup.go\n M internal/store/migrate.go\n M test/fault/publication_test.go\n M test/fault/v6_fsck_test.go\n M test/integration/appendonly_test.go\n M test/security/posture_test.go\n M test/security/v6_authorization_test.go\n?? docs/backup.md\n?? internal/cli/backup.go\n?? internal/cli/backup_test.go\n?? internal/cli/capture_scope_v6_test.go\n?? internal/cli/writer_lease.go\n?? internal/daemon/borrowed_lease.go\n?? internal/daemon/borrowed_lease_test.go\n?? internal/daemon/capture_scope_v6_test.go\n?? internal/daemon/publication_audit.go\n?? internal/daemon/publication_audit_test.go\n?? internal/hookio/capture_scope.go\n?? internal/hookio/capture_scope_v6_test.go\n?? internal/observer/capture_scope_v6_test.go\n?? internal/paths/rename_noreplace_darwin.go\n?? internal/paths/rename_noreplace_linux.go\n?? internal/paths/rename_noreplace_other.go\n?? internal/paths/rename_noreplace_test.go\n?? internal/paths/rename_noreplace_windows.go\n?? internal/store/maintenance.go\n?? internal/store/maintenance_test.go\n?? internal/store/publication_audit.go\n?? internal/store/publication_audit_test.go\n?? plans/sdd/V6-remediation/authority-review.md\n?? plans/sdd/V6-remediation/capture-work.md\n?? plans/sdd/V6-remediation/publication-packaged-work.md\n?? plans/sdd/V6-remediation/publication-work.md\n?? plans/sdd/V6-remediation/recovery-design.md\n?? plans/sdd/V6-remediation/recovery-packaged-work.md\n?? plans/sdd/V6-remediation/recovery-review.md\n?? plans/sdd/V6-remediation/recovery-work.md\n?? plans/sdd/V6-remediation/runs/\n?? plans/sdd/V6-remediation/security-authority-first/\n?? test/fault/v6_backup_test.go",
+  "started_at": "2026-09-21T12:20:27.782367-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "failed",
+  "log": "lint-remediation-packages.log",
+  "exit_code": 1,
+  "elapsed_seconds": 2.515,
+  "finished_at": "2026-09-21T12:20:30.297590-04:00",
+  "log_sha256": "84c4ffe550382369c111147ddeddc17adb4ec6794dc18901811efd2587a775bc"
+}

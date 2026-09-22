@@ -1,0 +1,17 @@
+ok  	github.com/qompack/qompack/internal/store	250.160s
+--- FAIL: TestOnToolUse_PublishesTheReferenceAgainstItsObservationIdentity (0.04s)
+    tooluse_test.go:653: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/observer/tooluse_test.go:653
+        	Error:      	Received unexpected error:
+        	            	observer: tool capture unpublished: qompack: running in degraded mode
+        	Test:       	TestOnToolUse_PublishesTheReferenceAgainstItsObservationIdentity
+--- FAIL: TestOnToolUse_UnlinkableCaptureBlocksPublication (0.01s)
+    tooluse_test.go:679: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/observer/tooluse_test.go:679
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestOnToolUse_UnlinkableCaptureBlocksPublication
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	69.742s
+FAIL

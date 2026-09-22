@@ -1,0 +1,8 @@
+{"Time":"2026-09-21T12:01:47.5145912-04:00","Action":"start","Package":"github.com/qompack/qompack/internal/paths"}
+{"Time":"2026-09-21T12:01:48.6181558-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/paths","Test":"TestRenameDirectoryNoReplace"}
+{"Time":"2026-09-21T12:01:48.6181558-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Test":"TestRenameDirectoryNoReplace","Output":"=== RUN   TestRenameDirectoryNoReplace\n"}
+{"Time":"2026-09-21T12:01:48.6324703-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Test":"TestRenameDirectoryNoReplace","Output":"--- PASS: TestRenameDirectoryNoReplace (0.01s)\n"}
+{"Time":"2026-09-21T12:01:48.6335612-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Test":"TestRenameDirectoryNoReplace","Elapsed":0.01}
+{"Time":"2026-09-21T12:01:48.6335612-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"PASS\n"}
+{"Time":"2026-09-21T12:01:48.6347354-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"ok  \tgithub.com/qompack/qompack/internal/paths\t1.120s\n"}
+{"Time":"2026-09-21T12:01:48.6347354-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Elapsed":1.12}

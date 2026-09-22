@@ -1,0 +1,251 @@
+bench-deep (windows-latest)	UNKNOWN STEP	﻿2026-09-22T08:18:50.7493348Z Current runner version: '2.337.0'
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7519469Z ##[group]Runner Image Provisioner
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7520411Z Hosted Compute Agent
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7520990Z Version: 20260828.587
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7522014Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7523052Z Build Date: 2026-08-28T16:44:25Z
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7523738Z Worker ID: {c6195193-71db-43dd-a364-cbcb4d399ae1}
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7524461Z Azure Region: westcentralus
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7525040Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7526543Z ##[group]Operating System
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7527262Z Microsoft Windows Server 2025
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7528256Z 10.0.26100
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7528770Z Datacenter
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7529287Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7529822Z ##[group]Runner Image
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7530417Z Image: windows-2025-vs2026
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7530984Z Version: 20260907.229.1
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7532417Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260907.229/images/windows/Windows2025-VS2026-Readme.md
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7534055Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260907.229
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7535043Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7536195Z ##[group]GITHUB_TOKEN Permissions
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7538266Z Contents: read
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7538858Z Metadata: read
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7539393Z Packages: read
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7539931Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7542034Z Secret source: Actions
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7543266Z Cache mode: write
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7544025Z Prepare workflow directory
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.7997442Z Prepare all required actions
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:50.8048090Z Getting action download info
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:51.0913151Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:51.2324318Z Download action repository 'actions/setup-go@v5' (SHA:40f1582b2485089dde7abd97c1529aa768e1baff)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:51.7946249Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9569911Z Complete job name: bench-deep (windows-latest)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2482099Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2491832Z ##[group]Run actions/checkout@v4
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2492456Z with:
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2492785Z   fetch-depth: 0
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2493131Z   repository: AidanHT/qompack
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2497453Z   token: ***
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2497820Z   ssh-strict: true
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2498143Z   ssh-user: git
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2498490Z   persist-credentials: true
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2498841Z   clean: true
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2499156Z   sparse-checkout-cone-mode: true
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2499547Z   fetch-tags: false
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2499865Z   show-progress: true
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2500174Z   lfs: false
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2500502Z   submodules: false
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2500804Z   set-safe-directory: true
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2501149Z   allow-unsafe-pr-checkout: false
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2501825Z env:
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2502122Z   GOTOOLCHAIN: local
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2502422Z   CGO_ENABLED: 0
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.2502702Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.3963746Z Syncing repository: AidanHT/qompack
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.3965575Z ##[group]Getting Git version info
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.3966084Z Working directory is 'D:\a\qompack\qompack'
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.5005297Z [command]"C:\Program Files\Git\bin\git.exe" version
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.8885739Z git version 2.55.0.windows.5
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.8935717Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.8955765Z Temporarily overriding HOME='D:\a\_temp\ae014145-0e9a-48a2-a6b4-727e3a68b658' before making global git config changes
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.8959444Z Adding repository directory to the temporary git global config as a safe directory
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.8967289Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\qompack\qompack
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.9685868Z Deleting the contents of 'D:\a\qompack\qompack'
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.9692434Z ##[group]Initializing the repository
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:53.9701701Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\qompack\qompack
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.0589449Z Initialized empty Git repository in D:/a/qompack/qompack/.git/
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.0642798Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/AidanHT/qompack
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.1354116Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.1354879Z ##[group]Disabling automatic garbage collection
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.1364907Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.1683087Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.1683731Z ##[group]Setting up auth
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.1696384Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:54.2015355Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:55.7417389Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:55.7736489Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:56.3168705Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:56.3483262Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:56.9163209Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:56.9492148Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:56.9492579Z ##[group]Fetching the repository
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:56.9512662Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6256582Z From https://github.com/AidanHT/qompack
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6257435Z  * [new branch]      chore/post-v2-hardening -> origin/chore/post-v2-hardening
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6258303Z  * [new branch]      develop                 -> origin/develop
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6259560Z  * [new branch]      verify/v3               -> origin/verify/v3
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6260468Z  * [new branch]      verify/v5-final         -> origin/verify/v5-final
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6314573Z [command]"C:\Program Files\Git\bin\git.exe" branch --list --remote origin/develop
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6707890Z   origin/develop
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6765870Z [command]"C:\Program Files\Git\bin\git.exe" rev-parse refs/remotes/origin/develop
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7205240Z 9c84e31d596ff2357cceeed42af240c8b6642dd5
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7243209Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7243787Z ##[group]Determining the checkout info
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7245975Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7257215Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7704394Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.8006231Z ##[group]Checking out the ref
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:18:59.8015882Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B develop refs/remotes/origin/develop
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.5024731Z Switched to a new branch 'develop'
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.5046775Z branch 'develop' set up to track 'origin/develop'.
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.5122096Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.5563535Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.5918180Z 9c84e31d596ff2357cceeed42af240c8b6642dd5
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6470490Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6472684Z ##[group]Run actions/setup-go@v5
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6472921Z with:
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6473093Z   go-version: 1.26.6
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6473286Z   cache: true
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6473466Z   check-latest: false
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6476264Z   token: ***
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6476440Z env:
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6476619Z   GOTOOLCHAIN: local
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6476844Z   CGO_ENABLED: 0
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.6477024Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.8619724Z Setup go version spec 1.26.6
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.8637888Z Attempting to download 1.26.6...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.8875080Z (node:4640) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:00.8876093Z (Use `node --trace-deprecation ...` to show where the warning was created)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:01.7138728Z matching 1.26.6...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:01.7178478Z Acquiring 1.26.6 from https://github.com/actions/go-versions/releases/download/1.26.6-31764261251/go-1.26.6-win32-x64.zip
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:02.6498978Z Extracting Go...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:02.8418908Z [command]"C:\Program Files\PowerShell\7\pwsh.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$ErrorActionPreference = 'Stop' ; try { Add-Type -AssemblyName System.IO.Compression.ZipFile } catch { } ; try { [System.IO.Compression.ZipFile]::ExtractToDirectory('D:\a\_temp\go-1.26.6-win32-x64.zip', 'D:\a\_temp\99c61c55-1bbd-425e-a30c-eca6e1b150ff', $true) } catch { if (($_.Exception.GetType().FullName -eq 'System.Management.Automation.MethodException') -or ($_.Exception.GetType().FullName -eq 'System.Management.Automation.RuntimeException') ){ Expand-Archive -LiteralPath 'D:\a\_temp\go-1.26.6-win32-x64.zip' -DestinationPath 'D:\a\_temp\99c61c55-1bbd-425e-a30c-eca6e1b150ff' -Force } else { throw $_ } } ;"
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:08.3089200Z Successfully extracted go to D:\a\_temp\99c61c55-1bbd-425e-a30c-eca6e1b150ff
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:08.3089900Z Adding to the cache ...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.0127087Z Created link C:\hostedtoolcache\windows\go\1.26.6\x64 => D:\hostedtoolcache\windows\go\1.26.6\x64
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.0131001Z Created link C:\hostedtoolcache\windows\go\1.26.6\x64.complete => D:\hostedtoolcache\windows\go\1.26.6\x64.complete
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.0131894Z Successfully cached go to C:\hostedtoolcache\windows\go\1.26.6\x64
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.0137855Z Added go to the path
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.0141310Z Successfully set up Go version 1.26.6
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.4116131Z [command]C:\hostedtoolcache\windows\go\1.26.6\x64\bin\go.exe env GOMODCACHE
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.4170235Z [command]C:\hostedtoolcache\windows\go\1.26.6\x64\bin\go.exe env GOCACHE
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.4415205Z C:\Users\runneradmin\go\pkg\mod
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.4435164Z C:\Users\runneradmin\AppData\Local\go-build
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.7490355Z Cache hit for: setup-go-Windows-x64-go-1.26.6-306aa3e2fae9e07e944b666c6e7e004d52f1f8463ef0ad10edd7aa98c079982d
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:20.7642853Z (node:4640) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:21.9847158Z Received 88080384 of 101186028 (87.0%), 83.7 MBs/sec
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:22.2196090Z Received 101186028 of 101186028 (100.0%), 77.9 MBs/sec
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:22.2199726Z Cache Size: ~96 MB (101186028 B)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:22.2245314Z [command]"C:\Program Files\Git\usr\bin\tar.exe" -xf D:/a/_temp/50b505b1-d435-44e4-bcba-64926ae22060/cache.tzst -P -C D:/a/qompack/qompack --force-local --use-compress-program "zstd -d"
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.0716464Z Cache restored successfully
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.0804323Z Cache restored from key: setup-go-Windows-x64-go-1.26.6-306aa3e2fae9e07e944b666c6e7e004d52f1f8463ef0ad10edd7aa98c079982d
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.0823389Z go version go1.26.6 windows/amd64
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.0823609Z 
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.0823927Z ##[group]go env
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7872599Z set AR=ar
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7873268Z set CC=gcc
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7873647Z set CGO_CFLAGS=-O2 -g
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7874017Z set CGO_CPPFLAGS=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7874413Z set CGO_CXXFLAGS=-O2 -g
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7874833Z set CGO_ENABLED=0
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7875060Z set CGO_FFLAGS=-O2 -g
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7875276Z set CGO_LDFLAGS=-O2 -g
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7875696Z set CXX=g++
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7875907Z set GCCGO=gccgo
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7876103Z set GO111MODULE=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7876286Z set GOAMD64=v1
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7876461Z set GOARCH=amd64
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7876634Z set GOAUTH=netrc
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7876806Z set GOBIN=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7877073Z set GOCACHE=C:\Users\runneradmin\AppData\Local\go-build
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7877554Z set GOCACHEPROG=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7877760Z set GODEBUG=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7877995Z set GOENV=C:\Users\runneradmin\AppData\Roaming\go\env
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7878278Z set GOEXE=.exe
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7878451Z set GOEXPERIMENT=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7878629Z set GOFIPS140=off
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7878798Z set GOFLAGS=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7879496Z set GOGCCFLAGS=-m64 -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=C:\Users\RUNNER~1\AppData\Local\Temp\go-build523724868=/tmp/go-build -gno-record-gcc-switches
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7880250Z set GOHOSTARCH=amd64
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7880446Z set GOHOSTOS=windows
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7880646Z set GOINSECURE=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7880856Z set GOMOD=D:\a\qompack\qompack\go.mod
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7881148Z set GOMODCACHE=C:\Users\runneradmin\go\pkg\mod
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7881424Z set GONOPROXY=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7881594Z set GONOSUMDB=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7881774Z set GOOS=windows
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7881978Z set GOPATH=C:\Users\runneradmin\go
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7882224Z set GOPRIVATE=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7882514Z set GOPROXY=https://proxy.golang.org,direct
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7882853Z set GOROOT=C:\hostedtoolcache\windows\go\1.26.6\x64
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7883147Z set GOSUMDB=sum.golang.org
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7883367Z set GOTELEMETRY=local
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7883671Z set GOTELEMETRYDIR=C:\Users\runneradmin\AppData\Roaming\go\telemetry
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7884022Z set GOTMPDIR=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7884203Z set GOTOOLCHAIN=local
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7884534Z set GOTOOLDIR=C:\hostedtoolcache\windows\go\1.26.6\x64\pkg\tool\windows_amd64
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7884899Z set GOVCS=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7885075Z set GOVERSION=go1.26.6
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7885262Z set GOWORK=
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7885441Z set PKG_CONFIG=pkg-config
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7885579Z 
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.7885903Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.8272866Z ##[group]Run go run ./tools/devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json "bench-windows-latest.json"
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.8273896Z [36;1mgo run ./tools/devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json "bench-windows-latest.json"[0m
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.8794623Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.8794995Z env:
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.8795181Z   GOTOOLCHAIN: local
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.8795388Z   CGO_ENABLED: 0
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:27.8795566Z ##[endgroup]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:35.0556464Z hotpath: building C:\Users\RUNNER~1\AppData\Local\Temp\qompack-bench-build-3663023153\qompack.exe...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:36.7556110Z hotpath: starting daemon (\\.\pipe\qompack-bench-6256-a3e7887eca90bb65)...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:37.3996552Z hotpath: daemon is reachable
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:37.3997423Z hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:38.7784249Z hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:38.7785058Z hotpath: measuring spawn floor (200 x qompack version)...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:19:42.1364411Z hotpath: measuring B-A/B-D (5000 x qompack [observe tool])...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:27.2467748Z hotpath: measuring B-E (50 x qompack checkpoint)...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:30.5583379Z hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5009229Z 
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5010840Z hotpath bench summary (windows/amd64, n=5000)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5013095Z hotpath: a gated budget breached its limit — see the summary above
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5013921Z   spawn floor: p50=16.447ms p99=21.130ms (n=200)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5017784Z   b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5020170Z 
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5020860Z   B-A                 n=5064  p50=   3.072ms p95=   4.096ms p99=   4.096ms p999=   4.096ms max=    5.000ms limit=15.000ms   [PASS]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5022205Z   B-B                 n=5064  p50=  22.528ms p95=  49.152ms p99=  65.536ms p999= 122.880ms max=  827.329ms limit=50.000ms   [FAIL]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5023488Z   B-D                 n=5000  p50=  42.937ms p95=  68.166ms p99=  85.209ms p999=  95.302ms max=  813.139ms limit=n/a        [reported]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5024823Z   B-E                 n=50    p50=  64.246ms p95=  82.981ms p99=  87.886ms p999=  87.886ms max=   87.886ms limit=2000.000ms [PASS]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5026160Z   B-E_cpu             n=50    p50=  15.625ms p95=  31.250ms p99=  31.250ms p999=  31.250ms max=   31.250ms limit=2000.000ms [PASS]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5027541Z   B-A_spawn_estimate  n=5000  p50=  26.489ms p95=  51.719ms p99=  68.762ms p999=  78.854ms max=  796.691ms limit=n/a        [reported]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5028882Z   hook_ack_rtt        n=64    p50=  60.107ms p95=  78.129ms p99=  81.380ms p999=  81.380ms max=   81.380ms limit=n/a        [reported]
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5029977Z 
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5030353Z   note: B-C not measured in wave 1: the processing seams are stubs
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5045279Z   note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5055829Z   note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=2.048ms p99=3.072ms n=5064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5059355Z   note: B-A's gated n=5064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 5000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 1.3% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5062793Z   note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5064156Z 
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5064305Z exit status 1
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5157097Z devtool: bench-hotpath: exit status 1
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.5176734Z exit status 1
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.6250201Z ##[error]Process completed with exit code 1.
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.6533249Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.6534670Z Post job cleanup.
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.8486937Z [command]"C:\Program Files\Git\bin\git.exe" version
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.8763362Z git version 2.55.0.windows.5
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.8830188Z Temporarily overriding HOME='D:\a\_temp\5caf539a-5835-4fc0-9024-76747f030103' before making global git config changes
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.8831637Z Adding repository directory to the temporary git global config as a safe directory
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.8841586Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\qompack\qompack
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.9158493Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:38.9459883Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:39.8181253Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:39.8458538Z http.https://github.com/.extraheader
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:39.8500309Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:39.8798907Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:40.4005227Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:40.4310337Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:40.9843095Z Cleaning up orphan processes
+bench-deep (windows-latest)	UNKNOWN STEP	2026-09-22T08:23:41.0380427Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-go@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

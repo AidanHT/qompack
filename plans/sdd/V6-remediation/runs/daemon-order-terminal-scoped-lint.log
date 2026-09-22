@@ -1,0 +1,10 @@
+internal\daemon\delivery_generation.go:344:83: (*deliveryGenerations).commitAck - result 0 (github.com/qompack/qompack/internal/daemon.radixHash) is never used (unparam)
+func (g *deliveryGenerations) commitAck(ctx context.Context, acks []deliveryAck) (radixHash, error) {
+                                                                                  ^
+internal\daemon\delivery_generation.go:383:98: (*deliveryGenerations).commitTerminal - result 0 (github.com/qompack/qompack/internal/daemon.radixHash) is never used (unparam)
+func (g *deliveryGenerations) commitTerminal(ctx context.Context, terminals []deliveryTerminal) (radixHash, error) {
+                                                                                                 ^
+internal\daemon\delivery_generation.go:632:67: `(*deliveryGenerations).nonceAtArrival` - `session` always receives `"sess-A"` (unparam)
+func (g *deliveryGenerations) nonceAtArrival(ctx context.Context, session core.SessionID, arrival uint64) (string, bool, error) {
+                                                                  ^
+exit status 1

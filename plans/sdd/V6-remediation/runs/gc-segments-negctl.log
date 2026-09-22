@@ -1,0 +1,58 @@
+=== RUN   TestGCSegments_HarvestsOldestLeaseAcrossRotation
+    gc_delivery_segments_test.go:140: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:140
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root b9f57d66be8d
+        	Test:       	TestGCSegments_HarvestsOldestLeaseAcrossRotation
+        	Messages:   	an open lease in the active segment must be retained
+--- FAIL: TestGCSegments_HarvestsOldestLeaseAcrossRotation (0.11s)
+=== RUN   TestGCSegments_AckInLaterSegmentSettlesOlderLease
+    gc_delivery_segments_test.go:166: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:166
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestGCSegments_AckInLaterSegmentSettlesOlderLease
+        	Messages:   	an ack in a later segment must settle the older lease
+--- FAIL: TestGCSegments_AckInLaterSegmentSettlesOlderLease (0.10s)
+=== RUN   TestGCSegments_MissingCommittedSegmentHalts
+    gc_delivery_segments_test.go:185: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:185
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_MissingCommittedSegmentHalts
+        	Messages:   	a committed segment whose files are missing must halt the pass
+--- FAIL: TestGCSegments_MissingCommittedSegmentHalts (0.08s)
+=== RUN   TestGCSegments_TornLogHalts
+    gc_delivery_segments_test.go:210: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:210
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_TornLogHalts
+        	Messages:   	a torn transition log must halt, never revert to legacy
+--- FAIL: TestGCSegments_TornLogHalts (0.07s)
+=== RUN   TestGCSegments_UnknownSchemaHeadHalts
+    gc_delivery_segments_test.go:231: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:231
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_UnknownSchemaHeadHalts
+        	Messages:   	an unknown authority schema must halt
+--- FAIL: TestGCSegments_UnknownSchemaHeadHalts (0.08s)
+=== RUN   TestGCSegments_MigrationEvidenceWithoutAuthorityHalts
+    gc_delivery_segments_test.go:250: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:250
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_MigrationEvidenceWithoutAuthorityHalts
+        	Messages:   	migration evidence without an authority is head loss, not legacy
+--- FAIL: TestGCSegments_MigrationEvidenceWithoutAuthorityHalts (0.06s)
+=== RUN   TestGCSegments_StagedSegmentLeaseRetained
+    gc_delivery_segments_test.go:272: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:272
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root 77e7d393c19d
+        	Test:       	TestGCSegments_StagedSegmentLeaseRetained
+        	Messages:   	a staged segment's lease roots are conservatively retained
+--- FAIL: TestGCSegments_StagedSegmentLeaseRetained (0.07s)
+=== RUN   TestGCSegments_UnmigratedTreeStaysLegacy
+--- PASS: TestGCSegments_UnmigratedTreeStaysLegacy (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.938s
+FAIL

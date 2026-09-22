@@ -1,0 +1,9 @@
+--- FAIL: TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline (6.79s)
+    gc_test.go:1829: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_test.go:1829
+        	Error:      	Should be false
+        	Test:       	TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline
+        	Messages:   	the mark's index walks answer to ctx, not to the deadline: a spent budget must not abandon a completed harvest
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	75.051s
+FAIL

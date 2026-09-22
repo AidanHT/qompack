@@ -1,0 +1,80 @@
+{"Time":"2026-09-21T15:37:39.8362444-04:00","Action":"start","Package":"github.com/qompack/qompack/test/docs"}
+{"Time":"2026-09-21T15:37:40.3594104-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestGeneratedInventoriesAreNonEmpty"}
+{"Time":"2026-09-21T15:37:40.3753379-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestGeneratedInventoriesAreNonEmpty","Output":"=== RUN   TestGeneratedInventoriesAreNonEmpty\n"}
+{"Time":"2026-09-21T15:37:40.439187-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestGeneratedInventoriesAreNonEmpty","Output":"--- PASS: TestGeneratedInventoriesAreNonEmpty (0.08s)\n"}
+{"Time":"2026-09-21T15:37:40.4396901-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestGeneratedInventoriesAreNonEmpty","Elapsed":0.08}
+{"Time":"2026-09-21T15:37:40.4396901-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestCannotDoCoversSection12Limits"}
+{"Time":"2026-09-21T15:37:40.4396901-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestCannotDoCoversSection12Limits","Output":"=== RUN   TestCannotDoCoversSection12Limits\n"}
+{"Time":"2026-09-21T15:37:40.5463217-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestCannotDoCoversSection12Limits","Output":"--- PASS: TestCannotDoCoversSection12Limits (0.11s)\n"}
+{"Time":"2026-09-21T15:37:40.5468265-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestCannotDoCoversSection12Limits","Elapsed":0.11}
+{"Time":"2026-09-21T15:37:40.5468265-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestUpstreamIssuesAreAllUnfiled"}
+{"Time":"2026-09-21T15:37:40.5468265-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUpstreamIssuesAreAllUnfiled","Output":"=== RUN   TestUpstreamIssuesAreAllUnfiled\n"}
+{"Time":"2026-09-21T15:37:40.5980411-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUpstreamIssuesAreAllUnfiled","Output":"--- PASS: TestUpstreamIssuesAreAllUnfiled (0.05s)\n"}
+{"Time":"2026-09-21T15:37:40.5980411-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestUpstreamIssuesAreAllUnfiled","Elapsed":0.05}
+{"Time":"2026-09-21T15:37:40.5980411-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestCannotDoNamesTheUnimplementedChecks"}
+{"Time":"2026-09-21T15:37:40.5980411-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestCannotDoNamesTheUnimplementedChecks","Output":"=== RUN   TestCannotDoNamesTheUnimplementedChecks\n"}
+{"Time":"2026-09-21T15:37:40.6368053-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestCannotDoNamesTheUnimplementedChecks","Output":"--- PASS: TestCannotDoNamesTheUnimplementedChecks (0.04s)\n"}
+{"Time":"2026-09-21T15:37:40.6368053-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestCannotDoNamesTheUnimplementedChecks","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:40.6368053-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestRelativeLinksResolve"}
+{"Time":"2026-09-21T15:37:40.6368053-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestRelativeLinksResolve","Output":"=== RUN   TestRelativeLinksResolve\n"}
+{"Time":"2026-09-21T15:37:40.9846233-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestRelativeLinksResolve","Output":"--- PASS: TestRelativeLinksResolve (0.35s)\n"}
+{"Time":"2026-09-21T15:37:40.9846233-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestRelativeLinksResolve","Elapsed":0.35}
+{"Time":"2026-09-21T15:37:40.9846233-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestOwnedDocsExist"}
+{"Time":"2026-09-21T15:37:40.9846233-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestOwnedDocsExist","Output":"=== RUN   TestOwnedDocsExist\n"}
+{"Time":"2026-09-21T15:37:41.0208816-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestOwnedDocsExist","Output":"--- PASS: TestOwnedDocsExist (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.0208816-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestOwnedDocsExist","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.0208816-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestADRIndexListsEveryADR"}
+{"Time":"2026-09-21T15:37:41.0208816-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestADRIndexListsEveryADR","Output":"=== RUN   TestADRIndexListsEveryADR\n"}
+{"Time":"2026-09-21T15:37:41.0607872-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestADRIndexListsEveryADR","Output":"--- PASS: TestADRIndexListsEveryADR (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.0607872-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestADRIndexListsEveryADR","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.0607872-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestNoPlannedPointerToAnExistingPage"}
+{"Time":"2026-09-21T15:37:41.0607872-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestNoPlannedPointerToAnExistingPage","Output":"=== RUN   TestNoPlannedPointerToAnExistingPage\n"}
+{"Time":"2026-09-21T15:37:41.1029461-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestNoPlannedPointerToAnExistingPage","Output":"--- PASS: TestNoPlannedPointerToAnExistingPage (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.1029461-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestNoPlannedPointerToAnExistingPage","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.1029461-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEveryEvidenceOutcome"}
+{"Time":"2026-09-21T15:37:41.1029461-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEveryEvidenceOutcome","Output":"=== RUN   TestTroubleshootingNamesEveryEvidenceOutcome\n"}
+{"Time":"2026-09-21T15:37:41.1841516-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEveryEvidenceOutcome","Output":"--- PASS: TestTroubleshootingNamesEveryEvidenceOutcome (0.08s)\n"}
+{"Time":"2026-09-21T15:37:41.1841516-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEveryEvidenceOutcome","Elapsed":0.08}
+{"Time":"2026-09-21T15:37:41.1841516-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEverySelfTestCheck"}
+{"Time":"2026-09-21T15:37:41.1841516-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEverySelfTestCheck","Output":"=== RUN   TestTroubleshootingNamesEverySelfTestCheck\n"}
+{"Time":"2026-09-21T15:37:41.2722259-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEverySelfTestCheck","Output":"--- PASS: TestTroubleshootingNamesEverySelfTestCheck (0.09s)\n"}
+{"Time":"2026-09-21T15:37:41.2727294-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEverySelfTestCheck","Elapsed":0.09}
+{"Time":"2026-09-21T15:37:41.2727294-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEveryContractAssertion"}
+{"Time":"2026-09-21T15:37:41.2727294-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEveryContractAssertion","Output":"=== RUN   TestTroubleshootingNamesEveryContractAssertion\n"}
+{"Time":"2026-09-21T15:37:41.3555443-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEveryContractAssertion","Output":"--- PASS: TestTroubleshootingNamesEveryContractAssertion (0.08s)\n"}
+{"Time":"2026-09-21T15:37:41.3555443-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingNamesEveryContractAssertion","Elapsed":0.08}
+{"Time":"2026-09-21T15:37:41.3555443-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingLinksConfigReferenceSections"}
+{"Time":"2026-09-21T15:37:41.3555443-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingLinksConfigReferenceSections","Output":"=== RUN   TestTroubleshootingLinksConfigReferenceSections\n"}
+{"Time":"2026-09-21T15:37:41.3981594-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingLinksConfigReferenceSections","Output":"--- PASS: TestTroubleshootingLinksConfigReferenceSections (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.3981594-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestTroubleshootingLinksConfigReferenceSections","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.3981594-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATRetainsAllTwelveIDs"}
+{"Time":"2026-09-21T15:37:41.3981594-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATRetainsAllTwelveIDs","Output":"=== RUN   TestUATRetainsAllTwelveIDs\n"}
+{"Time":"2026-09-21T15:37:41.435353-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATRetainsAllTwelveIDs","Output":"--- PASS: TestUATRetainsAllTwelveIDs (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.435353-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATRetainsAllTwelveIDs","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.435353-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATSectionsHaveTheRecordShape"}
+{"Time":"2026-09-21T15:37:41.435353-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATSectionsHaveTheRecordShape","Output":"=== RUN   TestUATSectionsHaveTheRecordShape\n"}
+{"Time":"2026-09-21T15:37:41.4742487-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATSectionsHaveTheRecordShape","Output":"--- PASS: TestUATSectionsHaveTheRecordShape (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.4742487-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATSectionsHaveTheRecordShape","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.4742487-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATUnexecutedRowsSayUnverified"}
+{"Time":"2026-09-21T15:37:41.4742487-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATUnexecutedRowsSayUnverified","Output":"=== RUN   TestUATUnexecutedRowsSayUnverified\n"}
+{"Time":"2026-09-21T15:37:41.511059-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATUnexecutedRowsSayUnverified","Output":"--- PASS: TestUATUnexecutedRowsSayUnverified (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.511059-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATUnexecutedRowsSayUnverified","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.511059-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATConfigKeysExist"}
+{"Time":"2026-09-21T15:37:41.511059-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATConfigKeysExist","Output":"=== RUN   TestUATConfigKeysExist\n"}
+{"Time":"2026-09-21T15:37:41.5517299-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATConfigKeysExist","Output":"--- PASS: TestUATConfigKeysExist (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.5517299-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestUATConfigKeysExist","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.5517299-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideCoversEveryGeneratedCommandAndTool"}
+{"Time":"2026-09-21T15:37:41.5517299-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideCoversEveryGeneratedCommandAndTool","Output":"=== RUN   TestUserGuideCoversEveryGeneratedCommandAndTool\n"}
+{"Time":"2026-09-21T15:37:41.6760242-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideCoversEveryGeneratedCommandAndTool","Output":"--- PASS: TestUserGuideCoversEveryGeneratedCommandAndTool (0.12s)\n"}
+{"Time":"2026-09-21T15:37:41.6760242-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideCoversEveryGeneratedCommandAndTool","Elapsed":0.12}
+{"Time":"2026-09-21T15:37:41.6760242-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideStatesTheBindingQualifications"}
+{"Time":"2026-09-21T15:37:41.6760242-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideStatesTheBindingQualifications","Output":"=== RUN   TestUserGuideStatesTheBindingQualifications\n"}
+{"Time":"2026-09-21T15:37:41.719168-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideStatesTheBindingQualifications","Output":"--- PASS: TestUserGuideStatesTheBindingQualifications (0.04s)\n"}
+{"Time":"2026-09-21T15:37:41.719168-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideStatesTheBindingQualifications","Elapsed":0.04}
+{"Time":"2026-09-21T15:37:41.719168-04:00","Action":"run","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideMarksCheckpointAsUnrouted"}
+{"Time":"2026-09-21T15:37:41.719168-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideMarksCheckpointAsUnrouted","Output":"=== RUN   TestUserGuideMarksCheckpointAsUnrouted\n"}
+{"Time":"2026-09-21T15:37:41.8052797-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideMarksCheckpointAsUnrouted","Output":"--- PASS: TestUserGuideMarksCheckpointAsUnrouted (0.09s)\n"}
+{"Time":"2026-09-21T15:37:41.8052797-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Test":"TestUserGuideMarksCheckpointAsUnrouted","Elapsed":0.09}
+{"Time":"2026-09-21T15:37:41.8052797-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Output":"PASS\n"}
+{"Time":"2026-09-21T15:37:41.8115446-04:00","Action":"output","Package":"github.com/qompack/qompack/test/docs","Output":"ok  \tgithub.com/qompack/qompack/test/docs\t1.975s\n"}
+{"Time":"2026-09-21T15:37:41.8115446-04:00","Action":"pass","Package":"github.com/qompack/qompack/test/docs","Elapsed":1.975}

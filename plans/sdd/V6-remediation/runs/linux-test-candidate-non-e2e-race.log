@@ -1,0 +1,8 @@
+/work/linux-test-candidate-3dab390.bundle: OK
+Cloning into '/work/linux-test-candidate-3dab390'...
+HEAD is now at 3dab390 test(daemon): align recovery fixtures with authority and ordering guards
+go version go1.26.6 linux/amd64
+3dab390fde387a6ab58c79d78bf3e42d6b0653fb
+go: downloading golang.org/x/tools v0.34.0
+go: downloading golang.org/x/sync v0.15.0
+go: downloading golang.org/x/mod v0.25.0

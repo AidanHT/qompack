@@ -1,0 +1,25 @@
+{
+  "id": "authority-inherited-focused",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "./internal/mcp",
+    "-run",
+    "^(TestExpand|TestRecall|TestReRead)",
+    "-count=1",
+    "-json"
+  ],
+  "source_head": "03b63568924d79ae59db1047177e5a618e87b701",
+  "source_dirty": "M internal/mcp/authorize.go\n M internal/mcp/handlers.go\n M internal/mcp/handlers_span.go\n?? internal/store/provenance.go\n?? plans/sdd/V6-remediation/recovery-design.md",
+  "started_at": "2026-09-21T11:24:28.412863-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "failed",
+  "log": "authority-inherited-focused.log",
+  "exit_code": 1,
+  "elapsed_seconds": 8.234,
+  "finished_at": "2026-09-21T11:24:36.648064-04:00",
+  "log_sha256": "c53309e94b6fae89106030f5109d266f98fc7f4ab2eb6f46b37e085d5ae2eb05"
+}

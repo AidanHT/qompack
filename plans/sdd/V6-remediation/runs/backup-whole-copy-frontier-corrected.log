@@ -1,0 +1,9 @@
+# github.com/qompack/qompack/internal/daemon
+internal\daemon\delivery_lease.go:474:7: j.rolloverArmed undefined (type *deliveryJournal has no field or method rolloverArmed)
+internal\daemon\delivery_lease.go:496:7: j.rolloverArmed undefined (type *deliveryJournal has no field or method rolloverArmed)
+# github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/store.test]
+internal\daemon\delivery_lease.go:474:7: j.rolloverArmed undefined (type *deliveryJournal has no field or method rolloverArmed)
+internal\daemon\delivery_lease.go:496:7: j.rolloverArmed undefined (type *deliveryJournal has no field or method rolloverArmed)
+FAIL	github.com/qompack/qompack/internal/store [build failed]
+FAIL	github.com/qompack/qompack/test/guards [build failed]
+FAIL

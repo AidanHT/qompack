@@ -1,0 +1,8 @@
+# github.com/qompack/qompack/internal/store
+internal\store\fsstore.go:262:36: undefined: reservedIdentity
+internal\store\tooluseindex.go:213:18: s.publishObservation undefined (type *FSStore has no field or method publishObservation)
+internal\store\tooluseindex.go:250:14: s.reservedIdentityConflictLocked undefined (type *FSStore has no field or method reservedIdentityConflictLocked)
+internal\store\tooluseindex.go:334:12: s.publishObservation undefined (type *FSStore has no field or method publishObservation)
+internal\store\tooluseindex.go:370:14: s.reservedIdentityConflictLocked undefined (type *FSStore has no field or method reservedIdentityConflictLocked)
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL

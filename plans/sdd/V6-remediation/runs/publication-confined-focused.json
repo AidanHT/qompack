@@ -1,0 +1,26 @@
+{
+  "id": "publication-confined-focused",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "./internal/store",
+    "./internal/daemon",
+    "-run",
+    "^(TestAuditPublication|TestLoudPublicationGaps|TestAccountPublicationGaps)",
+    "-count=1",
+    "-json"
+  ],
+  "source_head": "03b63568924d79ae59db1047177e5a618e87b701",
+  "source_dirty": "M internal/cli/commands.go\n M internal/cli/daemon.go\n M internal/daemon/daemon.go\n M internal/mcp/authorize.go\n M internal/mcp/handlers.go\n M internal/mcp/handlers_common.go\n M internal/mcp/handlers_span.go\n M internal/mcp/handlers_span_test.go\n M internal/paths/appendonly_test.go\n M internal/paths/layout_test.go\n?? internal/cli/backup.go\n?? internal/cli/writer_lease.go\n?? internal/daemon/borrowed_lease.go\n?? internal/daemon/publication_audit.go\n?? internal/daemon/publication_audit_test.go\n?? internal/mcp/authorize_v6_test.go\n?? internal/store/maintenance.go\n?? internal/store/maintenance_test.go\n?? internal/store/provenance.go\n?? internal/store/provenance_test.go\n?? internal/store/publication_audit.go\n?? internal/store/publication_audit_test.go\n?? plans/sdd/V6-remediation/authority-review.md\n?? plans/sdd/V6-remediation/publication-work.md\n?? plans/sdd/V6-remediation/recovery-design.md\n?? plans/sdd/V6-remediation/recovery-work.md\n?? plans/sdd/V6-remediation/runs/\n?? plans/sdd/V6-remediation/security-authority-first/",
+  "started_at": "2026-09-21T11:55:47.952192-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "failed",
+  "log": "publication-confined-focused.log",
+  "exit_code": 1,
+  "elapsed_seconds": 8.773,
+  "finished_at": "2026-09-21T11:55:56.725813-04:00",
+  "log_sha256": "3a998b0bf67d9104181be2fa0dc7228b116f53cb1217be6be220d068bdfa69ea"
+}

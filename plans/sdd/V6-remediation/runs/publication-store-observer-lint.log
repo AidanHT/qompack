@@ -1,0 +1,4 @@
+internal\observer\tooluse_test.go:661:19: Error return value is not checked (errcheck)
+	restored, err := r.st.(store.ObservationRecovery).RecoverToolUseByObservation(ctx, id)
+	                 ^
+exit status 1

@@ -1,0 +1,30 @@
+{
+  "id": "fsck-publication-current-contract",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "./internal/store",
+    "./internal/cli",
+    "-run",
+    "^TestAuditPublication_(ClassifiesCaptureSidecars|StopReferenceRequirementIsQualified)$|^TestFsck_UnknownObservationIntent",
+    "-count=1",
+    "-timeout=2m"
+  ],
+  "source_head": "99108a2176a67f5f69796fb704f9d794186dc8c6",
+  "source_dirty": "M docs/release.md\n M docs/security.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n M internal/cli/fsck.go\n M internal/daemon/daemon.go\n M internal/daemon/delivery_lease.go\n M internal/daemon/delivery_migration_guard.go\n M internal/daemon/drain.go\n M internal/daemon/drain_reused_lease_test.go\n M internal/daemon/ingest.go\n M internal/observer/identity.go\n M internal/observer/prompt.go\n M internal/observer/prompt_delivery.go\n M internal/observer/prompt_delivery_test.go\n M internal/observer/redelivery_test.go\n M internal/observer/stop.go\n M internal/observer/tooluse.go\n M internal/observer/tooluse_test.go\n M internal/store/backup.go\n M internal/store/backupedge_test.go\n M plans/CARRIED-DEFECTS.tsv\n M plans/V2-WAVE1-carried-defects.md\n?? docs/backup.md\n?? internal/cli/fsck_publication.go\n?? internal/cli/fsck_publication_test.go\n?? internal/daemon/delivery_generation.go\n?? internal/daemon/delivery_generation_test.go\n?? internal/daemon/delivery_generation_wiring_test.go\n?? internal/daemon/delivery_order.go\n?? internal/daemon/delivery_order_test.go\n?? internal/daemon/delivery_radix.go\n?? internal/daemon/delivery_radix_test.go\n?? internal/daemon/delivery_terminal.go\n?? internal/daemon/delivery_terminal_integration_test.go\n?? internal/daemon/delivery_terminal_test.go\n?? internal/daemon/prompt_order_v6_test.go\n?? internal/observer/derived_publication_v6_test.go\n?? plans/sdd/V6-remediation/.gitattributes\n?? plans/sdd/V6-remediation/authority-review.md\n?? plans/sdd/V6-remediation/capture-work.md\n?? plans/sdd/V6-remediation/compat-old-source.json\n?? plans/sdd/V6-remediation/continuation-status.md\n?? plans/sdd/V6-remediation/critical-resolution-review.md\n?? plans/sdd/V6-remediation/delivery-capacity-design.md\n?? plans/sdd/V6-remediation/delivery-capacity-integration-work.md\n?? plans/sdd/V6-remediation/delivery-order-decision.md\n?? plans/sdd/V6-remediation/delivery-order-terminal-integration-review.md\n?? plans/sdd/V6-remediation/delivery-order-work.md\n?? plans/sdd/V6-remediation/delivery-radix-terminal-review.md\n?? plans/sdd/V6-remediation/delivery-radix-work.md\n?? plans/sdd/V6-remediation/delivery-rollover-coordinator-decision.md\n?? plans/sdd/V6-remediation/delivery-rollover-critical-review.md\n?? plans/sdd/V6-remediation/delivery-rollover-implementation-design.md\n?? plans/sdd/V6-remediation/delivery-rollover-main-adjudication.md\n?? plans/sdd/V6-remediation/delivery-rollover-revised-review.md\n?? plans/sdd/V6-remediation/delivery-rollover-work.md\n?? plans/sdd/V6-remediation/delivery-terminal-decision.md\n?? plans/sdd/V6-remediation/fault-packaged-first/\n?? plans/sdd/V6-remediation/inventory-current-notes.md\n?? plans/sdd/V6-remediation/inventory-current.tsv\n?? plans/sdd/V6-remediation/linux-focused-publication-20260921-1823.json\n?? plans/sdd/V6-remediation/linux-prerequisite-snapshot.json\n?? plans/sdd/V6-remediation/linux-prompt-snapshot.json\n?? plans/sdd/V6-remediation/observation-binding-critical-review.md\n?? plans/sdd/V6-remediation/observation-binding-decision.md\n?? plans/sdd/V6-remediation/observation-binding-work.md\n?? plans/sdd/V6-remediation/observation-hardening-resolution.md\n?? plans/sdd/V6-remediation/observation-hardening-review.md\n?? plans/sdd/V6-remediation/observation-sidecar-final-review.md\n?? plans/sdd/V6-remediation/packaging-readiness-map.md\n?? plans/sdd/V6-remediation/performance-analysis.md\n?? plans/sdd/V6-remediation/preservation-integration-continued.json\n?? plans/sdd/V6-remediation/preservation-parent-commits.json\n?? plans/sdd/V6-remediation/preservation.json\n?? plans/sdd/V6-remediation/prompt-critical-review-followup.md\n?? plans/sdd/V6-remediation/prompt-critical-review.md\n?? plans/sdd/V6-remediation/prompt-order-publication-design.md\n?? plans/sdd/V6-remediation/prompt-replay-work.md\n?? plans/sdd/V6-remediation/publication-packaged-work.md\n?? plans/sdd/V6-remediation/publication-work.md\n?? plans/sdd/V6-remediation/recovery-design.md\n?? plans/sdd/V6-remediation/recovery-packaged-work.md\n?? plans/sdd/V6-remediation/recovery-review.md\n?? plans/sdd/V6-remediation/recovery-work.md\n?? plans/sdd/V6-remediation/rejected-rollover-prototype.json\n?? plans/sdd/V6-remediation/request-usage-session-snapshots.json\n?? plans/sdd/V6-remediation/request-usage.json\n?? plans/sdd/V6-remediation/review-resolution.md\n?? plans/sdd/V6-remediation/routing/\n?? plans/sdd/V6-remediation/runs/\n?? plans/sdd/V6-remediation/security-authority-first/\n?? plans/sdd/V6-remediation/security-packaged-first/\n?? plans/sdd/V6-remediation/store-integrity-final-review.md\n?? plans/sdd/V6-remediation/store-publication-handoff.md\n?? plans/sdd/V6-remediation/verification-protocol.md",
+  "started_at": "2026-09-21T18:49:09.222500-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "passed",
+  "log": "fsck-publication-current-contract.log",
+  "source_snapshot": "fsck-publication-current-contract.source.json",
+  "source_snapshot_sha256": "1d54d19dd5a00faa3a6787ddb127ffbb4a59d8af1b96ed47c08be06969056800",
+  "snapshot_limit": "Hash inventory identifies bytes; source reproduction also requires the commit and working overlay. Preliminary concurrent authoring is diagnostic only.",
+  "exit_code": 0,
+  "elapsed_seconds": 5.089,
+  "finished_at": "2026-09-21T18:49:14.645837-04:00",
+  "log_sha256": "12d08ec401e1121318e9dadb1f1ff476da45932a862de3b6a964cd470e36805b",
+  "source_changed_during_run": false
+}

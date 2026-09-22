@@ -1,0 +1,158 @@
+=== RUN   TestColoadYieldersAreJudgedInIsolation
+=== PAUSE TestColoadYieldersAreJudgedInIsolation
+=== RUN   TestColoadDeclarationIsPinnedToTheGoConstant
+=== PAUSE TestColoadDeclarationIsPinnedToTheGoConstant
+=== RUN   TestNightlyFuzzMatrix
+=== PAUSE TestNightlyFuzzMatrix
+=== CONT  TestColoadYieldersAreJudgedInIsolation
+=== CONT  TestNightlyFuzzMatrix
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzCanonicalize
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzCanonicalize
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzRestore
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzRestore
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference
+=== RUN   TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex
+=== PAUSE TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex
+=== RUN   TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections
+=== PAUSE TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections
+=== RUN   TestNightlyFuzzMatrix/chunk_FuzzSplit
+=== PAUSE TestNightlyFuzzMatrix/chunk_FuzzSplit
+=== RUN   TestNightlyFuzzMatrix/chunk_FuzzSplitStream
+=== PAUSE TestNightlyFuzzMatrix/chunk_FuzzSplitStream
+=== RUN   TestNightlyFuzzMatrix/config_FuzzConfigLoad
+=== PAUSE TestNightlyFuzzMatrix/config_FuzzConfigLoad
+=== RUN   TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect
+=== PAUSE TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect
+=== RUN   TestNightlyFuzzMatrix/eval_FuzzRedact
+=== PAUSE TestNightlyFuzzMatrix/eval_FuzzRedact
+=== RUN   TestNightlyFuzzMatrix/hookio_FuzzReadEvent
+=== PAUSE TestNightlyFuzzMatrix/hookio_FuzzReadEvent
+=== RUN   TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest
+=== PAUSE TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest
+=== RUN   TestNightlyFuzzMatrix/mcp_FuzzServeLine
+=== PAUSE TestNightlyFuzzMatrix/mcp_FuzzServeLine
+=== RUN   TestNightlyFuzzMatrix/observer_FuzzExtractSignals
+=== PAUSE TestNightlyFuzzMatrix/observer_FuzzExtractSignals
+=== RUN   TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent
+=== PAUSE TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent
+=== RUN   TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence
+=== PAUSE TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/symbols_FuzzExtract
+=== PAUSE TestNightlyFuzzMatrix/symbols_FuzzExtract
+=== CONT  TestColoadDeclarationIsPinnedToTheGoConstant
+--- PASS: TestColoadDeclarationIsPinnedToTheGoConstant (0.06s)
+=== CONT  TestNightlyFuzzMatrix/symbols_FuzzExtract
+=== NAME  TestColoadYieldersAreJudgedInIsolation
+    coload_test.go:149: 13 yielders found from source: [./internal/daemon:TestFeaturesFrom_LexicalCohesionShingleCap ./internal/mcp:TestBudgetBF ./internal/negknow:TestBudget_DetectorScan ./internal/negknow:TestBudget_Open ./internal/negknow:TestBudget_QueryHit ./internal/negknow:TestBudget_QueryMiss ./internal/negknow:TestBudget_RebuildBloom ./internal/negknow:TestBudget_Record ./internal/negknow:TestBudget_RefreshStaleness ./internal/store:TestGC_DeadlineOvershootIsBoundedByTheCheckInterval ./internal/store:TestGC_DeadlineTruncatesAndResumes ./test/e2e:TestV3_HotPathUnchangedWithLedgerResident ./test/integration:TestIntegration_HotPathWarmWithRealResidentState]
+    coload_test.go:209: ./test/e2e:TestV3_HotPathUnchangedWithLedgerResident is judged by `test-e2e`, which runs ./test/e2e whole
+    coload_test.go:248: every yielder is judged in isolation: 12 by name in `timing`, the rest by `test-e2e`
+--- PASS: TestColoadYieldersAreJudgedInIsolation (0.60s)
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzCanonicalize
+=== NAME  TestNightlyFuzzMatrix/symbols_FuzzExtract
+    nightlyfuzz_test.go:132: live: ./internal/symbols declares FuzzExtract; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzCanonicalize
+    nightlyfuzz_test.go:132: live: ./internal/canon declares FuzzCanonicalize; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary
+    nightlyfuzz_test.go:132: live: ./internal/sketch declares FuzzSignatureUnmarshalBinary; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary
+    nightlyfuzz_test.go:132: live: ./internal/sketch declares FuzzMisraGriesUnmarshalBinary; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary
+    nightlyfuzz_test.go:132: live: ./internal/sketch declares FuzzHLLUnmarshalBinary; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary
+    nightlyfuzz_test.go:132: live: ./internal/sketch declares FuzzCMSUnmarshalBinary; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary
+    nightlyfuzz_test.go:132: live: ./internal/sketch declares FuzzBloomUnmarshalBinary; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent
+    nightlyfuzz_test.go:132: live: ./internal/redact declares FuzzRedactIdempotent; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/observer_FuzzExtractSignals
+=== NAME  TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence
+    nightlyfuzz_test.go:132: live: ./internal/redact declares FuzzRedactPrefilterEquivalence; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/mcp_FuzzServeLine
+=== NAME  TestNightlyFuzzMatrix/observer_FuzzExtractSignals
+    nightlyfuzz_test.go:132: live: ./internal/observer declares FuzzExtractSignals; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest
+=== NAME  TestNightlyFuzzMatrix/mcp_FuzzServeLine
+    nightlyfuzz_test.go:132: live: ./internal/mcp declares FuzzServeLine; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/hookio_FuzzReadEvent
+    nightlyfuzz_test.go:132: live: ./internal/hookio declares FuzzReadEvent; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/eval_FuzzRedact
+=== NAME  TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest
+    nightlyfuzz_test.go:132: live: ./internal/ipc declares FuzzDecodeRequest; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect
+    nightlyfuzz_test.go:132: live: ./internal/daemon declares FuzzDeliverySealSelect; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/config_FuzzConfigLoad
+=== NAME  TestNightlyFuzzMatrix/eval_FuzzRedact
+    nightlyfuzz_test.go:132: live: ./internal/eval declares FuzzRedact; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/chunk_FuzzSplitStream
+=== NAME  TestNightlyFuzzMatrix/config_FuzzConfigLoad
+    nightlyfuzz_test.go:132: live: ./internal/config declares FuzzConfigLoad; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/chunk_FuzzSplit
+    nightlyfuzz_test.go:132: live: ./internal/chunk declares FuzzSplit; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections
+=== NAME  TestNightlyFuzzMatrix/chunk_FuzzSplitStream
+    nightlyfuzz_test.go:132: live: ./internal/chunk declares FuzzSplitStream; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex
+=== NAME  TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections
+    nightlyfuzz_test.go:132: live: ./internal/checkpoint declares FuzzStripInjections; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference
+=== NAME  TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex
+    nightlyfuzz_test.go:132: live: ./internal/checkpoint declares FuzzParseGitIndex; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzRestore
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference
+    nightlyfuzz_test.go:132: live: ./internal/canon declares FuzzTrailingWSAgreesWithReference; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzRestore
+    nightlyfuzz_test.go:132: live: ./internal/canon declares FuzzRestore; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan
+    nightlyfuzz_test.go:132: live: ./internal/canon declares FuzzPrefilterAgreesWithFullScan; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference
+    nightlyfuzz_test.go:132: live: ./internal/canon declares FuzzNumericMatchesAgreeWithReference; the nightly leg fuzzes it for real
+--- PASS: TestNightlyFuzzMatrix (0.06s)
+    --- PASS: TestNightlyFuzzMatrix/symbols_FuzzExtract (3.73s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzCanonicalize (11.06s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary (10.92s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary (3.91s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary (4.99s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary (5.06s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary (4.56s)
+    --- PASS: TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent (10.07s)
+    --- PASS: TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence (13.80s)
+    --- PASS: TestNightlyFuzzMatrix/observer_FuzzExtractSignals (7.76s)
+    --- PASS: TestNightlyFuzzMatrix/mcp_FuzzServeLine (7.83s)
+    --- PASS: TestNightlyFuzzMatrix/hookio_FuzzReadEvent (4.47s)
+    --- PASS: TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest (5.94s)
+    --- PASS: TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect (2.06s)
+    --- PASS: TestNightlyFuzzMatrix/eval_FuzzRedact (4.74s)
+    --- PASS: TestNightlyFuzzMatrix/config_FuzzConfigLoad (2.47s)
+    --- PASS: TestNightlyFuzzMatrix/chunk_FuzzSplit (6.86s)
+    --- PASS: TestNightlyFuzzMatrix/chunk_FuzzSplitStream (8.06s)
+    --- PASS: TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections (9.30s)
+    --- PASS: TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex (9.27s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference (5.54s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzRestore (5.54s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan (5.61s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference (5.99s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	80.559s

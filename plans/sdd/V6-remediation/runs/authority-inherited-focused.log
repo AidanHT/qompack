@@ -1,0 +1,210 @@
+{"Time":"2026-09-21T11:24:29.3055317-04:00","Action":"start","Package":"github.com/qompack/qompack/internal/mcp"}
+{"Time":"2026-09-21T11:24:29.4791638-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable"}
+{"Time":"2026-09-21T11:24:29.4796807-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable","Output":"=== RUN   TestExpandReportsADamagedObjectAsUnavailable\n"}
+{"Time":"2026-09-21T11:24:29.4808799-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable/by_tool_use_id"}
+{"Time":"2026-09-21T11:24:29.4814123-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable/by_tool_use_id","Output":"=== RUN   TestExpandReportsADamagedObjectAsUnavailable/by_tool_use_id\n"}
+{"Time":"2026-09-21T11:24:29.6395144-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable/by_tool_use_id","Output":"--- PASS: TestExpandReportsADamagedObjectAsUnavailable/by_tool_use_id (0.16s)\n"}
+{"Time":"2026-09-21T11:24:29.6395144-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable/by_tool_use_id","Elapsed":0.16}
+{"Time":"2026-09-21T11:24:29.6400284-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable/by_bare_chunk_hash"}
+{"Time":"2026-09-21T11:24:29.6400284-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable/by_bare_chunk_hash","Output":"=== RUN   TestExpandReportsADamagedObjectAsUnavailable/by_bare_chunk_hash\n"}
+{"Time":"2026-09-21T11:24:29.771355-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable/by_bare_chunk_hash","Output":"--- PASS: TestExpandReportsADamagedObjectAsUnavailable/by_bare_chunk_hash (0.13s)\n"}
+{"Time":"2026-09-21T11:24:29.771355-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable/by_bare_chunk_hash","Elapsed":0.13}
+{"Time":"2026-09-21T11:24:29.771355-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable","Output":"--- PASS: TestExpandReportsADamagedObjectAsUnavailable (0.29s)\n"}
+{"Time":"2026-09-21T11:24:29.771355-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandReportsADamagedObjectAsUnavailable","Elapsed":0.29}
+{"Time":"2026-09-21T11:24:29.771355-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadReportsADamagedObjectAsUnavailable"}
+{"Time":"2026-09-21T11:24:29.771355-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadReportsADamagedObjectAsUnavailable","Output":"=== RUN   TestReReadReportsADamagedObjectAsUnavailable\n"}
+{"Time":"2026-09-21T11:24:29.9056187-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadReportsADamagedObjectAsUnavailable","Output":"--- PASS: TestReReadReportsADamagedObjectAsUnavailable (0.13s)\n"}
+{"Time":"2026-09-21T11:24:29.9056187-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadReportsADamagedObjectAsUnavailable","Elapsed":0.13}
+{"Time":"2026-09-21T11:24:29.9056187-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandByToolUseID"}
+{"Time":"2026-09-21T11:24:29.9056187-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandByToolUseID","Output":"=== RUN   TestExpandByToolUseID\n"}
+{"Time":"2026-09-21T11:24:30.0744829-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandByToolUseID","Output":"--- PASS: TestExpandByToolUseID (0.17s)\n"}
+{"Time":"2026-09-21T11:24:30.0744829-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandByToolUseID","Elapsed":0.17}
+{"Time":"2026-09-21T11:24:30.0744829-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandByHash"}
+{"Time":"2026-09-21T11:24:30.0744829-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandByHash","Output":"=== RUN   TestExpandByHash\n"}
+{"Time":"2026-09-21T11:24:30.2144294-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandByHash","Output":"--- PASS: TestExpandByHash (0.14s)\n"}
+{"Time":"2026-09-21T11:24:30.2144294-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandByHash","Elapsed":0.14}
+{"Time":"2026-09-21T11:24:30.2144294-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandAcceptsChunkHash"}
+{"Time":"2026-09-21T11:24:30.2144294-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandAcceptsChunkHash","Output":"=== RUN   TestExpandAcceptsChunkHash\n"}
+{"Time":"2026-09-21T11:24:30.2797593-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandAcceptsChunkHash","Output":"--- PASS: TestExpandAcceptsChunkHash (0.07s)\n"}
+{"Time":"2026-09-21T11:24:30.2797593-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandAcceptsChunkHash","Elapsed":0.07}
+{"Time":"2026-09-21T11:24:30.2797593-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandBothArgsRejected"}
+{"Time":"2026-09-21T11:24:30.2797593-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandBothArgsRejected","Output":"=== RUN   TestExpandBothArgsRejected\n"}
+{"Time":"2026-09-21T11:24:30.390835-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandBothArgsRejected","Output":"--- PASS: TestExpandBothArgsRejected (0.11s)\n"}
+{"Time":"2026-09-21T11:24:30.390835-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandBothArgsRejected","Elapsed":0.11}
+{"Time":"2026-09-21T11:24:30.390835-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandNeitherArgRejected"}
+{"Time":"2026-09-21T11:24:30.390835-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandNeitherArgRejected","Output":"=== RUN   TestExpandNeitherArgRejected\n"}
+{"Time":"2026-09-21T11:24:30.4106926-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandNeitherArgRejected","Output":"--- PASS: TestExpandNeitherArgRejected (0.02s)\n"}
+{"Time":"2026-09-21T11:24:30.4106926-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandNeitherArgRejected","Elapsed":0.02}
+{"Time":"2026-09-21T11:24:30.4106926-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse"}
+{"Time":"2026-09-21T11:24:30.4106926-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"=== RUN   TestExpandUnknownHashFoundFalse\n"}
+{"Time":"2026-09-21T11:24:30.4283957-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"    handlers_span_test.go:143: \n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \tError Trace:\tC:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/mcp/handlers_span_test.go:143\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \tError:      \tNot equal: \n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \texpected: \"object store (root and chunk index)\"\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \tactual  : \"\"\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \t\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \tDiff:\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \t--- Expected\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \t+++ Actual\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \t@@ -1 +1 @@\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \t-object store (root and chunk index)\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \t            \t+\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \tTest:       \tTestExpandUnknownHashFoundFalse\n"}
+{"Time":"2026-09-21T11:24:30.428943-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"        \tMessages:   \tthe miss must name where it looked\n"}
+{"Time":"2026-09-21T11:24:30.4464682-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Output":"--- FAIL: TestExpandUnknownHashFoundFalse (0.04s)\n"}
+{"Time":"2026-09-21T11:24:30.4464682-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownHashFoundFalse","Elapsed":0.04}
+{"Time":"2026-09-21T11:24:30.4464682-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandMalformedHashIsError"}
+{"Time":"2026-09-21T11:24:30.4464682-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandMalformedHashIsError","Output":"=== RUN   TestExpandMalformedHashIsError\n"}
+{"Time":"2026-09-21T11:24:30.4632662-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandMalformedHashIsError","Output":"--- PASS: TestExpandMalformedHashIsError (0.02s)\n"}
+{"Time":"2026-09-21T11:24:30.4632662-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandMalformedHashIsError","Elapsed":0.02}
+{"Time":"2026-09-21T11:24:30.4632662-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandFullEscapeHatch"}
+{"Time":"2026-09-21T11:24:30.4632662-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandFullEscapeHatch","Output":"=== RUN   TestExpandFullEscapeHatch\n"}
+{"Time":"2026-09-21T11:24:31.0319518-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandFullEscapeHatch","Output":"--- PASS: TestExpandFullEscapeHatch (0.57s)\n"}
+{"Time":"2026-09-21T11:24:31.0319518-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandFullEscapeHatch","Elapsed":0.57}
+{"Time":"2026-09-21T11:24:31.0319518-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandSpanPaging"}
+{"Time":"2026-09-21T11:24:31.0319518-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandSpanPaging","Output":"=== RUN   TestExpandSpanPaging\n"}
+{"Time":"2026-09-21T11:24:31.166794-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandSpanPaging","Output":"--- PASS: TestExpandSpanPaging (0.13s)\n"}
+{"Time":"2026-09-21T11:24:31.166794-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandSpanPaging","Elapsed":0.13}
+{"Time":"2026-09-21T11:24:31.166794-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadEmptyAtNeverReadsTheWorktree"}
+{"Time":"2026-09-21T11:24:31.166794-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadEmptyAtNeverReadsTheWorktree","Output":"=== RUN   TestReReadEmptyAtNeverReadsTheWorktree\n"}
+{"Time":"2026-09-21T11:24:31.2054151-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadEmptyAtNeverReadsTheWorktree","Output":"--- PASS: TestReReadEmptyAtNeverReadsTheWorktree (0.04s)\n"}
+{"Time":"2026-09-21T11:24:31.2054151-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadEmptyAtNeverReadsTheWorktree","Elapsed":0.04}
+{"Time":"2026-09-21T11:24:31.2054151-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadEmptyAtReturnsCapturedVersionEvenWhenDiskDisagrees"}
+{"Time":"2026-09-21T11:24:31.2054151-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadEmptyAtReturnsCapturedVersionEvenWhenDiskDisagrees","Output":"=== RUN   TestReReadEmptyAtReturnsCapturedVersionEvenWhenDiskDisagrees\n"}
+{"Time":"2026-09-21T11:24:31.2725775-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadEmptyAtReturnsCapturedVersionEvenWhenDiskDisagrees","Output":"--- PASS: TestReReadEmptyAtReturnsCapturedVersionEvenWhenDiskDisagrees (0.07s)\n"}
+{"Time":"2026-09-21T11:24:31.2725775-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadEmptyAtReturnsCapturedVersionEvenWhenDiskDisagrees","Elapsed":0.07}
+{"Time":"2026-09-21T11:24:31.2725775-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadFallsBackToStoreWhenFileDeleted"}
+{"Time":"2026-09-21T11:24:31.2725775-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadFallsBackToStoreWhenFileDeleted","Output":"=== RUN   TestReReadFallsBackToStoreWhenFileDeleted\n"}
+{"Time":"2026-09-21T11:24:31.3414538-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadFallsBackToStoreWhenFileDeleted","Output":"--- PASS: TestReReadFallsBackToStoreWhenFileDeleted (0.07s)\n"}
+{"Time":"2026-09-21T11:24:31.3419708-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadFallsBackToStoreWhenFileDeleted","Elapsed":0.07}
+{"Time":"2026-09-21T11:24:31.3419708-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtTimestamp"}
+{"Time":"2026-09-21T11:24:31.3419708-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtTimestamp","Output":"=== RUN   TestReReadAtTimestamp\n"}
+{"Time":"2026-09-21T11:24:31.4224781-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtTimestamp","Output":"--- PASS: TestReReadAtTimestamp (0.08s)\n"}
+{"Time":"2026-09-21T11:24:31.4224781-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtTimestamp","Elapsed":0.08}
+{"Time":"2026-09-21T11:24:31.4224781-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtRootHash"}
+{"Time":"2026-09-21T11:24:31.4224781-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtRootHash","Output":"=== RUN   TestReReadAtRootHash\n"}
+{"Time":"2026-09-21T11:24:31.4888954-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtRootHash","Output":"--- PASS: TestReReadAtRootHash (0.07s)\n"}
+{"Time":"2026-09-21T11:24:31.489447-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtRootHash","Elapsed":0.07}
+{"Time":"2026-09-21T11:24:31.489447-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtTurn"}
+{"Time":"2026-09-21T11:24:31.489447-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtTurn","Output":"=== RUN   TestReReadAtTurn\n"}
+{"Time":"2026-09-21T11:24:31.5565142-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtTurn","Output":"--- PASS: TestReReadAtTurn (0.07s)\n"}
+{"Time":"2026-09-21T11:24:31.5565142-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtTurn","Elapsed":0.07}
+{"Time":"2026-09-21T11:24:31.5565142-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadSymbolSuffixAnchorsSpan"}
+{"Time":"2026-09-21T11:24:31.5565142-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadSymbolSuffixAnchorsSpan","Output":"=== RUN   TestReReadSymbolSuffixAnchorsSpan\n"}
+{"Time":"2026-09-21T11:24:31.7324742-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadSymbolSuffixAnchorsSpan","Output":"--- PASS: TestReReadSymbolSuffixAnchorsSpan (0.18s)\n"}
+{"Time":"2026-09-21T11:24:31.7324742-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadSymbolSuffixAnchorsSpan","Elapsed":0.18}
+{"Time":"2026-09-21T11:24:31.7329925-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadLineSuffixAnchorsSpan"}
+{"Time":"2026-09-21T11:24:31.7329925-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadLineSuffixAnchorsSpan","Output":"=== RUN   TestReReadLineSuffixAnchorsSpan\n"}
+{"Time":"2026-09-21T11:24:31.9044663-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadLineSuffixAnchorsSpan","Output":"--- PASS: TestReReadLineSuffixAnchorsSpan (0.17s)\n"}
+{"Time":"2026-09-21T11:24:31.9053047-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadLineSuffixAnchorsSpan","Elapsed":0.17}
+{"Time":"2026-09-21T11:24:31.9053047-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadPathEscapeRejected"}
+{"Time":"2026-09-21T11:24:31.9053047-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadPathEscapeRejected","Output":"=== RUN   TestReReadPathEscapeRejected\n"}
+{"Time":"2026-09-21T11:24:31.9307317-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadPathEscapeRejected","Output":"--- PASS: TestReReadPathEscapeRejected (0.03s)\n"}
+{"Time":"2026-09-21T11:24:31.9307317-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadPathEscapeRejected","Elapsed":0.03}
+{"Time":"2026-09-21T11:24:31.9307317-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadUnknownPathReportsExplicitUnavailable"}
+{"Time":"2026-09-21T11:24:31.9307317-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadUnknownPathReportsExplicitUnavailable","Output":"=== RUN   TestReReadUnknownPathReportsExplicitUnavailable\n"}
+{"Time":"2026-09-21T11:24:31.9750713-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadUnknownPathReportsExplicitUnavailable","Output":"--- PASS: TestReReadUnknownPathReportsExplicitUnavailable (0.04s)\n"}
+{"Time":"2026-09-21T11:24:31.9750713-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadUnknownPathReportsExplicitUnavailable","Elapsed":0.04}
+{"Time":"2026-09-21T11:24:31.9750713-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError"}
+{"Time":"2026-09-21T11:24:31.9750713-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError","Output":"=== RUN   TestReReadBadAtIsError\n"}
+{"Time":"2026-09-21T11:24:31.9878482-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_bare_word"}
+{"Time":"2026-09-21T11:24:31.9878482-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_bare_word","Output":"=== RUN   TestReReadBadAtIsError/a_bare_word\n"}
+{"Time":"2026-09-21T11:24:31.9888918-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_bare_word","Output":"--- PASS: TestReReadBadAtIsError/a_bare_word (0.00s)\n"}
+{"Time":"2026-09-21T11:24:31.9888918-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_bare_word","Elapsed":0}
+{"Time":"2026-09-21T11:24:31.9888918-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_malformed_hash"}
+{"Time":"2026-09-21T11:24:31.9888918-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_malformed_hash","Output":"=== RUN   TestReReadBadAtIsError/a_malformed_hash\n"}
+{"Time":"2026-09-21T11:24:31.9909951-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_malformed_hash","Output":"--- PASS: TestReReadBadAtIsError/a_malformed_hash (0.00s)\n"}
+{"Time":"2026-09-21T11:24:31.9915283-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_malformed_hash","Elapsed":0}
+{"Time":"2026-09-21T11:24:31.9915283-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_malformed_turn"}
+{"Time":"2026-09-21T11:24:31.9915283-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_malformed_turn","Output":"=== RUN   TestReReadBadAtIsError/a_malformed_turn\n"}
+{"Time":"2026-09-21T11:24:31.9931143-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_malformed_turn","Output":"--- PASS: TestReReadBadAtIsError/a_malformed_turn (0.00s)\n"}
+{"Time":"2026-09-21T11:24:31.9931143-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_malformed_turn","Elapsed":0}
+{"Time":"2026-09-21T11:24:31.9931143-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_negative_turn"}
+{"Time":"2026-09-21T11:24:31.9931143-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_negative_turn","Output":"=== RUN   TestReReadBadAtIsError/a_negative_turn\n"}
+{"Time":"2026-09-21T11:24:31.9946916-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_negative_turn","Output":"--- PASS: TestReReadBadAtIsError/a_negative_turn (0.00s)\n"}
+{"Time":"2026-09-21T11:24:31.9946916-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/a_negative_turn","Elapsed":0}
+{"Time":"2026-09-21T11:24:31.9946916-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/an_RFC3339_stub"}
+{"Time":"2026-09-21T11:24:31.9946916-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/an_RFC3339_stub","Output":"=== RUN   TestReReadBadAtIsError/an_RFC3339_stub\n"}
+{"Time":"2026-09-21T11:24:31.9957402-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/an_RFC3339_stub","Output":"--- PASS: TestReReadBadAtIsError/an_RFC3339_stub (0.00s)\n"}
+{"Time":"2026-09-21T11:24:31.9957402-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError/an_RFC3339_stub","Elapsed":0}
+{"Time":"2026-09-21T11:24:32.002599-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError","Output":"--- PASS: TestReReadBadAtIsError (0.03s)\n"}
+{"Time":"2026-09-21T11:24:32.002599-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadBadAtIsError","Elapsed":0.03}
+{"Time":"2026-09-21T11:24:32.002599-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss"}
+{"Time":"2026-09-21T11:24:32.002599-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss","Output":"=== RUN   TestReReadAtWellFormedButUnknownIsAMiss\n"}
+{"Time":"2026-09-21T11:24:32.0280926-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_hash_nothing_was_stored_under"}
+{"Time":"2026-09-21T11:24:32.0280926-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_hash_nothing_was_stored_under","Output":"=== RUN   TestReReadAtWellFormedButUnknownIsAMiss/a_hash_nothing_was_stored_under\n"}
+{"Time":"2026-09-21T11:24:32.035176-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_hash_nothing_was_stored_under","Output":"--- PASS: TestReReadAtWellFormedButUnknownIsAMiss/a_hash_nothing_was_stored_under (0.01s)\n"}
+{"Time":"2026-09-21T11:24:32.035176-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_hash_nothing_was_stored_under","Elapsed":0.01}
+{"Time":"2026-09-21T11:24:32.035176-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_turn_before_the_first_version"}
+{"Time":"2026-09-21T11:24:32.035176-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_turn_before_the_first_version","Output":"=== RUN   TestReReadAtWellFormedButUnknownIsAMiss/a_turn_before_the_first_version\n"}
+{"Time":"2026-09-21T11:24:32.0367686-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_turn_before_the_first_version","Output":"--- PASS: TestReReadAtWellFormedButUnknownIsAMiss/a_turn_before_the_first_version (0.00s)\n"}
+{"Time":"2026-09-21T11:24:32.0367686-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_turn_before_the_first_version","Elapsed":0}
+{"Time":"2026-09-21T11:24:32.0367686-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_turn_on_a_path_with_no_history"}
+{"Time":"2026-09-21T11:24:32.0367686-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_turn_on_a_path_with_no_history","Output":"=== RUN   TestReReadAtWellFormedButUnknownIsAMiss/a_turn_on_a_path_with_no_history\n"}
+{"Time":"2026-09-21T11:24:32.0378817-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_turn_on_a_path_with_no_history","Output":"--- PASS: TestReReadAtWellFormedButUnknownIsAMiss/a_turn_on_a_path_with_no_history (0.00s)\n"}
+{"Time":"2026-09-21T11:24:32.0384282-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/a_turn_on_a_path_with_no_history","Elapsed":0}
+{"Time":"2026-09-21T11:24:32.0384282-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/an_instant_before_the_first_version"}
+{"Time":"2026-09-21T11:24:32.0384282-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/an_instant_before_the_first_version","Output":"=== RUN   TestReReadAtWellFormedButUnknownIsAMiss/an_instant_before_the_first_version\n"}
+{"Time":"2026-09-21T11:24:32.0395168-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/an_instant_before_the_first_version","Output":"--- PASS: TestReReadAtWellFormedButUnknownIsAMiss/an_instant_before_the_first_version (0.00s)\n"}
+{"Time":"2026-09-21T11:24:32.0395168-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss/an_instant_before_the_first_version","Elapsed":0}
+{"Time":"2026-09-21T11:24:32.0674955-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss","Output":"--- PASS: TestReReadAtWellFormedButUnknownIsAMiss (0.06s)\n"}
+{"Time":"2026-09-21T11:24:32.0674955-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadAtWellFormedButUnknownIsAMiss","Elapsed":0.06}
+{"Time":"2026-09-21T11:24:32.0674955-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownToolUseIDFoundFalse"}
+{"Time":"2026-09-21T11:24:32.0674955-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownToolUseIDFoundFalse","Output":"=== RUN   TestExpandUnknownToolUseIDFoundFalse\n"}
+{"Time":"2026-09-21T11:24:32.1036807-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownToolUseIDFoundFalse","Output":"--- PASS: TestExpandUnknownToolUseIDFoundFalse (0.04s)\n"}
+{"Time":"2026-09-21T11:24:32.1036807-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandUnknownToolUseIDFoundFalse","Elapsed":0.04}
+{"Time":"2026-09-21T11:24:32.1036807-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandDeniesAToolUseRecordWhoseStoredPathEscapesTheProjectRoot"}
+{"Time":"2026-09-21T11:24:32.1036807-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandDeniesAToolUseRecordWhoseStoredPathEscapesTheProjectRoot","Output":"=== RUN   TestExpandDeniesAToolUseRecordWhoseStoredPathEscapesTheProjectRoot\n"}
+{"Time":"2026-09-21T11:24:32.149553-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandDeniesAToolUseRecordWhoseStoredPathEscapesTheProjectRoot","Output":"--- PASS: TestExpandDeniesAToolUseRecordWhoseStoredPathEscapesTheProjectRoot (0.05s)\n"}
+{"Time":"2026-09-21T11:24:32.149553-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandDeniesAToolUseRecordWhoseStoredPathEscapesTheProjectRoot","Elapsed":0.05}
+{"Time":"2026-09-21T11:24:32.149553-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandRedactsSecretsTheCaptureTimePolicyMissed"}
+{"Time":"2026-09-21T11:24:32.149553-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandRedactsSecretsTheCaptureTimePolicyMissed","Output":"=== RUN   TestExpandRedactsSecretsTheCaptureTimePolicyMissed\n"}
+{"Time":"2026-09-21T11:24:32.2213605-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandRedactsSecretsTheCaptureTimePolicyMissed","Output":"--- PASS: TestExpandRedactsSecretsTheCaptureTimePolicyMissed (0.07s)\n"}
+{"Time":"2026-09-21T11:24:32.2213605-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandRedactsSecretsTheCaptureTimePolicyMissed","Elapsed":0.07}
+{"Time":"2026-09-21T11:24:32.2213605-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadRedactsSecretsTheCaptureTimePolicyMissed"}
+{"Time":"2026-09-21T11:24:32.2213605-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadRedactsSecretsTheCaptureTimePolicyMissed","Output":"=== RUN   TestReReadRedactsSecretsTheCaptureTimePolicyMissed\n"}
+{"Time":"2026-09-21T11:24:32.2781636-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadRedactsSecretsTheCaptureTimePolicyMissed","Output":"--- PASS: TestReReadRedactsSecretsTheCaptureTimePolicyMissed (0.06s)\n"}
+{"Time":"2026-09-21T11:24:32.2781636-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestReReadRedactsSecretsTheCaptureTimePolicyMissed","Elapsed":0.06}
+{"Time":"2026-09-21T11:24:32.2781636-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandRedactionNeverLogsTheSecret"}
+{"Time":"2026-09-21T11:24:32.2781636-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandRedactionNeverLogsTheSecret","Output":"=== RUN   TestExpandRedactionNeverLogsTheSecret\n"}
+{"Time":"2026-09-21T11:24:32.3357618-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandRedactionNeverLogsTheSecret","Output":"--- PASS: TestExpandRedactionNeverLogsTheSecret (0.06s)\n"}
+{"Time":"2026-09-21T11:24:32.3357618-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandRedactionNeverLogsTheSecret","Elapsed":0.06}
+{"Time":"2026-09-21T11:24:32.3357618-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallSummariesSurviveARedactor"}
+{"Time":"2026-09-21T11:24:32.3357618-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallSummariesSurviveARedactor","Output":"=== RUN   TestRecallSummariesSurviveARedactor\n"}
+{"Time":"2026-09-21T11:24:32.3975176-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallSummariesSurviveARedactor","Output":"--- PASS: TestRecallSummariesSurviveARedactor (0.06s)\n"}
+{"Time":"2026-09-21T11:24:32.3975176-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallSummariesSurviveARedactor","Elapsed":0.06}
+{"Time":"2026-09-21T11:24:32.3975176-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallReturnsHashesAndSummaries"}
+{"Time":"2026-09-21T11:24:32.3975176-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallReturnsHashesAndSummaries","Output":"=== RUN   TestRecallReturnsHashesAndSummaries\n"}
+{"Time":"2026-09-21T11:24:33.5236465-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallReturnsHashesAndSummaries","Output":"--- PASS: TestRecallReturnsHashesAndSummaries (1.13s)\n"}
+{"Time":"2026-09-21T11:24:33.5236465-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallReturnsHashesAndSummaries","Elapsed":1.13}
+{"Time":"2026-09-21T11:24:33.5236465-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallDefaultKIsFive"}
+{"Time":"2026-09-21T11:24:33.5236465-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallDefaultKIsFive","Output":"=== RUN   TestRecallDefaultKIsFive\n"}
+{"Time":"2026-09-21T11:24:34.2490746-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallDefaultKIsFive","Output":"--- PASS: TestRecallDefaultKIsFive (0.73s)\n"}
+{"Time":"2026-09-21T11:24:34.2490746-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallDefaultKIsFive","Elapsed":0.73}
+{"Time":"2026-09-21T11:24:34.2490746-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallSelectorPrefixesParsed"}
+{"Time":"2026-09-21T11:24:34.2490746-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallSelectorPrefixesParsed","Output":"=== RUN   TestRecallSelectorPrefixesParsed\n"}
+{"Time":"2026-09-21T11:24:34.3011501-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallSelectorPrefixesParsed","Output":"--- PASS: TestRecallSelectorPrefixesParsed (0.05s)\n"}
+{"Time":"2026-09-21T11:24:34.3016904-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallSelectorPrefixesParsed","Elapsed":0.05}
+{"Time":"2026-09-21T11:24:34.3016904-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallEmptyResultIsNotAnError"}
+{"Time":"2026-09-21T11:24:34.3016904-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallEmptyResultIsNotAnError","Output":"=== RUN   TestRecallEmptyResultIsNotAnError\n"}
+{"Time":"2026-09-21T11:24:35.0401848-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallEmptyResultIsNotAnError","Output":"--- PASS: TestRecallEmptyResultIsNotAnError (0.74s)\n"}
+{"Time":"2026-09-21T11:24:35.0401848-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallEmptyResultIsNotAnError","Elapsed":0.74}
+{"Time":"2026-09-21T11:24:35.0401848-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallNilStoreReportsUnavailable"}
+{"Time":"2026-09-21T11:24:35.0401848-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallNilStoreReportsUnavailable","Output":"=== RUN   TestRecallNilStoreReportsUnavailable\n"}
+{"Time":"2026-09-21T11:24:35.0623228-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallNilStoreReportsUnavailable","Output":"--- PASS: TestRecallNilStoreReportsUnavailable (0.02s)\n"}
+{"Time":"2026-09-21T11:24:35.0623228-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallNilStoreReportsUnavailable","Elapsed":0.02}
+{"Time":"2026-09-21T11:24:35.0623228-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallOmitsHitsWhoseStoredPathFailsAuthorization"}
+{"Time":"2026-09-21T11:24:35.0623228-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallOmitsHitsWhoseStoredPathFailsAuthorization","Output":"=== RUN   TestRecallOmitsHitsWhoseStoredPathFailsAuthorization\n"}
+{"Time":"2026-09-21T11:24:35.1330652-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallOmitsHitsWhoseStoredPathFailsAuthorization","Output":"--- PASS: TestRecallOmitsHitsWhoseStoredPathFailsAuthorization (0.07s)\n"}
+{"Time":"2026-09-21T11:24:35.1330652-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallOmitsHitsWhoseStoredPathFailsAuthorization","Elapsed":0.07}
+{"Time":"2026-09-21T11:24:35.1330652-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallDoesNotCountAsExpansion"}
+{"Time":"2026-09-21T11:24:35.1330652-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallDoesNotCountAsExpansion","Output":"=== RUN   TestRecallDoesNotCountAsExpansion\n"}
+{"Time":"2026-09-21T11:24:35.8668942-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallDoesNotCountAsExpansion","Output":"--- PASS: TestRecallDoesNotCountAsExpansion (0.73s)\n"}
+{"Time":"2026-09-21T11:24:35.8668942-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestRecallDoesNotCountAsExpansion","Elapsed":0.73}
+{"Time":"2026-09-21T11:24:35.8668942-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandMetaCarriesExpansionCount"}
+{"Time":"2026-09-21T11:24:35.8668942-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandMetaCarriesExpansionCount","Output":"=== RUN   TestExpandMetaCarriesExpansionCount\n"}
+{"Time":"2026-09-21T11:24:36.5709566-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandMetaCarriesExpansionCount","Output":"--- PASS: TestExpandMetaCarriesExpansionCount (0.70s)\n"}
+{"Time":"2026-09-21T11:24:36.5709566-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestExpandMetaCarriesExpansionCount","Elapsed":0.7}
+{"Time":"2026-09-21T11:24:36.5709566-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Output":"FAIL\n"}
+{"Time":"2026-09-21T11:24:36.5810653-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Output":"FAIL\tgithub.com/qompack/qompack/internal/mcp\t7.274s\n"}
+{"Time":"2026-09-21T11:24:36.5810653-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/mcp","Elapsed":7.276}

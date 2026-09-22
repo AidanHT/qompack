@@ -1,0 +1,126 @@
+{
+  "checked_at": "2026-09-21T16:27:37.070652-04:00",
+  "files": [
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\Qompack.md",
+      "expected": "bb78d15a5558cfa03783ab7420d43b12caa5ef0211423a6bc9b99a9f3df4467a",
+      "actual": "bb78d15a5558cfa03783ab7420d43b12caa5ef0211423a6bc9b99a9f3df4467a",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\00-ARCHITECTURE.md",
+      "expected": "d6235aff9dcc9350000e8888f60744be02370979d2f6144d6f6520daf6fbe16a",
+      "actual": "d6235aff9dcc9350000e8888f60744be02370979d2f6144d6f6520daf6fbe16a",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\QOMPACK-ERRATA.md",
+      "expected": "0fa7b49679ba5a3e2d78ae314e5642c65468b5b33f237db7b9df0782de309614",
+      "actual": "0fa7b49679ba5a3e2d78ae314e5642c65468b5b33f237db7b9df0782de309614",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\README.md",
+      "expected": "53c0628a6bf5e5c38442b897e121defaf377ce1b009192809f9d0ab2d19c0b3a",
+      "actual": "53c0628a6bf5e5c38442b897e121defaf377ce1b009192809f9d0ab2d19c0b3a",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\TRACEABILITY.md",
+      "expected": "4f6e948b61a2e79f4c878266576306652ff68485f57368ce905840ef2c9b7ed2",
+      "actual": "4f6e948b61a2e79f4c878266576306652ff68485f57368ce905840ef2c9b7ed2",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-SP-10-checkpointer-l4.md",
+      "expected": "be7af1579c4d29e16c06507e94d76f1acccd0dad0ede6e8962fd87494bf86a79",
+      "actual": "be7af1579c4d29e16c06507e94d76f1acccd0dad0ede6e8962fd87494bf86a79",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-SP-11-rehydrator-l5.md",
+      "expected": "b119308eb239ae2cfeb2f6e5129181abac4ebcc69ec09db3e3d87a835f0d4a93",
+      "actual": "b119308eb239ae2cfeb2f6e5129181abac4ebcc69ec09db3e3d87a835f0d4a93",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-SP-12-scheduler-l3.md",
+      "expected": "cf20be9805d3acd1b85c830d6ffce422e7ce978a18f5438b6d72b94c6b1d902a",
+      "actual": "cf20be9805d3acd1b85c830d6ffce422e7ce978a18f5438b6d72b94c6b1d902a",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-SP-13-mcp-retrieval-layer.md",
+      "expected": "a74c2af73a021969d869826d3fc94e0c4fdc91981702ec2df45631b277388fc1",
+      "actual": "a74c2af73a021969d869826d3fc94e0c4fdc91981702ec2df45631b277388fc1",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V4-VERIFY-checkpoint-rehydrate-schedule-retrieval.md",
+      "expected": "20629641f2b7dd4127368477115e47c855b7c9f3f135887ba79d02789b419a0b",
+      "actual": "20629641f2b7dd4127368477115e47c855b7c9f3f135887ba79d02789b419a0b",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V5-SP-14-slash-commands-and-observability.md",
+      "expected": "541ab4511449aa92461f1d592023b43c8b77f61fad08526e2070af7cffb968c0",
+      "actual": "541ab4511449aa92461f1d592023b43c8b77f61fad08526e2070af7cffb968c0",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V5-SP-15-analyzer-selection-and-grammar.md",
+      "expected": "2a49cf3005f1539d707af4fcf63ac362359b48c57b341aab618cd316fd4dcfc9",
+      "actual": "2a49cf3005f1539d707af4fcf63ac362359b48c57b341aab618cd316fd4dcfc9",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V5-SP-16-phase7-refinements.md",
+      "expected": "747f1257b16cff060501b9423650228057eb5032a73a717b4d59b8a7188ea6c9",
+      "actual": "747f1257b16cff060501b9423650228057eb5032a73a717b4d59b8a7188ea6c9",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V5-VERIFY-commands-selection-grammar-and-refinements.md",
+      "expected": "efa31d79bdfe1dcef4a52ee83655566d1a2b43b11320943bda9a304be4a7789e",
+      "actual": "efa31d79bdfe1dcef4a52ee83655566d1a2b43b11320943bda9a304be4a7789e",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V6-SP-17-packaging-hardening-and-release.md",
+      "expected": "0ea5f81d97f6a907e79ade90d613d18ff23178dd69556d2a36d67b007ff90ad3",
+      "actual": "0ea5f81d97f6a907e79ade90d613d18ff23178dd69556d2a36d67b007ff90ad3",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V6-SP-18-documentation-and-uat.md",
+      "expected": "3c9d13554d969952b78214e20d7fa3d190c83ac3c424fd8cb8e4910e83d947a7",
+      "actual": "3c9d13554d969952b78214e20d7fa3d190c83ac3c424fd8cb8e4910e83d947a7",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V6-VERIFY-production-readiness-and-uat.md",
+      "expected": "764953e7e58bec4a1b87b88192467021ec8342798370713ce943d18f22a765e0",
+      "actual": "764953e7e58bec4a1b87b88192467021ec8342798370713ce943d18f22a765e0",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V1-report.md",
+      "expected": "7d7550292de5343a62b28ac146e99b88509cd4d6a5353bb062e180d4290f7bff",
+      "actual": "7d7550292de5343a62b28ac146e99b88509cd4d6a5353bb062e180d4290f7bff",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V2-report.md",
+      "expected": "949e85bd93506bb0c3f6fee0acfcfc33f46d474184c5d4ae2fbfc57f5a3cf372",
+      "actual": "949e85bd93506bb0c3f6fee0acfcfc33f46d474184c5d4ae2fbfc57f5a3cf372",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack\\plans\\V3-report.md",
+      "expected": "f4d9823c0fe4ac2351dabd8f0f963079b5d8545817e593127da2a007e915b568",
+      "actual": "f4d9823c0fe4ac2351dabd8f0f963079b5d8545817e593127da2a007e915b568",
+      "unchanged": true
+    }
+  ],
+  "historical_v6_diff": ""
+}

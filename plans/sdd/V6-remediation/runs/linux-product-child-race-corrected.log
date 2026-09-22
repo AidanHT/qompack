@@ -1,0 +1,42 @@
+/work/linux-child-race-20260922-1432.tar: OK
+go version go1.26.6 linux/amd64
+=== RUN   TestProcessAlive_V6_ExitedUnreapedChildCannotWrite
+--- PASS: TestProcessAlive_V6_ExitedUnreapedChildCannotWrite (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/testutil	1.063s
+=== RUN   TestE2EHookRoundTrip
+--- PASS: TestE2EHookRoundTrip (55.74s)
+=== RUN   TestStdioServerEndToEnd
+--- PASS: TestStdioServerEndToEnd (4.90s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (49.99s)
+=== RUN   TestE2E_SupersessionVisibleAfterRestart
+--- PASS: TestE2E_SupersessionVisibleAfterRestart (9.99s)
+=== RUN   TestE2E_VerbatimPromptSurvivesRestart
+--- PASS: TestE2E_VerbatimPromptSurvivesRestart (6.18s)
+=== RUN   TestE2E_RequiredProductChildRaceInstrumentation
+    race_instrumentation_test.go:36: instrumented product child: sha256=45ed6577fa60982b11c149f761b9a79472f1e2cce04f3258a4e1148a75b9c7f2 go=go1.26.6
+--- PASS: TestE2E_RequiredProductChildRaceInstrumentation (0.01s)
+=== RUN   TestE2E_SessionStartCompactRestoresCheckpointItems
+--- PASS: TestE2E_SessionStartCompactRestoresCheckpointItems (3.38s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:368: x10Restart: attempt 1/3: no daemon became reachable at /tmp/qompack-0/fd5913397820.sock
+    v3_x10_test.go:368: x10Restart: attempt 2/3: no daemon became reachable at /tmp/qompack-0/fd5913397820.sock
+    v3_x10_test.go:368: 
+        	Error Trace:	/work/linux-child-race-20260922-1432/test/e2e/v3_x10_test.go:263
+        	            				/work/linux-child-race-20260922-1432/test/e2e/v3_x10_test.go:368
+        	Error:      	Condition never satisfied
+        	Test:       	TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+        	Messages:   	unreachable
+    v3_x10_test.go:368: x10Restart: attempt 3/3: no daemon became reachable at /tmp/qompack-0/fd5913397820.sock
+    v3_x10_test.go:368: x10Restart: daemon.lock still present: pid=10072 addr=/tmp/qompack-0/fd5913397820.sock (pid alive: false)
+    v3_x10_test.go:368: x10Restart: daemon.hb mtime age: 10m40.679071977s
+    v3_x10_test.go:368: x10Restart: qompack-20260922.log (tail):
+        ts=2026-09-22T18:36:08.407584466Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+        ts=2026-09-22T18:36:08.463487024Z level=info msg="observer: session registered" session=sess-x10-crash source=startup turn=0 segment=1
+        ts=2026-09-22T18:36:08.463817921Z level=info msg="scheduler: session bound" session=sess-x10-crash effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+    v3_x10_test.go:368: x10Restart: no daemon ever became reachable at /tmp/qompack-0/fd5913397820.sock after 3 session-start attempts
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (75.04s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	205.284s
+FAIL

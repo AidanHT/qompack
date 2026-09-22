@@ -1,0 +1,19 @@
+{
+  "id": "prompt-author-record-timeout",
+  "source_head": "19344e3ccaa8a61399b01223d8a360881d2df6d3",
+  "status": "failed",
+  "exit_code": null,
+  "captured_at": "2026-09-21T15:52:48.391131-04:00",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=150s",
+    "-run",
+    "TestObservePrompt_",
+    "./internal/daemon/"
+  ],
+  "log": "prompt-author-record-timeout.log",
+  "log_sha256": "661dcce3c482c656a52185a59373cb709080bdb9f37ecd906d817cb2ace9a3ea",
+  "limitation": "Author piped through tee/tail without pipefail; reported shell status zero does not represent Go test. Original log explicitly ends FAIL after timeout. No precise source snapshot/start time was captured."
+}

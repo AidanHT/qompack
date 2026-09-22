@@ -1,0 +1,3 @@
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\store\gc_delivery_segments.go:50:20: literal 4096 duplicates a config default; read it from config (D11, §11.6)
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\daemon\delivery_segment.go:67:27: literal 4096 duplicates a config default; read it from config (D11, §11.6)
+exit status 3

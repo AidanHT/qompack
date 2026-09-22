@@ -1,0 +1,20 @@
+{
+  "name": "v6_backup_corrupt_or_unknown_schema_refused",
+  "phase": "lifecycle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-645-gc9b5251-dirty",
+    "binary_sha256": "8dde8feabe770fdaa8aa40a883cb1ecd6be9b285f76743ba68107c431e307f52"
+  },
+  "boundary": "restore of a corrupted backup and of an unknown-schema manifest",
+  "seed_method": "packaged hooks seed a store; daemon stopped; a valid backup is taken; then one tree file is tampered and, separately, the manifest schema is bumped beyond this build; each restore is aimed at its own fresh destination",
+  "outcome": "explicit_incomplete",
+  "reason": "restore refuses a corrupted backup and an unknown-schema manifest, and in neither case does it publish a destination .qompack; the failures are reported, not swept.",
+  "detail": "corrupt_refusal=\"store: restore backup \\\"good\\\": .gitignore: store: backup does not match its manifest: longer than its manifest size; the incomplete staging tree is preserved as evidence at C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-fault-1897014369\\\\dest-corrupt\\\\.qompack.restore-good-6e0f32f6e6cc02bd\"; schema_refusal=\"store: backup manifest is unusable: backup \\\"good\\\" manifest version 999 is not readable by this build\"",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

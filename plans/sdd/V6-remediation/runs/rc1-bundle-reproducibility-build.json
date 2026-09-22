@@ -1,0 +1,34 @@
+{
+  "id": "rc1-bundle-reproducibility-build",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "bundle",
+    "--target",
+    "windows/amd64",
+    "--target",
+    "linux/amd64",
+    "--out",
+    "dist/v6-rc1-repro",
+    "--archive"
+  ],
+  "source_head": "65bc8d7707fed78e1b7344c2d23d5fa948a0a9c1",
+  "source_dirty": "",
+  "source_snapshot": "rc1-bundle-reproducibility-build.source.json",
+  "source_snapshot_sha256": "6796120e1587043a211a43fab344b7d991b1e29eadebe411e1a4c5434f413f18",
+  "started_at": "2026-09-22T16:37:23.007952-04:00",
+  "status": "passed",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": "2"
+  },
+  "log": "rc1-bundle-reproducibility-build.log",
+  "exit_code": 0,
+  "elapsed_seconds": 14.883,
+  "finished_at": "2026-09-22T16:37:37.892105-04:00",
+  "source_changed_during_run": false,
+  "source_dirty_after": "",
+  "log_sha256": "5b9397e0d9125bcc03626945188d28c10abf29c2854a62c66c0b2599772338e9"
+}

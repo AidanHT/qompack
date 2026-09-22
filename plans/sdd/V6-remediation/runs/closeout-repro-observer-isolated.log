@@ -1,0 +1,11 @@
+=== RUN   TestE2E_ObserverThroughDaemon
+    observer_e2e_test.go:213: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/test/e2e/observer_e2e_test.go:213
+        	Error:      	Condition never satisfied
+        	Test:       	TestE2E_ObserverThroughDaemon
+        	Messages:   	index/tool_use.jsonl never reached 44 lines: index holds 1 lines; undrained client spool [client-47868.ndjson], so at least one event degraded to the spool and this waited on the 30s idle-tick drain
+--- FAIL: TestE2E_ObserverThroughDaemon (67.62s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	67.846s
+FAIL
+exit=1

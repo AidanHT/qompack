@@ -1,0 +1,95 @@
+go version go1.26.6 linux/amd64
+=== RUN   TestObservationAudit_UnpublishedIntentCannotLookClean
+--- PASS: TestObservationAudit_UnpublishedIntentCannotLookClean (0.14s)
+=== RUN   TestObservationAudit_UnknownStateAndBoundsStayExplicit
+--- PASS: TestObservationAudit_UnknownStateAndBoundsStayExplicit (0.06s)
+=== RUN   TestObservationGuards_ExactSupersedingReplayRemainsIdempotent
+--- PASS: TestObservationGuards_ExactSupersedingReplayRemainsIdempotent (0.34s)
+=== RUN   TestObservationGuards_UnterminatedIntentIsNotAppendable
+--- PASS: TestObservationGuards_UnterminatedIntentIsNotAppendable (0.25s)
+=== RUN   TestObservationGuards_CommittedRecoveryVerifiesOriginalObjects
+--- PASS: TestObservationGuards_CommittedRecoveryVerifiesOriginalObjects (0.24s)
+=== RUN   TestObservationGuards_CloseWaitsForIntentPublication
+--- PASS: TestObservationGuards_CloseWaitsForIntentPublication (0.22s)
+=== RUN   TestObservationGuards_FIFOAndAliasedIndexRefused
+=== RUN   TestObservationGuards_FIFOAndAliasedIndexRefused/fifo
+=== RUN   TestObservationGuards_FIFOAndAliasedIndexRefused/aliased_index
+--- PASS: TestObservationGuards_FIFOAndAliasedIndexRefused (0.13s)
+    --- PASS: TestObservationGuards_FIFOAndAliasedIndexRefused/fifo (0.07s)
+    --- PASS: TestObservationGuards_FIFOAndAliasedIndexRefused/aliased_index (0.06s)
+=== RUN   TestObservationPublish_AppendCapacityCapRefused
+--- PASS: TestObservationPublish_AppendCapacityCapRefused (0.08s)
+=== RUN   TestObservationPublish_InjectedSyncFailureFailsClosed
+--- PASS: TestObservationPublish_InjectedSyncFailureFailsClosed (0.11s)
+=== RUN   TestObservationPublish_CommittedReplayWithDifferentSupersedesRefused
+--- PASS: TestObservationPublish_CommittedReplayWithDifferentSupersedesRefused (0.23s)
+=== RUN   TestObservationPublish_LostTargetIsUnavailableNotForged
+--- PASS: TestObservationPublish_LostTargetIsUnavailableNotForged (0.38s)
+=== RUN   TestObservationLookup_WiredPublishCommits
+--- PASS: TestObservationLookup_WiredPublishCommits (0.15s)
+=== RUN   TestObservationLookup_NoBindingIsNotFound
+--- PASS: TestObservationLookup_NoBindingIsNotFound (0.12s)
+=== RUN   TestObservationLookup_EmptyAndInvalidIDAreNotFound
+--- PASS: TestObservationLookup_EmptyAndInvalidIDAreNotFound (0.05s)
+=== RUN   TestObservationLookup_ClosedStoreDegrades
+--- PASS: TestObservationLookup_ClosedStoreDegrades (0.04s)
+=== RUN   TestObservationLookup_CancelledContext
+--- PASS: TestObservationLookup_CancelledContext (0.04s)
+=== RUN   TestObservationLookup_PendingIntentIsUnavailable
+--- PASS: TestObservationLookup_PendingIntentIsUnavailable (0.11s)
+=== RUN   TestObservationPublish_WiredReopenRecommits
+--- PASS: TestObservationPublish_WiredReopenRecommits (0.15s)
+=== RUN   TestObservationPublish_ActualPartialBatchCut
+--- PASS: TestObservationPublish_ActualPartialBatchCut (0.32s)
+=== RUN   TestObservationPublish_MissingObjectsKeepIntentIncomplete
+--- PASS: TestObservationPublish_MissingObjectsKeepIntentIncomplete (0.05s)
+=== RUN   TestObservationPublish_UncertainSidecarBlocksUnknownButKeepsCommitted
+--- PASS: TestObservationPublish_UncertainSidecarBlocksUnknownButKeepsCommitted (0.18s)
+=== RUN   TestObservationPublish_IdentityConflictAndIdempotence
+--- PASS: TestObservationPublish_IdentityConflictAndIdempotence (0.22s)
+=== RUN   TestObservationPublish_NonRegularSidecarRefused
+--- PASS: TestObservationPublish_NonRegularSidecarRefused (0.13s)
+=== RUN   TestObservationRestore_PendingIntentCannotCertifyReader
+--- PASS: TestObservationRestore_PendingIntentCannotCertifyReader (0.15s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	5.088s
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/subagent
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/tool
+--- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart (0.93s)
+    --- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/subagent (0.47s)
+    --- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/tool (0.45s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	2.076s
+=== RUN   TestDeliveryTerminal_DrainAfterPhysicalScopeChanges
+--- PASS: TestDeliveryTerminal_DrainAfterPhysicalScopeChanges (0.50s)
+=== RUN   TestDeliveryTerminal_RetirementBeforeOffsetSurvivesRestart
+--- PASS: TestDeliveryTerminal_RetirementBeforeOffsetSurvivesRestart (0.61s)
+=== RUN   TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending
+=== RUN   TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/policy_unavailable
+=== RUN   TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/journal_unavailable
+=== RUN   TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/binding_conflict
+--- PASS: TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending (0.81s)
+    --- PASS: TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/policy_unavailable (0.26s)
+    --- PASS: TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/journal_unavailable (0.27s)
+    --- PASS: TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/binding_conflict (0.28s)
+=== RUN   TestDeliveryTerminal_LiveQueuePolicyChangeCreatesNoCapture
+--- PASS: TestDeliveryTerminal_LiveQueuePolicyChangeCreatesNoCapture (0.23s)
+=== RUN   TestDeliveryTerminal_DrainWaitsForLivePublicationOwner
+--- PASS: TestDeliveryTerminal_DrainWaitsForLivePublicationOwner (0.54s)
+=== RUN   TestDeliveryTerminal_RestartRetainsDenialWithoutCaptureACK
+--- PASS: TestDeliveryTerminal_RestartRetainsDenialWithoutCaptureACK (0.25s)
+=== RUN   TestDeliveryTerminal_RejectsUnknownOrChangedLease
+--- PASS: TestDeliveryTerminal_RejectsUnknownOrChangedLease (0.17s)
+=== RUN   TestDeliveryTerminal_MalformedEvidenceIsPreservedAndUnavailable
+--- PASS: TestDeliveryTerminal_MalformedEvidenceIsPreservedAndUnavailable (0.22s)
+=== RUN   TestDeliveryTerminal_StagingArtifactIsNotACompletion
+--- PASS: TestDeliveryTerminal_StagingArtifactIsNotACompletion (0.24s)
+=== RUN   TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent
+--- PASS: TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent (0.90s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	5.776s
+=== RUN   TestFsck_UnknownObservationIntentIsIncompleteAndReadOnly
+--- PASS: TestFsck_UnknownObservationIntentIsIncompleteAndReadOnly (0.23s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.330s

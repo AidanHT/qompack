@@ -1,0 +1,36 @@
+=== RUN   TestGCRetention_UnreadableLeaseRootHaltsCollection
+    gc_retention_read_v6_test.go:45: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:45
+        	Error:      	Should be true
+        	Test:       	TestGCRetention_UnreadableLeaseRootHaltsCollection
+        	Messages:   	an unreadable retention source must be reported, never read as empty
+--- FAIL: TestGCRetention_UnreadableLeaseRootHaltsCollection (0.09s)
+=== RUN   TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection
+    gc_retention_read_v6_test.go:71: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:71
+        	Error:      	Should be true
+        	Test:       	TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection
+        	Messages:   	a torn retention document must be reported, not silently truncated
+--- FAIL: TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection (0.09s)
+=== RUN   TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection
+    gc_retention_read_v6_test.go:98: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:98
+        	Error:      	Should be true
+        	Test:       	TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection
+        	Messages:   	an overlong line that stops the scan must be reported
+--- FAIL: TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection (0.11s)
+=== RUN   TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+    gc_retention_read_v6_test.go:143: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:143
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root 40c00e78f1dd
+        	Test:       	TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+        	Messages:   	an ack for a different observation must not release this lease
+--- FAIL: TestGCRetention_AckReleaseRequiresExactObservationAndVersion (0.14s)
+=== RUN   TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+--- PASS: TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce (0.09s)
+=== RUN   TestGCRetention_CancelledContextIsNotARetentionError
+--- PASS: TestGCRetention_CancelledContextIsNotARetentionError (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.888s
+FAIL

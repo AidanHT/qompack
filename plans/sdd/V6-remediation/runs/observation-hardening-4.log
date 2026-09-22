@@ -1,0 +1,40 @@
+=== RUN   TestObservationAudit_UnpublishedIntentCannotLookClean
+--- PASS: TestObservationAudit_UnpublishedIntentCannotLookClean (0.11s)
+=== RUN   TestObservationAudit_UnknownStateAndBoundsStayExplicit
+--- PASS: TestObservationAudit_UnknownStateAndBoundsStayExplicit (0.03s)
+=== RUN   TestObservationPublish_AppendCapacityCapRefused
+--- PASS: TestObservationPublish_AppendCapacityCapRefused (0.06s)
+=== RUN   TestObservationPublish_InjectedSyncFailureFailsClosed
+--- PASS: TestObservationPublish_InjectedSyncFailureFailsClosed (0.05s)
+=== RUN   TestObservationPublish_CommittedReplayWithDifferentSupersedesRefused
+--- PASS: TestObservationPublish_CommittedReplayWithDifferentSupersedesRefused (0.13s)
+=== RUN   TestObservationPublish_LostTargetIsUnavailableNotForged
+--- PASS: TestObservationPublish_LostTargetIsUnavailableNotForged (0.17s)
+=== RUN   TestObservationLookup_WiredPublishCommits
+--- PASS: TestObservationLookup_WiredPublishCommits (0.08s)
+=== RUN   TestObservationLookup_NoBindingIsNotFound
+--- PASS: TestObservationLookup_NoBindingIsNotFound (0.07s)
+=== RUN   TestObservationLookup_EmptyAndInvalidIDAreNotFound
+--- PASS: TestObservationLookup_EmptyAndInvalidIDAreNotFound (0.03s)
+=== RUN   TestObservationLookup_ClosedStoreDegrades
+--- PASS: TestObservationLookup_ClosedStoreDegrades (0.03s)
+=== RUN   TestObservationLookup_CancelledContext
+--- PASS: TestObservationLookup_CancelledContext (0.03s)
+=== RUN   TestObservationLookup_PendingIntentIsUnavailable
+--- PASS: TestObservationLookup_PendingIntentIsUnavailable (0.07s)
+=== RUN   TestObservationPublish_WiredReopenRecommits
+--- PASS: TestObservationPublish_WiredReopenRecommits (0.13s)
+=== RUN   TestObservationPublish_ActualPartialBatchCut
+--- PASS: TestObservationPublish_ActualPartialBatchCut (0.20s)
+=== RUN   TestObservationPublish_MissingObjectsKeepIntentIncomplete
+--- PASS: TestObservationPublish_MissingObjectsKeepIntentIncomplete (0.05s)
+=== RUN   TestObservationPublish_UncertainSidecarBlocksUnknownButKeepsCommitted
+--- PASS: TestObservationPublish_UncertainSidecarBlocksUnknownButKeepsCommitted (0.11s)
+=== RUN   TestObservationPublish_IdentityConflictAndIdempotence
+--- PASS: TestObservationPublish_IdentityConflictAndIdempotence (0.12s)
+=== RUN   TestObservationPublish_NonRegularSidecarRefused
+--- PASS: TestObservationPublish_NonRegularSidecarRefused (0.07s)
+=== RUN   TestObservationRestore_PendingIntentCannotCertifyReader
+--- PASS: TestObservationRestore_PendingIntentCannotCertifyReader (0.13s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	1.986s

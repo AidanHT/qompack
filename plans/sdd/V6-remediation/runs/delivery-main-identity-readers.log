@@ -1,0 +1,11 @@
+# github.com/qompack/qompack/internal/store
+internal\store\gcrun.go:643:77: not enough arguments in call to s.listRetentionDir
+	have (string, *gcBudget, func(e fs.DirEntry) (gcRootFile, bool))
+	want (string, *gcBudget, int, func(fs.DirEntry) (gcRootFile, bool))
+internal\store\gcrun.go:661:48: not enough arguments in call to s.pendingRootFiles
+	have (*gcBudget)
+	want (*gcBudget, int)
+internal\store\gcrun.go:837:21: undefined: openRetentionRoot
+internal\store\gcrun.go:1082:22: undefined: openRetentionRoot
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL

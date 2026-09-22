@@ -1,0 +1,6 @@
+=== RUN   TestBuild_V6_ResultTokensIsTheAssembledEstimate
+--- PASS: TestBuild_V6_ResultTokensIsTheAssembledEstimate (0.01s)
+=== RUN   TestBuild_V6_UnpricedSeparatorsOverflowIsTrimmedAndAccounted
+--- PASS: TestBuild_V6_UnpricedSeparatorsOverflowIsTrimmedAndAccounted (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/rehydrate	1.747s

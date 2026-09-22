@@ -1,0 +1,50 @@
+=== RUN   TestDeliveryPath_V6_ExtraStagedEvidenceRefusesAdoption
+--- PASS: TestDeliveryPath_V6_ExtraStagedEvidenceRefusesAdoption (0.03s)
+=== RUN   TestDeliveryPath_V6_RotationCloseFailureStopsTheLiveSwitch
+--- PASS: TestDeliveryPath_V6_RotationCloseFailureStopsTheLiveSwitch (0.49s)
+=== RUN   TestDeliveryPath_V6_PagePublicationPreservesAConflictingDestination
+--- PASS: TestDeliveryPath_V6_PagePublicationPreservesAConflictingDestination (0.02s)
+=== RUN   TestDeliveryPath_V6_TransitionLimitRefusesBeforeAppend
+--- PASS: TestDeliveryPath_V6_TransitionLimitRefusesBeforeAppend (0.02s)
+=== RUN   TestDeliveryPath_V6_RefusesAliasedSegmentParent
+    delivery_path_v6_test.go:81: platform cannot create this symlink fixture: symlink C:\Users\Quant\AppData\Local\Temp\TestDeliveryPath_V6_RefusesAliasedSegmentParent2453500845\002 C:\Users\Quant\AppData\Local\Temp\TestDeliveryPath_V6_RefusesAliasedSegmentParent2453500845\001\delivery-segments: A required privilege is not held by the client.
+--- SKIP: TestDeliveryPath_V6_RefusesAliasedSegmentParent (0.00s)
+=== RUN   TestDeliverySegments_InitActiveZeroAndReopen
+--- PASS: TestDeliverySegments_InitActiveZeroAndReopen (0.02s)
+=== RUN   TestDeliverySegments_SeventyTransitionsAndReopen
+--- PASS: TestDeliverySegments_SeventyTransitionsAndReopen (1.36s)
+=== RUN   TestDeliverySegments_HeadLossWithLogIsUnavailable
+--- PASS: TestDeliverySegments_HeadLossWithLogIsUnavailable (0.03s)
+=== RUN   TestDeliverySegments_CompleteTailAdoptedNeverReverts
+    delivery_segment_test.go:91: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_segment_test.go:91
+        	Error:      	Target error should be in err chain:
+        	            	expected: "delivery segments: authority unavailable"
+        	            	in chain: 
+        	Test:       	TestDeliverySegments_CompleteTailAdoptedNeverReverts
+        	Messages:   	segments cannot skip an unrecorded predecessor
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestDeliverySegments_CompleteTailAdoptedNeverReverts1033342084\001: The process cannot access the file because it is being used by another process.
+--- FAIL: TestDeliverySegments_CompleteTailAdoptedNeverReverts (1.75s)
+=== RUN   TestDeliverySegments_TornTailPreservedAndUnavailable
+--- PASS: TestDeliverySegments_TornTailPreservedAndUnavailable (0.04s)
+=== RUN   TestDeliverySegments_ConflictingHeadIsRefused
+=== RUN   TestDeliverySegments_ConflictingHeadIsRefused/log_bytes_past_eof
+=== RUN   TestDeliverySegments_ConflictingHeadIsRefused/active_disagrees_with_record
+=== RUN   TestDeliverySegments_ConflictingHeadIsRefused/last_len_past_log_bytes
+--- PASS: TestDeliverySegments_ConflictingHeadIsRefused (0.11s)
+    --- PASS: TestDeliverySegments_ConflictingHeadIsRefused/log_bytes_past_eof (0.04s)
+    --- PASS: TestDeliverySegments_ConflictingHeadIsRefused/active_disagrees_with_record (0.03s)
+    --- PASS: TestDeliverySegments_ConflictingHeadIsRefused/last_len_past_log_bytes (0.03s)
+=== RUN   TestDeliverySegments_CommitRequiresActiveZeroAndAdvances
+    delivery_segment_test.go:175: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_segment_test.go:175
+        	Error:      	Received unexpected error:
+        	            	delivery segments: authority unavailable
+        	Test:       	TestDeliverySegments_CommitRequiresActiveZeroAndAdvances
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestDeliverySegments_CommitRequiresActiveZeroAndAdvances3883117155\001: The process cannot access the file because it is being used by another process.
+--- FAIL: TestDeliverySegments_CommitRequiresActiveZeroAndAdvances (1.94s)
+=== RUN   TestDeliverySegments_CreateFreshSegmentIdempotentAndConflict
+--- PASS: TestDeliverySegments_CreateFreshSegmentIdempotentAndConflict (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	6.081s
+FAIL

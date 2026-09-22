@@ -1,0 +1,26 @@
+{
+  "status": "rejected before integration; no production rollover",
+  "reason": "independent review F1-F5 and coordinator adjudication",
+  "files": [
+    {
+      "original": "internal\\daemon\\delivery_archive.go",
+      "preserved": "dist\\v6-remediation\\rejected-rollover-prototype\\delivery_archive.go",
+      "sha256": "d0fc966439ec63d396f6a9f86e9d337612588e29ab3b78d8c7b83745584b2f2c"
+    },
+    {
+      "original": "internal\\daemon\\delivery_archive_test.go",
+      "preserved": "dist\\v6-remediation\\rejected-rollover-prototype\\delivery_archive_test.go",
+      "sha256": "cf60f2727ca0cd776f6d978d43e36c672500b2dd27308ed79f33d53b659b0471"
+    },
+    {
+      "original": "internal\\daemon\\delivery_rollover.go",
+      "preserved": "dist\\v6-remediation\\rejected-rollover-prototype\\delivery_rollover.go",
+      "sha256": "3b70dab4dc97113b04ee562e02d15ce16e694d289a5c59f6f2f34a9bfa6e8021"
+    },
+    {
+      "original": "internal\\daemon\\delivery_rollover_test.go",
+      "preserved": "dist\\v6-remediation\\rejected-rollover-prototype\\delivery_rollover_test.go",
+      "sha256": "d66c05929852376e54bd8d66750761d2e734e46084badf0194f053fd58759ab6"
+    }
+  ]
+}

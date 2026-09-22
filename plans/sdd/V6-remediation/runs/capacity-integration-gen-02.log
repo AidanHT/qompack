@@ -1,0 +1,22 @@
+--- FAIL: TestDeliveryGeneration_ManyGenerationsAndReplayIdentity (38.29s)
+    delivery_generation_test.go:74: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_generation_test.go:74
+        	Error:      	Not equal: 
+        	            	expected: daemon.radixHash{0x4f, 0x65, 0x67, 0x81, 0x82, 0xa, 0x98, 0xd3, 0x22, 0x52, 0xbf, 0x32, 0xbd, 0xc4, 0x8a, 0x2a, 0x8a, 0xe4, 0x67, 0x60, 0x8f, 0x2f, 0xd0, 0x3b, 0x18, 0x91, 0xec, 0x18, 0x1c, 0x63, 0x74, 0xdd}
+        	            	actual  : daemon.radixHash{0x91, 0x16, 0x7a, 0xac, 0x3d, 0x2f, 0x74, 0xa9, 0x18, 0x49, 0x69, 0xee, 0xec, 0x84, 0xa4, 0x98, 0x7b, 0xe8, 0x49, 0xcb, 0x13, 0x67, 0x6b, 0xb9, 0xbf, 0xac, 0xc3, 0xd8, 0xb0, 0xef, 0x63, 0x9}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,4 @@
+        	            	 (daemon.radixHash) (len=32) {
+        	            	- 00000000  4f 65 67 81 82 0a 98 d3  22 52 bf 32 bd c4 8a 2a  |Oeg....."R.2...*|
+        	            	- 00000010  8a e4 67 60 8f 2f d0 3b  18 91 ec 18 1c 63 74 dd  |..g`./.;.....ct.|
+        	            	+ 00000000  91 16 7a ac 3d 2f 74 a9  18 49 69 ee ec 84 a4 98  |..z.=/t..Ii.....|
+        	            	+ 00000010  7b e8 49 cb 13 67 6b b9  bf ac c3 d8 b0 ef 63 09  |{.I..gk.......c.|
+        	            	 }
+        	Test:       	TestDeliveryGeneration_ManyGenerationsAndReplayIdentity
+        	Messages:   	re-committing an existing lease must be idempotent
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	88.553s
+FAIL

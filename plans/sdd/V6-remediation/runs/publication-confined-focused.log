@@ -1,0 +1,16 @@
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/store.test]","Action":"build-output","Output":"# github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/store.test]\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/store.test]","Action":"build-output","Output":"internal\\cli\\backup.go:102:45: not enough arguments in call to maintenance.VerifyBackup\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/store.test]","Action":"build-output","Output":"\thave (string)\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/store.test]","Action":"build-output","Output":"\twant (context.Context, string)\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/store.test]","Action":"build-fail"}
+{"Time":"2026-09-21T11:55:55.900438-04:00","Action":"start","Package":"github.com/qompack/qompack/internal/store"}
+{"Time":"2026-09-21T11:55:55.900438-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/store","Output":"FAIL\tgithub.com/qompack/qompack/internal/store [build failed]\n"}
+{"Time":"2026-09-21T11:55:55.900438-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/store","Elapsed":0,"FailedBuild":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/store.test]"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/daemon.test]","Action":"build-output","Output":"# github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/daemon.test]\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/daemon.test]","Action":"build-output","Output":"internal\\cli\\backup.go:102:45: not enough arguments in call to maintenance.VerifyBackup\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/daemon.test]","Action":"build-output","Output":"\thave (string)\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/daemon.test]","Action":"build-output","Output":"\twant (context.Context, string)\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/daemon.test]","Action":"build-fail"}
+{"Time":"2026-09-21T11:55:56.6236271-04:00","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-09-21T11:55:56.6236271-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"FAIL\tgithub.com/qompack/qompack/internal/daemon [build failed]\n"}
+{"Time":"2026-09-21T11:55:56.6236271-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":0,"FailedBuild":"github.com/qompack/qompack/internal/cli [github.com/qompack/qompack/internal/daemon.test]"}

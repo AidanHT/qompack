@@ -1,0 +1,26 @@
+=== RUN   TestGCSegments_MissingSealHalts
+    gc_delivery_segments_test.go:220: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:220
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_MissingSealHalts
+        	Messages:   	a committed segment missing a required seal must halt
+--- FAIL: TestGCSegments_MissingSealHalts (0.06s)
+=== RUN   TestGCSegments_NonDenseActiveHalts
+    gc_delivery_segments_test.go:238: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:238
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_NonDenseActiveHalts
+        	Messages:   	a non-dense active must halt
+--- FAIL: TestGCSegments_NonDenseActiveHalts (0.08s)
+=== RUN   TestGCSegments_FrontierRecheckDetectsLogTailRotation
+    gc_delivery_segments_test.go:348: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:348
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: gc retention roots unavailable"
+        	            	in chain: 
+        	Test:       	TestGCSegments_FrontierRecheckDetectsLogTailRotation
+        	Messages:   	a committed log tail that lands during the harvest must be detected before collection
+--- FAIL: TestGCSegments_FrontierRecheckDetectsLogTailRotation (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.437s
+FAIL

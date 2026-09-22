@@ -1,0 +1,13 @@
+{
+  "observed_at": "2026-09-22T13:59:27.289059-04:00",
+  "invocations": [
+    "gc-segment-integration-result.json",
+    "capacity-review-evidence-correction-result.json"
+  ],
+  "observation": "Empty result JSON, no matching process in current process inventory, and original exec sessions return Unknown process id. Partial source and review text preserved; no final result or cost inferred.",
+  "final_usage": "unknown",
+  "continuation": [
+    "gc-segment-resume-final-result.json",
+    "capacity-review-resume-final-result.json"
+  ]
+}

@@ -1,0 +1,5 @@
+# github.com/qompack/qompack/internal/daemon
+# [github.com/qompack/qompack/internal/daemon]
+vet.exe: internal\daemon\delivery_lease.go:1426:15: assignment mismatch: 2 variables but j.gen.commitAck returns 1 value
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL

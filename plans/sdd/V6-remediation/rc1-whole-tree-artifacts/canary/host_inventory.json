@@ -1,0 +1,14 @@
+{
+  "name": "host_inventory",
+  "capability": "observation",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "inventory only: the Claude CLI answered `--version` on this platform. This records WHICH host is installed; it establishes nothing about what that host supports, and no capability may be enabled on it.",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-22T20:37:09Z"
+  },
+  "recorded_at": "2026-09-22T20:37:09Z"
+}

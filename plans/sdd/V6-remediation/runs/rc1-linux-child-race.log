@@ -1,0 +1,21 @@
+/work/rc1-linux-20260922.tar: OK
+go version go1.26.6 linux/amd64
+=== RUN   TestE2EHookRoundTrip
+--- PASS: TestE2EHookRoundTrip (58.10s)
+=== RUN   TestStdioServerEndToEnd
+--- PASS: TestStdioServerEndToEnd (5.55s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (53.03s)
+=== RUN   TestE2E_SupersessionVisibleAfterRestart
+--- PASS: TestE2E_SupersessionVisibleAfterRestart (10.73s)
+=== RUN   TestE2E_VerbatimPromptSurvivesRestart
+--- PASS: TestE2E_VerbatimPromptSurvivesRestart (7.32s)
+=== RUN   TestE2E_RequiredProductChildRaceInstrumentation
+    race_instrumentation_test.go:36: instrumented product child: sha256=5b0151bac4771ecb16bd78815465673e4951004f829d3f2f3d20fea3d6d4842d go=go1.26.6
+--- PASS: TestE2E_RequiredProductChildRaceInstrumentation (0.02s)
+=== RUN   TestE2E_SessionStartCompactRestoresCheckpointItems
+--- PASS: TestE2E_SessionStartCompactRestoresCheckpointItems (3.78s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (125.12s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	264.692s

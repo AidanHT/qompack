@@ -1,0 +1,6 @@
+=== RUN   TestE2EHookRoundTrip
+    daemon_e2e_test.go:239: e2eShutdownIfReachable: the daemon (pid 8355) released /tmp/TestE2EHookRoundTrip1017513941/001/project/.qompack/run/daemon.lock but was still running after 20s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to
+--- PASS: TestE2EHookRoundTrip (74.65s)
+=== RUN   TestStdioServerEndToEnd
+FAIL	github.com/qompack/qompack/test/e2e	77.458s
+FAIL

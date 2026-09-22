@@ -1,0 +1,316 @@
+race-windows	UNKNOWN STEP	﻿2026-09-22T08:18:49.2109352Z Current runner version: '2.337.0'
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2137621Z ##[group]Runner Image Provisioner
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2138537Z Hosted Compute Agent
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2139152Z Version: 20260828.587
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2139774Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2141027Z Build Date: 2026-08-28T16:44:25Z
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2142017Z Worker ID: {2452140b-ac0b-4067-a109-35c2e4405254}
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2142803Z Azure Region: westcentralus
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2143378Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2144815Z ##[group]Operating System
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2145576Z Microsoft Windows Server 2025
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2146173Z 10.0.26100
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2146727Z Datacenter
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2147241Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2147758Z ##[group]Runner Image
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2148376Z Image: windows-2025-vs2026
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2149020Z Version: 20260907.229.1
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2150501Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260907.229/images/windows/Windows2025-VS2026-Readme.md
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2152554Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260907.229
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2153525Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2154913Z ##[group]GITHUB_TOKEN Permissions
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2157255Z Contents: read
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2157892Z Metadata: read
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2158488Z Packages: read
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2159064Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2161189Z Secret source: Actions
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2162069Z Cache mode: write
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2162740Z Prepare workflow directory
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2602462Z Prepare all required actions
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.2653323Z Getting action download info
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.5376492Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+race-windows	UNKNOWN STEP	2026-09-22T08:18:49.6667714Z Download action repository 'actions/setup-go@v5' (SHA:40f1582b2485089dde7abd97c1529aa768e1baff)
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.3596016Z Complete job name: race-windows
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5290028Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5302474Z ##[group]Run actions/checkout@v4
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5303313Z with:
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5303925Z   fetch-depth: 0
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5304544Z   repository: AidanHT/qompack
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5309877Z   token: ***
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5310528Z   ssh-strict: true
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5311100Z   ssh-user: git
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5311727Z   persist-credentials: true
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5312346Z   clean: true
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5312945Z   sparse-checkout-cone-mode: true
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5313631Z   fetch-tags: false
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5314241Z   show-progress: true
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5314957Z   lfs: false
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5315603Z   submodules: false
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5316311Z   set-safe-directory: true
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5316963Z   allow-unsafe-pr-checkout: false
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5317943Z env:
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5318521Z   GOTOOLCHAIN: local
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5319102Z   CGO_ENABLED: 1
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.5319680Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.7113378Z Syncing repository: AidanHT/qompack
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.7116159Z ##[group]Getting Git version info
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.7117033Z Working directory is 'D:\a\qompack\qompack'
+race-windows	UNKNOWN STEP	2026-09-22T08:18:50.7864367Z [command]"C:\Program Files\Git\bin\git.exe" version
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.1955427Z git version 2.55.0.windows.5
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.2014521Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.2037168Z Temporarily overriding HOME='D:\a\_temp\a8a34b9e-3c72-4587-afe6-3942044275ff' before making global git config changes
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.2040837Z Adding repository directory to the temporary git global config as a safe directory
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.2049896Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\qompack\qompack
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.2794550Z Deleting the contents of 'D:\a\qompack\qompack'
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.2802411Z ##[group]Initializing the repository
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.2813051Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\qompack\qompack
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.3770184Z Initialized empty Git repository in D:/a/qompack/qompack/.git/
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.3829598Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/AidanHT/qompack
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.4499507Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.4501282Z ##[group]Disabling automatic garbage collection
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.4507833Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.4865771Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.4867471Z ##[group]Setting up auth
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.4878836Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+race-windows	UNKNOWN STEP	2026-09-22T08:18:51.5213469Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+race-windows	UNKNOWN STEP	2026-09-22T08:18:53.1510912Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+race-windows	UNKNOWN STEP	2026-09-22T08:18:53.1850873Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+race-windows	UNKNOWN STEP	2026-09-22T08:18:53.7468496Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+race-windows	UNKNOWN STEP	2026-09-22T08:18:53.7803832Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+race-windows	UNKNOWN STEP	2026-09-22T08:18:54.3344332Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+race-windows	UNKNOWN STEP	2026-09-22T08:18:54.3679113Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:54.3679852Z ##[group]Fetching the repository
+race-windows	UNKNOWN STEP	2026-09-22T08:18:54.3697564Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1043807Z From https://github.com/AidanHT/qompack
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1045579Z  * [new branch]      chore/post-v2-hardening -> origin/chore/post-v2-hardening
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1046482Z  * [new branch]      develop                 -> origin/develop
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1047104Z  * [new branch]      verify/v3               -> origin/verify/v3
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1047802Z  * [new branch]      verify/v5-final         -> origin/verify/v5-final
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1123533Z [command]"C:\Program Files\Git\bin\git.exe" branch --list --remote origin/develop
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1503433Z   origin/develop
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1561421Z [command]"C:\Program Files\Git\bin\git.exe" rev-parse refs/remotes/origin/develop
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.1995255Z 9c84e31d596ff2357cceeed42af240c8b6642dd5
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.2046113Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.2047257Z ##[group]Determining the checkout info
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.2048050Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.2057357Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.2510339Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.2834093Z ##[group]Checking out the ref
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.2843402Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B develop refs/remotes/origin/develop
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.9558144Z Switched to a new branch 'develop'
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.9622417Z branch 'develop' set up to track 'origin/develop'.
+race-windows	UNKNOWN STEP	2026-09-22T08:18:57.9714421Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0135331Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0423271Z 9c84e31d596ff2357cceeed42af240c8b6642dd5
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0934099Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0936014Z ##[group]Run actions/setup-go@v5
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0936386Z with:
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0936714Z   go-version: 1.26.6
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0937026Z   cache: true
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0937400Z   check-latest: false
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0939642Z   token: ***
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0939927Z env:
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0940248Z   GOTOOLCHAIN: local
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0940576Z   CGO_ENABLED: 1
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.0940877Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.2714903Z Setup go version spec 1.26.6
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.2731925Z Attempting to download 1.26.6...
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.2953434Z (node:8712) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+race-windows	UNKNOWN STEP	2026-09-22T08:18:58.2955338Z (Use `node --trace-deprecation ...` to show where the warning was created)
+race-windows	UNKNOWN STEP	2026-09-22T08:18:59.0895728Z matching 1.26.6...
+race-windows	UNKNOWN STEP	2026-09-22T08:18:59.0954974Z Acquiring 1.26.6 from https://github.com/actions/go-versions/releases/download/1.26.6-31764261251/go-1.26.6-win32-x64.zip
+race-windows	UNKNOWN STEP	2026-09-22T08:18:59.9604729Z Extracting Go...
+race-windows	UNKNOWN STEP	2026-09-22T08:19:00.0729346Z [command]"C:\Program Files\PowerShell\7\pwsh.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$ErrorActionPreference = 'Stop' ; try { Add-Type -AssemblyName System.IO.Compression.ZipFile } catch { } ; try { [System.IO.Compression.ZipFile]::ExtractToDirectory('D:\a\_temp\go-1.26.6-win32-x64.zip', 'D:\a\_temp\86e7a03b-fe0f-4333-9f6d-d7475546c813', $true) } catch { if (($_.Exception.GetType().FullName -eq 'System.Management.Automation.MethodException') -or ($_.Exception.GetType().FullName -eq 'System.Management.Automation.RuntimeException') ){ Expand-Archive -LiteralPath 'D:\a\_temp\go-1.26.6-win32-x64.zip' -DestinationPath 'D:\a\_temp\86e7a03b-fe0f-4333-9f6d-d7475546c813' -Force } else { throw $_ } } ;"
+race-windows	UNKNOWN STEP	2026-09-22T08:19:04.7196557Z Successfully extracted go to D:\a\_temp\86e7a03b-fe0f-4333-9f6d-d7475546c813
+race-windows	UNKNOWN STEP	2026-09-22T08:19:04.7197208Z Adding to the cache ...
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.4475055Z Created link C:\hostedtoolcache\windows\go\1.26.6\x64 => D:\hostedtoolcache\windows\go\1.26.6\x64
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.4479106Z Created link C:\hostedtoolcache\windows\go\1.26.6\x64.complete => D:\hostedtoolcache\windows\go\1.26.6\x64.complete
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.4480001Z Successfully cached go to C:\hostedtoolcache\windows\go\1.26.6\x64
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.4487586Z Added go to the path
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.4491050Z Successfully set up Go version 1.26.6
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.7390165Z [command]C:\hostedtoolcache\windows\go\1.26.6\x64\bin\go.exe env GOCACHE
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.7451930Z [command]C:\hostedtoolcache\windows\go\1.26.6\x64\bin\go.exe env GOMODCACHE
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.7740516Z C:\Users\runneradmin\AppData\Local\go-build
+race-windows	UNKNOWN STEP	2026-09-22T08:19:15.7759278Z C:\Users\runneradmin\go\pkg\mod
+race-windows	UNKNOWN STEP	2026-09-22T08:19:16.0855771Z Cache hit for: setup-go-Windows-x64-go-1.26.6-306aa3e2fae9e07e944b666c6e7e004d52f1f8463ef0ad10edd7aa98c079982d
+race-windows	UNKNOWN STEP	2026-09-22T08:19:16.1106766Z (node:8712) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+race-windows	UNKNOWN STEP	2026-09-22T08:19:17.3262999Z Received 62914560 of 101186028 (62.2%), 59.3 MBs/sec
+race-windows	UNKNOWN STEP	2026-09-22T08:19:17.9335637Z Received 101186028 of 101186028 (100.0%), 59.6 MBs/sec
+race-windows	UNKNOWN STEP	2026-09-22T08:19:17.9338894Z Cache Size: ~96 MB (101186028 B)
+race-windows	UNKNOWN STEP	2026-09-22T08:19:17.9378630Z [command]"C:\Program Files\Git\usr\bin\tar.exe" -xf D:/a/_temp/186a49f6-08a5-4992-b9b1-8ee6467746ac/cache.tzst -P -C D:/a/qompack/qompack --force-local --use-compress-program "zstd -d"
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.0448372Z Cache restored successfully
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.0572742Z Cache restored from key: setup-go-Windows-x64-go-1.26.6-306aa3e2fae9e07e944b666c6e7e004d52f1f8463ef0ad10edd7aa98c079982d
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.0596506Z go version go1.26.6 windows/amd64
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.0596841Z 
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.0597252Z ##[group]go env
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3766628Z set AR=ar
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3768061Z set CC=gcc
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3768788Z set CGO_CFLAGS=-O2 -g
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3769156Z set CGO_CPPFLAGS=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3769463Z set CGO_CXXFLAGS=-O2 -g
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3769844Z set CGO_ENABLED=1
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3770143Z set CGO_FFLAGS=-O2 -g
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3770451Z set CGO_LDFLAGS=-O2 -g
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3770748Z set CXX=g++
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3771452Z set GCCGO=gccgo
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3771760Z set GO111MODULE=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3772048Z set GOAMD64=v1
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3772379Z set GOARCH=amd64
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3772708Z set GOAUTH=netrc
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3772973Z set GOBIN=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3773354Z set GOCACHE=C:\Users\runneradmin\AppData\Local\go-build
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3773758Z set GOCACHEPROG=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3774116Z set GODEBUG=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3774452Z set GOENV=C:\Users\runneradmin\AppData\Roaming\go\env
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3774822Z set GOEXE=.exe
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3775135Z set GOEXPERIMENT=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3775462Z set GOFIPS140=off
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3775770Z set GOFLAGS=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3776583Z set GOGCCFLAGS=-m64 -mthreads -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=C:\Users\RUNNER~1\AppData\Local\Temp\go-build1257861741=/tmp/go-build -gno-record-gcc-switches
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3777570Z set GOHOSTARCH=amd64
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3777955Z set GOHOSTOS=windows
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3778441Z set GOINSECURE=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3778818Z set GOMOD=D:\a\qompack\qompack\go.mod
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3779264Z set GOMODCACHE=C:\Users\runneradmin\go\pkg\mod
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3779673Z set GONOPROXY=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3779950Z set GONOSUMDB=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3780232Z set GOOS=windows
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3780630Z set GOPATH=C:\Users\runneradmin\go
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3781063Z set GOPRIVATE=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3781523Z set GOPROXY=https://proxy.golang.org,direct
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3781963Z set GOROOT=C:\hostedtoolcache\windows\go\1.26.6\x64
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3782402Z set GOSUMDB=sum.golang.org
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3782747Z set GOTELEMETRY=local
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3783172Z set GOTELEMETRYDIR=C:\Users\runneradmin\AppData\Roaming\go\telemetry
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3783619Z set GOTMPDIR=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3783982Z set GOTOOLCHAIN=local
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3784415Z set GOTOOLDIR=C:\hostedtoolcache\windows\go\1.26.6\x64\pkg\tool\windows_amd64
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3784926Z set GOVCS=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3785215Z set GOVERSION=go1.26.6
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3785570Z set GOWORK=
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3785894Z set PKG_CONFIG=pkg-config
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3786072Z 
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.3786594Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.4213442Z ##[group]Run go test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.4214349Z [36;1mgo test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')[0m
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.4240589Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.4241152Z env:
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.4241445Z   GOTOOLCHAIN: local
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.4241738Z   CGO_ENABLED: 1
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.4242095Z   QOMPACK_UNDER_COLOAD: 1
+race-windows	UNKNOWN STEP	2026-09-22T08:19:23.4242390Z ##[endgroup]
+race-windows	UNKNOWN STEP	2026-09-22T08:19:24.4119649Z go: downloading github.com/stretchr/testify v1.10.0
+race-windows	UNKNOWN STEP	2026-09-22T08:19:24.4323557Z go: downloading pgregory.net/rapid v1.1.0
+race-windows	UNKNOWN STEP	2026-09-22T08:19:24.4419883Z go: downloading github.com/google/go-cmp v0.7.0
+race-windows	UNKNOWN STEP	2026-09-22T08:19:24.4498546Z go: downloading golang.org/x/tools v0.34.0
+race-windows	UNKNOWN STEP	2026-09-22T08:19:26.4954012Z go: downloading github.com/davecgh/go-spew v1.1.1
+race-windows	UNKNOWN STEP	2026-09-22T08:19:26.5157204Z go: downloading github.com/pmezard/go-difflib v1.0.0
+race-windows	UNKNOWN STEP	2026-09-22T08:19:26.6385162Z go: downloading gopkg.in/yaml.v3 v3.0.1
+race-windows	UNKNOWN STEP	2026-09-22T08:19:30.2791943Z go: downloading golang.org/x/sync v0.15.0
+race-windows	UNKNOWN STEP	2026-09-22T08:19:30.2839316Z go: downloading golang.org/x/mod v0.25.0
+race-windows	UNKNOWN STEP	2026-09-22T08:19:54.8015112Z ?   	github.com/qompack/qompack/cmd/qompack	[no test files]
+race-windows	UNKNOWN STEP	2026-09-22T08:20:12.6903404Z ok  	github.com/qompack/qompack/internal/admission	1.102s
+race-windows	UNKNOWN STEP	2026-09-22T08:20:18.0554408Z ok  	github.com/qompack/qompack/internal/analyzer	5.202s
+race-windows	UNKNOWN STEP	2026-09-22T08:20:18.0583906Z ok  	github.com/qompack/qompack/internal/analyzer/analyzertest	1.134s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2437685Z ok  	github.com/qompack/qompack/internal/canon	72.822s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2439431Z ok  	github.com/qompack/qompack/internal/canon/canontest	1.058s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2440353Z ok  	github.com/qompack/qompack/internal/checkpoint	50.838s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2442990Z ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	1.078s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2444293Z ok  	github.com/qompack/qompack/internal/chunk	16.508s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2445111Z ok  	github.com/qompack/qompack/internal/chunk/chunktest	1.177s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2445934Z ok  	github.com/qompack/qompack/internal/cli	14.159s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2446754Z ok  	github.com/qompack/qompack/internal/commands	1.133s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2450290Z ok  	github.com/qompack/qompack/internal/config	2.026s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2451056Z ok  	github.com/qompack/qompack/internal/contract	3.171s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2451878Z ok  	github.com/qompack/qompack/internal/contract/contracttest	1.244s
+race-windows	UNKNOWN STEP	2026-09-22T08:21:35.2452743Z ok  	github.com/qompack/qompack/internal/core	1.133s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3311600Z ok  	github.com/qompack/qompack/internal/daemon	262.020s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3312473Z ok  	github.com/qompack/qompack/internal/dag	27.705s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3324088Z ok  	github.com/qompack/qompack/internal/dag/dagtest	1.727s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3325174Z ok  	github.com/qompack/qompack/internal/eval	4.446s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3326136Z ok  	github.com/qompack/qompack/internal/eval/evaltest	1.093s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3326823Z ok  	github.com/qompack/qompack/internal/grammar	4.330s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3327657Z ok  	github.com/qompack/qompack/internal/grammar/grammartest	1.081s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3328416Z ok  	github.com/qompack/qompack/internal/hookio	1.094s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3329666Z ok  	github.com/qompack/qompack/internal/ipc	53.097s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3330395Z ok  	github.com/qompack/qompack/internal/ipc/ipctest	1.507s
+race-windows	UNKNOWN STEP	2026-09-22T08:26:04.3331131Z ok  	github.com/qompack/qompack/internal/logging	1.281s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.2949798Z ok  	github.com/qompack/qompack/internal/mcp	530.174s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.2961973Z ok  	github.com/qompack/qompack/internal/mcp/mcptest	1.115s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.2963665Z ok  	github.com/qompack/qompack/internal/negknow	51.922s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.2964543Z ok  	github.com/qompack/qompack/internal/negknow/negknowtest	2.032s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.2968673Z ok  	github.com/qompack/qompack/internal/obs	1.255s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3010680Z ok  	github.com/qompack/qompack/internal/observer	160.831s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3012686Z ok  	github.com/qompack/qompack/internal/observer/observertest	6.930s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3013311Z --- FAIL: TestHighestBloomBackupSeq_UnreadableDirIsAnError (0.11s)
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3015532Z     appendonly_test.go:518: 
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3016465Z         	Error Trace:	D:/a/qompack/qompack/internal/paths/appendonly_test.go:518
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3017201Z         	Error:      	An error is expected but got nil.
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3018380Z         	Test:       	TestHighestBloomBackupSeq_UnreadableDirIsAnError
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3019221Z         	Messages:   	an unreadable directory must not be reported as an empty one
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3019927Z --- FAIL: TestEnsureLayout_WriteAtomicFailureIsPropagated (0.27s)
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3020536Z     layout_test.go:100: 
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3022296Z         	Error Trace:	D:/a/qompack/qompack/internal/paths/layout_test.go:100
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3023472Z         	Error:      	An error is expected but got nil.
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3024043Z         	Test:       	TestEnsureLayout_WriteAtomicFailureIsPropagated
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3024452Z FAIL
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3024886Z FAIL	github.com/qompack/qompack/internal/paths	6.480s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3025455Z ok  	github.com/qompack/qompack/internal/pins	4.170s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3025956Z ok  	github.com/qompack/qompack/internal/pins/pinstest	1.116s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3026608Z ok  	github.com/qompack/qompack/internal/pluginmanifest	1.374s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3027274Z ok  	github.com/qompack/qompack/internal/redact	4.498s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3029338Z ok  	github.com/qompack/qompack/internal/redact/redacttest	1.144s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3029831Z ok  	github.com/qompack/qompack/internal/rehydrate	1.401s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3030375Z ok  	github.com/qompack/qompack/internal/rehydrate/rehydratetest	2.835s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3030936Z ok  	github.com/qompack/qompack/internal/rules	1.501s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3031424Z ok  	github.com/qompack/qompack/internal/rules/rulestest	1.112s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3032070Z ok  	github.com/qompack/qompack/internal/scheduler	12.951s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3032614Z ok  	github.com/qompack/qompack/internal/scheduler/schedulertest	1.167s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3033130Z ok  	github.com/qompack/qompack/internal/sketch	14.350s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3033599Z ok  	github.com/qompack/qompack/internal/sketch/sketchtest	3.630s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3034713Z ok  	github.com/qompack/qompack/internal/skills	1.350s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3035248Z ok  	github.com/qompack/qompack/internal/skills/skillstest	1.243s
+race-windows	UNKNOWN STEP	2026-09-22T08:32:16.3035702Z ok  	github.com/qompack/qompack/internal/state	1.079s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1135900Z ok  	github.com/qompack/qompack/internal/store	667.503s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1136706Z ok  	github.com/qompack/qompack/internal/store/storetest	2.742s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1137386Z ok  	github.com/qompack/qompack/internal/symbols	3.458s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1137958Z ok  	github.com/qompack/qompack/internal/symbols/symbolstest	1.093s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1139235Z ok  	github.com/qompack/qompack/internal/testutil	1.981s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1139731Z ok  	github.com/qompack/qompack/internal/tokens	30.519s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1140208Z ok  	github.com/qompack/qompack/internal/tokens/tokenstest	1.599s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1140676Z ok  	github.com/qompack/qompack/test/bench/hotpath	1.762s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1141105Z ok  	github.com/qompack/qompack/test/canary	20.091s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1141591Z ok  	github.com/qompack/qompack/test/dedup	4.582s
+race-windows	UNKNOWN STEP	2026-09-22T08:37:25.1142024Z ok  	github.com/qompack/qompack/test/guards	272.099s
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3654584Z --- FAIL: TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites (141.00s)
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3656394Z     appendonly_test.go:597: phase A: 2 idle ticks completed concurrently with the writers
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3657332Z     appendonly_test.go:619: 
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3660646Z         	Error Trace:	D:/a/qompack/qompack/test/integration/appendonly_test.go:619
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3662024Z         	Error:      	Should be empty, but was [event tu-5-152: RecordToolUse: context deadline exceeded]
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3663010Z         	Test:       	TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3663669Z         	Messages:   	no binding call and no idle GC/Compact may fail
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3664070Z FAIL
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3664490Z FAIL	github.com/qompack/qompack/test/integration	1226.441s
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3664947Z ok  	github.com/qompack/qompack/test/replay	57.173s
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3665378Z ok  	github.com/qompack/qompack/test/replay/l3policy	3.363s
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3665899Z ok  	github.com/qompack/qompack/tools/devtool	3.124s
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3666332Z ok  	github.com/qompack/qompack/tools/lint/nomagic	1.662s
+race-windows	UNKNOWN STEP	2026-09-22T08:47:38.3666712Z FAIL
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.5488096Z ##[error]Process completed with exit code 1.
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.5829055Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.5830486Z Post job cleanup.
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.7792017Z [command]"C:\Program Files\Git\bin\git.exe" version
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.8150009Z git version 2.55.0.windows.5
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.8244815Z Temporarily overriding HOME='D:\a\_temp\a1442aa7-eee5-45b0-9f19-b59331c66940' before making global git config changes
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.8246192Z Adding repository directory to the temporary git global config as a safe directory
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.8256487Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\qompack\qompack
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.8671668Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+race-windows	UNKNOWN STEP	2026-09-22T08:47:40.9044182Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+race-windows	UNKNOWN STEP	2026-09-22T08:47:41.4784699Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+race-windows	UNKNOWN STEP	2026-09-22T08:47:41.5063898Z http.https://github.com/.extraheader
+race-windows	UNKNOWN STEP	2026-09-22T08:47:41.5123479Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+race-windows	UNKNOWN STEP	2026-09-22T08:47:41.5512569Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+race-windows	UNKNOWN STEP	2026-09-22T08:47:42.1038565Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+race-windows	UNKNOWN STEP	2026-09-22T08:47:42.1356811Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+race-windows	UNKNOWN STEP	2026-09-22T08:47:42.7147923Z Cleaning up orphan processes
+race-windows	UNKNOWN STEP	2026-09-22T08:47:42.7837521Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-go@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

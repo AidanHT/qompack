@@ -1,0 +1,29 @@
+{
+  "id": "maintenance-and-authority-integrated",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "./internal/cli",
+    "./internal/daemon",
+    "./internal/mcp",
+    "./internal/store",
+    "-run",
+    "^(TestBackupCLI_|TestBorrowedLease_|TestV6_|TestWhy|TestDropped|TestTimeline|TestContentOrigins_|TestMaintenance|TestAuditPublication|TestLoudPublicationGaps|TestAccountPublicationGaps)",
+    "-count=1",
+    "-timeout=10m",
+    "-json"
+  ],
+  "source_head": "03b63568924d79ae59db1047177e5a618e87b701",
+  "source_dirty": "M docs/release.md\n M docs/security.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n M internal/cli/capture_admission.go\n M internal/cli/commands.go\n M internal/cli/daemon.go\n M internal/daemon/daemon.go\n M internal/daemon/handlers.go\n M internal/mcp/authorize.go\n M internal/mcp/handlers.go\n M internal/mcp/handlers_common.go\n M internal/mcp/handlers_span.go\n M internal/mcp/handlers_span_test.go\n M internal/observer/tooluse.go\n M internal/paths/appendonly_test.go\n M internal/paths/layout_test.go\n M test/fault/publication_test.go\n M test/fault/v6_fsck_test.go\n M test/integration/appendonly_test.go\n M test/security/posture_test.go\n M test/security/v6_authorization_test.go\n?? docs/backup.md\n?? internal/cli/backup.go\n?? internal/cli/backup_test.go\n?? internal/cli/capture_scope_v6_test.go\n?? internal/cli/writer_lease.go\n?? internal/daemon/borrowed_lease.go\n?? internal/daemon/borrowed_lease_test.go\n?? internal/daemon/capture_scope_v6_test.go\n?? internal/daemon/publication_audit.go\n?? internal/daemon/publication_audit_test.go\n?? internal/hookio/capture_scope.go\n?? internal/hookio/capture_scope_v6_test.go\n?? internal/mcp/authorize_v6_test.go\n?? internal/mcp/metadata_v6_test.go\n?? internal/observer/capture_scope_v6_test.go\n?? internal/paths/rename_noreplace_darwin.go\n?? internal/paths/rename_noreplace_linux.go\n?? internal/paths/rename_noreplace_other.go\n?? internal/paths/rename_noreplace_test.go\n?? internal/paths/rename_noreplace_windows.go\n?? internal/store/maintenance.go\n?? internal/store/maintenance_test.go\n?? internal/store/provenance.go\n?? internal/store/provenance_test.go\n?? internal/store/publication_audit.go\n?? internal/store/publication_audit_test.go\n?? plans/sdd/V6-remediation/authority-review.md\n?? plans/sdd/V6-remediation/publication-packaged-work.md\n?? plans/sdd/V6-remediation/publication-work.md\n?? plans/sdd/V6-remediation/recovery-design.md\n?? plans/sdd/V6-remediation/recovery-review.md\n?? plans/sdd/V6-remediation/recovery-work.md\n?? plans/sdd/V6-remediation/runs/\n?? plans/sdd/V6-remediation/security-authority-first/",
+  "started_at": "2026-09-21T12:11:11.957373-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "passed",
+  "log": "maintenance-and-authority-integrated.log",
+  "exit_code": 0,
+  "elapsed_seconds": 10.846,
+  "finished_at": "2026-09-21T12:11:22.805134-04:00",
+  "log_sha256": "dc401879069631f054d9ecff68fd27cb8e92d02dad7f046aefa5123b9def4bdf"
+}

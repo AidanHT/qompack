@@ -1,0 +1,26 @@
+{
+  "container_uname_osrelease_id": "Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux\n---\nPRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n---\nuid=0(root) gid=0(root) groups=0(root)\n---\n",
+  "container": "qompack-v6-linux-verification",
+  "current_bin": {
+    "path": "/work/v6-rc1-compatibility/bundle/bin/qompack",
+    "sha256": "d6d16ad8bca739bb32d321d224fe8b9657649d78de5f2ce2ea8c9d029fbd4ade",
+    "expected": "d6d16ad8bca739bb32d321d224fe8b9657649d78de5f2ce2ea8c9d029fbd4ade",
+    "match": true
+  },
+  "old_bin": {
+    "path": "/work/compat-old-linux-301a8e9",
+    "sha256": "8cb4c0bcc3b98626a625cf0cf53898bab4316effd3d41820f85c3f38fa096bd0",
+    "expected": "8cb4c0bcc3b98626a625cf0cf53898bab4316effd3d41820f85c3f38fa096bd0",
+    "match": true
+  },
+  "bundle_tgz": {
+    "path": "/work/v6-rc1-compatibility/qompack-plugin-v0.2.0-670-g65bc8d7-linux-amd64.tar.gz",
+    "sha256": "90924bd8802de2a03d5920b66d0082d669e953fe8473b3c3c9d5c5f2615eb366",
+    "expected": "90924bd8802de2a03d5920b66d0082d669e953fe8473b3c3c9d5c5f2615eb366",
+    "match": true
+  },
+  "current_version": "v0.2.0-670-g65bc8d7",
+  "old_version": "v0.2.0-640-g301a8e9",
+  "current_version_match": true,
+  "old_version_match": true
+}

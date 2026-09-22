@@ -1,0 +1,11 @@
+--- FAIL: TestBackup_RefusesFrontierChangedBeforeItsOwnCopy (0.54s)
+    backup_segments_test.go:32: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/backup_segments_test.go:32
+        	Error:      	Target error should be in err chain:
+        	            	expected: "store: the project changed while the backup ran"
+        	            	in chain: 
+        	Test:       	TestBackup_RefusesFrontierChangedBeforeItsOwnCopy
+        	Messages:   	equal captured/post-copy bytes cannot prove the frontier stayed still for the whole walk
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.832s
+FAIL

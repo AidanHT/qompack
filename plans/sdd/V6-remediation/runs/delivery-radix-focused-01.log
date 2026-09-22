@@ -1,0 +1,4 @@
+# github.com/qompack/qompack/internal/store
+internal\store\fsstore.go:262:36: undefined: reservedIdentity
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL

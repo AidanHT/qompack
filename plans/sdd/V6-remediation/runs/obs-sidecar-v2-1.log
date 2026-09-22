@@ -1,0 +1,27 @@
+--- FAIL: TestReadOnly_EveryExportedMethodIsClassified (0.01s)
+    readonly_test.go:362: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/readonly_test.go:362
+        	Error:      	Not equal: 
+        	            	expected: map[string]bool{"AppendFileVersion":true, "Flush":true, "GC":true, "MarkSuperseded":true, "Put":true, "PutBytes":true, "Quarantine":true, "RecordToolUse":true, "RecordToolUseSuperseding":true, "RecoverToolUseByObservation":true, "ReserveObservation":true, "SyncPublication":true}
+        	            	actual  : map[string]bool{"AppendFileVersion":true, "Flush":true, "GC":true, "MarkSuperseded":true, "Put":true, "PutBytes":true, "Quarantine":true, "RecoverToolUseByObservation":true, "SyncPublication":true, "recordSupersedingCore":true, "recordToolUseCore":true, "validateIntentInput":true}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -8,7 +8,7 @@
+        	            	  (string) (len=10) "Quarantine": (bool) true,
+        	            	- (string) (len=13) "RecordToolUse": (bool) true,
+        	            	- (string) (len=24) "RecordToolUseSuperseding": (bool) true,
+        	            	  (string) (len=27) "RecoverToolUseByObservation": (bool) true,
+        	            	- (string) (len=18) "ReserveObservation": (bool) true,
+        	            	- (string) (len=15) "SyncPublication": (bool) true
+        	            	+ (string) (len=15) "SyncPublication": (bool) true,
+        	            	+ (string) (len=21) "recordSupersedingCore": (bool) true,
+        	            	+ (string) (len=17) "recordToolUseCore": (bool) true,
+        	            	+ (string) (len=19) "validateIntentInput": (bool) true
+        	            	 }
+        	Test:       	TestReadOnly_EveryExportedMethodIsClassified
+        	Messages:   	every method calling mutate() must be swept by readOnlyRefusals, and vice versa
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1.070s
+FAIL

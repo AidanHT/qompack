@@ -1,0 +1,148 @@
+{
+  "source_head": "65bc8d7707fed78e1b7344c2d23d5fa948a0a9c1",
+  "bundles": [
+    {
+      "target": "linux-amd64",
+      "version": "v0.2.0-670-g65bc8d7",
+      "source": {
+        "commit": "65bc8d7707fed78e1b7344c2d23d5fa948a0a9c1",
+        "dirty": false
+      },
+      "bundle": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1\\dist\\v6-rc1-bundle\\qompack-plugin-v0.2.0-670-g65bc8d7-linux-amd64",
+      "archive": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1\\dist\\v6-rc1-bundle\\qompack-plugin-v0.2.0-670-g65bc8d7-linux-amd64.tar.gz",
+      "archive_sha256": "90924bd8802de2a03d5920b66d0082d669e953fe8473b3c3c9d5c5f2615eb366",
+      "repeat_archive": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1\\dist\\v6-rc1-repro\\qompack-plugin-v0.2.0-670-g65bc8d7-linux-amd64.tar.gz",
+      "repeat_archive_sha256": "90924bd8802de2a03d5920b66d0082d669e953fe8473b3c3c9d5c5f2615eb366",
+      "archive_reproducible": true,
+      "files": [
+        {
+          "path": ".claude-plugin/plugin.json",
+          "sha256": "2917cc05709a829956744f086bf76813ba8d0ce2c3ed45655c67cbc23ac0df0c",
+          "matches": true
+        },
+        {
+          "path": ".mcp.json",
+          "sha256": "90277ce38e85f33f2f65e7bb654e9cf05bdb8a37496a68ed2889c94e14c67e64",
+          "matches": true
+        },
+        {
+          "path": "bin/qompack",
+          "sha256": "d6d16ad8bca739bb32d321d224fe8b9657649d78de5f2ce2ea8c9d029fbd4ade",
+          "matches": true
+        },
+        {
+          "path": "commands/checkpoint.md",
+          "sha256": "7c4ef8a52021641320d70fbab643f85b93791acc76fb1922f30518eccd7ad5d0",
+          "matches": true
+        },
+        {
+          "path": "commands/dropped.md",
+          "sha256": "2fe3851069f017fbdcce72313b93cf2043fa24584d0194ac63354cd0981c912c",
+          "matches": true
+        },
+        {
+          "path": "commands/eval.md",
+          "sha256": "21db752eb5485a8708804f2379ca476c23c76f232a6ebace9d679c1d0da65cab",
+          "matches": true
+        },
+        {
+          "path": "commands/pin.md",
+          "sha256": "7d48a7d37859de10c28f4001ea3ecdf6eec52d0bb2585f4a2fa2be71cc147147",
+          "matches": true
+        },
+        {
+          "path": "commands/recall.md",
+          "sha256": "bd9a7a1d39f2e573054997caa2b51bb01db4ccc652ef1be977c8ec2e5e4f1667",
+          "matches": true
+        },
+        {
+          "path": "commands/status.md",
+          "sha256": "b002f0354d266a9d80492fd3db4687d9ea64f92cf2e0bcc1a4cf9e4a8be5eb67",
+          "matches": true
+        },
+        {
+          "path": "commands/why.md",
+          "sha256": "71aefa2f488b7734a9517b260b81eaea405f7be8253d4e1fc53b46a4b4a28729",
+          "matches": true
+        },
+        {
+          "path": "hooks/hooks.json",
+          "sha256": "e28e82b310ae30e67692ed5358528fdaec701b52e634f38abe707bdcfc97e3ab",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "target": "windows-amd64",
+      "version": "v0.2.0-670-g65bc8d7",
+      "source": {
+        "commit": "65bc8d7707fed78e1b7344c2d23d5fa948a0a9c1",
+        "dirty": false
+      },
+      "bundle": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1\\dist\\v6-rc1-bundle\\qompack-plugin-v0.2.0-670-g65bc8d7-windows-amd64",
+      "archive": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1\\dist\\v6-rc1-bundle\\qompack-plugin-v0.2.0-670-g65bc8d7-windows-amd64.zip",
+      "archive_sha256": "b5e6ca0a22c57fe5177d0df5a5b4db4cac4910e6908290aab71c20853d975bc2",
+      "repeat_archive": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1\\dist\\v6-rc1-repro\\qompack-plugin-v0.2.0-670-g65bc8d7-windows-amd64.zip",
+      "repeat_archive_sha256": "b5e6ca0a22c57fe5177d0df5a5b4db4cac4910e6908290aab71c20853d975bc2",
+      "archive_reproducible": true,
+      "files": [
+        {
+          "path": ".claude-plugin/plugin.json",
+          "sha256": "2917cc05709a829956744f086bf76813ba8d0ce2c3ed45655c67cbc23ac0df0c",
+          "matches": true
+        },
+        {
+          "path": ".mcp.json",
+          "sha256": "90277ce38e85f33f2f65e7bb654e9cf05bdb8a37496a68ed2889c94e14c67e64",
+          "matches": true
+        },
+        {
+          "path": "bin/qompack.exe",
+          "sha256": "0a0d3a79ec1282c309aee5b513ae824360120345d315c964ceb228306e54abf7",
+          "matches": true
+        },
+        {
+          "path": "commands/checkpoint.md",
+          "sha256": "7c4ef8a52021641320d70fbab643f85b93791acc76fb1922f30518eccd7ad5d0",
+          "matches": true
+        },
+        {
+          "path": "commands/dropped.md",
+          "sha256": "2fe3851069f017fbdcce72313b93cf2043fa24584d0194ac63354cd0981c912c",
+          "matches": true
+        },
+        {
+          "path": "commands/eval.md",
+          "sha256": "21db752eb5485a8708804f2379ca476c23c76f232a6ebace9d679c1d0da65cab",
+          "matches": true
+        },
+        {
+          "path": "commands/pin.md",
+          "sha256": "7d48a7d37859de10c28f4001ea3ecdf6eec52d0bb2585f4a2fa2be71cc147147",
+          "matches": true
+        },
+        {
+          "path": "commands/recall.md",
+          "sha256": "bd9a7a1d39f2e573054997caa2b51bb01db4ccc652ef1be977c8ec2e5e4f1667",
+          "matches": true
+        },
+        {
+          "path": "commands/status.md",
+          "sha256": "b002f0354d266a9d80492fd3db4687d9ea64f92cf2e0bcc1a4cf9e4a8be5eb67",
+          "matches": true
+        },
+        {
+          "path": "commands/why.md",
+          "sha256": "71aefa2f488b7734a9517b260b81eaea405f7be8253d4e1fc53b46a4b4a28729",
+          "matches": true
+        },
+        {
+          "path": "hooks/hooks.json",
+          "sha256": "e28e82b310ae30e67692ed5358528fdaec701b52e634f38abe707bdcfc97e3ab",
+          "matches": true
+        }
+      ]
+    }
+  ],
+  "limit": "Two actual builds per available artifact target. Cross-build/reproducibility and directory validation do not certify an installed host or another OS/architecture. Public release version/tag is not selected."
+}

@@ -1,0 +1,17 @@
+=== RUN   TestDeliveryPath_V6_PagePublicationPreservesAConflictingDestination
+--- PASS: TestDeliveryPath_V6_PagePublicationPreservesAConflictingDestination (0.03s)
+=== RUN   TestDeliveryPath_V6_TransitionLimitRefusesBeforeAppend
+--- PASS: TestDeliveryPath_V6_TransitionLimitRefusesBeforeAppend (0.02s)
+=== RUN   TestDeliveryPath_V6_RefusesAliasedSegmentParent
+    delivery_path_v6_test.go:43: platform cannot create this symlink fixture: symlink C:\Users\Quant\AppData\Local\Temp\TestDeliveryPath_V6_RefusesAliasedSegmentParent1839261660\002 C:\Users\Quant\AppData\Local\Temp\TestDeliveryPath_V6_RefusesAliasedSegmentParent1839261660\001\delivery-segments: A required privilege is not held by the client.
+--- SKIP: TestDeliveryPath_V6_RefusesAliasedSegmentParent (0.01s)
+=== RUN   TestDeliveryRadix_UpdateValueSameKey
+--- PASS: TestDeliveryRadix_UpdateValueSameKey (0.05s)
+=== RUN   TestDeliveryRadix_ReopenPersists
+--- PASS: TestDeliveryRadix_ReopenPersists (0.70s)
+=== RUN   TestDeliveryRadix_WrongRootAndCorruptPageAreUnavailable
+--- PASS: TestDeliveryRadix_WrongRootAndCorruptPageAreUnavailable (0.02s)
+=== RUN   TestDeliveryRadix_CrashOrphanLeavesOldGenerationsUsable
+--- PASS: TestDeliveryRadix_CrashOrphanLeavesOldGenerationsUsable (0.26s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.391s

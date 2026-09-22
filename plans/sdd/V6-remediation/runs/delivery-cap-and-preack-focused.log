@@ -1,0 +1,6 @@
+{"ImportPath":"github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]","Action":"build-output","Output":"# github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]","Action":"build-output","Output":"internal\\daemon\\delivery_lease_cap_test.go:15:2: \"github.com/qompack/qompack/internal/ipc\" imported and not used\n"}
+{"ImportPath":"github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]","Action":"build-fail"}
+{"Time":"2026-09-21T15:40:12.5946051-04:00","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-09-21T15:40:12.5946051-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"FAIL\tgithub.com/qompack/qompack/internal/daemon [build failed]\n"}
+{"Time":"2026-09-21T15:40:12.5946051-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":0,"FailedBuild":"github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]"}

@@ -1,0 +1,262 @@
+bench-deep (ubuntu-latest)	UNKNOWN STEP	﻿2026-09-22T08:18:48.8354924Z Current runner version: '2.337.0'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8373861Z ##[group]Runner Image Provisioner
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8374652Z Hosted Compute Agent
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8375085Z Version: 20260828.587
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8375594Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8376028Z Build Date: 2026-08-28T16:44:25Z
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8376489Z Worker ID: {bc73bf46-fd85-4068-a4d5-88b9eb0c2eeb}
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8376918Z Azure Region: westus3
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8377259Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8378195Z ##[group]Operating System
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8378566Z Ubuntu
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8378913Z 24.04.5
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8379242Z LTS
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8379560Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8379998Z ##[group]Runner Image
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8380353Z Image: ubuntu-24.04
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8380724Z Version: 20260907.300.1
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8381507Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260907.300/images/ubuntu/Ubuntu2404-Readme.md
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8382447Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260907.300
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8383008Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8383764Z ##[group]GITHUB_TOKEN Permissions
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8385458Z Contents: read
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8385890Z Metadata: read
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8386245Z Packages: read
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8386582Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8388195Z Secret source: Actions
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8388761Z Cache mode: write
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8389271Z Prepare workflow directory
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8630249Z Prepare all required actions
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:48.8661622Z Getting action download info
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:49.1897319Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:49.2917671Z Download action repository 'actions/setup-go@v5' (SHA:40f1582b2485089dde7abd97c1529aa768e1baff)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.1012613Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3053460Z Complete job name: bench-deep (ubuntu-latest)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3476666Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3482121Z ##[group]Run actions/checkout@v4
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3482482Z with:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3482711Z   fetch-depth: 0
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3482961Z   repository: AidanHT/qompack
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3485480Z   token: ***
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3485724Z   ssh-strict: true
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3485966Z   ssh-user: git
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3486214Z   persist-credentials: true
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3486478Z   clean: true
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3486730Z   sparse-checkout-cone-mode: true
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3487015Z   fetch-tags: false
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3487276Z   show-progress: true
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3487557Z   lfs: false
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3487819Z   submodules: false
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3488080Z   set-safe-directory: true
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3488361Z   allow-unsafe-pr-checkout: false
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3488740Z env:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3488965Z   GOTOOLCHAIN: local
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3489247Z   CGO_ENABLED: 0
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.3489486Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4148273Z Syncing repository: AidanHT/qompack
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4149952Z ##[group]Getting Git version info
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4150550Z Working directory is '/home/runner/work/qompack/qompack'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4151495Z [command]/usr/bin/git version
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4207244Z git version 2.55.0
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4223050Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4237764Z Temporarily overriding HOME='/home/runner/work/_temp/811d6108-4769-4f68-b1c8-31f98c0383b5' before making global git config changes
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4239345Z Adding repository directory to the temporary git global config as a safe directory
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4242533Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/qompack/qompack
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4291336Z Deleting the contents of '/home/runner/work/qompack/qompack'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4294538Z ##[group]Initializing the repository
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4297957Z [command]/usr/bin/git init /home/runner/work/qompack/qompack
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4389335Z hint: Using 'master' as the name for the initial branch. This default branch name
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4390136Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4390803Z hint: to use in all of your new repositories, which will suppress this warning,
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4391341Z hint: call:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4391698Z hint:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4392144Z hint: 	git config --global init.defaultBranch <name>
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4392587Z hint:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4393167Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4394128Z hint: 'development'. The just-created branch can be renamed via this command:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4394900Z hint:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4395247Z hint: 	git branch -m <name>
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4395591Z hint:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4395930Z hint: Disable this message with "git config set advice.defaultBranchName false"
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4396805Z Initialized empty Git repository in /home/runner/work/qompack/qompack/.git/
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4401666Z [command]/usr/bin/git remote add origin https://github.com/AidanHT/qompack
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4445738Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4446189Z ##[group]Disabling automatic garbage collection
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4448971Z [command]/usr/bin/git config --local gc.auto 0
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4485860Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4486303Z ##[group]Setting up auth
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4492417Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4525807Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4830104Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.4860443Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.5036619Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.5066246Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.5247291Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.5279332Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.5279838Z ##[group]Fetching the repository
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:50.5286385Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7627826Z From https://github.com/AidanHT/qompack
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7629182Z  * [new branch]      chore/post-v2-hardening -> origin/chore/post-v2-hardening
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7629693Z  * [new branch]      develop                 -> origin/develop
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7630110Z  * [new branch]      verify/v3               -> origin/verify/v3
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7630525Z  * [new branch]      verify/v5-final         -> origin/verify/v5-final
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7636535Z [command]/usr/bin/git branch --list --remote origin/develop
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7662876Z   origin/develop
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7669454Z [command]/usr/bin/git rev-parse refs/remotes/origin/develop
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7692058Z 9c84e31d596ff2357cceeed42af240c8b6642dd5
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7695351Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7695646Z ##[group]Determining the checkout info
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7696606Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7705309Z [command]/usr/bin/git sparse-checkout disable
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7746149Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7770300Z ##[group]Checking out the ref
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.7772760Z [command]/usr/bin/git checkout --progress --force -B develop refs/remotes/origin/develop
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9396761Z Switched to a new branch 'develop'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9399825Z branch 'develop' set up to track 'origin/develop'.
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9415482Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9457958Z [command]/usr/bin/git log -1 --format=%H
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9480893Z 9c84e31d596ff2357cceeed42af240c8b6642dd5
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9662215Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9663288Z ##[group]Run actions/setup-go@v5
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9663465Z with:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9663613Z   go-version: 1.26.6
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9663770Z   cache: true
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9663921Z   check-latest: false
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9665584Z   token: ***
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9665737Z env:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9665900Z   GOTOOLCHAIN: local
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9666085Z   CGO_ENABLED: 0
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:52.9666233Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:53.0516939Z Setup go version spec 1.26.6
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:53.0521865Z Attempting to download 1.26.6...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:53.0596631Z (node:2028) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:53.0597348Z (Use `node --trace-deprecation ...` to show where the warning was created)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:53.9894914Z matching 1.26.6...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:53.9970508Z Acquiring 1.26.6 from https://github.com/actions/go-versions/releases/download/1.26.6-31764261251/go-1.26.6-linux-x64.tar.gz
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:54.5131588Z Extracting Go...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:54.5214185Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/b7d18dbd-cab7-49d8-858f-a03a7eb9236a -f /home/runner/work/_temp/bc3cfab5-e8f7-4bfc-8fe0-424340cadc02
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:55.7098706Z Successfully extracted go to /home/runner/work/_temp/b7d18dbd-cab7-49d8-858f-a03a7eb9236a
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:55.7099149Z Adding to the cache ...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.1650023Z Successfully cached go to /opt/hostedtoolcache/go/1.26.6/x64
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.1651396Z Added go to the path
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.1653630Z Successfully set up Go version 1.26.6
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.1861464Z [command]/opt/hostedtoolcache/go/1.26.6/x64/bin/go env GOMODCACHE
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.1900873Z [command]/opt/hostedtoolcache/go/1.26.6/x64/bin/go env GOCACHE
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.1941465Z /home/runner/go/pkg/mod
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.1955240Z /home/runner/.cache/go-build
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.4017790Z Cache hit for: setup-go-Linux-x64-ubuntu24-go-1.26.6-306aa3e2fae9e07e944b666c6e7e004d52f1f8463ef0ad10edd7aa98c079982d
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.4089431Z (node:2028) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6655183Z Received 7476 of 7476 (100.0%), 0.1 MBs/sec
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6669531Z Cache Size: ~0 MB (7476 B)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6670225Z [command]/usr/bin/tar -xf /home/runner/work/_temp/62e92350-1e10-41b4-908b-35d57de3db15/cache.tzst -P -C /home/runner/work/qompack/qompack --use-compress-program unzstd
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6837647Z Cache restored successfully
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6842171Z Cache restored from key: setup-go-Linux-x64-ubuntu24-go-1.26.6-306aa3e2fae9e07e944b666c6e7e004d52f1f8463ef0ad10edd7aa98c079982d
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6866782Z go version go1.26.6 linux/amd64
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6866903Z 
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.6867346Z ##[group]go env
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7519246Z AR='ar'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7519483Z CC='gcc'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7519680Z CGO_CFLAGS='-O2 -g'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7519899Z CGO_CPPFLAGS=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7520087Z CGO_CXXFLAGS='-O2 -g'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7520306Z CGO_ENABLED='0'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7520496Z CGO_FFLAGS='-O2 -g'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7520705Z CGO_LDFLAGS='-O2 -g'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7520902Z CXX='g++'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7521082Z GCCGO='gccgo'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7521264Z GO111MODULE=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7521473Z GOAMD64='v1'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7521652Z GOARCH='amd64'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7521828Z GOAUTH='netrc'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7522005Z GOBIN=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7522687Z GOCACHE='/home/runner/.cache/go-build'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7522965Z GOCACHEPROG=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7523147Z GODEBUG=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7523340Z GOENV='/home/runner/.config/go/env'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7523567Z GOEXE=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7523737Z GOEXPERIMENT=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7523939Z GOFIPS140='off'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7524119Z GOFLAGS=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7524841Z GOGCCFLAGS='-fPIC -m64 -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build391814766=/tmp/go-build -gno-record-gcc-switches'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7525380Z GOHOSTARCH='amd64'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7525564Z GOHOSTOS='linux'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7525739Z GOINSECURE=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7525956Z GOMOD='/home/runner/work/qompack/qompack/go.mod'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7526241Z GOMODCACHE='/home/runner/go/pkg/mod'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7526472Z GONOPROXY=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7526643Z GONOSUMDB=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7526814Z GOOS='linux'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7526993Z GOPATH='/home/runner/go'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7527198Z GOPRIVATE=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7527433Z GOPROXY='https://proxy.golang.org,direct'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7527725Z GOROOT='/opt/hostedtoolcache/go/1.26.6/x64'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7527982Z GOSUMDB='sum.golang.org'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7528233Z GOTELEMETRY='local'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7528464Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7528730Z GOTMPDIR=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7528903Z GOTOOLCHAIN='local'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7529216Z GOTOOLDIR='/opt/hostedtoolcache/go/1.26.6/x64/pkg/tool/linux_amd64'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7529540Z GOVCS=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7529717Z GOVERSION='go1.26.6'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7529905Z GOWORK=''
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7530085Z PKG_CONFIG='pkg-config'
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7530215Z 
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7530533Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7805400Z ##[group]Run go run ./tools/devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json "bench-ubuntu-latest.json"
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7806139Z [36;1mgo run ./tools/devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json "bench-ubuntu-latest.json"[0m
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7891477Z shell: /usr/bin/bash -e {0}
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7891680Z env:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7891826Z   GOTOOLCHAIN: local
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7891975Z   CGO_ENABLED: 0
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.7892107Z ##[endgroup]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:18:59.8484093Z go: downloading github.com/klauspost/compress v1.18.0
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:08.6546412Z hotpath: building /tmp/qompack-bench-build-1384849294/qompack...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:09.1416349Z hotpath: starting daemon (/tmp/qompack-bench-3536-82e1d129e4a59638.sock)...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:09.1625537Z hotpath: daemon is reachable
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:09.1625890Z hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:09.4915843Z hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:09.4916364Z hotpath: measuring spawn floor (200 x qompack version)...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:09.9924959Z hotpath: measuring B-A/B-D (5000 x qompack [observe tool])...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:37.7046674Z hotpath: measuring B-E (50 x qompack checkpoint)...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:38.2886519Z hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0957902Z hotpath: a gated budget breached its limit — see the summary above
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0958344Z 
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0958435Z hotpath bench summary (linux/amd64, n=5000)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0958639Z   spawn floor: p50=2.425ms p99=4.126ms (n=200)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0959671Z   b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0960555Z 
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0965253Z   B-A                 n=5064  p50=   2.048ms p95=   2.048ms p99=   2.048ms p999=   4.096ms max=    4.000ms limit=15.000ms   [PASS]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0965934Z   B-B                 n=5064  p50=   1.024ms p95=   4.608ms p99=  36.864ms p999= 393.216ms max=  485.307ms limit=15.000ms   [FAIL]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0966616Z   B-D                 n=5000  p50=   4.686ms p95=   8.387ms p99=  21.223ms p999=  95.009ms max=  129.458ms limit=n/a        [reported]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0967312Z   B-E                 n=50    p50=  11.143ms p95=  16.808ms p99=  21.354ms p999=  21.354ms max=   21.354ms limit=2000.000ms [PASS]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0968013Z   B-E_cpu             n=50    p50=   4.096ms p95=   4.428ms p99=   4.482ms p999=   4.482ms max=    4.482ms limit=2000.000ms [PASS]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0968672Z   B-A_spawn_estimate  n=5000  p50=   2.260ms p95=   5.962ms p99=  18.797ms p999=  92.583ms max=  127.032ms limit=n/a        [reported]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0969283Z   hook_ack_rtt        n=64    p50=   1.383ms p95=   1.866ms p99=   9.160ms p999=   9.160ms max=    9.160ms limit=n/a        [reported]
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0969555Z 
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0970114Z   note: B-C not measured in wave 1: the processing seams are stubs
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0976830Z   note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0980263Z   note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=1.024ms p99=1.024ms n=5064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0981625Z   note: B-A's gated n=5064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 5000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 1.3% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0983306Z   note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0983970Z 
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.0984076Z exit status 1
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.1028324Z devtool: bench-hotpath: exit status 1
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.1029014Z exit status 1
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.1327641Z ##[error]Process completed with exit code 1.
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.1420838Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.1421508Z Post job cleanup.
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2008511Z [command]/usr/bin/git version
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2043847Z git version 2.55.0
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2070375Z Temporarily overriding HOME='/home/runner/work/_temp/c3880efc-0947-4691-a0a8-a2d9cd395e8f' before making global git config changes
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2071107Z Adding repository directory to the temporary git global config as a safe directory
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2075366Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/qompack/qompack
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2117245Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2157473Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2378922Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2403101Z http.https://github.com/.extraheader
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2413921Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2452488Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2658873Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.2697599Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.3011781Z Cleaning up orphan processes
+bench-deep (ubuntu-latest)	UNKNOWN STEP	2026-09-22T08:19:39.3208260Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-go@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

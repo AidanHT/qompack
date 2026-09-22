@@ -1,0 +1,20 @@
+{
+  "name": "uninstall_keep_data",
+  "capability": "uninstall",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "claude plugin uninstall qompack -s user --keep-data: exit 0, enabledPlugins entry gone, plugin list empty; payload cache retained=true, plugins/data present=false (this host never created a data directory: the plugin was installed, never run in a live session)",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-22"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.1",
+    "target": "windows/amd64",
+    "binary_sha256": "9c89d4383908adf1f9a74df97c8a8ffcb19b7e04d9a3224603bd0748a3ff2709"
+  },
+  "artifact": "commit8-install-windows-amd64/uninstall_keep_data.json"
+}

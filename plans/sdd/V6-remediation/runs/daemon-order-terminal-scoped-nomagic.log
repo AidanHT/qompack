@@ -1,0 +1,6 @@
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\daemon\delivery_generation.go:108:17: literal 4096 duplicates a config default; read it from config (D11, §11.6)
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\daemon\delivery_order.go:30:27: literal 1024 duplicates a config default; read it from config (D11, §11.6)
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\daemon\delivery_order.go:32:25: literal 4096 duplicates a config default; read it from config (D11, §11.6)
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\daemon\delivery_radix.go:72:23: literal 4096 duplicates a config default; read it from config (D11, §11.6)
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\daemon\delivery_terminal.go:20:49: literal 1024 duplicates a config default; read it from config (D11, §11.6)
+exit status 3

@@ -1,0 +1,18 @@
+{
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-645-gc9b5251-dirty",
+    "binary_sha256": "8dde8feabe770fdaa8aa40a883cb1ecd6be9b285f76743ba68107c431e307f52"
+  },
+  "records": [
+    "posture_out_of_project_capture_is_archived",
+    "v6_escape_chunk_hash",
+    "v6_escape_root_hash",
+    "v6_escape_tool_use_id",
+    "v6_outside_read_by_id"
+  ]
+}

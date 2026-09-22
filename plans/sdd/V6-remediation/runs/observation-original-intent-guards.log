@@ -1,0 +1,25 @@
+--- FAIL: TestReadOnly_EveryExportedMethodIsClassified (0.03s)
+    readonly_test.go:362: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/readonly_test.go:362
+        	Error:      	Not equal: 
+        	            	expected: map[string]bool{"AppendFileVersion":true, "Flush":true, "GC":true, "MarkSuperseded":true, "Put":true, "PutBytes":true, "Quarantine":true, "RecordToolUse":true, "RecordToolUseSuperseding":true, "RecoverToolUseByObservation":true, "ReserveObservation":true, "SyncPublication":true}
+        	            	actual  : map[string]bool{"AppendFileVersion":true, "Flush":true, "GC":true, "MarkSuperseded":true, "Put":true, "PutBytes":true, "Quarantine":true, "RecordToolUse":true, "RecordToolUseSuperseding":true, "RecoverToolUseByObservation":true, "ReserveObservation":true, "SyncPublication":true, "publishObservation":true}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(map[string]bool) (len=12) {
+        	            	+(map[string]bool) (len=13) {
+        	            	  (string) (len=17) "AppendFileVersion": (bool) true,
+        	            	@@ -12,3 +12,4 @@
+        	            	  (string) (len=18) "ReserveObservation": (bool) true,
+        	            	- (string) (len=15) "SyncPublication": (bool) true
+        	            	+ (string) (len=15) "SyncPublication": (bool) true,
+        	            	+ (string) (len=18) "publishObservation": (bool) true
+        	            	 }
+        	Test:       	TestReadOnly_EveryExportedMethodIsClassified
+        	Messages:   	every method calling mutate() must be swept by readOnlyRefusals, and vice versa
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	2.360s
+FAIL

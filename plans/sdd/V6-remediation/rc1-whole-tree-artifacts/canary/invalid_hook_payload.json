@@ -1,0 +1,14 @@
+{
+  "name": "invalid_hook_payload",
+  "capability": "observation",
+  "scope": "repository",
+  "outcome": "verified",
+  "reason": "repository-level: 6 hook entry points × 5 malformed, empty, non-object and oversized (5242880 bytes) payloads against this build's own binary in a temporary project with the daemon disabled. Every invocation exited 0 with empty-or-parseable stdout. Installed-host payload production is unverified.",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-22T20:37:06Z"
+  },
+  "recorded_at": "2026-09-22T20:37:09Z"
+}

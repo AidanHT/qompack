@@ -1,0 +1,16 @@
+=== RUN   TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity
+=== RUN   TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-generations
+=== RUN   TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-journal.json
+=== RUN   TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-segments
+--- PASS: TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity (0.07s)
+    --- PASS: TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-generations (0.03s)
+    --- PASS: TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-journal.json (0.02s)
+    --- PASS: TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-segments (0.02s)
+=== RUN   TestDeliveryMigration_OrphanArtifactsPreserveLegacyAnchorsWithoutContinuing
+--- PASS: TestDeliveryMigration_OrphanArtifactsPreserveLegacyAnchorsWithoutContinuing (0.14s)
+=== RUN   TestDeliveryMigration_MissingAckAnchorsAreNotRecreated
+--- PASS: TestDeliveryMigration_MissingAckAnchorsAreNotRecreated (0.10s)
+=== RUN   TestCrashCutBetweenReferenceAndFrontierRedelivers
+--- PASS: TestCrashCutBetweenReferenceAndFrontierRedelivers (0.17s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.710s

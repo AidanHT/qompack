@@ -1,0 +1,34 @@
+=== RUN   TestGCSegments_HarvestsOldestLeaseAcrossRotation
+--- PASS: TestGCSegments_HarvestsOldestLeaseAcrossRotation (0.17s)
+=== RUN   TestGCSegments_AckInLaterSegmentSettlesOlderLease
+--- PASS: TestGCSegments_AckInLaterSegmentSettlesOlderLease (0.12s)
+=== RUN   TestGCSegments_MissingCommittedSegmentHalts
+--- PASS: TestGCSegments_MissingCommittedSegmentHalts (0.06s)
+=== RUN   TestGCSegments_MissingSealHalts
+--- PASS: TestGCSegments_MissingSealHalts (0.07s)
+=== RUN   TestGCSegments_SealGarbageHalts
+--- PASS: TestGCSegments_SealGarbageHalts (0.08s)
+=== RUN   TestGCSegments_SealUnknownSchemaHalts
+--- PASS: TestGCSegments_SealUnknownSchemaHalts (0.08s)
+=== RUN   TestGCSegments_SealTornV2Halts
+--- PASS: TestGCSegments_SealTornV2Halts (0.10s)
+=== RUN   TestGCSegments_SealWrongJournalSumHalts
+--- PASS: TestGCSegments_SealWrongJournalSumHalts (0.09s)
+=== RUN   TestGCSegments_ValidV2SealAccepted
+--- PASS: TestGCSegments_ValidV2SealAccepted (0.15s)
+=== RUN   TestGCSegments_NonDenseActiveHalts
+--- PASS: TestGCSegments_NonDenseActiveHalts (0.09s)
+=== RUN   TestGCSegments_TornLogHalts
+--- PASS: TestGCSegments_TornLogHalts (0.11s)
+=== RUN   TestGCSegments_UnknownSchemaHeadHalts
+--- PASS: TestGCSegments_UnknownSchemaHeadHalts (0.09s)
+=== RUN   TestGCSegments_MigrationEvidenceWithoutAuthorityHalts
+--- PASS: TestGCSegments_MigrationEvidenceWithoutAuthorityHalts (0.06s)
+=== RUN   TestGCSegments_StagedSegmentLeaseRetained
+--- PASS: TestGCSegments_StagedSegmentLeaseRetained (0.10s)
+=== RUN   TestGCSegments_FrontierRecheckDetectsLogTailRotation
+--- PASS: TestGCSegments_FrontierRecheckDetectsLogTailRotation (0.09s)
+=== RUN   TestGCSegments_UnmigratedTreeStaysLegacy
+--- PASS: TestGCSegments_UnmigratedTreeStaysLegacy (0.11s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	1.830s

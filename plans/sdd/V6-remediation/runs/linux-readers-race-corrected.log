@@ -1,0 +1,133 @@
+go version go1.26.6 linux/amd64
+=== RUN   TestDeliveryGeneration_V6_ImmutableNonceAndArrival
+--- PASS: TestDeliveryGeneration_V6_ImmutableNonceAndArrival (0.43s)
+=== RUN   TestDeliveryGeneration_V6_LogCapacityRefusesBeforeAppend
+--- PASS: TestDeliveryGeneration_V6_LogCapacityRefusesBeforeAppend (0.15s)
+=== RUN   TestDeliveryRollover_V6_DisabledMechanismCannotReopenLegacy
+--- PASS: TestDeliveryRollover_V6_DisabledMechanismCannotReopenLegacy (0.42s)
+=== RUN   TestDeliveryRollover_V6_BaseReadFailureIsNotFirstArrival
+--- PASS: TestDeliveryRollover_V6_BaseReadFailureIsNotFirstArrival (0.00s)
+=== RUN   TestDeliveryRollover_V6_MissingActiveAcknowledgementsAreNotRecreated
+--- PASS: TestDeliveryRollover_V6_MissingActiveAcknowledgementsAreNotRecreated (0.93s)
+=== RUN   TestDeliveryPath_V6_ExtraStagedEvidenceRefusesAdoption
+--- PASS: TestDeliveryPath_V6_ExtraStagedEvidenceRefusesAdoption (0.04s)
+=== RUN   TestDeliveryPath_V6_RotationCloseFailureStopsTheLiveSwitch
+--- PASS: TestDeliveryPath_V6_RotationCloseFailureStopsTheLiveSwitch (0.95s)
+=== RUN   TestDeliveryPath_V6_PagePublicationPreservesAConflictingDestination
+--- PASS: TestDeliveryPath_V6_PagePublicationPreservesAConflictingDestination (0.01s)
+=== RUN   TestDeliveryPath_V6_TransitionLimitRefusesBeforeAppend
+--- PASS: TestDeliveryPath_V6_TransitionLimitRefusesBeforeAppend (0.03s)
+=== RUN   TestDeliveryPath_V6_RefusesAliasedSegmentParent
+--- PASS: TestDeliveryPath_V6_RefusesAliasedSegmentParent (0.00s)
+=== RUN   TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen
+=== RUN   TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen/radix-page
+=== RUN   TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen/generation-log
+=== RUN   TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen/segment-log
+--- PASS: TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen (0.00s)
+    --- PASS: TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen/radix-page (0.00s)
+    --- PASS: TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen/generation-log (0.00s)
+    --- PASS: TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen/segment-log (0.00s)
+=== RUN   TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases
+=== RUN   TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/complete
+=== RUN   TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/delivery-lease-position.json
+=== RUN   TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/delivery-acks.jsonl
+--- PASS: TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases (3.77s)
+    --- PASS: TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/complete (1.48s)
+    --- PASS: TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/delivery-lease-position.json (1.15s)
+    --- PASS: TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/delivery-acks.jsonl (1.15s)
+=== RUN   TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites
+--- PASS: TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites (2.57s)
+=== RUN   TestDeliverySealSegment_RefusesCorruptActiveSegmentThatLegacyOnlyAccepts
+--- PASS: TestDeliverySealSegment_RefusesCorruptActiveSegmentThatLegacyOnlyAccepts (1.97s)
+=== RUN   TestDeliverySealSegment_ValidMultiSegmentTreePasses
+--- PASS: TestDeliverySealSegment_ValidMultiSegmentTreePasses (2.04s)
+=== RUN   TestDeliverySealSegment_ArchivedAckExactJoinPasses
+--- PASS: TestDeliverySealSegment_ArchivedAckExactJoinPasses (2.19s)
+=== RUN   TestDeliverySealSegment_MissingActiveSegmentFilesRefused
+--- PASS: TestDeliverySealSegment_MissingActiveSegmentFilesRefused (1.90s)
+=== RUN   TestDeliverySealSegment_MissingHeadRefused
+--- PASS: TestDeliverySealSegment_MissingHeadRefused (2.16s)
+=== RUN   TestDeliverySealSegment_NewerAuthoritySchemaRefused
+--- PASS: TestDeliverySealSegment_NewerAuthoritySchemaRefused (2.40s)
+=== RUN   TestDeliverySealSegment_ConversionRefusedPreservesBytes
+--- PASS: TestDeliverySealSegment_ConversionRefusedPreservesBytes (2.18s)
+=== RUN   TestDeliverySealSegment_UnmigratedLegacyTreeStillChecks
+--- PASS: TestDeliverySealSegment_UnmigratedLegacyTreeStillChecks (0.14s)
+=== RUN   TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused
+--- PASS: TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused (1.30s)
+=== RUN   TestDeliverySealSegment_TornGenerationManifestRefused
+--- PASS: TestDeliverySealSegment_TornGenerationManifestRefused (1.96s)
+=== RUN   TestDeliverySealSegment_NonDenseActiveAuthorityRefused
+--- PASS: TestDeliverySealSegment_NonDenseActiveAuthorityRefused (0.01s)
+=== RUN   TestDeliverySealSegment_SegmentDirNotADirectoryRefused
+--- PASS: TestDeliverySealSegment_SegmentDirNotADirectoryRefused (2.06s)
+=== RUN   TestDeliverySealSegment_SymlinkedSegmentDirRefused
+--- PASS: TestDeliverySealSegment_SymlinkedSegmentDirRefused (2.37s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	33.463s
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null
+--- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases (0.64s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero (0.14s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare (0.14s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase (0.12s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty (0.12s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null (0.11s)
+=== RUN   TestGCSegments_HarvestsOldestLeaseAcrossRotation
+--- PASS: TestGCSegments_HarvestsOldestLeaseAcrossRotation (0.16s)
+=== RUN   TestGCSegments_AckInLaterSegmentSettlesOlderLease
+--- PASS: TestGCSegments_AckInLaterSegmentSettlesOlderLease (0.16s)
+=== RUN   TestGCSegments_MissingCommittedSegmentHalts
+--- PASS: TestGCSegments_MissingCommittedSegmentHalts (0.11s)
+=== RUN   TestGCSegments_MissingSealHalts
+--- PASS: TestGCSegments_MissingSealHalts (0.10s)
+=== RUN   TestGCSegments_SealGarbageHalts
+--- PASS: TestGCSegments_SealGarbageHalts (0.10s)
+=== RUN   TestGCSegments_SealUnknownSchemaHalts
+--- PASS: TestGCSegments_SealUnknownSchemaHalts (0.10s)
+=== RUN   TestGCSegments_SealTornV2Halts
+--- PASS: TestGCSegments_SealTornV2Halts (0.10s)
+=== RUN   TestGCSegments_SealWrongJournalSumHalts
+--- PASS: TestGCSegments_SealWrongJournalSumHalts (0.11s)
+=== RUN   TestGCSegments_ValidV2SealAccepted
+--- PASS: TestGCSegments_ValidV2SealAccepted (0.14s)
+=== RUN   TestGCSegments_NonDenseActiveHalts
+--- PASS: TestGCSegments_NonDenseActiveHalts (0.11s)
+=== RUN   TestGCSegments_TornLogHalts
+--- PASS: TestGCSegments_TornLogHalts (0.10s)
+=== RUN   TestGCSegments_UnknownSchemaHeadHalts
+--- PASS: TestGCSegments_UnknownSchemaHeadHalts (0.09s)
+=== RUN   TestGCSegments_MigrationEvidenceWithoutAuthorityHalts
+--- PASS: TestGCSegments_MigrationEvidenceWithoutAuthorityHalts (0.11s)
+=== RUN   TestGCSegments_StagedSegmentLeaseRetained
+--- PASS: TestGCSegments_StagedSegmentLeaseRetained (0.16s)
+=== RUN   TestGCSegments_FrontierRecheckDetectsLogTailRotation
+--- PASS: TestGCSegments_FrontierRecheckDetectsLogTailRotation (0.06s)
+=== RUN   TestGCSegments_UnmigratedTreeStaysLegacy
+--- PASS: TestGCSegments_UnmigratedTreeStaysLegacy (0.15s)
+=== RUN   TestGCRetention_FifoAckSourceDoesNotHang
+--- PASS: TestGCRetention_FifoAckSourceDoesNotHang (0.14s)
+=== RUN   TestGCRetention_UnreadableLeaseRootHaltsCollection
+--- PASS: TestGCRetention_UnreadableLeaseRootHaltsCollection (0.10s)
+=== RUN   TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection
+--- PASS: TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection (0.15s)
+=== RUN   TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection
+--- PASS: TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection (0.12s)
+=== RUN   TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+--- PASS: TestGCRetention_AckReleaseRequiresExactObservationAndVersion (0.23s)
+=== RUN   TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+--- PASS: TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce (0.12s)
+=== RUN   TestGCRetention_UnreadableCheckpointDirHaltsCollection
+--- PASS: TestGCRetention_UnreadableCheckpointDirHaltsCollection (0.10s)
+=== RUN   TestGCRetention_UnreadablePendingDirHaltsCollection
+--- PASS: TestGCRetention_UnreadablePendingDirHaltsCollection (0.09s)
+=== RUN   TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging
+--- PASS: TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging (0.12s)
+=== RUN   TestGCRetention_CancelledContextIsNotARetentionError
+--- PASS: TestGCRetention_CancelledContextIsNotARetentionError (0.17s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	5.087s

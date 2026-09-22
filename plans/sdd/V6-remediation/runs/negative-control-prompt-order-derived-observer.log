@@ -1,0 +1,12 @@
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart
+    derived_publication_v6_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/observer/derived_publication_v6_test.go:77
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart
+        	Messages:   	SP08-D3 issue 2: an index-before-link cut must not duplicate the derived capture after restart
+--- FAIL: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart (0.14s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	0.305s
+FAIL

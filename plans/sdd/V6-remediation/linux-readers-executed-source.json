@@ -1,0 +1,28 @@
+{
+  "snapshot": "linux-readers-20260922-1422.json",
+  "archive_sha256": "3984a7a6e17a30acbf8eccfb5921f829ea9fa10c4a3566b8fa746ae747e150d8",
+  "container": "qompack-v6-linux-verification",
+  "image_id": "sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",
+  "executed_workdir": "/work/linux-readers-20260922-1422",
+  "runs": [
+    {
+      "id": "linux-readers-race-integrated",
+      "script": "linux-readers-20260922-1422.sh",
+      "script_sha256": "50544f042bc3dd2db2a76bf43848d5ffbe78748ce39fe5a769c09e7c92789994"
+    },
+    {
+      "id": "linux-readers-race-corrected",
+      "script": "linux-readers-race-corrected.sh",
+      "script_sha256": "f46d1318b22dca932a1861f9206b59d30e76575ba4142fef2c3ffd6ce09cdd40"
+    },
+    {
+      "id": "linux-product-child-race",
+      "script": "linux-product-child-race.sh",
+      "script_sha256": "4620af6350fce45bb369985fb8e5cad8ebed6163fe9c72d0a8fea57c2f6a85a0"
+    },
+    {
+      "id": "linux-generation-race-focused"
+    }
+  ],
+  "limit": "run.py records the Windows wrapper workspace; these runs executed the independently frozen Linux tar, not the mutable worktree. No installed Claude host is present in this container."
+}

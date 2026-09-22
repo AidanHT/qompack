@@ -1,0 +1,21 @@
+{
+  "id": "linux-recovery-prerequisites-ready",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "docker",
+    "exec",
+    "qompack-v6-linux-verification",
+    "sh",
+    "/work/run.sh"
+  ],
+  "source_head": "00e0c987bd2c5e9d39cf4da773819cec3aee13eb",
+  "source_dirty": "M docs/release.md\n M docs/security.md\n M docs/troubleshooting.md\n M docs/uat.md\n M docs/user-guide.md\n M internal/cli/commands.go\n M internal/cli/daemon.go\n M internal/cli/fsck.go\n M internal/daemon/budget.go\n M internal/daemon/daemon.go\n M internal/daemon/daemon_test.go\n M internal/daemon/delivery_lease_cap_test.go\n M internal/daemon/delivery_publication_test.go\n M internal/daemon/drain.go\n M internal/daemon/handlers.go\n M internal/daemon/hotpath_ack_tail_test.go\n M internal/daemon/ingest.go\n M internal/paths/appendonly_test.go\n M internal/paths/layout_test.go\n M internal/store/backup.go\n M internal/store/migrate.go\n M test/fault/publication_test.go\n M test/fault/v6_fsck_test.go\n M test/guards/sealresidualreport_test.go\n M test/guards/writeset_test.go\n M test/integration/appendonly_test.go\n?? docs/backup.md\n?? internal/cli/backup.go\n?? internal/cli/backup_test.go\n?? internal/cli/writer_lease.go\n?? internal/daemon/borrowed_lease.go\n?? internal/daemon/borrowed_lease_test.go\n?? internal/daemon/capture_scope_v6_test.go\n?? internal/daemon/publication_audit.go\n?? internal/daemon/publication_audit_test.go\n?? internal/paths/rename_noreplace_darwin.go\n?? internal/paths/rename_noreplace_linux.go\n?? internal/paths/rename_noreplace_other.go\n?? internal/paths/rename_noreplace_test.go\n?? internal/paths/rename_noreplace_windows.go\n?? internal/store/maintenance.go\n?? internal/store/maintenance_test.go\n?? internal/store/publication_audit.go\n?? internal/store/publication_audit_test.go\n?? plans/sdd/V6-remediation/.gitattributes\n?? plans/sdd/V6-remediation/authority-review.md\n?? plans/sdd/V6-remediation/capture-work.md\n?? plans/sdd/V6-remediation/critical-resolution-review.md\n?? plans/sdd/V6-remediation/fault-packaged-first/\n?? plans/sdd/V6-remediation/linux-prerequisite-snapshot.json\n?? plans/sdd/V6-remediation/preservation.json\n?? plans/sdd/V6-remediation/prompt-replay-work.md\n?? plans/sdd/V6-remediation/publication-packaged-work.md\n?? plans/sdd/V6-remediation/publication-work.md\n?? plans/sdd/V6-remediation/recovery-design.md\n?? plans/sdd/V6-remediation/recovery-packaged-work.md\n?? plans/sdd/V6-remediation/recovery-review.md\n?? plans/sdd/V6-remediation/recovery-work.md\n?? plans/sdd/V6-remediation/request-usage.json\n?? plans/sdd/V6-remediation/review-resolution.md\n?? plans/sdd/V6-remediation/routing/\n?? plans/sdd/V6-remediation/runs/\n?? plans/sdd/V6-remediation/security-authority-first/\n?? plans/sdd/V6-remediation/security-packaged-first/\n?? plans/sdd/V6-remediation/verification-protocol.md\n?? test/fault/v6_backup_test.go",
+  "started_at": "2026-09-21T14:35:02.818724-04:00",
+  "environment": {},
+  "status": "failed",
+  "log": "linux-recovery-prerequisites-ready.log",
+  "exit_code": 2,
+  "elapsed_seconds": 0.169,
+  "finished_at": "2026-09-21T14:35:02.989329-04:00",
+  "log_sha256": "41f293abf4ac2cec9f28067d1f0308f6da38f21adf0faf84bd30498b93f7c772"
+}

@@ -1,0 +1,38 @@
+--- FAIL: TestDeliveryRollover_CrossesCapacitySeamAndAdvancesSegment (0.10s)
+    delivery_rollover_live_test.go:49: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:40
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:49
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: delivery journal unavailable; preserve it for recovery
+        	Test:       	TestDeliveryRollover_CrossesCapacitySeamAndAdvancesSegment
+--- FAIL: TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity (0.07s)
+    delivery_rollover_live_test.go:72: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:40
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:72
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: delivery journal unavailable; preserve it for recovery
+        	Test:       	TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity
+--- FAIL: TestDeliveryRollover_RestartAcrossRotation (0.06s)
+    delivery_rollover_live_test.go:99: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:124
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:99
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: delivery journal unavailable; preserve it for recovery
+        	Test:       	TestDeliveryRollover_RestartAcrossRotation
+--- FAIL: TestDeliveryRollover_DormantSessionContinuesArrivals (0.08s)
+    delivery_rollover_live_test.go:133: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:40
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:133
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: delivery journal unavailable; preserve it for recovery
+        	Test:       	TestDeliveryRollover_DormantSessionContinuesArrivals
+--- FAIL: TestDeliveryRollover_ArchivedAckExactJoinAndFrontierRetained (0.07s)
+    delivery_rollover_live_test.go:158: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:40
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:158
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: delivery journal unavailable; preserve it for recovery
+        	Test:       	TestDeliveryRollover_ArchivedAckExactJoinAndFrontierRetained
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.682s
+FAIL

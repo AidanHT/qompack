@@ -1,0 +1,7 @@
+{
+  "base_snapshot": "linux-readers-20260922-1422.json",
+  "file": "internal/store/gcrun.go",
+  "original_sha256": "f2d67ebeacab60ca83d8aa8e70f72e7849aa3d9274813b418f45208da481fe6f",
+  "replacement_sha256": "40b68b83350e1852c52470efc4f5d87d31f11579b3ec41c3a435f290f4ea950e",
+  "control": "Deliberately bypass canonical/nonzero observation checks and conflate null/empty with missing in an isolated copy. Expected test failure, not a candidate."
+}

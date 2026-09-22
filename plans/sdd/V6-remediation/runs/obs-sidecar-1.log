@@ -1,0 +1,12 @@
+--- FAIL: TestObservationPublish_UnknownVersionAndMalformedAreUnavailable (0.05s)
+    observation_publication_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/observation_publication_test.go:97
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: "qompack: not found: observation sha256:torn"
+        	            		"qompack: not found"
+        	Test:       	TestObservationPublish_UnknownVersionAndMalformedAreUnavailable
+        	Messages:   	a truncated intent is unavailable, not absent
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.658s
+FAIL

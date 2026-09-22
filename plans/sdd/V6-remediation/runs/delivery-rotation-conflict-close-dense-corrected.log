@@ -1,0 +1,13 @@
+# github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]
+internal\daemon\delivery_seal_tool.go:275:13: assignment mismatch: 2 variables but openGenReadonly returns 3 values
+internal\daemon\delivery_seal_tool.go:275:29: not enough arguments in call to openGenReadonly
+	have (string)
+	want (context.Context, *os.Root)
+internal\daemon\delivery_seal_tool.go:335:67: not enough arguments in call to gv.checkLeaseJournal
+	have (context.Context, string, string, func(core.SessionID) (uint64, bool))
+	want (context.Context, *os.Root, string, string, func(core.SessionID) (uint64, bool, error))
+internal\daemon\delivery_seal_tool.go:344:50: not enough arguments in call to gv.checkAckJournal
+	have (context.Context, string, string)
+	want (context.Context, *os.Root, string, string)
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL

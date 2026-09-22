@@ -1,0 +1,6 @@
+=== RUN   TestPromptOrder_V6_LaterLeasedArrivalPublishedFirstTakesTurnZero
+--- PASS: TestPromptOrder_V6_LaterLeasedArrivalPublishedFirstTakesTurnZero (0.21s)
+=== RUN   TestPromptOrder_V6_UnleasedEarlierSpooledIsSeparateUncertainty
+--- PASS: TestPromptOrder_V6_UnleasedEarlierSpooledIsSeparateUncertainty (0.16s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.539s

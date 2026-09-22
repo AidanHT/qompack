@@ -1,0 +1,6 @@
+# github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/store.test]
+internal\daemon\delivery_terminal_generation.go:15:9: too many return values
+	have (radixHash, error)
+	want (error)
+FAIL	github.com/qompack/qompack/internal/store [build failed]
+FAIL

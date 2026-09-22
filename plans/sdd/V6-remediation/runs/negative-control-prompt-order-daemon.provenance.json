@@ -1,0 +1,7 @@
+{
+  "artifact": "negative-control-prompt-order-daemon.log",
+  "sha256": "146032cdbe9ce8ac5751b9c0e01d7bc8a4fc7c8b1bbe8bc4b08674477b6e2eb9",
+  "copied_at": "2026-09-21T16:50:08.379932-04:00",
+  "origin": "dist\\v6-remediation\\prompt-order-daemon.log",
+  "scope": "Child scratch negative control before correction. Source snapshot and process exit not captured by parent recorder; consult child result and original text. Not candidate certification."
+}

@@ -1,0 +1,37 @@
+{
+  "id": "rc1-bundle-windows-linux",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6-rc1",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "bundle",
+    "--target",
+    "windows/amd64",
+    "--target",
+    "linux/amd64",
+    "--out",
+    "dist/v6-rc1-bundle",
+    "--archive",
+    "--host-validate",
+    "--evidence",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-remediation/rc1-bundle-host-validation.json"
+  ],
+  "source_head": "65bc8d7707fed78e1b7344c2d23d5fa948a0a9c1",
+  "source_dirty": "",
+  "source_snapshot": "rc1-bundle-windows-linux.source.json",
+  "source_snapshot_sha256": "6796120e1587043a211a43fab344b7d991b1e29eadebe411e1a4c5434f413f18",
+  "started_at": "2026-09-22T16:28:40.142581-04:00",
+  "status": "passed",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": "2"
+  },
+  "log": "rc1-bundle-windows-linux.log",
+  "exit_code": 0,
+  "elapsed_seconds": 60.401,
+  "finished_at": "2026-09-22T16:29:40.545649-04:00",
+  "source_changed_during_run": false,
+  "source_dirty_after": "",
+  "log_sha256": "6ac1f6c5dad8b6a19c3d674a01695009fb052eb3466aac25b4f28809f9175548"
+}

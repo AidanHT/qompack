@@ -1,0 +1,10 @@
+ok  	github.com/qompack/qompack/internal/store	4.037s
+--- FAIL: TestRedelivery_SameHostIDFromTwoDeliveriesRecordsOnce (0.22s)
+    redelivery_sweep_test.go:363: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/observer/redelivery_sweep_test.go:363
+        	Error:      	Received unexpected error:
+        	            	observer: tool capture unpublished: qompack: running in degraded mode
+        	Test:       	TestRedelivery_SameHostIDFromTwoDeliveriesRecordsOnce
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	48.170s
+FAIL

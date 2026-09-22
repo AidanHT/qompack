@@ -1,0 +1,13 @@
+{
+  "source_head": "3dab390fde387a6ab58c79d78bf3e42d6b0653fb",
+  "product_candidate_head": "65bc8d7707fed78e1b7344c2d23d5fa948a0a9c1",
+  "difference": "Only two daemon test fixtures changed. Production source and retained candidate bundles remain at 65bc8d7; different generated test-process binaries are identified separately.",
+  "git_bundle": "dist/v6-remediation/linux-test-candidate-3dab390.bundle",
+  "git_bundle_sha256": "b6d3e8c95cf879ff1be2330f4115ff66918c3ca2e60d4d61b99109f087078c65",
+  "container": "qompack-v6-linux-verification",
+  "image_id": "sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",
+  "executed_workdir": "/work/linux-test-candidate-3dab390",
+  "script": "dist/v6-remediation/linux-test-candidate-race.sh",
+  "reason": "Final broad non-e2e race coverage after focused correction of the two integrated fixture failures; same package selection as the reviewed devtool race gate, with per-case JSON. Actual product-child race coverage is the separately completed eight-case gate.",
+  "limit": "Docker/WSL and the local compiler. No hosted CI, installed Claude host, human UAT or quiet performance claim. Existing unresolved carry guards remain enabled."
+}

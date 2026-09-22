@@ -1,0 +1,14 @@
+corpus testdata/sessions/synthetic (synthetic tier), 24 sessions, latency: modelled
+
+policy    fraction_of_opt  retrieval rewrite_tokens    pause_p95
+null             0.000000          0       16899599       118386
+oracle           1.000000          0        7799430        57763
+qompack-rehydrate        0.859402          0       16899599       118386
+stock            0.258291          0       16899599       118386
+
+measurement only: §5.6/§12 — Claude Code manages its own cache_control markers; a plugin cannot place or move them
+breakpoint OPT: 93742066 cached reads at [137531 300711 483082 665165] (4 markers, 161 candidates)
+note: null made 0 retrieval calls, so its retrieval_hit_rate of 0.0 is an absence of calls rather than a failure
+note: oracle made 0 retrieval calls, so its retrieval_hit_rate of 0.0 is an absence of calls rather than a failure
+note: qompack-rehydrate made 0 retrieval calls, so its retrieval_hit_rate of 0.0 is an absence of calls rather than a failure
+note: stock made 0 retrieval calls, so its retrieval_hit_rate of 0.0 is an absence of calls rather than a failure

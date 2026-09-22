@@ -1,0 +1,9 @@
+{
+  "source_head": "4a12eff5bf8b7a30dc91e58d02382dd7b453180c",
+  "archive": "dist\\v6-remediation\\linux-prompt-source.tar",
+  "sha256": "16d3c393a18f7f8c53d6d93f0fbffb80309450d48a364f5302c59d16e2fad4cc",
+  "container": "qompack-v6-linux-verification",
+  "image": "golang@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",
+  "extracted_source": "/work/prompt-4a12eff",
+  "scope": "focused POSIX publication sync/restart and backup prerequisites; not installed Claude host or release proof"
+}

@@ -1,0 +1,18 @@
+=== RUN   TestDeliveryRollover_V6_DisabledMechanismCannotReopenLegacy
+--- PASS: TestDeliveryRollover_V6_DisabledMechanismCannotReopenLegacy (0.30s)
+=== RUN   TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity
+=== RUN   TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-generations
+=== RUN   TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-journal.json
+=== RUN   TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-segments
+--- PASS: TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity (0.11s)
+    --- PASS: TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-generations (0.05s)
+    --- PASS: TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-journal.json (0.03s)
+    --- PASS: TestDeliveryMigration_MissingLegacyAnchorsDoNotRecreateIdentity/delivery-segments (0.03s)
+=== RUN   TestDeliveryMigration_OrphanArtifactsPreserveLegacyAnchorsWithoutContinuing
+--- PASS: TestDeliveryMigration_OrphanArtifactsPreserveLegacyAnchorsWithoutContinuing (0.19s)
+=== RUN   TestDeliveryMigration_MissingAckAnchorsAreNotRecreated
+--- PASS: TestDeliveryMigration_MissingAckAnchorsAreNotRecreated (0.17s)
+=== RUN   TestCrashCutBetweenReferenceAndFrontierRedelivers
+--- PASS: TestCrashCutBetweenReferenceAndFrontierRedelivers (0.34s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.484s

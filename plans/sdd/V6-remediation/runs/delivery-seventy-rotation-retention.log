@@ -1,0 +1,8 @@
+=== RUN   TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity
+--- PASS: TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity (42.59s)
+=== RUN   TestDeliveryRollover_RestartAcrossRotation
+--- PASS: TestDeliveryRollover_RestartAcrossRotation (2.45s)
+=== RUN   TestDeliveryRollover_ArchivedAckExactJoinAndFrontierRetained
+--- PASS: TestDeliveryRollover_ArchivedAckExactJoinAndFrontierRetained (37.04s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	82.315s

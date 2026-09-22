@@ -1,0 +1,11 @@
+--- FAIL: TestDeliveryRollover_RestartAcrossRotation (3.58s)
+    delivery_rollover_live_test.go:109: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:40
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_rollover_live_test.go:109
+        	Error:      	Received unexpected error:
+        	            	qompack: running in degraded mode: delivery journal unavailable; preserve it for recovery
+        	Test:       	TestDeliveryRollover_RestartAcrossRotation
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestDeliveryRollover_RestartAcrossRotation2996667159\001\.qompack\state: The process cannot access the file because it is being used by another process.
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	120.078s
+FAIL

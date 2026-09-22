@@ -1,0 +1,12 @@
+{"Time":"2026-09-21T11:37:05.223617-04:00","Action":"start","Package":"github.com/qompack/qompack/internal/paths"}
+{"Time":"2026-09-21T11:37:06.3544234-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/paths","Test":"TestHighestBloomBackupSeq_UnreadableDirIsAnError"}
+{"Time":"2026-09-21T11:37:06.3544234-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Test":"TestHighestBloomBackupSeq_UnreadableDirIsAnError","Output":"=== RUN   TestHighestBloomBackupSeq_UnreadableDirIsAnError\n"}
+{"Time":"2026-09-21T11:37:06.3955791-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Test":"TestHighestBloomBackupSeq_UnreadableDirIsAnError","Output":"--- PASS: TestHighestBloomBackupSeq_UnreadableDirIsAnError (0.04s)\n"}
+{"Time":"2026-09-21T11:37:06.3961132-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Test":"TestHighestBloomBackupSeq_UnreadableDirIsAnError","Elapsed":0.04}
+{"Time":"2026-09-21T11:37:06.3961132-04:00","Action":"run","Package":"github.com/qompack/qompack/internal/paths","Test":"TestEnsureLayout_WriteAtomicFailureIsPropagated"}
+{"Time":"2026-09-21T11:37:06.3961132-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Test":"TestEnsureLayout_WriteAtomicFailureIsPropagated","Output":"=== RUN   TestEnsureLayout_WriteAtomicFailureIsPropagated\n"}
+{"Time":"2026-09-21T11:37:06.4433331-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Test":"TestEnsureLayout_WriteAtomicFailureIsPropagated","Output":"--- PASS: TestEnsureLayout_WriteAtomicFailureIsPropagated (0.05s)\n"}
+{"Time":"2026-09-21T11:37:06.4433331-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Test":"TestEnsureLayout_WriteAtomicFailureIsPropagated","Elapsed":0.05}
+{"Time":"2026-09-21T11:37:06.4433331-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"PASS\n"}
+{"Time":"2026-09-21T11:37:06.4456749-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"ok  \tgithub.com/qompack/qompack/internal/paths\t1.222s\n"}
+{"Time":"2026-09-21T11:37:06.4456749-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Elapsed":1.222}

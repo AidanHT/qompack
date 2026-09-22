@@ -1,0 +1,37 @@
+=== RUN   TestGCSegments_SealGarbageHalts
+    gc_delivery_segments_test.go:275: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:267
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:275
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_SealGarbageHalts
+        	Messages:   	an unsupported/malformed seal must halt
+--- FAIL: TestGCSegments_SealGarbageHalts (0.07s)
+=== RUN   TestGCSegments_SealUnknownSchemaHalts
+    gc_delivery_segments_test.go:282: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:267
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:282
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_SealUnknownSchemaHalts
+        	Messages:   	an unsupported/malformed seal must halt
+--- FAIL: TestGCSegments_SealUnknownSchemaHalts (0.07s)
+=== RUN   TestGCSegments_SealTornV2Halts
+    gc_delivery_segments_test.go:291: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:267
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:291
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_SealTornV2Halts
+        	Messages:   	an unsupported/malformed seal must halt
+--- FAIL: TestGCSegments_SealTornV2Halts (0.10s)
+=== RUN   TestGCSegments_SealWrongJournalSumHalts
+    gc_delivery_segments_test.go:301: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:267
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:301
+        	Error:      	Should be true
+        	Test:       	TestGCSegments_SealWrongJournalSumHalts
+        	Messages:   	an unsupported/malformed seal must halt
+--- FAIL: TestGCSegments_SealWrongJournalSumHalts (0.08s)
+=== RUN   TestGCSegments_ValidV2SealAccepted
+--- PASS: TestGCSegments_ValidV2SealAccepted (0.11s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.644s
+FAIL

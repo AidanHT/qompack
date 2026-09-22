@@ -1,0 +1,15 @@
+--- FAIL: TestGCRetention_UnreadableCheckpointDirHaltsCollection (0.10s)
+    gc_retention_read_v6_test.go:188: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:188
+        	Error:      	Should be true
+        	Test:       	TestGCRetention_UnreadableCheckpointDirHaltsCollection
+        	Messages:   	a non-directory checkpoints source must be reported, not read as empty
+--- FAIL: TestGCRetention_UnreadablePendingDirHaltsCollection (0.07s)
+    gc_retention_read_v6_test.go:202: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:202
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestGCRetention_UnreadablePendingDirHaltsCollection580963379\001\project\.qompack\state\pending: is a directory
+        	Test:       	TestGCRetention_UnreadablePendingDirHaltsCollection
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.689s
+FAIL

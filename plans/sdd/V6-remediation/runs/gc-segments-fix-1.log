@@ -1,0 +1,67 @@
+=== RUN   TestGCSegments_HarvestsOldestLeaseAcrossRotation
+    gc_delivery_segments_test.go:136: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:136
+        	Error:      	Should be false
+        	Test:       	TestGCSegments_HarvestsOldestLeaseAcrossRotation
+--- FAIL: TestGCSegments_HarvestsOldestLeaseAcrossRotation (0.14s)
+=== RUN   TestGCSegments_AckInLaterSegmentSettlesOlderLease
+    gc_delivery_segments_test.go:164: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:164
+        	Error:      	Should be false
+        	Test:       	TestGCSegments_AckInLaterSegmentSettlesOlderLease
+--- FAIL: TestGCSegments_AckInLaterSegmentSettlesOlderLease (0.10s)
+=== RUN   TestGCSegments_MissingCommittedSegmentHalts
+--- PASS: TestGCSegments_MissingCommittedSegmentHalts (0.06s)
+=== RUN   TestGCSegments_TornLogHalts
+--- PASS: TestGCSegments_TornLogHalts (0.09s)
+=== RUN   TestGCSegments_UnknownSchemaHeadHalts
+--- PASS: TestGCSegments_UnknownSchemaHeadHalts (0.08s)
+=== RUN   TestGCSegments_MigrationEvidenceWithoutAuthorityHalts
+--- PASS: TestGCSegments_MigrationEvidenceWithoutAuthorityHalts (0.05s)
+=== RUN   TestGCSegments_StagedSegmentLeaseRetained
+    gc_delivery_segments_test.go:270: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:270
+        	Error:      	Should be false
+        	Test:       	TestGCSegments_StagedSegmentLeaseRetained
+--- FAIL: TestGCSegments_StagedSegmentLeaseRetained (0.06s)
+=== RUN   TestGCSegments_UnmigratedTreeStaysLegacy
+    gc_delivery_segments_test.go:287: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_delivery_segments_test.go:287
+        	Error:      	Should be false
+        	Test:       	TestGCSegments_UnmigratedTreeStaysLegacy
+--- FAIL: TestGCSegments_UnmigratedTreeStaysLegacy (0.06s)
+=== RUN   TestGCRetention_UnreadableLeaseRootHaltsCollection
+--- PASS: TestGCRetention_UnreadableLeaseRootHaltsCollection (0.06s)
+=== RUN   TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection
+--- PASS: TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection (0.07s)
+=== RUN   TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection
+--- PASS: TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection (0.07s)
+=== RUN   TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+    gc_retention_read_v6_test.go:138: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:138
+        	Error:      	Should be false
+        	Test:       	TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+        	Messages:   	well-formed lease and ack journals are readable
+--- FAIL: TestGCRetention_AckReleaseRequiresExactObservationAndVersion (0.07s)
+=== RUN   TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+    gc_retention_read_v6_test.go:168: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:168
+        	Error:      	Should be false
+        	Test:       	TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+--- FAIL: TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce (0.06s)
+=== RUN   TestGCRetention_UnreadableCheckpointDirHaltsCollection
+--- PASS: TestGCRetention_UnreadableCheckpointDirHaltsCollection (0.05s)
+=== RUN   TestGCRetention_UnreadablePendingDirHaltsCollection
+--- PASS: TestGCRetention_UnreadablePendingDirHaltsCollection (0.06s)
+=== RUN   TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging
+    gc_retention_read_v6_test.go:233: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:233
+        	Error:      	Should be false
+        	Test:       	TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging
+        	Messages:   	an unreadable ACK journal retains more, it does not halt
+--- FAIL: TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging (0.05s)
+=== RUN   TestGCRetention_CancelledContextIsNotARetentionError
+--- PASS: TestGCRetention_CancelledContextIsNotARetentionError (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1.433s
+FAIL

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"QOMPACK-RC1-ORIGINAL-pgbouncer-transaction-mode-8f3a2c\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:160d089e5dd22072f87cd7240f95177270aa542d1fc1485f7a4b9d9d578e1644",
+      "tool_use_id": "qompack-mcp:55e0f6734ae2",
+      "untrusted": true
+    }
+  }
+}

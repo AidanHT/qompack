@@ -1,0 +1,46 @@
+40b68b83350e1852c52470efc4f5d87d31f11579b3ec41c3a435f290f4ea950e  internal/store/gcrun.go
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero
+    gc_ack_identity_v6_test.go:39: 
+        	Error Trace:	/work/linux-gc-ack-negative-control-20260922/internal/store/gc_ack_identity_v6_test.go:39
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root 6981d3e982ea
+        	Test:       	TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero
+        	Messages:   	malformed identities are not legacy absence or a valid identity join
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare
+    gc_ack_identity_v6_test.go:39: 
+        	Error Trace:	/work/linux-gc-ack-negative-control-20260922/internal/store/gc_ack_identity_v6_test.go:39
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root 6981d3e982ea
+        	Test:       	TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare
+        	Messages:   	malformed identities are not legacy absence or a valid identity join
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase
+    gc_ack_identity_v6_test.go:39: 
+        	Error Trace:	/work/linux-gc-ack-negative-control-20260922/internal/store/gc_ack_identity_v6_test.go:39
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root 6981d3e982ea
+        	Test:       	TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase
+        	Messages:   	malformed identities are not legacy absence or a valid identity join
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty
+    gc_ack_identity_v6_test.go:39: 
+        	Error Trace:	/work/linux-gc-ack-negative-control-20260922/internal/store/gc_ack_identity_v6_test.go:39
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root 6981d3e982ea
+        	Test:       	TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty
+        	Messages:   	malformed identities are not legacy absence or a valid identity join
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null
+    gc_ack_identity_v6_test.go:39: 
+        	Error Trace:	/work/linux-gc-ack-negative-control-20260922/internal/store/gc_ack_identity_v6_test.go:39
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root 6981d3e982ea
+        	Test:       	TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null
+        	Messages:   	malformed identities are not legacy absence or a valid identity join
+--- FAIL: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases (0.49s)
+    --- FAIL: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero (0.10s)
+    --- FAIL: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare (0.09s)
+    --- FAIL: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase (0.13s)
+    --- FAIL: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty (0.09s)
+    --- FAIL: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.537s
+FAIL

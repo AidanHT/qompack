@@ -1,0 +1,202 @@
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+go version go1.26.6 linux/amd64
+go: downloading golang.org/x/sys v0.33.0
+go: downloading github.com/stretchr/testify v1.10.0
+go: downloading pgregory.net/rapid v1.1.0
+go: downloading github.com/klauspost/compress v1.18.0
+go: downloading github.com/google/go-cmp v0.7.0
+go: downloading github.com/davecgh/go-spew v1.1.1
+go: downloading github.com/pmezard/go-difflib v1.0.0
+go: downloading gopkg.in/yaml.v3 v3.0.1
+{"Time":"2026-09-21T18:35:53.67781777Z","Action":"start","Package":"github.com/qompack/qompack/internal/store"}
+{"Time":"2026-09-21T18:35:53.689822667Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_ConstructorRequiresExplicitConfig"}
+{"Time":"2026-09-21T18:35:53.689865338Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_ConstructorRequiresExplicitConfig","Output":"=== RUN   TestMaintenance_ConstructorRequiresExplicitConfig\n"}
+{"Time":"2026-09-21T18:35:53.73520427Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_ConstructorRequiresExplicitConfig","Output":"--- PASS: TestMaintenance_ConstructorRequiresExplicitConfig (0.05s)\n"}
+{"Time":"2026-09-21T18:35:53.735274619Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_ConstructorRequiresExplicitConfig","Elapsed":0.05}
+{"Time":"2026-09-21T18:35:53.735629975Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_TakeBackupLeaseGuard"}
+{"Time":"2026-09-21T18:35:53.735644242Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_TakeBackupLeaseGuard","Output":"=== RUN   TestMaintenance_TakeBackupLeaseGuard\n"}
+{"Time":"2026-09-21T18:35:54.022714414Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_TakeBackupLeaseGuard","Output":"--- PASS: TestMaintenance_TakeBackupLeaseGuard (0.29s)\n"}
+{"Time":"2026-09-21T18:35:54.022781915Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_TakeBackupLeaseGuard","Elapsed":0.29}
+{"Time":"2026-09-21T18:35:54.02279473Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_BackupIDValidation"}
+{"Time":"2026-09-21T18:35:54.022798879Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_BackupIDValidation","Output":"=== RUN   TestMaintenance_BackupIDValidation\n"}
+{"Time":"2026-09-21T18:35:54.206693085Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_BackupIDValidation","Output":"--- PASS: TestMaintenance_BackupIDValidation (0.18s)\n"}
+{"Time":"2026-09-21T18:35:54.206754193Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_BackupIDValidation","Elapsed":0.18}
+{"Time":"2026-09-21T18:35:54.206779816Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_TakeVerifyRestoreRoundTrip"}
+{"Time":"2026-09-21T18:35:54.206782743Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_TakeVerifyRestoreRoundTrip","Output":"=== RUN   TestMaintenance_TakeVerifyRestoreRoundTrip\n"}
+{"Time":"2026-09-21T18:35:54.380694919Z","Action":"start","Package":"github.com/qompack/qompack/internal/paths"}
+{"Time":"2026-09-21T18:35:54.387201175Z","Action":"run","Package":"github.com/qompack/qompack/internal/paths","Test":"TestRenameDirectoryNoReplace"}
+{"Time":"2026-09-21T18:35:54.387242543Z","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Test":"TestRenameDirectoryNoReplace","Output":"=== RUN   TestRenameDirectoryNoReplace\n"}
+{"Time":"2026-09-21T18:35:54.392599382Z","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Test":"TestRenameDirectoryNoReplace","Output":"--- PASS: TestRenameDirectoryNoReplace (0.01s)\n"}
+{"Time":"2026-09-21T18:35:54.392936887Z","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Test":"TestRenameDirectoryNoReplace","Elapsed":0.01}
+{"Time":"2026-09-21T18:35:54.394963401Z","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"PASS\n"}
+{"Time":"2026-09-21T18:35:54.395858596Z","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"ok  \tgithub.com/qompack/qompack/internal/paths\t0.015s\n"}
+{"Time":"2026-09-21T18:35:54.395999314Z","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Elapsed":0.015}
+{"Time":"2026-09-21T18:35:54.563770486Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_TakeVerifyRestoreRoundTrip","Output":"--- PASS: TestMaintenance_TakeVerifyRestoreRoundTrip (0.36s)\n"}
+{"Time":"2026-09-21T18:35:54.563807234Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_TakeVerifyRestoreRoundTrip","Elapsed":0.36}
+{"Time":"2026-09-21T18:35:54.563823635Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_RestoreRefusesExistingDestination"}
+{"Time":"2026-09-21T18:35:54.563826866Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_RestoreRefusesExistingDestination","Output":"=== RUN   TestMaintenance_RestoreRefusesExistingDestination\n"}
+{"Time":"2026-09-21T18:35:54.744734751Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_RestoreRefusesExistingDestination","Output":"--- PASS: TestMaintenance_RestoreRefusesExistingDestination (0.18s)\n"}
+{"Time":"2026-09-21T18:35:54.744809272Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_RestoreRefusesExistingDestination","Elapsed":0.18}
+{"Time":"2026-09-21T18:35:54.744830112Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_CorruptedBackupIsRefused"}
+{"Time":"2026-09-21T18:35:54.744835929Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_CorruptedBackupIsRefused","Output":"=== RUN   TestMaintenance_CorruptedBackupIsRefused\n"}
+{"Time":"2026-09-21T18:35:54.890679576Z","Action":"start","Package":"github.com/qompack/qompack/internal/hookio"}
+{"Time":"2026-09-21T18:35:54.893693217Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_NullLifecycleInputAndAmbiguousNestedEdit"}
+{"Time":"2026-09-21T18:35:54.893745998Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_NullLifecycleInputAndAmbiguousNestedEdit","Output":"=== RUN   TestCaptureScope_NullLifecycleInputAndAmbiguousNestedEdit\n"}
+{"Time":"2026-09-21T18:35:54.895162373Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_NullLifecycleInputAndAmbiguousNestedEdit","Output":"--- PASS: TestCaptureScope_NullLifecycleInputAndAmbiguousNestedEdit (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.895222811Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_NullLifecycleInputAndAmbiguousNestedEdit","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.895237944Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_InsidePositiveCarriesPrimaryKey"}
+{"Time":"2026-09-21T18:35:54.895247364Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_InsidePositiveCarriesPrimaryKey","Output":"=== RUN   TestCaptureScope_InsidePositiveCarriesPrimaryKey\n"}
+{"Time":"2026-09-21T18:35:54.896139874Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_InsidePositiveCarriesPrimaryKey","Output":"--- PASS: TestCaptureScope_InsidePositiveCarriesPrimaryKey (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.896197456Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_InsidePositiveCarriesPrimaryKey","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.896207867Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_AbsolutePathOutsideProjectRefused"}
+{"Time":"2026-09-21T18:35:54.896219836Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_AbsolutePathOutsideProjectRefused","Output":"=== RUN   TestCaptureScope_AbsolutePathOutsideProjectRefused\n"}
+{"Time":"2026-09-21T18:35:54.897348483Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_AbsolutePathOutsideProjectRefused","Output":"--- PASS: TestCaptureScope_AbsolutePathOutsideProjectRefused (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.897381092Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_AbsolutePathOutsideProjectRefused","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.897599368Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_TraversalOutsideProjectRefused"}
+{"Time":"2026-09-21T18:35:54.897640347Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_TraversalOutsideProjectRefused","Output":"=== RUN   TestCaptureScope_TraversalOutsideProjectRefused\n"}
+{"Time":"2026-09-21T18:35:54.89823346Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_TraversalOutsideProjectRefused","Output":"--- PASS: TestCaptureScope_TraversalOutsideProjectRefused (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.898301282Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_TraversalOutsideProjectRefused","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.898308619Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_ChecksEveryPathNotJustTheFirst"}
+{"Time":"2026-09-21T18:35:54.898310545Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_ChecksEveryPathNotJustTheFirst","Output":"=== RUN   TestCaptureScope_ChecksEveryPathNotJustTheFirst\n"}
+{"Time":"2026-09-21T18:35:54.899080977Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_ChecksEveryPathNotJustTheFirst","Output":"--- PASS: TestCaptureScope_ChecksEveryPathNotJustTheFirst (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.899102462Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_ChecksEveryPathNotJustTheFirst","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.89911164Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_PathlessProducersAllowed"}
+{"Time":"2026-09-21T18:35:54.899113871Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_PathlessProducersAllowed","Output":"=== RUN   TestCaptureScope_PathlessProducersAllowed\n"}
+{"Time":"2026-09-21T18:35:54.900610095Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_PathlessProducersAllowed","Output":"--- PASS: TestCaptureScope_PathlessProducersAllowed (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.900664235Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_PathlessProducersAllowed","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.900677949Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_UnknownPathlessProducerIsArchiveData"}
+{"Time":"2026-09-21T18:35:54.900680878Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_UnknownPathlessProducerIsArchiveData","Output":"=== RUN   TestCaptureScope_UnknownPathlessProducerIsArchiveData\n"}
+{"Time":"2026-09-21T18:35:54.901475643Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_UnknownPathlessProducerIsArchiveData","Output":"--- PASS: TestCaptureScope_UnknownPathlessProducerIsArchiveData (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.901503142Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_UnknownPathlessProducerIsArchiveData","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.901508241Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_FileProducerWithDroppedPathIsUnprovable"}
+{"Time":"2026-09-21T18:35:54.901510016Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_FileProducerWithDroppedPathIsUnprovable","Output":"=== RUN   TestCaptureScope_FileProducerWithDroppedPathIsUnprovable\n"}
+{"Time":"2026-09-21T18:35:54.902258236Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_FileProducerWithDroppedPathIsUnprovable","Output":"--- PASS: TestCaptureScope_FileProducerWithDroppedPathIsUnprovable (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.902311713Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_FileProducerWithDroppedPathIsUnprovable","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.902322196Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_MalformedToolInputFailsClosed"}
+{"Time":"2026-09-21T18:35:54.902324348Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_MalformedToolInputFailsClosed","Output":"=== RUN   TestCaptureScope_MalformedToolInputFailsClosed\n"}
+{"Time":"2026-09-21T18:35:54.903357275Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_MalformedToolInputFailsClosed","Output":"--- PASS: TestCaptureScope_MalformedToolInputFailsClosed (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.903389722Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_MalformedToolInputFailsClosed","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.903485334Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_DuplicateStructuredKeyIsAmbiguousAndRefused"}
+{"Time":"2026-09-21T18:35:54.903532055Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_DuplicateStructuredKeyIsAmbiguousAndRefused","Output":"=== RUN   TestCaptureScope_DuplicateStructuredKeyIsAmbiguousAndRefused\n"}
+{"Time":"2026-09-21T18:35:54.904706264Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_DuplicateStructuredKeyIsAmbiguousAndRefused","Output":"--- PASS: TestCaptureScope_DuplicateStructuredKeyIsAmbiguousAndRefused (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.904733757Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_DuplicateStructuredKeyIsAmbiguousAndRefused","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.904741171Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_JunctionSwapDefeatsLexicalContainment"}
+{"Time":"2026-09-21T18:35:54.904748645Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_JunctionSwapDefeatsLexicalContainment","Output":"=== RUN   TestCaptureScope_JunctionSwapDefeatsLexicalContainment\n"}
+{"Time":"2026-09-21T18:35:54.90586576Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_JunctionSwapDefeatsLexicalContainment","Output":"--- PASS: TestCaptureScope_JunctionSwapDefeatsLexicalContainment (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.905906114Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScope_JunctionSwapDefeatsLexicalContainment","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.905912647Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_CompleteObjectDecidedOnMerits"}
+{"Time":"2026-09-21T18:35:54.905914904Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_CompleteObjectDecidedOnMerits","Output":"=== RUN   TestCaptureScopeRaw_CompleteObjectDecidedOnMerits\n"}
+{"Time":"2026-09-21T18:35:54.907521949Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_CompleteObjectDecidedOnMerits","Output":"--- PASS: TestCaptureScopeRaw_CompleteObjectDecidedOnMerits (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.907567924Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_CompleteObjectDecidedOnMerits","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.907576444Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_TruncatedPrefixCannotProveNature"}
+{"Time":"2026-09-21T18:35:54.907580274Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_TruncatedPrefixCannotProveNature","Output":"=== RUN   TestCaptureScopeRaw_TruncatedPrefixCannotProveNature\n"}
+{"Time":"2026-09-21T18:35:54.908380066Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_TruncatedPrefixCannotProveNature","Output":"--- PASS: TestCaptureScopeRaw_TruncatedPrefixCannotProveNature (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.908406584Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_TruncatedPrefixCannotProveNature","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.90841294Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_ResponseFirstPrefixCannotProveNature"}
+{"Time":"2026-09-21T18:35:54.908423905Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_ResponseFirstPrefixCannotProveNature","Output":"=== RUN   TestCaptureScopeRaw_ResponseFirstPrefixCannotProveNature\n"}
+{"Time":"2026-09-21T18:35:54.909192379Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_ResponseFirstPrefixCannotProveNature","Output":"--- PASS: TestCaptureScopeRaw_ResponseFirstPrefixCannotProveNature (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.909220912Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_ResponseFirstPrefixCannotProveNature","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.909228507Z","Action":"run","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_DuplicateOrTrailingRefused"}
+{"Time":"2026-09-21T18:35:54.909231107Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_DuplicateOrTrailingRefused","Output":"=== RUN   TestCaptureScopeRaw_DuplicateOrTrailingRefused\n"}
+{"Time":"2026-09-21T18:35:54.909764021Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_DuplicateOrTrailingRefused","Output":"--- PASS: TestCaptureScopeRaw_DuplicateOrTrailingRefused (0.00s)\n"}
+{"Time":"2026-09-21T18:35:54.909784362Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Test":"TestCaptureScopeRaw_DuplicateOrTrailingRefused","Elapsed":0}
+{"Time":"2026-09-21T18:35:54.910343894Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Output":"PASS\n"}
+{"Time":"2026-09-21T18:35:54.910982615Z","Action":"output","Package":"github.com/qompack/qompack/internal/hookio","Output":"ok  \tgithub.com/qompack/qompack/internal/hookio\t0.020s\n"}
+{"Time":"2026-09-21T18:35:54.911053798Z","Action":"pass","Package":"github.com/qompack/qompack/internal/hookio","Elapsed":0.02}
+{"Time":"2026-09-21T18:35:54.922635455Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_CorruptedBackupIsRefused","Output":"--- PASS: TestMaintenance_CorruptedBackupIsRefused (0.18s)\n"}
+{"Time":"2026-09-21T18:35:54.922683028Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_CorruptedBackupIsRefused","Elapsed":0.18}
+{"Time":"2026-09-21T18:35:54.922830613Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_AdversarialManifestRefusedBeforeReadingFiles"}
+{"Time":"2026-09-21T18:35:54.92287601Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_AdversarialManifestRefusedBeforeReadingFiles","Output":"=== RUN   TestMaintenance_AdversarialManifestRefusedBeforeReadingFiles\n"}
+{"Time":"2026-09-21T18:35:54.964763913Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_AdversarialManifestRefusedBeforeReadingFiles","Output":"--- PASS: TestMaintenance_AdversarialManifestRefusedBeforeReadingFiles (0.04s)\n"}
+{"Time":"2026-09-21T18:35:54.964807136Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_AdversarialManifestRefusedBeforeReadingFiles","Elapsed":0.04}
+{"Time":"2026-09-21T18:35:54.96481924Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_SymlinkComponentInBackupTreeRefused"}
+{"Time":"2026-09-21T18:35:54.964821769Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_SymlinkComponentInBackupTreeRefused","Output":"=== RUN   TestMaintenance_SymlinkComponentInBackupTreeRefused\n"}
+{"Time":"2026-09-21T18:35:55.111080038Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_SymlinkComponentInBackupTreeRefused","Output":"--- PASS: TestMaintenance_SymlinkComponentInBackupTreeRefused (0.15s)\n"}
+{"Time":"2026-09-21T18:35:55.111147203Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_SymlinkComponentInBackupTreeRefused","Elapsed":0.15}
+{"Time":"2026-09-21T18:35:55.111161419Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_ContextCancellationStops"}
+{"Time":"2026-09-21T18:35:55.111166768Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_ContextCancellationStops","Output":"=== RUN   TestMaintenance_ContextCancellationStops\n"}
+{"Time":"2026-09-21T18:35:55.262299298Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_ContextCancellationStops","Output":"--- PASS: TestMaintenance_ContextCancellationStops (0.15s)\n"}
+{"Time":"2026-09-21T18:35:55.262373738Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_ContextCancellationStops","Elapsed":0.15}
+{"Time":"2026-09-21T18:35:55.26239779Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_StagedRehashCatchesPostCopyCorruption"}
+{"Time":"2026-09-21T18:35:55.26240618Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_StagedRehashCatchesPostCopyCorruption","Output":"=== RUN   TestMaintenance_StagedRehashCatchesPostCopyCorruption\n"}
+{"Time":"2026-09-21T18:35:55.484442293Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_StagedRehashCatchesPostCopyCorruption","Output":"--- PASS: TestMaintenance_StagedRehashCatchesPostCopyCorruption (0.22s)\n"}
+{"Time":"2026-09-21T18:35:55.484545461Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_StagedRehashCatchesPostCopyCorruption","Elapsed":0.22}
+{"Time":"2026-09-21T18:35:55.48462258Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_RestoreLeavesSourceLaterWritesIntact"}
+{"Time":"2026-09-21T18:35:55.484627479Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_RestoreLeavesSourceLaterWritesIntact","Output":"=== RUN   TestMaintenance_RestoreLeavesSourceLaterWritesIntact\n"}
+{"Time":"2026-09-21T18:35:55.769902325Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_RestoreLeavesSourceLaterWritesIntact","Output":"--- PASS: TestMaintenance_RestoreLeavesSourceLaterWritesIntact (0.29s)\n"}
+{"Time":"2026-09-21T18:35:55.769999807Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestMaintenance_RestoreLeavesSourceLaterWritesIntact","Elapsed":0.29}
+{"Time":"2026-09-21T18:35:55.770562199Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_ClassifiesCaptureSidecars"}
+{"Time":"2026-09-21T18:35:55.770615846Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_ClassifiesCaptureSidecars","Output":"=== RUN   TestAuditPublication_ClassifiesCaptureSidecars\n"}
+{"Time":"2026-09-21T18:35:55.884925376Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_ClassifiesCaptureSidecars","Output":"--- PASS: TestAuditPublication_ClassifiesCaptureSidecars (0.11s)\n"}
+{"Time":"2026-09-21T18:35:55.884967284Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_ClassifiesCaptureSidecars","Elapsed":0.11}
+{"Time":"2026-09-21T18:35:55.884979522Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_DeniedCaptureIsNotAGap"}
+{"Time":"2026-09-21T18:35:55.884982574Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_DeniedCaptureIsNotAGap","Output":"=== RUN   TestAuditPublication_DeniedCaptureIsNotAGap\n"}
+{"Time":"2026-09-21T18:35:55.922843853Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_DeniedCaptureIsNotAGap","Output":"--- PASS: TestAuditPublication_DeniedCaptureIsNotAGap (0.04s)\n"}
+{"Time":"2026-09-21T18:35:55.922938041Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_DeniedCaptureIsNotAGap","Elapsed":0.04}
+{"Time":"2026-09-21T18:35:55.923005735Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_EmptyOkCaptureIsNotAGap"}
+{"Time":"2026-09-21T18:35:55.923014923Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_EmptyOkCaptureIsNotAGap","Output":"=== RUN   TestAuditPublication_EmptyOkCaptureIsNotAGap\n"}
+{"Time":"2026-09-21T18:35:55.966546391Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_EmptyOkCaptureIsNotAGap","Output":"--- PASS: TestAuditPublication_EmptyOkCaptureIsNotAGap (0.04s)\n"}
+{"Time":"2026-09-21T18:35:55.966610836Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_EmptyOkCaptureIsNotAGap","Elapsed":0.04}
+{"Time":"2026-09-21T18:35:55.966622283Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnknownOutcomeIsIncomplete"}
+{"Time":"2026-09-21T18:35:55.966626115Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnknownOutcomeIsIncomplete","Output":"=== RUN   TestAuditPublication_UnknownOutcomeIsIncomplete\n"}
+{"Time":"2026-09-21T18:35:56.002746648Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnknownOutcomeIsIncomplete","Output":"--- PASS: TestAuditPublication_UnknownOutcomeIsIncomplete (0.04s)\n"}
+{"Time":"2026-09-21T18:35:56.002823091Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnknownOutcomeIsIncomplete","Elapsed":0.04}
+{"Time":"2026-09-21T18:35:56.002853209Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnknownOpIsIncomplete"}
+{"Time":"2026-09-21T18:35:56.00285765Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnknownOpIsIncomplete","Output":"=== RUN   TestAuditPublication_UnknownOpIsIncomplete\n"}
+{"Time":"2026-09-21T18:35:56.035637637Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnknownOpIsIncomplete","Output":"--- PASS: TestAuditPublication_UnknownOpIsIncomplete (0.03s)\n"}
+{"Time":"2026-09-21T18:35:56.035752859Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnknownOpIsIncomplete","Elapsed":0.03}
+{"Time":"2026-09-21T18:35:56.035776157Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_FutureSchemaIsIncompleteNotEmpty"}
+{"Time":"2026-09-21T18:35:56.035779282Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_FutureSchemaIsIncompleteNotEmpty","Output":"=== RUN   TestAuditPublication_FutureSchemaIsIncompleteNotEmpty\n"}
+{"Time":"2026-09-21T18:35:56.069554315Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_FutureSchemaIsIncompleteNotEmpty","Output":"--- PASS: TestAuditPublication_FutureSchemaIsIncompleteNotEmpty (0.03s)\n"}
+{"Time":"2026-09-21T18:35:56.069630312Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_FutureSchemaIsIncompleteNotEmpty","Elapsed":0.03}
+{"Time":"2026-09-21T18:35:56.069650579Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_MissingOrOlderSchemaIsIncomplete"}
+{"Time":"2026-09-21T18:35:56.069655148Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_MissingOrOlderSchemaIsIncomplete","Output":"=== RUN   TestAuditPublication_MissingOrOlderSchemaIsIncomplete\n"}
+{"Time":"2026-09-21T18:35:56.107170081Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_MissingOrOlderSchemaIsIncomplete","Output":"--- PASS: TestAuditPublication_MissingOrOlderSchemaIsIncomplete (0.04s)\n"}
+{"Time":"2026-09-21T18:35:56.107216078Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_MissingOrOlderSchemaIsIncomplete","Elapsed":0.04}
+{"Time":"2026-09-21T18:35:56.107225714Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_MalformedTrailingJSONIsIncomplete"}
+{"Time":"2026-09-21T18:35:56.107228017Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_MalformedTrailingJSONIsIncomplete","Output":"=== RUN   TestAuditPublication_MalformedTrailingJSONIsIncomplete\n"}
+{"Time":"2026-09-21T18:35:56.138028017Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_MalformedTrailingJSONIsIncomplete","Output":"--- PASS: TestAuditPublication_MalformedTrailingJSONIsIncomplete (0.03s)\n"}
+{"Time":"2026-09-21T18:35:56.138082821Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_MalformedTrailingJSONIsIncomplete","Elapsed":0.03}
+{"Time":"2026-09-21T18:35:56.138094191Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnreadableSidecarIsIncomplete"}
+{"Time":"2026-09-21T18:35:56.13809689Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnreadableSidecarIsIncomplete","Output":"=== RUN   TestAuditPublication_UnreadableSidecarIsIncomplete\n"}
+{"Time":"2026-09-21T18:35:56.171404115Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnreadableSidecarIsIncomplete","Output":"--- PASS: TestAuditPublication_UnreadableSidecarIsIncomplete (0.03s)\n"}
+{"Time":"2026-09-21T18:35:56.171490834Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnreadableSidecarIsIncomplete","Elapsed":0.03}
+{"Time":"2026-09-21T18:35:56.171505375Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnindexedObjectCandidate"}
+{"Time":"2026-09-21T18:35:56.171509567Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnindexedObjectCandidate","Output":"=== RUN   TestAuditPublication_UnindexedObjectCandidate\n"}
+{"Time":"2026-09-21T18:35:56.208075876Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnindexedObjectCandidate","Output":"--- PASS: TestAuditPublication_UnindexedObjectCandidate (0.04s)\n"}
+{"Time":"2026-09-21T18:35:56.208142241Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_UnindexedObjectCandidate","Elapsed":0.04}
+{"Time":"2026-09-21T18:35:56.208156551Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_IndexedObjectsAreNotCandidates"}
+{"Time":"2026-09-21T18:35:56.208161141Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_IndexedObjectsAreNotCandidates","Output":"=== RUN   TestAuditPublication_IndexedObjectsAreNotCandidates\n"}
+{"Time":"2026-09-21T18:35:56.297590984Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_IndexedObjectsAreNotCandidates","Output":"--- PASS: TestAuditPublication_IndexedObjectsAreNotCandidates (0.09s)\n"}
+{"Time":"2026-09-21T18:35:56.297639529Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_IndexedObjectsAreNotCandidates","Elapsed":0.09}
+{"Time":"2026-09-21T18:35:56.297649266Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_KeepRawPutCreatesNoCandidates"}
+{"Time":"2026-09-21T18:35:56.297651431Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_KeepRawPutCreatesNoCandidates","Output":"=== RUN   TestAuditPublication_KeepRawPutCreatesNoCandidates\n"}
+{"Time":"2026-09-21T18:35:56.378107691Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_KeepRawPutCreatesNoCandidates","Output":"--- PASS: TestAuditPublication_KeepRawPutCreatesNoCandidates (0.08s)\n"}
+{"Time":"2026-09-21T18:35:56.378174563Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_KeepRawPutCreatesNoCandidates","Elapsed":0.08}
+{"Time":"2026-09-21T18:35:56.378191604Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_PendingObjectIsNotACandidate"}
+{"Time":"2026-09-21T18:35:56.378204698Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_PendingObjectIsNotACandidate","Output":"=== RUN   TestAuditPublication_PendingObjectIsNotACandidate\n"}
+{"Time":"2026-09-21T18:35:56.416318365Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_PendingObjectIsNotACandidate","Output":"--- PASS: TestAuditPublication_PendingObjectIsNotACandidate (0.04s)\n"}
+{"Time":"2026-09-21T18:35:56.416368393Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_PendingObjectIsNotACandidate","Elapsed":0.04}
+{"Time":"2026-09-21T18:35:56.41637587Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_EmptyProjectIsCleanAndComplete"}
+{"Time":"2026-09-21T18:35:56.416379225Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_EmptyProjectIsCleanAndComplete","Output":"=== RUN   TestAuditPublication_EmptyProjectIsCleanAndComplete\n"}
+{"Time":"2026-09-21T18:35:56.449896557Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_EmptyProjectIsCleanAndComplete","Output":"--- PASS: TestAuditPublication_EmptyProjectIsCleanAndComplete (0.03s)\n"}
+{"Time":"2026-09-21T18:35:56.449959041Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_EmptyProjectIsCleanAndComplete","Elapsed":0.03}
+{"Time":"2026-09-21T18:35:56.449969387Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_RespectsTheCaptureCap"}
+{"Time":"2026-09-21T18:35:56.44997378Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_RespectsTheCaptureCap","Output":"=== RUN   TestAuditPublication_RespectsTheCaptureCap\n"}
+{"Time":"2026-09-21T18:35:56.551037085Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_RespectsTheCaptureCap","Output":"--- PASS: TestAuditPublication_RespectsTheCaptureCap (0.10s)\n"}
+{"Time":"2026-09-21T18:35:56.551145902Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_RespectsTheCaptureCap","Elapsed":0.1}
+{"Time":"2026-09-21T18:35:56.551190747Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_RespectsTheEntryBudget"}
+{"Time":"2026-09-21T18:35:56.551198457Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_RespectsTheEntryBudget","Output":"=== RUN   TestAuditPublication_RespectsTheEntryBudget\n"}
+{"Time":"2026-09-21T18:35:56.667921215Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_RespectsTheEntryBudget","Output":"--- PASS: TestAuditPublication_RespectsTheEntryBudget (0.12s)\n"}
+{"Time":"2026-09-21T18:35:56.667988077Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_RespectsTheEntryBudget","Elapsed":0.12}
+{"Time":"2026-09-21T18:35:56.667998935Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_ClosedStoreDegrades"}
+{"Time":"2026-09-21T18:35:56.668003808Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_ClosedStoreDegrades","Output":"=== RUN   TestAuditPublication_ClosedStoreDegrades\n"}
+{"Time":"2026-09-21T18:35:56.711480398Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_ClosedStoreDegrades","Output":"--- PASS: TestAuditPublication_ClosedStoreDegrades (0.04s)\n"}
+{"Time":"2026-09-21T18:35:56.711576402Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_ClosedStoreDegrades","Elapsed":0.04}
+{"Time":"2026-09-21T18:35:56.711593276Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_HonoursCancellation"}
+{"Time":"2026-09-21T18:35:56.711599045Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_HonoursCancellation","Output":"=== RUN   TestAuditPublication_HonoursCancellation\n"}
+{"Time":"2026-09-21T18:35:56.759685512Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_HonoursCancellation","Output":"--- PASS: TestAuditPublication_HonoursCancellation (0.05s)\n"}
+{"Time":"2026-09-21T18:35:56.75975073Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestAuditPublication_HonoursCancellation","Elapsed":0.05}
+{"Time":"2026-09-21T18:35:56.765568877Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Output":"PASS\n"}
+{"Time":"2026-09-21T18:35:56.767760811Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Output":"ok  \tgithub.com/qompack/qompack/internal/store\t3.089s\n"}
+{"Time":"2026-09-21T18:35:56.767810095Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Elapsed":3.09}

@@ -1,0 +1,20 @@
+{
+  "name": "v6_fsck_unpublished_capture",
+  "phase": "publication",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-645-gc9b5251-dirty",
+    "binary_sha256": "8dde8feabe770fdaa8aa40a883cb1ecd6be9b285f76743ba68107c431e307f52"
+  },
+  "boundary": "capture sidecar published:false with no reference joined",
+  "seed_method": "packaged hook capture, stopped writer, then a published observe.tool sidecar returned to stage one",
+  "outcome": "explicit_incomplete",
+  "reason": "operator-invoked packaged fsck reports the stage-one capture and exits 1 without changing its objects or sidecars; this is not automatic recovery",
+  "detail": "returned observe.tool capture sha256:cebbc37c2380b67ba5ca6620e47e73e2090c62baf029160b456981034aa15da6 to stage one; fsck read_only=true; objects=3; sidecars=3",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

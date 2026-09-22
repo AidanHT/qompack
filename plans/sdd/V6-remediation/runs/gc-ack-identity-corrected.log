@@ -1,0 +1,18 @@
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null
+--- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases (0.41s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero (0.09s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare (0.08s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase (0.08s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty (0.08s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null (0.08s)
+=== RUN   TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+--- PASS: TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce (0.07s)
+=== RUN   TestGC_AcknowledgedDeliveryLeaseStopsRetaining
+--- PASS: TestGC_AcknowledgedDeliveryLeaseStopsRetaining (0.11s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.840s

@@ -1,0 +1,5 @@
+# Preserve evidence hashes across Git line-ending conversion.
+runs/*.log -text whitespace=cr-at-eol
+routing/*.json -text whitespace=cr-at-eol
+*.json -text whitespace=cr-at-eol
+*.txt -text whitespace=cr-at-eol

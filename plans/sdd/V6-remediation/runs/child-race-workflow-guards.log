@@ -1,0 +1,14 @@
+# github.com/qompack/qompack/internal/store
+internal\store\gc_delivery_segments.go:13:2: "strconv" imported and not used
+internal\store\gc_delivery_segments.go:245:77: undefined: dsealLeaseChainDomain
+internal\store\gc_delivery_segments.go:245:100: undefined: dsealLeaseSeed
+internal\store\gc_delivery_segments.go:248:72: undefined: dsealAckChainDomain
+internal\store\gc_delivery_segments.go:248:93: undefined: dsealAckSeed
+internal\store\gc_delivery_segments.go:264:51: undefined: dsealFileSize
+internal\store\gc_delivery_segments.go:284:17: undefined: dsealFileSize
+internal\store\gc_delivery_segments.go:284:34: undefined: dsealIsImage
+internal\store\gc_delivery_segments.go:285:10: undefined: dsealSelect
+internal\store\gc_delivery_segments.go:287:9: undefined: dsealParseV1
+internal\store\gc_delivery_segments.go:13:2: too many errors
+FAIL	github.com/qompack/qompack/test/guards [build failed]
+FAIL

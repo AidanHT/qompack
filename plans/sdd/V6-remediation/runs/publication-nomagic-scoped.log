@@ -1,0 +1,4 @@
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\store\observation_publication.go:39:29: literal 4096 duplicates a config default; read it from config (D11, §11.6)
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\store\publication_audit.go:79:26: literal 16384 duplicates a config default; read it from config (D11, §11.6)
+C:\Users\Quant\Documents\Programming\Projects\qompack-v6\internal\store\publication_sync.go:48:18: literal 4096 duplicates a config default; read it from config (D11, §11.6)
+exit status 3

@@ -1,0 +1,37 @@
+panic: test timed out after 2m30s
+	running tests:
+		TestObservePrompt_RecordingOutlivesTheReplyDeadline (2m30s)
+
+goroutine 53 [running]:
+testing.(*M).startAlarm.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2802 +0x354
+created by time.goFunc
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive, 2 minutes]:
+testing.tRunner.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1993 +0x431
+testing.tRunner(0x352a171cca00, 0x352a172ebc58)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2042 +0xfc
+testing.runTests({0x7ff734ca5bf4, 0x1a}, {0x7ff734cbcdff, 0x2a}, 0x352a17111200, {0x7ff7352d8080, 0x1ef, 0x1ef}, {0xc2a480940d6e2ca8, 0x22ed037bf9, ...})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(0x352a17303b80)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2443 +0x6ac
+main.main()
+	_testmain.go:1062 +0x9b
+
+goroutine 23 [chan send, 2 minutes]:
+github.com/qompack/qompack/internal/daemon.(*heldPromptSeam).observe(0x352a1710f140, {0x7ff734d09608, 0x7ff7353273c0}, {{0x7ff734c99e57, 0x10}, {0x7ff734c92f37, 0x9}, {0x0, 0x0}, {0x0, ...}, ...})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/prompt_record_test.go:72 +0xc5
+github.com/qompack/qompack/internal/daemon.(*daemon).runIngested(0x352a17df8e08, {0x7ff734d09608, 0x7ff7353273c0}, {{0x7ff734c97b05, 0xe}, {0x7ff734c92f37, 0x9}, 0x1a0c583f4ff, 0x1, 0x352a174ca000, ...})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/daemon.go:858 +0xb25
+github.com/qompack/qompack/internal/daemon.(*daemon).drainDispatch(0x352a17df8e08?, {0x7ff734d09608?, 0x7ff7353273c0?}, {{0x7ff734c97b05, 0xe}, {0x7ff734c92f37, 0x9}, 0x1a0c583f4ff, 0x1, 0x352a174ca000, ...})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/daemon.go:906 +0x12f
+github.com/qompack/qompack/internal/daemon.TestObservePrompt_RecordingOutlivesTheReplyDeadline(0x352a171cd000)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/prompt_record_test.go:156 +0x719
+testing.tRunner(0x352a171cd000, 0x7ff734cf32a0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+FAIL	github.com/qompack/qompack/internal/daemon	150.193s
+FAIL

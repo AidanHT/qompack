@@ -1,0 +1,25 @@
+{
+  "id": "windows-permission-controls",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-json",
+    "./internal/paths",
+    "-run",
+    "^(TestHighestBloomBackupSeq_UnreadableDirIsAnError|TestEnsureLayout_WriteAtomicFailureIsPropagated|TestHighestBloomBackupSeq_ReportsAnUnexpectedReadDirError)$"
+  ],
+  "source_head": "03b63568924d79ae59db1047177e5a618e87b701",
+  "source_dirty": "M internal/mcp/authorize.go\n M internal/mcp/handlers.go\n M internal/mcp/handlers_span.go\n M internal/mcp/handlers_span_test.go\n M internal/paths/appendonly_test.go\n M internal/paths/layout_test.go\n?? internal/daemon/publication_audit.go\n?? internal/daemon/publication_audit_test.go\n?? internal/mcp/authorize_v6_test.go\n?? internal/store/maintenance.go\n?? internal/store/maintenance_test.go\n?? internal/store/provenance.go\n?? internal/store/provenance_test.go\n?? internal/store/publication_audit.go\n?? internal/store/publication_audit_test.go\n?? plans/sdd/V6-remediation/authority-review.md\n?? plans/sdd/V6-remediation/publication-work.md\n?? plans/sdd/V6-remediation/recovery-design.md\n?? plans/sdd/V6-remediation/runs/\n?? plans/sdd/V6-remediation/security-authority-first/",
+  "started_at": "2026-09-21T11:40:02.668710-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "passed",
+  "log": "windows-permission-controls.log",
+  "exit_code": 0,
+  "elapsed_seconds": 2.747,
+  "finished_at": "2026-09-21T11:40:05.415998-04:00",
+  "log_sha256": "d298f111c2ec8e73b68d7234b049408b178c77c90749a363735aebe4d62c7fa7"
+}

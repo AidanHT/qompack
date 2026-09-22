@@ -1,0 +1,24 @@
+{
+  "id": "mcp-after-authority",
+  "cwd": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-v6",
+  "argv": [
+    "go",
+    "test",
+    "./internal/mcp",
+    "-count=1",
+    "-timeout=15m",
+    "-json"
+  ],
+  "source_head": "03b63568924d79ae59db1047177e5a618e87b701",
+  "source_dirty": "M internal/mcp/authorize.go\n M internal/mcp/handlers.go\n M internal/mcp/handlers_span.go\n M internal/mcp/handlers_span_test.go\n?? internal/daemon/publication_audit.go\n?? internal/daemon/publication_audit_test.go\n?? internal/mcp/authorize_v6_test.go\n?? internal/store/provenance.go\n?? internal/store/provenance_test.go\n?? internal/store/publication_audit.go\n?? internal/store/publication_audit_test.go\n?? plans/sdd/V6-remediation/recovery-design.md\n?? plans/sdd/V6-remediation/runs/\n?? plans/sdd/V6-remediation/security-authority-first/",
+  "started_at": "2026-09-21T11:32:42.278066-04:00",
+  "environment": {
+    "GOMAXPROCS": "2"
+  },
+  "status": "failed",
+  "log": "mcp-after-authority.log",
+  "exit_code": 1,
+  "elapsed_seconds": 191.886,
+  "finished_at": "2026-09-21T11:35:54.164402-04:00",
+  "log_sha256": "74816b47ec0b5f4ea44c0d22d2b4ad5b65d1ccc65bab9d6edc30a998c01e7618"
+}

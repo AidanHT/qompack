@@ -1,0 +1,9 @@
+--- FAIL: TestReadOnly_EveryExportedMethodIsClassified (0.02s)
+    readonly_test.go:383: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/readonly_test.go:383
+        	Error:      	Should be false
+        	Test:       	TestReadOnly_EveryExportedMethodIsClassified
+        	Messages:   	AuditPublication is delegated; remove its reads justification
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	3.102s
+FAIL

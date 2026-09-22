@@ -1,0 +1,7 @@
+{
+  "artifact": "negative-control-prompt-order-derived-observer.log",
+  "sha256": "f8dda237a63a6b722a82d7d7602a0f9a51a0abf1cf3d3a9004378d4da889bd8a",
+  "copied_at": "2026-09-21T16:50:08.381754-04:00",
+  "origin": "dist\\v6-remediation\\prompt-order-derived-observer.log",
+  "scope": "Child scratch negative control before correction. Source snapshot and process exit not captured by parent recorder; consult child result and original text. Not candidate certification."
+}

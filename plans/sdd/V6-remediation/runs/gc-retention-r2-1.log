@@ -1,0 +1,40 @@
+=== RUN   TestGCRetention_UnreadableLeaseRootHaltsCollection
+--- PASS: TestGCRetention_UnreadableLeaseRootHaltsCollection (0.05s)
+=== RUN   TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection
+--- PASS: TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection (0.08s)
+=== RUN   TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection
+--- PASS: TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection (0.09s)
+=== RUN   TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+--- PASS: TestGCRetention_AckReleaseRequiresExactObservationAndVersion (0.26s)
+=== RUN   TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+--- PASS: TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce (0.09s)
+=== RUN   TestGCRetention_UnreadableCheckpointDirHaltsCollection
+--- PASS: TestGCRetention_UnreadableCheckpointDirHaltsCollection (0.06s)
+=== RUN   TestGCRetention_UnreadablePendingDirHaltsCollection
+    gc_retention_read_v6_test.go:202: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/store/gc_retention_read_v6_test.go:202
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestGCRetention_UnreadablePendingDirHaltsCollection3574267995\001\project\.qompack\state\pending: is a directory
+        	Test:       	TestGCRetention_UnreadablePendingDirHaltsCollection
+--- FAIL: TestGCRetention_UnreadablePendingDirHaltsCollection (0.06s)
+=== RUN   TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging
+--- PASS: TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging (0.08s)
+=== RUN   TestGCRetention_CancelledContextIsNotARetentionError
+--- PASS: TestGCRetention_CancelledContextIsNotARetentionError (0.08s)
+=== RUN   TestGC_HarvestsHashesFromCheckpointPinsEliminations
+--- PASS: TestGC_HarvestsHashesFromCheckpointPinsEliminations (0.14s)
+=== RUN   TestGC_MissingRootFilesAreNotAnError
+--- PASS: TestGC_MissingRootFilesAreNotAnError (0.06s)
+=== RUN   TestDeclaredRetentionLines_CountsEachBadLineAndLoudsOnce
+--- PASS: TestDeclaredRetentionLines_CountsEachBadLineAndLoudsOnce (0.03s)
+=== RUN   TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot
+--- PASS: TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot (0.11s)
+=== RUN   TestGC_ReportsPerRootOutcomes
+--- PASS: TestGC_ReportsPerRootOutcomes (0.09s)
+=== RUN   TestGC_AcknowledgedDeliveryLeaseStopsRetaining
+--- PASS: TestGC_AcknowledgedDeliveryLeaseStopsRetaining (0.14s)
+=== RUN   TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen
+--- PASS: TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen (0.10s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1.825s
+FAIL

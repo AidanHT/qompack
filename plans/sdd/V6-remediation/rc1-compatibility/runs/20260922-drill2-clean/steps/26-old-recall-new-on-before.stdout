@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"QOMPACK-RC1-NEWWRITE-connection-pool-drain-2b7c91\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:a4bb06a53442cab4c501f641acdc7515959fd10e1389bab84c043be24b574f7b",
+      "tool_use_id": "qompack-mcp:ff96e17bdcb6",
+      "untrusted": true
+    }
+  }
+}

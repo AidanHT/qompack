@@ -1,0 +1,10 @@
+--- FAIL: TestDeliveryTerminal_DrainWaitsForLivePublicationOwner (0.37s)
+    delivery_terminal_integration_test.go:206: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v6/internal/daemon/delivery_terminal_integration_test.go:206
+        	Error:      	Received unexpected error:
+        	            	remove C:\Users\Quant\AppData\Local\Temp\TestDeliveryTerminal_DrainWaitsForLivePublicationOwner1034011830\001\.qompack\spool\wal-publication-owner.ndjson: The process cannot access the file because it is being used by another process.
+        	Test:       	TestDeliveryTerminal_DrainWaitsForLivePublicationOwner
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	4.659s
+ok  	github.com/qompack/qompack/internal/cli	0.810s
+FAIL
