@@ -118,3 +118,17 @@ func TestDoctor_ReportsTheCaptureConfiguration(t *testing.T) {
 		})
 	}
 }
+
+// TestDoctor_CaptureConfigResolvesARelativeProject: `doctor --project .` is an ordinary invocation,
+// and the hooks never see doctor's flag — they resolve an absolute root of their own. The row must
+// judge the configuration the hooks would load, not refuse the relative spelling of the flag.
+func TestDoctor_CaptureConfigResolvesARelativeProject(t *testing.T) {
+	root := t.TempDir()
+	writeAdmissionConfig(t, root, `{}`)
+	t.Chdir(root)
+
+	code, doc, errw := doctorJSON(t, ".")
+	require.Equal(t, ExitOK, code, "stderr=%s", errw)
+	row := doctorFindRow(t, doc, "recording", "config.capture")
+	require.Equal(t, doctorOK, row["status"], "row=%v", row)
+}

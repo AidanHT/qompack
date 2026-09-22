@@ -766,8 +766,14 @@ func (s *doctorState) writableRow() doctorRow {
 // a project recording nothing while every configuration row read clean). It is read-only:
 // config.LoadForCapture persists nothing.
 func (s *doctorState) captureConfigRow() doctorRow {
+	// `--project .` is doctor's own spelling; a hook resolves an absolute root (paths.Resolve), and
+	// the loader refuses a relative one, so ask it the question the hooks would ask.
+	root := s.root
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
 	_, _, violations, warnings, err := config.LoadForCapture(config.Env{
-		ProjectRoot: s.root, HomeDir: homeDir(s.env), Getenv: s.env.Getenv, Flags: s.env.Set,
+		ProjectRoot: root, HomeDir: homeDir(s.env), Getenv: s.env.Getenv, Flags: s.env.Set,
 	})
 	switch {
 	case err != nil:
