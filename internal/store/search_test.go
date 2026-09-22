@@ -308,3 +308,41 @@ func BenchmarkSearch_1000Roots(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkSearch_1000Roots_DistinctChunks is BenchmarkSearch_1000Roots over roots that share no
+// chunk. That benchmark's bodies differ only in their tail line, so under its 4 KiB chunker every
+// root shares all but its last chunk with every other, and a Search's shared chunk reads
+// (sharedChunkReads) read each of those once. Here every line carries a per-root word, so no chunk
+// repeats and every candidate chunk is its own object read: the other end of the range, and the
+// row that shows what verify-on-read costs a text search when content addressing saves nothing.
+func BenchmarkSearch_1000Roots_DistinctChunks(b *testing.B) {
+	t := &testing.T{}
+	tp := newTestStore(t, func(_ *config.Config, d *Deps) { d.Chunker = fixedChunker{size: 4096} })
+	ctx := context.Background()
+	for i := 0; i < 1000; i++ {
+		word := string([]byte{byte('a' + i%26), byte('a' + i/26%26), byte('a' + i/676%26)})
+		payload := []byte(strings.Repeat("the quick brown fox "+word+" jumps over the lazy dog\n", 170)) // ~8 KB each
+		res, err := tp.Store.PutBytes(ctx, payload, PutOptions{Tool: "FileRead", Path: fmt.Sprintf("src/f%04d.ts", i)})
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := tp.Store.RecordToolUse(ctx, ToolUseRecord{
+			ID: core.ToolUseID(fmt.Sprintf("tu-%04d", i)), Session: "sess-bench",
+			TS: core.UnixMilli(int64(i)), Tool: "FileRead", Root: res.Root.Hash,
+			Path: fmt.Sprintf("src/f%04d.ts", i),
+		}); err != nil {
+			b.Fatal(err)
+		}
+	}
+	cands := tp.Store.candidates(Query{Text: "lazy dog"})
+	if newSharedChunkReads(cands) != nil {
+		b.Fatal("fixture: the roots must share no chunk")
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := tp.Store.Search(ctx, Query{Text: "lazy dog", K: 10}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
