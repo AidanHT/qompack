@@ -1,0 +1,252 @@
+=== RUN   TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites
+--- PASS: TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites (2.04s)
+=== RUN   TestBackupCLI_RefusesLiveWriterAndDoesNotOpenStore
+--- PASS: TestBackupCLI_RefusesLiveWriterAndDoesNotOpenStore (0.43s)
+=== RUN   TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader
+--- PASS: TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader (1.98s)
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_tool
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_prompt
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_stop
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/session-start
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/checkpoint
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/flush
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_tool
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_prompt
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_stop
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/session-start
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/checkpoint
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/flush
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_tool
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_prompt
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_stop
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/session-start
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/checkpoint
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/flush
+--- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode (3.17s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_tool (0.20s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_prompt (0.51s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_stop (0.17s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/session-start (0.32s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/checkpoint (0.14s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/flush (0.25s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_tool (0.52s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_prompt (0.22s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_stop (0.15s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/session-start (0.11s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/checkpoint (0.09s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/flush (0.06s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_tool (0.06s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_prompt (0.06s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_stop (0.08s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/session-start (0.10s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/checkpoint (0.06s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/flush (0.07s)
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}}
+--- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart (0.04s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime": (0.01s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}} (0.01s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}} (0.01s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}} (0.01s)
+=== RUN   TestHookCapture_RejectsInvalidInputWithoutPrivateDiagnostics
+--- PASS: TestHookCapture_RejectsInvalidInputWithoutPrivateDiagnostics (0.02s)
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy/source_policy
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_policy
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_invalid
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_changes_cwd
+--- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy (0.14s)
+    --- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy/source_policy (0.05s)
+    --- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_policy (0.04s)
+    --- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_invalid (0.02s)
+    --- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_changes_cwd (0.02s)
+=== RUN   TestHookCapture_CompositionPreservesEarlierFacts
+--- PASS: TestHookCapture_CompositionPreservesEarlierFacts (0.00s)
+=== RUN   TestHookCapture_HardBoundPrecedesConfiguration
+--- PASS: TestHookCapture_HardBoundPrecedesConfiguration (0.06s)
+=== RUN   TestHookCapture_HardCapMatchesTheValidationBound
+--- PASS: TestHookCapture_HardCapMatchesTheValidationBound (0.00s)
+=== RUN   TestHookCapture_ConfigViolationClampsAndIsRecorded
+=== RUN   TestHookCapture_ConfigViolationClampsAndIsRecorded/hardwired-off_switch
+=== RUN   TestHookCapture_ConfigViolationClampsAndIsRecorded/newer_settingsVersion
+--- PASS: TestHookCapture_ConfigViolationClampsAndIsRecorded (0.09s)
+    --- PASS: TestHookCapture_ConfigViolationClampsAndIsRecorded/hardwired-off_switch (0.04s)
+    --- PASS: TestHookCapture_ConfigViolationClampsAndIsRecorded/newer_settingsVersion (0.05s)
+=== RUN   TestHookCapture_NoViolationWritesNothing
+--- PASS: TestHookCapture_NoViolationWritesNothing (0.01s)
+=== RUN   TestHookCapture_GatedSwitchClampsRatherThanDisablingCapture
+--- PASS: TestHookCapture_GatedSwitchClampsRatherThanDisablingCapture (0.03s)
+=== RUN   TestHookCapture_UnknownKeyAndInvalidLeafStillCapture
+--- PASS: TestHookCapture_UnknownKeyAndInvalidLeafStillCapture (0.08s)
+=== RUN   TestHookCapture_MistypedLeafStillCaptures
+--- PASS: TestHookCapture_MistypedLeafStillCaptures (0.07s)
+=== RUN   TestSelfTest_ReportsACaptureConfigRefusal
+--- PASS: TestSelfTest_ReportsACaptureConfigRefusal (0.16s)
+=== RUN   TestSelfTest_ReportsACaptureConfigDegradation
+--- PASS: TestSelfTest_ReportsACaptureConfigDegradation (0.07s)
+=== RUN   TestSelfTest_CleanCaptureConfigIsOK
+--- PASS: TestSelfTest_CleanCaptureConfigIsOK (0.05s)
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/clean
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/refused
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/degraded
+--- PASS: TestDoctor_ReportsTheCaptureConfiguration (0.03s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/clean (0.01s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/refused (0.01s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/degraded (0.01s)
+=== RUN   TestHookCapture_ShortReadIsRecordedAsPartial
+--- PASS: TestHookCapture_ShortReadIsRecordedAsPartial (0.02s)
+=== RUN   TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes
+--- PASS: TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes (0.02s)
+=== RUN   TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected
+--- PASS: TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected (0.02s)
+=== RUN   TestHookCapture_AdmittedPayloadRecordsObservedHostFields
+--- PASS: TestHookCapture_AdmittedPayloadRecordsObservedHostFields (0.02s)
+=== RUN   TestHookCapture_DeliveryNonceAndCaptureReachTheSpooledRequest
+--- PASS: TestHookCapture_DeliveryNonceAndCaptureReachTheSpooledRequest (0.13s)
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject
+=== RUN   TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt
+=== PAUSE TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt
+=== RUN   TestDoctor_EveryMigrationGateIsPendingInThisBuild
+=== PAUSE TestDoctor_EveryMigrationGateIsPendingInThisBuild
+=== RUN   TestDoctor_ShowsAConfigViolationRatherThanRefusing
+=== PAUSE TestDoctor_ShowsAConfigViolationRatherThanRefusing
+=== RUN   TestDoctor_ReportsTheProjectStoreWritabilityProbe
+=== PAUSE TestDoctor_ReportsTheProjectStoreWritabilityProbe
+=== RUN   TestDoctor_AgreesWithStatusOnModeAndProvenance
+=== RUN   TestDoctor_AgreesWithStatusOnModeAndProvenance/no_daemon
+=== RUN   TestDoctor_AgreesWithStatusOnModeAndProvenance/a_daemon_holds_the_lock
+--- PASS: TestDoctor_AgreesWithStatusOnModeAndProvenance (0.47s)
+    --- PASS: TestDoctor_AgreesWithStatusOnModeAndProvenance/no_daemon (0.07s)
+    --- PASS: TestDoctor_AgreesWithStatusOnModeAndProvenance/a_daemon_holds_the_lock (0.06s)
+=== RUN   TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+=== PAUSE TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+=== RUN   TestDoctor_TableModeWritesAReadableSummary
+=== PAUSE TestDoctor_TableModeWritesAReadableSummary
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes
+=== RUN   TestDoctor_AnUnreadableSpoolIsItsOwnRow
+=== PAUSE TestDoctor_AnUnreadableSpoolIsItsOwnRow
+=== RUN   TestDoctor_ReportsTheSegmentsTheProjectHolds
+--- PASS: TestDoctor_ReportsTheSegmentsTheProjectHolds (0.35s)
+=== RUN   TestHookCapture_FaultsCannotBypassAdmission
+=== RUN   TestHookCapture_FaultsCannotBypassAdmission/oversize
+=== RUN   TestHookCapture_FaultsCannotBypassAdmission/config-corrupt
+--- PASS: TestHookCapture_FaultsCannotBypassAdmission (0.15s)
+    --- PASS: TestHookCapture_FaultsCannotBypassAdmission/oversize (0.12s)
+    --- PASS: TestHookCapture_FaultsCannotBypassAdmission/config-corrupt (0.02s)
+=== RUN   TestSelfTest_ConfigCorruptFallsBackButReportsTheRefusedCapture
+--- PASS: TestSelfTest_ConfigCorruptFallsBackButReportsTheRefusedCapture (0.06s)
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/observe_tool
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/observe_prompt
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/observe_stop
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/session-start
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/checkpoint
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/flush
+--- PASS: TestHooks_AllSixExitZeroWithValidJSON (0.03s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/observe_tool (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/observe_prompt (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/observe_stop (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/session-start (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/checkpoint (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/flush (0.00s)
+=== RUN   TestHooks_ModeOffShortCircuits
+--- PASS: TestHooks_ModeOffShortCircuits (0.03s)
+=== RUN   TestHooks_RefuseToCreateStoreUnderMissingRoot
+--- PASS: TestHooks_RefuseToCreateStoreUnderMissingRoot (0.01s)
+=== RUN   TestHooks_RootReResolvesFromPayload
+--- PASS: TestHooks_RootReResolvesFromPayload (0.02s)
+=== RUN   TestHooks_ObserveStopSubagentFlagReachesRaw
+--- PASS: TestHooks_ObserveStopSubagentFlagReachesRaw (0.02s)
+=== RUN   TestHooks_CheckpointTriggerReachesRaw
+--- PASS: TestHooks_CheckpointTriggerReachesRaw (0.03s)
+=== RUN   TestHooks_LogQuietWritesWhenLogsDirExists
+--- PASS: TestHooks_LogQuietWritesWhenLogsDirExists (0.06s)
+=== RUN   TestHooks_LogQuietNeverCreatesLogsDir
+--- PASS: TestHooks_LogQuietNeverCreatesLogsDir (0.00s)
+=== RUN   TestHooks_SubagentNameReachesTheSpooledRequest
+--- PASS: TestHooks_SubagentNameReachesTheSpooledRequest (0.04s)
+=== RUN   TestHooks_OverBudgetDeliveryIsRecordedNotDropped
+--- PASS: TestHooks_OverBudgetDeliveryIsRecordedNotDropped (0.04s)
+=== RUN   TestHooks_HardCapDeliveryIsRecordedWhenStateExists
+--- PASS: TestHooks_HardCapDeliveryIsRecordedWhenStateExists (0.08s)
+=== RUN   TestHooks_HardCapDeliveryIsDroppedWithoutState
+--- PASS: TestHooks_HardCapDeliveryIsDroppedWithoutState (0.03s)
+=== RUN   TestSelfTest_ExitsZeroOnHealthyProject
+--- PASS: TestSelfTest_ExitsZeroOnHealthyProject (0.06s)
+=== RUN   TestSelfTest_ExitsNonZeroOnCritical
+--- PASS: TestSelfTest_ExitsNonZeroOnCritical (0.09s)
+=== RUN   TestSelfTest_TableModeWritesAReadableSummary
+--- PASS: TestSelfTest_TableModeWritesAReadableSummary (0.05s)
+=== RUN   TestSelfTest_RegisteredInAll
+--- PASS: TestSelfTest_RegisteredInAll (0.00s)
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_empty_directory
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_empty_directory
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_seeded_project
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_seeded_project
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_project_whose_store_is_damaged
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_project_whose_store_is_damaged
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_unknown_flag_is_the_one_usage_error
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_unknown_flag_is_the_one_usage_error
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_empty_directory
+=== CONT  TestDoctor_ShowsAConfigViolationRatherThanRefusing
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_unknown_flag_is_the_one_usage_error
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_project_whose_store_is_damaged
+=== CONT  TestDoctor_EveryMigrationGateIsPendingInThisBuild
+=== CONT  TestDoctor_TableModeWritesAReadableSummary
+=== CONT  TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+=== CONT  TestDoctor_ReportsTheProjectStoreWritabilityProbe
+=== CONT  TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt
+=== RUN   TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_project_with_files_to_open
+=== PAUSE TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_project_with_files_to_open
+=== RUN   TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_bare_.qompack_has_nothing_to_open
+=== PAUSE TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_bare_.qompack_has_nothing_to_open
+=== CONT  TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_project_with_files_to_open
+=== CONT  TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_bare_.qompack_has_nothing_to_open
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_seeded_project
+=== CONT  TestDoctor_AnUnreadableSpoolIsItsOwnRow
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes
+=== RUN   TestDoctor_AnUnreadableSpoolIsItsOwnRow/absent
+=== PAUSE TestDoctor_AnUnreadableSpoolIsItsOwnRow/absent
+=== RUN   TestDoctor_AnUnreadableSpoolIsItsOwnRow/unreadable
+=== PAUSE TestDoctor_AnUnreadableSpoolIsItsOwnRow/unreadable
+=== CONT  TestDoctor_AnUnreadableSpoolIsItsOwnRow/absent
+=== CONT  TestDoctor_AnUnreadableSpoolIsItsOwnRow/unreadable
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+--- PASS: TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt (0.57s)
+--- PASS: TestDoctor_NamesTheVersionAndDoesNotProbeTheHost (0.57s)
+--- PASS: TestDoctor_TableModeWritesAReadableSummary (0.59s)
+--- PASS: TestDoctor_ReportsTheProjectStoreWritabilityProbe (0.00s)
+    --- PASS: TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_bare_.qompack_has_nothing_to_open (0.03s)
+    --- PASS: TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_project_with_files_to_open (0.60s)
+--- PASS: TestDoctor_EveryMigrationGateIsPendingInThisBuild (0.60s)
+--- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes (0.56s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/unset (0.02s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it (0.03s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves (0.04s)
+--- PASS: TestDoctor_ShowsAConfigViolationRatherThanRefusing (0.61s)
+--- PASS: TestDoctor_AnUnreadableSpoolIsItsOwnRow (0.00s)
+    --- PASS: TestDoctor_AnUnreadableSpoolIsItsOwnRow/unreadable (0.61s)
+    --- PASS: TestDoctor_AnUnreadableSpoolIsItsOwnRow/absent (0.61s)
+--- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject (0.00s)
+    --- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_empty_directory (0.02s)
+    --- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_unknown_flag_is_the_one_usage_error (0.03s)
+    --- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_project_whose_store_is_damaged (0.60s)
+    --- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_seeded_project (0.62s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	11.298s

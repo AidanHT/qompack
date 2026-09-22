@@ -1,0 +1,28 @@
+--- FAIL: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything (0.07s)
+    --- FAIL: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/nonfinite_environment_value (0.03s)
+        capture_load_fallback_test.go:208: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:208
+            	Error:      	Not equal: 
+            	            	expected: 9000
+            	            	actual  : 12000
+            	Test:       	TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/nonfinite_environment_value
+            	Messages:   	one unrepresentable leaf must not discard every other layer
+    --- FAIL: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/infinite_flag_value (0.01s)
+        capture_load_fallback_test.go:208: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:208
+            	Error:      	Not equal: 
+            	            	expected: 9000
+            	            	actual  : 12000
+            	Test:       	TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/infinite_flag_value
+            	Messages:   	one unrepresentable leaf must not discard every other layer
+    --- FAIL: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/integer_beyond_the_platform_int (0.02s)
+        capture_load_fallback_test.go:208: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:208
+            	Error:      	Not equal: 
+            	            	expected: 9000
+            	            	actual  : 12000
+            	Test:       	TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/integer_beyond_the_platform_int
+            	Messages:   	one unrepresentable leaf must not discard every other layer
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	2.367s
+FAIL
