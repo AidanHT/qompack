@@ -103,9 +103,10 @@ func reportCaptureConfig(root, home string, violations []config.Violation, warni
 }
 
 // captureConfigDegradedSummary is the one-line account self-test and doctor give of a capture
-// configuration the hook path loaded only partly.
+// configuration the hook path loaded only partly. A "setting" is a §11.3 violation, which is a leaf
+// or, for a newer settingsVersion, a whole versioned block.
 func captureConfigDegradedSummary(violations []config.Violation, warnings []config.Warning) string {
-	return fmt.Sprintf("capture continues: %d value(s) fell back to the default, %d key(s) not applied",
+	return fmt.Sprintf("capture continues: %d setting(s) fell back to the default, %d key(s) not applied",
 		len(violations), len(warnings))
 }
 
