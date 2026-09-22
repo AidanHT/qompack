@@ -108,16 +108,16 @@ func admitHookCapture(env Env, root string, in hookInput) (hookio.Capture, hooki
 		return failed(fmt.Errorf("%w: capture root unavailable", core.ErrDegraded))
 	}
 	faultCorruptConfigIfNeeded(root)
-	cfg, _, violations, err := config.LoadForCapture(config.Env{
+	cfg, _, violations, warnings, err := config.LoadForCapture(config.Env{
 		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
 	})
 	if err != nil {
 		return failed(err)
 	}
-	// A clamped key is a §11.3 violation and must reach an operator where they would look for one.
-	// Before finding S-7 there was nothing to report here, because any violation refused the whole
-	// delivery instead.
-	reportCaptureViolations(root, homeDir(env), violations)
+	// A clamped key is a §11.3 violation and a dropped one is a warning, and both must reach an
+	// operator where they would look for them. Before finding S-7 and V6 close-out item C1.8 there
+	// was nothing to report here, because either one refused the whole delivery instead.
+	reportCaptureConfig(root, homeDir(env), violations, warnings)
 	if cfg.Runtime.Mode == "off" {
 		return hookio.Capture{}, hookio.Event{}, cfg, nil
 	}
