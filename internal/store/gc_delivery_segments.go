@@ -215,8 +215,9 @@ func (s *FSStore) resolveDeliverySegments(budget *gcBudget) (dsegView, error) {
 	// complete files — a lease journal and an ack journal (both harvested) plus both position seals
 	// (validated, not harvested). Two files alone do not prove a committed segment; a missing or
 	// malformed seal stops the sweep. A committed segment's files are REQUIRED, not optional.
+	archivedLegacy := len(committed) > 1 // segment 0 is archived once any later segment is committed
 	for _, seq := range committed {
-		if err := s.dsegRequireSegmentFiles(seq); err != nil {
+		if err := s.dsegRequireSegmentFiles(seq, seq == 0 && archivedLegacy); err != nil {
 			return dsegView{}, err
 		}
 	}
@@ -234,7 +235,9 @@ func (s *FSStore) resolveDeliverySegments(budget *gcBudget) (dsegView, error) {
 // structurally complete files: the two journals need only be regular (their content is harvested and
 // validated line by line), while the two position seals are decoded and their supported STRUCTURE is
 // verified — the lease seal against the lease journal's chain identity, the ack seal against the ack's.
-func (s *FSStore) dsegRequireSegmentFiles(seq uint64) error {
+// frozenOK admits the frozen document the daemon writes over the ARCHIVED legacy segment's seals (the
+// old-reader barrier, internal/daemon/delivery_frozen_seal.go); it is never accepted anywhere else.
+func (s *FSStore) dsegRequireSegmentFiles(seq uint64, frozenOK bool) error {
 	dir := s.dsegSegmentDir(seq)
 	if err := s.dsegRequireRegular(filepath.Join(dir, deliveryLeaseFile)); err != nil {
 		return err
@@ -242,10 +245,10 @@ func (s *FSStore) dsegRequireSegmentFiles(seq uint64) error {
 	if err := s.dsegRequireRegular(filepath.Join(dir, deliveryAckFile)); err != nil {
 		return err
 	}
-	if err := s.dsegRequireSeal(filepath.Join(dir, deliveryLeasePositionFile), dsealLeaseChainDomain, dsealLeaseSeed); err != nil {
+	if err := s.dsegRequireSeal(filepath.Join(dir, deliveryLeasePositionFile), dsealLeaseChainDomain, dsealLeaseSeed, frozenOK); err != nil {
 		return err
 	}
-	return s.dsegRequireSeal(filepath.Join(dir, deliveryAckPositionFile), dsealAckChainDomain, dsealAckSeed)
+	return s.dsegRequireSeal(filepath.Join(dir, deliveryAckPositionFile), dsealAckChainDomain, dsealAckSeed, frozenOK)
 }
 
 // dsegRequireSeal reads a position seal through the confined, SameFile-guarded handle and validates it
@@ -260,7 +263,7 @@ func (s *FSStore) dsegRequireSegmentFiles(seq uint64) error {
 // an explicit cross-package agreement test (main's delivery_readers_v6_test) is owed to keep them in
 // step. If the producer's seal layout, sum domain, chain domains or bounds drift, this refuses a valid
 // seal rather than mis-accepting one.
-func (s *FSStore) dsegRequireSeal(path, chainDomain string, seed core.Hash) error {
+func (s *FSStore) dsegRequireSeal(path, chainDomain string, seed core.Hash, frozenOK bool) error {
 	raw, present, err := s.dsegReadFileBounded(path, dsealFileSize)
 	if err != nil {
 		return err
@@ -270,6 +273,9 @@ func (s *FSStore) dsegRequireSeal(path, chainDomain string, seed core.Hash) erro
 	}
 	if len(raw) == 0 {
 		return retentionUnavailable("required segment seal %s is empty", path)
+	}
+	if frozenOK && dsealParseFrozen(raw, seed) {
+		return nil
 	}
 	if !dsegValidateSeal(raw, chainDomain, seed) {
 		return retentionUnavailable("required segment seal %s is not a supported v1/v2 seal", path)
@@ -321,8 +327,9 @@ func (s *FSStore) dsegRecheckFrontier(f dsegView) error {
 		}
 		return nil
 	}
+	archivedLegacy := len(f.committed) > 1
 	for _, seq := range f.committed {
-		if err := s.dsegRequireSegmentFiles(seq); err != nil {
+		if err := s.dsegRequireSegmentFiles(seq, seq == 0 && archivedLegacy); err != nil {
 			return err
 		}
 	}
@@ -787,6 +794,33 @@ func dsealSelect(img []byte, chainDomain string, seed core.Hash) bool {
 		return eff.Seq-older.Seq == 1 && older.Bytes < eff.Bytes && older.Count < eff.Count
 	}
 	return false
+}
+
+// dsealFrozenFormat and dsealFrozen mirror internal/daemon's frozen segment-0 seal (the old-reader
+// barrier, delivery_frozen_seal.go) field for field and in order, so a json.Marshal round-trip
+// reproduces the on-disk bytes and rejects unknown or reordered keys.
+const dsealFrozenFormat = "qompack.delivery.frozen-seal.v1"
+
+type dsealFrozen struct {
+	Format  string    `json:"format"`
+	Segment uint64    `json:"segment"`
+	Bytes   int64     `json:"bytes"`
+	Count   int       `json:"count"`
+	Chain   core.Hash `json:"chain"`
+}
+
+// dsealParseFrozen mirrors parseFrozenSeal: a canonical frozen document for segment 0, in bounds.
+func dsealParseFrozen(raw []byte, seed core.Hash) bool {
+	if len(raw) > dsealMaxLine {
+		return false
+	}
+	var d dsealFrozen
+	if json.Unmarshal(raw, &d) != nil || d.Format != dsealFrozenFormat || d.Segment != 0 ||
+		!dsealInBounds(d.Bytes, d.Count, d.Chain, seed) {
+		return false
+	}
+	canon, err := json.Marshal(d)
+	return err == nil && bytes.Equal(canon, raw)
 }
 
 // dsealParseV1 mirrors parseDeliveryPositionV1: a canonical, bounded v1 sidecar for the given seed.

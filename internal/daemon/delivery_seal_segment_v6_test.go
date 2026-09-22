@@ -103,12 +103,17 @@ func TestDeliverySealSegment_RefusesCorruptActiveSegmentThatLegacyOnlyAccepts(t 
 	state := paths.Of(root).State
 
 	// Negative control: segment 0 (the legacy four files) is independently valid, which is exactly what
-	// the pre-fix tool checked — so it would have reported this store fine.
+	// the pre-fix tool checked — so it would have reported this store fine. Segment 0 is archived, so its
+	// seal is the frozen old-reader barrier (delivery_frozen_seal.go), which the legacy seal reader refuses
+	// by design; the journal is loaded against the position that frozen seal names, with the same scan.
 	lock, err := acquireTestDeliveryLock(root)
 	require.NoError(t, err)
 	seg0 := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
 	seg0.ackPath = filepath.Join(state, deliveryAckFile)
-	_, err = seg0.load()
+	frozen, isFrozen, err := readFrozenSealFile(seg0.positionPath(), deliveryChainSeed)
+	require.NoError(t, err)
+	require.True(t, isFrozen, "an archived segment 0 carries the frozen seal")
+	_, err = seg0.loadFrom(frozen, nil)
 	require.NoError(t, err, "segment 0 loads on its own; a legacy-only check accepts the whole store")
 	require.NoError(t, lock.Release())
 

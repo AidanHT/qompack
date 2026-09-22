@@ -336,9 +336,10 @@ func (g *genReadonly) resolveLease(ctx context.Context, delivery string) (delive
 // exactly its recorded identity. The ACTIVE segment is archived only when it rotates, so its leases are
 // normally absent; one that is present (a rotation of this window was interrupted before its transition)
 // must be identical, and a conflicting identity refuses. It returns the segment's leases, which the
-// active segment's acknowledgement check joins against first.
-func (g *genReadonly) checkLeaseJournal(ctx context.Context, segRoot *os.Root, journalName, sealName string, arrivalBase func(core.SessionID) (uint64, bool, error), archived bool) (deliveryPosition, map[string]deliveryLease, error) {
-	position, older, err := readSealConfined(segRoot, sealName, deliveryChainSeed, deliveryChainDomain)
+// active segment's acknowledgement check joins against first. frozenOK admits a frozen seal (the
+// archived legacy segment 0 only; delivery_frozen_seal.go).
+func (g *genReadonly) checkLeaseJournal(ctx context.Context, segRoot *os.Root, journalName, sealName string, arrivalBase func(core.SessionID) (uint64, bool, error), archived, frozenOK bool) (deliveryPosition, map[string]deliveryLease, error) {
+	position, older, err := readSealConfined(segRoot, sealName, deliveryChainSeed, deliveryChainDomain, frozenOK)
 	if err != nil {
 		return deliveryPosition{}, nil, err
 	}
@@ -426,9 +427,10 @@ func (g *genReadonly) checkLeaseJournal(ctx context.Context, segRoot *os.Root, j
 // seal, and joins EVERY acknowledgement against its ORIGINAL lease with an exact identity comparison:
 // the lease from the segment's own window when window is given (the active segment, whose leases are
 // not archived yet), otherwise from the generation store — the archived-ACK join (a segment's ack file
-// may reference a lease archived into an earlier segment). It writes nothing.
-func (g *genReadonly) checkAckJournal(ctx context.Context, segRoot *os.Root, journalName, sealName string, window map[string]deliveryLease) (deliveryPosition, error) {
-	position, older, err := readSealConfined(segRoot, sealName, deliveryAckChainSeed, deliveryAckChainDomain)
+// may reference a lease archived into an earlier segment). frozenOK admits a frozen seal (the archived
+// legacy segment 0 only). It writes nothing.
+func (g *genReadonly) checkAckJournal(ctx context.Context, segRoot *os.Root, journalName, sealName string, window map[string]deliveryLease, frozenOK bool) (deliveryPosition, error) {
+	position, older, err := readSealConfined(segRoot, sealName, deliveryAckChainSeed, deliveryAckChainDomain, frozenOK)
 	if err != nil {
 		return deliveryPosition{}, err
 	}
@@ -540,8 +542,9 @@ func readJournalConfined(root *os.Root, name string, sealedBytes int64) (os.File
 
 // readSealConfined reads a position seal through the pinned root, bounded, and decodes it with the
 // producer's PURE decoders: a v2 image via selectSeal (a torn slot is refused — this offline segmented
-// check does not offer per-segment Rule R), otherwise the v1 sidecar. It writes nothing.
-func readSealConfined(root *os.Root, name string, seed core.Hash, domain string) (deliveryPosition, *sealRecord, error) {
+// check does not offer per-segment Rule R), a frozen document when frozenOK (the archived legacy
+// segment 0), otherwise the v1 sidecar. It writes nothing.
+func readSealConfined(root *os.Root, name string, seed core.Hash, domain string, frozenOK bool) (deliveryPosition, *sealRecord, error) {
 	info, err := root.Lstat(name)
 	if err != nil || !info.Mode().IsRegular() || info.Size() > deliverySealFileSize {
 		return deliveryPosition{}, nil, errSegmentReaderRefused
@@ -561,6 +564,11 @@ func readSealConfined(root *os.Root, name string, seed core.Hash, domain string)
 			return deliveryPosition{}, nil, serr
 		}
 		return sealedPosition(eff), older, nil
+	}
+	if frozenOK {
+		if position, ok := parseFrozenSeal(raw, seed); ok {
+			return position, nil, nil
+		}
 	}
 	position, perr := parseDeliveryPositionV1(raw, seed)
 	if perr != nil {
