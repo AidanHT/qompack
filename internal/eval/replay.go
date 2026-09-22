@@ -135,9 +135,12 @@ func actionOfTurn(turn Turn) Action {
 // Replay applies p's keep-set decisions to the logged action sequence and repairs every demand
 // they failed to satisfy, giving a reproducible, model-free estimate of D (§4.2).
 //
-// Deterministic mode is the only mode CI ever runs. Live mode is a seam: it refuses rather than
-// degrading, first because the environment gate is shut and then because no LiveRunner is
-// installed, so a deterministic number can never be mistaken for a model-backed one.
+// Deterministic mode is the only mode CI ever runs. Live mode refuses rather than degrading, first
+// because the environment gate is shut and then because no LiveRunner is installed, so a
+// deterministic number can never be mistaken for a model-backed one. With both open, every
+// compaction event is re-executed by the LiveRunner (HostForkRunner in livefork.go runs a real
+// host session) and what the model actually did replaces the logged actions of the event's window,
+// (at, min(at+K, next at)]; the modelled repairs are not applied, because the fork IS the repair.
 func (h *harness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptions) (Run, error) {
 	defer h.observe("eval.replay.ms", h.clock.Now())
 	if err := ctx.Err(); err != nil {
@@ -177,6 +180,7 @@ func (h *harness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptio
 
 	repairs := make(map[core.TurnIndex][]Action)
 	lostDecision := make(map[core.TurnIndex]bool)
+	forks := make(map[core.TurnIndex][]Action)
 
 	for _, at := range s.CompactionAt {
 		if err := ctx.Err(); err != nil {
@@ -214,6 +218,14 @@ func (h *harness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptio
 			}
 		}
 
+		if !o.Deterministic {
+			forked, forkErr := h.live.Fork(ctx, s, at, keep, o.K)
+			if forkErr != nil {
+				return Run{}, fmt.Errorf("eval: live fork of %s at turn %d: %w", s.ID, at, forkErr)
+			}
+			forks[at] = forked
+		}
+
 		n := prefixTokens(blocks)
 		residual := max(n-keep.P, 0)
 		run.At = append(run.At, at)
@@ -225,6 +237,10 @@ func (h *harness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptio
 		run.FirstTurnAfterMS = append(run.FirstTurnAfterMS, modelledFirstTurnMS(h.lat, keep.Tokens))
 	}
 
+	if !o.Deterministic {
+		run.Actions = spliceForks(run.Actions, run.At, forks, o.K)
+		return run, nil
+	}
 	run.Actions = applyRepairs(run.Actions, repairs, lostDecision)
 	return run, nil
 }
