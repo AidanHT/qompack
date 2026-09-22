@@ -327,18 +327,24 @@ func (g *genReadonly) resolveLease(ctx context.Context, delivery string) (delive
 
 // checkLeaseJournal scans one segment's lease journal read-only THROUGH the pinned segment root, against
 // its seal — canonical lines, the sealed chain/count/older checkpoint, dense per-session arrivals — but
-// seeded from arrivalBase (the segment's predecessor root) so a segment carrying global arrivals passes,
-// and it verifies each lease against the generation store's recorded identity, not its filename.
+// seeded from arrivalBase (the segment's predecessor root) so a segment carrying global arrivals passes.
 // arrivalBase returns (predecessor, ok, error): a missing/corrupt predecessor page is an ERROR that
 // refuses, never a silent "new session at 1". It is nil for the legacy segment (start at 1).
-func (g *genReadonly) checkLeaseJournal(ctx context.Context, segRoot *os.Root, journalName, sealName string, arrivalBase func(core.SessionID) (uint64, bool, error)) (deliveryPosition, error) {
+//
+// Each lease is also checked against the generation store, by what the store must hold for it. An
+// ARCHIVED segment was archived whole when it rotated, so each of its leases must be in the store with
+// exactly its recorded identity. The ACTIVE segment is archived only when it rotates, so its leases are
+// normally absent; one that is present (a rotation of this window was interrupted before its transition)
+// must be identical, and a conflicting identity refuses. It returns the segment's leases, which the
+// active segment's acknowledgement check joins against first.
+func (g *genReadonly) checkLeaseJournal(ctx context.Context, segRoot *os.Root, journalName, sealName string, arrivalBase func(core.SessionID) (uint64, bool, error), archived bool) (deliveryPosition, map[string]deliveryLease, error) {
 	position, older, err := readSealConfined(segRoot, sealName, deliveryChainSeed, deliveryChainDomain)
 	if err != nil {
-		return deliveryPosition{}, err
+		return deliveryPosition{}, nil, err
 	}
 	info, f, err := readJournalConfined(segRoot, journalName, position.Bytes)
 	if err != nil {
-		return deliveryPosition{}, err
+		return deliveryPosition{}, nil, err
 	}
 	defer func() { _ = f.Close() }()
 
@@ -351,34 +357,34 @@ func (g *genReadonly) checkLeaseJournal(ctx context.Context, segRoot *os.Root, j
 	r := bufio.NewReaderSize(io.LimitReader(f, deliveryLeaseMaxBytes+1), deliveryLeaseMaxLine)
 	for {
 		if err := ctx.Err(); err != nil {
-			return deliveryPosition{}, err
+			return deliveryPosition{}, nil, err
 		}
 		line, complete, rerr := readBoundedLine(r)
 		if rerr != nil {
-			return deliveryPosition{}, rerr
+			return deliveryPosition{}, nil, rerr
 		}
 		if line == nil {
 			break
 		}
 		if !complete || len(leases) >= deliveryLeaseMaxEntries {
-			return deliveryPosition{}, errSegmentReaderRefused
+			return deliveryPosition{}, nil, errSegmentReaderRefused
 		}
 		total += int64(len(line))
 		if total > deliveryLeaseMaxBytes {
-			return deliveryPosition{}, errSegmentReaderRefused
+			return deliveryPosition{}, nil, errSegmentReaderRefused
 		}
 		var lease deliveryLease
 		if json.Unmarshal(line, &lease) != nil || !validDeliveryLease(lease) {
-			return deliveryPosition{}, errSegmentReaderRefused
+			return deliveryPosition{}, nil, errSegmentReaderRefused
 		}
 		canonical, merr := json.Marshal(lease)
 		if merr != nil || !bytes.Equal(append(canonical, '\n'), line) {
-			return deliveryPosition{}, errSegmentReaderRefused
+			return deliveryPosition{}, nil, errSegmentReaderRefused
 		}
 		if _, seen := arrivals[lease.Session]; !seen && arrivalBase != nil {
 			base, ok, berr := arrivalBase(lease.Session)
 			if berr != nil {
-				return deliveryPosition{}, berr // a missing/corrupt predecessor page refuses, never "new"
+				return deliveryPosition{}, nil, berr // a missing/corrupt predecessor page refuses, never "new"
 			}
 			if ok {
 				arrivals[lease.Session] = base
@@ -386,41 +392,42 @@ func (g *genReadonly) checkLeaseJournal(ctx context.Context, segRoot *os.Root, j
 		}
 		if _, exists := leases[lease.Delivery]; exists ||
 			arrivals[lease.Session] == math.MaxUint64 || lease.ArrivalSeq != arrivals[lease.Session]+1 {
-			return deliveryPosition{}, errSegmentReaderRefused
+			return deliveryPosition{}, nil, errSegmentReaderRefused
 		}
 		recorded, found, gerr := g.resolveLease(ctx, lease.Delivery)
 		if gerr != nil {
-			return deliveryPosition{}, gerr
+			return deliveryPosition{}, nil, gerr
 		}
-		if !found || recorded != lease {
-			return deliveryPosition{}, errSegmentReaderRefused
+		if (archived && !found) || (found && recorded != lease) {
+			return deliveryPosition{}, nil, errSegmentReaderRefused
 		}
 		leases[lease.Delivery], arrivals[lease.Session] = lease, lease.ArrivalSeq
 		chain = deliveryChain(chain, line)
 		if older != nil && total == older.Bytes {
 			if len(leases) != older.Count || chain != older.Chain {
-				return deliveryPosition{}, errSegmentReaderRefused
+				return deliveryPosition{}, nil, errSegmentReaderRefused
 			}
 			olderSealed = true
 		}
 		if total == position.Bytes {
 			if len(leases) != position.Count || chain != position.Chain {
-				return deliveryPosition{}, errSegmentReaderRefused
+				return deliveryPosition{}, nil, errSegmentReaderRefused
 			}
 			sealed = true
 		}
 	}
 	if total != info.Size() || !sealed || !olderSealed {
-		return deliveryPosition{}, errSegmentReaderRefused
+		return deliveryPosition{}, nil, errSegmentReaderRefused
 	}
-	return deliveryPosition{Version: core.EvidenceVersion, Bytes: total, Count: len(leases), Chain: chain}, nil
+	return deliveryPosition{Version: core.EvidenceVersion, Bytes: total, Count: len(leases), Chain: chain}, leases, nil
 }
 
 // checkAckJournal scans one segment's ack journal read-only THROUGH the pinned segment root, against its
-// seal, and joins EVERY acknowledgement against its ORIGINAL lease in the generation store with an exact
-// identity comparison — the archived-ACK join (a segment's ack file may reference a lease archived into
-// an earlier segment). It writes nothing.
-func (g *genReadonly) checkAckJournal(ctx context.Context, segRoot *os.Root, journalName, sealName string) (deliveryPosition, error) {
+// seal, and joins EVERY acknowledgement against its ORIGINAL lease with an exact identity comparison:
+// the lease from the segment's own window when window is given (the active segment, whose leases are
+// not archived yet), otherwise from the generation store — the archived-ACK join (a segment's ack file
+// may reference a lease archived into an earlier segment). It writes nothing.
+func (g *genReadonly) checkAckJournal(ctx context.Context, segRoot *os.Root, journalName, sealName string, window map[string]deliveryLease) (deliveryPosition, error) {
 	position, older, err := readSealConfined(segRoot, sealName, deliveryAckChainSeed, deliveryAckChainDomain)
 	if err != nil {
 		return deliveryPosition{}, err
@@ -467,9 +474,13 @@ func (g *genReadonly) checkAckJournal(ctx context.Context, segRoot *os.Root, jou
 		if _, exists := acks[ack.Delivery]; exists {
 			return deliveryPosition{}, errSegmentReaderRefused
 		}
-		lease, found, gerr := g.resolveLease(ctx, ack.Delivery)
-		if gerr != nil {
-			return deliveryPosition{}, gerr
+		lease, found := window[ack.Delivery]
+		if !found {
+			var gerr error
+			lease, found, gerr = g.resolveLease(ctx, ack.Delivery)
+			if gerr != nil {
+				return deliveryPosition{}, gerr
+			}
 		}
 		if !found || lease.ObservationID != ack.ObservationID {
 			return deliveryPosition{}, errSegmentReaderRefused

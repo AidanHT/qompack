@@ -8,17 +8,30 @@ import (
 
 // Terminal evidence is durable before its generation index. An interrupted
 // mirror is recoverable from the exact disposition; it never becomes capture ACK.
+// Only a disposition of an ARCHIVED lease is mirrored at once: an active-window
+// lease is not in the store yet, and its disposition is archived with its window
+// when the segment rotates (reconcileGenerations).
 func (j *deliveryJournal) commitTerminalGeneration(ctx context.Context, record deliveryTerminal) error {
-	if j.gen == nil {
+	if j.gen == nil || j.leaseActive(record.Lease.Delivery) {
 		return nil
 	}
 	return j.gen.commitTerminal(ctx, []deliveryTerminal{record})
 }
 
+// leaseActive reports whether delivery is leased in the ACTIVE window (as opposed to archived in the
+// generation store, or never leased).
+func (j *deliveryJournal) leaseActive(delivery string) bool {
+	j.st.Lock()
+	defer j.st.Unlock()
+	_, ok := j.leases[delivery]
+	return ok
+}
+
 // Generation-backed startup loads only the bounded active window. Archived
 // dispositions are resolved by full identity when replay asks for them, rather
 // than rebuilding an ever-growing terminal map from the lifetime directory.
-// Called during open after the generation store has reconciled the active leases.
+// The active window's dispositions stay out of the store until the window is
+// archived at rotation.
 func (j *deliveryJournal) loadActiveTerminalDispositions() error {
 	root, err := j.terminalDirectory(false)
 	if errors.Is(err, os.ErrNotExist) {
@@ -39,9 +52,6 @@ func (j *deliveryJournal) loadActiveTerminalDispositions() error {
 			continue
 		}
 		if err != nil || record != terminalFor(lease) {
-			return deliveryJournalError()
-		}
-		if err := j.commitTerminalGeneration(context.Background(), record); err != nil {
 			return deliveryJournalError()
 		}
 		loaded[nonce] = record
