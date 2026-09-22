@@ -345,15 +345,21 @@ func TestFaultCorruptConfigIfNeeded_NeverConjuresAMissingRoot(t *testing.T) {
 	require.True(t, os.IsNotExist(err), "faultCorruptConfigIfNeeded must not create a root that does not exist")
 }
 
-// TestSelfTest_ConfigCorruptFallsBackAndExitsZero exercises the config-corrupt fault site for
-// real, against the one subcommand task-6-spec.md's fault table names for it (fix round 1, Minor
-// M-12: the site was previously inert for every hook subcommand, and nothing pinned it against
+// TestSelfTest_ConfigCorruptFallsBackButReportsTheRefusedCapture exercises the config-corrupt fault
+// site for real, against the one subcommand task-6-spec.md's fault table names for it (fix round 1,
+// Minor M-12: the site was previously inert for every hook subcommand, and nothing pinned it against
 // either qompack daemon or self-test). self-test itself now calls faultCorruptConfigIfNeeded
 // before its own config.Load (selftest.go), so QOMPACK_FAULT=config-corrupt genuinely replaces
 // the project's config.json with truncated JSON here — config.Load's own per-leaf
-// fallback-not-crash contract (§11.3) means this must still exit 0, never a critical config.load
-// check.
-func TestSelfTest_ConfigCorruptFallsBackAndExitsZero(t *testing.T) {
+// fallback-not-crash contract (§11.3) means this is never a critical config.load check.
+//
+// Criterion change (V6 close-out C1.8): this test was TestSelfTest_ConfigCorruptFallsBackAndExitsZero
+// and required exit 0. A truncated config.json is a STRUCTURAL refusal on the hook path — a layer
+// that does not parse cannot be applied per leaf, which TestHookCapture_FaultsCannotBypassAdmission's
+// config-corrupt row pins — so under this fault every hook records nothing. Exiting 0 there is the
+// dishonest "ok" C1.8 removes: self-test now asks the hook path's own loader (config.capture), which
+// fails critically and names the class. config.load still passes, exactly as before.
+func TestSelfTest_ConfigCorruptFallsBackButReportsTheRefusedCapture(t *testing.T) {
 	resetFaultState(t)
 	t.Setenv(qompackFaultEnv, faultConfigCorrupt)
 
@@ -369,7 +375,23 @@ func TestSelfTest_ConfigCorruptFallsBackAndExitsZero(t *testing.T) {
 			HomeDir: t.TempDir(),
 		}, &out, &errw)
 
-	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
+	require.Equal(t, ExitError, code, "stderr=%s", errw.String())
+	var report selfTestReport
+	require.NoError(t, json.Unmarshal(out.Bytes(), &report), "stdout=%s", out.String())
+	for _, c := range report.Checks {
+		switch c.ID {
+		case "config.load":
+			require.True(t, c.OK, "the soft loader falls back, so config.load is never critical: %+v", c)
+		case "config.capture":
+			require.False(t, c.OK, "every hook refuses this configuration: %+v", c)
+			require.Equal(t, contract.SevCritical, c.Severity)
+			require.Contains(t, c.Detail, "project config file is not a single strict JSONC object")
+		default:
+			require.False(t, !c.OK && c.Severity == contract.SevCritical,
+				"config.capture is the only critical row this fault may produce: %+v", c)
+		}
+	}
+	require.Equal(t, "config.capture", selfTestFindCheck(t, report, "config.capture").ID)
 
 	// The fault genuinely fired: the project's config.json is the exact truncated bytes fault.go
 	// writes, not something config.Load or self-test itself produced.

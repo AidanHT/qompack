@@ -2,8 +2,10 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/logging"
@@ -98,6 +100,26 @@ func reportCaptureConfig(root, home string, violations []config.Violation, warni
 	if len(violations) > 0 {
 		persistViolations(root, violations, log)
 	}
+}
+
+// captureConfigDegradedSummary is the one-line account self-test and doctor give of a capture
+// configuration the hook path loaded only partly.
+func captureConfigDegradedSummary(violations []config.Violation, warnings []config.Warning) string {
+	return fmt.Sprintf("capture continues: %d value(s) fell back to the default, %d key(s) not applied",
+		len(violations), len(warnings))
+}
+
+// captureConfigKeys names every key the capture loader did not apply as written, with the loader's
+// own message for it — the same text the day log and state/config-violations.json carry.
+func captureConfigKeys(violations []config.Violation, warnings []config.Warning) string {
+	parts := make([]string, 0, len(violations)+len(warnings))
+	for _, v := range violations {
+		parts = append(parts, v.Key+": "+v.Message)
+	}
+	for _, w := range warnings {
+		parts = append(parts, w.Key+": "+w.Message)
+	}
+	return strings.Join(parts, "; ")
 }
 
 // persistViolations writes the typed §11.3 list to state/config-violations.json.

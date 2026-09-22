@@ -43,9 +43,12 @@ import (
 //     through config.Load directly rather than LoadConfigAndReport: that helper persists the
 //     violation list, and a diagnostic that wrote to state/ would be the one command a broken
 //     project could not survive.
-//  3. It uses the TOLERANT config path. config.LoadForCapture refuses a whole delivery over any
-//     Validate violation; if doctor did the same, a bad config would silence the one command that
-//     could explain it. Here a violation is a row.
+//  3. It uses the TOLERANT config path for everything it reports about the configuration. The hook
+//     path's config.LoadForCapture still refuses a whole delivery over a structural problem (a
+//     config file that is not strict JSONC, any problem inside runtime.redact); if doctor loaded
+//     through it, that config would silence the one command that could explain it. Here a
+//     violation is a row — and so is the hook path's own verdict (captureConfigRow), asked
+//     separately and read-only.
 //  4. It never calls a ratio or a latency figure proof of health. Storage and timing numbers are
 //     labelled observations where they appear at all, and `status` owns them.
 
@@ -698,14 +701,20 @@ func doctorPersistedViolations(l paths.Layout) []config.Violation {
 // .qompack degrades every writer quietly, and the only trace is a Warn in a file nothing points a
 // user at (Task 2's F-2). One throwaway file under tmp/ answers it, and it is always removed.
 func (s *doctorState) recordingRows() []doctorRow {
+	var rows []doctorRow
+	if s.root != "" {
+		// Before any .qompack test: a configuration the hook path refuses is precisely what leaves a
+		// project with a .qompack holding nothing but its config file, or none at all.
+		rows = append(rows, s.captureConfigRow())
+	}
 	if s.root == "" || !s.established {
-		return []doctorRow{{
+		return append(rows, doctorRow{
 			ID: "store.writable", Status: doctorUnknown, Observed: "no .qompack to probe",
 			Detail: "doctor does not create a project to find out whether it could write to one",
-		}}
+		})
 	}
 
-	rows := []doctorRow{s.writableRow()}
+	rows = append(rows, s.writableRow())
 	rows = append(rows, s.spoolRow(), s.drainRow(), s.negknowRow(), s.unpublishedCapturesRow())
 	rows = append(rows, s.assertionRows()...)
 	return rows
@@ -749,6 +758,35 @@ func (s *doctorState) writableRow() doctorRow {
 		ID: "store.writable", Status: doctorUnknown, Observed: "not probed",
 		Detail: ".qompack holds no file this probe may open for writing, and doctor does not " +
 			"create one to find out",
+	}
+}
+
+// captureConfigRow reports whether the HOOK path can load this project's configuration, which the
+// tolerant load behind every other configuration row cannot say (V6 close-out item C1.8: SP-18 found
+// a project recording nothing while every configuration row read clean). It is read-only:
+// config.LoadForCapture persists nothing.
+func (s *doctorState) captureConfigRow() doctorRow {
+	_, _, violations, warnings, err := config.LoadForCapture(config.Env{
+		ProjectRoot: s.root, HomeDir: homeDir(s.env), Getenv: s.env.Getenv, Flags: s.env.Set,
+	})
+	switch {
+	case err != nil:
+		return doctorRow{
+			ID: "config.capture", Status: doctorDegraded, Observed: "refused: every hook admits nothing",
+			Detail: err.Error() + "; hooks still exit 0 with empty output, and nothing is recorded " +
+				"until the configuration is repaired",
+		}
+	case len(violations)+len(warnings) > 0:
+		return doctorRow{
+			ID: "config.capture", Status: doctorDegraded,
+			Observed: captureConfigDegradedSummary(violations, warnings),
+			Detail:   captureConfigKeys(violations, warnings),
+		}
+	default:
+		return doctorRow{
+			ID: "config.capture", Status: doctorOK, Observed: "applied as written",
+			Detail: "the hook path's own loader (config.LoadForCapture) accepts every layer unchanged",
+		}
 	}
 }
 
