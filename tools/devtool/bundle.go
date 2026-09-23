@@ -110,7 +110,7 @@ func taskBundle(args []string) error {
 	hostValidate := fs.Bool("host-validate", false,
 		"run the host's own `claude plugin validate` against the host target's bundle")
 	archive := fs.Bool("archive", false,
-		"also pack each assembled bundle into a reproducible .zip (windows) or .tar.gz, and write "+
+		"also pack each assembled bundle into a reproducible .zip (every target), and write "+
 			"checksums.txt over them; these are the files a release uploads")
 	evidence := fs.String("evidence", "",
 		"file to write the --host-validate record to (default: print it to stdout)")
