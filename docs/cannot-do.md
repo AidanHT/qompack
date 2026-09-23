@@ -155,6 +155,28 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §3 and §4;
   [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
 
+### The host delivers at most 10,000 characters of injected context whole
+
+- **Limit.** A rehydration payload longer than 10,000 characters does not reach Claude whole. The
+  host keeps the full text in a file and gives Claude its path and a preview of the first 2,000
+  characters. The defaults budget the payload in tokens up to `runtime.rehydrate.maxTokens`
+  `12000`, several times the cap, so a long session's rehydration can be cut to that preview.
+- **Why.** The hooks reference (fetched 2026-09-22): "A hook's `additionalContext`,
+  `systemMessage`, and `initialUserMessage` strings, and its plain stdout, are capped at 10,000
+  characters"; over it "Claude Code saves the output to a file in the session directory and
+  replaces it with the file path and a preview of up to the first 2,000 characters", "this cap has
+  no setting or environment variable to raise it", and "Claude Code doesn't ask Claude to read the
+  file". Observed on Claude Code 2.1.280: an 11,082-character SessionStart context reached Claude as
+  a 2,391-character `<persisted-output>` block, and the model could quote only what the preview held
+  ([evidence](../plans/sdd/V6-closeout/packaging/evidence/review/f2-live-host-cap-probe/README.txt)).
+  The host accepts such a response, so no check fails.
+- **What Qompack does instead.** The hook client passes the payload through unchanged and records a
+  Loud line naming the event, the field and its length (`internal/hookio` `HostCapOverruns`). Tier-1
+  material renders first, so it is what a preview keeps. Whether the budget should instead be held
+  under the cap is an open owner decision (C1.12 review, finding 2).
+- **Recorded at.** `testdata/host/hooks-output-schema.json` (`limits`);
+  `internal/cli` `TestHookOutput_OverTheHostCapIsLoud`.
+
 ### No PostCompact dependency
 
 - **Limit.** Qompack does not depend on a post-compaction event. There is no PostCompact

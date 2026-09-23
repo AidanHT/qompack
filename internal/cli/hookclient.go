@@ -471,7 +471,17 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		// then replays the rejection into the post-compaction context (C1.12). So the reply is
 		// reduced to what the host accepts and acts on for the event it is running, whatever the
 		// daemon — this build's or a still-resident older one — happened to send.
-		return hookio.WriteOutput(out, hookio.ConformOutput(hookEvent(spec.op, args), respOut))
+		event := hookEvent(spec.op, args)
+		conformed := hookio.ConformOutput(event, respOut)
+		// The host accepts a field over its per-field cap but hands Claude only a 2,000-character
+		// preview of it, so a large rehydration is cut without any check failing. Say so, loudly,
+		// with sizes only (a log is not a content store, §7.4).
+		for _, over := range hookio.HostCapOverruns(conformed) {
+			hookLog.Loud("hook output exceeds the host's per-field cap; Claude sees only a preview of it",
+				"event", event, "field", over.Field, "chars", over.Chars,
+				"cap", hookio.HostFieldMaxChars, "preview", hookio.HostFieldPreviewChars)
+		}
+		return hookio.WriteOutput(out, conformed)
 	}
 }
 

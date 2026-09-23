@@ -49,7 +49,10 @@ capability it cannot verify.
   [ADR 0011](adr/0011-rehydration-budget-and-item-order.md), can bound and order what Qompack emits
   but cannot observe what the host did with it, and `internal/contract/capability.go` records
   injection as `implemented_unverified` with the note that an observed sentinel "documents one
-  delivery under the tested contract, never complete context or model compliance".
+  delivery under the tested contract, never complete context or model compliance". One part of
+  "how much of it" is now documented and observed: over 10,000 characters the host swaps the text
+  for a file path and a 2,000-character preview, with no signal to the hook
+  ([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
 - **Proposal.** Report delivery of hook-supplied additional context back to the hook's own process:
   a delivered/not-delivered flag and the delivered size, on the same event, would be enough.
 - **What Qompack would do with it.** Declare the producer for

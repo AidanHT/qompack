@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -141,4 +142,55 @@ func TestConformOutput_DoesNotAliasItsInput(t *testing.T) {
 	require.NotSame(t, in.HookSpecificOutput, out.HookSpecificOutput)
 	in.HookSpecificOutput.AdditionalContext = "changed"
 	require.Equal(t, "context", out.HookSpecificOutput.AdditionalContext)
+}
+
+// capDoc is the host's per-field size limit as testdata/host/hooks-output-schema.json transcribes it.
+type capDoc struct {
+	Limits struct {
+		MaxChars     int      `json:"maxChars"`
+		PreviewChars int      `json:"previewChars"`
+		Fields       []string `json:"fields"`
+	} `json:"limits"`
+}
+
+// TestHostFieldCap_MatchesTheTranscribedSchema ties hookio's cap constants to the independent
+// transcription of the hooks reference, so neither can drift alone.
+func TestHostFieldCap_MatchesTheTranscribedSchema(t *testing.T) {
+	raw, err := os.ReadFile("../../testdata/host/hooks-output-schema.json")
+	require.NoError(t, err)
+	var d capDoc
+	require.NoError(t, json.Unmarshal(raw, &d))
+	require.Equal(t, d.Limits.MaxChars, hookio.HostFieldMaxChars)
+	require.Equal(t, d.Limits.PreviewChars, hookio.HostFieldPreviewChars)
+	for _, f := range []string{"additionalContext", "systemMessage"} {
+		require.Contains(t, d.Limits.Fields, f, "the cap covers %s, which ConformOutput can keep", f)
+	}
+}
+
+// TestHostCapOverruns reports exactly the kept fields the host would swap for a file path and a
+// 2,000-character preview, measured the way a JavaScript host measures a string: UTF-16 code units.
+func TestHostCapOverruns(t *testing.T) {
+	long := func(n int) string { return strings.Repeat("x", n) }
+	ss := func(ctx, msg string) hookio.Output {
+		o := hookio.SessionStartOutput(ctx)
+		o.SystemMessage = msg
+		return o
+	}
+
+	require.Empty(t, hookio.HostCapOverruns(hookio.Empty()))
+	require.Empty(t, hookio.HostCapOverruns(ss(long(hookio.HostFieldMaxChars), "")),
+		"a field AT the cap is delivered whole")
+	require.Equal(t, []hookio.FieldOverrun{{Field: "hookSpecificOutput.additionalContext", Chars: hookio.HostFieldMaxChars + 1}},
+		hookio.HostCapOverruns(ss(long(hookio.HostFieldMaxChars+1), "")))
+	require.Equal(t, []hookio.FieldOverrun{
+		{Field: "hookSpecificOutput.additionalContext", Chars: 20000},
+		{Field: "systemMessage", Chars: 10001},
+	}, hookio.HostCapOverruns(ss(long(20000), long(10001))), "each field is measured on its own")
+
+	// U+1F600 is one rune but two UTF-16 code units: 5,001 of them are 10,002 host characters.
+	astral := strings.Repeat("\U0001F600", 5001)
+	require.Equal(t, []hookio.FieldOverrun{{Field: "hookSpecificOutput.additionalContext", Chars: 10002}},
+		hookio.HostCapOverruns(ss(astral, "")))
+	require.Empty(t, hookio.HostCapOverruns(ss(strings.Repeat("é", hookio.HostFieldMaxChars), "")),
+		"a BMP rune is one host character however many UTF-8 bytes it takes")
 }
