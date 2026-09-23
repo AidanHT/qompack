@@ -1,0 +1,12 @@
+# run: 13-final-rollover-race-linux
+# commit: 4ead6f7f3a52a9ded7756b1a6c9001fe0b22628e
+# container: qompack-v6-linux-verification (Linux 5.15.167.4-microsoft-standard-WSL2 x86_64 go version go1.26.6 linux/amd64 )
+# user: qompack-test; GOMAXPROCS=4; CGO_ENABLED=1
+# started: 2026-09-23T00:41:50Z
+# command: go test -race ./internal/daemon ./internal/store ./internal/cli -run TestDeliveryRollover_|TestDeliveryGeneration_|TestDeliveryRadix|TestDeliveryReaders_V6_|TestDeliverySealSegment|TestCarriedDefect_SP20D4_|TestDeliveryMigrationGuard|TestBackupWatchedFiles_|TestFsck.*Frozen|TestDsegs|TestGCDeliverySegments|FrozenSeal -count=1 -timeout=60m
+# finished: 2026-09-23T00:44:26Z
+# exit: 143
+# ABORTED by the author before any result: the local docker exec client was stopped to re-run
+# the same scope with -v as 13b (a -run pattern that matches nothing still prints ok, so the
+# verbose listing is the evidence of what ran); the orphaned in-container go test (pgid 60090,
+# started by this run) was then terminated. This log carries no result.

@@ -1,0 +1,14 @@
+# run: 13c-final-fsck-frozen-race-linux
+# commit: 4ead6f7f3a52a9ded7756b1a6c9001fe0b22628e
+# container: qompack-v6-linux-verification (Linux 5.15.167.4-microsoft-standard-WSL2 x86_64 go version go1.26.6 linux/amd64 )
+# user: qompack-test; GOMAXPROCS=4; CGO_ENABLED=1
+# started: 2026-09-23T01:08:45Z
+# command: go test -race ./internal/cli -run TestFsck_Frozen -count=1 -timeout=30m -v
+=== RUN   TestFsck_FrozenLegacySealIsClassifiedByTheSegmentAuthority
+--- PASS: TestFsck_FrozenLegacySealIsClassifiedByTheSegmentAuthority (1.01s)
+=== RUN   TestFsck_FrozenLegacySealWithoutAnAuthorityIsADefect
+--- PASS: TestFsck_FrozenLegacySealWithoutAnAuthorityIsADefect (0.82s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	2.936s
+# finished: 2026-09-23T01:09:49Z
+# exit: 0

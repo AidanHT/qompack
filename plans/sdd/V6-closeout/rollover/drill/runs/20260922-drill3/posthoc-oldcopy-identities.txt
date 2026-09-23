@@ -1,0 +1,39 @@
+# capture sidecars (arrival, op) in the old-build copy after cur continued:
+"arrival":1,"op":"observe.tool"
+"arrival":2,"op":"observe.tool"
+"arrival":3,"op":"observe.tool"
+"arrival":4,"op":"observe.tool"
+"arrival":5,"op":"observe.tool"
+"arrival":6,"op":"observe.tool"
+"arrival":7,"op":"observe.tool"
+"arrival":8,"op":"observe.tool"
+"arrival":9,"op":"observe.tool"
+"arrival":10,"op":"observe.tool"
+"arrival":11,"op":"flush"
+"arrival":12,"op":"observe.tool"
+# tool index entries per tool_use id:
+      1 "id":"toolu_drill_00"
+      1 "id":"toolu_drill_01"
+      1 "id":"toolu_drill_02"
+      1 "id":"toolu_drill_03"
+      1 "id":"toolu_drill_04"
+      1 "id":"toolu_drill_05"
+      1 "id":"toolu_drill_06"
+      1 "id":"toolu_drill_07"
+      1 "id":"toolu_drill_08"
+      1 "id":"toolu_drill_09"
+      1 "id":"toolu_drill_after_old"
+      1 "id":"toolu_drill_old"
+# spool after the run:
+total 8
+drwx------  2 qompack-test qompack-test 4096 Sep 23 00:43 .
+drwx------ 19 qompack-test qompack-test 4096 Sep 23 00:38 ..
+
+# Reading (added by hand after the run):
+# toolu_drill_old was delivered to the 301a8e9 build. It is in the tool index exactly once, but no
+# capture sidecar carries it and no lease names it: arrivals 1-11 are the producer's, 12 is cur's
+# toolu_drill_after_old, and the spool is empty. The pre-segment build, refused by the frozen seal,
+# captured it in its identity-free degraded mode (the SP20-D4 symptom as that build shipped it) and
+# consumed the input; nothing in the delivery state changed (old_reader_refuses_or_degrades_safely).
+# The verdict text of current_continues_after_old_binary says cur leases input the old build
+# retained; in this run there was none to lease, and the verdict's numeric facts are what hold.

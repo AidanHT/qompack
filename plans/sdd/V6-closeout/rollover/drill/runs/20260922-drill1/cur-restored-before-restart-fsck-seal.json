@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "project": "/work/cx-rollover-drill-20260922-drill1/restored",
+  "daemon_running": false,
+  "read_only": false,
+  "repairing": false,
+  "attempts_daemon_lock": true,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "no store: /work/cx-rollover-drill-20260922-drill1/restored has never been used with Qompack, and fsck does not create one"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "no daemon holds the lock; this project is quiet"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {},
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 0
+}

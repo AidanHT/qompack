@@ -1,0 +1,6 @@
+ts=2026-09-23T00:23:59.637501981Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-23T00:24:00.167509612Z level=info msg="observer: session registered" session=sess-drill-history source=startup turn=0 segment=1
+ts=2026-09-23T00:24:00.167686109Z level=info msg="scheduler: session bound" session=sess-drill-history effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-23T00:26:06.777690771Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=sess-drill-history
+ts=2026-09-23T00:26:07.290027118Z level=info msg="observer: gc" scanned=1 deleted=0 freed=0 truncated=false
+ts=2026-09-23T00:26:25.968548388Z level=info msg="observer: gc" scanned=13 deleted=0 freed=0 truncated=false

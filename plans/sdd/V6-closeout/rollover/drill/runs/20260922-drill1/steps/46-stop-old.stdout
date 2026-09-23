@@ -1,0 +1,1 @@
+SIGTERM did not clear the lock; SIGKILL (own daemon)

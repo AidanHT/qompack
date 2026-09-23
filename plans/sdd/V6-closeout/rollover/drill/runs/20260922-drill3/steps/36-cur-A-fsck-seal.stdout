@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "project": "/work/cx-rollover-drill-20260922-drill3/projectA",
+  "daemon_running": false,
+  "read_only": false,
+  "repairing": false,
+  "attempts_daemon_lock": true,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "store present at /work/cx-rollover-drill-20260922-drill3/projectA/.qompack"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "no daemon holds the lock; this project is quiet"
+      ]
+    },
+    {
+      "id": "objects",
+      "ok": true,
+      "severity": 0,
+      "scanned": 13,
+      "count": 0
+    },
+    {
+      "id": "index.roots",
+      "ok": true,
+      "severity": 0,
+      "scanned": 10,
+      "count": 0
+    },
+    {
+      "id": "index.tool_use",
+      "ok": true,
+      "severity": 0,
+      "scanned": 10,
+      "count": 0
+    },
+    {
+      "id": "index.files",
+      "ok": true,
+      "severity": 0,
+      "scanned": 10,
+      "count": 0
+    },
+    {
+      "id": "index.segments",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "captures",
+      "ok": false,
+      "severity": 1,
+      "scanned": 11,
+      "count": 1,
+      "detail": [
+        "capture publication requirement is unknown"
+      ]
+    },
+    {
+      "id": "publication",
+      "ok": false,
+      "severity": 1,
+      "scanned": 24,
+      "count": 1,
+      "detail": [
+        "publication audit is incomplete; zero observed gaps cannot certify completeness",
+        "capture sidecar with an unrecognized op"
+      ]
+    },
+    {
+      "id": "checkpoints",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "no checkpoint has been written yet"
+      ]
+    },
+    {
+      "id": "pins",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "pins/invariants.jsonl does not exist yet"
+      ]
+    },
+    {
+      "id": "negknow",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "records/eliminations.jsonl does not exist yet: nothing has been eliminated",
+        "eliminations: 0 record(s), 0 active, 0 stale",
+        "sketches/tried.bloom is absent, which is an ordinary cold start"
+      ]
+    },
+    {
+      "id": "delivery",
+      "ok": true,
+      "severity": 0,
+      "scanned": 3,
+      "count": 0,
+      "detail": [
+        "state/delivery-lease-position.json is the frozen seal of the archived legacy segment (3 entries, 912 bytes); the store has rotated to segment 6, whose journals --seal-check reads",
+        "state/delivery-ack-position.json is the frozen seal of the archived legacy segment (0 entries, 0 bytes); the store has rotated to segment 6, whose journals --seal-check reads",
+        "the full dual-reader seal check passed"
+      ]
+    },
+    {
+      "id": "spool",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "retention",
+      "ok": true,
+      "severity": 0,
+      "scanned": 11,
+      "count": 0
+    },
+    {
+      "id": "migrate",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "backups are checked by the read-only maintenance verifier; legacy import/cutover is separate"
+      ]
+    },
+    {
+      "id": "fidelity",
+      "ok": true,
+      "severity": 0,
+      "scanned": 10,
+      "count": 0,
+      "detail": [
+        "fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact"
+      ]
+    },
+    {
+      "id": "quarantine",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {
+    "exact": 10
+  },
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 1
+}

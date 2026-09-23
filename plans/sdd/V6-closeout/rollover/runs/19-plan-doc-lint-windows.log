@@ -1,0 +1,36 @@
+# run: 19-plan-doc-lint-windows
+# commit: 67c4bd3ec00f62fadf8ffa26528f3ef2243dc800
+# command: go run ./tools/devtool lint --only=runpatterns,docmarkers,coveragefloors
+== devtool lint: runpatterns ==
+runpatterns: plans/V2-VERIFY-primitives-store-dag-and-baseline.md:530: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: plans/sdd/V5-VERIFY/inventory-SP-05.md:70: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed|TestListenReturnsErrAddrInUse" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: 895 -run patterns parsed, 716 of 716 checkable resolved against 69 packages, 2 skipped (package not in tree yet), 7 skipped (unlanded wave and the package's test set is not settled), 2 platform-excluded, 20 waived
+runpatterns: waivers in force:
+  plans/V2-SP02-handoff.md:52: "TestImports" — the transcript below demonstrates the unsatisfiable command this section reports
+  plans/V2-VERIFY-primitives-store-dag-and-baseline.md:318: "TestImports" — quotes the unsatisfiable command this finding is about; the corrected row is below
+  plans/sdd/V3-SP-08-observer-l0/global-constraints.md:65: "<pattern>" — the -run argument is a placeholder metavariable in an iteration recipe, not a row to verify
+  plans/sdd/V3-SP-08-observer-l0/task-0-report.md:221: "<the seven new/extended tests>" — metavariable summarizing the report's per-test runs above, not a command to verify
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:422: "TestGraphEdges" — quotes the defective V6 command this finding documents
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:467: "TestGraphEdges" — left side quotes the defective V6 command being corrected
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:467: "TestGraph_" — left side quotes the defective V6 command being corrected
+  plans/sdd/V5-SP-15/report-E.md:84: "…" — the -run argument in this column header is a placeholder for the per-row test names below, not a command to verify
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:72: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:89: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:89: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:71: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:87: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:87: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-14.md:103: "TestRenderStatus_DegradedIsLoud" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-14.md:105: "TestE2E_EverySubcommandResolves|TestE2E_StatusAgainstRealDaemon|TestE2E_StatusWithDaemonStopped|TestE2E_CheckpointNowThenStatus" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-15.md:138: "TestCodecSizeBudget" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-15.md:139: "TestBuildActionHistory|TestRenderActionHistory|TestFold|TestFinalizeIncludesActionHistory|TestTruncateDropsActionHistoryFirst" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:151: "^(TestGoreleaserBuildsNothingAndDraftsTheRelease" — the alternation is split at the shell-pipeline character by this checker's parser; every branch is named in the PASS lines below
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:338: "^(TestBackup_RestoreOpensAsARealStore" — the alternation is split at the shell-pipeline character by this checker's parser; the -list output directly below names every branch
+PASS runpatterns
+== devtool lint: docmarkers ==
+docmarkers: 257 plan document(s) scanned
+PASS docmarkers
+== devtool lint: coveragefloors ==
+coveragefloors: 63 floor claim(s) across 257 plan document(s) checked against plans/OWNERS.tsv
+PASS coveragefloors
+# exit: 0

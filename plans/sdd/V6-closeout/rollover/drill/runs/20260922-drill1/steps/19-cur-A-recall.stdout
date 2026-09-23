@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:1f6e916b08ceefe9b376dd29b42329427d9c8ec2a1f925884fa8486a31a79282\",\"path\":\"src/toolu_drill_00.ts\",\"tool\":\"FileRead\",\"summary\":\"// QOMPACK-DRILL-HISTORY-00-5c1e\",\"ts\":\"2026-09-23T00:14:45Z\",\"score\":1.024,\"tool_use_id\":\"toolu_drill_00\",\"span\":[0,3623]}],\"count\":1,\"found\":true,\"query\":{\"text\":\"QOMPACK-DRILL-HISTORY-00-5c1e\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:fc481dd6b50b09fa081fbf39cd134ffbe607ec8d3393caae17745a4e61a5e4d5",
+      "tool_use_id": "qompack-mcp:2cf52a780622",
+      "untrusted": true
+    }
+  }
+}

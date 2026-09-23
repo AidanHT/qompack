@@ -1,0 +1,255 @@
+# run: 13b-final-rollover-race-linux
+# commit: 4ead6f7f3a52a9ded7756b1a6c9001fe0b22628e
+# container: qompack-v6-linux-verification (Linux 5.15.167.4-microsoft-standard-WSL2 x86_64 go version go1.26.6 linux/amd64 )
+# user: qompack-test; GOMAXPROCS=4; CGO_ENABLED=1
+# started: 2026-09-23T00:42:37Z
+# command: go test -race ./internal/daemon ./internal/store ./internal/cli -run TestDeliveryRollover_|TestDeliveryGeneration_|TestDeliveryRadix|TestDeliveryReaders_V6_|TestDeliverySealSegment|TestCarriedDefect_SP20D4_|TestBackupWatchedFiles_|FrozenSeal -count=1 -timeout=60m -v
+=== RUN   TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== PAUSE TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== RUN   TestDeliveryRollover_ArchivedLegacySegmentRefusesThePreSegmentReader
+--- PASS: TestDeliveryRollover_ArchivedLegacySegmentRefusesThePreSegmentReader (3.92s)
+=== RUN   TestDeliveryRollover_ArchivedLegacySegmentIsRefrozenAtOpen
+--- PASS: TestDeliveryRollover_ArchivedLegacySegmentIsRefrozenAtOpen (2.83s)
+=== RUN   TestDeliveryRollover_FrozenSealThatDisagreesWithItsJournalRefusesOpen
+--- PASS: TestDeliveryRollover_FrozenSealThatDisagreesWithItsJournalRefusesOpen (2.74s)
+=== RUN   TestDeliveryRollover_FrozenSealOnTheActiveSegmentRefusesOpen
+--- PASS: TestDeliveryRollover_FrozenSealOnTheActiveSegmentRefusesOpen (1.18s)
+=== RUN   TestDeliveryGeneration_V6_ImmutableNonceAndArrival
+--- PASS: TestDeliveryGeneration_V6_ImmutableNonceAndArrival (0.72s)
+=== RUN   TestDeliveryGeneration_V6_LogCapacityRefusesBeforeAppend
+--- PASS: TestDeliveryGeneration_V6_LogCapacityRefusesBeforeAppend (0.26s)
+=== RUN   TestDeliveryRollover_V6_DisabledMechanismCannotReopenLegacy
+--- PASS: TestDeliveryRollover_V6_DisabledMechanismCannotReopenLegacy (1.19s)
+=== RUN   TestDeliveryRollover_V6_BaseReadFailureIsNotFirstArrival
+--- PASS: TestDeliveryRollover_V6_BaseReadFailureIsNotFirstArrival (0.00s)
+=== RUN   TestDeliveryRollover_V6_MissingActiveAcknowledgementsAreNotRecreated
+--- PASS: TestDeliveryRollover_V6_MissingActiveAcknowledgementsAreNotRecreated (2.67s)
+=== RUN   TestDeliveryGeneration_ManyGenerationsAndReplayIdentity
+--- PASS: TestDeliveryGeneration_ManyGenerationsAndReplayIdentity (30.50s)
+=== RUN   TestDeliveryGeneration_DormantSessionArrivalContinuity
+--- PASS: TestDeliveryGeneration_DormantSessionArrivalContinuity (19.70s)
+=== RUN   TestDeliveryGeneration_ArchivedAckExactJoinAndCorruptionRefusal
+--- PASS: TestDeliveryGeneration_ArchivedAckExactJoinAndCorruptionRefusal (0.46s)
+=== RUN   TestDeliveryGeneration_OrderedByArrivalFrontier
+--- PASS: TestDeliveryGeneration_OrderedByArrivalFrontier (2.28s)
+=== RUN   TestDeliveryGeneration_TerminalArchivedLeaseResolves
+--- PASS: TestDeliveryGeneration_TerminalArchivedLeaseResolves (11.83s)
+=== RUN   TestDeliveryGeneration_RestartAfterNewWrites
+--- PASS: TestDeliveryGeneration_RestartAfterNewWrites (3.89s)
+=== RUN   TestDeliveryGeneration_MissingHeadIsUnavailable
+--- PASS: TestDeliveryGeneration_MissingHeadIsUnavailable (0.44s)
+=== RUN   TestDeliveryGeneration_TornTailIsPreservedAndUnavailable
+--- PASS: TestDeliveryGeneration_TornTailIsPreservedAndUnavailable (0.71s)
+=== RUN   TestDeliveryGeneration_CompleteTailAfterLostHeadWriteIsAdopted
+--- PASS: TestDeliveryGeneration_CompleteTailAfterLostHeadWriteIsAdopted (0.83s)
+=== RUN   TestDeliveryGeneration_EmptyStoreIsAbsentNotUnavailable
+--- PASS: TestDeliveryGeneration_EmptyStoreIsAbsentNotUnavailable (0.00s)
+=== RUN   TestDeliveryGeneration_InvalidLeaseAndCancellation
+--- PASS: TestDeliveryGeneration_InvalidLeaseAndCancellation (0.40s)
+=== RUN   TestDeliveryGeneration_AckFrontierBlocksOnOldestPending
+--- PASS: TestDeliveryGeneration_AckFrontierBlocksOnOldestPending (3.34s)
+=== RUN   TestDeliveryGeneration_AckMembershipJoinIsExact
+--- PASS: TestDeliveryGeneration_AckMembershipJoinIsExact (0.34s)
+=== RUN   TestDeliveryGeneration_TerminalMembershipSettlesFrontier
+--- PASS: TestDeliveryGeneration_TerminalMembershipSettlesFrontier (0.66s)
+=== RUN   TestDeliveryGeneration_ConflictingHeadIsRefused
+=== RUN   TestDeliveryGeneration_ConflictingHeadIsRefused/tampered_root
+=== RUN   TestDeliveryGeneration_ConflictingHeadIsRefused/log_bytes_past_eof
+=== RUN   TestDeliveryGeneration_ConflictingHeadIsRefused/last_len_past_boundary
+--- PASS: TestDeliveryGeneration_ConflictingHeadIsRefused (2.37s)
+    --- PASS: TestDeliveryGeneration_ConflictingHeadIsRefused/tampered_root (0.65s)
+    --- PASS: TestDeliveryGeneration_ConflictingHeadIsRefused/log_bytes_past_eof (0.65s)
+    --- PASS: TestDeliveryGeneration_ConflictingHeadIsRefused/last_len_past_boundary (1.07s)
+=== RUN   TestDeliveryGeneration_FaultPoisonsQueriesFailClosed
+--- PASS: TestDeliveryGeneration_FaultPoisonsQueriesFailClosed (0.36s)
+=== RUN   TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart
+    delivery_lease_cap_test.go:55: fixture: 65536 acknowledged leases; lease journal 20239518 bytes, ack journal 16908288 bytes
+--- PASS: TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart (166.58s)
+=== RUN   TestDeliveryGeneration_CommitPublishesOnePackPerGenerationWhateverItsSize
+=== RUN   TestDeliveryGeneration_CommitPublishesOnePackPerGenerationWhateverItsSize/one-lease
+=== RUN   TestDeliveryGeneration_CommitPublishesOnePackPerGenerationWhateverItsSize/four-hundred-leases
+--- PASS: TestDeliveryGeneration_CommitPublishesOnePackPerGenerationWhateverItsSize (1.20s)
+    --- PASS: TestDeliveryGeneration_CommitPublishesOnePackPerGenerationWhateverItsSize/one-lease (0.41s)
+    --- PASS: TestDeliveryGeneration_CommitPublishesOnePackPerGenerationWhateverItsSize/four-hundred-leases (0.79s)
+=== RUN   TestDeliveryRadix_TxnHoldsOnlyLivePages
+--- PASS: TestDeliveryRadix_TxnHoldsOnlyLivePages (0.22s)
+=== RUN   TestDeliveryRadix_UncommittedRootIsUnavailableToCommittedReaders
+--- PASS: TestDeliveryRadix_UncommittedRootIsUnavailableToCommittedReaders (0.39s)
+=== RUN   TestDeliveryRadix_TamperedLocationIsUnavailableNotAnotherPage
+--- PASS: TestDeliveryRadix_TamperedLocationIsUnavailableNotAnotherPage (0.22s)
+=== RUN   TestDeliveryRadix_TruncatedPackIsUnavailable
+--- PASS: TestDeliveryRadix_TruncatedPackIsUnavailable (0.18s)
+=== RUN   TestDeliveryRadix_OrphanPackAndStagingAreIgnoredAndPreserved
+--- PASS: TestDeliveryRadix_OrphanPackAndStagingAreIgnoredAndPreserved (0.42s)
+=== RUN   TestDeliveryRadix_ConflictingRootPointerIsPreserved
+--- PASS: TestDeliveryRadix_ConflictingRootPointerIsPreserved (0.35s)
+=== RUN   TestDeliveryRadix_EmptyTreeAbsence
+--- PASS: TestDeliveryRadix_EmptyTreeAbsence (0.00s)
+=== RUN   TestDeliveryRadix_ManyGenerationsOldRootsUsable
+--- PASS: TestDeliveryRadix_ManyGenerationsOldRootsUsable (16.54s)
+=== RUN   TestDeliveryRadix_UpdateValueSameKey
+--- PASS: TestDeliveryRadix_UpdateValueSameKey (1.07s)
+=== RUN   TestDeliveryRadix_ReopenPersists
+--- PASS: TestDeliveryRadix_ReopenPersists (3.81s)
+=== RUN   TestDeliveryRadix_CollisionRefused
+--- PASS: TestDeliveryRadix_CollisionRefused (0.43s)
+=== RUN   TestDeliveryRadix_WrongRootAndCorruptPageAreUnavailable
+--- PASS: TestDeliveryRadix_WrongRootAndCorruptPageAreUnavailable (0.41s)
+=== RUN   TestDeliveryRadix_MissingDescendantIsUnavailableWithoutTouchingTheOther
+--- PASS: TestDeliveryRadix_MissingDescendantIsUnavailableWithoutTouchingTheOther (0.63s)
+=== RUN   TestDeliveryRadix_LookupDoesNotTouchAnIrrelevantCorruptBranch
+--- PASS: TestDeliveryRadix_LookupDoesNotTouchAnIrrelevantCorruptBranch (0.58s)
+=== RUN   TestDeliveryRadix_LongCommonPrefixCompressesAndProvesAbsence
+--- PASS: TestDeliveryRadix_LongCommonPrefixCompressesAndProvesAbsence (0.80s)
+=== RUN   TestDeliveryRadix_Cancellation
+--- PASS: TestDeliveryRadix_Cancellation (0.63s)
+=== RUN   TestDeliveryRadix_CrashOrphanLeavesOldGenerationsUsable
+--- PASS: TestDeliveryRadix_CrashOrphanLeavesOldGenerationsUsable (2.87s)
+=== RUN   TestDeliveryRadix_InputBounds
+--- PASS: TestDeliveryRadix_InputBounds (0.00s)
+=== RUN   TestDeliveryRadix_DecodeRejectsMalformedPages
+=== RUN   TestDeliveryRadix_DecodeRejectsMalformedPages/empty
+=== RUN   TestDeliveryRadix_DecodeRejectsMalformedPages/too_short
+=== RUN   TestDeliveryRadix_DecodeRejectsMalformedPages/bad_magic
+=== RUN   TestDeliveryRadix_DecodeRejectsMalformedPages/unknown_version
+=== RUN   TestDeliveryRadix_DecodeRejectsMalformedPages/unknown_kind
+=== RUN   TestDeliveryRadix_DecodeRejectsMalformedPages/branch_zero_child
+=== RUN   TestDeliveryRadix_DecodeRejectsMalformedPages/leaf_trailing_byte
+--- PASS: TestDeliveryRadix_DecodeRejectsMalformedPages (0.00s)
+    --- PASS: TestDeliveryRadix_DecodeRejectsMalformedPages/empty (0.00s)
+    --- PASS: TestDeliveryRadix_DecodeRejectsMalformedPages/too_short (0.00s)
+    --- PASS: TestDeliveryRadix_DecodeRejectsMalformedPages/bad_magic (0.00s)
+    --- PASS: TestDeliveryRadix_DecodeRejectsMalformedPages/unknown_version (0.00s)
+    --- PASS: TestDeliveryRadix_DecodeRejectsMalformedPages/unknown_kind (0.00s)
+    --- PASS: TestDeliveryRadix_DecodeRejectsMalformedPages/branch_zero_child (0.00s)
+    --- PASS: TestDeliveryRadix_DecodeRejectsMalformedPages/leaf_trailing_byte (0.00s)
+=== RUN   TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases
+=== RUN   TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/complete
+=== RUN   TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/delivery-lease-position.json
+=== RUN   TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/delivery-acks.jsonl
+--- PASS: TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases (22.44s)
+    --- PASS: TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/complete (5.58s)
+    --- PASS: TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/delivery-lease-position.json (8.11s)
+    --- PASS: TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases/delivery-acks.jsonl (8.75s)
+=== RUN   TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites
+--- PASS: TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites (11.94s)
+=== RUN   TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot
+    delivery_readers_v6_test.go:238: GC passes during rotation: 14 completed, 0 halted by a moving authority
+--- PASS: TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot (57.92s)
+=== RUN   TestDeliveryRollover_HotPathLeavesTheGenerationStoreUntouched
+--- PASS: TestDeliveryRollover_HotPathLeavesTheGenerationStoreUntouched (5.76s)
+=== RUN   TestDeliveryRollover_RotationArchivesTheWholeOutgoingWindow
+--- PASS: TestDeliveryRollover_RotationArchivesTheWholeOutgoingWindow (5.08s)
+=== RUN   TestDeliveryRollover_ArchivedSettlementIsMirroredAtOnce
+--- PASS: TestDeliveryRollover_ArchivedSettlementIsMirroredAtOnce (5.89s)
+=== RUN   TestDeliveryRollover_AcknowledgementJournalRotatesAtItsOwnThreshold
+--- PASS: TestDeliveryRollover_AcknowledgementJournalRotatesAtItsOwnThreshold (7.41s)
+=== RUN   TestDeliveryRollover_RedeliveredAcknowledgementOfArchivedDeliveryAppendsNothing
+--- PASS: TestDeliveryRollover_RedeliveredAcknowledgementOfArchivedDeliveryAppendsNothing (3.61s)
+=== RUN   TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen
+--- PASS: TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen (5.13s)
+=== RUN   TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal
+--- PASS: TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal (82.90s)
+=== RUN   TestDeliveryRollover_CrossesCapacitySeamAndAdvancesSegment
+--- PASS: TestDeliveryRollover_CrossesCapacitySeamAndAdvancesSegment (3.39s)
+=== RUN   TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity
+--- PASS: TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity (112.38s)
+=== RUN   TestDeliveryRollover_RestartAcrossRotation
+--- PASS: TestDeliveryRollover_RestartAcrossRotation (7.68s)
+=== RUN   TestDeliveryRollover_DormantSessionContinuesArrivals
+--- PASS: TestDeliveryRollover_DormantSessionContinuesArrivals (42.16s)
+=== RUN   TestDeliveryRollover_ArchivedAckExactJoinAndFrontierRetained
+--- PASS: TestDeliveryRollover_ArchivedAckExactJoinAndFrontierRetained (95.16s)
+=== RUN   TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal
+    delivery_seal_segment_ruler_test.go:83: report:
+        delivery-seal: /tmp/TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal473933716/001
+          segment 0 lease journal: loads, 2 entries, 582 bytes, chain sha256:cf62b5236bd027c53ef2f8561d8505e3205023f0aed20697fd4ae5f3859e4b3c
+          segment 0 ack journal: loads, 0 entries, 0 bytes (archived ACKs joined to their original leases)
+          segment 1 lease journal: loads, 2 entries, 582 bytes, chain sha256:a0761154099148b6fbf33d227d330f3fa0d66cc408ac3cfe4406c719da4caa74
+          lease seal /tmp/TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal473933716/001/.qompack/state/delivery-segments/00000000000000000001/delivery-lease-position.json: v2 with one torn slot; accepting 1 entries, 291 bytes
+          lease: --accept-torn-slot admitted 1 line(s) past the accepted record:
+            {"v":1,"delivery":"0000000000000000000000000000000000000000000000000000000000000004","session":"ruler","request":"sha256:bddf49144490b6a8657e38ca52897548592980b23c50a0212922a765355aef0f","arrival":4,"observation_id":"sha256:ec04120ab38a04d2a265f166ff3b6540f545d6098b34ec37e6da1c17c9738814"}
+          segment 1 ack journal: loads, 1 entries, 258 bytes (archived ACKs joined to their original leases)
+          checked 2 committed segment(s) through segment 1 and the generation store; nothing was written
+    delivery_seal_segment_ruler_test.go:94: report:
+        delivery-seal: /tmp/TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal473933716/001
+          segment 0 lease journal: loads, 2 entries, 582 bytes, chain sha256:cf62b5236bd027c53ef2f8561d8505e3205023f0aed20697fd4ae5f3859e4b3c
+          segment 0 ack journal: loads, 0 entries, 0 bytes (archived ACKs joined to their original leases)
+          segment 1 lease journal: loads, 2 entries, 582 bytes, chain sha256:a0761154099148b6fbf33d227d330f3fa0d66cc408ac3cfe4406c719da4caa74
+          lease seal /tmp/TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal473933716/001/.qompack/state/delivery-segments/00000000000000000001/delivery-lease-position.json: v2 with one torn slot; accepting 1 entries, 291 bytes
+          lease: --accept-torn-slot admitted 1 line(s) past the accepted record:
+            {"v":1,"delivery":"0000000000000000000000000000000000000000000000000000000000000004","session":"ruler","request":"sha256:bddf49144490b6a8657e38ca52897548592980b23c50a0212922a765355aef0f","arrival":4,"observation_id":"sha256:ec04120ab38a04d2a265f166ff3b6540f545d6098b34ec37e6da1c17c9738814"}
+          segment 1 ack journal: loads, 1 entries, 258 bytes (archived ACKs joined to their original leases)
+          segment 1 lease seal /tmp/TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal473933716/001/.qompack/state/delivery-segments/00000000000000000001/delivery-lease-position.json: wrote v1 at 2 entries, 582 bytes (the accepted record sealed 1 entries, 291 bytes)
+--- PASS: TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal (4.71s)
+=== RUN   TestDeliverySealSegment_RuleRNeverReachesAnArchivedSegment
+    delivery_seal_segment_ruler_test.go:130: report:
+        delivery-seal: /tmp/TestDeliverySealSegment_RuleRNeverReachesAnArchivedSegment2565147673/001
+          segment 0 lease journal: loads, 2 entries, 582 bytes, chain sha256:cf62b5236bd027c53ef2f8561d8505e3205023f0aed20697fd4ae5f3859e4b3c
+          segment 0 ack journal: loads, 0 entries, 0 bytes (archived ACKs joined to their original leases)
+    delivery_seal_segment_ruler_test.go:130: report:
+        delivery-seal: /tmp/TestDeliverySealSegment_RuleRNeverReachesAnArchivedSegment2565147673/001
+          segment 0 lease journal: loads, 2 entries, 582 bytes, chain sha256:cf62b5236bd027c53ef2f8561d8505e3205023f0aed20697fd4ae5f3859e4b3c
+          segment 0 ack journal: loads, 0 entries, 0 bytes (archived ACKs joined to their original leases)
+--- PASS: TestDeliverySealSegment_RuleRNeverReachesAnArchivedSegment (4.87s)
+=== RUN   TestDeliverySealSegment_ConversionWithoutATornSlotIsStillRefused
+    delivery_seal_segment_ruler_test.go:147: report:
+        delivery-seal: /tmp/TestDeliverySealSegment_ConversionWithoutATornSlotIsStillRefused2713746258/001
+    delivery_seal_segment_ruler_test.go:147: report:
+        delivery-seal: /tmp/TestDeliverySealSegment_ConversionWithoutATornSlotIsStillRefused2713746258/001
+          segment 0 lease journal: loads, 2 entries, 582 bytes, chain sha256:cf62b5236bd027c53ef2f8561d8505e3205023f0aed20697fd4ae5f3859e4b3c
+          segment 0 ack journal: loads, 0 entries, 0 bytes (archived ACKs joined to their original leases)
+          segment 1 lease journal: loads, 2 entries, 582 bytes, chain sha256:a0761154099148b6fbf33d227d330f3fa0d66cc408ac3cfe4406c719da4caa74
+          segment 1 ack journal: loads, 1 entries, 258 bytes (archived ACKs joined to their original leases)
+--- PASS: TestDeliverySealSegment_ConversionWithoutATornSlotIsStillRefused (2.54s)
+=== RUN   TestDeliverySealSegment_RefusesCorruptActiveSegmentThatLegacyOnlyAccepts
+--- PASS: TestDeliverySealSegment_RefusesCorruptActiveSegmentThatLegacyOnlyAccepts (6.38s)
+=== RUN   TestDeliverySealSegment_ValidMultiSegmentTreePasses
+--- PASS: TestDeliverySealSegment_ValidMultiSegmentTreePasses (8.56s)
+=== RUN   TestDeliverySealSegment_ArchivedAckExactJoinPasses
+--- PASS: TestDeliverySealSegment_ArchivedAckExactJoinPasses (8.16s)
+=== RUN   TestDeliverySealSegment_MissingActiveSegmentFilesRefused
+--- PASS: TestDeliverySealSegment_MissingActiveSegmentFilesRefused (7.19s)
+=== RUN   TestDeliverySealSegment_MissingHeadRefused
+--- PASS: TestDeliverySealSegment_MissingHeadRefused (6.97s)
+=== RUN   TestDeliverySealSegment_NewerAuthoritySchemaRefused
+--- PASS: TestDeliverySealSegment_NewerAuthoritySchemaRefused (6.43s)
+=== RUN   TestDeliverySealSegment_ConversionRefusedPreservesBytes
+--- PASS: TestDeliverySealSegment_ConversionRefusedPreservesBytes (6.41s)
+=== RUN   TestDeliverySealSegment_UnmigratedLegacyTreeStillChecks
+--- PASS: TestDeliverySealSegment_UnmigratedLegacyTreeStillChecks (0.78s)
+=== RUN   TestDeliverySealSegment_FreshStoreThatNeverRotatedChecks
+--- PASS: TestDeliverySealSegment_FreshStoreThatNeverRotatedChecks (1.12s)
+=== RUN   TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused
+--- PASS: TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused (5.02s)
+=== RUN   TestDeliverySealSegment_TornGenerationManifestRefused
+--- PASS: TestDeliverySealSegment_TornGenerationManifestRefused (6.83s)
+=== RUN   TestDeliverySealSegment_NonDenseActiveAuthorityRefused
+--- PASS: TestDeliverySealSegment_NonDenseActiveAuthorityRefused (0.03s)
+=== RUN   TestDeliverySealSegment_SegmentDirNotADirectoryRefused
+--- PASS: TestDeliverySealSegment_SegmentDirNotADirectoryRefused (6.55s)
+=== RUN   TestDeliverySealSegment_SymlinkedSegmentDirRefused
+--- PASS: TestDeliverySealSegment_SymlinkedSegmentDirRefused (7.60s)
+=== CONT  TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+--- PASS: TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites (0.79s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	852.256s
+=== RUN   TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== PAUSE TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== RUN   TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment
+=== RUN   TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/archived_segment_0
+=== RUN   TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/a_later_segment
+=== RUN   TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/segment_0_while_active
+--- PASS: TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment (1.73s)
+    --- PASS: TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/archived_segment_0 (0.66s)
+    --- PASS: TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/a_later_segment (0.59s)
+    --- PASS: TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/segment_0_while_active (0.47s)
+=== CONT  TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+--- PASS: TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	3.083s
+testing: warning: no tests to run
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.181s [no tests to run]
+# finished: 2026-09-23T00:58:41Z
+# exit: 0

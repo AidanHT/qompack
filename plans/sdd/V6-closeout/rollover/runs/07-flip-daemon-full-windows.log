@@ -1,0 +1,8 @@
+# run: 07-flip-daemon-full-windows
+# commit: a97a7de8d2a13b01b9880c9256fdec4a4762e18f
+# platform: windows/amd64 go version go1.26.6 windows/amd64
+# started: 2026-09-23T00:12:04Z
+# command: go test ./internal/daemon -count=1 -timeout=40m
+ok  	github.com/qompack/qompack/internal/daemon	384.429s
+# finished: 2026-09-23T00:18:42Z
+# exit: 0

@@ -1,0 +1,58 @@
+package daemon
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/qompack/qompack/internal/core"
+)
+
+func TestZZScratchProbe(t *testing.T) {
+	for _, on := range []bool{false, true} {
+		prev := enableDeliveryGenerations
+		enableDeliveryGenerations = on
+		root := t.TempDir()
+		lock, err := acquireTestDeliveryLock(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		j, err := lock.openDeliveryJournal()
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx := context.Background()
+		const n = 200
+		start := time.Now()
+		var leases []deliveryLease
+		for i := 0; i < n; i++ {
+			l, err := j.lease(ctx, genNonce(i), core.SessionID("s"), testDeliveryRequest(genNonce(i)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			leases = append(leases, l)
+		}
+		leaseDur := time.Since(start)
+		start = time.Now()
+		for _, l := range leases {
+			if err := j.acknowledge(ctx, l.Delivery, l.ObservationID, core.Hash{}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		ackDur := time.Since(start)
+		var files int
+		var bytes int64
+		_ = filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
+			if err == nil && !info.IsDir() {
+				files++
+				bytes += info.Size()
+			}
+			return nil
+		})
+		t.Logf("seam=%v lease/op=%v ack/op=%v files=%d bytes=%d", on, leaseDur/n, ackDur/n, files, bytes)
+		_ = lock.Release()
+		enableDeliveryGenerations = prev
+	}
+}

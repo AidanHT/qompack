@@ -1,0 +1,8 @@
+# run: 02-pack-daemon-full-windows
+# commit: 52c77b619f1760c286c07a4b23ccc7b001b54579
+# platform: windows/amd64 go version go1.26.6 windows/amd64
+# started: 2026-09-22T22:18:38Z
+# command: go test ./internal/daemon -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/daemon	1547.050s
+# finished: 2026-09-22T22:44:57Z
+# exit: 0

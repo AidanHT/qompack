@@ -1,0 +1,92 @@
+[
+  {
+    "_file": "delivery-leases.jsonl",
+    "arrival": 1,
+    "delivery": "6fced303715db6ffa6b6b51c405dfb7ecc478f6e778fac0234698d31e4bad298",
+    "observation_id": "sha256:e8f924bc5874a16e66d55875ca92803b5846d28d3626be3c8e2554ae2fa0afa6",
+    "request": "sha256:f64ab1d4386839e05ea62a62e9acbd46681a5326e8b1b0d66b8f69ad92351adb",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-leases.jsonl",
+    "arrival": 2,
+    "delivery": "eea1b5cce4ed7bfde2af4809499779df78db3135239d286048b4906ea87df7ae",
+    "observation_id": "sha256:2cd08e623129922baa29ad250755601cbdc3b7431d49394d59dd86ad3c41292b",
+    "request": "sha256:5302ff3c72b189c0f366f32adf7e9acfcc847c82abddeaa64bc35a2a540897ba",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-leases.jsonl",
+    "arrival": 3,
+    "delivery": "eafa759c8e21be62090f881cfd70235b325752a1ebd674cd7089955f9009c4b7",
+    "observation_id": "sha256:3009d930784147d4864339111cf187c7fbc3794a735dd32f9afec55e02c84607",
+    "request": "sha256:3e7772b0cb873d6dea8f994e215d098b3ce1cf1261786ee78592602354d43540",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000001/delivery-leases.jsonl",
+    "arrival": 4,
+    "delivery": "dee0a35e0c8decd019a51bf8d327a3dd033c81a3cb8e41aa16a284187a299772",
+    "observation_id": "sha256:d24198cbf4e4d30289d91900e0c763b7c7e72dacae5a6f4839afcf73d5d49c7b",
+    "request": "sha256:004952179311d4028b8b1fa713d00f9c11eeaab7d1a8d0d766015ceeb3ee97c5",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000001/delivery-leases.jsonl",
+    "arrival": 5,
+    "delivery": "08632f05dc7d7c0ad67aeecc4ba284cb40fa79c22dacd9481ef30edbd57ba550",
+    "observation_id": "sha256:6b50c3e75a72385aea883d62deb75c0124e05c934799b227f72325b60d359258",
+    "request": "sha256:a8810af52a6ad2151cf85bacdb5386bdedb429579c12aa072971f8dd726484df",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000001/delivery-leases.jsonl",
+    "arrival": 6,
+    "delivery": "68e7e908a998373898c32119dfcbaa3f601f7c584908aee4227c0908d7710a35",
+    "observation_id": "sha256:c32f039c53c9d15bd208fe5b93566710dcc8d0ae25bc8ac217c5f71e9be65ad8",
+    "request": "sha256:806a4677281d804ed58f31b6b500fe38ca051236ac78393294cfd4dbc4d84bf3",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000002/delivery-leases.jsonl",
+    "arrival": 7,
+    "delivery": "71fe54d27013b9f470e1357caf00abd30a7fe8b88d312f33eb68e16cd3cb0de0",
+    "observation_id": "sha256:42ec3284f357a112ad6de531678cfec47056af3e344e4cb4353ba426a363f19b",
+    "request": "sha256:9d3dfd27e334a53e715104f238d0f15b76d2c3d2ab6800dafde577442ec19209",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000002/delivery-leases.jsonl",
+    "arrival": 8,
+    "delivery": "e80d13d76140b5624688adf5906678eb0d1083c855aa354b0fe6a1b2b57d94c1",
+    "observation_id": "sha256:8a06468ec3165078e808ae2f57dc25c9fd97127096eee444a77c5bf1ac1d608f",
+    "request": "sha256:077e1a1743142d326e481e60bbf6b0dd51f88539f27d756d87ced91229e0edfb",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000002/delivery-leases.jsonl",
+    "arrival": 9,
+    "delivery": "625ee641709b936193e39c5498d4c403b12e09c9bc958f7fead16b0cd73308fd",
+    "observation_id": "sha256:d2eb33ab0f6c7a54418f68b37d08da1c91b8a8bdb877682a0e11f89aa0be71b5",
+    "request": "sha256:c6243ddab77d0af2f4999813dd6ec5a341f652979db32b884b11aa78f83b4485",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000003/delivery-leases.jsonl",
+    "arrival": 10,
+    "delivery": "7e38d3382405861bb6eeff14972678fa0327585568a17cb39fa27c5c2c0088e2",
+    "observation_id": "sha256:f9276396426f23a954fb91ab5f4acbc212606487fccad0f3b4a8e492fe165ad0",
+    "request": "sha256:7754de43ad3819b8aea5312a8247fad6323587fd5ff72fd5532a43b9d4834325",
+    "session": "sess-drill-history",
+    "v": 1
+  }
+]
