@@ -1,0 +1,12 @@
+qompack-20260923.log
+ts=2026-09-23T04:36:00.388759578Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-23T04:36:00.734137973Z level=info msg="observer: session registered" session=sess-drill-history source=startup turn=0 segment=1
+ts=2026-09-23T04:36:00.734281445Z level=info msg="scheduler: session bound" session=sess-drill-history effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-23T04:38:03.346417931Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=sess-drill-history
+ts=2026-09-23T04:38:03.582944736Z level=info msg="observer: gc" scanned=1 deleted=0 freed=0 truncated=false
+ts=2026-09-23T04:38:10.773282073Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-23T04:38:26.422509323Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-23T04:38:26.567528987Z level=info msg="observer: session registered" session=sess-drill-history source=startup turn=0 segment=2
+ts=2026-09-23T04:38:26.567825398Z level=info msg="scheduler: session bound" session=sess-drill-history effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-23T04:38:27.346358127Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=sess-drill-history
+ts=2026-09-23T04:38:27.586851763Z level=info msg="observer: gc" scanned=16 deleted=1 freed=269 truncated=false

@@ -1,0 +1,11 @@
+# run: 28-review-daemon-store-cli-linux
+# commit: 856ab94bc5a94af8042d5ed9fc65f034dca765f8
+# container: qompack-v6-linux-verification (Linux 5.15.167.4-microsoft-standard-WSL2 x86_64 go version go1.26.6 linux/amd64 )
+# user: qompack-test; GOMAXPROCS=4; CGO_ENABLED=0
+# started: 2026-09-23T04:20:23Z
+# command: go test  ./internal/daemon ./internal/store ./internal/cli -count=1 -timeout=90m
+ok  	github.com/qompack/qompack/internal/daemon	1016.754s
+ok  	github.com/qompack/qompack/internal/store	893.530s
+ok  	github.com/qompack/qompack/internal/cli	31.169s
+# finished: 2026-09-23T04:37:47Z
+# exit: 0

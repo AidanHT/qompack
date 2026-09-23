@@ -1,0 +1,13 @@
+diff --git a/internal/daemon/delivery_lease.go b/internal/daemon/delivery_lease.go
+index b042b07..0ed029e 100644
+--- a/internal/daemon/delivery_lease.go
++++ b/internal/daemon/delivery_lease.go
+@@ -65,7 +65,7 @@ const deliveryRotateAttempts = 64
+ // without writing 65,536 leases; they are package vars for that seam only and no configuration key
+ // exposes them.
+ var (
+-	deliveryRolloverEntries = deliveryLeaseMaxEntries
++	deliveryRolloverEntries = 3 // DRILL PRODUCER ONLY
+ 	deliveryRolloverBytes   = int64(deliveryLeaseMaxBytes)
+ )
+ 
