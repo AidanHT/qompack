@@ -304,7 +304,9 @@ func (j *deliveryJournal) terminalDenied(lease deliveryLease) (bool, error) {
 		return false, err
 	}
 	defer j.leave()
-	if j.gen != nil {
+	if j.gen != nil && !j.leaseActive(lease.Delivery) {
+		// An archived lease's disposition lives in the generation store; an active-window lease's is in
+		// j.terminal until its window is archived at rotation.
 		return j.archivedTerminalDenied(lease)
 	}
 	j.st.Lock()

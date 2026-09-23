@@ -1,0 +1,15 @@
+{
+  "commit": "2e119fe5f282b25af608ee3440b932a2931954f0",
+  "container": "qompack-v6-linux-verification",
+  "cur_sha256": "24389bc9172c6987d13eeb09bdd453fe9e35836a2dac9018ecec9ddc18b5d6e4",
+  "cur_version": "drill-cur-2e119fe5f282",
+  "old_sha256": "8cb4c0bcc3b98626a625cf0cf53898bab4316effd3d41820f85c3f38fa096bd0",
+  "old_sha_match": true,
+  "old_source_has_segments": false,
+  "old_source_has_v2_seal_reader": true,
+  "old_version": "v0.2.0-640-g301a8e9",
+  "old_version_match": true,
+  "platform": "Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux\nuid=0(root) gid=0(root) groups=0(root)\ngo version go1.26.6 linux/amd64\n",
+  "producer_sha256": "0b3776a8159786502cd375a642ca6737a7eedfb856d66243277d12fa1f8388d7",
+  "producer_version": "drill-producer-2e119fe5f282"
+}

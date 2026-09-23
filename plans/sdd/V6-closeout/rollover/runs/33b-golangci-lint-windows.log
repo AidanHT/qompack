@@ -1,0 +1,4 @@
+# devtool lint --only=golangci-lint at 60d9846 (after 60d9846 fixed run 33's one finding), Windows, 2026-09-23T00:47:56-04:00
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+exit=0

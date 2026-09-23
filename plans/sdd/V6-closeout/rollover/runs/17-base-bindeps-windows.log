@@ -1,0 +1,12 @@
+# run: 17-base-bindeps-windows
+# commit: cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd (git archive snapshot)
+# command: go run ./tools/devtool lint --only=bindeps
+== devtool lint: bindeps ==
+  linux/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  linux/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+FAIL bindeps: bindeps: 4 violation(s)
+devtool: lint: lint: failed sub-check(s): bindeps
+exit status 1
+# exit: 1

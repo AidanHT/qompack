@@ -181,15 +181,21 @@ func TestDeliverySegments_CommitRequiresActiveZeroAndAdvances(t *testing.T) {
 // idempotent; a dir with any other content is a preserved conflict, refused.
 func TestDeliverySegments_CreateFreshSegmentIdempotentAndConflict(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, createFreshSegment(dir, 1))
-	require.NoError(t, createFreshSegment(dir, 1), "re-staging an identical fresh segment is idempotent")
+	require.NoError(t, createFreshSegment(dir, 1, emptyCarry(t, 1)))
+	require.NoError(t, createFreshSegment(dir, 1, emptyCarry(t, 1)), "re-staging an identical fresh segment is idempotent")
 
-	fresh, err := segmentIsFreshEmpty(dir, 1)
+	fresh, err := segmentIsFreshEmpty(dir, 1, emptyCarry(t, 1))
 	require.NoError(t, err)
 	require.True(t, fresh)
+
+	// A staged segment carrying anything but the carry this attempt computed is a conflict too.
+	other, err := encodeDeliveryCarry(1, []deliveryLease{mkGenLease(t, genNonce(9), "carried", 1)})
+	require.NoError(t, err)
+	require.ErrorIs(t, createFreshSegment(dir, 1, other), errSegmentUnavailable,
+		"a staged segment with a different carry is refused, not overwritten")
 
 	// A non-empty lease file in a staged dir is a conflict, preserved and refused.
 	require.NoError(t, os.MkdirAll(paths.Long(segmentDir(dir, 2)), 0o700))
 	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(segmentDir(dir, 2), deliveryLeaseFile)), []byte("x"), 0o600))
-	require.ErrorIs(t, createFreshSegment(dir, 2), errSegmentUnavailable, "a conflicting staged dir is refused, not overwritten")
+	require.ErrorIs(t, createFreshSegment(dir, 2, emptyCarry(t, 2)), errSegmentUnavailable, "a conflicting staged dir is refused, not overwritten")
 }

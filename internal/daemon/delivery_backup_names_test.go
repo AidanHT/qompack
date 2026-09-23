@@ -13,7 +13,10 @@ import (
 )
 
 // TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites holds internal/store's copy of this
-// package's four delivery filenames to the constants they were copied from (SP20-D1 risk R10).
+// package's top-level delivery filenames to the constants they were copied from (SP20-D1 risk R10):
+// the two journals, their two seals, and — since segmented rollover is on by default and a fresh open
+// commits the active-0 segment authority (V6 close-out C1.10) — the authority's head and transition
+// log, which store already watched as its SP20-D4 rows.
 //
 // store cannot import daemon — daemon imports store, and 00-ARCHITECTURE.md §3.2 forbids the cycle
 // — so store names these files as string literals. That is the sanctioned shape, and it is also a
@@ -35,6 +38,8 @@ func TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites(t *testing.T)
 		"state/" + deliveryAckFile,
 		"state/" + deliveryPositionFile,
 		"state/" + deliveryAckPositionFile,
+		"state/" + deliverySegmentHeadFile,
+		"state/" + deliverySegmentLogFile,
 	} {
 		require.Contains(t, watched, name,
 			"internal/store no longer watches %s. Either this package renamed it — in which case "+
@@ -63,6 +68,8 @@ func TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites(t *testing.T)
 		"state/" + deliveryAckPositionFile,
 		"state/" + deliveryLeaseFile,
 		"state/" + deliveryPositionFile,
+		"state/" + deliverySegmentHeadFile,
+		"state/" + deliverySegmentLogFile,
 	}
 	sort.Strings(want)
 	require.Equal(t, want, got,

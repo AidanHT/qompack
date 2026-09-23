@@ -1,0 +1,10 @@
+# run: 34-review-daemon-store-cli-windows
+# commit: 60d9846404b19c5465c997e5093b3714b16bc2f0
+# platform: windows/amd64 go version go1.26.6 windows/amd64; co-loaded shared host (other agents; the Linux run 30 in the container)
+# started: 2026-09-23T00:47:44-04:00
+# command: go test ./internal/daemon ./internal/store ./internal/cli -count=1 -timeout=90m
+ok  	github.com/qompack/qompack/internal/daemon	322.805s
+ok  	github.com/qompack/qompack/internal/store	252.275s
+ok  	github.com/qompack/qompack/internal/cli	15.464s
+# exit: 0
+# finished: 2026-09-23T00:53:09-04:00

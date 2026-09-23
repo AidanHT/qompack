@@ -649,6 +649,7 @@ func TestDeliveryJournal_AckBatchKeepsEachCallsCheckOrder(t *testing.T) {
 	})
 
 	t.Run("the check is answered before the entries bound", func(t *testing.T) {
+		withRolloverDisabled(t) // the entries bound refuses only in a journal that cannot rotate
 		_, _, journal := newTestDeliveryJournal(t)
 		ctx := context.Background()
 		l := leaseEach(t, journal, 2)
@@ -904,6 +905,9 @@ func TestDeliveryJournal_AckBatchMatchesSequentialOutcomes(t *testing.T) {
 }
 
 func runAckTwin(t *testing.T, seed uint64, start ackStart, n int) {
+	if start.entries > 0 {
+		withRolloverDisabled(t) // the bounds refuse only in a journal that cannot rotate
+	}
 	ctx := context.Background()
 	var base int64 // the acknowledgement journal's starting length
 	open := func() (*deliveryJournal, []deliveryLease) {

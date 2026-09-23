@@ -1,0 +1,1 @@
+qompack admin delivery-seal: delivery-seal: lease: /work/cx-rollover-drill-20260923-drill4/oldcopy/.qompack/state/delivery-lease-position.json does not read as a v1 seal: qompack: running in degraded mode: delivery journal unavailable; preserve it for recovery

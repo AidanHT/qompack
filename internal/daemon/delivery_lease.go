@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -20,8 +21,10 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// These are format/admission safety bounds. Reaching one refuses new assignments without
-// dropping leases; measured retention/compaction is a separate migration task.
+// These are format/admission bounds on ONE journal segment's files. With segmented rollover enabled
+// (the default, enableDeliveryGenerations) reaching one rotates the journal to a fresh segment
+// (deliveryRolloverEntries/Bytes below) rather than refusing; nothing is dropped, rebased or forgotten.
+// A build with rollover disabled still refuses new assignments at the cap without dropping leases.
 const (
 	deliveryLeaseFile       = "delivery-leases.jsonl"
 	deliveryPositionFile    = "delivery-lease-position.json"
@@ -34,14 +37,33 @@ const (
 var deliveryChainSeed = core.HashBytes(deliveryChainDomain, nil)
 
 // errRotateNeeded is decide's internal signal that the active segment has reached the rollover
-// threshold: the batch answers the triggering member with it, and lease() drains, rotates to a fresh
-// segment, and retries. It never escapes to a caller (lease maps a second occurrence to ErrBudget).
+// threshold: the batch answers the triggering member with a rotateSignal naming that segment, and
+// lease() (or acknowledge()) rotates past it and retries. It never escapes to a caller.
 var errRotateNeeded = errors.New("delivery journal: segment rollover needed")
 
-// deliveryRolloverEntries and deliveryRolloverBytes are the active-window thresholds at which decide
-// triggers a rotation when the seam is enabled. They default to the hard caps (so rotation replaces the
-// ErrBudget refusal exactly at the limit); a focused test sets them low to force rotation across the
-// capacity seam without writing 65 536 leases. They are package vars for that seam only.
+// rotateSignal is errRotateNeeded for one segment: the segment that was full when the batch decided.
+// The retry rotates past exactly that segment — or finds another caller already has — so concurrent
+// callers that each find a freshly rotated segment already full again keep making progress instead
+// of reading a second signal as a fault.
+type rotateSignal struct{ from uint64 }
+
+func (rotateSignal) Error() string             { return errRotateNeeded.Error() }
+func (rotateSignal) Is(target error) bool      { return target == errRotateNeeded }
+func (j *deliveryJournal) signalRotate() error { return rotateSignal{from: j.segment} }
+
+// deliveryRotateAttempts bounds how many rotations one call will ride through before it answers
+// ErrBudget. Every attempt past the first follows a rotation that moved the journal to a later segment
+// (an empty segment never signals), so reaching it means other callers filled that many segments while
+// this one waited; the delivery then stays pending in durable input, like any refusal.
+const deliveryRotateAttempts = 64
+
+// deliveryRolloverEntries and deliveryRolloverBytes are the active-window thresholds at which a lease
+// or acknowledgement batch triggers a rotation. They are the hard caps themselves — 65,536 entries and
+// 64 MiB per journal file — so rotation replaces the ErrBudget refusal exactly where it used to begin,
+// and every segment's files stay within the bounds every reader (this loader, the offline tool, store
+// GC, fsck) already enforces. A focused test sets them low to force rotation across the capacity seam
+// without writing 65,536 leases; they are package vars for that seam only and no configuration key
+// exposes them.
 var (
 	deliveryRolloverEntries = deliveryLeaseMaxEntries
 	deliveryRolloverBytes   = int64(deliveryLeaseMaxBytes)
@@ -89,14 +111,16 @@ type deliveryJournal struct {
 	// distinct from an acknowledgement of captured content, and guarded by st.
 	terminal map[string]deliveryTerminal
 
-	// gen is the SP20-D4 generation store (delivery_generation.go): a durable, bounded-memory superset
-	// index over every lease and ack ever committed. It is nil unless enableDeliveryGenerations is set
-	// (default OFF). When non-nil, every admitted lease/ack is mirrored into it and decide consults it,
-	// so an archived nonce's redelivery returns its ORIGINAL lease rather than minting a fresh identity,
-	// and a session whose active leases were archived still continues its arrivals densely. A store
-	// error is fail-closed — it poisons the journal, never yields a fresh identity. It is opened and
-	// reconciled to a superset of the active window under the held lock in openDeliveryJournal, and
-	// closed by closeLocked. It never renames, truncates or rewrites a legacy anchor.
+	// gen is the SP20-D4 generation store (delivery_generation.go): a durable, bounded-memory index over
+	// every ARCHIVED lease, acknowledgement and terminal disposition. It is nil unless
+	// enableDeliveryGenerations is set. A segment's window is archived into it whole when the segment
+	// rotates (reconcileGenerations), never on the hot path; a settlement of an already-archived lease
+	// is mirrored when it is admitted. decide consults it after the active window, so an archived
+	// nonce's redelivery returns its ORIGINAL lease rather than minting a fresh identity, and a session
+	// whose leases were all archived still continues its arrivals densely. A store error is fail-closed
+	// — it poisons the journal, never yields a fresh identity. It is opened under the held lock in
+	// openDeliveryJournal (recoverGenerations finishes an interrupted rotation there) and closed by
+	// closeLocked. It never renames, truncates or rewrites a legacy anchor.
 	gen *deliveryGenerations
 
 	// seg is the segment authority (delivery_segment.go): the immutable chained transition log + atomic
@@ -250,6 +274,14 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		switch {
 		case authExists:
 			active = s.activeSeg()
+			// An archived legacy segment carries the old-reader barrier; restore it if a rotation
+			// stopped between its transition and the freeze, before anything else is read or written.
+			if active >= 1 {
+				if err := ensureLegacyFrozen(stateDir); err != nil {
+					_ = s.close()
+					return nil, err
+				}
+			}
 		case migrationEvidenceExists(stateDir):
 			_ = s.close()
 			return nil, deliveryJournalError()
@@ -257,6 +289,24 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 			initActiveZero = true
 		}
 		seg = s
+	}
+
+	// Segment 0 still active with a frozen seal is a rotation stopped between freezing segment 0 and
+	// committing its transition: finish it, or refuse when its window was never archived.
+	if enableDeliveryGenerations && active == 0 && !initActiveZero {
+		frozen, err := legacySealFrozen(stateDir)
+		if err != nil {
+			_ = closeSegments(seg)
+			return nil, err
+		}
+		if frozen {
+			j, err := l.finishFrozenLegacyRotation(stateDir, seg)
+			if err != nil {
+				return nil, err
+			}
+			l.journalOpenFault = false
+			return j, nil
+		}
 	}
 
 	p := segmentLeasePath(stateDir, active)
@@ -360,41 +410,95 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 			return nil, err
 		}
 	}
-	if enableDeliveryGenerations {
+	if enableDeliveryGenerations && active == 0 {
 		// The legacy segment opens its store here (after the ack files and, on a fresh tree, the active-0
-		// authority exist); a real segment opened it before load. Either way, reconcile the loaded window
-		// into the store so a crash gap where a record reached the journal but not the store cannot leave
-		// an archived nonce unresolvable.
-		if active == 0 {
-			if err := j.openGenerationsStore(); err != nil {
-				_ = j.poison(err)
-				_ = j.closeLocked()
-				return nil, err
-			}
-		}
-		if err := j.reconcileGenerations(context.Background()); err != nil {
+		// authority exist); a real segment opened it before load.
+		if err := j.openGenerationsStore(); err != nil {
 			_ = j.poison(err)
 			_ = j.closeLocked()
 			return nil, err
 		}
 	}
-	// A terminal can name a lease whose generation mirror was interrupted. Reconcile
-	// the durable lease/ACK window first, then restore its separate dispositions.
+	// The active window's dispositions: with the generation store they are read for the active leases
+	// only (archived ones are resolved from the store on demand), without it from the whole directory.
 	if err := j.loadTerminalDispositions(); err != nil {
 		_ = j.poison(deliveryJournalError())
 		_ = j.closeLocked()
 		return nil, err
 	}
+	if j.gen != nil {
+		// The store holds the ARCHIVED history; the active window is archived only when it rotates.
+		// Recovery finishes a rotation an earlier owner began, or re-mirrors a settlement of an archived
+		// lease whose store write that owner did not finish.
+		if err := j.recoverGenerations(context.Background()); err != nil {
+			_ = j.poison(err)
+			_ = j.closeLocked()
+			return nil, err
+		}
+	}
 	l.journalOpenFault = false
 	return j, nil
 }
 
-// openGenerations opens the generation store beside the journal and reconciles it to a SUPERSET of the
-// active window: every lease and ack currently loaded is committed into it (idempotent). The reconcile
-// closes the one crash gap that would otherwise matter — a lease or ack that landed in the journal file
-// but not the store — so a later ack's exact identity join can never fail merely because the store
-// lagged. It is bounded by the journal's own entry cap and runs only when the seam is enabled; a real
-// rollout would build the store incrementally rather than reconcile the whole window on every open.
+// recoverGenerations brings the generation store and the active window back into their one legal
+// relation at open: the store holds every archived record, and none of the active window's unless a
+// rotation of this window was under way.
+//
+//   - A rotation archives the window (leases in (session, arrival) order, then acknowledgements, then
+//     terminal dispositions) BEFORE it commits the transition. So if the window's first lease in that
+//     order is already in the store, an earlier owner began rotating this window and stopped before the
+//     transition: the rotation is finished here, before anything is assigned. Continuing in the window
+//     instead would leave its later settlements out of the store's frontier for good.
+//   - Otherwise, every acknowledgement in the window whose lease is archived is committed to the store
+//     again (idempotent). Such an acknowledgement is mirrored when it is admitted; this repairs the one
+//     gap between its journal append and that mirror. A terminal disposition of an archived lease repairs
+//     its own gap when it is next asked for (archivedTerminalDenied).
+func (j *deliveryJournal) recoverGenerations(ctx context.Context) error {
+	if first, ok := firstWindowLease(j.leases); ok {
+		_, found, err := j.gen.resolveLease(ctx, first.Delivery)
+		if err != nil {
+			return err
+		}
+		if found {
+			return j.doRotate(ctx)
+		}
+	}
+	var archived []deliveryAck
+	for delivery, ack := range j.acks {
+		if _, active := j.leases[delivery]; !active {
+			archived = append(archived, ack)
+		}
+	}
+	sortAcks(archived)
+	if len(archived) == 0 {
+		return nil
+	}
+	return j.gen.commitAck(ctx, archived)
+}
+
+// firstWindowLease is the window's first lease in archival order: the smallest (session, arrival).
+func firstWindowLease(leases map[string]deliveryLease) (deliveryLease, bool) {
+	var first deliveryLease
+	found := false
+	for _, l := range leases {
+		if !found || leaseBefore(l, first) {
+			first, found = l, true
+		}
+	}
+	return first, found
+}
+
+func leaseBefore(a, b deliveryLease) bool {
+	if a.Session != b.Session {
+		return a.Session < b.Session
+	}
+	return a.ArrivalSeq < b.ArrivalSeq
+}
+
+func sortAcks(acks []deliveryAck) {
+	sort.Slice(acks, func(a, b int) bool { return acks[a].Delivery < acks[b].Delivery })
+}
+
 // closeSegments closes a segment authority handle, tolerating nil for the pre-journal error paths.
 func closeSegments(s *deliverySegments) error {
 	if s == nil {
@@ -431,7 +535,7 @@ func existingDeliveryMigration(stateDir string) bool {
 // For a real segment (active >= 1) the store MUST already hold the archived history — it is never
 // created empty there, because an absent/empty store cannot resolve archived nonces and would risk
 // re-minting; a missing or history-less store for such a segment is refused. It does NOT reconcile;
-// reconcileGenerations mirrors the loaded window afterward.
+// recoverGenerations reconciles it with the loaded window afterward.
 func (j *deliveryJournal) openGenerationsStore() error {
 	dir := filepath.Join(j.stateDir, deliveryGenerationsDirName)
 	if j.segment >= 1 {
@@ -501,22 +605,21 @@ func (j *deliveryJournal) lease(ctx context.Context, delivery string, session co
 	if j == nil || j.owner == nil {
 		return deliveryLease{}, deliveryJournalError()
 	}
-	// The batch answers a member with errRotateNeeded when the active segment reached the rollover
-	// threshold. Drain + rotate to a fresh segment (once) and retry; a fresh empty segment has room, so a
-	// second rotation signal means something is wrong and is answered as a budget refusal, never a loop.
-	for attempt := 0; ; attempt++ {
+	// The batch answers a member with a rotateSignal when the active segment reached the rollover
+	// threshold: rotate past THAT segment (or find another caller already has) and retry. An empty
+	// segment never signals, so every retry follows real progress; deliveryRotateAttempts bounds it.
+	for attempt := 0; attempt < deliveryRotateAttempts; attempt++ {
 		r := &leaseReq{ctx: ctx, delivery: delivery, session: session, request: request, err: deliveryJournalError()}
 		j.leaseQ.run(r, j.commitLeases)
-		if !errors.Is(r.err, errRotateNeeded) {
+		var sig rotateSignal
+		if !errors.As(r.err, &sig) {
 			return r.lease, r.err
 		}
-		if attempt >= 1 {
-			return deliveryLease{}, core.ErrBudget
-		}
-		if err := j.rotate(ctx); err != nil {
+		if err := j.rotate(ctx, sig.from); err != nil {
 			return deliveryLease{}, err
 		}
 	}
+	return deliveryLease{}, core.ErrBudget
 }
 
 // leaseReq is one lease call's request in leaseQ (design §2.6).
@@ -596,8 +699,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 	}
 	// An archived nonce (leased in a generation compacted out of the active window) resolves to its
 	// ORIGINAL lease here — never re-minted. A store fault is fail-closed: unavailable is not "mint
-	// fresh". Below the rollover boundary the store holds only what the active window also holds, so
-	// this never fires; it is the hook that keeps redelivery idempotent once compaction is enabled.
+	// fresh". Before the first rotation the store is empty and this proves absence without a read.
 	if j.gen != nil {
 		lease, found, err := j.gen.resolveLease(r.ctx, r.delivery)
 		if err != nil {
@@ -628,7 +730,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 	// rather than refusing. lease() drains, rotates to a fresh segment, and retries; earlier mints in
 	// this batch still commit. Below the boundary this never fires and behaviour is exactly as before.
 	if j.rolloverArmed() && b.count >= deliveryRolloverEntries {
-		return leasePending{err: errRotateNeeded}
+		return leasePending{err: j.signalRotate()}
 	}
 	if b.count >= deliveryLeaseMaxEntries || prev == math.MaxUint64 {
 		return leasePending{err: core.ErrBudget}
@@ -650,7 +752,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 		return leasePending{err: core.ErrBudget}
 	}
 	if j.rolloverArmed() && b.size+int64(len(line)) > deliveryRolloverBytes && b.count > 0 {
-		return leasePending{err: errRotateNeeded} // roll before the byte limit; a lone oversize line still refuses
+		return leasePending{err: j.signalRotate()} // roll before the byte limit; a lone oversize line still refuses
 	}
 	if b.size+int64(len(line)) > deliveryLeaseMaxBytes {
 		return leasePending{err: core.ErrBudget}
@@ -758,14 +860,9 @@ func (j *deliveryJournal) appendLeases(b *leaseBatch) error {
 	if err := j.sealLease(b.size, b.count, b.chain); err != nil {
 		return j.poison(deliveryJournalError())
 	}
-	// Mirror the sealed batch into the durable superset index BEFORE admission, so the store holds
-	// every minted lease no later than the active map does. A store fault is fail-closed. (No-op when
-	// the seam is off.)
-	if j.gen != nil {
-		if _, err := j.gen.commit(context.Background(), b.order); err != nil {
-			return j.poison(deliveryJournalError())
-		}
-	}
+	// The generation store is NOT written here: the active segment's journal is the durable record of
+	// its window, and the whole window is archived when the segment rotates (reconcileGenerations). A
+	// store commit is a multi-file durable write, and this is the lease half of ingest.Accept (B-B).
 	// Only synced and sealed bytes enter the identity maps. An uncertain write poisons this handle
 	// and requires a reload, and a complete surviving row then keeps its identity on retry.
 	j.st.Lock()
@@ -1348,17 +1445,22 @@ func deliveryJournalError() error {
 // open and only ever changed under the rotation barrier, which excludes decide.
 func (j *deliveryJournal) rolloverArmed() bool { return j.seg != nil && j.gen != nil }
 
-// rotate performs one segment rotation under an EXCLUSIVE barrier: it excludes both journal pipelines
-// (rotating blocks enter) while their normal independent commits are undisturbed until the barrier
-// closes, drains admitted work to zero, reconciles the outgoing window into the generation store,
-// stages a fresh segment, commits the transition (the single clear commit point) and switches the live
-// window. It never holds the owner lock across the drain wait. A caller that arrives while another
-// rotation is in flight waits for it and returns — the caller's own retry then finds the fresh segment.
-func (j *deliveryJournal) rotate(ctx context.Context) error {
+// rotate performs one segment rotation past segment from under an EXCLUSIVE barrier: it excludes both
+// journal pipelines (rotating blocks enter) while their normal independent commits are undisturbed until
+// the barrier closes, drains admitted work to zero, reconciles the outgoing window into the generation
+// store, stages a fresh segment, commits the transition (the single clear commit point) and switches the
+// live window. It never holds the owner lock across the drain wait. A caller that arrives while another
+// rotation is in flight waits for it and returns, and one whose segment another caller has already
+// rotated past returns at once — the caller's own retry then finds the later segment.
+func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 	if j == nil || j.owner == nil {
 		return deliveryJournalError()
 	}
 	j.st.Lock()
+	if !j.rotating && j.segment != from && !j.closing && !j.closed && j.fault == nil {
+		j.st.Unlock()
+		return nil // another caller already rotated past the segment that signalled
+	}
 	if j.rotating {
 		for j.rotating && !j.closing && !j.closed && j.fault == nil {
 			j.rotateDone.Wait()
@@ -1413,6 +1515,9 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 	if err := j.reconcileGenerations(ctx); err != nil {
 		return err
 	}
+	if err := deliveryRotateStage(rotateStageArchived); err != nil {
+		return err
+	}
 	root := j.gen.currentRoot()
 	if root.isZero() {
 		return deliveryJournalError() // a rotation must archive a non-empty window
@@ -1421,9 +1526,42 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 		return deliveryJournalError()
 	}
 	next := j.segment + 1
-	// 2. Stage the fresh, empty segment durably (idempotent against a crashed identical attempt).
-	if err := createFreshSegment(j.stateDir, next); err != nil {
+	// 2. Stage the fresh, empty segment durably (idempotent against a crashed identical attempt), with
+	//    the archived leases that have no acknowledgement carried into it for store GC (delivery_carry.go).
+	carried, err := j.carriedLeases()
+	if err != nil {
 		return err
+	}
+	carry, err := encodeDeliveryCarry(next, carried)
+	if err != nil {
+		return err
+	}
+	if err := createFreshSegment(j.stateDir, next, carry); err != nil {
+		return err
+	}
+	if err := deliveryRotateStage(rotateStageStaged); err != nil {
+		return err
+	}
+	// 3. The legacy segment 0 — the four files every build that predates segments opens and appends to —
+	//    is frozen now, its window archived and before the transition commits (delivery_frozen_seal.go),
+	//    so a pre-segment build that opens the store at any point after this refuses the journal instead
+	//    of re-minting arrivals the new segment will assign. A crash between this and the commit leaves
+	//    segment 0 active with frozen seals over an archived window; the next open finishes the rotation
+	//    (finishFrozenLegacyRotation). Freezing only after the commit left a window in which a
+	//    pre-segment build could still append (V6 close-out review, finding 3).
+	if j.segment == 0 {
+		if err := j.closeSealHandles(); err != nil {
+			return err
+		}
+		if err := freezeLegacySeals(j.stateDir,
+			deliveryPosition{Version: core.EvidenceVersion, Bytes: j.bytes, Count: len(j.leases), Chain: j.chain},
+			deliveryPosition{Version: core.EvidenceVersion, Bytes: j.ackBytes, Count: len(j.acks), Chain: j.ackChain},
+		); err != nil {
+			return err
+		}
+		if err := deliveryRotateStage(rotateStageFrozen); err != nil {
+			return err
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -1431,33 +1569,80 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 	if !j.owner.ownedByFile() {
 		return deliveryJournalError()
 	}
-	// 3. The fsynced transition log commits the switch; the atomic head checkpoints it.
+	// 4. The fsynced transition log commits the switch; the atomic head checkpoints it.
 	if err := j.seg.commitTransition(next, hex.EncodeToString(root[:])); err != nil {
 		return err
 	}
-	// 4. Switch the live window to the new segment, resuming arrivals from the committed base root.
+	if err := deliveryRotateStage(rotateStageCommitted); err != nil {
+		return err
+	}
+	// 5. Switch the live window to the new segment, resuming arrivals from the committed base root.
 	return j.switchToSegment(next, root)
 }
 
-// reconcileGenerations mirrors the outgoing window's leases and acks into the generation store
-// (idempotent), so a crash gap where a record reached the journal file but not the store cannot leave
-// the base root short. It runs under the barrier, so the maps are read without st.
+// The points of a rotation deliveryRotateHook is called at, each after the step it names.
+const (
+	rotateStageArchived  = "archived"  // the window is in the generation store
+	rotateStageStaged    = "staged"    // the next segment and its carry are staged
+	rotateStageFrozen    = "frozen"    // segment 0's seals are frozen (a rotation out of segment 0 only)
+	rotateStageCommitted = "committed" // the transition is committed; the live window has not switched
+)
+
+// deliveryRotateHook, when set, runs at each stage of a rotation with the barrier held, and an error it
+// returns fails the rotation there, as a crash at that point would leave it. Only tests set it: to
+// run a store GC pass while the authority is part-way through a move, and to stop a rotation between
+// two of its durable steps. It is nil in production.
+var deliveryRotateHook func(stage string) error
+
+func deliveryRotateStage(stage string) error {
+	if deliveryRotateHook == nil {
+		return nil
+	}
+	return deliveryRotateHook(stage)
+}
+
+// closeSealHandles closes the held seal handles of the journal's current segment. The rotation barrier
+// is held (no batch can seal), and the switch that follows opens the next segment's.
+func (j *deliveryJournal) closeSealHandles() error {
+	if j.seal != nil {
+		s := j.seal
+		j.seal = nil
+		if err := s.close(); err != nil {
+			return deliveryJournalError()
+		}
+	}
+	if j.ackSeal != nil {
+		s := j.ackSeal
+		j.ackSeal = nil
+		if err := s.close(); err != nil {
+			return deliveryJournalError()
+		}
+	}
+	return nil
+}
+
+// reconcileGenerations archives the outgoing window into the generation store (idempotent): its leases
+// in (session, arrival) order, then its acknowledgements, then its terminal dispositions, so the base
+// root the transition names is a superset of every record the segment holds. The lease order is what
+// lets recoverGenerations recognise an interrupted rotation by the window's first lease. It runs under
+// the barrier (or at open, before the journal is shared), so the maps are read without st.
 func (j *deliveryJournal) reconcileGenerations(ctx context.Context) error {
 	leases := make([]deliveryLease, 0, len(j.leases))
 	for _, l := range j.leases {
 		leases = append(leases, l)
 	}
-	if _, err := j.gen.commit(ctx, leases); err != nil {
-		return err
-	}
+	sort.Slice(leases, func(a, b int) bool { return leaseBefore(leases[a], leases[b]) })
 	acks := make([]deliveryAck, 0, len(j.acks))
 	for _, a := range j.acks {
 		acks = append(acks, a)
 	}
-	if err := j.gen.commitAck(ctx, acks); err != nil {
-		return err
+	sortAcks(acks)
+	terminals := make([]deliveryTerminal, 0, len(j.terminal))
+	for _, tm := range j.terminal {
+		terminals = append(terminals, tm)
 	}
-	return nil
+	sort.Slice(terminals, func(a, b int) bool { return terminals[a].Lease.Delivery < terminals[b].Lease.Delivery })
+	return j.gen.archiveWindow(ctx, leases, acks, terminals)
 }
 
 // switchToSegment drops the outgoing segment's handles (its files remain on disk as retention/evidence),
@@ -1478,19 +1663,9 @@ func (j *deliveryJournal) switchToSegment(seq uint64, baseRoot radixHash) error 
 			return deliveryJournalError()
 		}
 	}
-	if j.seal != nil {
-		s := j.seal
-		j.seal = nil
-		if err := s.close(); err != nil {
-			return deliveryJournalError()
-		}
-	}
-	if j.ackSeal != nil {
-		s := j.ackSeal
-		j.ackSeal = nil
-		if err := s.close(); err != nil {
-			return deliveryJournalError()
-		}
+	// The outgoing segment's seals (already closed and frozen when it is segment 0, doRotate step 3).
+	if err := j.closeSealHandles(); err != nil {
+		return err
 	}
 
 	j.st.Lock()
@@ -1646,9 +1821,20 @@ func (j *deliveryJournal) acknowledge(ctx context.Context, delivery string, id c
 	if j == nil || j.owner == nil {
 		return deliveryJournalError()
 	}
-	r := &ackReq{ctx: ctx, delivery: delivery, id: id, root: root, err: deliveryJournalError()}
-	j.ackQ.run(r, j.commitAcks)
-	return r.err
+	// As in lease: a batch answers a rotateSignal when the active segment's acknowledgement journal
+	// reached the rollover threshold; rotate past that segment and retry, within the same bound.
+	for attempt := 0; attempt < deliveryRotateAttempts; attempt++ {
+		r := &ackReq{ctx: ctx, delivery: delivery, id: id, root: root, err: deliveryJournalError()}
+		j.ackQ.run(r, j.commitAcks)
+		var sig rotateSignal
+		if !errors.As(r.err, &sig) {
+			return r.err
+		}
+		if err := j.rotate(ctx, sig.from); err != nil {
+			return err
+		}
+	}
+	return core.ErrBudget
 }
 
 // ackReq is one acknowledge call's request in ackQ (design §2.8).
@@ -1663,6 +1849,9 @@ type ackReq struct {
 	err error
 	// pend is the first phase's decision for a new acknowledgement, answered in the last phase.
 	pend ackPending
+	// archived is true when the acknowledged lease was resolved from the generation store rather than
+	// the active window: its acknowledgement is then mirrored into the store when it is admitted.
+	archived bool
 }
 
 // ackReqSize is the estimate ackQ batches by: an upper bound on the canonical line one request can
@@ -1727,14 +1916,23 @@ type ackBatch struct {
 	fresh map[string]deliveryAck // the acknowledgements this batch minted, by delivery
 	order []deliveryAck          // the same acknowledgements, in queue order
 	buf   []byte                 // their lines, in the same order
+	// archived is the subset of order whose leases are archived: appendAcks mirrors them into the
+	// generation store, the only place an archived lease can be settled.
+	archived []deliveryAck
 }
 
 // decide is the first phase for a new acknowledgement: the checks an acknowledge call has always
 // made after its checkAckFile, in the same order, over the journal as this batch's earlier
 // acknowledgements leave it.
-func (b *ackBatch) decide(r *ackReq) ackPending {
+func (b *ackBatch) decide(j *deliveryJournal, r *ackReq) ackPending {
 	if minted, ok := b.fresh[r.delivery]; ok {
 		return ackPending{ack: minted} // a second acknowledgement of one delivery joins the first
+	}
+	// Rollover trigger, as in the lease batch: the acknowledgement journal of a segment can fill before
+	// its lease journal (it also settles leases archived before the segment opened), so it rolls at its
+	// own threshold rather than refusing.
+	if j.rolloverArmed() && b.count >= deliveryRolloverEntries {
+		return ackPending{err: j.signalRotate()}
 	}
 	if b.count >= deliveryLeaseMaxEntries {
 		return ackPending{err: core.ErrBudget}
@@ -1745,6 +1943,9 @@ func (b *ackBatch) decide(r *ackReq) ackPending {
 		return ackPending{err: core.ErrContract}
 	}
 	line = append(line, '\n')
+	if j.rolloverArmed() && b.size+int64(len(line)) > deliveryRolloverBytes && b.count > 0 {
+		return ackPending{err: j.signalRotate()}
+	}
 	if len(line) > deliveryLeaseMaxLine || b.size+int64(len(line)) > deliveryLeaseMaxBytes {
 		return ackPending{err: core.ErrBudget}
 	}
@@ -1754,6 +1955,9 @@ func (b *ackBatch) decide(r *ackReq) ackPending {
 	b.fresh[r.delivery] = ack
 	b.order = append(b.order, ack)
 	b.buf = append(b.buf, line...)
+	if r.archived {
+		b.archived = append(b.archived, ack)
+	}
 	return ackPending{ack: ack}
 }
 
@@ -1816,6 +2020,7 @@ func (j *deliveryJournal) commitAcks(batch []*ackReq) {
 		// An ack for a lease archived out of the active window resolves and compares its ORIGINAL binding
 		// through the generation store — the exact join the decision requires, never a nonce-only accept.
 		// A store fault is fail-closed; a genuine absence stays ErrContract (an ack that names no lease).
+		archived := false
 		if !ok && j.gen != nil {
 			resolved, found, gerr := j.gen.resolveLease(r.ctx, r.delivery)
 			if gerr != nil {
@@ -1823,7 +2028,7 @@ func (j *deliveryJournal) commitAcks(batch []*ackReq) {
 				continue
 			}
 			if found {
-				lease, ok = resolved, true
+				lease, ok, archived = resolved, true, true
 			}
 		}
 		if !ok || lease.ObservationID != r.id {
@@ -1841,7 +2046,25 @@ func (j *deliveryJournal) commitAcks(batch []*ackReq) {
 			}
 			continue
 		}
-		r.pend = b.decide(r)
+		// An archived delivery may already be acknowledged in the store (in the segment it was leased
+		// in, or at an earlier boundary). A redelivered acknowledgement is answered from there,
+		// idempotently, exactly as one already in the active window is — never appended a second time.
+		if archived {
+			prior, found, gerr := j.gen.resolveAck(r.ctx, r.delivery)
+			if gerr != nil {
+				r.err = gerr
+				continue
+			}
+			if found {
+				r.err = nil
+				if prior.ObservationID != r.id { // defensive: resolveAck joined prior to this same lease
+					r.err = core.ErrAppendOnly
+				}
+				continue
+			}
+		}
+		r.archived = archived
+		r.pend = b.decide(j, r)
 		checked = append(checked, r)
 	}
 	if len(checked) == 0 {
@@ -1877,11 +2100,13 @@ func (j *deliveryJournal) appendAcks(b *ackBatch) error {
 	if err := j.sealAck(b.size, b.count, b.chain); err != nil {
 		return j.poison(deliveryJournalError())
 	}
-	// Mirror the sealed acknowledgements into the durable superset index and advance the per-session
-	// settled frontier. Every ack's lease is already in the store (mirrored in appendLeases or by the
-	// open reconcile), so its exact identity join holds; a store fault is fail-closed. (No-op when off.)
-	if j.gen != nil {
-		if err := j.gen.commitAck(context.Background(), b.order); err != nil {
+	// An acknowledgement of an ARCHIVED lease is mirrored into the generation store now, advancing the
+	// per-session settled frontier there: nothing else would ever settle that lease in the store, and
+	// the ordering gate reads its frontier. Its lease is in the store, so the exact identity join holds;
+	// a store fault is fail-closed. An acknowledgement of an active-window lease is archived with its
+	// window at rotation, like the lease itself.
+	if j.gen != nil && len(b.archived) > 0 {
+		if err := j.gen.commitAck(context.Background(), b.archived); err != nil {
 			return j.poison(deliveryJournalError())
 		}
 	}

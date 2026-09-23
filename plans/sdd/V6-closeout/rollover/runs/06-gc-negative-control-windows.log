@@ -1,0 +1,21 @@
+# run: 06-gc-negative-control-windows
+# commit: d661ee6550ff13f4f989aaa3f308b2a470dd5786 (with the negative-control mutation below)
+# platform: windows/amd64 go version go1.26.6 windows/amd64
+# started: 2026-09-22T23:23:56Z
+# mutation:
+#   708:	segs = append(segs, 0) // NEGATIVE CONTROL: legacy-only harvest
+#   709:	_ = view.staged // NEGATIVE CONTROL
+# command: go test ./internal/daemon -run '^TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot$' -count=1 -timeout=30m -v
+=== RUN   TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot
+    delivery_readers_v6_test.go:185: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/snap/06-gc-negative-control-windows/internal/daemon/delivery_readers_v6_test.go:185
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root a8f6aff4b150
+        	Test:       	TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot
+        	Messages:   	pass 1: delivery 1 is unsettled (active segment 3); its root must be retained
+--- FAIL: TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot (3.69s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	3.932s
+FAIL
+# go test exit: 1
+# control: PASSED — the mutated build fails the retention assertion

@@ -1,0 +1,219 @@
+=== RUN   TestBackup_RefusesFrontierChangedBeforeItsOwnCopy
+--- PASS: TestBackup_RefusesFrontierChangedBeforeItsOwnCopy (0.30s)
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-journal.json
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-journal-log.jsonl
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-leases.jsonl
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-acks.jsonl
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-lease-position.json
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-ack-position.json
+--- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy (2.02s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-journal.json (0.40s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-journal-log.jsonl (0.32s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-leases.jsonl (0.32s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-acks.jsonl (0.29s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-lease-position.json (0.35s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-ack-position.json (0.34s)
+=== RUN   TestBackup_VerifyDetectsTamperingAndSizeDrift
+--- PASS: TestBackup_VerifyDetectsTamperingAndSizeDrift (0.24s)
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_sidecar_resealed_in_place_under_the_walk
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_sidecar_that_appeared_because_the_daemon_started
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_journal_appended_under_the_walk
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_write_that_is_not_the_daemon's_delivery_state
+--- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy (1.53s)
+    --- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_sidecar_resealed_in_place_under_the_walk (0.34s)
+    --- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_sidecar_that_appeared_because_the_daemon_started (0.36s)
+    --- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_journal_appended_under_the_walk (0.53s)
+    --- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_write_that_is_not_the_daemon's_delivery_state (0.31s)
+=== RUN   TestBackup_RestoreOpensAsARealStore
+--- PASS: TestBackup_RestoreOpensAsARealStore (0.38s)
+=== RUN   TestGC_CannotCollectMigrationOrRollbackMaterial
+--- PASS: TestGC_CannotCollectMigrationOrRollbackMaterial (0.57s)
+=== RUN   TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== PAUSE TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== RUN   TestBackup_RefusesGenerationStateThatMovedUnderTheCopy
+=== RUN   TestBackup_RefusesGenerationStateThatMovedUnderTheCopy/the_atomic_head_rewritten_under_the_walk_(a_new_generation_committed)
+=== RUN   TestBackup_RefusesGenerationStateThatMovedUnderTheCopy/the_manifest_appended_under_the_walk
+--- PASS: TestBackup_RefusesGenerationStateThatMovedUnderTheCopy (0.69s)
+    --- PASS: TestBackup_RefusesGenerationStateThatMovedUnderTheCopy/the_atomic_head_rewritten_under_the_walk_(a_new_generation_committed) (0.32s)
+    --- PASS: TestBackup_RefusesGenerationStateThatMovedUnderTheCopy/the_manifest_appended_under_the_walk (0.37s)
+=== RUN   TestGCSegments_AckedArchivedLeasesAreReleasedPastTheAckSetBound
+--- PASS: TestGCSegments_AckedArchivedLeasesAreReleasedPastTheAckSetBound (0.14s)
+=== RUN   TestGCSegments_CarriedLeaseIsRetainedUntilAcknowledged
+--- PASS: TestGCSegments_CarriedLeaseIsRetainedUntilAcknowledged (0.11s)
+=== RUN   TestGCSegments_UnreadableCarryHalts
+=== RUN   TestGCSegments_UnreadableCarryHalts/missing
+=== RUN   TestGCSegments_UnreadableCarryHalts/empty
+=== RUN   TestGCSegments_UnreadableCarryHalts/torn_body
+=== RUN   TestGCSegments_UnreadableCarryHalts/a_byte_changed
+=== RUN   TestGCSegments_UnreadableCarryHalts/a_line_dropped
+=== RUN   TestGCSegments_UnreadableCarryHalts/another_segment's_carry
+=== RUN   TestGCSegments_UnreadableCarryHalts/a_noncanonical_header
+=== RUN   TestGCSegments_UnreadableCarryHalts/an_unknown_format
+=== RUN   TestGCSegments_UnreadableCarryHalts/over_the_bound
+--- PASS: TestGCSegments_UnreadableCarryHalts (0.61s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/missing (0.06s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/empty (0.07s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/torn_body (0.07s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/a_byte_changed (0.07s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/a_line_dropped (0.06s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/another_segment's_carry (0.07s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/a_noncanonical_header (0.05s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/an_unknown_format (0.07s)
+    --- PASS: TestGCSegments_UnreadableCarryHalts/over_the_bound (0.07s)
+=== RUN   TestGCSegments_HarvestsOldestLeaseAcrossRotation
+--- PASS: TestGCSegments_HarvestsOldestLeaseAcrossRotation (0.09s)
+=== RUN   TestGCSegments_AckInLaterSegmentSettlesOlderLease
+--- PASS: TestGCSegments_AckInLaterSegmentSettlesOlderLease (0.10s)
+=== RUN   TestGCSegments_MissingCommittedSegmentHalts
+--- PASS: TestGCSegments_MissingCommittedSegmentHalts (0.06s)
+=== RUN   TestGCSegments_MissingSealHalts
+--- PASS: TestGCSegments_MissingSealHalts (0.05s)
+=== RUN   TestGCSegments_SealGarbageHalts
+--- PASS: TestGCSegments_SealGarbageHalts (0.06s)
+=== RUN   TestGCSegments_SealUnknownSchemaHalts
+--- PASS: TestGCSegments_SealUnknownSchemaHalts (0.06s)
+=== RUN   TestGCSegments_SealTornV2Halts
+--- PASS: TestGCSegments_SealTornV2Halts (0.08s)
+=== RUN   TestGCSegments_SealWrongJournalSumHalts
+--- PASS: TestGCSegments_SealWrongJournalSumHalts (0.06s)
+=== RUN   TestGCSegments_ValidV2SealAccepted
+--- PASS: TestGCSegments_ValidV2SealAccepted (0.12s)
+=== RUN   TestGCSegments_NonDenseActiveHalts
+--- PASS: TestGCSegments_NonDenseActiveHalts (0.06s)
+=== RUN   TestGCSegments_TornLogHalts
+--- PASS: TestGCSegments_TornLogHalts (0.07s)
+=== RUN   TestGCSegments_UnknownSchemaHeadHalts
+--- PASS: TestGCSegments_UnknownSchemaHeadHalts (0.05s)
+=== RUN   TestGCSegments_MigrationEvidenceWithoutAuthorityHalts
+--- PASS: TestGCSegments_MigrationEvidenceWithoutAuthorityHalts (0.05s)
+=== RUN   TestGCSegments_StagedSegmentLeaseRetained
+--- PASS: TestGCSegments_StagedSegmentLeaseRetained (0.09s)
+=== RUN   TestGCSegments_FrontierRecheckDetectsLogTailRotation
+--- PASS: TestGCSegments_FrontierRecheckDetectsLogTailRotation (0.05s)
+=== RUN   TestGCSegments_UnmigratedTreeStaysLegacy
+--- PASS: TestGCSegments_UnmigratedTreeStaysLegacy (0.07s)
+=== RUN   TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment
+=== RUN   TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/archived_segment_0
+=== RUN   TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/a_later_segment
+=== RUN   TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/segment_0_while_active
+--- PASS: TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment (0.17s)
+    --- PASS: TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/archived_segment_0 (0.07s)
+    --- PASS: TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/a_later_segment (0.05s)
+    --- PASS: TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment/segment_0_while_active (0.05s)
+=== RUN   TestGCRetention_UnreadableLeaseRootHaltsCollection
+--- PASS: TestGCRetention_UnreadableLeaseRootHaltsCollection (0.04s)
+=== RUN   TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection
+--- PASS: TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection (0.07s)
+=== RUN   TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection
+--- PASS: TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection (0.05s)
+=== RUN   TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+--- PASS: TestGCRetention_AckReleaseRequiresExactObservationAndVersion (0.11s)
+=== RUN   TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+--- PASS: TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce (0.06s)
+=== RUN   TestGCRetention_UnreadableCheckpointDirHaltsCollection
+--- PASS: TestGCRetention_UnreadableCheckpointDirHaltsCollection (0.06s)
+=== RUN   TestGCRetention_UnreadablePendingDirHaltsCollection
+--- PASS: TestGCRetention_UnreadablePendingDirHaltsCollection (0.05s)
+=== RUN   TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging
+--- PASS: TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging (0.06s)
+=== RUN   TestGCRetention_CancelledContextIsNotARetentionError
+--- PASS: TestGCRetention_CancelledContextIsNotARetentionError (0.08s)
+=== RUN   TestGC_CollectsUnreferenced
+--- PASS: TestGC_CollectsUnreferenced (0.13s)
+=== RUN   TestGC_ZeroPolicyInheritsConfigAndDeletesNothing
+--- PASS: TestGC_ZeroPolicyInheritsConfigAndDeletesNothing (0.13s)
+=== RUN   TestGC_RetentionIsWhicheverIsLonger
+--- PASS: TestGC_RetentionIsWhicheverIsLonger (0.18s)
+=== RUN   TestGC_EphemeralNotInWindowByAge
+--- PASS: TestGC_EphemeralNotInWindowByAge (0.07s)
+=== RUN   TestGC_HarvestsBareHexHash
+--- PASS: TestGC_HarvestsBareHexHash (0.07s)
+=== RUN   TestGC_HarvestsHashesFromCheckpointPinsEliminations
+--- PASS: TestGC_HarvestsHashesFromCheckpointPinsEliminations (0.09s)
+=== RUN   TestGC_MissingRootFilesAreNotAnError
+--- PASS: TestGC_MissingRootFilesAreNotAnError (0.05s)
+=== RUN   TestGC_DryRun
+--- PASS: TestGC_DryRun (0.09s)
+=== RUN   TestGC_DeadlineTruncatesAndResumes
+    gc_test.go:552: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/store/gc_test.go:552
+        	Error:      	"511" is not less than "256"
+        	Test:       	TestGC_DeadlineTruncatesAndResumes
+        	Messages:   	an already-expired deadline must stop the sweep at its FIRST check, not one interval later
+--- FAIL: TestGC_DeadlineTruncatesAndResumes (9.59s)
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack
+--- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack (0.00s)
+=== RUN   TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule
+--- PASS: TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule (0.00s)
+=== RUN   TestGC_DeadlineBudgetRepricesAfterAMissedWindow
+--- PASS: TestGC_DeadlineBudgetRepricesAfterAMissedWindow (0.00s)
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1489: calibration 148.4787ms…172.416ms over 3072 objects (fastest of 4); first check 15.3175ms (measured 15.3175ms); window 9.69x, slack 3.11x; check interval 20.115456ms; budget 47.689857ms; overshoot 12.578143ms after 767 objects on attempt 1 of 5; limit 50ms
+--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (21.95s)
+=== RUN   TestGC_LiveDigestMismatchRestartsMark
+--- PASS: TestGC_LiveDigestMismatchRestartsMark (2.91s)
+=== RUN   TestGC_TombstonesRootsAppendOnly
+--- PASS: TestGC_TombstonesRootsAppendOnly (0.09s)
+=== RUN   TestGC_ContextCancel
+--- PASS: TestGC_ContextCancel (3.15s)
+=== RUN   TestGC_ClosedStoreDegrades
+--- PASS: TestGC_ClosedStoreDegrades (0.03s)
+=== RUN   TestGC_TombstoneRetiresOnlyMarkTimeDead
+--- PASS: TestGC_TombstoneRetiresOnlyMarkTimeDead (0.06s)
+=== RUN   TestGC_MarkPhaseHonoursTheDeadline
+--- PASS: TestGC_MarkPhaseHonoursTheDeadline (6.28s)
+=== RUN   TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline
+--- PASS: TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline (5.92s)
+=== RUN   TestGC_MarkPhaseHonoursCancellation
+--- PASS: TestGC_MarkPhaseHonoursCancellation (5.65s)
+=== RUN   TestGC_IgnoresFilesItCannotIdentify
+--- PASS: TestGC_IgnoresFilesItCannotIdentify (0.06s)
+=== RUN   TestGC_RetainsADeltaWithItsBase
+--- PASS: TestGC_RetainsADeltaWithItsBase (0.07s)
+=== RUN   TestGC_RetainsADeltaBaseFromTheDeltaSide
+--- PASS: TestGC_RetainsADeltaBaseFromTheDeltaSide (0.06s)
+=== RUN   TestGC_RetainsPendingWritesAcrossACrashedRootAppend
+--- PASS: TestGC_RetainsPendingWritesAcrossACrashedRootAppend (0.07s)
+=== RUN   TestGC_ExpiresAbandonedPendingMarkers
+--- PASS: TestGC_ExpiresAbandonedPendingMarkers (0.05s)
+=== RUN   TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot
+--- PASS: TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot (0.08s)
+=== RUN   TestGC_RetentionRootSourceHoldsObjectsLive
+--- PASS: TestGC_RetentionRootSourceHoldsObjectsLive (0.09s)
+=== RUN   TestGC_ReportsPerRootOutcomes
+--- PASS: TestGC_ReportsPerRootOutcomes (0.05s)
+=== RUN   TestGC_QuotaEvictsInWindowRootsAndReportsThem
+--- PASS: TestGC_QuotaEvictsInWindowRootsAndReportsThem (0.10s)
+=== RUN   TestGC_QuotaNeverEvictsAHardRetentionRoot
+--- PASS: TestGC_QuotaNeverEvictsAHardRetentionRoot (0.08s)
+=== RUN   TestGC_OutcomesAreBoundedAndSayWhenTheyWereTruncated
+--- PASS: TestGC_OutcomesAreBoundedAndSayWhenTheyWereTruncated (0.12s)
+=== RUN   TestGC_AcknowledgedDeliveryLeaseStopsRetaining
+--- PASS: TestGC_AcknowledgedDeliveryLeaseStopsRetaining (0.12s)
+=== RUN   TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen
+--- PASS: TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen (0.06s)
+=== RUN   TestGC_CompactsTheRetentionRootFile
+--- PASS: TestGC_CompactsTheRetentionRootFile (0.10s)
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_base_keeps_its_own_record_and_not_its_sibling's
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_record_keeps_the_base_it_declares
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/both_bases_referenced_keep_both_records
+--- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord (0.27s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_base_keeps_its_own_record_and_not_its_sibling's (0.10s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_record_keeps_the_base_it_declares (0.08s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/both_bases_referenced_keep_both_records (0.09s)
+=== CONT  TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+--- PASS: TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	66.515s
+FAIL

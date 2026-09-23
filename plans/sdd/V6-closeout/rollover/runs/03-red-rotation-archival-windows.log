@@ -1,0 +1,35 @@
+--- FAIL: TestDeliveryRollover_HotPathLeavesTheGenerationStoreUntouched (21.77s)
+    delivery_rollover_archive_test.go:52: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_rollover_archive_test.go:52
+        	Error:      	Should be zero, but was 40
+        	Test:       	TestDeliveryRollover_HotPathLeavesTheGenerationStoreUntouched
+        	Messages:   	a lease or acknowledgement below the threshold commits no generation
+--- FAIL: TestDeliveryRollover_RotationArchivesTheWholeOutgoingWindow (14.40s)
+    delivery_rollover_archive_test.go:73: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_rollover_archive_test.go:73
+        	Error:      	Should be zero, but was 7
+        	Test:       	TestDeliveryRollover_RotationArchivesTheWholeOutgoingWindow
+        	Messages:   	nothing is archived before the window rotates
+--- FAIL: TestDeliveryRollover_AcknowledgementJournalRotatesAtItsOwnThreshold (4.81s)
+    delivery_rollover_archive_test.go:141: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_rollover_archive_test.go:141
+        	Error:      	"4" is not less than or equal to "3"
+        	Test:       	TestDeliveryRollover_AcknowledgementJournalRotatesAtItsOwnThreshold
+        	Messages:   	an acknowledgement journal never passes the threshold
+--- FAIL: TestDeliveryRollover_RedeliveredAcknowledgementOfArchivedDeliveryAppendsNothing (2.95s)
+    delivery_rollover_archive_test.go:164: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_rollover_archive_test.go:164
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestDeliveryRollover_RedeliveredAcknowledgementOfArchivedDeliveryAppendsNothing
+        	Messages:   	a redelivered acknowledgement appends nothing
+--- FAIL: TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen (3.27s)
+    delivery_rollover_archive_test.go:190: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_rollover_archive_test.go:190
+        	Error:      	Not equal: 
+        	            	expected: 0x1
+        	            	actual  : 0x0
+        	Test:       	TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen
+        	Messages:   	the interrupted rotation is finished at open
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	52.504s
+FAIL

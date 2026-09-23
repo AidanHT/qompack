@@ -1,0 +1,1 @@
+qompack admin delivery-seal: delivery-seal: a daemon is running in /work/cx-rollover-drill-20260922-drill1/oldcopy and owns the journals; stop it first: qompack: daemon lock already held

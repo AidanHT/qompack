@@ -1,0 +1,26 @@
+# run: 24-gc-carry-negative-control-windows
+# commit: ba140604600eff4feb7a1f38c608d02476142a15 (with the negative-control mutation below)
+# platform: windows/amd64 go version go1.26.6 windows/amd64
+# started: 2026-09-23T03:54:55Z
+# mutation:
+#   747:		if true { // NEGATIVE CONTROL: carried leases ignored
+# command: go test ./internal/daemon -run '^(TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot|TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot)$' -count=1 -timeout=30m -v
+=== RUN   TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot
+    delivery_readers_rotation_gc_test.go:95: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/snap/24-gc-carry-negative-control-windows/internal/daemon/delivery_readers_rotation_gc_test.go:95
+        	Error:      	Should be empty, but was [GC at rotation stage committed: delivery 1 is unsettled; its root must be retained: qompack: not found: root a8f6aff4b150]
+        	Test:       	TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot
+--- FAIL: TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot (0.44s)
+=== RUN   TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot
+    delivery_readers_v6_test.go:217: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/snap/24-gc-carry-negative-control-windows/internal/daemon/delivery_readers_v6_test.go:217
+        	Error:      	Received unexpected error:
+        	            	qompack: not found: root a8f6aff4b150
+        	Test:       	TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot
+        	Messages:   	pass 2: delivery 1 is unsettled (active segment 5); its root must be retained
+--- FAIL: TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot (0.86s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.525s
+FAIL
+# go test exit: 1
+# control: PASSED — the mutated build fails both tests on retention

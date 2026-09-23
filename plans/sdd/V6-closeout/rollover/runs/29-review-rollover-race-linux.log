@@ -1,0 +1,10 @@
+# run: 29-review-rollover-race-linux
+# commit: b30908cb90929fc18ae20feb33374b09e5a591e9
+# container: qompack-v6-linux-verification (Linux 5.15.167.4-microsoft-standard-WSL2 x86_64 go version go1.26.6 linux/amd64 )
+# user: qompack-test; GOMAXPROCS=4; CGO_ENABLED=1
+# started: 2026-09-23T04:21:23Z
+# command: go test -race ./internal/daemon ./internal/store -run TestDeliveryRollover|TestDeliveryReaders_V6|TestDeliveryCarry|TestDeliverySealSegment|TestDeliveryRadix_Merge|TestGCSegments|TestCarriedDefect_SP20D4 -count=1 -timeout=90m
+ok  	github.com/qompack/qompack/internal/daemon	560.239s
+ok  	github.com/qompack/qompack/internal/store	10.029s
+# finished: 2026-09-23T04:31:18Z
+# exit: 0
