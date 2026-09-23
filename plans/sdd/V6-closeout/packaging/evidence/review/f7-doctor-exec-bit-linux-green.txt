@@ -1,0 +1,27 @@
+go version go1.26.6 linux/amd64
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes
+=== RUN   TestPluginBinaryExecutable
+=== PAUSE TestPluginBinaryExecutable
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes
+=== CONT  TestPluginBinaryExecutable
+--- PASS: TestPluginBinaryExecutable (0.00s)
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+--- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes (0.63s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable (0.01s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it (0.01s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves (0.01s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/unset (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.656s

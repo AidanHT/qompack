@@ -280,3 +280,5 @@ world-writable bits from the archive", which implies the session extractor (`--p
 been observed. It needs a published pre-release installed on a Linux or macOS host (owner
 action). If a hook reports `permission denied` there, `claude plugin list --json` gives the
 `installPath`, and `chmod +x <installPath>/bin/qompack` is the workaround until it is confirmed.
+`qompack doctor` run with `CLAUDE_PLUGIN_ROOT=<installPath>` reports this case on its own
+`version.pluginRoot` row: `degraded`, "set but the binary is not executable".
