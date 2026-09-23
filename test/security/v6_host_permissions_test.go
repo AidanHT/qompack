@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -25,6 +26,13 @@ const (
 	hostAskPhrase         = "the host's current permission rules require approval"
 	hostUnavailablePhrase = "host policy unavailable"
 )
+
+// hostForm is one retrieval call that materializes the archived secret.
+type hostForm struct {
+	name string
+	tool string
+	args map[string]any
+}
 
 // TestV6_HostReadRulesGovernArchivedRetrieval is V6-HOST-1 (close-out C1.9) through the installed
 // bundle: a file captured by the real hook while no rule existed is then placed under a Claude Code
@@ -68,16 +76,21 @@ func TestV6_HostReadRulesGovernArchivedRetrieval(t *testing.T) {
 	t.Cleanup(func() { child.stop(t) })
 	child.handshake(t)
 
-	forms := []struct {
-		name string
-		tool string
-		args map[string]any
-	}{
+	forms := []hostForm{
 		{"expand_tool_use_id", mcp.ToolExpand, map[string]any{"tool_use_id": id, "full": true}},
 		{"expand_root_hash", mcp.ToolExpand, map[string]any{"hash": root.Hash.String(), "full": true}},
 		{"expand_chunk_hash", mcp.ToolExpand, map[string]any{"hash": root.Chunks[0].Hash.String(), "full": true}},
 		{"re_read_latest", mcp.ToolReRead, map[string]any{"path": secret, "full": true}},
 		{"re_read_at_hash", mcp.ToolReRead, map[string]any{"path": secret, "at": root.Hash.String(), "full": true}},
+	}
+	if runtime.GOOS == "windows" {
+		// Windows opens the file under these spellings too, and re_read serves the real name's
+		// history for them, so a rule on the real name must hold for each (C1.9 review finding 1).
+		// On a POSIX filesystem each names a different, uncaptured file.
+		forms = append(forms,
+			hostForm{"re_read_trailing_dot_alias", mcp.ToolReRead, map[string]any{"path": secret + ".", "full": true}},
+			hostForm{"re_read_trailing_space_alias", mcp.ToolReRead, map[string]any{"path": secret + " ", "full": true}},
+		)
 	}
 	for _, f := range forms {
 		res := child.call(t, f.tool, f.args)
