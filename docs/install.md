@@ -8,6 +8,17 @@ the other five targets have no install record.
 Commands this page marks **rehearsed** are the ones Task 8 actually ran. Anything else stays
 **recorded from host docs, not rehearsed**.
 
+**Host requirement: Claude Code 2.1.139 or later, for every install path** — `--plugin-dir`, a local
+directory and the marketplace alike. Every hook and the MCP server are exec form (`command` plus
+`args`), and 2.1.139 is the release that "Added hook `args: string[]` field (exec form) that spawns
+the command directly without a shell" (changelog, fetched 2026-09-22). An older host does not know
+`args`. If it runs the entry anyway, it runs the bare `bin/qompack`, which prints its usage and
+exits 0: every hook silently does nothing, and SessionStart and UserPromptSubmit put that usage text
+into Claude's context, because the host adds their plain-text stdout as context (hooks reference).
+No pre-2.1.139 host has been run against this build, so which of those happens is not observed.
+`qompack doctor` does not check the host version. The marketplace (§9) needs **2.1.224 or later**
+for its `archive` sources. Check with `claude --version`.
+
 ## 1. What you are installing
 
 A **bundle**: one directory per release target, which *is* the plugin root. `packaging/README.md` is
@@ -240,14 +251,32 @@ the same seven hooks and the same MCP server twice. Archive sources need **Claud
 later** ("Requires Claude Code v2.1.224 or later"); older versions refuse the entry or fail to load
 the marketplace.
 
+Add the marketplace in **one** of three ways; they differ in what `marketplace update` later does.
+
 ```sh
-# once the post-publish pull request has put .claude-plugin/marketplace.json on the default branch
-claude plugin marketplace add AidanHT/qompack
-# or, for any published release (pre-releases included), straight from its assets
+# (a) the repository — tracks develop, once the post-publish pull request has put
+#     .claude-plugin/marketplace.json there. Over HTTPS: the owner/repo shorthand clones over SSH.
+claude plugin marketplace add https://github.com/AidanHT/qompack.git
+# (b) the latest release's asset — tracks the newest published, non-pre-release
+claude plugin marketplace add https://github.com/AidanHT/qompack/releases/latest/download/marketplace.json
+# (c) one release's asset, pre-releases included — pinned to that release, never updates
 claude plugin marketplace add https://github.com/AidanHT/qompack/releases/download/vX.Y.Z/marketplace.json
 
 claude plugin install qompack-linux-amd64@qompack -s user
 ```
+
+**SSH and the shorthand.** `claude plugin marketplace add AidanHT/qompack` works too, but "GitHub
+`owner/repo` shorthand sources clone over SSH by default; set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1`
+to clone them over HTTPS instead" (plugin-marketplaces, fetched 2026-09-22). Without a GitHub SSH
+key it fails even though the repository is public; the `https://…/qompack.git` form in (a) avoids
+that.
+
+**Redirects.** Both release-asset URLs are redirects. GitHub answers (b) with a `302` to the newest
+release's `/releases/download/<tag>/marketplace.json`, and every asset URL, (c) included, with a
+`302` to `release-assets.githubusercontent.com` (probed with `curl -I` against a public repository
+on 2026-09-22; this repository has no release yet). The host docs spell out redirect rules for
+archive downloads — "Every redirect hop must satisfy the same rules" — but not for a marketplace
+URL, and neither form has been added on a real host, so (b) and (c) stand or fall together.
 
 The entry name is what the host keys the install by: "When a marketplace entry lists the plugin
 under a different name, the marketplace entry name is what `enabledPlugins` keys and `/plugin`
@@ -272,6 +301,14 @@ the entry's pin:
 claude plugin marketplace update qompack
 claude plugin update qompack-linux-amd64@qompack -s user
 ```
+
+`marketplace update` "refresh[es] marketplaces from their sources": it fetches the same URL or
+branch the marketplace was added from. With (a) that is develop's newest pinned release, with (b)
+the newest published release. With (c) it is the same release every time, because a release's
+asset never changes, so those two commands never move you on. To leave a pinned release, run
+`claude plugin marketplace remove qompack` (which, per the host docs, also uninstalls the plugins
+installed from it; your `.qompack/` data is not in the plugin cache, §6), add the marketplace again
+by (a) or (b), and install the entry again. None of this has been rehearsed.
 
 **Still unverified: the executable bit on Linux and macOS.** The zip records `bin/qompack` as
 0755. Claude Code 2.1.269's changelog fixed "plugin archives extracted for a session ... keeping
