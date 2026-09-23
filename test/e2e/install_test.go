@@ -564,10 +564,20 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 
 	// (b) a capture sidecar from a newer build: readable, degraded, never repaired — sidecars are
 	//     evidence, and `op` is a prompt delivery so the stage-1 gap rule does not apply.
-	sidecarPath := filepath.Join(l.Records, "captures", "newer-plugin.json")
+	//
+	//     It is planted where every build writes a sidecar — store.CaptureSidecarPath, i.e.
+	//     records/captures/<2 hex>/<digest>.json, the only layout since a6faab0 — under a
+	//     digest-shaped observation id, because that is where a newer build's sidecar would be.
+	//     A file dropped at records/captures/ itself is no build's sidecar: V6's bounded publication
+	//     audit (80a3e04) walks the two fixed fanout levels and reports such a file as an unexpected
+	//     entry, which is a different question from the one this row asks. Planted here, the newer
+	//     schema is actually READ by both the captures row and the publication audit.
+	newerObs := core.ObservationID(core.HashBytes("qompack.e2e.unknown-schema", []byte("newer-plugin")).String())
+	sidecarPath, err := store.CaptureSidecarPath(root, newerObs)
+	require.NoError(t, err)
 	plant(sidecarPath, []byte(fmt.Sprintf(
-		`{"v":%d,"observation_id":"obs-newer-plugin","op":"observe.prompt","published":false,"outcome":"ok"}`+"\n",
-		store.CaptureSidecarVersion+1)))
+		`{"v":%d,"observation_id":%q,"op":"observe.prompt","published":false,"outcome":"ok"}`+"\n",
+		store.CaptureSidecarVersion+1, newerObs)))
 
 	// A whole session over both: every hook exits 0, the daemon still comes up, and recording
 	// continues — a newer artifact beside the live data is a support gap, not a stop.
@@ -582,7 +592,16 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	//     delivery position is LIVE daemon state, not an archival artifact: a hand-written seal
 	//     beside a running daemon makes loadDeliveryPosition refuse the journal and publication
 	//     stalls, which would measure a race rather than a reader.
+	//
+	//     So it is also taken back out before the next daemon runs. Since c78f610 a delivery whose
+	//     journal refuses it is RETAINED pending rather than recorded without an identity, so a
+	//     session driven beside this seal indexes nothing by design; before that change the same
+	//     session was silently recorded unleased, which is the only reason (d) below ever passed with
+	//     the seal still in place. The daemon's own position bytes are kept and restored, and the
+	//     seal's bytes are checked unchanged at the point its only readers (fsck, doctor) are done.
 	sealPath := filepath.Join(l.State, "delivery-ack-position.json")
+	daemonSeal, err := os.ReadFile(paths.Long(sealPath))
+	require.NoError(t, err, "the daemon's own delivery position must exist after two sessions")
 	plant(sealPath, []byte(`{"v":2,"offset":0,"seq":0}`+"\n"))
 
 	report := installFsck(t, bin, root, home)
@@ -604,6 +623,14 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	stdout, stderr, code := Run(t, bin, []string{"doctor", "--project", root, "--json"}, nil, installEnvFor(root, home))
 	require.Equal(t, 0, code, "doctor --json: %s", stderr)
 	installAssertDoctorJSON(t, stdout, root)
+
+	// The seal's readers are done: neither rewrote it, and the daemon's own position goes back
+	// before any daemon runs over this project again (see (c) above).
+	sealSum, err := installFileSHA256(sealPath)
+	require.NoError(t, err)
+	require.Equal(t, planted[sealPath], sealSum, "a newer-than-this-build seal must never be rewritten")
+	require.NoError(t, os.WriteFile(paths.Long(sealPath), daemonSeal, 0o600))
+	delete(planted, sealPath)
 
 	// (d) a config section whose settingsVersion is newer than this build understands, with a
 	//     switch a newer file could set planted beside it so the reset is observable.
