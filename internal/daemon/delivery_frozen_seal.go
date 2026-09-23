@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -135,6 +136,111 @@ func freezeLegacySeals(stateDir string, lease, ack deliveryPosition) error {
 		}
 	}
 	return nil
+}
+
+// legacySealFrozen reports whether either of segment 0's seals under stateDir is a frozen document. A
+// seal file that cannot be read is an error, never "not frozen"; one that does not exist yet (a fresh
+// tree) is not frozen.
+func legacySealFrozen(stateDir string) (bool, error) {
+	for _, s := range []struct {
+		name string
+		seed core.Hash
+	}{{deliveryPositionFile, deliveryChainSeed}, {deliveryAckPositionFile, deliveryAckChainSeed}} {
+		p := filepath.Join(stateDir, s.name)
+		if _, err := os.Lstat(paths.Long(p)); os.IsNotExist(err) {
+			continue
+		}
+		_, frozen, err := readFrozenSealFile(p, s.seed)
+		if err != nil {
+			return false, err
+		}
+		if frozen {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// loadLegacySegment loads segment 0's two journals into j against their seals, a frozen seal at the
+// position it seals and an ordinary one through the dual reader, with the loader's own checks.
+func (j *deliveryJournal) loadLegacySegment() error {
+	leaseSeal, leaseFrozen, err := readFrozenSealFile(j.positionPath(), deliveryChainSeed)
+	if err != nil {
+		return err
+	}
+	ackSeal, ackFrozen, err := readFrozenSealFile(j.ackSealPath(), deliveryAckChainSeed)
+	if err != nil {
+		return err
+	}
+	if leaseFrozen {
+		if _, err := j.loadFrom(leaseSeal, nil); err != nil {
+			return err
+		}
+	} else {
+		pos, older, _, err := loadDeliverySeal(j.positionPath(), deliveryChainSeed, deliveryChainDomain)
+		if err != nil {
+			return err
+		}
+		if _, err := j.loadFrom(pos, older); err != nil {
+			return err
+		}
+	}
+	if ackFrozen {
+		_, err = j.loadAcksFrom(ackSeal, nil)
+		return err
+	}
+	pos, older, _, err := loadDeliverySeal(j.ackSealPath(), deliveryAckChainSeed, deliveryAckChainDomain)
+	if err != nil {
+		return err
+	}
+	_, err = j.loadAcksFrom(pos, older)
+	return err
+}
+
+// finishFrozenLegacyRotation opens a journal whose authority still names segment 0 while a seal of
+// segment 0 is frozen. A rotation out of segment 0 archives the window, stages segment 1, freezes
+// segment 0 and only then commits the transition (doRotate), so this is a rotation a crash stopped
+// between the freeze and the commit, and it is finished here, before anything is assigned: segment 0
+// is loaded against its seals and, only when the generation store already holds the window's first
+// lease — the proof the window was archived, as recoverGenerations reads it — the rest of the rotation
+// runs. A frozen seal with no archived window behind it names a segment 0 nothing archived, and the
+// open is refused with every byte preserved: a frozen seal is never thawed into a writable journal.
+func (l *Lock) finishFrozenLegacyRotation(stateDir string, seg *deliverySegments) (*deliveryJournal, error) {
+	ctx := context.Background()
+	j := newDeliveryJournal(l, segmentLeasePath(stateDir, 0))
+	j.stateDir, j.segment, j.seg = stateDir, 0, seg
+	j.arrivalBase = j.segmentArrivalBase
+	j.ackPath = filepath.Join(stateDir, deliveryAckFile)
+	if err := j.loadLegacySegment(); err != nil {
+		_ = seg.close()
+		return nil, err
+	}
+	first, ok := firstWindowLease(j.leases)
+	if info, err := os.Lstat(paths.Long(filepath.Join(stateDir, deliveryGenerationsDirName))); !ok || err != nil || !info.IsDir() {
+		_ = seg.close()
+		return nil, deliveryJournalError() // no window, or no generation store: nothing was archived
+	}
+	if err := j.openGenerationsStore(); err != nil {
+		_ = seg.close()
+		return nil, err
+	}
+	if _, archived, err := j.gen.resolveLease(ctx, first.Delivery); err != nil || !archived {
+		_ = j.gen.close()
+		_ = seg.close()
+		return nil, deliveryJournalError()
+	}
+	if err := j.loadTerminalDispositions(); err != nil {
+		_ = j.gen.close()
+		_ = seg.close()
+		return nil, err
+	}
+	l.journal = j // ownership retains even an uncertain close on a failed finish
+	if err := j.doRotate(ctx); err != nil {
+		_ = j.poison(err)
+		_ = j.closeLocked()
+		return nil, err
+	}
+	return j, nil
 }
 
 // ensureLegacyFrozen runs at open on a store whose active segment is past 0.
