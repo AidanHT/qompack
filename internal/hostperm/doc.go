@@ -38,7 +38,8 @@
 // `:stream` suffix and an 8.3 short name all open the same file, so a rule on its real name holds
 // for each, and a project root or home spelled through short names anchors rules at its real name
 // too. Paths are compared in the host's POSIX form (C:\x becomes /c/x) and case-insensitively on
-// Windows and macOS.
+// Windows and macOS. More than 4096 path patterns, or 65 536 path segments across them, make the
+// rules unusable (fail closed), which bounds what one path's check can cost.
 //
 // Where the documentation leaves a choice open this package takes the one that refuses more, never
 // less: a `/path` rule in a managed or cached source is anchored at both the project and the file's
