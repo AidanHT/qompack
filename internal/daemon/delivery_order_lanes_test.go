@@ -234,7 +234,14 @@ func TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing(t *testing.T) {
 	dd.drain.Store(newDrainer(dd.drainConfig()))
 	run := func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Event != nil && req.Event.ToolUseID != "" {
-			time.Sleep(perTool)
+			// A slow publication: it takes perTool of real time, and gives up with the worker's ctx.
+			slow := time.NewTimer(perTool)
+			defer slow.Stop()
+			select {
+			case <-slow.C:
+			case <-ctx.Done():
+				return ipc.Response{Err: ctx.Err().Error()}
+			}
 		}
 		return dd.runIngested(ctx, req)
 	}
@@ -365,12 +372,14 @@ func TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls(t *testing.
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+		pace := time.NewTicker(stall / 5)
+		defer pace.Stop()
 		for {
 			head, signals, ok, _ := i.lanes.head(sess)
 			if !ok {
 				return
 			}
-			time.Sleep(stall / 5)
+			<-pace.C
 			i.lanes.settle(sess, head, dispatchSettled, signals)
 		}
 	}()
