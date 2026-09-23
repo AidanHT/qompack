@@ -35,6 +35,13 @@ jobs:
       - name: assemble and archive the bundles
         run: |
           go run ./tools/devtool bundle --version "${GITHUB_REF_NAME#v}" --archive --host-validate --evidence dist/evidence/host-validation.json
+      # The marketplace document, generated from the checksums.txt just written, so every entry is
+      # pinned to the sha256 of the zip this release uploads. It ships as a release asset: users can
+      # add it by URL straight away, and marketplace.yml copies it into .claude-plugin/ on develop
+      # only after the release is PUBLISHED (a draft stays a draft).
+      - name: generate the marketplace from the archives' checksums
+        run: |
+          go run ./tools/devtool marketplace --tag "$GITHUB_REF_NAME" --checksums dist/bundle/checksums.txt --out dist/bundle/marketplace.json
       - uses: actions/upload-artifact@v4
         with:
           name: host-validation-evidence
@@ -49,7 +56,7 @@ jobs:
         with:
           subject-path: |
             dist/bundle/*.zip
-            dist/bundle/*.tar.gz
+            dist/bundle/marketplace.json
       - name: goreleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -58,5 +65,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # goreleaser builds nothing (.goreleaser.yaml: every build entry is skipped) and creates a
-      # DRAFT release carrying the archives and checksums assembled above. Publishing it is a
-      # person's decision, taken after reading the scope table in its notes.
+      # DRAFT release carrying the archives, checksums and marketplace document assembled above.
+      # Publishing it is a person's decision, taken after reading the scope table in its notes.

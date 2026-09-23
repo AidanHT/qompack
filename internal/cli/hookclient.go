@@ -466,8 +466,52 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		if resp.Output != nil {
 			respOut = *resp.Output
 		}
-		return hookio.WriteOutput(out, respOut)
+		// The daemon's reply is an internal protocol; the host's schema is not. One field the host
+		// does not accept for this event makes it reject the whole response, and for PreCompact it
+		// then replays the rejection into the post-compaction context (C1.12). So the reply is
+		// reduced to what the host accepts and acts on for the event it is running, whatever the
+		// daemon — this build's or a still-resident older one — happened to send.
+		event := hookEvent(spec.op, args)
+		conformed := hookio.ConformOutput(event, respOut)
+		// The host accepts a field over its per-field cap but hands Claude only a 2,000-character
+		// preview of it, so a large rehydration is cut without any check failing. Say so, loudly,
+		// with sizes only (a log is not a content store, §7.4).
+		for _, over := range hookio.HostCapOverruns(conformed) {
+			hookLog.Loud("hook output exceeds the host's per-field cap; Claude sees only a preview of it",
+				"event", event, "field", over.Field, "chars", over.Chars,
+				"cap", hookio.HostFieldMaxChars, "preview", hookio.HostFieldPreviewChars)
+		}
+		return hookio.WriteOutput(out, conformed)
 	}
+}
+
+// hookEvent is the host event a hook invocation answers: the event internal/pluginmanifest
+// registers that subcommand for. `observe stop` serves two events, told apart by the --subagent
+// flag the SubagentStop entry passes. An op that is not a hook maps to "", which ConformOutput
+// answers with the empty response.
+//
+// TestHookOutput_EveryEntryPointConformsToTheHostSchema drives every manifest entry point through
+// this mapping, so a hook registered for a new event, or re-routed, fails there rather than having
+// its output silently emptied.
+func hookEvent(op ipc.Op, args []string) string {
+	switch op {
+	case ipc.OpObserveTool:
+		return hookio.EventPostToolUse
+	case ipc.OpObservePrompt:
+		return hookio.EventUserPromptSubmit
+	case ipc.OpObserveStop:
+		if hasFlag(args, "--subagent") {
+			return hookio.EventSubagentStop
+		}
+		return hookio.EventStop
+	case ipc.OpSessionStart:
+		return hookio.EventSessionStart
+	case ipc.OpCheckpoint:
+		return hookio.EventPreCompact
+	case ipc.OpFlush:
+		return hookio.EventSessionEnd
+	}
+	return ""
 }
 
 // resolveProjectRoot is §3.3's resolution order, called twice per hook (task-6-spec.md): once

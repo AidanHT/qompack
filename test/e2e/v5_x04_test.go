@@ -257,9 +257,11 @@ func x4v5SeedSession(t *testing.T, r *v4Rig, sess core.SessionID) {
 func x4v5Seal(t *testing.T, r *v4Rig, sess core.SessionID) checkpoint.Checkpoint {
 	t.Helper()
 
-	out, instr := r.PreCompact(t, sess)
-	require.NotNil(t, out.HookSpecificOutput, "a full-mode PreCompact answers through hookSpecificOutput")
-	require.NotEmpty(t, instr, "a full-mode PreCompact must emit customInstructions")
+	// The span paragraph's CONTENT is asserted below, so the instruction is read on the IPC hop where
+	// it still exists (v4Rig.PreCompactReply); the host never receives it.
+	out, instr := r.PreCompactReply(t, sess)
+	require.NotNil(t, out.HookSpecificOutput, "a full-mode checkpoint route answers through hookSpecificOutput")
+	require.NotEmpty(t, instr, "a full-mode checkpoint route must render the focus instruction")
 
 	require.Equal(t, []string{"0001.json"}, cpCheckpointArtifacts(t, r.P.Root),
 		"the PreCompact hook must have sealed exactly one artifact")

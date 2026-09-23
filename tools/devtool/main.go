@@ -44,6 +44,7 @@ var tasks = map[string]func(args []string) error{
 	"release-check":         taskReleaseCheck,
 	"release-scope":         taskReleaseScope,
 	"licenses":              taskLicenses,
+	"marketplace":           taskMarketplace,
 	"gen-config-docs":       taskGenConfigDocs,
 	"gen-mcp-docs":          taskGenMCPDocs,
 	"gen-command-docs":      taskGenCommandDocs,

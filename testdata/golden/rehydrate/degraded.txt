@@ -13,6 +13,12 @@ Before committing to an approach, call already_tried.
 
 ## 6b. Skill index (names and one-line descriptions only)
 - api-lint: Check a route against the API conventions: codes, pagination, idempotency.
+- changelog-bump: Bump the version and update the changelog per the release protocol.
+- code-review: Review a diff for correctness, security, and convention drift before merge.
+
+## 7. No longer in context
+- path_rule .claude/rules/api-conventions.md — matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/api-conventions.md
+- … and 40 more; call dropped()
 
 ## 8. Retrieval
 Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().

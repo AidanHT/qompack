@@ -321,8 +321,9 @@ func TestV5_EveryContractAssertionHasARealProducer(t *testing.T) {
 
 		// ── PreCompact: marker, timing sample and instructions recorded by the real route ─────
 		r.SeedTurns(t, x14v5SessionA, "v5x14", x14v5SeedTurns)
-		_, instr := r.PreCompact(t, x14v5SessionA)
-		require.NotEmpty(t, instr, "a full-mode PreCompact must emit customInstructions")
+		r.PreCompact(t, x14v5SessionA)
+		require.NotEmpty(t, contract.LoadHistory(contract.HistoryPath(p.Root)).PrecompactInstr,
+			"a full-mode PreCompact route records the instruction it rendered, though the host never receives it")
 
 		// ── Session A restarts from the compaction; then session B starts ─────────────────────
 		out2 := x14v5Start(t, r, x14v5StartPayload(t, p.Root, x14v5SessionA, "compact", transcript))

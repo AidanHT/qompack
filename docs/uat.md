@@ -498,6 +498,12 @@ carried at all.
   may be lowered, never raised, not even to the configured minimum
   ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md)). `Tokens` and `Budget` in the state
   file from step 3 are the numbers to compare.
+- **It arrives inline.** The whole compact `additionalContext` — the block plus the
+  `<!-- qompack-contract-probe … -->` line after it — is at most 9,500 characters (UTF-16 code units,
+  what the host counts), so the resumed session sees the block itself and never a
+  `<persisted-output>` note with a saved-file path and a 2,000-character preview
+  ([ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md)). Each record in the block is whole;
+  what did not fit is named in section 7 with the call that restores it.
 - **Current authority.** Section 2's evolution deltas are emitted newest-first, so a tight budget
   keeps the latest correction and drops the oldest restatement rather than the reverse
   (`internal/rehydrate/items.go`). The corrected requirement must appear above the superseded one.
@@ -512,8 +518,11 @@ carried at all.
   shapes exist and both are recognized by `Overflowed` (`internal/rehydrate/budget.go`): an entry
   with kind `overflow` and id `payload`, whose detail begins `OVERFLOW: the injection wrapper alone
   (… tokens) exceeds the rehydration budget (… tokens); nothing was injected`; and a tier-1 entry
-  whose id is `tier1`, whose detail begins `OVERFLOW: tier-1 material did not fit the rehydration
-  budget and is emitted whole or not at all`. The state file's `degraded` field is `true` in both.
+  whose id is `tier1`, whose detail begins `OVERFLOW:`, names the record (for example `pinned
+  invariant inv_…` or `the verbatim original user intent`), says it `is emitted whole or not at all`
+  and ends with the pointer that restores it (`restore: expand(tool_use_id=prompt_…_0)`, or `restore:
+  Read .qompack/checkpoints/NNNN.json (…)`). A tier-1 entry sorts first in section 7. The state
+  file's `degraded` field is `true` in both.
   Section 7 may itself be cut to the counted tail `- … and N more; call dropped()`, while the
   complete report stays in the state file and is what step 4 returns.
 - Nothing in the block claims the host's restored context was reduced.
@@ -526,8 +535,9 @@ transcript showing the correction.
 
 **Failure and rollback outcome**
 
-A **fail** is: a block larger than the budget; an older statement rendered above the correction that
-superseded it; an overflow that appears nowhere — no `overflow`/`tier1` entry, no `degraded`, no
+A **fail** is: a block larger than the budget; a compact `additionalContext` over 9,500 characters,
+or one the session receives as a saved-file path and preview; a record cut mid-record; an older
+statement rendered above the correction that superseded it; an overflow that appears nowhere — no `overflow`/`tier1` entry, no `degraded`, no
 counted tail — while content is missing. A **skip** is: no host session, leaving budget adherence and
 authority order unverified end to end.
 

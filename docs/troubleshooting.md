@@ -348,6 +348,27 @@ stamped `mcp` because the slash-command ingest path has no production caller.
 **Action.** Treat an elimination state read out of a digest as a claim that has not been verified end
 to end; call `already_tried` for the authoritative answer, and apply §4 to whatever it returns.
 
+---
+
+**Symptom.** After a compaction, something you expected is missing from Qompack's rehydrated block,
+or section 7 ("No longer in context") ends in `… and N more; call dropped()`.
+
+**Meaning.** The block is held to 9,500 characters so that Claude Code delivers it whole: past its
+10,000-character hook-field cap the host would hand Claude a saved-file path and a 2,000-character
+preview instead ([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
+Records are chosen in a fixed order and kept whole, so on a long session some are left out on
+purpose. Each one left out is named in section 7 with the call that restores it; the counted tail
+means the section itself ran out of room, not that anything went unrecorded. Raising
+`runtime.rehydrate.maxTokens` does not change this: the character ceiling binds first.
+
+**Action.** Make the call section 7 names for the record you need — `why`, `re_read`, `expand`,
+`already_tried` with the quoted target and approach, or a `Read` of the rule, skill or checkpoint
+file — or `dropped()` for the complete list, which is read from
+`.qompack/state/rehydrate-<session>.json` and is never truncated. If the resumed session instead
+shows a `<persisted-output>` note with a file path, or `.qompack/logs/LOUD.log` has a line saying
+"hook output exceeds the host's per-field cap", that is a defect: the rehydration is built never to
+reach the cap. Report it with that log line.
+
 ## 6. Configuration and schema compatibility
 
 There are five ways a configuration value can be *accepted and not applied*. Both loaders treat them

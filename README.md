@@ -29,6 +29,10 @@ number is changed by this page.
 
 ## Supported environments
 
+**Claude Code 2.1.139 or later** is required for any install: every hook is exec form, and 2.1.139
+added the hook `args` field that form needs. Installing from the marketplace
+needs **2.1.224 or later**. See [docs/install.md](docs/install.md).
+
 The following checks are configured in `.github/workflows/ci.yml`; this table does not establish
 that the current candidate passed them. Go jobs pin
 `1.26.6` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
@@ -80,14 +84,17 @@ The plugin bundle lives in `plugin/`:
 ```
 plugin/
   .claude-plugin/plugin.json   name, version, description, homepage
-  .mcp.json                    registers the `qompack` MCP server as `${CLAUDE_PLUGIN_ROOT}/bin/qompack mcp`
-  hooks/hooks.json             the seven hook registrations, each invoking a `qompack` subcommand
+  .mcp.json                    registers the `qompack` MCP server: `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, args `["mcp"]`
+  hooks/hooks.json             the seven hook registrations, each launching the binary with a subcommand
   commands/*.md                the slash commands
 ```
 
-Every generated file in that tree refers to the binary as `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, which
-the host expands to the installed plugin directory. All four files are generated from one typed
-value in `internal/pluginmanifest`, and
+Every hook and the MCP server are exec form: `command` is exactly the bundled executable and `args`
+the subcommand, so the host spawns the binary directly and no shell — Git Bash, `sh` or PowerShell —
+ever parses the string. The committed tree is the linux/darwin rendering, naming
+`${CLAUDE_PLUGIN_ROOT}/bin/qompack`; each release bundle is rendered for its own target, and the
+windows bundles name `bin/qompack.exe`. All four files are generated from one typed value in
+`internal/pluginmanifest`, and
 
 ```
 go run ./tools/devtool plugin-validate

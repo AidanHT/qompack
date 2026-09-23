@@ -25,7 +25,7 @@ capability it cannot verify.
 | # | Proposal | Status |
 |---|---|---|
 | 1 | Observability of delivered `additionalContext` | `not filed` |
-| 2 | A PreCompact contract for `custom_instructions` and time to write | `not filed` |
+| 2 | A PreCompact output channel for summarizer focus, and time to write | `not filed` |
 | 3 | A post-compaction signal | `not filed` |
 | 4 | Per-hook latency attribution | `not filed` |
 | 5 | MCP server registration visibility | `not filed` |
@@ -49,7 +49,12 @@ capability it cannot verify.
   [ADR 0011](adr/0011-rehydration-budget-and-item-order.md), can bound and order what Qompack emits
   but cannot observe what the host did with it, and `internal/contract/capability.go` records
   injection as `implemented_unverified` with the note that an observed sentinel "documents one
-  delivery under the tested contract, never complete context or model compliance".
+  delivery under the tested contract, never complete context or model compliance". One part of
+  "how much of it" is now documented and observed: over 10,000 characters the host swaps the text
+  for a file path and a 2,000-character preview, with no signal to the hook
+  ([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
+  Qompack now holds its compact rehydration to 9,500 characters so that case does not arise for it;
+  a delivered-size signal would still be the only way to confirm it on a given host.
 - **Proposal.** Report delivery of hook-supplied additional context back to the hook's own process:
   a delivered/not-delivered flag and the delivered size, on the same event, would be enough.
 - **What Qompack would do with it.** Declare the producer for
@@ -59,26 +64,28 @@ capability it cannot verify.
   would not lift the model-compliance limit, which is a different question.
 - **Status: not filed.**
 
-## 2. A PreCompact contract for `custom_instructions` acceptance and time to write
+## 2. A PreCompact output channel for summarizer focus, and time to write
 
-- **Host limitation.** Two properties of the PreCompact hook are undocumented as guarantees:
-  whether `custom_instructions` returned by the hook is accepted, and how much wall time the hook
-  has before compaction proceeds without it.
-- **Evidence.** Both assertions report `not-yet-implemented` in `qompack self-test`'s
-  zero-`Services` run, and neither has an installed-host observation recorded anywhere (B01):
-  `precompact.has_time_to_write` ("measured PreCompact wall time vs. the manifest timeout") and
-  `precompact.custom_instructions_accepted` ("the emitted instruction's sentinel phrase is searched
-  for in the post-compaction summary; absent warns (advisory by design)") —
-  `internal/contract/ids.go`. `Qompack.md` v1.5 §7.3 records the boundary that makes the first
-  question sharp: "`custom_instructions` is PreCompact input, not a summarizer-output setter", and
-  "installed support remains unverified".
-- **Proposal.** State the PreCompact timeout as a contract, and acknowledge acceptance of
-  `custom_instructions` in the hook's own response path — accepted or ignored, with a reason —
-  rather than leaving both to be inferred from a later summary.
-- **What Qompack would do with it.** Size its PreCompact checkpoint work against a stated budget
-  instead of against a conservative guess, and turn the `custom_instructions` question from an
-  advisory sentinel search into a real assertion. It would not turn the instruction into a
-  summarizer setter; that limit stands regardless.
+- **Host limitation.** A PreCompact hook cannot contribute anything to the summary. The hooks
+  reference (fetched 2026-09-22) documents PreCompact decision control as top-level
+  `decision: "block"`/`reason` only, with no `hookSpecificOutput` variant, and "Claude Code discards
+  a PreCompact hook's `systemMessage` and `continue` fields"; `custom_instructions` is PreCompact
+  *input* — what the user typed after `/compact`, `null` for auto-compaction. Separately, how much
+  wall time the hook has before compaction proceeds without it is undocumented as a guarantee.
+- **Evidence.** Claude Code 2.1.280 rejected the focus instruction Qompack returned as
+  `hookSpecificOutput.customInstructions`: "Hook JSON output validation failed —
+  hookSpecificOutput.hookEventName: expected one of "PreToolUse" | "UserPromptSubmit" | …", and it
+  appended the whole rejection, instruction text included, to the post-compaction transcript
+  ([evidence](../plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt)). Qompack now
+  answers PreCompact with the empty object. `precompact.has_time_to_write` ("measured PreCompact
+  wall time vs. the manifest timeout") still has no installed-host observation recorded (B01).
+- **Proposal.** Give PreCompact a `hookSpecificOutput` that appends plugin-supplied focus text to
+  the summarization request (the way the user's own `/compact <instructions>` does), and state the
+  PreCompact timeout as a contract.
+- **What Qompack would do with it.** Deliver the checkpoint's span paragraph ("the checkpoint
+  covers the session through turn N; summarize only what came after"), which the daemon already
+  renders and today has to discard, and size its PreCompact work against a stated budget instead of
+  a conservative guess. It would still not be a summarizer setter.
 - **Status: not filed.**
 
 ## 3. A post-compaction signal that does not have to be inferred

@@ -165,7 +165,7 @@ func TestReleaseCheckStepsAreOrderedAndCoverCILocal(t *testing.T) {
 	}
 	for _, want := range []string{
 		"build-all", "generated docs", "guards", "govulncheck", "licenses",
-		"real-binary determinism", "rollback rehearsal", "plugin-validate",
+		"real-binary determinism", "rollback rehearsal", "plugin-validate", "marketplace",
 	} {
 		if at(want) <= prev {
 			t.Errorf("%q must run after the ci-local sequence; release.yml ran ci-local alone and "+
