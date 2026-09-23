@@ -147,6 +147,22 @@ and the format-2 A/B seal as they are implemented and merged — it documents de
 rather than proposing new ones, and settles four of the twelve questions SP20-D1's design put to the
 owner.
 
+**Delivery journal segments.** The lease and acknowledgement journals are segmented (SP20-D4, enabled
+by default since the V6 close-out). A segment's two journal files keep their fixed bounds — 65,536
+entries and 64 MiB each — and reaching either rotates the journal rather than refusing: the rotation
+archives the outgoing window (every lease, acknowledgement and terminal disposition) into the
+generation store, an immutable Merkle radix over nonce, arrival, acknowledgement, terminal and
+per-session frontier keys, stored as one pack file and one root pointer per generation; then it
+stages the next segment and commits the switch as one fsynced record in the segment authority's
+chained log. The hot path never writes the generation store: the active segment's journals are the
+record of the active window, and only a settlement of an already-archived lease is mirrored at once.
+A new delivery is checked against the active window first and the archive second, so a redelivery
+of any archived nonce returns its original identity and a dormant session continues its arrivals
+densely. The original four files stay in place as segment 0; its two seals are frozen at the first
+rotation so a build that predates segments refuses the journal instead of re-minting arrivals. Memory
+and every lookup are bounded by the active window; disk grows with history. Store GC, backup, the
+offline delivery-seal check and `fsck` read every segment.
+
 Checkpoint durability is `internal/checkpoint`: the L4 checkpointer owns the immutable,
 importance-ordered checkpoint artifact, the incrementally advancing draft that encodes closed
 segments exactly once (the §4.6 DPI guard), the tiered truncation order, ground-truth pointer
