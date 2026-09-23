@@ -525,7 +525,7 @@ func buildEliminations(ctx context.Context, r Request, d Deps, sc map[dag.NodeID
 			text: eliminationLine(rec),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindElimination, ID: rec.ID,
-				Detail: "did not fit the rehydration budget; call already_tried(target, approach) or dropped()",
+				Detail: "did not fit the rehydration budget; call " + alreadyTriedCall(rec),
 			},
 		})
 	}
@@ -614,6 +614,18 @@ func eliminationCandidates(ctx context.Context, r Request, d Deps) ([]negknow.Re
 }
 
 // eliminationLine renders one elimination.
+// alreadyTriedCall is the call that brings one elimination back: already_tried keyed on the
+// record's OWN target and approach, which is what the ledger matches (whitespace-collapsed, so
+// oneLine's newline folding still hits the same descriptor) and what the call answers with the
+// reason and evidence for. A drop line names the record only by its elim_ id, which no tool takes,
+// so a detail that said "already_tried(target, approach)" left the model nothing to pass. Both
+// fields are free text and are Go-quoted: a comma or quote inside one must not read as an argument
+// boundary.
+func alreadyTriedCall(rec negknow.Record) string {
+	return "already_tried(target=" + strconv.Quote(oneLine(rec.Target)) +
+		", approach=" + strconv.Quote(oneLine(rec.Approach)) + ")"
+}
+
 func eliminationLine(rec negknow.Record) string {
 	tag := activeStatusTag
 	if rec.Status == negknow.StatusStale {
@@ -1066,6 +1078,18 @@ func firstMatchingPointer(rule rules.Rule, pointers []string, match matchFunc) s
 	return ""
 }
 
+// skillPointer is the pointer that restores one skill-index entry: a Read of its SKILL.md, whose
+// frontmatter carries the name and description the index line would have shown. Source is the
+// project-relative forward-slash path the indexer always sets; an entry without one yields "", and
+// restoreClause falls back to dropped() rather than rendering a bare "Read ".
+func skillPointer(e skills.Entry) string {
+	src := oneLine(e.Source)
+	if src == "" {
+		return ""
+	}
+	return "Read " + src
+}
+
 // buildSkillIndex is item 6b: names and one-line descriptions only (G4.4). The host re-injects
 // invoked skill BODIES but never the index, so the model loses awareness of what it could invoke
 // at all; this restores the awareness without paying for the bodies.
@@ -1107,7 +1131,7 @@ func buildSkillIndex(ctx context.Context, r Request, d Deps, bodyTokens bodyToke
 			text: "- " + oneLine(e.Name) + ": " + oneLine(e.Description) + "\n",
 			drop: checkpoint.DropEntry{
 				Kind: dropKindSkill, ID: e.Name,
-				Detail: "did not fit the rehydration budget",
+				Detail: "did not fit the rehydration budget" + restoreClause(skillPointer(e)),
 			},
 		})
 	}
@@ -1116,7 +1140,8 @@ func buildSkillIndex(ctx context.Context, r Request, d Deps, bodyTokens bodyToke
 		if _, ok := inIndex[e.Name]; !ok {
 			b.drops = append(b.drops, checkpoint.DropEntry{
 				Kind: dropKindSkill, ID: e.Name,
-				Detail: "not in the compact skill index (budget " + itoa(int(skillBudget)) + " tokens)",
+				Detail: "not in the compact skill index (budget " + itoa(int(skillBudget)) + " tokens)" +
+					restoreClause(skillPointer(e)),
 			})
 		}
 	}

@@ -1,0 +1,58 @@
+--- FAIL: TestEliminations_BudgetDropNamesItsOwnQuery (0.00s)
+    items_test.go:715: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rehydrate/internal/rehydrate/items_test.go:715
+        	Error:      	Not equal: 
+        	            	expected: map[string]string{"elim_a":"did not fit the rehydration budget; call already_tried(target=\"src/auth.ts:refreshToken\", approach=\"widen pool timeout\")", "elim_b":"did not fit the rehydration budget; call already_tried(target=\"db, pool\", approach=\"say \\\"retry\\\" then wait\")"}
+        	            	actual  : map[string]string{"elim_a":"did not fit the rehydration budget; call already_tried(target, approach) or dropped()", "elim_b":"did not fit the rehydration budget; call already_tried(target, approach) or dropped()"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,4 @@
+        	            	 (map[string]string) (len=2) {
+        	            	- (string) (len=6) "elim_a": (string) (len=120) "did not fit the rehydration budget; call already_tried(target=\"src/auth.ts:refreshToken\", approach=\"widen pool timeout\")",
+        	            	- (string) (len=6) "elim_b": (string) (len=109) "did not fit the rehydration budget; call already_tried(target=\"db, pool\", approach=\"say \\\"retry\\\" then wait\")"
+        	            	+ (string) (len=6) "elim_a": (string) (len=85) "did not fit the rehydration budget; call already_tried(target, approach) or dropped()",
+        	            	+ (string) (len=6) "elim_b": (string) (len=85) "did not fit the rehydration budget; call already_tried(target, approach) or dropped()"
+        	            	 }
+        	Test:       	TestEliminations_BudgetDropNamesItsOwnQuery
+--- FAIL: TestSkillIndex_DropsReportUnindexedSkills (0.00s)
+    items_test.go:1299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rehydrate/internal/rehydrate/items_test.go:1299
+        	Error:      	Not equal: 
+        	            	expected: []checkpoint.DropEntry{checkpoint.DropEntry{Kind:"skill", ID:"migration-runner", Detail:"not in the compact skill index (budget 450 tokens); restore: Read .claude/skills/migration-runner/SKILL.md"}, checkpoint.DropEntry{Kind:"skill", ID:"release", Detail:"not in the compact skill index (budget 450 tokens); call dropped() for the full accounting"}}
+        	            	actual  : []checkpoint.DropEntry{checkpoint.DropEntry{Kind:"skill", ID:"migration-runner", Detail:"not in the compact skill index (budget 450 tokens)"}, checkpoint.DropEntry{Kind:"skill", ID:"release", Detail:"not in the compact skill index (budget 450 tokens)"}}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -4,3 +4,3 @@
+        	            	   ID: (string) (len=16) "migration-runner",
+        	            	-  Detail: (string) (len=106) "not in the compact skill index (budget 450 tokens); restore: Read .claude/skills/migration-runner/SKILL.md"
+        	            	+  Detail: (string) (len=50) "not in the compact skill index (budget 450 tokens)"
+        	            	  },
+        	            	@@ -9,3 +9,3 @@
+        	            	   ID: (string) (len=7) "release",
+        	            	-  Detail: (string) (len=90) "not in the compact skill index (budget 450 tokens); call dropped() for the full accounting"
+        	            	+  Detail: (string) (len=50) "not in the compact skill index (budget 450 tokens)"
+        	            	  }
+        	Test:       	TestSkillIndex_DropsReportUnindexedSkills
+--- FAIL: TestSkillIndex_BudgetDropNamesTheSkillFile (0.00s)
+    items_test.go:1320: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rehydrate/internal/rehydrate/items_test.go:1320
+        	Error:      	Not equal: 
+        	            	expected: checkpoint.DropEntry{Kind:"skill", ID:"code-review", Detail:"did not fit the rehydration budget; restore: Read .claude/skills/code-review/SKILL.md"}
+        	            	actual  : checkpoint.DropEntry{Kind:"skill", ID:"code-review", Detail:"did not fit the rehydration budget"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -3,3 +3,3 @@
+        	            	  ID: (string) (len=11) "code-review",
+        	            	- Detail: (string) (len=85) "did not fit the rehydration budget; restore: Read .claude/skills/code-review/SKILL.md"
+        	            	+ Detail: (string) (len=34) "did not fit the rehydration budget"
+        	            	 }
+        	Test:       	TestSkillIndex_BudgetDropNamesTheSkillFile
+FAIL
+FAIL	github.com/qompack/qompack/internal/rehydrate	1.303s
+FAIL
