@@ -222,12 +222,31 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 			require.NotEmpty(t, recorded, "call %d (%v): the route records the instruction it rendered", i+1, call.argv)
 			// Paragraph 1 is §8.5's standing focus instruction: always rendered, always first. It is
 			// computed from the package rather than pasted, so this row cannot drift from the text the
-			// daemon actually renders.
+			// daemon actually renders. The history keeps the instruction's first 256 runes, so the
+			// recorded first line is the standing paragraph cut by the history's OWN truncation —
+			// equality, not a prefix test, which any non-empty cut would pass.
 			standing := checkpoint.FocusInstructions(checkpoint.Checkpoint{}, checkpoint.Ref{}, checkpoint.FocusOptions{})
-			require.True(t, strings.HasPrefix(standing, cpFirstLine(recorded)),
+			var capped contract.SessionHistory
+			capped.SetPrecompactInstr(standing)
+			require.Equal(t, cpFirstLine(capped.PrecompactInstr), cpFirstLine(recorded),
 				"the recorded instruction's first line is the standing focus paragraph, capped\nrecorded:\n%s", recorded)
 			for _, secret := range v1Secrets {
 				require.NotContains(t, recorded, secret,
+					"the focus instruction is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
+			}
+
+			// The WHOLE instruction, not only the 256 runes the history keeps: this same frozen
+			// PreCompact, sent to the daemon's checkpoint route over the real IPC transport — the
+			// hop the hook client reads its reply from, and the last one the instruction still
+			// travels. A secret rendered after rune 256 is caught here.
+			var ev hookio.Event
+			require.NoError(t, json.Unmarshal(payload, &ev))
+			_, instr := cpPreCompactReplyFor(t, p.Root, ev)
+			require.NotEmpty(t, instr, "call %d (%v): the checkpoint route renders a focus instruction", i+1, call.argv)
+			require.Equal(t, standing, cpFirstLine(instr),
+				"the rendered instruction's first line is the standing focus paragraph\ninstructions:\n%s", instr)
+			for _, secret := range v1Secrets {
+				require.NotContains(t, instr, secret,
 					"the focus instruction is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
 			}
 		}
