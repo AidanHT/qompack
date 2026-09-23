@@ -1,0 +1,26 @@
+== devtool lint: golangci-lint ==
+internal\observer\response_decode_cost_test.go:79:33: unnecessary conversion (unconvert)
+	require.Equal(t, core.SessionID(testSession), sig[len(sig)-1].Session)
+	                               ^
+exit status 1
+FAIL golangci-lint: exit status 1
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (71 package(s) checked)
+PASS importgraph
+== devtool lint: testdeps ==
+testdeps: OK (73 package(s) checked)
+PASS testdeps
+== devtool lint: bindeps ==
+  linux/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  linux/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+FAIL bindeps: bindeps: 4 violation(s)
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+== devtool lint: stubskips ==
+exit status 143
+exit=124

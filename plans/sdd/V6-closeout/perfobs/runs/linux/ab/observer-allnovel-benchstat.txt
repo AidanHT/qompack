@@ -1,0 +1,45 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+                                     │ observer-allnovel-base.txt │    observer-allnovel-new.txt    │
+                                     │           sec/op           │    sec/op     vs base           │
+OnToolUse_TestOutput256KB/AllNovel-4                 425.7m ± ∞ ¹   313.7m ± ∞ ¹  ~ (p=0.200 n=3) ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                                     │ observer-allnovel-base.txt │   observer-allnovel-new.txt    │
+                                     │          dedup-x           │   dedup-x    vs base           │
+OnToolUse_TestOutput256KB/AllNovel-4                  3.753 ± ∞ ¹   3.753 ± ∞ ¹  ~ (p=1.000 n=3) ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                     │ observer-allnovel-base.txt │    observer-allnovel-new.txt    │
+                                     │          objects           │   objects     vs base           │
+OnToolUse_TestOutput256KB/AllNovel-4                 12.21k ± ∞ ¹   12.21k ± ∞ ¹  ~ (p=1.000 n=3) ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                     │ observer-allnovel-base.txt │   observer-allnovel-new.txt    │
+                                     │           p50-ms           │   p50-ms     vs base           │
+OnToolUse_TestOutput256KB/AllNovel-4                  426.0 ± ∞ ¹   327.7 ± ∞ ¹  ~ (p=0.200 n=3) ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                                     │ observer-allnovel-base.txt │   observer-allnovel-new.txt    │
+                                     │           p99-ms           │   p99-ms     vs base           │
+OnToolUse_TestOutput256KB/AllNovel-4                  852.0 ± ∞ ¹   720.9 ± ∞ ¹  ~ (p=0.400 n=3) ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                                     │ observer-allnovel-base.txt │    observer-allnovel-new.txt     │
+                                     │            B/op            │     B/op       vs base           │
+OnToolUse_TestOutput256KB/AllNovel-4               12.458Mi ± ∞ ¹   7.424Mi ± ∞ ¹  ~ (p=0.100 n=3) ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                                     │ observer-allnovel-base.txt │    observer-allnovel-new.txt    │
+                                     │         allocs/op          │  allocs/op    vs base           │
+OnToolUse_TestOutput256KB/AllNovel-4                 30.99k ± ∞ ¹   10.70k ± ∞ ¹  ~ (p=0.100 n=3) ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05

@@ -627,6 +627,9 @@ func TestMinHash_BottomKMatchesTheSlowDefinition(t *testing.T) {
 		{"1 MiB of one repeated line", mhRepeated(mhBuildLogLine, mhBigDocBytes), mhShingleSize},
 		{"a 64-byte shingle width", mhDoc(mhSeedShift, 200<<10), maxShingleSize},
 		{"a 2-byte shingle width", mhDoc(mhSeedShift, 200<<10), minShingleSize},
+		// The width every shipped caller asks for, which has its own constant-width loop.
+		{"the store's 5-byte shingle width", mhDoc(mhSeedShift, 200<<10), storeShingleSize},
+		{"the store's width over a repeated line", mhRepeated(mhBuildLogLine, 256<<10), storeShingleSize},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			o := mhOptions()
@@ -1048,4 +1051,26 @@ func TestMinHash_StableAcrossRuns(t *testing.T) {
 	// Stable within the run as well as across them: MinHash holds no state between calls.
 	require.Equal(t, sig, MinHash(mhFrozenInput(),
 		MinHashOptions{Enabled: true, Permutations: mhPerms, ShingleSize: mhShingleSize}))
+}
+
+// TestHashShingles_EveryWidthIsFNV1a pins the batched shingle hasher to its definition — fnv1a64 of
+// each w-byte window — at every width MinHashOptions can reach, at unaligned offsets and at batch
+// lengths that end exactly on the data. The store's width and the default width each take a
+// constant-width loop of their own, and nothing but this equality licenses them.
+func TestHashShingles_EveryWidthIsFNV1a(t *testing.T) {
+	data := mhDoc(mhSeedA, 3*shingleChunk)
+	for w := minShingleSize; w <= maxShingleSize; w++ {
+		for _, off := range []int{0, 1, 7, shingleChunk + 3} {
+			n := min(shingleChunk, len(data)-w+1-off)
+			dst := make([]uint64, n)
+			hashShingles(dst, data, off, w)
+			for i := range dst {
+				if want := fnv1a64(data[off+i : off+i+w]); dst[i] != want {
+					t.Fatalf("width %d, offset %d, shingle %d: got %#x, fnv1a64 is %#x", w, off, i, dst[i], want)
+				}
+			}
+		}
+	}
+	require.Equal(t, 5, storeShingleSize,
+		"storeShingleSize must stay the width internal/canon and internal/observer ask for")
 }

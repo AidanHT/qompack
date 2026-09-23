@@ -1,0 +1,4 @@
+ok  	github.com/qompack/qompack/internal/canon	9.723s
+ok  	github.com/qompack/qompack/internal/sketch	5.359s
+ok  	github.com/qompack/qompack/internal/checkpoint	137.216s
+exit=0 head=de83e44

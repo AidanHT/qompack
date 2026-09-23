@@ -1,0 +1,41 @@
+=== RUN   TestTermFrequenciesMatchTheTokenRegexp
+    features_cost_test.go:79: [rapid] OK, passed 100 tests (541.7µs)
+    features_cost_test.go:83: [rapid] OK, passed 100 tests (1.6098ms)
+--- PASS: TestTermFrequenciesMatchTheTokenRegexp (0.05s)
+=== RUN   TestWindowTermFrequenciesMatchTheConcatenation
+    features_cost_test.go:95: [rapid] OK, passed 100 tests (146.6726ms)
+--- PASS: TestWindowTermFrequenciesMatchTheConcatenation (0.15s)
+=== RUN   TestTermFrequenciesCostIsPerDistinctToken
+--- PASS: TestTermFrequenciesCostIsPerDistinctToken (0.00s)
+=== RUN   TestFeatures_NotReadyBeforeTwoWindows
+--- PASS: TestFeatures_NotReadyBeforeTwoWindows (0.00s)
+=== RUN   TestFeatures_PathJaccardIdenticalWindows
+--- PASS: TestFeatures_PathJaccardIdenticalWindows (0.00s)
+=== RUN   TestFeatures_PathJaccardDisjointWindows
+--- PASS: TestFeatures_PathJaccardDisjointWindows (0.00s)
+=== RUN   TestFeatures_PathJaccardBothEmpty
+--- PASS: TestFeatures_PathJaccardBothEmpty (0.00s)
+=== RUN   TestFeatures_ToolShiftIdentical
+--- PASS: TestFeatures_ToolShiftIdentical (0.00s)
+=== RUN   TestFeatures_ToolShiftComplete
+--- PASS: TestFeatures_ToolShiftComplete (0.01s)
+=== RUN   TestFeatures_ToolShiftHalf
+--- PASS: TestFeatures_ToolShiftHalf (0.00s)
+=== RUN   TestFeatures_LexicalCohesionIdenticalText
+--- PASS: TestFeatures_LexicalCohesionIdenticalText (0.00s)
+=== RUN   TestFeatures_LexicalCohesionDisjointVocabulary
+--- PASS: TestFeatures_LexicalCohesionDisjointVocabulary (0.00s)
+=== RUN   TestFeatures_GapSecondsFromFakeClock
+--- PASS: TestFeatures_GapSecondsFromFakeClock (0.04s)
+=== RUN   TestFeatures_TodoTransition
+--- PASS: TestFeatures_TodoTransition (0.04s)
+=== RUN   TestFeatures_AllFinite
+    features_test.go:155: [rapid] OK, passed 100 tests (62.6626ms)
+--- PASS: TestFeatures_AllFinite (0.08s)
+=== RUN   TestFeatures_RecentRingBounded
+--- PASS: TestFeatures_RecentRingBounded (0.00s)
+=== RUN   TestFeatures_RecentTextIsBounded
+--- PASS: TestFeatures_RecentTextIsBounded (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	0.625s
+exit=0

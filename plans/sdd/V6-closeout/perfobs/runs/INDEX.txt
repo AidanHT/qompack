@@ -1,0 +1,29 @@
+Evidence manifest for V6 close-out C2.3-C2.5 (branch closeout/perfobs, base cf31e01, final code de83e44).
+Which build each log measured. "base" is always cf31e01.
+
+Windows (Core Ultra 7 155H, heavily co-loaded throughout; see the report's measurement section)
+  win-profiles/*                         CPU/alloc profile summaries: base, after-7c5d640, new-build Delta,
+                                         negknow switch- vs table-parse diffs (92ad1db vs 0f1bfab)
+  win-*-RED.txt / win-*-GREEN.txt        new cost tests against the base code and after each fix
+  win-observer-full.txt, win-checkpoint-full.txt   package runs at the 92ad1db working tree
+  win-negknow-full.txt                   negknow at 92ad1db (switch parse)
+  win-canon-sketch-full.txt              canon+sketch at 86ff483/3dc229f
+  win-canon-sketch-checkpoint-full-HEAD.txt, win-negknow-full-HEAD-rerun.txt   at de83e44
+  win-negknow-observer-full-HEAD.txt     at de83e44: observer ok; negknow FAIL = TestBudget_RefreshStaleness
+                                         wall-clock under co-load, see win-refreshstaleness-rerun.txt
+  win-ab/checkpoint-*                    Finalize A/B, new = 92ad1db build (checkpoint code final since 7c5d640)
+  win-ab/negknow-*, win-ab-cpu1/*        superseded intermediate negknow build 92ad1db (see win-ab/README.txt)
+  win-ab/aborted-*, win-ab/orphaned-*    not used; READMEs say why
+  win-ab-canon/*                         canon micro A/B, new = de83e44, -test.cpu 1
+  win-ab-observer/*                      OnToolUse 256 KB Deduped/Delta A/B, new = de83e44, 8 rounds
+  win-ab-observer-allnovel/*             AllNovel, one usable pair only (README)
+  win-ab-negknow-final*/*                negknow A/B, new = 0f1bfab-equivalent negknow code (= de83e44)
+  win-budget-open/*                      TestBudget_Open x3 per side, interleaved
+  win-devtool-*                          fmt-check and lint logs (lint notes inside)
+Linux (qompack-v6-linux-verification, WSL2 VM on the same host, GOMAXPROCS=4)
+  linux/linux-*-full.txt                 touched packages in full as non-root user qtest at de83e44
+  linux/first-pass-92ad1db/*             same at 92ad1db
+  linux/trace/*                          execution-trace syscall attribution + CPU profiles, build 92ad1db
+  linux/ab/*                             final A/B, builds.txt: new=de83e44 base=cf31e01
+  linux/ab-partial-92ad1db/*             stopped partial A/B of the intermediate build
+Drivers: ab_win.sh, linux_ab.sh, linux_tests.sh, linux_trace.sh

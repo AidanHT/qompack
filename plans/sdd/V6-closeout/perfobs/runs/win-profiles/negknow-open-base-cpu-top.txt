@@ -1,0 +1,91 @@
+File: negknow.test.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\base\negknow.test.exe2026-09-22 17:19:44.3765226 -0400 EDT
+Type: cpu
+Time: 2026-09-22 17:58:42 EDT
+Duration: 23.87s, Total samples = 25.76s (107.90%)
+Active filters:
+   focus=negknow.Open$
+Showing nodes accounting for 12.75s, 49.50% of 25.76s total
+Dropped 119 nodes (cum <= 0.13s)
+Showing top 80 nodes out of 128
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     14.94s 58.00%  github.com/qompack/qompack/internal/negknow.BenchmarkOpen
+         0     0%     0%     14.94s 58.00%  github.com/qompack/qompack/internal/negknow.Open
+         0     0%     0%     14.94s 58.00%  testing.(*B).runN
+         0     0%     0%     14.58s 56.60%  testing.(*B).launch
+         0     0%     0%      8.55s 33.19%  github.com/qompack/qompack/internal/negknow.(*ledger).loadRecords
+     5.32s 20.65% 20.65%      5.32s 20.65%  runtime.cgocall
+         0     0% 20.65%      5.32s 20.65%  syscall.syscalln
+         0     0% 20.65%      5.28s 20.50%  syscall.SyscallN
+         0     0% 20.65%      5.02s 19.49%  github.com/qompack/qompack/internal/negknow.replayLogSized
+         0     0% 20.65%      4.72s 18.32%  github.com/qompack/qompack/internal/negknow.(*ledger).reconcileBloom
+         0     0% 20.65%      4.69s 18.21%  github.com/qompack/qompack/internal/negknow.(*ledger).rebuildWith
+     0.01s 0.039% 20.69%      4.28s 16.61%  github.com/qompack/qompack/internal/negknow.replayLogSized.func3 (inline)
+     0.08s  0.31% 21.00%      4.27s 16.58%  github.com/qompack/qompack/internal/negknow.replayLogSized.func2
+         0     0% 21.00%      3.37s 13.08%  github.com/qompack/qompack/internal/negknow.(*ledger).persistBloom
+         0     0% 21.00%      3.37s 13.08%  github.com/qompack/qompack/internal/sketch.ReplaceGenerational
+         0     0% 21.00%      3.32s 12.89%  github.com/qompack/qompack/internal/paths.ReplaceBloom
+     0.25s  0.97% 21.97%      2.58s 10.02%  github.com/qompack/qompack/internal/negknow.(*ledger).reindex
+         0     0% 21.97%      2.44s  9.47%  github.com/qompack/qompack/internal/negknow.decodeLogLine
+     0.08s  0.31% 22.28%      2.44s  9.47%  github.com/qompack/qompack/internal/negknow.decodeRecordLineFast
+         0     0% 22.28%      2.09s  8.11%  os.WriteFile
+     0.16s  0.62% 22.90%      1.86s  7.22%  runtime.mallocgc
+         0     0% 22.90%      1.62s  6.29%  github.com/qompack/qompack/internal/paths.EnsureLayout
+     0.05s  0.19% 23.10%      1.60s  6.21%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).str (inline)
+         0     0% 23.10%      1.60s  6.21%  os.MkdirAll
+         0     0% 23.10%      1.55s  6.02%  os.Mkdir
+         0     0% 23.10%      1.55s  6.02%  os.Mkdir.func1 (inline)
+         0     0% 23.10%      1.55s  6.02%  os.ignoringEINTR (inline)
+         0     0% 23.10%      1.55s  6.02%  syscall.CreateDirectory
+         0     0% 23.10%      1.55s  6.02%  syscall.Mkdir
+     0.04s  0.16% 23.25%      1.47s  5.71%  github.com/qompack/qompack/internal/core.HashBytes
+         0     0% 23.25%      1.23s  4.77%  internal/syscall/windows.MoveFileEx
+         0     0% 23.25%      1.23s  4.77%  internal/syscall/windows.Rename
+         0     0% 23.25%      1.23s  4.77%  os.Rename (inline)
+         0     0% 23.25%      1.23s  4.77%  os.rename
+     0.06s  0.23% 23.49%      1.20s  4.66%  github.com/qompack/qompack/internal/negknow.recordFromWire
+     0.04s  0.16% 23.64%      1.19s  4.62%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).strBytes
+     1.07s  4.15% 27.80%      1.15s  4.46%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).rawString
+     0.19s  0.74% 28.53%      1.13s  4.39%  crypto/internal/fips140/sha256.(*Digest).Write
+         0     0% 28.53%      1.05s  4.08%  github.com/qompack/qompack/internal/negknow.(*ledger).rebuildWith.func2
+     0.02s 0.078% 28.61%      1.05s  4.08%  github.com/qompack/qompack/internal/negknow.(*ledger).rebuildWith.func2.(*ledger).visibleActive.1 (inline)
+         0     0% 28.61%      1.05s  4.08%  github.com/qompack/qompack/internal/sketch.RebuildBloom
+     0.02s 0.078% 28.69%      1.04s  4.04%  github.com/qompack/qompack/internal/core.ParseHash
+     0.02s 0.078% 28.77%      1.03s  4.00%  runtime.makeslice
+         0     0% 28.77%      1.02s  3.96%  github.com/qompack/qompack/internal/negknow.(*ledger).rebuildWith.func2-range1 (inline)
+     0.03s  0.12% 28.88%      1.02s  3.96%  github.com/qompack/qompack/internal/sketch.RebuildBloom-range1
+         0     0% 28.88%      1.01s  3.92%  internal/poll.(*FD).execIO
+     0.33s  1.28% 30.16%      0.98s  3.80%  github.com/qompack/qompack/internal/sketch.(*Bloom).Add
+     0.02s 0.078% 30.24%      0.93s  3.61%  encoding/hex.DecodeString
+         0     0% 30.24%      0.89s  3.45%  os.OpenFile
+         0     0% 30.24%      0.89s  3.45%  os.openFileNolog
+     0.05s  0.19% 30.43%      0.88s  3.42%  crypto/internal/fips140/sha256.(*Digest).Sum
+     0.88s  3.42% 33.85%      0.88s  3.42%  runtime.memmove
+         0     0% 33.85%      0.88s  3.42%  syscall.Open
+         0     0% 33.85%      0.88s  3.42%  syscall.createFile
+     0.86s  3.34% 37.19%      0.86s  3.34%  runtime.memclrNoHeapPointers
+     0.80s  3.11% 40.30%      0.80s  3.11%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+     0.09s  0.35% 40.64%      0.75s  2.91%  crypto/internal/fips140/sha256.(*Digest).checkSum
+         0     0% 40.64%      0.75s  2.91%  runtime.mallocgcLarge
+         0     0% 40.64%      0.75s  2.91%  runtime.memclrNoHeapPointersChunked
+         0     0% 40.64%      0.74s  2.87%  github.com/qompack/qompack/internal/paths.ReadFileShared
+     0.02s 0.078% 40.72%      0.73s  2.83%  crypto/internal/fips140/sha256.block
+         0     0% 40.72%      0.73s  2.83%  internal/poll.(*FD).Write
+         0     0% 40.72%      0.73s  2.83%  internal/poll.(*FD).Write.func1
+         0     0% 40.72%      0.73s  2.83%  os.(*File).Write
+         0     0% 40.72%      0.73s  2.83%  os.(*File).write (inline)
+         0     0% 40.72%      0.73s  2.83%  syscall.WriteFile (inline)
+         0     0% 40.72%      0.73s  2.83%  syscall.writeFile
+     0.71s  2.76% 43.48%      0.71s  2.76%  crypto/internal/fips140/sha256.blockSHANI
+     0.44s  1.71% 45.19%      0.70s  2.72%  encoding/hex.Decode
+     0.03s  0.12% 45.30%      0.68s  2.64%  runtime.slicebytetostring
+     0.01s 0.039% 45.34%      0.66s  2.56%  github.com/qompack/qompack/internal/negknow.parseHashOrZero (inline)
+     0.11s  0.43% 45.77%      0.64s  2.48%  runtime.mapassign_faststr
+     0.63s  2.45% 48.21%      0.63s  2.45%  runtime.asyncPreempt
+     0.14s  0.54% 48.76%      0.59s  2.29%  runtime.mallocgcSmallNoscan
+     0.12s  0.47% 49.22%      0.58s  2.25%  runtime.mapaccess2_faststr
+     0.01s 0.039% 49.26%      0.57s  2.21%  github.com/qompack/qompack/internal/sketch.hash128
+     0.01s 0.039% 49.30%      0.53s  2.06%  github.com/qompack/qompack/internal/negknow.dedupHexKey
+         0     0% 49.30%      0.51s  1.98%  os.(*File).Close (inline)
+         0     0% 49.30%      0.51s  1.98%  os.(*file).close
+     0.05s  0.19% 49.50%      0.50s  1.94%  github.com/qompack/qompack/internal/negknow.Descriptor.keyHash

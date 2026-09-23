@@ -1,0 +1,70 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 252641500 ns/op	 4042185 B/op	   21254 allocs/op
+PASS
+# round=1 side=new exit=0 at 22:18:08
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 301569860 ns/op	 4160396 B/op	   21264 allocs/op
+PASS
+# round=2 side=new exit=0 at 22:37:20
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 332838580 ns/op	 4083060 B/op	   21262 allocs/op
+PASS
+# round=3 side=new exit=0 at 22:48:58
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 189474540 ns/op	 4208500 B/op	   21266 allocs/op
+PASS
+# round=4 side=new exit=0 at 23:02:32
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 814069700 ns/op	 4056265 B/op	   21462 allocs/op
+PASS
+# round=5 side=new exit=0 at 23:20:05
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 350019540 ns/op	 4170760 B/op	   21262 allocs/op
+PASS
+# round=6 side=new exit=0 at 23:34:06
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 257006180 ns/op	 4100313 B/op	   21258 allocs/op
+PASS
+# round=7 side=new exit=0 at 23:39:03
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 165739620 ns/op	 4047787 B/op	   21257 allocs/op
+PASS
+# round=8 side=new exit=0 at 23:45:36
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 188506460 ns/op	 4108513 B/op	   21466 allocs/op
+PASS
+# round=9 side=new exit=0 at 23:49:51
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-22    	       5	 257314280 ns/op	 4083092 B/op	   21263 allocs/op
+PASS
+# round=10 side=new exit=0 at 23:54:04

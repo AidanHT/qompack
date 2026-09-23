@@ -1,0 +1,91 @@
+File: observer.test.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\new\observer.test.exe2026-09-22 18:12:44.1417151 -0400 EDT
+Type: cpu
+Time: 2026-09-22 18:15:11 EDT
+Duration: 38.32s, Total samples = 37.70s (98.39%)
+Active filters:
+   focus=observer.\(\*observer\).onToolUse$
+Showing nodes accounting for 25.62s, 67.96% of 37.70s total
+Dropped 277 nodes (cum <= 0.19s)
+Showing top 80 nodes out of 165
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     35.04s 92.94%  github.com/qompack/qompack/internal/obs.Timed
+         0     0%     0%     35.04s 92.94%  github.com/qompack/qompack/internal/observer.(*observer).OnToolUse
+         0     0%     0%     35.04s 92.94%  github.com/qompack/qompack/internal/observer.(*observer).OnToolUse.func1
+         0     0%     0%     35.04s 92.94%  github.com/qompack/qompack/internal/observer.(*observer).onToolUse
+         0     0%     0%     35.04s 92.94%  github.com/qompack/qompack/internal/observer.(*observer).timed
+         0     0%     0%     35.04s 92.94%  github.com/qompack/qompack/internal/observer.BenchmarkOnToolUse_TestOutput256KB.func1
+         0     0%     0%     35.04s 92.94%  github.com/qompack/qompack/internal/observer.runOnToolUseBench
+         0     0%     0%     35.04s 92.94%  testing.(*B).runN
+     0.01s 0.027% 0.027%     34.13s 90.53%  github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+         0     0% 0.027%     33.79s 89.63%  testing.(*B).launch
+     0.02s 0.053%  0.08%     21.59s 57.27%  syscall.syscalln
+    21.53s 57.11% 57.19%     21.57s 57.21%  runtime.cgocall
+         0     0% 57.19%     19.79s 52.49%  syscall.SyscallN
+         0     0% 57.19%     12.45s 33.02%  github.com/qompack/qompack/internal/store.(*FSStore).admitRecovery
+         0     0% 57.19%     11.84s 31.41%  github.com/qompack/qompack/internal/store.(*FSStore).putDeltas
+         0     0% 57.19%     11.78s 31.25%  github.com/qompack/qompack/internal/store.(*FSStore).putSideRecord
+         0     0% 57.19%     11.55s 30.64%  github.com/qompack/qompack/internal/store.(*FSStore).putObject
+         0     0% 57.19%      9.53s 25.28%  github.com/qompack/qompack/internal/store.(*FSStore).beginPendingWrite
+         0     0% 57.19%      9.53s 25.28%  github.com/qompack/qompack/internal/store.(*FSStore).pending
+     0.01s 0.027% 57.21%      9.31s 24.69%  github.com/qompack/qompack/internal/paths.WriteAtomic
+         0     0% 57.21%      6.29s 16.68%  regexp.(*Regexp).doExecute
+         0     0% 57.21%      5.99s 15.89%  github.com/qompack/qompack/internal/redact.(*rx).Redact
+         0     0% 57.21%      5.53s 14.67%  regexp.(*Regexp).FindAllSubmatchIndex
+     0.01s 0.027% 57.24%      5.53s 14.67%  regexp.(*Regexp).allMatches
+         0     0% 57.24%      5.43s 14.40%  os.MkdirAll
+     0.60s  1.59% 58.83%      5.33s 14.14%  regexp.(*machine).match
+         0     0% 58.83%      5.28s 14.01%  github.com/qompack/qompack/internal/canon.(*registry).Run
+         0     0% 58.83%      4.98s 13.21%  github.com/qompack/qompack/internal/store.ensureDir
+         0     0% 58.83%      4.69s 12.44%  os.ignoringEINTR (inline)
+         0     0% 58.83%      4.59s 12.18%  os.Mkdir
+         0     0% 58.83%      4.59s 12.18%  os.Mkdir.func1 (inline)
+         0     0% 58.83%      4.59s 12.18%  syscall.Mkdir
+         0     0% 58.83%      4.58s 12.15%  syscall.CreateDirectory
+         0     0% 58.83%      3.45s  9.15%  internal/poll.(*FD).Fsync
+         0     0% 58.83%      3.45s  9.15%  os.(*File).Sync
+         0     0% 58.83%      3.45s  9.15%  syscall.FlushFileBuffers
+         0     0% 58.83%      3.45s  9.15%  syscall.Fsync (inline)
+     0.05s  0.13% 58.97%      3.32s  8.81%  github.com/qompack/qompack/internal/canon.(*registry).collect
+     0.01s 0.027% 58.99%      3.19s  8.46%  github.com/qompack/qompack/internal/canon.MatchesOf
+     2.29s  6.07% 65.07%      2.89s  7.67%  regexp.(*machine).add
+         0     0% 65.07%      2.62s  6.95%  github.com/qompack/qompack/internal/store.(*FSStore).writeStaged
+         0     0% 65.07%      2.58s  6.84%  github.com/qompack/qompack/internal/store.renameObject
+         0     0% 65.07%      2.58s  6.84%  internal/syscall/windows.Rename
+         0     0% 65.07%      2.58s  6.84%  os.Rename (inline)
+         0     0% 65.07%      2.58s  6.84%  os.rename
+         0     0% 65.07%      2.57s  6.82%  internal/syscall/windows.MoveFileEx
+         0     0% 65.07%      2.35s  6.23%  github.com/qompack/qompack/internal/canon.ruleMatches
+         0     0% 65.07%      2.35s  6.23%  os.Stat
+         0     0% 65.07%      2.34s  6.21%  os.stat
+         0     0% 65.07%      2.34s  6.21%  os.statNolog (inline)
+         0     0% 65.07%      2.26s  5.99%  os.OpenFile
+         0     0% 65.07%      2.26s  5.99%  os.openFileNolog
+         0     0% 65.07%      2.25s  5.97%  syscall.GetFileAttributesEx
+         0     0% 65.07%      2.25s  5.97%  syscall.Open
+         0     0% 65.07%      2.25s  5.97%  syscall.createFile
+     0.04s  0.11% 65.17%      2.22s  5.89%  github.com/qompack/qompack/internal/canon.forEachLine
+         0     0% 65.17%      1.86s  4.93%  internal/poll.(*FD).Write
+         0     0% 65.17%      1.86s  4.93%  internal/poll.(*FD).Write.func1
+         0     0% 65.17%      1.86s  4.93%  internal/poll.(*FD).execIO
+         0     0% 65.17%      1.86s  4.93%  os.(*File).Write
+         0     0% 65.17%      1.86s  4.93%  os.(*File).write (inline)
+         0     0% 65.17%      1.86s  4.93%  syscall.WriteFile (inline)
+         0     0% 65.17%      1.86s  4.93%  syscall.writeFile
+         0     0% 65.17%      1.85s  4.91%  os.(*File).Close (inline)
+         0     0% 65.17%      1.85s  4.91%  os.(*file).close
+         0     0% 65.17%      1.84s  4.88%  internal/poll.(*FD).Close
+         0     0% 65.17%      1.84s  4.88%  internal/poll.(*FD).decref
+         0     0% 65.17%      1.84s  4.88%  internal/poll.(*FD).destroy
+         0     0% 65.17%      1.84s  4.88%  syscall.CloseHandle
+         0     0% 65.17%      1.80s  4.77%  github.com/qompack/qompack/internal/paths.posixReplace
+         0     0% 65.17%      1.80s  4.77%  github.com/qompack/qompack/internal/paths.renameWithRetry
+         0     0% 65.17%      1.80s  4.77%  github.com/qompack/qompack/internal/paths.replace
+     0.06s  0.16% 65.33%      1.70s  4.51%  github.com/qompack/qompack/internal/canon.ruleMatches.func1
+         0     0% 65.33%      1.59s  4.22%  github.com/qompack/qompack/internal/sketch.MinHash (inline)
+         0     0% 65.33%      1.59s  4.22%  github.com/qompack/qompack/internal/sketch.minHashWithStats
+     0.84s  2.23% 67.56%      1.57s  4.16%  regexp.(*machine).step
+         0     0% 67.56%      1.47s  3.90%  github.com/qompack/qompack/internal/sketch.bottomKShingles
+     0.15s   0.4% 67.96%      1.47s  3.90%  github.com/qompack/qompack/internal/sketch.distinctBelow
+         0     0% 67.96%      1.42s  3.77%  github.com/qompack/qompack/internal/canon.testRunnerCanon.Matches
+         0     0% 67.96%      1.25s  3.32%  testing.(*B).run1.func1

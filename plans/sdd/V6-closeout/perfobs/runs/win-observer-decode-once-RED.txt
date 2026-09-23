@@ -1,0 +1,11 @@
+=== RUN   TestOnToolUseDecodesTheToolResponseOnce
+    response_decode_cost_test.go:63: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-perfobs/internal/observer/response_decode_cost_test.go:63
+        	Error:      	"5.472576e+06" is not less than "2.462064e+06"
+        	Test:       	TestOnToolUseDecodesTheToolResponseOnce
+        	Messages:   	one OnToolUse allocated 5472576 bytes against 1231032 for one decode of its tool_response: the response is being unwrapped more than once per event
+--- FAIL: TestOnToolUseDecodesTheToolResponseOnce (1.32s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	1.866s
+FAIL
+exit=1

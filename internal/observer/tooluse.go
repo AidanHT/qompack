@@ -82,12 +82,16 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	display := NormalizeToolName(e.ToolName)
 	ephemeral := strings.HasPrefix(e.ToolName, mcpToolPrefix)
 
-	// 3. The configured hot-path cap binds here, after signals.go's own allocation bound.
-	body := responseText(e)
+	// 3. The configured hot-path cap binds here, after signals.go's own allocation bound. The
+	//    uncapped text is kept as well: it is what the §5.21 extractors read at steps 11 and 12,
+	//    which would otherwise each unwrap the payload again (SP08-D1).
+	full := responseText(e)
+	body := full
 	if len(body) > o.maxResultBytes {
 		body = body[:o.maxResultBytes]
 	}
 	empty := len(body) == 0
+	text := func() []byte { return full }
 
 	// 4. The path this call touched, normalized once, in paths.Key form for everything downstream.
 	//    This is also the capture-time path-scope boundary's last line (V6-AUTH-1,
@@ -266,7 +270,7 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     them, because PostToolUse has no channel to say anything through.
 	if o.opt.Grammar != nil {
 		o.opt.Grammar.Append(grammar.Symbol(display))
-		switch ExtractTestOutcome(e) {
+		switch testOutcome(e, text) {
 		case TestPass:
 			o.opt.Grammar.Append(grammarTestPass)
 		case TestFail:
@@ -278,7 +282,7 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 
 	// 12. Task-boundary evidence. ExtractSignals stays pure, so the transition detector and the
 	//     path normalization are applied here rather than inside it.
-	sig := ExtractSignals(e)
+	sig := extractSignals(e, text)
 	sig.TodoCompleted = o.newlyCompletedTodos(st, e)
 	sig.Paths = normalizedPaths(o.opt.ProjectRoot, sig.Paths)
 	if sig.TodoCompleted {

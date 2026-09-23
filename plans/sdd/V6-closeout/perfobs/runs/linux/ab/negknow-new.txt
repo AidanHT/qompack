@@ -1,0 +1,56 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	 123579427 ns/op	 133745300 cpu-ns/op	35694464 B/op	  260437 allocs/op
+PASS
+# round=1 side=new exit=0 at 23:10:11
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	 213488708 ns/op	 229594100 cpu-ns/op	35696189 B/op	  260438 allocs/op
+PASS
+# round=2 side=new exit=0 at 23:22:35
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  94612036 ns/op	 103240600 cpu-ns/op	35696744 B/op	  260439 allocs/op
+PASS
+# round=3 side=new exit=0 at 23:34:50
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  80853286 ns/op	  88190500 cpu-ns/op	35695291 B/op	  260437 allocs/op
+PASS
+# round=4 side=new exit=0 at 23:48:04
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  73492748 ns/op	  80767300 cpu-ns/op	35693625 B/op	  260437 allocs/op
+PASS
+# round=5 side=new exit=0 at 23:59:27
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  89020043 ns/op	  96737900 cpu-ns/op	35696673 B/op	  260438 allocs/op
+PASS
+# round=6 side=new exit=0 at 00:09:40
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	 205903514 ns/op	 222636600 cpu-ns/op	35696135 B/op	  260438 allocs/op
+PASS
+# round=7 side=new exit=0 at 00:22:32
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	 219994118 ns/op	 239151700 cpu-ns/op	35696173 B/op	  260438 allocs/op
+PASS
+# round=8 side=new exit=0 at 00:40:43

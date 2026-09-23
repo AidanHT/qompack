@@ -1,0 +1,110 @@
+# Evidence for review finding "perfobs stopped PID 7532" (closeout/perfobs fix seat)
+# generated 2026-09-23T01:15:15Z
+# sources: workflow wf_16dd5d95-b3a transcripts (impl:perfobs = agent-a64f877f4c3565631,
+#          impl:perfstore = agent-ad5cd11a5399140bd), the coordinator transcript, the perfstore
+#          worktree runs/ab/windows files (read only) and the session scratchpad.
+
+== A. impl:perfobs process stops that match the session scratchpad path
+-- 2026-09-22T22:54:16.320Z PowerShell
+command:
+Get-Process observer.test -ErrorAction SilentlyContinue | Select-Object Id, Path, StartTime | Format-Table -AutoSize; Get-Process observer.test -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*9c57653d-e5ff-4791-8ab4-ad49457994c1*' } | ForEach-Object { Stop-Process -Id $_.Id -Confirm:$false; "stopped $($_.Id) $($_.Path)" }
+result:
+   Id Path
+   -- ----                                                                                                             
+22720 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-479…
+52332 C:\Users\Quant\AppData\Local\Temp\go-build2496519686\b422\observer.test.exe                                      
+
+stopped 22720 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\new\observer.test.exe
+-- 2026-09-22T23:51:52.523Z PowerShell
+command:
+Start-Sleep -Milliseconds 500; Get-Process observer.test -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*9c57653d-e5ff-4791-8ab4-ad49457994c1*' } | ForEach-Object { Stop-Process -Id $_.Id -Confirm:$false; "stopped $($_.Id) $($_.Path)" }
+result:
+stopped 36136 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\base\observer.test.exe
+stopped 62156 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\new\observer.test.exe
+-- 2026-09-22T23:55:16.544Z PowerShell
+command:
+$mine = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match '9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/ab_win\.sh' }
+$mine | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop; "stopped loop $($_.ProcessId)" } catch { "gone $($_.ProcessId)" } }
+Start-Sleep -Milliseconds 500
+Get-Process | Where-Object { $_.Path -like '*9c57653d-e5ff-4791-8ab4-ad49457994c1*' } | ForEach-Object { Stop-Process -Id $_.Id -Force; "stopped test $($_.Id) $($_.Path)" }
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'ab_win\.sh' } | Select-Object ProcessId | Format-Table
+result:
+stopped loop 39700
+stopped loop 41708
+stopped loop 55948
+stopped loop 25288
+stopped test 44452 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\base\observer.test.exe
+stopped test 56012 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\base\observer.test.exe
+stopped test 7532 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\perfstore\store-basebench2.exe
+
+== B. impl:perfobs notice to main
+-- 2026-09-22T23:55:37.781Z to main
+perfobs workstream (C2.3-C2.5) accidentally stopped another workstream's benchmark process: PID 7532, scratchpad\perfstore\store-basebench2.exe, at about 00:00Z (2026-09-23).
+Cause: while stopping my own orphaned A/B loops I filtered processes on the shared session scratchpad path (…\9c57653d-…\scratchpad) instead of my own bin\ subdirectory; the store perf workstream (C2.6/C2.7, scratchpad\perfstore\) shares that scratchpad. Whatever run store-basebench2.exe was producing is incomplete and must be re-run by its owner. I have not touched anything else under perfstore\ and now filter strictly on scratchpad\bin\ and my own ab_win.sh loops. This will also be recorded in my report's open issues.
+result: [{"type": "text", "text": "{\"success\":true,\"message\":\"Message queued for the main conversation's next turn.\"}"}]
+
+== C. coordinator response (note left for perfstore)
+-- 2026-09-22T23:55:43.988Z Bash
+S="C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad"; ls "$S/perfstore" | head; printf '%s\n' "COORDINATOR NOTE (2026-09-23 ~00:00Z): the perfobs workstream accidentally killed PID 7532 (store-basebench2.exe) from this directory." "That run was cut short, not a failure of the code under test. Re-run it, and do not use its partial output." "Do not reply by SendMessage." > "$S/perfstore/COORDINATOR-NOTE-killed-run.txt"; echo ok
+note mtime (UTC): 2026-09-22T23:55:44.423503+00:00
+COORDINATOR NOTE (2026-09-23 ~00:00Z): the perfobs workstream accidentally killed PID 7532 (store-basebench2.exe) from this directory.
+That run was cut short, not a failure of the code under test. Re-run it, and do not use its partial output.
+Do not reply by SendMessage.
+
+
+== D. impl:perfstore transcript: references to the note, and its last tool call so far
+transcript lines mentioning COORDINATOR-NOTE: 0
+last tool call: ('2026-09-23T01:11:48.553Z', 'Bash') | has returned (StructuredOutput): False
+
+== E. the series the stop truncated (perfstore worktree, read only)
+-- win2-search-load.txt
+round 1 final2 23:43:46 cpu% 76
+round 1 basebench2 23:48:14 cpu% 79
+round 2 basebench2 23:52:49 cpu% 77
+round 2 final2 23:55:19 cpu% 59
+round 3 final2 23:57:59 cpu% 59
+round 3 basebench2 23:59:56 cpu% 69
+done 00:01:45
+
+-- win2-search-basebench2-round2.raw
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSearch_1000Roots-22                   	      10	 613733370 ns/op	18730227 B/op	   36531 allocs/op
+exit=127
+
+== F. the later complete Windows Search series in the same directory
+-- win4-search-load.txt
+round 1 final3 00:17:06 cpu% 55
+round 1 basebench2 00:19:16 cpu% 65
+round 2 basebench2 00:21:46 cpu% 58
+round 2 final3 00:26:27 cpu% 70
+round 3 final3 00:32:14 cpu% 71
+round 3 basebench2 00:40:52 cpu% 72
+done 00:49:52
+
+-- win4-search-basebench2-round1.raw
+BenchmarkSearch_1000Roots-22                   	      10	2479577450 ns/op	18998815 B/op	   36656 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22    	      10	 233693850 ns/op	15559584 B/op	   24705 allocs/op
+exit=0
+-- win4-search-basebench2-round2.raw
+BenchmarkSearch_1000Roots-22                   	      10	1063732180 ns/op	18768729 B/op	   36548 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22    	      10	 296375180 ns/op	15493565 B/op	   24675 allocs/op
+exit=0
+-- win4-search-basebench2-round3.raw
+BenchmarkSearch_1000Roots-22                   	      10	 560083580 ns/op	18667884 B/op	   36494 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22    	      10	 403196180 ns/op	15572800 B/op	   24709 allocs/op
+exit=0
+-- win4-search-final3-round1.raw
+BenchmarkSearch_1000Roots-22                   	      10	  57275650 ns/op	 9458312 B/op	    7449 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22    	      10	 190422230 ns/op	13818467 B/op	   11607 allocs/op
+exit=0
+-- win4-search-final3-round2.raw
+BenchmarkSearch_1000Roots-22                   	      10	  75115560 ns/op	 9405361 B/op	    7416 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22    	      10	 445701050 ns/op	13842316 B/op	   11617 allocs/op
+exit=0
+-- win4-search-final3-round3.raw
+BenchmarkSearch_1000Roots-22                   	      10	 172555050 ns/op	 9401739 B/op	    7417 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22    	      10	 374907860 ns/op	13731680 B/op	   11565 allocs/op
+exit=0

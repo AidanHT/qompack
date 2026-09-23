@@ -1,0 +1,18 @@
+=== RUN   TestBudget_Open
+    bench_test.go:834: BenchmarkOpen: 117.780785ms CPU/op over 14 iterations (best of 1) against a 300ms budget
+    bench_test.go:834: BenchmarkOpen: 108.641871ms wall/op over 14 iterations (best of 1) against a 300ms budget
+--- PASS: TestBudget_Open (2.92s)
+PASS
+# round=1 side=new exit=0 at 00:58:49
+=== RUN   TestBudget_Open
+    bench_test.go:834: BenchmarkOpen: 124.9492ms CPU/op over 10 iterations (best of 1) against a 300ms budget
+    bench_test.go:834: BenchmarkOpen: 114.50708ms wall/op over 10 iterations (best of 1) against a 300ms budget
+--- PASS: TestBudget_Open (8.22s)
+PASS
+# round=2 side=new exit=0 at 00:59:01
+=== RUN   TestBudget_Open
+    bench_test.go:834: BenchmarkOpen: 136.743ms CPU/op over 9 iterations (best of 1) against a 300ms budget
+    bench_test.go:834: BenchmarkOpen: 124.856752ms wall/op over 9 iterations (best of 1) against a 300ms budget
+--- PASS: TestBudget_Open (2.21s)
+PASS
+# round=3 side=new exit=0 at 00:59:05

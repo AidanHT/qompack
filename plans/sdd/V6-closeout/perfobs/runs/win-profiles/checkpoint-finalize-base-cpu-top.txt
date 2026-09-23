@@ -1,0 +1,91 @@
+File: checkpoint.test.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\base\checkpoint.test.exe2026-09-22 17:19:34.4704554 -0400 EDT
+Type: cpu
+Time: 2026-09-22 17:20:33 EDT
+Duration: 644.14s, Total samples = 605.68s (94.03%)
+Active filters:
+   focus=checkpoint.\(\*FileWriter\).Finalize$
+Showing nodes accounting for 7.79s, 1.29% of 605.68s total
+Dropped 126 nodes (cum <= 3.03s)
+Showing top 80 nodes out of 140
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      9.11s  1.50%  github.com/qompack/qompack/internal/checkpoint.(*FileWriter).Finalize
+         0     0%     0%      9.11s  1.50%  github.com/qompack/qompack/internal/checkpoint_test.BenchmarkFinalize
+         0     0%     0%      9.11s  1.50%  testing.(*B).run1.func1
+         0     0%     0%      9.11s  1.50%  testing.(*B).runN
+     7.42s  1.23%  1.23%      7.50s  1.24%  runtime.cgocall
+         0     0%  1.23%      7.50s  1.24%  syscall.syscalln
+     0.01s 0.0017%  1.23%      7.35s  1.21%  syscall.SyscallN
+     0.01s 0.0017%  1.23%      5.44s   0.9%  os.stat
+         0     0%  1.23%      5.41s  0.89%  github.com/qompack/qompack/internal/checkpoint.keepResolvableTools
+     0.02s 0.0033%  1.23%      5.41s  0.89%  github.com/qompack/qompack/internal/checkpoint.toolResultResolvable
+         0     0%  1.23%      5.36s  0.88%  github.com/qompack/qompack/internal/store.(*FSStore).ObjectOnDisk
+     0.02s 0.0033%  1.23%      5.36s  0.88%  github.com/qompack/qompack/internal/store.(*FSStore).objectExists
+         0     0%  1.23%      5.28s  0.87%  syscall.GetFileAttributesEx
+     0.01s 0.0017%  1.24%      4.90s  0.81%  os.Stat
+         0     0%  1.24%      4.89s  0.81%  os.statNolog (inline)
+         0     0%  1.24%      2.11s  0.35%  github.com/qompack/qompack/internal/checkpoint.(*FileWriter).Begin
+         0     0%  1.24%      1.28s  0.21%  github.com/qompack/qompack/internal/checkpoint.(*FileWriter).seedTierOne
+         0     0%  1.24%      1.28s  0.21%  github.com/qompack/qompack/internal/checkpoint.(*fileReader).Get
+         0     0%  1.24%      1.28s  0.21%  github.com/qompack/qompack/internal/checkpoint.(*fileReader).load
+         0     0%  1.24%      1.08s  0.18%  os.OpenFile
+         0     0%  1.24%      1.08s  0.18%  os.openFileNolog
+         0     0%  1.24%      1.08s  0.18%  syscall.Open
+         0     0%  1.24%      1.08s  0.18%  syscall.createFile
+         0     0%  1.24%      0.89s  0.15%  os.Open (inline)
+         0     0%  1.24%      0.71s  0.12%  github.com/qompack/qompack/internal/checkpoint.(*fileReader).verified
+         0     0%  1.24%      0.71s  0.12%  os.ReadFile
+         0     0%  1.24%      0.64s  0.11%  github.com/qompack/qompack/internal/checkpoint.ValidatePointers
+         0     0%  1.24%      0.62s   0.1%  github.com/qompack/qompack/internal/checkpoint.(*Draft).persist
+         0     0%  1.24%      0.62s   0.1%  github.com/qompack/qompack/internal/checkpoint.(*Draft).persistLocked
+         0     0%  1.24%      0.62s   0.1%  github.com/qompack/qompack/internal/checkpoint.(*pointerResolver).fast
+         0     0%  1.24%      0.62s   0.1%  github.com/qompack/qompack/internal/checkpoint.(*pointerResolver).resolve
+         0     0%  1.24%      0.62s   0.1%  github.com/qompack/qompack/internal/paths.WriteAtomic
+         0     0%  1.24%      0.57s 0.094%  github.com/qompack/qompack/internal/checkpoint.Unmarshal
+         0     0%  1.24%      0.55s 0.091%  os.Lstat
+         0     0%  1.24%      0.55s 0.091%  os.lstatNolog
+         0     0%  1.24%      0.52s 0.086%  encoding/json.Unmarshal
+         0     0%  1.24%      0.48s 0.079%  internal/poll.(*FD).Fsync
+         0     0%  1.24%      0.48s 0.079%  os.(*File).Sync
+         0     0%  1.24%      0.48s 0.079%  syscall.FlushFileBuffers
+         0     0%  1.24%      0.48s 0.079%  syscall.Fsync (inline)
+     0.01s 0.0017%  1.24%      0.47s 0.078%  encoding/json.(*decodeState).object
+         0     0%  1.24%      0.47s 0.078%  encoding/json.(*decodeState).unmarshal
+         0     0%  1.24%      0.47s 0.078%  encoding/json.(*decodeState).value
+         0     0%  1.24%      0.45s 0.074%  github.com/qompack/qompack/internal/paths.CreateNew
+     0.03s 0.005%  1.24%      0.40s 0.066%  github.com/qompack/qompack/internal/paths.Long
+         0     0%  1.24%      0.35s 0.058%  path/filepath.Abs (inline)
+         0     0%  1.24%      0.35s 0.058%  path/filepath.abs
+         0     0%  1.24%      0.30s  0.05%  encoding/json.(*decodeState).array
+     0.02s 0.0033%  1.25%      0.29s 0.048%  runtime.mallocgc
+         0     0%  1.25%      0.29s 0.048%  syscall.FullPath
+         0     0%  1.25%      0.25s 0.041%  encoding/json.(*Encoder).Encode
+         0     0%  1.25%      0.25s 0.041%  github.com/qompack/qompack/internal/checkpoint.Marshal
+         0     0%  1.25%      0.22s 0.036%  github.com/qompack/qompack/internal/checkpoint.Migrate
+         0     0%  1.25%      0.21s 0.035%  github.com/qompack/qompack/internal/checkpoint.(*FileWriter).claimSeq
+         0     0%  1.25%      0.20s 0.033%  github.com/qompack/qompack/internal/checkpoint.(*truncation).fits (inline)
+         0     0%  1.25%      0.20s 0.033%  github.com/qompack/qompack/internal/checkpoint.Truncate
+         0     0%  1.25%      0.20s 0.033%  github.com/qompack/qompack/internal/checkpoint.maxSeq
+         0     0%  1.25%      0.20s 0.033%  github.com/qompack/qompack/internal/checkpoint.sizeOf
+         0     0%  1.25%      0.20s 0.033%  github.com/qompack/qompack/internal/paths.ReadManifest
+         0     0%  1.25%      0.18s  0.03%  encoding/json.(*decodeState).literalStore
+     0.01s 0.0017%  1.25%      0.18s  0.03%  internal/filepathlite.Clean
+         0     0%  1.25%      0.18s  0.03%  internal/poll.(*FD).execIO
+         0     0%  1.25%      0.18s  0.03%  runtime.mallocgcSmallNoscan
+     0.17s 0.028%  1.28%      0.17s 0.028%  encoding/json.stateInString
+         0     0%  1.28%      0.17s 0.028%  path/filepath.Clean (inline)
+     0.05s 0.0083%  1.28%      0.16s 0.026%  encoding/json.(*decodeState).skip
+         0     0%  1.28%      0.16s 0.026%  github.com/qompack/qompack/internal/checkpoint.migrateTo
+         0     0%  1.28%      0.16s 0.026%  github.com/qompack/qompack/internal/paths.posixReplace
+         0     0%  1.28%      0.16s 0.026%  github.com/qompack/qompack/internal/paths.renameWithRetry
+         0     0%  1.28%      0.16s 0.026%  github.com/qompack/qompack/internal/paths.replace
+         0     0%  1.28%      0.16s 0.026%  internal/poll.(*FD).Write
+         0     0%  1.28%      0.16s 0.026%  internal/poll.(*FD).Write.func1
+         0     0%  1.28%      0.16s 0.026%  os.(*File).Write
+         0     0%  1.28%      0.16s 0.026%  os.(*File).write (inline)
+         0     0%  1.28%      0.16s 0.026%  syscall.WriteFile (inline)
+         0     0%  1.28%      0.16s 0.026%  syscall.writeFile
+         0     0%  1.28%      0.15s 0.025%  encoding/json.(*Decoder).Decode
+         0     0%  1.28%      0.15s 0.025%  github.com/qompack/qompack/internal/checkpoint.warnUnknownFields
+     0.01s 0.0017%  1.29%      0.15s 0.025%  syscall.UTF16FromString
+         0     0%  1.29%      0.15s 0.025%  syscall.UTF16PtrFromString (inline)

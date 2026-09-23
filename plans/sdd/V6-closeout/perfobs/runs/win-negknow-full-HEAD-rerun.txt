@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/negknow	93.749s
+exit=0 head=de83e44

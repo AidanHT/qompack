@@ -1,0 +1,47 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+                                     │ observer-base.txt │          observer-new.txt           │
+                                     │      sec/op       │    sec/op     vs base               │
+OnToolUse_TestOutput256KB/Deduped-22      118.83m ±  15%   72.46m ± 18%  -39.02% (p=0.005 n=8)
+OnToolUse_TestOutput256KB/Delta-22         476.9m ± 126%   613.4m ± 72%        ~ (p=0.798 n=8)
+geomean                                    238.1m          210.8m        -11.43%
+
+                                     │ observer-base.txt │          observer-new.txt           │
+                                     │      dedup-x      │   dedup-x    vs base                │
+OnToolUse_TestOutput256KB/Deduped-22         2.235k ± 0%   2.235k ± 0%       ~ (p=1.000 n=8) ¹
+OnToolUse_TestOutput256KB/Delta-22            143.8 ± 0%    143.8 ± 0%       ~ (p=1.000 n=8) ¹
+geomean                                       566.9         566.9       +0.00%
+¹ all samples are equal
+
+                                     │ observer-base.txt │          observer-new.txt          │
+                                     │      objects      │  objects    vs base                │
+OnToolUse_TestOutput256KB/Deduped-22          34.00 ± 0%   34.00 ± 0%       ~ (p=1.000 n=8) ¹
+OnToolUse_TestOutput256KB/Delta-22            435.0 ± 0%   435.0 ± 0%       ~ (p=1.000 n=8) ¹
+geomean                                       121.6        121.6       +0.00%
+¹ all samples are equal
+
+                                     │ observer-base.txt │          observer-new.txt          │
+                                     │      p50-ms       │   p50-ms     vs base               │
+OnToolUse_TestOutput256KB/Deduped-22        106.50 ± 15%   73.73 ± 22%  -30.77% (p=0.000 n=8)
+OnToolUse_TestOutput256KB/Delta-22           360.5 ± 82%   360.4 ± 55%        ~ (p=0.776 n=8)
+geomean                                      195.9         163.0        -16.80%
+
+                                     │ observer-base.txt │          observer-new.txt           │
+                                     │      p99-ms       │    p99-ms     vs base               │
+OnToolUse_TestOutput256KB/Deduped-22        262.1 ±  44%    143.4 ± 49%  -45.31% (p=0.034 n=8)
+OnToolUse_TestOutput256KB/Delta-22         2.752k ± 243%   4.325k ± 86%        ~ (p=0.625 n=8)
+geomean                                     849.4           787.4         -7.29%
+
+                                     │ observer-base.txt │          observer-new.txt           │
+                                     │       B/op        │     B/op      vs base               │
+OnToolUse_TestOutput256KB/Deduped-22       11.496Mi ± 1%   6.923Mi ± 1%  -39.78% (p=0.000 n=8)
+OnToolUse_TestOutput256KB/Delta-22          21.09Mi ± 7%   13.01Mi ± 8%  -38.29% (p=0.000 n=8)
+geomean                                     15.57Mi        9.491Mi       -39.04%
+
+                                     │ observer-base.txt │          observer-new.txt          │
+                                     │     allocs/op     │  allocs/op   vs base               │
+OnToolUse_TestOutput256KB/Deduped-22        26.805k ± 0%   6.027k ± 0%  -77.52% (p=0.000 n=8)
+OnToolUse_TestOutput256KB/Delta-22          29.681k ± 0%   8.896k ± 0%  -70.03% (p=0.000 n=8)
+geomean                                      28.21k        7.322k       -74.04%
