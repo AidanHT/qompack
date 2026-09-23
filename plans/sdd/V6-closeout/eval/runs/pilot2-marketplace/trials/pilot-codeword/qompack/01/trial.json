@@ -1,0 +1,371 @@
+{
+  "schema": 1,
+  "run_id": "20260922T225004Z-ced0e6",
+  "task_id": "pilot-codeword",
+  "arm": "qompack",
+  "trial": 1,
+  "category": "harness-validation",
+  "variant": "base",
+  "held_out": false,
+  "model": "claude-haiku-4-5-20251001",
+  "install": "marketplace",
+  "claude_code_version": "2.1.280",
+  "session_id": "aef1d085-47b9-4b20-b628-558845867b5b",
+  "started_at": "2026-09-22T22:50:05Z",
+  "wall_ms": 93204,
+  "exit_code": 0,
+  "steps": [
+    {
+      "id": "run",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 2,
+      "wall_ms": 29925,
+      "permission_denials": 0,
+      "answer": "The code word is `2c1a7a62c3`."
+    },
+    {
+      "id": "compact",
+      "compact": true,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 0,
+      "wall_ms": 26063,
+      "permission_denials": 0,
+      "local_output": [
+        "Compacted PreCompact [\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" checkpoint] failed: Hook JSON output validation failed — hookSpecificOutput.hookEventName: expected one of \"PreToolUse\" | \"UserPromptSubmit\" | \"UserPromptExpansion\" | \"SessionStart\" | \"Setup\" | \"PreModelSwitch\" | …\n\nThe hook's output was: {\n  \"hookSpecificOutput\": {\n    \"hookEventName\": \"PreCompact\",\n    \"customInstructions\": \"Encode what a competent engineer with no session history would get wrong. Do not restate file contents, directory structure, or command output — those are retrievable. Prioritise: intent, decisions and their rationale, approaches eliminated and why, and constraints discovered empirically.\\n\\nDo not include code snippets: every file named above is available by path and hash through the qompack checkpoint, and a pointer costs roughly 20 tokens where a snippet costs roughly 500.\"\n  }\n}\n\nExpected schema:\n{\n  \"continue\": \"boolean (optional)\",\n  \"suppressOutput\": \"boolean (optional)\",\n  \"stopReason\": \"string (optional)\",\n  \"decision\": \"\\\"approve\\\" | \\\"block\\\" (optional)\",\n  \"reason\": \"string (optional)\",\n  \"systemMessage\": \"string (optional)\",\n  \"terminalSequence\": \"string (optional)\",\n  \"hookSpecificOutput\": {\n    \"for PreToolUse\": {\n      \"hookEventName\": \"\\\"PreToolUse\\\"\",\n      \"permissionDecision\": \"\\\"allow\\\" | \\\"deny\\\" | \\\"ask\\\" | \\\"defer\\\" (optional)\",\n      \"permissionDecisionReason\": \"string (optional)\",\n      \"updatedInput\": \"object (optional) - Modified tool input to use\"\n    },\n    \"for PermissionRequest\": {\n      \"hookEventName\": \"\\\"PermissionRequest\\\"\",\n      \"decision\": {\n        \"to allow\": {\n          \"behavior\": \"\\\"allow\\\"\",\n          \"updatedInput\": \"object (optional) - Modified tool input to use\",\n          \"updatedPermissions\": \"array (optional) - Permission updates\"\n        },\n        \"to deny\": {\n          \"behavior\": \"\\\"deny\\\"\",\n          \"message\": \"string (optional)\",\n          \"interrupt\": \"boolean (optional)\"\n        }\n      }\n    },\n    \"for UserPromptSubmit\": {\n      \"hookEventName\": \"\\\"UserPromptSubmit\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for PostToolUse\": {\n      \"hookEventName\": \"\\\"PostToolUse\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for PostToolBatch\": {\n      \"hookEventName\": \"\\\"PostToolBatch\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for Stop / SubagentStop\": {\n      \"hookEventName\": \"\\\"Stop\\\" | \\\"SubagentStop\\\"\",\n      \"additionalContext\": \"string (optional) - Feedback for the model; the conversation continues so the model can act on it\"\n    }\n  }\n}"
+      ]
+    },
+    {
+      "id": "write",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 2,
+      "wall_ms": 10006,
+      "permission_denials": 0,
+      "answer": "The code word is `2c1a7a62c3`."
+    }
+  ],
+  "completed": true,
+  "plugin_expected": true,
+  "plugin_loaded": true,
+  "checks": [
+    {
+      "id": "answer-before",
+      "outcome": "recovery",
+      "kind": "answer_matches",
+      "passed": true,
+      "detail": "answer matched \"2c1a7a62c3\""
+    },
+    {
+      "id": "code-file",
+      "outcome": "recovery",
+      "kind": "file_matches",
+      "passed": true,
+      "detail": "matched \"2c1a7a62c3\""
+    },
+    {
+      "id": "answer-after",
+      "outcome": "recovery",
+      "kind": "answer_matches",
+      "passed": true,
+      "detail": "answer matched \"2c1a7a62c3\""
+    },
+    {
+      "id": "no-rerun",
+      "outcome": "constraint",
+      "kind": "tool_not_used_after",
+      "passed": true,
+      "detail": "none of 1 tool call(s) after compact matched"
+    },
+    {
+      "id": "gomod",
+      "outcome": "constraint",
+      "kind": "file_unchanged",
+      "passed": true,
+      "detail": "identical to the fixture"
+    },
+    {
+      "id": "hidden",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./... exited 0"
+    }
+  ],
+  "task_success": true,
+  "constraint_violations": 0,
+  "recovered": true,
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 25552,
+      "post_tokens": 1897,
+      "duration_ms": 19867
+    }
+  ],
+  "account": {
+    "turns": [
+      {
+        "turn": 0,
+        "compacted": false,
+        "main_model": "claude-haiku-4-5-20251001",
+        "main_loop": {
+          "input": 18,
+          "output": 246,
+          "cache_read": 42742,
+          "cache_write": 7944,
+          "cache_write_5m": 0,
+          "cache_write_1h": 7944,
+          "thinking": 141
+        },
+        "delta": {
+          "claude-haiku-4-5-20251001": {
+            "input": 18,
+            "output": 246,
+            "cache_read": 42742,
+            "cache_write": 7944
+          }
+        },
+        "host_cost_delta_usd": 0.0214102,
+        "steps_match_result": true
+      },
+      {
+        "turn": 1,
+        "local_command": "compact",
+        "compacted": true,
+        "main_model": "claude-haiku-4-5-20251001",
+        "main_loop": {
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "cache_write_5m": 0,
+          "cache_write_1h": 0,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-haiku-4-5-20251001": {
+            "input": 1487,
+            "output": 1192,
+            "cache_read": 25229,
+            "cache_write": 177,
+            "thinking": 448
+          }
+        },
+        "beside": {
+          "claude-haiku-4-5-20251001": {
+            "input": 1487,
+            "output": 1192,
+            "cache_read": 25229,
+            "cache_write": 177,
+            "thinking": 448
+          }
+        },
+        "beside_kind": "compaction",
+        "host_cost_delta_usd": 0.01019115
+      },
+      {
+        "turn": 2,
+        "compacted": false,
+        "main_model": "claude-haiku-4-5-20251001",
+        "main_loop": {
+          "input": 18,
+          "output": 313,
+          "cache_read": 46799,
+          "cache_write": 4171,
+          "cache_write_5m": 0,
+          "cache_write_1h": 4171,
+          "thinking": 180
+        },
+        "delta": {
+          "claude-haiku-4-5-20251001": {
+            "input": 18,
+            "output": 313,
+            "cache_read": 46799,
+            "cache_write": 4171,
+            "thinking": 180
+          }
+        },
+        "host_cost_delta_usd": 0.014604900000000004,
+        "steps_match_result": true
+      }
+    ],
+    "total": {
+      "claude-haiku-4-5-20251001": {
+        "input": 1523,
+        "output": 1751,
+        "cache_read": 114770,
+        "cache_write": 12292
+      }
+    },
+    "host_cost_usd": 0.046206250000000004,
+    "consistent": true
+  },
+  "host_cost_usd": 0.046206250000000004,
+  "estimate": {
+    "micros": 45985,
+    "currency": "USD"
+  },
+  "estimate_complete": false,
+  "estimate_missing": [
+    "cache_write_5m",
+    "cache_write_1h"
+  ],
+  "rate_table_date": "2026-09-22",
+  "hook_latency_ms": {
+    "PostToolUse:Bash": [
+      296
+    ],
+    "PostToolUse:Write": [
+      2663
+    ],
+    "SessionStart:compact": [
+      5999
+    ],
+    "SessionStart:startup": [
+      5430
+    ],
+    "Stop": [
+      279,
+      665
+    ],
+    "SubagentStop": [
+      755
+    ],
+    "UserPromptSubmit": [
+      493,
+      496
+    ]
+  },
+  "transcript_hook_ms": {
+    "PostToolUse:Bash": [
+      297
+    ],
+    "PostToolUse:Write": [
+      2664
+    ],
+    "SessionStart:compact": [
+      5999
+    ],
+    "SessionStart:startup": [
+      5611
+    ],
+    "Stop": [
+      278,
+      664
+    ]
+  },
+  "store": {
+    "bytes": 143682,
+    "files": 51,
+    "objects": 4,
+    "checkpoints": 1
+  },
+  "categories": {
+    "cache_read": {
+      "known": 114770,
+      "known_records": 4,
+      "unknown_records": 0
+    },
+    "cache_write_1h": {
+      "known": 12115,
+      "known_records": 3,
+      "unknown_records": 1
+    },
+    "cache_write_5m": {
+      "known": 0,
+      "known_records": 3,
+      "unknown_records": 1
+    },
+    "input": {
+      "known": 1523,
+      "known_records": 4,
+      "unknown_records": 0
+    },
+    "output": {
+      "known": 982,
+      "known_records": 4,
+      "unknown_records": 0
+    },
+    "thinking_output": {
+      "known": 769,
+      "known_records": 4,
+      "unknown_records": 0
+    }
+  },
+  "compact_attempts": [
+    {
+      "result": "success"
+    }
+  ],
+  "hook_problems": [
+    {
+      "turn": 1,
+      "event": "PreCompact",
+      "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" checkpoint",
+      "kind": "output_rejected",
+      "detail": "Hook JSON output validation failed — hookSpecificOutput.hookEventName: expected one of \"PreToolUse\" | \"UserPromptSubmit\" | \"UserPromptExpansion\" | \"SessionStart\" | \"Setup\" | \"PreModelSwitch\" | …"
+    },
+    {
+      "turn": -1,
+      "event": "SessionEnd",
+      "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" flush",
+      "kind": "hook_failed",
+      "detail": "Hook cancelled"
+    }
+  ],
+  "qompack": {
+    "checkpoints": 1,
+    "injections": [
+      {
+        "hook_event": "SessionStart",
+        "hook_name": "SessionStart",
+        "bytes": 583,
+        "qompack": true,
+        "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session aef1d085\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\n\u003e Run go run ./cmd/code and tell me the code word it prints, in one line.\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-9bfd11ce23ad --\u003e"
+      }
+    ],
+    "injected_bytes": 583,
+    "mcp_server_status": "connected",
+    "index_lines": {
+      "files.jsonl": 0,
+      "observations.jsonl": 4,
+      "roots.jsonl": 4,
+      "segments.jsonl": 2,
+      "sessions.jsonl": 1,
+      "tool_use.jsonl": 4
+    }
+  },
+  "plugin": {
+    "install": "marketplace",
+    "bundle_dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\cxeval\\bundle\\qompack-plugin-0.3.0-live.pilot-windows-amd64",
+    "version": "0.3.0-live.pilot",
+    "commit": "251ec8b1386ac384f0100149df193095d8857abd",
+    "dirty": false,
+    "bundle_json_sha256": "b1e56c128dc8e4ccdc25e13919a2ac1ac2c73f1cdf51431ba6a5a497130e6d2a",
+    "host_version": "0.3.0-live.pilot"
+  },
+  "home_guard": {
+    "checked": true,
+    "unchanged": true,
+    "before": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json eaee1ba9ed3958c3a28e61514187f4281bcdb0138551cd399f15e909b06e69b6"
+    ],
+    "after": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json eaee1ba9ed3958c3a28e61514187f4281bcdb0138551cd399f15e909b06e69b6"
+    ]
+  },
+  "preregistered_model": true,
+  "notes": [
+    "project: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-4202237247\\project",
+    "trial daemon: daemon pid 28412 stopped by admin.shutdown",
+    "host transcript: C:\\Users\\Quant\\.claude\\projects\\C--Users-Quant-AppData-Local-Temp-qompack-live-4202237247-project\\aef1d085-47b9-4b20-b628-558845867b5b.jsonl"
+  ]
+}

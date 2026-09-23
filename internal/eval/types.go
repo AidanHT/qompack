@@ -321,10 +321,11 @@ type latencyPool struct {
 	firstTurn []float64
 }
 
-// LiveRunner is the §6.3-tier-3 seam: the thing that would re-execute a fork against a real
-// model. It is nil in every build SP-02 ships, and Replay refuses rather than silently degrading
-// to deterministic mode, so a CI run can never be mistaken for a model-backed one. SP-17's
-// pre-release run supplies an implementation; no model call is written in this subplan.
+// LiveRunner is the §6.3-tier-3 seam: the thing that re-executes a fork against a real model. No
+// harness has one unless a caller installs it with SetLiveRunner, and Replay refuses rather than
+// silently degrading to deterministic mode, so a CI run can never be mistaken for a model-backed
+// one. HostForkRunner (livefork.go, V6 close-out C5.4) is the implementation: it runs the fork in
+// a real headless host session through a HostSessionRunner that tools/devtool supplies.
 type LiveRunner interface {
 	// Fork re-executes the k actions following at, given what the compaction kept.
 	Fork(ctx context.Context, s Session, at core.TurnIndex, keep KeepSet, k int) ([]Action, error)

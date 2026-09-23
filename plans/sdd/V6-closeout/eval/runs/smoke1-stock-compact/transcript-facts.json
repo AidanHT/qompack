@@ -1,0 +1,16 @@
+{
+  "source": "claude transcript JSONL (session_context, prompt_snapshot and message bodies deliberately NOT copied)",
+  "hooks": [],
+  "additional_context": [],
+  "compact_boundaries": [
+    {
+      "trigger": "manual",
+      "preTokens": 25960,
+      "postTokens": 2300,
+      "durationMs": 16098
+    }
+  ],
+  "post_compact_file_attachments": [
+    "notes.txt"
+  ]
+}

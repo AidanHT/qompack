@@ -1,0 +1,1 @@
+SessionEnd hook ["${CLAUDE_PLUGIN_ROOT}/bin/qompack" flush] failed: Hook cancelled

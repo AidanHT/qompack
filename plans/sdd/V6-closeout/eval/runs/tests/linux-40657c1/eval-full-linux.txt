@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/eval	0.893s
+exit=0

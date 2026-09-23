@@ -38,6 +38,7 @@ var tasks = map[string]func(args []string) error{
 	"bench-compare":         taskBenchCompare,
 	"bench-hotpath":         taskBenchHotpath,
 	"replay":                taskReplay,
+	"live-eval":             taskLiveEval,
 	"plugin-validate":       taskPluginValidate,
 	"fsck":                  taskFsck,
 	"ci-local":              taskCILocal,

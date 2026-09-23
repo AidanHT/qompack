@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/tools/devtool	8.279s
+exit=0
