@@ -23,7 +23,11 @@ import (
 // purpose and never by `go test` alone, because it drives hundreds of thousands of durable deliveries:
 //
 //	go test ./internal/daemon -run '^$' -bench '^BenchmarkDeliveryRolloverResourceCost$' -benchtime 1x \
-//	  -timeout 120m -daemon.rollover.out=<file.json>
+//	  -timeout 120m -daemon.rollover.out=<absolute path of file.json>
+//
+// The figures are also written to the benchmark's log, so a run whose file cannot be written still
+// reports them. A relative -daemon.rollover.out is resolved against the package directory, where
+// go test runs the binary, not against the directory go test was started in.
 //
 // With the production thresholds (a segment rotates at 65,536 entries or 64 MiB) it leases and
 // acknowledges -daemon.rollover.deliveries deliveries (default 210,000: three rotations) through the
@@ -50,7 +54,8 @@ var (
 	rolloverResourceWorkers = flag.Int("daemon.rollover.workers", 8,
 		"concurrent callers in BenchmarkDeliveryRolloverResourceCost")
 	rolloverResourceOut = flag.String("daemon.rollover.out", "",
-		"write BenchmarkDeliveryRolloverResourceCost's figures as JSON to this file")
+		"also write BenchmarkDeliveryRolloverResourceCost's figures as JSON to this file "+
+			"(relative to the package directory)")
 )
 
 // rolloverResourceCheckpoint is one snapshot of disk and memory.
@@ -122,11 +127,17 @@ func BenchmarkDeliveryRolloverResourceCost(b *testing.B) {
 		if last := report.Checkpoints[len(report.Checkpoints)-1]; last.Deliveries > 0 {
 			b.ReportMetric(last.PerHundredKDelMB, "state-MiB-per-100k")
 		}
+		// One line: a benchmark's log is cut to its first lines unless -v is given.
+		line, err := json.Marshal(report)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.Logf("figures: %s", line)
+		raw, err := json.MarshalIndent(report, "", "  ")
+		if err != nil {
+			b.Fatal(err)
+		}
 		if *rolloverResourceOut != "" {
-			raw, err := json.MarshalIndent(report, "", "  ")
-			if err != nil {
-				b.Fatal(err)
-			}
 			if err := os.WriteFile(*rolloverResourceOut, append(raw, '\n'), 0o600); err != nil {
 				b.Fatal(err)
 			}
