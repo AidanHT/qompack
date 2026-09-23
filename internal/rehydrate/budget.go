@@ -66,6 +66,14 @@ func shareOf(avail core.Tokens, pct int) core.Tokens {
 	return avail * core.Tokens(pct) / 100
 }
 
+// shareCharsOf is shareOf in the host-character dimension: pct percent of avail, floored.
+func shareCharsOf(avail, pct int) int {
+	if avail <= 0 {
+		return 0
+	}
+	return avail * pct / 100
+}
+
 // sharePctFor maps a discretionary kind to its percentage. ItemUserIntent's share funds only its
 // evolution units — the original-intent unit is tier-1 and is admitted whole before any share is
 // computed.
@@ -90,9 +98,15 @@ func sharePctFor(k ItemKind) (int, bool) {
 
 // admitted is the outcome of filling one item against an allowance.
 type admitted struct {
-	units     []unit
-	used      core.Tokens
+	units []unit
+	// used is the item's whole rendered contribution in both dimensions: its admitted units, plus
+	// its section heading and separator once at least one unit is admitted.
+	used      cost
 	truncated bool
+	// abandoned marks an item that could not be emitted at all because even its fixed units (and
+	// heading) did not fit what the payload had left. Min-fill never re-admits into it: doing so
+	// would render the item without the fixed unit that makes it honest (item 3's note).
+	abandoned bool
 	// dropped carries one DropEntry per unadmitted unit, in the order they were rejected.
 	dropped []checkpoint.DropEntry
 	// pending holds those same unadmitted units, in the same order, so the min-fill pass can put
@@ -111,26 +125,29 @@ type admitted struct {
 // the monotonicity property PropBuild_MonotoneInBudget pins: the item set at a smaller budget must
 // be a prefix-wise subset of the set at a larger one.
 //
-// never marks units that must be admitted whole regardless of the allowance; the caller uses it
-// for tier-1 material and for item 3's trailing note, which is what makes the digest honest about
-// what it omitted.
-func fillPrefix(units []unit, allowance core.Tokens, never bool) admitted {
+// A unit fits when it fits BOTH dimensions of allowance: tokens and host characters (cost). A
+// fixed unit — one carrying no DropEntry — is always admitted, and the fixed units still to come
+// are held back from the allowance while discretionary ones are considered, so the fixed ones fit
+// inside it rather than on top of it. fillWithHeading has already checked that they fit the
+// payload at all, which is what keeps the character accounting exact rather than leaving an
+// overrun for the hard-cap loop to find.
+func fillPrefix(units []unit, allowance cost) admitted {
 	out := admitted{units: make([]unit, 0, len(units))}
 	truncating := false
+	owed := fixedCost(units)
 	for _, u := range units {
 		// A fixed unit carries no DropEntry, which is how a builder says "this one is not
 		// discretionary". Item 3's trailing note is the case that matters: it is emitted LAST, so
 		// a prefix fill would drop it first under a tight share — and dropping it both hides how
 		// many eliminations were omitted and deletes the standing instruction, which
-		// runStandingInstructionCase asserts item 3 carries. A fixed unit is therefore admitted
-		// whether or not the allowance covers it; the hard-cap assertion in Build is what keeps
-		// the total honest if that ever pushes a payload over.
+		// runStandingInstructionCase asserts item 3 carries.
 		if isFixedUnit(u) {
 			out.units = append(out.units, u)
-			out.used += u.tokens
+			out.used = out.used.plus(unitCost(u))
+			owed = owed.minus(unitCost(u))
 			continue
 		}
-		if truncating || (!never && out.used+u.tokens > allowance) {
+		if truncating || !out.used.plus(unitCost(u)).plus(owed).within(allowance) {
 			truncating = true
 			out.dropped = append(out.dropped, u.drop)
 			out.pending = append(out.pending, u)
@@ -138,25 +155,86 @@ func fillPrefix(units []unit, allowance core.Tokens, never bool) admitted {
 			continue
 		}
 		out.units = append(out.units, u)
-		out.used += u.tokens
+		out.used = out.used.plus(unitCost(u))
 	}
 	return out
 }
 
-// fillWithHeading fills units against an allowance that must also cover the item's `## n.` section
-// heading, and charges the heading only when at least one unit was actually admitted.
+// fixedCost is the priced cost of the fixed (never-discretionary) units in units.
+func fixedCost(units []unit) cost {
+	var c cost
+	for _, u := range units {
+		if isFixedUnit(u) {
+			c = c.plus(unitCost(u))
+		}
+	}
+	return c
+}
+
+// fillWithHeading fills units against an allowance that must also cover the item's section heading
+// and separator, and charges them only when at least one unit was actually admitted.
 //
-// Charging the heading up front is what keeps Result.Tokens == the sum over Items honest: an
-// Item's Tokens is its WHOLE rendered contribution, heading included, not just its units. Not
-// charging it for an empty item is what stops a heading being paid for a section that never
-// renders.
-func fillWithHeading(d Deps, k ItemKind, units []unit, allowance core.Tokens) *admitted {
-	head := headingCost(d, k)
-	a := fillPrefix(units, allowance-head, false)
+// Charging the heading up front is what keeps Result.Tokens == the sum over Items honest and the
+// character total exact: an Item's cost is its WHOLE rendered contribution, heading included, not
+// just its units. Not charging it for an empty item is what stops a heading being paid for a
+// section that never renders. chargeHeading is false only for item 2's evolution deltas when the
+// tier-1 pass already emitted the section's heading with the verbatim original.
+//
+// room is what the WHOLE payload has left for this item once every later reserve is held back. The
+// heading and the item's fixed units are reserved against it before any discretionary unit is
+// considered; when even they do not fit, the item cannot be emitted at all and is abandoned — every
+// discretionary unit is reported through its own DropEntry — rather than rendered without the
+// fixed unit that makes it honest, or rendered past the ceiling.
+func fillWithHeading(d Deps, k ItemKind, b built, units []unit, allowance, room cost, chargeHeading bool) *admitted {
+	var head cost
+	if chargeHeading {
+		head = sectionCost(d, k, b)
+	}
+	fixed := fixedCost(units)
+	if !head.plus(fixed).within(room) {
+		a := &admitted{truncated: true, abandoned: true}
+		for _, u := range units {
+			if isFixedUnit(u) {
+				continue
+			}
+			a.dropped = append(a.dropped, u.drop)
+			a.pending = append(a.pending, u)
+		}
+		return a
+	}
+	a := fillPrefix(units, allowance.atMost(room).minus(head))
 	if len(a.units) > 0 {
-		a.used += head
+		a.used = a.used.plus(head)
 	}
 	return &a
+}
+
+// fillTier1 admits k's tier-1 units whole, in builder order, while they fit room, and stops at the
+// first one that does not (the same prefix rule as every other item, ADR 0011 §7). The section
+// heading is charged with the first admitted unit.
+//
+// A tier-1 unit is a whole record — one pinned invariant, the verbatim original prompt, the
+// retrieval line — and is never cut: it is emitted whole or it is named as an explicit overflow
+// (tier1Drop) carrying the pointer that restores it. Filling record by record rather than item by
+// item is what lets forty invariants that fit survive the one that does not.
+func fillTier1(d Deps, k ItemKind, b built, units []unit, room cost) *admitted {
+	head := sectionCost(d, k, b)
+	a := &admitted{units: make([]unit, 0, len(units))}
+	for _, u := range units {
+		next := a.used.plus(unitCost(u))
+		if len(a.units) == 0 {
+			next = next.plus(head)
+		}
+		if a.truncated || !next.within(room) {
+			a.truncated = true
+			a.dropped = append(a.dropped, tier1Drop(k, u))
+			a.pending = append(a.pending, u)
+			continue
+		}
+		a.units = append(a.units, u)
+		a.used = next
+	}
+	return a
 }
 
 // tier1Order is the material admitted whole before any share is computed: §8.6's "verbatim,
@@ -166,6 +244,13 @@ func fillWithHeading(d Deps, k ItemKind, units []unit, allowance core.Tokens) *a
 // ItemUserIntent appears here for its FIRST unit only — the verbatim original. Its evolution
 // deltas are discretionary and take a share in shareOrder.
 var tier1Order = []ItemKind{ItemInvariants, ItemUserIntent, ItemAffordance}
+
+// tier1Admission is the order step 3 ADMITS tier-1 material in, which is not the order it renders
+// in: the retrieval line goes first. It is the smallest tier-1 item and the one every overflow
+// pointer depends on — a drop report that says "call expand(…)" to a model that was never told
+// expand exists is not a pointer — so, like item 7's floor, it is held before the invariants and
+// the original prompt can claim the room (ADR 0011 §18, §21). Rendering still follows renderOrder.
+var tier1Admission = []ItemKind{ItemAffordance, ItemInvariants, ItemUserIntent}
 
 // tier1Units is the slice of k's units that step 3 admits whole, ahead of every share.
 //
@@ -234,8 +319,9 @@ func estimate(d Deps, s string) core.Tokens {
 	return d.Tokens.EstimateString(s, tokens.ClassProse)
 }
 
-// priceAll fills in every unit's token cost. Builders deliberately leave unit.tokens zero: pricing
-// needs Deps.Tokens, and keeping it out of the builders is what lets them stay pure renderers.
+// priceAll fills in every unit's token and host-character cost. Builders deliberately leave both
+// zero: pricing needs Deps.Tokens, and keeping it out of the builders is what lets them stay pure
+// renderers.
 func priceAll(d Deps, all map[ItemKind]built) {
 	for k, b := range all {
 		priceUnits(d, b.units)
@@ -243,12 +329,14 @@ func priceAll(d Deps, all map[ItemKind]built) {
 	}
 }
 
-// priceUnits prices one unit slice in place.
+// priceUnits prices one unit slice in place. The character count is always recomputed: it is exact
+// and cheap, and the ceiling is only a guarantee if no unit carries a stale one.
 func priceUnits(d Deps, units []unit) {
 	for i := range units {
 		if units[i].tokens == 0 {
 			units[i].tokens = estimate(d, units[i].text)
 		}
+		units[i].chars = hostChars(units[i].text)
 	}
 }
 
@@ -259,9 +347,16 @@ func priceUnits(d Deps, units []unit) {
 // T11-BUDGET-02's "single oversized critical record" overflow: ID "tier1" is what Overflowed
 // recognizes, and Kind stays the ITEM's own kind (not dropKindOverflow) so the report still says
 // WHICH essential record could not fit, not merely that something did not.
+//
+// A builder that knows which record a tier-1 unit is, and how to get it back, says so in the unit's
+// overflow entry (buildInvariants, buildUserIntent); that entry is used as-is so the report names
+// the record and the call that restores it. The generic entry below is the fallback.
 func tier1Drop(k ItemKind, u unit) checkpoint.DropEntry {
 	if !isFixedUnit(u) {
 		return u.drop
+	}
+	if u.overflow != (checkpoint.DropEntry{}) {
+		return u.overflow
 	}
 	return checkpoint.DropEntry{
 		Kind: k.String(),
@@ -325,7 +420,7 @@ func mergeIntent(base, add *admitted) *admitted {
 		return base
 	}
 	base.units = append(base.units, add.units...)
-	base.used += add.used
+	base.used = base.used.plus(add.used)
 	base.dropped = append(base.dropped, add.dropped...)
 	base.pending = append(base.pending, add.pending...)
 	base.truncated = base.truncated || add.truncated
@@ -368,41 +463,101 @@ func collectDrops(r Request, all map[ItemKind]built, fills map[ItemKind]*admitte
 // the cap was 12K would be leaving quality on the table for no reason.
 //
 // It walks the truncated items in renderOrder and re-admits their dropped units in the order they
-// were dropped, removing the corresponding drop entries, while the slack covers them.
-func minFill(items map[ItemKind]*admitted, order []ItemKind, spent, floor, ceiling core.Tokens) core.Tokens {
+// were dropped, removing the corresponding drop entries, while the slack covers them. The slack is
+// two-dimensional: the token target, and the host-character ceiling less what is held for item 7 —
+// min-fill may never spend the room the overflow report needs. A unit re-admitted into an item
+// that had emitted nothing also pays that item's heading and separator. An abandoned item is never
+// refilled: its fixed units did not fit, and refilling it would render it without them.
+func minFill(d Deps, all map[ItemKind]built, items map[ItemKind]*admitted, order []ItemKind,
+	spent cost, floor core.Tokens, limit, held cost,
+) cost {
 	target := floor
-	if target > ceiling {
-		target = ceiling
+	if top := limit.tok - held.tok; target > top {
+		target = top
 	}
-	slack := target - spent
-	if slack <= 0 {
+	slack := cost{tok: target - spent.tok, chars: limit.chars - held.chars - spent.chars}
+	if slack.tok <= 0 || slack.chars <= 0 {
 		return spent
 	}
 	for _, k := range order {
 		a := items[k]
-		if a == nil || !a.truncated || len(a.dropped) == 0 {
+		if a == nil || a.abandoned || !a.truncated || len(a.dropped) == 0 {
 			continue
 		}
 		// The dropped units are gone; their costs are not recoverable from the DropEntry alone,
 		// so re-admission is driven by the carried-over unit list the caller stashes in pending.
 		for len(a.pending) > 0 {
 			u := a.pending[0]
-			if u.tokens > slack {
+			need := unitCost(u)
+			if len(a.units) == 0 {
+				need = need.plus(sectionCost(d, k, all[k]))
+			}
+			if !need.within(slack) {
 				break
 			}
 			a.units = append(a.units, u)
-			a.used += u.tokens
+			a.used = a.used.plus(need)
 			a.pending = a.pending[1:]
 			a.dropped = a.dropped[1:]
-			slack -= u.tokens
-			spent += u.tokens
+			slack = slack.minus(need)
+			spent = spent.plus(need)
 		}
 		if len(a.pending) == 0 {
 			a.truncated = false
 		}
-		if slack <= 0 {
+		if slack.tok <= 0 || slack.chars <= 0 {
 			break
 		}
 	}
 	return spent
+}
+
+// moreSample is the count dropReportFloor prices item 7's counted tail with. Seven digits is wider
+// than any drop report a checkpoint can produce; pricing the wide case means the floor can never
+// under-reserve the tail it exists to guarantee.
+const moreSample = 9999999
+
+// dropReportFloor is the smallest item 7 that still reports an omission: its heading and separator
+// plus the counted tail ("- … and N more; call dropped()"). Build holds it back from tier 1 onward,
+// so whatever the payload has to omit, it can always say so and name the call that lists it —
+// the overflow report fits inside the ceiling by construction rather than by luck (D5).
+func dropReportFloor(d Deps) cost {
+	return sectionCost(d, ItemDropReport, built{}).plus(unitCost(moreDropsUnit(d, moreSample)))
+}
+
+// fillDropReport fills item 7 against allowance: every line when they all fit, otherwise the
+// longest PREFIX of lines that fits beside the counted tail naming how many were left out.
+//
+// Its lines are not fixed units even though they carry no DropEntry of their own: they are the
+// report on everything else, the complete list is persisted to the state file regardless, and the
+// tail tells the model to call dropped() for the rest. Admitting them wholesale, as a fixed unit
+// would be, is what used to push a small payload over its cap and get item 7 evicted — leaving a
+// payload that had lost most of its material with no word that it had.
+func fillDropReport(d Deps, b built, allowance cost) *admitted {
+	head := sectionCost(d, ItemDropReport, b)
+	whole := head.plus(sumCost(b.units))
+	if whole.within(allowance) {
+		return &admitted{units: append([]unit(nil), b.units...), used: whole}
+	}
+	best := -1
+	var bestTail unit
+	used := head
+	for keep := 0; keep < len(b.units); keep++ {
+		tail := moreDropsUnit(d, len(b.units)-keep)
+		if used.plus(unitCost(tail)).within(allowance) {
+			best, bestTail = keep, tail
+		}
+		used = used.plus(unitCost(b.units[keep]))
+		if !used.within(allowance) {
+			break
+		}
+	}
+	if best < 0 {
+		// Not even the heading and the tail fit. The floor Build holds makes this unreachable short
+		// of a report with ten million lines; the state file still carries every entry.
+		return &admitted{truncated: true}
+	}
+	a := &admitted{units: append(append([]unit(nil), b.units[:best]...), bestTail), truncated: true}
+	a.used = head.plus(sumCost(a.units))
+	return a
 }

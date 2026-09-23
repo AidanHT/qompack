@@ -2,7 +2,7 @@
   "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
   "seq": 1,
   "emitted": 1767225600000,
-  "tokens": 7149,
+  "tokens": 2336,
   "budget": 8000,
   "items": [
     {
@@ -56,31 +56,31 @@
     {
       "kind": "restored_instructions",
       "rank": 6,
-      "tokens": 5672,
+      "tokens": 1151,
       "truncated": true,
-      "units": 5,
+      "units": 1,
       "units_seen": 7
     },
     {
       "kind": "skill_index",
       "rank": 7,
-      "tokens": 441,
+      "tokens": 240,
       "truncated": true,
-      "units": 19,
+      "units": 10,
       "units_seen": 20
     },
     {
       "kind": "drop_report",
       "rank": 8,
-      "tokens": 294,
-      "truncated": false,
-      "units": 12,
-      "units_seen": 12
+      "tokens": 218,
+      "truncated": true,
+      "units": 6,
+      "units_seen": 25
     },
     {
       "kind": "affordance",
       "rank": 9,
-      "tokens": 62,
+      "tokens": 47,
       "truncated": false,
       "units": 1,
       "units_seen": 1
@@ -134,12 +134,77 @@
     },
     {
       "kind": "path_rule",
+      "id": ".claude/rules/auth-conventions.md",
+      "detail": "matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/auth-conventions.md"
+    },
+    {
+      "kind": "path_rule",
+      "id": ".claude/rules/db-conventions.md",
+      "detail": "matched docker-compose.yml; did not fit the rehydration budget; restore: Read .claude/rules/db-conventions.md"
+    },
+    {
+      "kind": "path_rule",
+      "id": ".claude/rules/infra-conventions.md",
+      "detail": "matched docker-compose.yml; did not fit the rehydration budget; restore: Read .claude/rules/infra-conventions.md"
+    },
+    {
+      "kind": "path_rule",
+      "id": ".claude/rules/security-conventions.md",
+      "detail": "matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/security-conventions.md"
+    },
+    {
+      "kind": "path_rule",
       "id": ".claude/rules/testing-conventions.md",
-      "detail": "matched src/auth.ts; did not fit the rehydration budget"
+      "detail": "matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/testing-conventions.md"
     },
     {
       "kind": "nested_claude_md",
       "id": "src/CLAUDE.md",
+      "detail": "did not fit the rehydration budget; restore: Read src/CLAUDE.md"
+    },
+    {
+      "kind": "skill",
+      "id": "onboard",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "perf-profile",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "pool-watch",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "release-notes",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "repro-protocol",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "schema-diff",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "secret-scan",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "tf-plan-review",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "token-forensics",
       "detail": "did not fit the rehydration budget"
     },
     {

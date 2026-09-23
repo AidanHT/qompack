@@ -219,7 +219,7 @@ func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 		// a.used + (on the first emitted item) the wrapper overhead is this row's heuristic WEIGHT:
 		// the estimator's per-fragment price for what this section contributes. The assembled total
 		// below re-normalizes it, so it never has to be exact — only proportional and non-negative.
-		it := Item{Kind: k, Rank: len(res.Items), Tokens: a.used, Text: text, Truncated: a.truncated}
+		it := Item{Kind: k, Rank: len(res.Items), Tokens: a.used.tok, Text: text, Truncated: a.truncated}
 		if len(res.Items) == 0 {
 			it.Tokens += overhead
 		}
@@ -228,11 +228,13 @@ func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 		seen[k] = b.seen
 	}
 
-	if len(res.Items) == 0 {
+	if len(res.Items) == 0 || onlyDropReport(res.Items) {
 		// No items means no payload, not an empty tagged wrapper — and a rehydration that could
-		// inject nothing must say it was degraded (§12.3, runDegradeCase).
-		res.Degraded = true
-		return res, nil
+		// inject nothing must say it was degraded (§12.3, runDegradeCase). A drop report with
+		// nothing beside it is the same case: item 7's floor is held so that an omission can be
+		// NAMED next to whatever did fit, not so that a payload of nothing but "you lost
+		// everything" is injected in place of none. Result.Dropped still carries every entry.
+		return Result{Degraded: true}, nil
 	}
 	res.Text = renderText(r, res.Items)
 	// The reported cost is the estimator's price for the COMPLETE assembled payload — wrapper and
@@ -240,6 +242,11 @@ func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 	res.Tokens = estimate(d, res.Text)
 	allocateAssembledTokens(res.Items, res.Tokens)
 	return res, itemStats(res.Items, units, seen)
+}
+
+// onlyDropReport reports whether items is item 7 and nothing else.
+func onlyDropReport(items []Item) bool {
+	return len(items) == 1 && items[0].Kind == ItemDropReport
 }
 
 // allocateAssembledTokens re-charges each item's accounting row so that the arithmetic sum over
