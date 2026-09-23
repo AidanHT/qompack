@@ -1,0 +1,85 @@
+Fix-seat final verification, windows/amd64, 2026-09-22 local (Claude Code host not involved).
+Branch HEAD f9d8cc1. Base comparisons ran on an export of cf31e01 (git archive cf31e01 | tar -x).
+The machine carried ~10 other agents' test runs throughout; timing rows are co-loaded.
+
+== go test ./internal/hookio -count=1
+ok  	github.com/qompack/qompack/internal/hookio	2.342s
+== go test ./internal/cli -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/cli	57.086s
+== go test ./tools/devtool -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/tools/devtool	38.619s
+== go test ./test/docs -count=1: ok
+== go test ./test/guards -count=1 -timeout=30m
+--- FAIL: TestGuard_TheV1DeliveryPositionHasOneEncoder (0.16s)
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.54s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	337.218s
+FAIL
+   base cf31e01, same two tests: both FAIL (pre-existing)
+
+== go test ./test/e2e -count=1 -timeout=30m -v (branch; killed at the 30m wall)
+--- FAIL: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (28.58s)
+--- FAIL: TestE2E_ObserverThroughDaemon (88.12s)
+--- FAIL: TestE2E_ThinSliceDropsControlOnlyEdges (74.56s)
+--- FAIL: TestV1_ConfigPrecedenceReachesHookBehaviour (9.31s)
+--- FAIL: TestV3_LiveSessionWriteSetAndAppendOnly (82.64s)
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (69.36s)
+panic: test timed out after 30m0s
+FAIL	github.com/qompack/qompack/test/e2e	1800.343s
+FAIL
+   PASS count: 56
+   running at the wall: TestV3_HotPathUnchangedWithLedgerResident; never reached: TestE2E_RequiredProductChildRaceInstrumentation, TestStandingInstructionsAgree, TestSyncBufferConcurrentWriterReader
+== the same six failing tests on base cf31e01
+--- FAIL: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (96.32s)
+--- FAIL: TestE2E_ObserverThroughDaemon (87.18s)
+--- FAIL: TestE2E_ThinSliceDropsControlOnlyEdges (69.97s)
+--- FAIL: TestV1_ConfigPrecedenceReachesHookBehaviour (9.88s)
+--- FAIL: TestV3_LiveSessionWriteSetAndAppendOnly (83.28s)
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (69.49s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	416.425s
+FAIL
+== branch, the three never reached
+--- SKIP: TestE2E_RequiredProductChildRaceInstrumentation (0.00s)
+--- PASS: TestStandingInstructionsAgree (0.00s)
+--- PASS: TestSyncBufferConcurrentWriterReader (0.24s)
+ok  	github.com/qompack/qompack/test/e2e	0.463s
+   (the SKIP is the pre-existing QOMPACK_REQUIRE_CHILD_RACE gate)
+== TestV3_HotPathUnchangedWithLedgerResident alone, branch
+        hotpath: measuring spawn floor (200 x qompack version)...
+          spawn floor: p50=32.807ms p99=46.881ms (n=200)
+          B-A                 n=1536  p50=  45.056ms p95= 147.456ms p99= 360.448ms p999= 786.432ms max=  759.000ms limit=15.000ms   [FAIL]
+          B-B                 n=1536  p50=  24.576ms p95=  61.440ms p99= 245.760ms p999= 425.984ms max=  429.545ms limit=50.000ms   [FAIL]
+          note: delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-
+== TestV3_HotPathUnchangedWithLedgerResident alone, base cf31e01
+        hotpath: measuring spawn floor (200 x qompack version)...
+          spawn floor: p50=24.598ms p99=47.214ms (n=200)
+          B-A                 n=1536  p50=  32.768ms p95=  57.344ms p99= 131.072ms p999= 393.216ms max=  460.000ms limit=15.000ms   [FAIL]
+          B-B                 n=1536  p50=  20.480ms p95=  28.672ms p99=  61.440ms p999= 163.840ms max=  180.803ms limit=50.000ms   [FAIL]
+          note: delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-
+
+== go run ./tools/devtool lint (whole, started 20:32 before 3cf20f3)
+PASS golangci-lint
+FAIL nomagic: exit status 1
+PASS importgraph
+PASS testdeps
+FAIL bindeps: bindeps: 4 violation(s)
+PASS sleepcheck
+FAIL stubskips: stubskips: 6 problem(s)
+PASS runpatterns
+PASS docmarkers
+PASS coveragefloors
+   nomagic FAIL was HostFieldMaxChars before 3cf20f3; stubskips problems:
+  github.com/qompack/qompack/internal/daemon (TestDeliveryPath_V6_RefusesAliasedSegmentParent): skipped with a reason matching none of the three permitted messages (Rule W-1, Rule W-2, or "platform: "
+  github.com/qompack/qompack/internal/daemon (TestDeliveryTerminal_DrainAfterPhysicalScopeChanges): skipped with a reason matching none of the three permitted messages (Rule W-1, Rule W-2, or "platfor
+  github.com/qompack/qompack/internal/hookio (TestCaptureScope_JunctionSwapDefeatsLexicalContainment): skipped with a reason matching none of the three permitted messages (Rule W-1, Rule W-2, or "plat
+  github.com/qompack/qompack/internal/store (TestMaintenance_SymlinkComponentInBackupTreeRefused): skipped with a reason matching none of the three permitted messages (Rule W-1, Rule W-2, or "platform
+  github.com/qompack/qompack/test/e2e: test binary killed for running past -timeout=30m, so every skip it had not yet reached is missing from this run — the tree was only partly inspected
+  github.com/qompack/qompack/test/integration: test binary killed for running past -timeout=30m, so every skip it had not yet reached is missing from this run — the tree was only partly inspected
+   every skip it names is in a file last touched at or before cf31e01; this branch adds no Skip call
+== go run ./tools/devtool lint --only=runpatterns,docmarkers,coveragefloors,golangci-lint,nomagic,importgraph,testdeps,sleepcheck (HEAD f9d8cc1)
+   all PASS
+== go run ./tools/devtool lint --only=bindeps on base cf31e01: FAIL, same 4 violations (pre-existing)
+== go run ./tools/devtool plugin-validate: OK (10 file(s), 7 command(s), 7 hook event(s))
+== go run ./tools/devtool fmt-check: clean; go vet (cli, hookio, e2e, guards, devtool): clean
+== gen-config-docs/gen-command-docs/gen-mcp-docs --check: up to date
