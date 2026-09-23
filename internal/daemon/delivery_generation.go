@@ -129,8 +129,8 @@ const deliveryGenerationsDirName = "delivery-generations"
 
 // enableDeliveryGenerations gates segmented rollover of the delivery journals: the segment authority,
 // this generation store, and the rotation that replaces the 65,536-entry / 64 MiB refusal. It is ON by
-// default since the V6 close-out (C1.10, owner decision D2, after the gates in
-// plans/sdd/V6-closeout/rollover/report.md): a journal at its cap rotates to a fresh segment and keeps
+// default since the V6 close-out (C1.10, owner decision D2, after the gates recorded under SP20-D4 in
+// plans/V2-WAVE1-carried-defects.md): a journal at its cap rotates to a fresh segment and keeps
 // assigning identities, an archived nonce's redelivery resolves its ORIGINAL lease from this store, and
 // store GC harvests every segment. With it off a current build refuses any store that has migration
 // evidence (existingDeliveryMigration), because disabling a mechanism cannot authorize an older writer;
