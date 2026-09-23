@@ -1,0 +1,11 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     136	   9423228 ns/op	  10.87 MB/s	  909187 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	       8	 142221725 ns/op	   0.72 MB/s	 9849595 B/op	    1173 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	       8	 154296062 ns/op	   0.66 MB/s	25318027 B/op	    1332 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	      80	  15148959 ns/op	   6.76 MB/s	 1009283 B/op	      15 allocs/op
+BenchmarkPutObject_NovelChunk-22            	      90	  21940317 ns/op	   0.19 MB/s	  827511 B/op	     132 allocs/op
+PASS
+exit=0

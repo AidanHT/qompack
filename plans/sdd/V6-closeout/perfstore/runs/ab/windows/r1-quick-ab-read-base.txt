@@ -1,0 +1,12 @@
+BenchmarkGetChunk-22               	    3993	    440265 ns/op	   22513 B/op	      22 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    6194	    163703 ns/op	   22501 B/op	      23 allocs/op
+BenchmarkGetChunk-22               	    6459	    160824 ns/op	   22542 B/op	      22 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    9382	    193794 ns/op	   22749 B/op	      23 allocs/op
+BenchmarkGetChunk-22               	    8504	    139792 ns/op	   22503 B/op	      22 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    5239	    204369 ns/op	   22495 B/op	      23 allocs/op
+BenchmarkGetChunk-22               	   10438	    146333 ns/op	   22707 B/op	      22 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    5841	    201187 ns/op	   22757 B/op	      23 allocs/op
+BenchmarkGetChunk-22               	   10000	    144526 ns/op	   22822 B/op	      22 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    6060	    212372 ns/op	   22504 B/op	      23 allocs/op
+BenchmarkGetChunk-22               	    5680	    191442 ns/op	   22235 B/op	      22 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    8715	    195768 ns/op	   22448 B/op	      23 allocs/op

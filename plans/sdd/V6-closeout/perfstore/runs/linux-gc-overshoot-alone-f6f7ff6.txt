@@ -1,0 +1,6 @@
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1489: calibration 157.270922ms…264.612721ms over 3072 objects (fastest of 4); first check 64.163025ms (measured 64.163025ms); window 2.45x, slack 1.57x; check interval 45.415424ms; budget 115.428081ms; overshoot 66.057011ms after 1023 objects on attempt 5 of 5; limit 90.830848ms
+--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (281.06s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	281.079s
+exit=0

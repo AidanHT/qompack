@@ -1,0 +1,12 @@
+close 514
+epoll_ctl 514
+epoll_pwait 126
+fstat 514
+futex 499
+getpid 42
+nanosleep 142
+newfstatat 514
+openat 514
+read 1028
+rt_sigreturn 42
+tgkill 42

@@ -1,0 +1,25 @@
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (71 package(s) checked)
+PASS importgraph
+== devtool lint: testdeps ==
+testdeps: OK (73 package(s) checked)
+PASS testdeps
+== devtool lint: bindeps ==
+  linux/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  linux/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+FAIL bindeps: bindeps: 4 violation(s)
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+== devtool lint: coveragefloors ==
+coveragefloors: 63 floor claim(s) across 257 plan document(s) checked against plans/OWNERS.tsv
+PASS coveragefloors
+devtool: lint: lint: failed sub-check(s): bindeps
+exit status 1
+exit=1

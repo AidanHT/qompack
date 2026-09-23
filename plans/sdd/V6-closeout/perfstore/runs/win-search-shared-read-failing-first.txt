@@ -1,0 +1,13 @@
+=== RUN   TestSearch_ReadsASharedChunkOncePerSearch
+    search_shared_reads_test.go:64: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-perfstore/internal/store/search_shared_reads_test.go:64
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 3
+        	Test:       	TestSearch_ReadsASharedChunkOncePerSearch
+        	Messages:   	the damaged shared chunk must be read once for the whole Search, not once per candidate
+--- FAIL: TestSearch_ReadsASharedChunkOncePerSearch (2.42s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	2.704s
+FAIL
+exit=1

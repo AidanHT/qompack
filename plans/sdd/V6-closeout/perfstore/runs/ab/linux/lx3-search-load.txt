@@ -1,0 +1,10 @@
+round 1 base 00:25:19 load 8.42 8.06 7.50
+round 1 final 00:32:43 load 9.85 9.82 8.53
+round 2 final 00:40:18 load 8.61 8.75 8.43
+round 2 base 00:48:24 load 8.75 10.64 9.87
+round 3 base 00:56:23 load 9.89 9.62 9.58
+round 3 final 01:02:45 load 7.55 7.95 8.79
+round 4 final 01:08:20 load 6.54 7.34 8.27
+round 4 base 01:13:22 load 7.97 7.34 8.02
+round 5 base 01:19:22 load 7.72 7.52 7.90
+done stopped after round 4 (round 5 base killed at 01:20:02) load 7.24 7.41 7.84

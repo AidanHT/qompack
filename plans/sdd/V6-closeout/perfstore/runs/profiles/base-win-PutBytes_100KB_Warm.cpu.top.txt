@@ -1,0 +1,69 @@
+File: store-base.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\perfstore\store-base.exe2026-09-22 17:22:33.8917402 -0400 EDT
+Type: cpu
+Time: 2026-09-22 17:26:10 EDT
+Duration: 13.96s, Total samples = 14.66s (105.00%)
+Showing nodes accounting for 11.59s, 79.06% of 14.66s total
+Dropped 246 nodes (cum <= 0.07s)
+Showing top 60 nodes out of 132
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     12.80s 87.31%  testing.(*B).runN
+         0     0%     0%     12.63s 86.15%  testing.(*B).launch
+         0     0%     0%     12.52s 85.40%  github.com/qompack/qompack/internal/store.BenchmarkPutBytes_100KB_Warm
+         0     0%     0%     12.41s 84.65%  github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+         0     0%     0%     11.34s 77.35%  github.com/qompack/qompack/internal/canon.(*registry).Run
+         0     0%     0%      7.81s 53.27%  github.com/qompack/qompack/internal/canon.(*registry).collect
+         0     0%     0%      7.81s 53.27%  github.com/qompack/qompack/internal/canon.MatchesOf
+         0     0%     0%         7s 47.75%  github.com/qompack/qompack/internal/canon.ruleMatches
+     0.01s 0.068% 0.068%      6.86s 46.79%  github.com/qompack/qompack/internal/canon.forEachLine
+         0     0% 0.068%      6.51s 44.41%  github.com/qompack/qompack/internal/canon.pidsCanon.Matches
+     0.01s 0.068%  0.14%      6.46s 44.07%  github.com/qompack/qompack/internal/canon.ruleMatches.func1
+     0.02s  0.14%  0.27%      6.45s 44.00%  github.com/qompack/qompack/internal/canon.appendRuleSpans
+     0.01s 0.068%  0.34%      6.42s 43.79%  regexp.(*Regexp).FindAllSubmatchIndex
+         0     0%  0.34%      6.41s 43.72%  regexp.(*Regexp).allMatches
+     0.02s  0.14%  0.48%      6.41s 43.72%  regexp.(*Regexp).doExecute
+     0.28s  1.91%  2.39%      6.26s 42.70%  regexp.(*Regexp).backtrack
+     2.63s 17.94% 20.33%      5.50s 37.52%  regexp.(*Regexp).tryBacktrack
+         0     0% 20.33%      3.49s 23.81%  github.com/qompack/qompack/internal/sketch.MinHash (inline)
+         0     0% 20.33%      3.49s 23.81%  github.com/qompack/qompack/internal/sketch.minHashWithStats
+         0     0% 20.33%      3.45s 23.53%  github.com/qompack/qompack/internal/sketch.bottomKShingles
+     0.37s  2.52% 22.85%      3.45s 23.53%  github.com/qompack/qompack/internal/sketch.distinctBelow
+     0.16s  1.09% 23.94%      2.44s 16.64%  github.com/qompack/qompack/internal/sketch.hashShingles
+     1.64s 11.19% 35.13%      2.27s 15.48%  github.com/qompack/qompack/internal/sketch.fnv1a64 (inline)
+     1.77s 12.07% 47.20%      1.77s 12.07%  runtime.asyncPreempt
+         0     0% 47.20%      1.29s  8.80%  runtime.systemstack
+         0     0% 47.20%      0.98s  6.68%  runtime.gcBgMarkWorker.func2
+     0.01s 0.068% 47.27%      0.98s  6.68%  runtime.gcDrain
+     0.57s  3.89% 51.16%      0.94s  6.41%  regexp.(*inputBytes).step
+         0     0% 51.16%      0.94s  6.41%  runtime.gcDrainMarkWorkerDedicated (inline)
+     0.71s  4.84% 56.00%      0.89s  6.07%  runtime.preemptM
+     0.65s  4.43% 60.44%      0.79s  5.39%  regexp.(*bitState).shouldVisit (inline)
+         0     0% 60.44%      0.78s  5.32%  bytes.Contains (inline)
+     0.20s  1.36% 61.80%      0.78s  5.32%  bytes.Index
+         0     0% 61.80%      0.72s  4.91%  github.com/qompack/qompack/internal/redact.(*rx).Redact
+         0     0% 61.80%      0.72s  4.91%  github.com/qompack/qompack/internal/redact.rule.mayMatch
+     0.08s  0.55% 62.35%      0.71s  4.84%  bytes.IndexByte (inline)
+     0.23s  1.57% 63.92%      0.57s  3.89%  regexp.(*inputBytes).context
+     0.56s  3.82% 67.74%      0.56s  3.82%  indexbytebody
+         0     0% 67.74%      0.50s  3.41%  runtime.markroot
+     0.05s  0.34% 68.08%      0.49s  3.34%  github.com/qompack/qompack/internal/canon.(*reRule).triggered
+         0     0% 68.08%      0.48s  3.27%  runtime.markroot.func1
+         0     0% 68.08%      0.47s  3.21%  runtime.suspendG
+         0     0% 68.08%      0.46s  3.14%  runtime.preemptone
+     0.44s  3.00% 71.08%      0.45s  3.07%  runtime.cgocall
+         0     0% 71.08%      0.45s  3.07%  syscall.syscalln
+         0     0% 71.08%      0.44s  3.00%  syscall.SyscallN
+     0.01s 0.068% 71.15%      0.43s  2.93%  github.com/qompack/qompack/internal/canon.(*reRule).hasLiteral
+     0.28s  1.91% 73.06%      0.41s  2.80%  regexp.(*bitState).push (inline)
+     0.23s  1.57% 74.62%      0.40s  2.73%  github.com/qompack/qompack/internal/canon.numericMatches
+     0.32s  2.18% 76.81%      0.38s  2.59%  github.com/qompack/qompack/internal/sketch.(*shingleSet).add (inline)
+     0.01s 0.068% 76.88%      0.38s  2.59%  runtime.newstack
+         0     0% 76.88%      0.36s  2.46%  github.com/qompack/qompack/internal/canon.fileReadCanon.Matches
+         0     0% 76.88%      0.36s  2.46%  github.com/qompack/qompack/internal/canon.timestampsCanon.Matches
+         0     0% 76.88%      0.36s  2.46%  github.com/qompack/qompack/internal/canon.trailingWSMatches (inline)
+         0     0% 76.88%      0.35s  2.39%  runtime.lock (inline)
+     0.01s 0.068% 76.94%      0.35s  2.39%  runtime.lockWithRank (inline)
+         0     0% 76.94%      0.35s  2.39%  runtime.schedule
+     0.27s  1.84% 78.79%      0.35s  2.39%  unicode/utf8.DecodeRune (inline)
+     0.03s   0.2% 78.99%      0.34s  2.32%  runtime.lock2
+     0.01s 0.068% 79.06%      0.33s  2.25%  runtime.(*gcControllerState).enlistWorker

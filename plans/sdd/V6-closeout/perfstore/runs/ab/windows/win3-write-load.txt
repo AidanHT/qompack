@@ -1,0 +1,17 @@
+round 1 final2 00:08:54 cpu% 42
+round 1 basebench2 00:09:08 cpu% 67
+round 2 basebench2 00:09:21 cpu% 37
+round 2 final2 00:09:37 cpu% 53
+round 3 final2 00:09:50 cpu% 62
+round 3 basebench2 00:10:08 cpu% 89
+round 4 basebench2 00:10:28 cpu% 74
+round 4 final2 00:10:43 cpu% 88
+round 5 final2 00:10:59 cpu% 59
+round 5 basebench2 00:11:11 cpu% 41
+round 6 basebench2 00:11:22 cpu% 52
+round 6 final2 00:11:34 cpu% 50
+round 7 final2 00:11:47 cpu% 49
+round 7 basebench2 00:11:59 cpu% 44
+round 8 basebench2 00:12:14 cpu% 66
+round 8 final2 00:12:30 cpu% 43
+done 00:12:44

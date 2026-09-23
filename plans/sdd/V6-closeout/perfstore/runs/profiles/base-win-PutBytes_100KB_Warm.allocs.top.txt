@@ -1,0 +1,48 @@
+File: store-base.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\perfstore\store-base.exe2026-09-22 17:22:33.8917402 -0400 EDT
+Type: alloc_objects
+Time: 2026-09-22 17:26:24 EDT
+Showing nodes accounting for 62024, 99.24% of 62498 total
+Dropped 53 nodes (cum <= 312)
+Showing top 40 nodes out of 68
+      flat  flat%   sum%        cum   cum%
+     21845 34.95% 34.95%      21845 34.95%  syscall.ByteSliceFromString
+     11956 19.13% 54.08%      11956 19.13%  runtime.mallocgc
+     10923 17.48% 71.56%      10923 17.48%  text/template/parse.(*Tree).newText (inline)
+      5467  8.75% 80.31%       5476  8.76%  runtime/pprof.(*profileBuilder).emitLocation
+      3277  5.24% 85.55%       3277  5.24%  compress/gzip.NewWriterLevel
+      2185  3.50% 89.05%       2185  3.50%  regexp.(*Regexp).get
+      2185  3.50% 92.54%       2185  3.50%  runtime/pprof.allFrames
+       970  1.55% 94.10%       1814  2.90%  github.com/qompack/qompack/internal/sketch.distinctBelow
+       866  1.39% 95.48%        866  1.39%  github.com/qompack/qompack/internal/chunk.(*chunker).Split
+       844  1.35% 96.83%        844  1.35%  github.com/qompack/qompack/internal/sketch.newShingleSet (inline)
+       526  0.84% 97.67%        526  0.84%  github.com/qompack/qompack/internal/canon.applyMatches
+       513  0.82% 98.49%       2327  3.72%  github.com/qompack/qompack/internal/sketch.minHashWithStats
+       467  0.75% 99.24%        467  0.75%  github.com/qompack/qompack/internal/redact.asciiLower (inline)
+         0     0% 99.24%       5170  8.27%  github.com/qompack/qompack/internal/canon.(*registry).Run
+         0     0% 99.24%       2317  3.71%  github.com/qompack/qompack/internal/canon.(*registry).collect
+         0     0% 99.24%       2317  3.71%  github.com/qompack/qompack/internal/canon.MatchesOf
+         0     0% 99.24%       2185  3.50%  github.com/qompack/qompack/internal/canon.addressesCanon.Matches
+         0     0% 99.24%       2317  3.71%  github.com/qompack/qompack/internal/canon.appendRuleSpans
+         0     0% 99.24%        526  0.84%  github.com/qompack/qompack/internal/canon.compose
+         0     0% 99.24%       2317  3.71%  github.com/qompack/qompack/internal/canon.ruleMatches
+         0     0% 99.24%        467  0.75%  github.com/qompack/qompack/internal/redact.(*rx).Redact
+         0     0% 99.24%        467  0.75%  github.com/qompack/qompack/internal/redact.rule.mayMatch
+         0     0% 99.24%       2327  3.72%  github.com/qompack/qompack/internal/sketch.MinHash (inline)
+         0     0% 99.24%       1814  2.90%  github.com/qompack/qompack/internal/sketch.bottomKShingles
+         0     0% 99.24%       6650 10.64%  github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+         0     0% 99.24%        866  1.39%  github.com/qompack/qompack/internal/store.(*FSStore).splitChecked
+         0     0% 99.24%       6663 10.66%  github.com/qompack/qompack/internal/store.BenchmarkPutBytes_100KB_Warm
+         0     0% 99.24%      10923 17.48%  html/template.(*Template).Parse
+         0     0% 99.24%      21845 34.95%  os.Stat
+         0     0% 99.24%      21845 34.95%  os.stat
+         0     0% 99.24%      21845 34.95%  os.statNolog (inline)
+         0     0% 99.24%      10924 17.48%  pgregory.net/rapid.init
+         0     0% 99.24%       2317  3.71%  regexp.(*Regexp).FindAllSubmatchIndex
+         0     0% 99.24%       2317  3.71%  regexp.(*Regexp).allMatches
+         0     0% 99.24%       2317  3.71%  regexp.(*Regexp).doExecute
+         0     0% 99.24%       9363 14.98%  runtime.acquireSudog
+         0     0% 99.24%        512  0.82%  runtime.allocm
+         0     0% 99.24%      11095 17.75%  runtime.doInit
+         0     0% 99.24%      11095 17.75%  runtime.doInit1
+         0     0% 99.24%      11412 18.26%  runtime.gcBgMarkWorker

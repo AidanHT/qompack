@@ -22,6 +22,19 @@ func Long(p string) string {
 	if p == "" || strings.HasPrefix(p, longPrefix) {
 		return p
 	}
+	// An absolute p already shorter than the threshold is returned unchanged by the general path
+	// below too, and this answers it without that path's filepath.Abs. On Windows Abs is
+	// GetFullPathNameW plus two UTF-16 conversions and a Clean — four allocations and a trip into
+	// kernelbase — and Long runs on every store object read and several times per object write.
+	// The shortcut is exact because full-path normalization never lengthens an absolute path into
+	// the prefixed range: it only converts separators, drops "." and ".." elements, and strips
+	// trailing dots and spaces, all of which shorten or keep the length, and the one rewrite that
+	// can lengthen — a reserved device name such as C:\x\CON becoming \\.\CON — yields a path a
+	// few characters long. TestLong_ShortAbsoluteFastPathMatchesTheFullPathRule pins the
+	// equivalence against the general rule over those shapes.
+	if len(p) < longPathThreshold && filepath.IsAbs(p) {
+		return p
+	}
 	abs, err := filepath.Abs(p)
 	if err != nil {
 		return p

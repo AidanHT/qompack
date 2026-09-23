@@ -1,0 +1,29 @@
+=== RUN   TestSearch_ReadsASharedChunkOncePerSearch
+--- PASS: TestSearch_ReadsASharedChunkOncePerSearch (5.25s)
+=== RUN   TestSearch_SharedChunkReadsMatchIndependentReads
+--- PASS: TestSearch_SharedChunkReadsMatchIndependentReads (7.24s)
+=== RUN   TestNewSharedChunkReads_NothingSharedIsNil
+--- PASS: TestNewSharedChunkReads_NothingSharedIsNil (2.92s)
+=== RUN   TestSearch_ByPathExactBeatsSuffix
+--- PASS: TestSearch_ByPathExactBeatsSuffix (1.16s)
+=== RUN   TestSearch_ByText
+--- PASS: TestSearch_ByText (0.71s)
+=== RUN   TestSearch_BySymbol
+--- PASS: TestSearch_BySymbol (0.38s)
+=== RUN   TestSearch_ToolFilterAndSince
+--- PASS: TestSearch_ToolFilterAndSince (0.81s)
+=== RUN   TestSearch_DefaultKIsFive
+--- PASS: TestSearch_DefaultKIsFive (1.41s)
+=== RUN   TestSearch_Deterministic
+--- PASS: TestSearch_Deterministic (0.49s)
+=== RUN   TestSearch_TruncatesWithoutError
+--- PASS: TestSearch_TruncatesWithoutError (114.76s)
+=== RUN   TestSearch_SummaryIsFirstNonBlankLine
+--- PASS: TestSearch_SummaryIsFirstNonBlankLine (0.92s)
+=== RUN   TestSearch_SummaryTruncatesOnRuneBoundary
+--- PASS: TestSearch_SummaryTruncatesOnRuneBoundary (1.30s)
+=== RUN   TestSearch_ClosedStoreDegrades
+--- PASS: TestSearch_ClosedStoreDegrades (0.72s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	138.379s
+exit=0

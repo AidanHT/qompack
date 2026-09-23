@@ -30,14 +30,35 @@ func IsProtected(root, p string) bool {
 	}
 	rel = filepath.ToSlash(rel)
 	switch {
-	case rel == "sketches/tried.bloom":
+	case rel == protectedSketchesDir+"/"+protectedBloomName:
 		return true
-	case strings.HasPrefix(rel, "checkpoints/"):
+	case strings.HasPrefix(rel, protectedCheckpointsDir+"/"):
 		return true
-	case strings.HasPrefix(rel, "pins/"):
+	case strings.HasPrefix(rel, protectedPinsDir+"/"):
 		return true
 	}
 	return false
+}
+
+// The names IsProtected matches, relative to <root>/.qompack. mayBeProtected reads the same
+// constants, so the two cannot drift apart.
+const (
+	protectedSketchesDir    = "sketches"
+	protectedBloomName      = "tried.bloom"
+	protectedCheckpointsDir = "checkpoints"
+	protectedPinsDir        = "pins"
+)
+
+// mayBeProtected reports whether p could be a protected path under ANY project root, from p's text
+// alone. False is a proof, not a guess: IsProtected matches only a path whose position relative to
+// <root>/.qompack begins with checkpoints/ or pins/ or is sketches/tried.bloom; filepath.Rel returns
+// that relative position as a literal suffix of filepath.Clean(p); and Clean only removes elements
+// and separators, so every element of its result appears verbatim in p. A p containing none of the
+// three names therefore cannot be protected, whatever root rootOf would find, and OpenFile need not
+// walk p's ancestors — up to one stat each — to find out. True means only that the walk must run.
+func mayBeProtected(p string) bool {
+	return strings.Contains(p, protectedCheckpointsDir) || strings.Contains(p, protectedPinsDir) ||
+		strings.Contains(p, protectedBloomName)
 }
 
 // OpenFile is the only opener this package exposes for a path that may live under .qompack, and
@@ -47,6 +68,12 @@ func IsProtected(root, p string) bool {
 // refuses any write that is neither an append (O_APPEND) nor an exclusive create (O_EXCL) — the
 // two operations the invariant actually allows.
 func OpenFile(p string, flag int, perm fs.FileMode) (*os.File, error) {
+	if !mayBeProtected(p) {
+		// No root can make p protected (mayBeProtected), so the guard below could only pass.
+		// Skipping the ancestor walk is what keeps the store's per-object staging open at one
+		// syscall rather than one per directory level up to the project root.
+		return os.OpenFile(Long(p), flag, perm)
+	}
 	root, ok := rootOf(p)
 	if ok && IsProtected(root, p) {
 		if flag&os.O_TRUNC != 0 {

@@ -1,0 +1,1749 @@
+=== RUN   TestAppendOnlyGuard_StoreFiles
+=== RUN   TestAppendOnlyGuard_StoreFiles/append_only_door_refuses_foreign_extensions
+=== RUN   TestAppendOnlyGuard_StoreFiles/records_are_never_rewritten
+=== RUN   TestAppendOnlyGuard_StoreFiles/migration_logs_are_never_rewritten
+=== RUN   TestAppendOnlyGuard_StoreFiles/view_is_regenerated_not_appended
+--- PASS: TestAppendOnlyGuard_StoreFiles (2.59s)
+    --- PASS: TestAppendOnlyGuard_StoreFiles/append_only_door_refuses_foreign_extensions (0.10s)
+    --- PASS: TestAppendOnlyGuard_StoreFiles/records_are_never_rewritten (0.49s)
+    --- PASS: TestAppendOnlyGuard_StoreFiles/migration_logs_are_never_rewritten (1.68s)
+    --- PASS: TestAppendOnlyGuard_StoreFiles/view_is_regenerated_not_appended (0.33s)
+=== RUN   TestOpenStore_TornRootsTailDoesNotSwallowTheNextRoot
+--- PASS: TestOpenStore_TornRootsTailDoesNotSwallowTheNextRoot (0.35s)
+=== RUN   TestRestoreBackup_RestoresProtectedPathsWithCreateNew
+--- PASS: TestRestoreBackup_RestoresProtectedPathsWithCreateNew (1.11s)
+=== RUN   TestRestoreBackup_RestoredLogsStayAppendable
+--- PASS: TestRestoreBackup_RestoredLogsStayAppendable (1.12s)
+=== RUN   TestRestoreBackup_RefusesToOverwriteAnExistingCheckpoint
+--- PASS: TestRestoreBackup_RefusesToOverwriteAnExistingCheckpoint (0.77s)
+=== RUN   TestBackup_RefusesFrontierChangedBeforeItsOwnCopy
+--- PASS: TestBackup_RefusesFrontierChangedBeforeItsOwnCopy (0.69s)
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-journal.json
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-journal-log.jsonl
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-leases.jsonl
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-acks.jsonl
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-lease-position.json
+=== RUN   TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-ack-position.json
+--- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy (6.38s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-journal.json (0.92s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-journal-log.jsonl (0.88s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-leases.jsonl (0.99s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-acks.jsonl (1.01s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-lease-position.json (1.40s)
+    --- PASS: TestBackup_RefusesSegmentStateThatMovedUnderTheCopy/state/delivery-segments/00000000000000000001/delivery-ack-position.json (1.18s)
+=== RUN   TestRollbackDrill_BeforeAndAfterTheFirstNewFormatWrite
+--- PASS: TestRollbackDrill_BeforeAndAfterTheFirstNewFormatWrite (1.64s)
+=== RUN   TestRollbackDrill_RefusesTheBeforePhaseOnceANewFormatWriteExists
+--- PASS: TestRollbackDrill_RefusesTheBeforePhaseOnceANewFormatWriteExists (0.99s)
+=== RUN   TestRollbackDrill_RefusesOnUnstoppableWritersOrATamperedBackup
+--- PASS: TestRollbackDrill_RefusesOnUnstoppableWritersOrATamperedBackup (0.77s)
+=== RUN   TestBackup_VerifyDetectsTamperingAndSizeDrift
+--- PASS: TestBackup_VerifyDetectsTamperingAndSizeDrift (0.62s)
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_sidecar_resealed_in_place_under_the_walk
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_sidecar_that_appeared_because_the_daemon_started
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_journal_appended_under_the_walk
+=== RUN   TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_write_that_is_not_the_daemon's_delivery_state
+--- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy (3.59s)
+    --- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_sidecar_resealed_in_place_under_the_walk (0.88s)
+    --- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_sidecar_that_appeared_because_the_daemon_started (1.02s)
+    --- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_journal_appended_under_the_walk (1.05s)
+    --- PASS: TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy/a_write_that_is_not_the_daemon's_delivery_state (0.63s)
+=== RUN   TestBackup_RestoreOpensAsARealStore
+--- PASS: TestBackup_RestoreOpensAsARealStore (1.12s)
+=== RUN   TestGC_CannotCollectMigrationOrRollbackMaterial
+--- PASS: TestGC_CannotCollectMigrationOrRollbackMaterial (1.30s)
+=== RUN   TestMigration_DeclaresRetentionRootsOnDisk
+--- PASS: TestMigration_DeclaresRetentionRootsOnDisk (0.40s)
+=== RUN   TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== PAUSE TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== RUN   TestBackup_RefusesGenerationStateThatMovedUnderTheCopy
+=== RUN   TestBackup_RefusesGenerationStateThatMovedUnderTheCopy/the_atomic_head_rewritten_under_the_walk_(a_new_generation_committed)
+=== RUN   TestBackup_RefusesGenerationStateThatMovedUnderTheCopy/the_manifest_appended_under_the_walk
+--- PASS: TestBackup_RefusesGenerationStateThatMovedUnderTheCopy (10.06s)
+    --- PASS: TestBackup_RefusesGenerationStateThatMovedUnderTheCopy/the_atomic_head_rewritten_under_the_walk_(a_new_generation_committed) (7.32s)
+    --- PASS: TestBackup_RefusesGenerationStateThatMovedUnderTheCopy/the_manifest_appended_under_the_walk (2.75s)
+=== RUN   TestVerifyBackup_RefusesEveryManifestItCannotStandBehind
+--- PASS: TestVerifyBackup_RefusesEveryManifestItCannotStandBehind (0.70s)
+=== RUN   TestTakeBackup_NeedsAnId
+--- PASS: TestTakeBackup_NeedsAnId (0.30s)
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling
+=== PAUSE TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling
+=== RUN   TestCaptureSidecar_RoundTripsThePermittedPayload
+--- PASS: TestCaptureSidecar_RoundTripsThePermittedPayload (0.07s)
+=== RUN   TestCaptureSidecar_PreservesUnknownFieldsOnRoundTrip
+--- PASS: TestCaptureSidecar_PreservesUnknownFieldsOnRoundTrip (0.10s)
+=== RUN   TestCaptureSidecar_RegistersARetentionRoot
+--- PASS: TestCaptureSidecar_RegistersARetentionRoot (0.07s)
+=== RUN   TestCaptureSidecar_LinkIsTheVerifiedReferenceStage
+--- PASS: TestCaptureSidecar_LinkIsTheVerifiedReferenceStage (0.20s)
+=== RUN   TestCaptureSidecar_RefusesAnIdentityThatIsNotADigest
+--- PASS: TestCaptureSidecar_RefusesAnIdentityThatIsNotADigest (0.00s)
+=== RUN   TestCaptureSidecar_DegradedCaptureIsRecordedAsSuch
+--- PASS: TestCaptureSidecar_DegradedCaptureIsRecordedAsSuch (0.04s)
+=== RUN   TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest
+=== PAUSE TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest
+=== RUN   TestCaptureSidecar_PreservesAFutureWritersFields
+=== PAUSE TestCaptureSidecar_PreservesAFutureWritersFields
+=== RUN   TestWriteCaptureSidecar_DeclaresARetentionRootOnlyWhenItRetainedBytes
+--- PASS: TestWriteCaptureSidecar_DeclaresARetentionRootOnlyWhenItRetainedBytes (0.59s)
+=== RUN   TestEncode_KeepsItsEncoderAcrossGarbageCollection
+--- PASS: TestEncode_KeepsItsEncoderAcrossGarbageCollection (0.15s)
+=== RUN   TestEncode_IsByteIdenticalToAFreshEncoder
+--- PASS: TestEncode_IsByteIdenticalToAFreshEncoder (1.71s)
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Put
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/PutBytes
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/GetChunk
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Open
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/OpenSpan
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/RecordToolUse
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/MarkSuperseded
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/AppendFileVersion
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Search
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Stats
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/GC
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Flush
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Segments.Open
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Segments.Close
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Segments.MarkEncoded
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/GetRoot
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/ToolUse
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/ToolUsesByPath
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/FileHistory
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/FileAt
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/ChangedSince
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Segments.Get
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Segments.Range
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Segments.Current
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Segments.Frontier
+=== RUN   TestContract_EveryEntryPointRefusesAClosedStore/Segments.Unencoded
+--- PASS: TestContract_EveryEntryPointRefusesAClosedStore (0.67s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Put (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/PutBytes (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/GetChunk (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Open (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/OpenSpan (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/RecordToolUse (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/MarkSuperseded (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/AppendFileVersion (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Search (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Stats (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/GC (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Flush (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Segments.Open (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Segments.Close (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Segments.MarkEncoded (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/GetRoot (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/ToolUse (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/ToolUsesByPath (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/FileHistory (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/FileAt (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/ChangedSince (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Segments.Get (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Segments.Range (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Segments.Current (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Segments.Frontier (0.00s)
+    --- PASS: TestContract_EveryEntryPointRefusesAClosedStore/Segments.Unencoded (0.00s)
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/Put
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/PutBytes
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/GetChunk
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/Open
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/OpenSpan
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/RecordToolUse
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/MarkSuperseded
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/AppendFileVersion
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/Search
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/Stats
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/GC
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/Flush
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/Segments.Open
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/Segments.Close
+=== RUN   TestContract_BlockingEntryPointsHonourCancellation/Segments.MarkEncoded
+--- PASS: TestContract_BlockingEntryPointsHonourCancellation (1.03s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/Put (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/PutBytes (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/GetChunk (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/Open (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/OpenSpan (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/RecordToolUse (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/MarkSuperseded (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/AppendFileVersion (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/Search (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/Stats (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/GC (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/Flush (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/Segments.Open (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/Segments.Close (0.00s)
+    --- PASS: TestContract_BlockingEntryPointsHonourCancellation/Segments.MarkEncoded (0.00s)
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/GetRoot
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/ToolUse
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/ToolUsesByPath
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/FileHistory
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/FileAt
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/ChangedSince
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/Segments.Get
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/Segments.Range
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/Segments.Current
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/Segments.Frontier
+=== RUN   TestContract_InMemoryLookupsIgnoreCancellation/Segments.Unencoded
+--- PASS: TestContract_InMemoryLookupsIgnoreCancellation (0.43s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/GetRoot (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/ToolUse (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/ToolUsesByPath (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/FileHistory (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/FileAt (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/ChangedSince (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/Segments.Get (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/Segments.Range (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/Segments.Current (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/Segments.Frontier (0.00s)
+    --- PASS: TestContract_InMemoryLookupsIgnoreCancellation/Segments.Unencoded (0.00s)
+=== RUN   TestAppendFileVersion_History
+--- PASS: TestAppendFileVersion_History (0.24s)
+=== RUN   TestAppendFileVersion_Idempotent
+--- PASS: TestAppendFileVersion_Idempotent (0.35s)
+=== RUN   TestFileAt
+--- PASS: TestFileAt (0.20s)
+=== RUN   TestChangedSince_Changed
+--- PASS: TestChangedSince_Changed (0.21s)
+=== RUN   TestChangedSince_Unchanged
+--- PASS: TestChangedSince_Unchanged (0.19s)
+=== RUN   TestChangedSince_UnknownPath
+--- PASS: TestChangedSince_UnknownPath (0.10s)
+=== RUN   TestChangedSince_KeyNormalization
+=== RUN   TestChangedSince_KeyNormalization/src/auth.ts
+=== RUN   TestChangedSince_KeyNormalization/./src/auth.ts
+=== RUN   TestChangedSince_KeyNormalization/SRC/Auth.TS
+=== RUN   TestChangedSince_KeyNormalization/.\SRC\Auth.TS
+=== RUN   TestChangedSince_KeyNormalization/src\auth.ts
+--- PASS: TestChangedSince_KeyNormalization (0.10s)
+    --- PASS: TestChangedSince_KeyNormalization/src/auth.ts (0.00s)
+    --- PASS: TestChangedSince_KeyNormalization/./src/auth.ts (0.00s)
+    --- PASS: TestChangedSince_KeyNormalization/SRC/Auth.TS (0.00s)
+    --- PASS: TestChangedSince_KeyNormalization/.\SRC\Auth.TS (0.00s)
+    --- PASS: TestChangedSince_KeyNormalization/src\auth.ts (0.00s)
+=== RUN   TestChangedSince_PreservesInputOrder
+--- PASS: TestChangedSince_PreservesInputOrder (0.09s)
+=== RUN   TestFilesJSON_MaterializedByFlush
+--- PASS: TestFilesJSON_MaterializedByFlush (0.14s)
+=== RUN   TestPropChangedSinceIsExactlyHashInequality
+    files_test.go:270: [rapid] OK, passed 100 tests (7.8623ms)
+--- PASS: TestPropChangedSinceIsExactlyHashInequality (0.08s)
+=== RUN   TestReplayFilesLog_IsTheReplayTheStoreItselfPerforms
+--- PASS: TestReplayFilesLog_IsTheReplayTheStoreItselfPerforms (0.20s)
+=== RUN   TestReplayFilesLog_NamesAnUnparseableLineAndKeepsTheRest
+--- PASS: TestReplayFilesLog_NamesAnUnparseableLineAndKeepsTheRest (0.19s)
+=== RUN   TestReplayFilesLog_SkipsWhatThisBuildDoesNotReadWithoutCallingItCorrupt
+--- PASS: TestReplayFilesLog_SkipsWhatThisBuildDoesNotReadWithoutCallingItCorrupt (0.20s)
+=== RUN   TestReplayFilesLog_AMissingLogIsAnEmptyHistory
+--- PASS: TestReplayFilesLog_AMissingLogIsAnEmptyHistory (0.05s)
+=== RUN   TestReadFilesView_TellsAnAbsentViewFromAnUnparseableOne
+--- PASS: TestReadFilesView_TellsAnAbsentViewFromAnUnparseableOne (0.19s)
+=== RUN   TestRegenerateFilesView_WritesOnlyWhenTheViewAndItsLogDisagree
+--- PASS: TestRegenerateFilesView_WritesOnlyWhenTheViewAndItsLogDisagree (0.23s)
+=== RUN   TestRegenerateFilesView_ReplacesEveryViewThatDoesNotDescribeItsLog
+=== RUN   TestRegenerateFilesView_ReplacesEveryViewThatDoesNotDescribeItsLog/a_view_that_lost_a_path
+=== RUN   TestRegenerateFilesView_ReplacesEveryViewThatDoesNotDescribeItsLog/a_view_that_will_not_parse
+=== RUN   TestRegenerateFilesView_ReplacesEveryViewThatDoesNotDescribeItsLog/no_view_at_all
+--- PASS: TestRegenerateFilesView_ReplacesEveryViewThatDoesNotDescribeItsLog (0.60s)
+    --- PASS: TestRegenerateFilesView_ReplacesEveryViewThatDoesNotDescribeItsLog/a_view_that_lost_a_path (0.18s)
+    --- PASS: TestRegenerateFilesView_ReplacesEveryViewThatDoesNotDescribeItsLog/a_view_that_will_not_parse (0.17s)
+    --- PASS: TestRegenerateFilesView_ReplacesEveryViewThatDoesNotDescribeItsLog/no_view_at_all (0.25s)
+=== RUN   TestRegenerateFilesView_WritesTheDocumentAFlushWouldHave
+--- PASS: TestRegenerateFilesView_WritesTheDocumentAFlushWouldHave (0.20s)
+=== RUN   TestReplayFilesLog_TreatsAnOverLongLineAsMalformedContent
+--- PASS: TestReplayFilesLog_TreatsAnOverLongLineAsMalformedContent (0.17s)
+=== RUN   TestRegenerateFilesView_ReportsAViewPathItCanNeitherReadNorReplace
+--- PASS: TestRegenerateFilesView_ReportsAViewPathItCanNeitherReadNorReplace (0.17s)
+=== RUN   TestFilesViewAgrees_ComparesPathsAndEntriesRatherThanCounts
+=== PAUSE TestFilesViewAgrees_ComparesPathsAndEntriesRatherThanCounts
+=== RUN   TestWriteFilesView_WritesAnEmptyObjectRatherThanNull
+=== PAUSE TestWriteFilesView_WritesAnEmptyObjectRatherThanNull
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null
+--- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases (1.04s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero (0.33s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare (0.18s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase (0.17s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty (0.19s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null (0.17s)
+=== RUN   TestGCSegments_HarvestsOldestLeaseAcrossRotation
+--- PASS: TestGCSegments_HarvestsOldestLeaseAcrossRotation (0.27s)
+=== RUN   TestGCSegments_AckInLaterSegmentSettlesOlderLease
+--- PASS: TestGCSegments_AckInLaterSegmentSettlesOlderLease (0.23s)
+=== RUN   TestGCSegments_MissingCommittedSegmentHalts
+--- PASS: TestGCSegments_MissingCommittedSegmentHalts (0.15s)
+=== RUN   TestGCSegments_MissingSealHalts
+--- PASS: TestGCSegments_MissingSealHalts (0.15s)
+=== RUN   TestGCSegments_SealGarbageHalts
+--- PASS: TestGCSegments_SealGarbageHalts (0.18s)
+=== RUN   TestGCSegments_SealUnknownSchemaHalts
+--- PASS: TestGCSegments_SealUnknownSchemaHalts (0.18s)
+=== RUN   TestGCSegments_SealTornV2Halts
+--- PASS: TestGCSegments_SealTornV2Halts (0.23s)
+=== RUN   TestGCSegments_SealWrongJournalSumHalts
+--- PASS: TestGCSegments_SealWrongJournalSumHalts (0.18s)
+=== RUN   TestGCSegments_ValidV2SealAccepted
+--- PASS: TestGCSegments_ValidV2SealAccepted (0.33s)
+=== RUN   TestGCSegments_NonDenseActiveHalts
+--- PASS: TestGCSegments_NonDenseActiveHalts (0.32s)
+=== RUN   TestGCSegments_TornLogHalts
+--- PASS: TestGCSegments_TornLogHalts (0.55s)
+=== RUN   TestGCSegments_UnknownSchemaHeadHalts
+--- PASS: TestGCSegments_UnknownSchemaHeadHalts (0.63s)
+=== RUN   TestGCSegments_MigrationEvidenceWithoutAuthorityHalts
+--- PASS: TestGCSegments_MigrationEvidenceWithoutAuthorityHalts (0.28s)
+=== RUN   TestGCSegments_StagedSegmentLeaseRetained
+--- PASS: TestGCSegments_StagedSegmentLeaseRetained (0.31s)
+=== RUN   TestGCSegments_FrontierRecheckDetectsLogTailRotation
+--- PASS: TestGCSegments_FrontierRecheckDetectsLogTailRotation (0.26s)
+=== RUN   TestGCSegments_UnmigratedTreeStaysLegacy
+--- PASS: TestGCSegments_UnmigratedTreeStaysLegacy (0.22s)
+=== RUN   TestGCRetention_UnreadableLeaseRootHaltsCollection
+--- PASS: TestGCRetention_UnreadableLeaseRootHaltsCollection (0.71s)
+=== RUN   TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection
+--- PASS: TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection (1.16s)
+=== RUN   TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection
+--- PASS: TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection (1.07s)
+=== RUN   TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+--- PASS: TestGCRetention_AckReleaseRequiresExactObservationAndVersion (0.76s)
+=== RUN   TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+--- PASS: TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce (0.20s)
+=== RUN   TestGCRetention_UnreadableCheckpointDirHaltsCollection
+--- PASS: TestGCRetention_UnreadableCheckpointDirHaltsCollection (0.16s)
+=== RUN   TestGCRetention_UnreadablePendingDirHaltsCollection
+--- PASS: TestGCRetention_UnreadablePendingDirHaltsCollection (0.16s)
+=== RUN   TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging
+--- PASS: TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging (0.26s)
+=== RUN   TestGCRetention_CancelledContextIsNotARetentionError
+--- PASS: TestGCRetention_CancelledContextIsNotARetentionError (0.25s)
+=== RUN   TestGC_CollectsUnreferenced
+--- PASS: TestGC_CollectsUnreferenced (0.68s)
+=== RUN   TestGC_ZeroPolicyInheritsConfigAndDeletesNothing
+--- PASS: TestGC_ZeroPolicyInheritsConfigAndDeletesNothing (3.74s)
+=== RUN   TestGC_RetentionIsWhicheverIsLonger
+--- PASS: TestGC_RetentionIsWhicheverIsLonger (4.13s)
+=== RUN   TestGC_EphemeralNotInWindowByAge
+--- PASS: TestGC_EphemeralNotInWindowByAge (1.67s)
+=== RUN   TestGC_HarvestsBareHexHash
+--- PASS: TestGC_HarvestsBareHexHash (0.60s)
+=== RUN   TestGC_HarvestsHashesFromCheckpointPinsEliminations
+--- PASS: TestGC_HarvestsHashesFromCheckpointPinsEliminations (0.30s)
+=== RUN   TestGC_MissingRootFilesAreNotAnError
+--- PASS: TestGC_MissingRootFilesAreNotAnError (0.20s)
+=== RUN   TestGC_DryRun
+--- PASS: TestGC_DryRun (0.30s)
+=== RUN   TestGC_DeadlineTruncatesAndResumes
+--- PASS: TestGC_DeadlineTruncatesAndResumes (42.63s)
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack
+--- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack (0.00s)
+=== RUN   TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule
+--- PASS: TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule (0.00s)
+=== RUN   TestGC_DeadlineBudgetRepricesAfterAMissedWindow
+--- PASS: TestGC_DeadlineBudgetRepricesAfterAMissedWindow (0.00s)
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1489: calibration 240.726ms…599.8972ms over 3072 objects (fastest of 4); first check 30.6787ms (measured 30.6787ms); window 7.85x, slack 2.80x; check interval 28.666624ms; budget 85.936957ms; overshoot 28.618143ms after 1023 objects on attempt 1 of 5; limit 57.333248ms
+--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (99.79s)
+=== RUN   TestGC_LiveDigestMismatchRestartsMark
+--- PASS: TestGC_LiveDigestMismatchRestartsMark (11.46s)
+=== RUN   TestGC_TombstonesRootsAppendOnly
+--- PASS: TestGC_TombstonesRootsAppendOnly (0.36s)
+=== RUN   TestGC_ContextCancel
+--- PASS: TestGC_ContextCancel (9.09s)
+=== RUN   TestGC_ClosedStoreDegrades
+--- PASS: TestGC_ClosedStoreDegrades (0.11s)
+=== RUN   TestGC_TombstoneRetiresOnlyMarkTimeDead
+--- PASS: TestGC_TombstoneRetiresOnlyMarkTimeDead (0.67s)
+=== RUN   TestSweep_SparesObjectsWrittenAfterThePassStarted
+--- PASS: TestSweep_SparesObjectsWrittenAfterThePassStarted (0.20s)
+=== RUN   TestGC_MarkPhaseHonoursTheDeadline
+--- PASS: TestGC_MarkPhaseHonoursTheDeadline (19.64s)
+=== RUN   TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline
+--- PASS: TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline (22.36s)
+=== RUN   TestGC_MarkPhaseHonoursCancellation
+--- PASS: TestGC_MarkPhaseHonoursCancellation (57.06s)
+=== RUN   TestDeclaredRetentionLines_CountsEachBadLineAndLoudsOnce
+--- PASS: TestDeclaredRetentionLines_CountsEachBadLineAndLoudsOnce (1.08s)
+=== RUN   TestGolden_IndexFormats
+--- PASS: TestGolden_IndexFormats (0.98s)
+=== RUN   TestGolden_IndexFormatsAreStableWithinAProcess
+--- PASS: TestGolden_IndexFormatsAreStableWithinAProcess (1.57s)
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/empty_stays_empty
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/bare_dot_is_not_a_path
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/dot_slash_is_not_a_path
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/already_canonical
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/leading_./_is_stripped
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/doubled_separator_collapses
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/interior_._is_removed
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/interior_.._is_resolved
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/trailing_separator_is_dropped
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/escaping_.._is_kept,_not_resolved_away
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/posix_absolute_stays_absolute
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/backslashes_become_slashes
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/mixed_separators_and_..
+=== RUN   TestStoreKey_CanonicalizesSpellingsOfOnePath/windows_absolute
+--- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/empty_stays_empty (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/bare_dot_is_not_a_path (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/dot_slash_is_not_a_path (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/already_canonical (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/leading_./_is_stripped (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/doubled_separator_collapses (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/interior_._is_removed (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/interior_.._is_resolved (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/trailing_separator_is_dropped (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/escaping_.._is_kept,_not_resolved_away (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/posix_absolute_stays_absolute (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/backslashes_become_slashes (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/mixed_separators_and_.. (0.00s)
+    --- PASS: TestStoreKey_CanonicalizesSpellingsOfOnePath/windows_absolute (0.00s)
+=== RUN   TestStoreKey_IsIdempotent
+--- PASS: TestStoreKey_IsIdempotent (0.00s)
+=== RUN   TestStoreKey_FoldsCaseExactlyWhereThePlatformDoes
+--- PASS: TestStoreKey_FoldsCaseExactlyWhereThePlatformDoes (0.00s)
+=== RUN   TestStoreKey_DoesNotResolveAbsolutePathsAgainstTheProjectRoot
+--- PASS: TestStoreKey_DoesNotResolveAbsolutePathsAgainstTheProjectRoot (0.00s)
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/single_chunk_covering_everything
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/three_contiguous_chunks
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/nil_chunk_list_for_non-empty_input
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/empty_chunk_list_for_non-empty_input
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/gap_between_two_chunks
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/overlapping_chunks
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/does_not_start_at_zero
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/stops_short_of_the_input
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/runs_past_the_input
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/zero-length_member
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/negative-length_member
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/chunks_out_of_order
+=== RUN   TestChunkingCovers_RejectsAnythingThatDoesNotTile/leading_zero-length_chunk
+--- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/single_chunk_covering_everything (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/three_contiguous_chunks (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/nil_chunk_list_for_non-empty_input (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/empty_chunk_list_for_non-empty_input (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/gap_between_two_chunks (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/overlapping_chunks (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/does_not_start_at_zero (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/stops_short_of_the_input (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/runs_past_the_input (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/zero-length_member (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/negative-length_member (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/chunks_out_of_order (0.00s)
+    --- PASS: TestChunkingCovers_RejectsAnythingThatDoesNotTile/leading_zero-length_chunk (0.00s)
+=== RUN   TestChunkingCovers_IsExactAboutTheTotal
+--- PASS: TestChunkingCovers_IsExactAboutTheTotal (0.00s)
+=== RUN   TestMarshalLine_WritesOneUnescapedRecordPerLine
+--- PASS: TestMarshalLine_WritesOneUnescapedRecordPerLine (0.00s)
+=== RUN   TestMarshalLine_ReportsAnUnencodableRecord
+=== RUN   TestMarshalLine_ReportsAnUnencodableRecord/NaN_has_no_JSON_representation
+=== RUN   TestMarshalLine_ReportsAnUnencodableRecord/positive_infinity_has_no_JSON_representation
+=== RUN   TestMarshalLine_ReportsAnUnencodableRecord/a_channel_is_not_encodable
+=== RUN   TestMarshalLine_ReportsAnUnencodableRecord/a_func_value_is_not_encodable
+--- PASS: TestMarshalLine_ReportsAnUnencodableRecord (0.00s)
+    --- PASS: TestMarshalLine_ReportsAnUnencodableRecord/NaN_has_no_JSON_representation (0.00s)
+    --- PASS: TestMarshalLine_ReportsAnUnencodableRecord/positive_infinity_has_no_JSON_representation (0.00s)
+    --- PASS: TestMarshalLine_ReportsAnUnencodableRecord/a_channel_is_not_encodable (0.00s)
+    --- PASS: TestMarshalLine_ReportsAnUnencodableRecord/a_func_value_is_not_encodable (0.00s)
+=== RUN   TestAppendFile_SyncSkipsAHandleThatCannotFsync
+--- PASS: TestAppendFile_SyncSkipsAHandleThatCannotFsync (0.00s)
+=== RUN   TestAppendFile_DegradedAfterClose
+--- PASS: TestAppendFile_DegradedAfterClose (0.00s)
+=== RUN   TestOpenAppendFile_RefusesANonIndexExtension
+--- PASS: TestOpenAppendFile_RefusesANonIndexExtension (0.44s)
+=== RUN   TestCount_ToleratesAStoreWithNoMetrics
+--- PASS: TestCount_ToleratesAStoreWithNoMetrics (0.31s)
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/already_inside_the_content
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/whole_content
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/negative_start_raises_to_zero
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/end_past_the_content_clamps_down
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/both_ends_out_of_range
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/inverted_span_collapses_onto_its_start
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/wholly_negative_span_collapses_to_empty_at_zero
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/empty_content_collapses_everything_to_zero
+=== RUN   TestClampSpan_BoundsAndUninvertsASpan/start_beyond_the_content_lowers_to_the_end
+--- PASS: TestClampSpan_BoundsAndUninvertsASpan (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/already_inside_the_content (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/whole_content (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/negative_start_raises_to_zero (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/end_past_the_content_clamps_down (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/both_ends_out_of_range (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/inverted_span_collapses_onto_its_start (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/wholly_negative_span_collapses_to_empty_at_zero (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/empty_content_collapses_everything_to_zero (0.00s)
+    --- PASS: TestClampSpan_BoundsAndUninvertsASpan/start_beyond_the_content_lowers_to_the_end (0.00s)
+=== RUN   TestClampSpan_BothEndsStayInsideTheContent
+--- PASS: TestClampSpan_BothEndsStayInsideTheContent (0.00s)
+=== RUN   TestWidenToChunks_ExpandsOutwardToChunkBoundaries
+=== RUN   TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_inside_the_first_chunk
+=== RUN   TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_inside_the_middle_chunk
+=== RUN   TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_inside_the_last_chunk
+=== RUN   TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_straddling_two_chunks
+=== RUN   TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_exactly_on_the_boundaries
+=== RUN   TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_running_past_the_last_boundary
+=== RUN   TestWidenToChunks_ExpandsOutwardToChunkBoundaries/no_chunk_bounds_falls_back_to_a_plain_clamp
+--- PASS: TestWidenToChunks_ExpandsOutwardToChunkBoundaries (0.00s)
+    --- PASS: TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_inside_the_first_chunk (0.00s)
+    --- PASS: TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_inside_the_middle_chunk (0.00s)
+    --- PASS: TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_inside_the_last_chunk (0.00s)
+    --- PASS: TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_straddling_two_chunks (0.00s)
+    --- PASS: TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_exactly_on_the_boundaries (0.00s)
+    --- PASS: TestWidenToChunks_ExpandsOutwardToChunkBoundaries/match_running_past_the_last_boundary (0.00s)
+    --- PASS: TestWidenToChunks_ExpandsOutwardToChunkBoundaries/no_chunk_bounds_falls_back_to_a_plain_clamp (0.00s)
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/empty_content_has_no_summary
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/skips_leading_blank_and_whitespace-only_lines
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/summarizes_the_span,_not_the_whole_content
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/negative_start_restarts_at_zero
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/start_past_the_end_restarts_at_zero
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/end_past_the_content_clamps_to_the_end
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/empty_span_runs_to_the_end_of_the_content
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/inverted_span_runs_to_the_end_of_the_content
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/an_all-blank_span_has_no_summary
+=== RUN   TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/control_characters_are_stripped_from_the_reported_line
+--- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/empty_content_has_no_summary (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/skips_leading_blank_and_whitespace-only_lines (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/summarizes_the_span,_not_the_whole_content (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/negative_start_restarts_at_zero (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/start_past_the_end_restarts_at_zero (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/end_past_the_content_clamps_to_the_end (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/empty_span_runs_to_the_end_of_the_content (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/inverted_span_runs_to_the_end_of_the_content (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/an_all-blank_span_has_no_summary (0.00s)
+    --- PASS: TestSummarize_ReportsTheFirstNonBlankLineOfTheSpan/control_characters_are_stripped_from_the_reported_line (0.00s)
+=== RUN   TestSummarize_TruncatesToThePreviewBound
+--- PASS: TestSummarize_TruncatesToThePreviewBound (0.00s)
+=== RUN   TestStripControl_RemovesC0AndDelOnly
+=== RUN   TestStripControl_RemovesC0AndDelOnly/empty
+=== RUN   TestStripControl_RemovesC0AndDelOnly/nothing_to_strip
+=== RUN   TestStripControl_RemovesC0AndDelOnly/NUL_is_removed
+=== RUN   TestStripControl_RemovesC0AndDelOnly/ESC_is_removed
+=== RUN   TestStripControl_RemovesC0AndDelOnly/tab_is_removed
+=== RUN   TestStripControl_RemovesC0AndDelOnly/newline_is_removed
+=== RUN   TestStripControl_RemovesC0AndDelOnly/the_last_C0_byte_is_removed
+=== RUN   TestStripControl_RemovesC0AndDelOnly/DEL_is_removed
+=== RUN   TestStripControl_RemovesC0AndDelOnly/space_is_kept
+=== RUN   TestStripControl_RemovesC0AndDelOnly/the_first_printable_byte_is_kept
+=== RUN   TestStripControl_RemovesC0AndDelOnly/the_byte_after_DEL_is_kept
+=== RUN   TestStripControl_RemovesC0AndDelOnly/non-ASCII_runes_are_kept_whole
+=== RUN   TestStripControl_RemovesC0AndDelOnly/only_control_bytes_leaves_nothing
+--- PASS: TestStripControl_RemovesC0AndDelOnly (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/empty (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/nothing_to_strip (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/NUL_is_removed (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/ESC_is_removed (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/tab_is_removed (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/newline_is_removed (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/the_last_C0_byte_is_removed (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/DEL_is_removed (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/space_is_kept (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/the_first_printable_byte_is_kept (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/the_byte_after_DEL_is_kept (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/non-ASCII_runes_are_kept_whole (0.00s)
+    --- PASS: TestStripControl_RemovesC0AndDelOnly/only_control_bytes_leaves_nothing (0.00s)
+=== RUN   TestTruncateRunes_CutsOnARuneBoundary
+=== RUN   TestTruncateRunes_CutsOnARuneBoundary/a_short_string_is_returned_unchanged
+=== RUN   TestTruncateRunes_CutsOnARuneBoundary/a_string_of_exactly_max_bytes_is_not_cut
+=== RUN   TestTruncateRunes_CutsOnARuneBoundary/ascii_is_cut_to_exactly_max_bytes
+=== RUN   TestTruncateRunes_CutsOnARuneBoundary/multi-byte_runes_are_never_split
+=== RUN   TestTruncateRunes_CutsOnARuneBoundary/a_bound_smaller_than_the_ellipsis_drops_the_ellipsis,_not_the_bound
+=== RUN   TestTruncateRunes_CutsOnARuneBoundary/a_small_bound_still_cuts_on_a_rune_boundary
+--- PASS: TestTruncateRunes_CutsOnARuneBoundary (0.00s)
+    --- PASS: TestTruncateRunes_CutsOnARuneBoundary/a_short_string_is_returned_unchanged (0.00s)
+    --- PASS: TestTruncateRunes_CutsOnARuneBoundary/a_string_of_exactly_max_bytes_is_not_cut (0.00s)
+    --- PASS: TestTruncateRunes_CutsOnARuneBoundary/ascii_is_cut_to_exactly_max_bytes (0.00s)
+    --- PASS: TestTruncateRunes_CutsOnARuneBoundary/multi-byte_runes_are_never_split (0.00s)
+    --- PASS: TestTruncateRunes_CutsOnARuneBoundary/a_bound_smaller_than_the_ellipsis_drops_the_ellipsis,_not_the_bound (0.00s)
+    --- PASS: TestTruncateRunes_CutsOnARuneBoundary/a_small_bound_still_cuts_on_a_rune_boundary (0.00s)
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/A_folds
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/M_folds
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/Z_folds
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/@_is_just_below_A_and_does_not_fold
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/[_is_just_above_Z_and_does_not_fold
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/lower_case_is_already_folded
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/a_digit_does_not_fold
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/an_underscore_does_not_fold
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/a_UTF-8_lead_byte_does_not_fold
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/a_UTF-8_continuation_byte_does_not_fold
+=== RUN   TestLowerASCII_FoldsOnlyTheASCIIUpperRange/the_high_byte_does_not_fold
+--- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/A_folds (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/M_folds (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/Z_folds (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/@_is_just_below_A_and_does_not_fold (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/[_is_just_above_Z_and_does_not_fold (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/lower_case_is_already_folded (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/a_digit_does_not_fold (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/an_underscore_does_not_fold (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/a_UTF-8_lead_byte_does_not_fold (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/a_UTF-8_continuation_byte_does_not_fold (0.00s)
+    --- PASS: TestLowerASCII_FoldsOnlyTheASCIIUpperRange/the_high_byte_does_not_fold (0.00s)
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/empty_needle_matches_nothing
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/needle_longer_than_hay
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/empty_hay
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/no_match
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/match_at_the_very_start
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/match_at_the_very_end
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/hay_exactly_equals_needle
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/query_case_is_folded
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/content_case_is_folded
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/several_occurrences
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/occurrences_are_counted_non-overlapping
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/an_odd_tail_leaves_the_overlap_uncounted
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/non-ASCII_case_is_NOT_folded
+=== RUN   TestFoldSearch_IsASCIIInsensitiveOnly/non-ASCII_matches_itself_exactly
+--- PASS: TestFoldSearch_IsASCIIInsensitiveOnly (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/empty_needle_matches_nothing (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/needle_longer_than_hay (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/empty_hay (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/no_match (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/match_at_the_very_start (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/match_at_the_very_end (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/hay_exactly_equals_needle (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/query_case_is_folded (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/content_case_is_folded (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/several_occurrences (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/occurrences_are_counted_non-overlapping (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/an_odd_tail_leaves_the_overlap_uncounted (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/non-ASCII_case_is_NOT_folded (0.00s)
+    --- PASS: TestFoldSearch_IsASCIIInsensitiveOnly/non-ASCII_matches_itself_exactly (0.00s)
+=== RUN   TestFoldSearch_CountAndIndexAgree
+--- PASS: TestFoldSearch_CountAndIndexAgree (0.00s)
+=== RUN   TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale
+=== RUN   TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/no_candidates_at_all
+=== RUN   TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/a_negative_population_is_not_a_rank
+=== RUN   TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/the_only_candidate_is_the_newest
+=== RUN   TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/the_newest_of_four
+=== RUN   TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/the_second_of_four
+=== RUN   TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/the_oldest_of_four
+--- PASS: TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale (0.00s)
+    --- PASS: TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/no_candidates_at_all (0.00s)
+    --- PASS: TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/a_negative_population_is_not_a_rank (0.00s)
+    --- PASS: TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/the_only_candidate_is_the_newest (0.00s)
+    --- PASS: TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/the_newest_of_four (0.00s)
+    --- PASS: TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/the_second_of_four (0.00s)
+    --- PASS: TestRecencyRank_MapsNewestFirstPositionOntoAUnitScale/the_oldest_of_four (0.00s)
+=== RUN   TestSortHits_OrdersByScoreThenRecencyThenID
+--- PASS: TestSortHits_OrdersByScoreThenRecencyThenID (0.00s)
+=== RUN   TestSortHits_EmptyAndSingle
+--- PASS: TestSortHits_EmptyAndSingle (0.00s)
+=== RUN   TestExactSymbol_MatchesByExactNameOnly
+--- PASS: TestExactSymbol_MatchesByExactNameOnly (0.00s)
+=== RUN   TestScanLimit_BoundsTheWorkBeforeDoingAny
+=== RUN   TestScanLimit_BoundsTheWorkBeforeDoingAny/a_small_path-only_query_scans_everything
+=== RUN   TestScanLimit_BoundsTheWorkBeforeDoingAny/a_small_text_query_scans_everything
+=== RUN   TestScanLimit_BoundsTheWorkBeforeDoingAny/no_candidates_at_all
+=== RUN   TestScanLimit_BoundsTheWorkBeforeDoingAny/too_many_candidates_truncates_by_count_even_with_no_content
+=== RUN   TestScanLimit_BoundsTheWorkBeforeDoingAny/the_byte_budget_cuts_before_the_count_does
+=== RUN   TestScanLimit_BoundsTheWorkBeforeDoingAny/the_count_cuts_first_when_every_root_is_tiny
+=== RUN   TestScanLimit_BoundsTheWorkBeforeDoingAny/a_single_oversized_root_still_yields_no_candidates_rather_than_an_error
+--- PASS: TestScanLimit_BoundsTheWorkBeforeDoingAny (0.00s)
+    --- PASS: TestScanLimit_BoundsTheWorkBeforeDoingAny/a_small_path-only_query_scans_everything (0.00s)
+    --- PASS: TestScanLimit_BoundsTheWorkBeforeDoingAny/a_small_text_query_scans_everything (0.00s)
+    --- PASS: TestScanLimit_BoundsTheWorkBeforeDoingAny/no_candidates_at_all (0.00s)
+    --- PASS: TestScanLimit_BoundsTheWorkBeforeDoingAny/too_many_candidates_truncates_by_count_even_with_no_content (0.00s)
+    --- PASS: TestScanLimit_BoundsTheWorkBeforeDoingAny/the_byte_budget_cuts_before_the_count_does (0.00s)
+    --- PASS: TestScanLimit_BoundsTheWorkBeforeDoingAny/the_count_cuts_first_when_every_root_is_tiny (0.00s)
+    --- PASS: TestScanLimit_BoundsTheWorkBeforeDoingAny/a_single_oversized_root_still_yields_no_candidates_rather_than_an_error (0.00s)
+=== RUN   TestDecode_RejectsDamagedFrames
+=== RUN   TestDecode_RejectsDamagedFrames/not_a_zstd_frame_at_all
+=== RUN   TestDecode_RejectsDamagedFrames/magic_bytes_only
+=== RUN   TestDecode_RejectsDamagedFrames/truncated_mid-frame
+=== RUN   TestDecode_RejectsDamagedFrames/last_byte_lopped_off
+=== RUN   TestDecode_RejectsDamagedFrames/one_flipped_byte_inside_the_frame
+--- PASS: TestDecode_RejectsDamagedFrames (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/not_a_zstd_frame_at_all (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/magic_bytes_only (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/truncated_mid-frame (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/last_byte_lopped_off (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/one_flipped_byte_inside_the_frame (0.00s)
+=== RUN   TestEncode_IsReusableAcrossCalls
+--- PASS: TestEncode_IsReusableAcrossCalls (0.00s)
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames/compressed
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames/uncompressed
+--- PASS: TestObjectPaths_HonourCompressionAndTryBothNames (2.58s)
+    --- PASS: TestObjectPaths_HonourCompressionAndTryBothNames/compressed (1.31s)
+    --- PASS: TestObjectPaths_HonourCompressionAndTryBothNames/uncompressed (1.28s)
+=== RUN   TestTmpObjectPath_IsUniquePerCall
+--- PASS: TestTmpObjectPath_IsUniquePerCall (0.68s)
+=== RUN   TestEnsureDir_ReportsAFailedCreateAndCachesOnlySuccess
+--- PASS: TestEnsureDir_ReportsAFailedCreateAndCachesOnlySuccess (0.09s)
+=== RUN   TestWriteStaged_NeverClobbersAnExistingFile
+--- PASS: TestWriteStaged_NeverClobbersAnExistingFile (0.19s)
+=== RUN   TestPutObject_FailsWhenTheStagingDirectoryIsUnusable
+--- PASS: TestPutObject_FailsWhenTheStagingDirectoryIsUnusable (0.65s)
+=== RUN   TestPutObject_FailsWhenTheFanoutDirectoryCannotBeCreated
+--- PASS: TestPutObject_FailsWhenTheFanoutDirectoryCannotBeCreated (0.43s)
+=== RUN   TestQuarantine_PreservesExistingEvidence
+--- PASS: TestQuarantine_PreservesExistingEvidence (0.52s)
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/no_error_is_not_contention
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/bare_ERROR_ACCESS_DENIED
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/bare_ERROR_SHARING_VIOLATION
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_ACCESS_DENIED_inside_a_LinkError
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_SHARING_VIOLATION_inside_a_LinkError
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/a_doubly_wrapped_LinkError_still_classifies
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_FILE_NOT_FOUND_is_a_real_failure
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_PATH_NOT_FOUND_is_a_real_failure
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_DISK_FULL_is_a_real_failure
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/a_plain_error_is_a_real_failure
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/os.ErrNotExist_is_a_real_failure
+=== RUN   TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/a_permission_error_with_no_errno_still_classifies
+--- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/no_error_is_not_contention (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/bare_ERROR_ACCESS_DENIED (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/bare_ERROR_SHARING_VIOLATION (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_ACCESS_DENIED_inside_a_LinkError (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_SHARING_VIOLATION_inside_a_LinkError (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/a_doubly_wrapped_LinkError_still_classifies (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_FILE_NOT_FOUND_is_a_real_failure (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_PATH_NOT_FOUND_is_a_real_failure (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/ERROR_DISK_FULL_is_a_real_failure (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/a_plain_error_is_a_real_failure (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/os.ErrNotExist_is_a_real_failure (0.00s)
+    --- PASS: TestIsRenameContention_ClassifiesOnlyTheTwoTransientWindowsErrors/a_permission_error_with_no_errno_still_classifies (0.00s)
+=== RUN   TestRenameObject_ReportsANonContentionFailureImmediately
+--- PASS: TestRenameObject_ReportsANonContentionFailureImmediately (0.50s)
+=== RUN   TestRenameObject_ExistingDestinationIsSuccess
+--- PASS: TestRenameObject_ExistingDestinationIsSuccess (0.31s)
+=== RUN   TestRenameObject_ContentionIsRetriedThenReported
+--- PASS: TestRenameObject_ContentionIsRetriedThenReported (0.68s)
+=== RUN   TestReadObjectFile_UnreadableCandidateIsNotFound
+--- PASS: TestReadObjectFile_UnreadableCandidateIsNotFound (0.80s)
+=== RUN   TestGetObject_LengthDisagreementQuarantines
+--- PASS: TestGetObject_LengthDisagreementQuarantines (0.69s)
+=== RUN   TestGetChunk_ReadsAnObjectWithNoIndexEntry
+--- PASS: TestGetChunk_ReadsAnObjectWithNoIndexEntry (0.82s)
+=== RUN   TestStatObject_FindsAnObjectUnderEitherName
+=== RUN   TestStatObject_FindsAnObjectUnderEitherName/compressed_name
+=== RUN   TestStatObject_FindsAnObjectUnderEitherName/bare_name,_found_on_the_second_candidate
+=== RUN   TestStatObject_FindsAnObjectUnderEitherName/an_object_that_was_never_stored
+--- PASS: TestStatObject_FindsAnObjectUnderEitherName (1.66s)
+    --- PASS: TestStatObject_FindsAnObjectUnderEitherName/compressed_name (0.86s)
+    --- PASS: TestStatObject_FindsAnObjectUnderEitherName/bare_name,_found_on_the_second_candidate (0.50s)
+    --- PASS: TestStatObject_FindsAnObjectUnderEitherName/an_object_that_was_never_stored (0.29s)
+=== RUN   TestStats_RefusesAClosedStoreAndACancelledContext
+--- PASS: TestStats_RefusesAClosedStoreAndACancelledContext (0.88s)
+=== RUN   TestStats_SketchesCountsRootsCarryingASignature
+--- PASS: TestStats_SketchesCountsRootsCarryingASignature (0.60s)
+=== RUN   TestStats_SketchesIsZeroWithoutSignatures
+--- PASS: TestStats_SketchesIsZeroWithoutSignatures (0.48s)
+=== RUN   TestSegmentCount_NoSegmentLogIsZero
+--- PASS: TestSegmentCount_NoSegmentLogIsZero (0.00s)
+=== RUN   TestEnsureDir_CreatesAMissingFirstLevelAndAcceptsAnExistingLeaf
+--- PASS: TestEnsureDir_CreatesAMissingFirstLevelAndAcceptsAnExistingLeaf (0.14s)
+=== RUN   TestPut_ReaderEdges
+=== RUN   TestPut_ReaderEdges/a_nil_reader_stores_nothing_rather_than_panicking
+=== RUN   TestPut_ReaderEdges/a_reader_that_fails_midway_reports_the_error
+=== RUN   TestPut_ReaderEdges/an_io_EOF_terminated_reader_is_stored_whole
+--- PASS: TestPut_ReaderEdges (2.55s)
+    --- PASS: TestPut_ReaderEdges/a_nil_reader_stores_nothing_rather_than_panicking (1.08s)
+    --- PASS: TestPut_ReaderEdges/a_reader_that_fails_midway_reports_the_error (0.95s)
+    --- PASS: TestPut_ReaderEdges/an_io_EOF_terminated_reader_is_stored_whole (0.52s)
+=== RUN   TestGC_IgnoresFilesItCannotIdentify
+--- PASS: TestGC_IgnoresFilesItCannotIdentify (0.69s)
+=== RUN   TestPutBytes_DeltaRecordDeclaresItsBase
+--- PASS: TestPutBytes_DeltaRecordDeclaresItsBase (0.99s)
+=== RUN   TestPutBytes_UnprovenDeltaFallsBackToAFullObject
+--- PASS: TestPutBytes_UnprovenDeltaFallsBackToAFullObject (0.89s)
+=== RUN   TestRestoreOriginal_ExactThroughTheDeltaRecord
+--- PASS: TestRestoreOriginal_ExactThroughTheDeltaRecord (0.75s)
+=== RUN   TestRestoreOriginal_NoRecordIsCanonicalOnly
+--- PASS: TestRestoreOriginal_NoRecordIsCanonicalOnly (0.35s)
+=== RUN   TestReadDelta_AbsentBaseIsUnavailable
+--- PASS: TestReadDelta_AbsentBaseIsUnavailable (1.05s)
+=== RUN   TestReadDelta_CorruptRecordIsCorrupt
+--- PASS: TestReadDelta_CorruptRecordIsCorrupt (0.90s)
+=== RUN   TestGC_RetainsADeltaWithItsBase
+--- PASS: TestGC_RetainsADeltaWithItsBase (1.62s)
+=== RUN   TestGC_RetainsADeltaBaseFromTheDeltaSide
+--- PASS: TestGC_RetainsADeltaBaseFromTheDeltaSide (0.66s)
+=== RUN   TestGC_RetainsPendingWritesAcrossACrashedRootAppend
+--- PASS: TestGC_RetainsPendingWritesAcrossACrashedRootAppend (1.21s)
+=== RUN   TestGC_ExpiresAbandonedPendingMarkers
+--- PASS: TestGC_ExpiresAbandonedPendingMarkers (1.89s)
+=== RUN   TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot
+--- PASS: TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot (2.94s)
+=== RUN   TestGC_RetentionRootSourceHoldsObjectsLive
+--- PASS: TestGC_RetentionRootSourceHoldsObjectsLive (2.70s)
+=== RUN   TestGC_ReportsPerRootOutcomes
+--- PASS: TestGC_ReportsPerRootOutcomes (1.20s)
+=== RUN   TestGC_QuotaEvictsInWindowRootsAndReportsThem
+--- PASS: TestGC_QuotaEvictsInWindowRootsAndReportsThem (1.47s)
+=== RUN   TestGC_QuotaNeverEvictsAHardRetentionRoot
+--- PASS: TestGC_QuotaNeverEvictsAHardRetentionRoot (1.60s)
+=== RUN   TestGC_OutcomesAreBoundedAndSayWhenTheyWereTruncated
+--- PASS: TestGC_OutcomesAreBoundedAndSayWhenTheyWereTruncated (1.38s)
+=== RUN   TestLoadRoots_ReadsBothRecordVersions
+--- PASS: TestLoadRoots_ReadsBothRecordVersions (0.40s)
+=== RUN   TestGC_AcknowledgedDeliveryLeaseStopsRetaining
+--- PASS: TestGC_AcknowledgedDeliveryLeaseStopsRetaining (1.34s)
+=== RUN   TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen
+--- PASS: TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen (1.44s)
+=== RUN   TestCompactRetentionRoots_ShedsDuplicatesAndKeepsEveryRoot
+--- PASS: TestCompactRetentionRoots_ShedsDuplicatesAndKeepsEveryRoot (1.38s)
+=== RUN   TestCompactRetentionRoots_CrashMidCompactionLosesNothing
+--- PASS: TestCompactRetentionRoots_CrashMidCompactionLosesNothing (0.92s)
+=== RUN   TestGC_CompactsTheRetentionRootFile
+--- PASS: TestGC_CompactsTheRetentionRootFile (1.16s)
+=== RUN   TestPending_DegradesInsteadOfFailingThePutWhenTheRegistryIsUnusable
+--- PASS: TestPending_DegradesInsteadOfFailingThePutWhenTheRegistryIsUnusable (0.62s)
+=== RUN   TestAppendRetentionRoot_RefusesAClaimThatNamesNothing
+--- PASS: TestAppendRetentionRoot_RefusesAClaimThatNamesNothing (0.29s)
+=== RUN   TestCompactRetentionRoots_HasNothingToDoWithoutALog
+--- PASS: TestCompactRetentionRoots_HasNothingToDoWithoutALog (0.17s)
+=== RUN   TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt
+=== PAUSE TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt
+=== RUN   TestReadDeltaAndRestoreOriginal_RefuseBeforeTheyReadAnything
+--- PASS: TestReadDeltaAndRestoreOriginal_RefuseBeforeTheyReadAnything (0.51s)
+=== RUN   TestFlush_RefusesACancelledContextAndWritesNothing
+--- PASS: TestFlush_RefusesACancelledContextAndWritesNothing (0.33s)
+=== RUN   TestMaintenance_ConstructorRequiresExplicitConfig
+--- PASS: TestMaintenance_ConstructorRequiresExplicitConfig (0.52s)
+=== RUN   TestMaintenance_TakeBackupLeaseGuard
+--- PASS: TestMaintenance_TakeBackupLeaseGuard (1.30s)
+=== RUN   TestMaintenance_BackupIDValidation
+--- PASS: TestMaintenance_BackupIDValidation (1.42s)
+=== RUN   TestMaintenance_TakeVerifyRestoreRoundTrip
+--- PASS: TestMaintenance_TakeVerifyRestoreRoundTrip (1.56s)
+=== RUN   TestMaintenance_RestoreRefusesExistingDestination
+--- PASS: TestMaintenance_RestoreRefusesExistingDestination (0.99s)
+=== RUN   TestMaintenance_CorruptedBackupIsRefused
+--- PASS: TestMaintenance_CorruptedBackupIsRefused (0.59s)
+=== RUN   TestMaintenance_AdversarialManifestRefusedBeforeReadingFiles
+--- PASS: TestMaintenance_AdversarialManifestRefusedBeforeReadingFiles (0.61s)
+=== RUN   TestMaintenance_SymlinkComponentInBackupTreeRefused
+    maintenance_test.go:259: symlink not permitted on this host: symlink C:\Users\Quant\AppData\Local\Temp\TestMaintenance_SymlinkComponentInBackupTreeRefused549176140\002\external-secret C:\Users\Quant\AppData\Local\Temp\TestMaintenance_SymlinkComponentInBackupTreeRefused549176140\001\project\.qompack\backup\sym\tree\.gitignore: A required privilege is not held by the client.
+--- SKIP: TestMaintenance_SymlinkComponentInBackupTreeRefused (0.68s)
+=== RUN   TestMaintenance_ContextCancellationStops
+--- PASS: TestMaintenance_ContextCancellationStops (0.86s)
+=== RUN   TestMaintenance_StagedRehashCatchesPostCopyCorruption
+--- PASS: TestMaintenance_StagedRehashCatchesPostCopyCorruption (0.98s)
+=== RUN   TestMaintenance_RestoreLeavesSourceLaterWritesIntact
+--- PASS: TestMaintenance_RestoreLeavesSourceLaterWritesIntact (1.33s)
+=== RUN   TestNewMigrator_RefusesWhileTheGateIsClosed
+--- PASS: TestNewMigrator_RefusesWhileTheGateIsClosed (0.21s)
+=== RUN   TestImport_SideBySideWithDurableCursor
+--- PASS: TestImport_SideBySideWithDurableCursor (1.89s)
+=== RUN   TestImport_LegacyUnknownFidelityIsNeverUpgraded
+--- PASS: TestImport_LegacyUnknownFidelityIsNeverUpgraded (0.73s)
+=== RUN   TestImportFidelity_NeverProducesExactFromAnythingElse
+--- PASS: TestImportFidelity_NeverProducesExactFromAnythingElse (0.00s)
+=== RUN   TestImport_ResumesFromTheCursorWithoutDuplicating
+--- PASS: TestImport_ResumesFromTheCursorWithoutDuplicating (1.40s)
+=== RUN   TestImport_LostCursorFallsBackToTheFrontierWithoutDuplicating
+--- PASS: TestImport_LostCursorFallsBackToTheFrontierWithoutDuplicating (1.20s)
+=== RUN   TestImport_CompletedImportIsANoOp
+--- PASS: TestImport_CompletedImportIsANoOp (1.06s)
+=== RUN   TestImport_RefusesADifferentSnapshot
+--- PASS: TestImport_RefusesADifferentSnapshot (0.95s)
+=== RUN   TestParity_AllFourChecksPassAfterACleanImport
+--- PASS: TestParity_AllFourChecksPassAfterACleanImport (1.18s)
+=== RUN   TestParity_FailsWhenAReferenceIsSuperseded
+--- PASS: TestParity_FailsWhenAReferenceIsSuperseded (1.06s)
+=== RUN   TestParity_FailsWhenTheSnapshotChangedUnderneath
+--- PASS: TestParity_FailsWhenTheSnapshotChangedUnderneath (0.84s)
+=== RUN   TestParity_FailsWhenAnImportedFidelityWasUpgraded
+--- PASS: TestParity_FailsWhenAnImportedFidelityWasUpgraded (1.01s)
+=== RUN   TestHandoff_LegacyOwnsTheWriterUntilCutover
+--- PASS: TestHandoff_LegacyOwnsTheWriterUntilCutover (0.67s)
+=== RUN   TestCutover_RefusesUntilImportParityBackupAndAStableSource
+--- PASS: TestCutover_RefusesUntilImportParityBackupAndAStableSource (2.06s)
+=== RUN   TestCutover_RefusesWhenTheSourceMovedPastTheDeclaredFrontier
+--- PASS: TestCutover_RefusesWhenTheSourceMovedPastTheDeclaredFrontier (1.45s)
+=== RUN   TestCutover_TransfersTheWriterAndLeavesExactlyOne
+--- PASS: TestCutover_TransfersTheWriterAndLeavesExactlyOne (1.92s)
+=== RUN   TestImportCursor_OnDiskShapeIsVersioned
+--- PASS: TestImportCursor_OnDiskShapeIsVersioned (0.62s)
+=== RUN   TestCursor_RefusesACursorItCannotRead
+--- PASS: TestCursor_RefusesACursorItCannotRead (0.29s)
+=== RUN   TestFrontier_RefusesAMappingLineItCannotRead
+--- PASS: TestFrontier_RefusesAMappingLineItCannotRead (0.26s)
+=== RUN   TestGetChunk_RejectsValidCompressedReplacement
+--- PASS: TestGetChunk_RejectsValidCompressedReplacement (0.65s)
+=== RUN   TestGetChunk_RejectsSameLengthUncompressedReplacement
+--- PASS: TestGetChunk_RejectsSameLengthUncompressedReplacement (0.51s)
+=== RUN   TestGetChunk_RejectsUnindexedSubstitutedObject
+--- PASS: TestGetChunk_RejectsUnindexedSubstitutedObject (0.31s)
+=== RUN   TestOpenReaders_RejectSubstitutedChunk
+=== RUN   TestOpenReaders_RejectSubstitutedChunk/Open
+=== RUN   TestOpenReaders_RejectSubstitutedChunk/OpenSpan
+--- PASS: TestOpenReaders_RejectSubstitutedChunk (0.92s)
+    --- PASS: TestOpenReaders_RejectSubstitutedChunk/Open (0.43s)
+    --- PASS: TestOpenReaders_RejectSubstitutedChunk/OpenSpan (0.49s)
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_indexed
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_indexed
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_orphan
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_orphan
+--- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects (2.45s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_indexed (0.57s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_indexed (0.90s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_orphan (0.52s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_orphan (0.45s)
+=== RUN   TestGetChunk_QuarantineFailurePreservesObject
+--- PASS: TestGetChunk_QuarantineFailurePreservesObject (1.10s)
+=== RUN   TestReadBoundedObject_RefusesASocketLeaf
+--- PASS: TestReadBoundedObject_RefusesASocketLeaf (0.02s)
+=== RUN   TestReadBoundedObject_RefusesADirectoryLeafAsNotRegular
+--- PASS: TestReadBoundedObject_RefusesADirectoryLeafAsNotRegular (0.02s)
+=== RUN   TestGetChunk_ADirectoryAtTheObjectPathIsDamagedNotAbsent
+--- PASS: TestGetChunk_ADirectoryAtTheObjectPathIsDamagedNotAbsent (0.43s)
+=== RUN   TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute
+--- PASS: TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute (0.06s)
+=== RUN   TestObjectPathFor_IsFilepathJoin
+--- PASS: TestObjectPathFor_IsFilepathJoin (0.53s)
+=== RUN   TestObjectPathFor_RelativeRootIsFilepathJoin
+--- PASS: TestObjectPathFor_RelativeRootIsFilepathJoin (0.00s)
+=== RUN   TestReadExactSize
+=== RUN   TestReadExactSize/exact_size_reads_and_requires_eof
+=== RUN   TestReadExactSize/a_short_reader_is_a_shrink
+=== RUN   TestReadExactSize/a_trailing_byte_is_a_growth
+=== RUN   TestReadExactSize/zero_size_empty_reader_is_ok
+=== RUN   TestReadExactSize/zero_size_with_bytes_is_a_growth
+=== RUN   TestReadExactSize/a_read_error_is_propagated
+--- PASS: TestReadExactSize (0.00s)
+    --- PASS: TestReadExactSize/exact_size_reads_and_requires_eof (0.00s)
+    --- PASS: TestReadExactSize/a_short_reader_is_a_shrink (0.00s)
+    --- PASS: TestReadExactSize/a_trailing_byte_is_a_growth (0.00s)
+    --- PASS: TestReadExactSize/zero_size_empty_reader_is_ok (0.00s)
+    --- PASS: TestReadExactSize/zero_size_with_bytes_is_a_growth (0.00s)
+    --- PASS: TestReadExactSize/a_read_error_is_propagated (0.00s)
+=== RUN   TestRequireEOF
+--- PASS: TestRequireEOF (0.00s)
+=== RUN   TestReadBoundedObject_FilesystemBounds
+=== RUN   TestReadBoundedObject_FilesystemBounds/reads_a_regular_file_exactly
+=== RUN   TestReadBoundedObject_FilesystemBounds/reads_a_zero_byte_file
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_file_past_the_limit_is_too_large
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_directory_is_not_a_regular_file
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_missing_file_reports_not_exist
+--- PASS: TestReadBoundedObject_FilesystemBounds (0.07s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/reads_a_regular_file_exactly (0.02s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/reads_a_zero_byte_file (0.00s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_file_past_the_limit_is_too_large (0.00s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_directory_is_not_a_regular_file (0.00s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_missing_file_reports_not_exist (0.00s)
+=== RUN   TestPutBytes_FanoutLayout
+--- PASS: TestPutBytes_FanoutLayout (0.37s)
+=== RUN   TestPutBytes_CompressionNone
+--- PASS: TestPutBytes_CompressionNone (0.21s)
+=== RUN   TestObjectReader_TriesBothCandidateNames
+--- PASS: TestObjectReader_TriesBothCandidateNames (0.39s)
+=== RUN   TestPutObject_SecondWriteIsNotNovel
+--- PASS: TestPutObject_SecondWriteIsNotNovel (0.14s)
+=== RUN   TestGetChunk_Roundtrip
+--- PASS: TestGetChunk_Roundtrip (0.51s)
+=== RUN   TestGetChunk_QuarantinesCorruption
+--- PASS: TestGetChunk_QuarantinesCorruption (0.50s)
+=== RUN   TestHas_NoIO
+--- PASS: TestHas_NoIO (0.37s)
+=== RUN   TestHas_FallsBackToDiskForOrphanObject
+--- PASS: TestHas_FallsBackToDiskForOrphanObject (0.22s)
+=== RUN   TestClosedStoreErrors
+--- PASS: TestClosedStoreErrors (0.26s)
+=== RUN   TestObservationAudit_UnpublishedIntentCannotLookClean
+--- PASS: TestObservationAudit_UnpublishedIntentCannotLookClean (0.71s)
+=== RUN   TestObservationAudit_UnknownStateAndBoundsStayExplicit
+--- PASS: TestObservationAudit_UnknownStateAndBoundsStayExplicit (0.21s)
+=== RUN   TestObservationGuards_ExactSupersedingReplayRemainsIdempotent
+--- PASS: TestObservationGuards_ExactSupersedingReplayRemainsIdempotent (0.78s)
+=== RUN   TestObservationGuards_UnterminatedIntentIsNotAppendable
+--- PASS: TestObservationGuards_UnterminatedIntentIsNotAppendable (0.70s)
+=== RUN   TestObservationGuards_CommittedRecoveryVerifiesOriginalObjects
+--- PASS: TestObservationGuards_CommittedRecoveryVerifiesOriginalObjects (0.50s)
+=== RUN   TestObservationGuards_CloseWaitsForIntentPublication
+--- PASS: TestObservationGuards_CloseWaitsForIntentPublication (0.41s)
+=== RUN   TestObservationPublish_AppendCapacityCapRefused
+--- PASS: TestObservationPublish_AppendCapacityCapRefused (0.48s)
+=== RUN   TestObservationPublish_InjectedSyncFailureFailsClosed
+--- PASS: TestObservationPublish_InjectedSyncFailureFailsClosed (0.45s)
+=== RUN   TestObservationPublish_CommittedReplayWithDifferentSupersedesRefused
+--- PASS: TestObservationPublish_CommittedReplayWithDifferentSupersedesRefused (0.57s)
+=== RUN   TestObservationPublish_LostTargetIsUnavailableNotForged
+--- PASS: TestObservationPublish_LostTargetIsUnavailableNotForged (0.78s)
+=== RUN   TestObservationLookup_WiredPublishCommits
+--- PASS: TestObservationLookup_WiredPublishCommits (0.40s)
+=== RUN   TestObservationLookup_NoBindingIsNotFound
+--- PASS: TestObservationLookup_NoBindingIsNotFound (0.26s)
+=== RUN   TestObservationLookup_EmptyAndInvalidIDAreNotFound
+--- PASS: TestObservationLookup_EmptyAndInvalidIDAreNotFound (0.17s)
+=== RUN   TestObservationLookup_ClosedStoreDegrades
+--- PASS: TestObservationLookup_ClosedStoreDegrades (0.11s)
+=== RUN   TestObservationLookup_CancelledContext
+--- PASS: TestObservationLookup_CancelledContext (0.13s)
+=== RUN   TestObservationLookup_PendingIntentIsUnavailable
+--- PASS: TestObservationLookup_PendingIntentIsUnavailable (0.44s)
+=== RUN   TestObservationPublish_WiredReopenRecommits
+--- PASS: TestObservationPublish_WiredReopenRecommits (0.54s)
+=== RUN   TestObservationPublish_ActualPartialBatchCut
+--- PASS: TestObservationPublish_ActualPartialBatchCut (0.80s)
+=== RUN   TestObservationPublish_MissingObjectsKeepIntentIncomplete
+--- PASS: TestObservationPublish_MissingObjectsKeepIntentIncomplete (0.20s)
+=== RUN   TestObservationPublish_UncertainSidecarBlocksUnknownButKeepsCommitted
+--- PASS: TestObservationPublish_UncertainSidecarBlocksUnknownButKeepsCommitted (0.47s)
+=== RUN   TestObservationPublish_IdentityConflictAndIdempotence
+--- PASS: TestObservationPublish_IdentityConflictAndIdempotence (0.39s)
+=== RUN   TestObservationPublish_NonRegularSidecarRefused
+--- PASS: TestObservationPublish_NonRegularSidecarRefused (0.24s)
+=== RUN   TestObservationRestore_PendingIntentCannotCertifyReader
+--- PASS: TestObservationRestore_PendingIntentCannotCertifyReader (0.46s)
+=== RUN   TestPromptFrontier_DistinguishesTurnClosingRecords
+--- PASS: TestPromptFrontier_DistinguishesTurnClosingRecords (0.14s)
+=== RUN   TestSyncPublication_RequiresEveryRecoveryObjectAndOpenWriters
+--- PASS: TestSyncPublication_RequiresEveryRecoveryObjectAndOpenWriters (0.47s)
+=== RUN   TestPropPutGetRoundtrip
+    prop_test.go:40: [rapid] OK, passed 100 tests (5.2367792s)
+--- PASS: TestPropPutGetRoundtrip (5.67s)
+=== RUN   TestPropOpenSpanMatchesSlice
+    prop_test.go:84: [rapid] OK, passed 100 tests (568.3919ms)
+--- PASS: TestPropOpenSpanMatchesSlice (1.00s)
+=== RUN   TestPropDedupMonotone
+    prop_test.go:169: [rapid] OK, passed 100 tests (1m27.8181037s)
+--- PASS: TestPropDedupMonotone (108.29s)
+=== RUN   TestContentOrigins_TracksDeduplicatedOriginsAcrossReopen
+--- PASS: TestContentOrigins_TracksDeduplicatedOriginsAcrossReopen (0.49s)
+=== RUN   TestContentOrigins_IncompleteScanReturnsNoPartialAuthority
+--- PASS: TestContentOrigins_IncompleteScanReturnsNoPartialAuthority (0.43s)
+=== RUN   TestAuditPublication_ClassifiesCaptureSidecars
+--- PASS: TestAuditPublication_ClassifiesCaptureSidecars (0.81s)
+=== RUN   TestAuditPublication_DeniedCaptureIsNotAGap
+--- PASS: TestAuditPublication_DeniedCaptureIsNotAGap (0.29s)
+=== RUN   TestAuditPublication_EmptyOkCaptureIsNotAGap
+--- PASS: TestAuditPublication_EmptyOkCaptureIsNotAGap (0.29s)
+=== RUN   TestAuditPublication_UnknownOutcomeIsIncomplete
+--- PASS: TestAuditPublication_UnknownOutcomeIsIncomplete (0.29s)
+=== RUN   TestAuditPublication_UnknownOpIsIncomplete
+--- PASS: TestAuditPublication_UnknownOpIsIncomplete (0.25s)
+=== RUN   TestAuditPublication_FutureSchemaIsIncompleteNotEmpty
+--- PASS: TestAuditPublication_FutureSchemaIsIncompleteNotEmpty (0.27s)
+=== RUN   TestAuditPublication_MissingOrOlderSchemaIsIncomplete
+--- PASS: TestAuditPublication_MissingOrOlderSchemaIsIncomplete (0.46s)
+=== RUN   TestAuditPublication_MalformedTrailingJSONIsIncomplete
+--- PASS: TestAuditPublication_MalformedTrailingJSONIsIncomplete (0.32s)
+=== RUN   TestAuditPublication_UnreadableSidecarIsIncomplete
+--- PASS: TestAuditPublication_UnreadableSidecarIsIncomplete (0.35s)
+=== RUN   TestAuditPublication_UnindexedObjectCandidate
+--- PASS: TestAuditPublication_UnindexedObjectCandidate (0.32s)
+=== RUN   TestAuditPublication_IndexedObjectsAreNotCandidates
+--- PASS: TestAuditPublication_IndexedObjectsAreNotCandidates (0.35s)
+=== RUN   TestAuditPublication_KeepRawPutCreatesNoCandidates
+--- PASS: TestAuditPublication_KeepRawPutCreatesNoCandidates (0.33s)
+=== RUN   TestAuditPublication_PendingObjectIsNotACandidate
+--- PASS: TestAuditPublication_PendingObjectIsNotACandidate (0.29s)
+=== RUN   TestAuditPublication_EmptyProjectIsCleanAndComplete
+--- PASS: TestAuditPublication_EmptyProjectIsCleanAndComplete (0.24s)
+=== RUN   TestAuditPublication_RespectsTheCaptureCap
+--- PASS: TestAuditPublication_RespectsTheCaptureCap (0.33s)
+=== RUN   TestAuditPublication_RespectsTheEntryBudget
+--- PASS: TestAuditPublication_RespectsTheEntryBudget (0.41s)
+=== RUN   TestAuditPublication_ClosedStoreDegrades
+--- PASS: TestAuditPublication_ClosedStoreDegrades (0.15s)
+=== RUN   TestAuditPublication_HonoursCancellation
+--- PASS: TestAuditPublication_HonoursCancellation (0.19s)
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/ordinary_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/subagent_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/unknown_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/denied_stop
+--- PASS: TestAuditPublication_StopReferenceRequirementIsQualified (1.72s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/ordinary_stop (0.35s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/subagent_stop (0.33s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/unknown_stop (0.74s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/denied_stop (0.30s)
+=== RUN   TestPutBytes_GlobalDedup
+--- PASS: TestPutBytes_GlobalDedup (0.60s)
+=== RUN   TestPutBytes_LargeRewriteStillSharesChunks
+--- PASS: TestPutBytes_LargeRewriteStillSharesChunks (1.16s)
+=== RUN   TestPutBytes_IdenticalRootIsFree
+--- PASS: TestPutBytes_IdenticalRootIsFree (0.51s)
+=== RUN   TestPutBytes_DedupHitReportsThisPutsRawBytes
+--- PASS: TestPutBytes_DedupHitReportsThisPutsRawBytes (0.30s)
+=== RUN   TestPutBytes_KeepRawStoresDeltaRoot
+--- PASS: TestPutBytes_KeepRawStoresDeltaRoot (0.38s)
+=== RUN   TestPutBytes_KeepRawFalseStoresNoDeltas
+--- PASS: TestPutBytes_KeepRawFalseStoresNoDeltas (0.34s)
+=== RUN   TestPutBytes_EphemeralFlagPersists
+--- PASS: TestPutBytes_EphemeralFlagPersists (0.37s)
+=== RUN   TestPutBytes_RedactionBeforeChunking
+--- PASS: TestPutBytes_RedactionBeforeChunking (0.35s)
+=== RUN   TestPutBytes_RedactionRunsWhenDepsRedactIsNil
+--- PASS: TestPutBytes_RedactionRunsWhenDepsRedactIsNil (0.40s)
+=== RUN   TestPutBytes_CanonicalizeBeforeChunk
+--- PASS: TestPutBytes_CanonicalizeBeforeChunk (0.33s)
+=== RUN   TestPutBytes_CanonFailureFallsBack
+--- PASS: TestPutBytes_CanonFailureFallsBack (0.28s)
+=== RUN   TestPut_ReaderTruncation
+--- PASS: TestPut_ReaderTruncation (4.46s)
+=== RUN   TestPutBytes_NearDup
+--- PASS: TestPutBytes_NearDup (0.42s)
+=== RUN   TestPutBytes_NoNearDupForDistinctPaths
+--- PASS: TestPutBytes_NoNearDupForDistinctPaths (0.78s)
+=== RUN   TestPutBytes_NoNearDupWhenMinHashDisabled
+--- PASS: TestPutBytes_NoNearDupWhenMinHashDisabled (1.57s)
+=== RUN   TestPutBytes_ChunkerDegradedGuard
+--- PASS: TestPutBytes_ChunkerDegradedGuard (0.48s)
+=== RUN   TestConcurrentPut
+--- PASS: TestConcurrentPut (20.50s)
+=== RUN   TestPutBytes_RefusesAContextThatExpiredWhileItWaitedForItsPutLock
+--- PASS: TestPutBytes_RefusesAContextThatExpiredWhileItWaitedForItsPutLock (0.53s)
+=== RUN   TestCanonOptions_EmptyStripMeansNoOptionalClasses
+--- PASS: TestCanonOptions_EmptyStripMeansNoOptionalClasses (0.30s)
+=== RUN   TestOpen_StreamsFullRoot
+--- PASS: TestOpen_StreamsFullRoot (3.94s)
+=== RUN   TestOpenSpan_Boundaries
+--- PASS: TestOpenSpan_Boundaries (2.95s)
+=== RUN   TestOpenSpan_PastEndIsNotAnError
+--- PASS: TestOpenSpan_PastEndIsNotAnError (0.21s)
+=== RUN   TestGetRoot_UnknownIsNotFound
+--- PASS: TestGetRoot_UnknownIsNotFound (0.17s)
+=== RUN   TestOpen_EmptyPayload
+--- PASS: TestOpen_EmptyPayload (0.39s)
+=== RUN   TestOpen_DoesNotMaterializeWholeRoot
+--- PASS: TestOpen_DoesNotMaterializeWholeRoot (2.32s)
+=== RUN   TestChunkReader_ReportsMissingObject
+--- PASS: TestChunkReader_ReportsMissingObject (3.27s)
+=== RUN   TestOpenStore_LoadsIndex
+--- PASS: TestOpenStore_LoadsIndex (2.63s)
+=== RUN   TestOpenStore_TruncatedFinalLine
+--- PASS: TestOpenStore_TruncatedFinalLine (0.29s)
+=== RUN   TestOpenReadOnly_CreatesNothing
+=== PAUSE TestOpenReadOnly_CreatesNothing
+=== RUN   TestOpenReadOnly_RejectsAnObjectWithoutMovingIt
+--- PASS: TestOpenReadOnly_RejectsAnObjectWithoutMovingIt (0.21s)
+=== RUN   TestOpenReadOnly_LoadsARealStoreUnchanged
+--- PASS: TestOpenReadOnly_LoadsARealStoreUnchanged (0.28s)
+=== RUN   TestOpenReadOnly_TheValueIsNotAStore
+=== PAUSE TestOpenReadOnly_TheValueIsNotAStore
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/Put
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/PutBytes
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/Flush
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/SyncPublication
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/GC
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/RecordToolUse
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/RecordToolUseSuperseding
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/MarkSuperseded
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/AppendFileVersion
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/Quarantine
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/ReserveObservation
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/RecoverToolUseByObservation
+--- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses (0.32s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/Put (0.01s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/PutBytes (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/Flush (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/SyncPublication (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/GC (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/RecordToolUse (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/RecordToolUseSuperseding (0.01s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/MarkSuperseded (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/AppendFileVersion (0.01s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/Quarantine (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/ReserveObservation (0.01s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/RecoverToolUseByObservation (0.01s)
+=== RUN   TestReadOnly_EveryExportedMethodIsClassified
+=== PAUSE TestReadOnly_EveryExportedMethodIsClassified
+=== RUN   TestOpenReadOnly_LoadsTheSegmentLog
+--- PASS: TestOpenReadOnly_LoadsTheSegmentLog (0.28s)
+=== RUN   TestOpenReadOnly_TheSegmentLogRefusesWrites
+--- PASS: TestOpenReadOnly_TheSegmentLogRefusesWrites (0.21s)
+=== RUN   TestOpenReadOnly_ReadDeltaAnswersRatherThanRefusing
+--- PASS: TestOpenReadOnly_ReadDeltaAnswersRatherThanRefusing (0.25s)
+=== RUN   TestSegLog_AppendRefusesAReadOnlyLogAtItsChokePoint
+=== PAUSE TestSegLog_AppendRefusesAReadOnlyLogAtItsChokePoint
+=== RUN   TestAppendFileVersion_RefusesAVersionThatNamesNothing
+--- PASS: TestAppendFileVersion_RefusesAVersionThatNamesNothing (0.17s)
+=== RUN   TestFileAt_RefusesAClosedStore
+--- PASS: TestFileAt_RefusesAClosedStore (0.13s)
+=== RUN   TestEncodedObjectLimit_PadsThePlaintextLimitRatherThanRepeatingIt
+=== PAUSE TestEncodedObjectLimit_PadsThePlaintextLimitRatherThanRepeatingIt
+=== RUN   TestRecovery_RootsIndex
+=== RUN   TestRecovery_RootsIndex/malformed_lines_are_skipped_and_the_good_roots_survive
+=== RUN   TestRecovery_RootsIndex/a_truncated_final_line_is_the_normal_crash_shape
+=== RUN   TestRecovery_RootsIndex/a_class_ordinal_this_build_does_not_know_degrades_to_prose
+=== RUN   TestRecovery_RootsIndex/an_impossible_chunk_length_degrades_to_unknown_not_to_negative
+=== RUN   TestRecovery_RootsIndex/an_undecodable_signature_costs_the_signature_not_the_line
+--- PASS: TestRecovery_RootsIndex (1.57s)
+    --- PASS: TestRecovery_RootsIndex/malformed_lines_are_skipped_and_the_good_roots_survive (0.34s)
+    --- PASS: TestRecovery_RootsIndex/a_truncated_final_line_is_the_normal_crash_shape (0.48s)
+    --- PASS: TestRecovery_RootsIndex/a_class_ordinal_this_build_does_not_know_degrades_to_prose (0.21s)
+    --- PASS: TestRecovery_RootsIndex/an_impossible_chunk_length_degrades_to_unknown_not_to_negative (0.26s)
+    --- PASS: TestRecovery_RootsIndex/an_undecodable_signature_costs_the_signature_not_the_line (0.27s)
+=== RUN   TestRecovery_ToolUseIndex
+=== RUN   TestRecovery_ToolUseIndex/a_supersede_for_an_unknown_id_is_a_no_op
+=== RUN   TestRecovery_ToolUseIndex/an_oversized_line_does_not_brick_the_store
+--- PASS: TestRecovery_ToolUseIndex (0.74s)
+    --- PASS: TestRecovery_ToolUseIndex/a_supersede_for_an_unknown_id_is_a_no_op (0.50s)
+    --- PASS: TestRecovery_ToolUseIndex/an_oversized_line_does_not_brick_the_store (0.21s)
+=== RUN   TestRecovery_FileHistoryIndex
+--- PASS: TestRecovery_FileHistoryIndex (0.19s)
+=== RUN   TestRecovery_SessionIndex
+=== RUN   TestRecovery_SessionIndex/malformed_session_records_are_skipped
+=== RUN   TestRecovery_SessionIndex/recent_sessions_orders_newest_first_and_clamps_n
+--- PASS: TestRecovery_SessionIndex (0.48s)
+    --- PASS: TestRecovery_SessionIndex/malformed_session_records_are_skipped (0.25s)
+    --- PASS: TestRecovery_SessionIndex/recent_sessions_orders_newest_first_and_clamps_n (0.23s)
+=== RUN   TestRecovery_SegmentIndex
+--- PASS: TestRecovery_SegmentIndex (0.37s)
+=== RUN   TestRecovery_StoreStateCounters
+=== RUN   TestRecovery_StoreStateCounters/a_corrupt_state_file_is_recomputed_rather_than_zeroed
+=== RUN   TestRecovery_StoreStateCounters/an_absent_state_file_is_also_recomputed
+=== RUN   TestRecovery_StoreStateCounters/a_readable_state_file_is_trusted_verbatim
+--- PASS: TestRecovery_StoreStateCounters (1.08s)
+    --- PASS: TestRecovery_StoreStateCounters/a_corrupt_state_file_is_recomputed_rather_than_zeroed (0.41s)
+    --- PASS: TestRecovery_StoreStateCounters/an_absent_state_file_is_also_recomputed (0.34s)
+    --- PASS: TestRecovery_StoreStateCounters/a_readable_state_file_is_trusted_verbatim (0.32s)
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/roots.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/tool_use.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/files.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/sessions.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/segments.jsonl
+--- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable (0.64s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/roots.jsonl (0.28s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/tool_use.jsonl (0.09s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/files.jsonl (0.07s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/sessions.jsonl (0.07s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/segments.jsonl (0.12s)
+=== RUN   TestPutBytes_SharedVolatileTokenRestoresBothRootsExactly
+--- PASS: TestPutBytes_SharedVolatileTokenRestoresBothRootsExactly (0.59s)
+=== RUN   TestPutBytes_PutAndReadFidelityAgree
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/nothing_volatile,_KeepRaw
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/nothing_volatile,_no_KeepRaw
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/proven_delta
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/unproven_delta_falls_back_to_a_full_original
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/volatile,_no_KeepRaw
+--- PASS: TestPutBytes_PutAndReadFidelityAgree (1.90s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/nothing_volatile,_KeepRaw (0.44s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/nothing_volatile,_no_KeepRaw (0.37s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/proven_delta (0.23s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/unproven_delta_falls_back_to_a_full_original (0.52s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/volatile,_no_KeepRaw (0.34s)
+=== RUN   TestPutBytes_DedupHitNeverClaimsAnotherPutsOriginal
+--- PASS: TestPutBytes_DedupHitNeverClaimsAnotherPutsOriginal (0.33s)
+=== RUN   TestPutBytes_ConcurrentPutsOfOneRootClaimOnlyTheOriginalItRestores
+--- PASS: TestPutBytes_ConcurrentPutsOfOneRootClaimOnlyTheOriginalItRestores (1.73s)
+=== RUN   TestPutBytes_DeltaRecordPayloadNamesItsBase
+--- PASS: TestPutBytes_DeltaRecordPayloadNamesItsBase (0.37s)
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_base_keeps_its_own_record_and_not_its_sibling's
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_record_keeps_the_base_it_declares
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/both_bases_referenced_keep_both_records
+--- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord (1.47s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_base_keeps_its_own_record_and_not_its_sibling's (0.56s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_record_keeps_the_base_it_declares (0.47s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/both_bases_referenced_keep_both_records (0.43s)
+=== RUN   TestRestoreOriginal_PreFixSharedRecordIsNeverExact
+--- PASS: TestRestoreOriginal_PreFixSharedRecordIsNeverExact (0.54s)
+=== RUN   TestPutBytes_DeltaAddressHeldByAnotherRootFallsBackToAFullOriginal
+--- PASS: TestPutBytes_DeltaAddressHeldByAnotherRootFallsBackToAFullOriginal (0.31s)
+=== RUN   TestReadDelta_PayloadAndIndexBaseMustAgree
+--- PASS: TestReadDelta_PayloadAndIndexBaseMustAgree (0.75s)
+=== RUN   TestReadDelta_PayloadAndIndexBaseAgreeingReadsExact
+--- PASS: TestReadDelta_PayloadAndIndexBaseAgreeingReadsExact (0.35s)
+=== RUN   TestPutBytes_VerbatimClaimPersistsOnAVersionOneLine
+--- PASS: TestPutBytes_VerbatimClaimPersistsOnAVersionOneLine (0.51s)
+=== RUN   TestRetentionFromSources_FillsInAClaimAndRefusesToGuessAtAnUnreadableOne
+--- PASS: TestRetentionFromSources_FillsInAClaimAndRefusesToGuessAtAnUnreadableOne (0.30s)
+=== RUN   TestPendingMarkerRoot_ReportsTheZeroHashForAMarkerItCannotRead
+=== PAUSE TestPendingMarkerRoot_ReportsTheZeroHashForAMarkerItCannotRead
+=== RUN   TestMarshalRootLine_FieldOrderIsFixed
+--- PASS: TestMarshalRootLine_FieldOrderIsFixed (0.00s)
+=== RUN   TestMarshalRootLine_OmitsEmptyOptionalsButKeepsSetOnes
+--- PASS: TestMarshalRootLine_OmitsEmptyOptionalsButKeepsSetOnes (0.00s)
+=== RUN   TestAppendJSONString_MatchesEncodingJSONWithoutHTMLEscaping
+--- PASS: TestAppendJSONString_MatchesEncodingJSONWithoutHTMLEscaping (0.00s)
+=== RUN   TestAppendJSONString_ReplacesInvalidUTF8
+--- PASS: TestAppendJSONString_ReplacesInvalidUTF8 (0.00s)
+=== RUN   TestParseRootLine_RoundTrip
+--- PASS: TestParseRootLine_RoundTrip (0.00s)
+=== RUN   TestParseRootLine_Tombstone
+--- PASS: TestParseRootLine_Tombstone (0.00s)
+=== RUN   TestAppendGCTombstone_RetiresRootAppendOnly
+--- PASS: TestAppendGCTombstone_RetiresRootAppendOnly (0.36s)
+=== RUN   TestLoadRoots_TombstoneSurvivesReopen
+--- PASS: TestLoadRoots_TombstoneSurvivesReopen (0.63s)
+=== RUN   TestLoadRoots_UnknownClassDegradesToProse
+--- PASS: TestLoadRoots_UnknownClassDegradesToProse (0.37s)
+=== RUN   TestEncodeSignature_EmitsValidOmitsUnmarshalable
+--- PASS: TestEncodeSignature_EmitsValidOmitsUnmarshalable (0.00s)
+=== RUN   TestAppendRoot_MalformedSignatureCostsTheKeyNotTheWrite
+--- PASS: TestAppendRoot_MalformedSignatureCostsTheKeyNotTheWrite (0.10s)
+=== RUN   TestGolden_RootsV2IndexLoadsThroughTheReader
+--- PASS: TestGolden_RootsV2IndexLoadsThroughTheReader (0.12s)
+=== RUN   TestGolden_RootsV1IndexStillLoadsByteIdentically
+--- PASS: TestGolden_RootsV1IndexStillLoadsByteIdentically (0.13s)
+=== RUN   TestFoldSearch_CursorMatchesEveryOffsetScan
+--- PASS: TestFoldSearch_CursorMatchesEveryOffsetScan (0.27s)
+=== RUN   TestSearch_ReadsASharedChunkOncePerSearch
+--- PASS: TestSearch_ReadsASharedChunkOncePerSearch (0.52s)
+=== RUN   TestSearch_SharedChunkReadsMatchIndependentReads
+--- PASS: TestSearch_SharedChunkReadsMatchIndependentReads (0.46s)
+=== RUN   TestNewSharedChunkReads_NothingSharedIsNil
+--- PASS: TestNewSharedChunkReads_NothingSharedIsNil (0.30s)
+=== RUN   TestSearch_ByPathExactBeatsSuffix
+--- PASS: TestSearch_ByPathExactBeatsSuffix (0.18s)
+=== RUN   TestSearch_ByText
+--- PASS: TestSearch_ByText (0.27s)
+=== RUN   TestSearch_BySymbol
+--- PASS: TestSearch_BySymbol (0.19s)
+=== RUN   TestSearch_ToolFilterAndSince
+--- PASS: TestSearch_ToolFilterAndSince (0.28s)
+=== RUN   TestSearch_DefaultKIsFive
+--- PASS: TestSearch_DefaultKIsFive (1.62s)
+=== RUN   TestSearch_Deterministic
+--- PASS: TestSearch_Deterministic (0.34s)
+=== RUN   TestSearch_TruncatesWithoutError
+--- PASS: TestSearch_TruncatesWithoutError (40.15s)
+=== RUN   TestSearch_SummaryIsFirstNonBlankLine
+--- PASS: TestSearch_SummaryIsFirstNonBlankLine (1.60s)
+=== RUN   TestSearch_SummaryTruncatesOnRuneBoundary
+--- PASS: TestSearch_SummaryTruncatesOnRuneBoundary (0.60s)
+=== RUN   TestSearch_ClosedStoreDegrades
+--- PASS: TestSearch_ClosedStoreDegrades (0.31s)
+=== RUN   TestTruncateRunes_NeverExceedsItsBoundAndNeverSplitsARune
+=== PAUSE TestTruncateRunes_NeverExceedsItsBoundAndNeverSplitsARune
+=== RUN   TestRuneSafeCut_LandsOnARuneBoundaryWhateverItIsAsked
+=== PAUSE TestRuneSafeCut_LandsOnARuneBoundaryWhateverItIsAsked
+=== RUN   TestPublishFilter_IsWhatMakesAFilterVisible
+--- PASS: TestPublishFilter_IsWhatMakesAFilterVisible (0.36s)
+=== RUN   TestPublishFilter_RepublishingReplacesTheReference
+--- PASS: TestPublishFilter_RepublishingReplacesTheReference (0.49s)
+=== RUN   TestPublishFilter_RefusesWhatWouldDangleOrLie
+--- PASS: TestPublishFilter_RefusesWhatWouldDangleOrLie (0.82s)
+=== RUN   TestPublishFilter_LeavesNoBloomRecordWhenItRefuses
+--- PASS: TestPublishFilter_LeavesNoBloomRecordWhenItRefuses (0.32s)
+=== RUN   TestSegment_OpenAllocatesMonotonicIDs
+--- PASS: TestSegment_OpenAllocatesMonotonicIDs (0.58s)
+=== RUN   TestSegment_OpenRejectsExistingID
+--- PASS: TestSegment_OpenRejectsExistingID (1.15s)
+=== RUN   TestSegment_CloseSetsEndTurnAndFeatures
+--- PASS: TestSegment_CloseSetsEndTurnAndFeatures (1.50s)
+=== RUN   TestSegment_CloseIdempotent
+--- PASS: TestSegment_CloseIdempotent (1.05s)
+=== RUN   TestSegment_CloseConflict
+--- PASS: TestSegment_CloseConflict (0.60s)
+=== RUN   TestSegment_MarkEncodedSetsFlag
+--- PASS: TestSegment_MarkEncodedSetsFlag (0.47s)
+=== RUN   TestSegment_MarkEncodedIdempotentSameSeq
+--- PASS: TestSegment_MarkEncodedIdempotentSameSeq (0.41s)
+=== RUN   TestSegment_MarkEncodedRefusesDifferentSeq
+--- PASS: TestSegment_MarkEncodedRefusesDifferentSeq (0.30s)
+=== RUN   TestSegment_MarkEncodedBatchIsAllOrNothing
+--- PASS: TestSegment_MarkEncodedBatchIsAllOrNothing (0.36s)
+=== RUN   TestSegment_MarkEncodedRejectsOpen
+--- PASS: TestSegment_MarkEncodedRejectsOpen (0.37s)
+=== RUN   TestSegment_FrontierIsContiguous
+--- PASS: TestSegment_FrontierIsContiguous (0.43s)
+=== RUN   TestSegment_FrontierZeroWhenNoneEncoded
+--- PASS: TestSegment_FrontierZeroWhenNoneEncoded (0.49s)
+=== RUN   TestSegment_Unencoded
+--- PASS: TestSegment_Unencoded (0.36s)
+=== RUN   TestSegment_Current
+--- PASS: TestSegment_Current (0.28s)
+=== RUN   TestSegment_Range
+--- PASS: TestSegment_Range (0.15s)
+=== RUN   TestSegment_BloomRefParsed
+--- PASS: TestSegment_BloomRefParsed (0.36s)
+=== RUN   TestSegment_SurvivesReopen
+--- PASS: TestSegment_SurvivesReopen (0.31s)
+=== RUN   TestSegment_DegradesAfterClose
+--- PASS: TestSegment_DegradesAfterClose (0.85s)
+=== RUN   TestPropMarkEncodedNeverDowngrades
+    segments_test.go:420: [rapid] OK, passed 100 tests (21.1589ms)
+--- PASS: TestPropMarkEncodedNeverDowngrades (0.50s)
+=== RUN   TestSegment_MirrorsFrozenDPIGuardCase
+--- PASS: TestSegment_MirrorsFrozenDPIGuardCase (0.36s)
+=== RUN   TestSegment_MirrorsFrozenRangeNeverShrinksCase
+--- PASS: TestSegment_MirrorsFrozenRangeNeverShrinksCase (0.39s)
+=== RUN   TestSegLog_OpenRefusesAnIdItAlreadyAllocated
+--- PASS: TestSegLog_OpenRefusesAnIdItAlreadyAllocated (0.47s)
+=== RUN   TestSegLog_GetReportsAnUnknownSegmentAsNotFound
+--- PASS: TestSegLog_GetReportsAnUnknownSegmentAsNotFound (1.67s)
+=== RUN   TestSegLog_CurrentIsLoudWhenASessionHasTwoOpenSegments
+--- PASS: TestSegLog_CurrentIsLoudWhenASessionHasTwoOpenSegments (0.42s)
+=== RUN   TestFilterVerdict_String
+=== PAUSE TestFilterVerdict_String
+=== RUN   TestWriteSegmentFilter_RefusesAFilterWithNoBits
+=== PAUSE TestWriteSegmentFilter_RefusesAFilterWithNoBits
+=== RUN   TestSortSegments_BreaksATieOnStartTurnById
+=== PAUSE TestSortSegments_BreaksATieOnStartTurnById
+=== RUN   TestFlush_SessionsLastRecordWinsAndSecondFlushAppendsNothing
+--- PASS: TestFlush_SessionsLastRecordWinsAndSecondFlushAppendsNothing (1.01s)
+=== RUN   TestSketchContract_PersistedSignatureMatchesFrozenQPKSFrame
+--- PASS: TestSketchContract_PersistedSignatureMatchesFrozenQPKSFrame (1.37s)
+=== RUN   TestSketchContract_ToolUseLineCarriesTheSameWireForm
+--- PASS: TestSketchContract_ToolUseLineCarriesTheSameWireForm (0.64s)
+=== RUN   TestStats_DedupRatio
+    stats_test.go:49: four versions x four reads: DedupRatio=81.11 raw=393380 bytes=4850 objects=10
+--- PASS: TestStats_DedupRatio (1.23s)
+=== RUN   TestPhase1ExitCriterion_ReadHeavy
+    stats_test.go:103: read-heavy corpus: DedupRatio=24.52 raw=878852 bytes=35842 objects=78
+--- PASS: TestPhase1ExitCriterion_ReadHeavy (7.97s)
+=== RUN   TestStats_SublinearGrowth
+    stats_test.go:182: sublinear growth: 8 puts=6642 B, 120 puts=41976 B, factor 6.32 (linear would be 15, gate at 7.50)
+--- PASS: TestStats_SublinearGrowth (8.94s)
+=== RUN   TestStats_GrowthGateFailsWithoutDedup
+    stats_test.go:261: without dedup: factor 14.95 against a 7.50x gate
+--- PASS: TestStats_GrowthGateFailsWithoutDedup (190.44s)
+=== RUN   TestStats_CountsIndexCardinalities
+--- PASS: TestStats_CountsIndexCardinalities (0.81s)
+=== RUN   TestStats_EmptyStoreHasZeroRatio
+--- PASS: TestStats_EmptyStoreHasZeroRatio (0.29s)
+=== RUN   TestRecordToolUseSuperseding_RecordAndItsMarksAreOneWrite
+--- PASS: TestRecordToolUseSuperseding_RecordAndItsMarksAreOneWrite (0.20s)
+=== RUN   TestRecordToolUseSuperseding_ReplayWritesNothingAtAll
+--- PASS: TestRecordToolUseSuperseding_ReplayWritesNothingAtAll (0.13s)
+=== RUN   TestRecordToolUseSuperseding_DifferentRootIsAnAppendOnlyViolation
+--- PASS: TestRecordToolUseSuperseding_DifferentRootIsAnAppendOnlyViolation (2.45s)
+=== RUN   TestRecordToolUseSuperseding_CancelledContextWritesNothing
+--- PASS: TestRecordToolUseSuperseding_CancelledContextWritesNothing (0.47s)
+=== RUN   TestRecordToolUseSuperseding_SkipsCandidatesThatAreNotMarkable
+--- PASS: TestRecordToolUseSuperseding_SkipsCandidatesThatAreNotMarkable (0.18s)
+=== RUN   TestRecordToolUseSuperseding_ArgsPreviewRedacted
+--- PASS: TestRecordToolUseSuperseding_ArgsPreviewRedacted (0.29s)
+=== RUN   TestRecordToolUseSuperseding_RecordWithNoIDIsRefused
+--- PASS: TestRecordToolUseSuperseding_RecordWithNoIDIsRefused (0.12s)
+=== RUN   TestRecordToolUseSuperseding_ClosedStoreDegrades
+--- PASS: TestRecordToolUseSuperseding_ClosedStoreDegrades (0.15s)
+=== RUN   TestRecordToolUse_Roundtrip
+--- PASS: TestRecordToolUse_Roundtrip (0.20s)
+=== RUN   TestRecordToolUse_ArgsPreviewRedacted
+--- PASS: TestRecordToolUse_ArgsPreviewRedacted (0.29s)
+=== RUN   TestRecordToolUse_IdempotentReplay
+--- PASS: TestRecordToolUse_IdempotentReplay (0.21s)
+=== RUN   TestRecordToolUse_ConflictingReplay
+--- PASS: TestRecordToolUse_ConflictingReplay (0.23s)
+=== RUN   TestToolUsesByPath_Ordering
+--- PASS: TestToolUsesByPath_Ordering (0.19s)
+=== RUN   TestMarkSuperseded_AppendOnly
+--- PASS: TestMarkSuperseded_AppendOnly (0.40s)
+=== RUN   TestMarkSuperseded_Unknown
+--- PASS: TestMarkSuperseded_Unknown (0.67s)
+=== RUN   TestArgsDigest_KeyOrderInvariant
+--- PASS: TestArgsDigest_KeyOrderInvariant (0.00s)
+=== RUN   TestArgsDigest_Preview
+--- PASS: TestArgsDigest_Preview (0.00s)
+=== RUN   TestArgsDigest_MalformedInputIsStillStable
+--- PASS: TestArgsDigest_MalformedInputIsStillStable (0.00s)
+=== RUN   TestArgsDigest_LargeIntegerIsNotCorrupted
+--- PASS: TestArgsDigest_LargeIntegerIsNotCorrupted (0.00s)
+=== RUN   TestRecordToolUse_RefusesARecordWithNoId
+--- PASS: TestRecordToolUse_RefusesARecordWithNoId (0.40s)
+=== RUN   TestToolUsesByPath_RefusesAClosedStore
+--- PASS: TestToolUsesByPath_RefusesAClosedStore (0.71s)
+=== RUN   TestArgsPreview_NamesTheArgumentsACallWasAboutAndStaysBounded
+=== PAUSE TestArgsPreview_NamesTheArgumentsACallWasAboutAndStaysBounded
+=== RUN   TestPreviewString_StripsControlCharactersAndCutsOnARuneBoundary
+=== PAUSE TestPreviewString_StripsControlCharactersAndCutsOnARuneBoundary
+=== RUN   TestToolUseRecord_UnmarshalJSONRefusesABodyThatIsNotARecord
+=== PAUSE TestToolUseRecord_UnmarshalJSONRefusesABodyThatIsNotARecord
+=== RUN   TestAcquireWriter_RefusesTheWrongOwnerAndASecondHolder
+--- PASS: TestAcquireWriter_RefusesTheWrongOwnerAndASecondHolder (0.39s)
+=== RUN   TestNewFormatWrites_RefuseBeforeCutoverAndOnALogThatWillNotParse
+--- PASS: TestNewFormatWrites_RefuseBeforeCutoverAndOnALogThatWillNotParse (0.20s)
+=== RUN   TestDemandLog_RecordRefusesAnObservationItCouldNotReadBack
+--- PASS: TestDemandLog_RecordRefusesAnObservationItCouldNotReadBack (0.23s)
+=== RUN   TestStoreCompress_RoundTrip
+    compress_test.go:20: [rapid] OK, passed 100 tests (5.3462835s)
+--- PASS: TestStoreCompress_RoundTrip (5.36s)
+=== RUN   TestStoreCompress_Encode_EmptyInput
+--- PASS: TestStoreCompress_Encode_EmptyInput (0.00s)
+=== RUN   TestStoreCompress_Decode_RejectsOversizedBomb
+--- PASS: TestStoreCompress_Decode_RejectsOversizedBomb (0.84s)
+=== RUN   TestConformance_BehaviourBlocksActuallyRun
+=== RUN   TestConformance_BehaviourBlocksActuallyRun/internal_store_storetest
+=== RUN   TestConformance_BehaviourBlocksActuallyRun/internal_redact
+=== RUN   TestConformance_BehaviourBlocksActuallyRun/internal_tokens
+--- PASS: TestConformance_BehaviourBlocksActuallyRun (102.21s)
+    --- PASS: TestConformance_BehaviourBlocksActuallyRun/internal_store_storetest (52.53s)
+    --- PASS: TestConformance_BehaviourBlocksActuallyRun/internal_redact (38.19s)
+    --- PASS: TestConformance_BehaviourBlocksActuallyRun/internal_tokens (11.33s)
+=== RUN   TestOpen_ExportedConstructor
+=== RUN   TestOpen_ExportedConstructor/returns_a_usable_store
+=== RUN   TestOpen_ExportedConstructor/error_path_returns_a_truly_nil_interface
+--- PASS: TestOpen_ExportedConstructor (1.04s)
+    --- PASS: TestOpen_ExportedConstructor/returns_a_usable_store (0.80s)
+    --- PASS: TestOpen_ExportedConstructor/error_path_returns_a_truly_nil_interface (0.23s)
+=== RUN   TestDemand_FrequencyIsNotUsefulness
+=== PAUSE TestDemand_FrequencyIsNotUsefulness
+=== RUN   TestDemand_UnknownIsNotZero
+=== PAUSE TestDemand_UnknownIsNotZero
+=== RUN   TestDemand_UsefulnessDenominatorIsOutcomesNotRequests
+=== PAUSE TestDemand_UsefulnessDenominatorIsOutcomesNotRequests
+=== RUN   TestDemand_DistinctTouchesAreNotASecondRequestCounter
+=== PAUSE TestDemand_DistinctTouchesAreNotASecondRequestCounter
+=== RUN   TestDemand_GapsAreCountedNotSmoothedOver
+=== PAUSE TestDemand_GapsAreCountedNotSmoothedOver
+=== RUN   TestDemandLog_RefusesToMintAKindItCannotReadBack
+=== PAUSE TestDemandLog_RefusesToMintAKindItCannotReadBack
+=== RUN   TestDemand_RecoveryCostIsTheMaximumNotTheMean
+=== PAUSE TestDemand_RecoveryCostIsTheMaximumNotTheMean
+=== RUN   TestDemandLog_AnUnreadableLineIsAGapNotAFailure
+=== PAUSE TestDemandLog_AnUnreadableLineIsAGapNotAFailure
+=== RUN   TestDemandLog_AMissingFileIsNotAnError
+=== PAUSE TestDemandLog_AMissingFileIsNotAnError
+=== RUN   TestDemandLog_ReportKeepsTheTotalsApartAndSaysWhatIsUnmeasured
+=== PAUSE TestDemandLog_ReportKeepsTheTotalsApartAndSaysWhatIsUnmeasured
+=== RUN   TestToolUseRecord_RoundTripsFrozenFixture
+--- PASS: TestToolUseRecord_RoundTripsFrozenFixture (0.04s)
+=== RUN   TestRoot_RoundTripsFrozenFixture
+--- PASS: TestRoot_RoundTripsFrozenFixture (0.02s)
+=== RUN   TestSegment_RoundTripsFrozenFixture
+--- PASS: TestSegment_RoundTripsFrozenFixture (0.03s)
+=== RUN   TestCompactDemandLog_ExpiresWithoutTruncating
+=== PAUSE TestCompactDemandLog_ExpiresWithoutTruncating
+=== RUN   TestCompactDemandLog_ADropIsRecordedAsAGapNotAsAnAbsence
+=== PAUSE TestCompactDemandLog_ADropIsRecordedAsAGapNotAsAnAbsence
+=== RUN   TestCompactDemandLog_ACancelledPassChangesNothing
+=== PAUSE TestCompactDemandLog_ACancelledPassChangesNothing
+=== RUN   TestCompactDemandLog_AReadBoundAbandonsRatherThanWritingAPrefix
+=== PAUSE TestCompactDemandLog_AReadBoundAbandonsRatherThanWritingAPrefix
+=== RUN   TestCompactDemandLog_RecoversAStagingFileFromACrashedPass
+=== PAUSE TestCompactDemandLog_RecoversAStagingFileFromACrashedPass
+=== RUN   TestCompactDemandLog_DeclinesWhenThereIsNothingToDo
+=== PAUSE TestCompactDemandLog_DeclinesWhenThereIsNothingToDo
+=== RUN   TestCompactDemandLog_AnUnreadableLineIsDroppedByCompactionOnly
+=== PAUSE TestCompactDemandLog_AnUnreadableLineIsDroppedByCompactionOnly
+=== RUN   TestSweepSegmentFilters_NeedsAnExplicitKeepSet
+=== PAUSE TestSweepSegmentFilters_NeedsAnExplicitKeepSet
+=== RUN   TestSweepSegmentFilters_RemovesOnlyWhatNoSegmentNamesAndOnlyWhatItRecognises
+=== PAUSE TestSweepSegmentFilters_RemovesOnlyWhatNoSegmentNamesAndOnlyWhatItRecognises
+=== RUN   TestSweepSegmentFilters_CancellationStopsEarlyWithoutHalfRemoving
+=== PAUSE TestSweepSegmentFilters_CancellationStopsEarlyWithoutHalfRemoving
+=== RUN   TestSweepSegmentFilters_AMissingSketchesDirectoryIsNotAnError
+=== PAUSE TestSweepSegmentFilters_AMissingSketchesDirectoryIsNotAnError
+=== RUN   TestSegmentFilter_APositiveIsOnlyEverACandidate
+=== PAUSE TestSegmentFilter_APositiveIsOnlyEverACandidate
+=== RUN   TestSegmentFilter_AMissIsTrustedOnlyWithCompleteCurrentCoverage
+=== PAUSE TestSegmentFilter_AMissIsTrustedOnlyWithCompleteCurrentCoverage
+=== RUN   TestSegmentFilter_AnIncompleteFilterHasNoUsableNegatives
+=== PAUSE TestSegmentFilter_AnIncompleteFilterHasNoUsableNegatives
+=== RUN   TestSegmentFilter_CancellationIsItsOwnIncompleteReason
+=== PAUSE TestSegmentFilter_CancellationIsItsOwnIncompleteReason
+=== RUN   TestSegmentFilter_OverCapacityIsPublishedIncompleteNotGrown
+=== PAUSE TestSegmentFilter_OverCapacityIsPublishedIncompleteNotGrown
+=== RUN   TestSegmentFilter_ANilFilterBypasses
+=== PAUSE TestSegmentFilter_ANilFilterBypasses
+=== RUN   TestSegmentFilter_BuildRefusesAMissingKeySource
+=== PAUSE TestSegmentFilter_BuildRefusesAMissingKeySource
+=== RUN   TestSegmentFilter_RoundTripsCoverageWithItsBits
+=== PAUSE TestSegmentFilter_RoundTripsCoverageWithItsBits
+=== RUN   TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter
+=== PAUSE TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter
+=== RUN   TestSegmentFilter_MarshalRefusesAnEmptyFilter
+=== PAUSE TestSegmentFilter_MarshalRefusesAnEmptyFilter
+=== RUN   TestSegmentFilterRef_IsStoreRelative
+=== PAUSE TestSegmentFilterRef_IsStoreRelative
+=== RUN   TestWriteAndReadSegmentFilter_RoundTripsThroughDisk
+=== PAUSE TestWriteAndReadSegmentFilter_RoundTripsThroughDisk
+=== RUN   TestReadSegmentFilter_RefusesAFilterForAnotherSegment
+=== PAUSE TestReadSegmentFilter_RefusesAFilterForAnotherSegment
+=== CONT  TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites
+=== CONT  TestDemandLog_AnUnreadableLineIsAGapNotAFailure
+=== CONT  TestRuneSafeCut_LandsOnARuneBoundaryWhateverItIsAsked
+=== CONT  TestOpenReadOnly_CreatesNothing
+=== CONT  TestDemand_FrequencyIsNotUsefulness
+=== CONT  TestReadSegmentFilter_RefusesAFilterForAnotherSegment
+=== CONT  TestArgsPreview_NamesTheArgumentsACallWasAboutAndStaysBounded
+--- PASS: TestArgsPreview_NamesTheArgumentsACallWasAboutAndStaysBounded (0.00s)
+=== CONT  TestToolUseRecord_UnmarshalJSONRefusesABodyThatIsNotARecord
+--- PASS: TestToolUseRecord_UnmarshalJSONRefusesABodyThatIsNotARecord (0.00s)
+=== CONT  TestPreviewString_StripsControlCharactersAndCutsOnARuneBoundary
+--- PASS: TestPreviewString_StripsControlCharactersAndCutsOnARuneBoundary (0.00s)
+=== CONT  TestDemand_GapsAreCountedNotSmoothedOver
+=== CONT  TestDemand_UsefulnessDenominatorIsOutcomesNotRequests
+=== CONT  TestFilesViewAgrees_ComparesPathsAndEntriesRatherThanCounts
+=== CONT  TestDemand_RecoveryCostIsTheMaximumNotTheMean
+=== CONT  TestDemand_UnknownIsNotZero
+=== CONT  TestWriteAndReadSegmentFilter_RoundTripsThroughDisk
+=== CONT  TestDemand_DistinctTouchesAreNotASecondRequestCounter
+--- PASS: TestFilesViewAgrees_ComparesPathsAndEntriesRatherThanCounts (0.00s)
+=== CONT  TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt
+=== CONT  TestDemandLog_RefusesToMintAKindItCannotReadBack
+=== CONT  TestWriteSegmentFilter_RefusesAFilterWithNoBits
+=== RUN   TestOpenReadOnly_CreatesNothing/a_directory_that_has_never_been_used_with_Qompack
+=== PAUSE TestOpenReadOnly_CreatesNothing/a_directory_that_has_never_been_used_with_Qompack
+=== RUN   TestOpenReadOnly_CreatesNothing/a_bare_.qompack_directory
+=== PAUSE TestOpenReadOnly_CreatesNothing/a_bare_.qompack_directory
+=== CONT  TestEncodedObjectLimit_PadsThePlaintextLimitRatherThanRepeatingIt
+--- PASS: TestEncodedObjectLimit_PadsThePlaintextLimitRatherThanRepeatingIt (0.00s)
+=== CONT  TestSegmentFilter_BuildRefusesAMissingKeySource
+=== CONT  TestTruncateRunes_NeverExceedsItsBoundAndNeverSplitsARune
+=== CONT  TestSegmentFilter_RoundTripsCoverageWithItsBits
+--- PASS: TestSegmentFilter_BuildRefusesAMissingKeySource (0.00s)
+=== CONT  TestSegmentFilter_ANilFilterBypasses
+=== CONT  TestPendingMarkerRoot_ReportsTheZeroHashForAMarkerItCannotRead
+=== CONT  TestSweepSegmentFilters_AMissingSketchesDirectoryIsNotAnError
+--- PASS: TestSegmentFilter_ANilFilterBypasses (0.00s)
+=== CONT  TestSegmentFilter_OverCapacityIsPublishedIncompleteNotGrown
+--- PASS: TestSegmentFilter_RoundTripsCoverageWithItsBits (0.01s)
+=== CONT  TestSegmentFilter_CancellationIsItsOwnIncompleteReason
+--- PASS: TestSegmentFilter_CancellationIsItsOwnIncompleteReason (0.00s)
+=== CONT  TestSegmentFilter_AnIncompleteFilterHasNoUsableNegatives
+--- PASS: TestSegmentFilter_AnIncompleteFilterHasNoUsableNegatives (0.00s)
+=== CONT  TestSegmentFilter_AMissIsTrustedOnlyWithCompleteCurrentCoverage
+--- PASS: TestSegmentFilter_AMissIsTrustedOnlyWithCompleteCurrentCoverage (0.00s)
+=== CONT  TestSegmentFilter_APositiveIsOnlyEverACandidate
+--- PASS: TestSegmentFilter_APositiveIsOnlyEverACandidate (0.00s)
+=== CONT  TestFilterVerdict_String
+--- PASS: TestFilterVerdict_String (0.00s)
+=== CONT  TestCompactDemandLog_RecoversAStagingFileFromACrashedPass
+--- PASS: TestRuneSafeCut_LandsOnARuneBoundaryWhateverItIsAsked (0.02s)
+=== CONT  TestSweepSegmentFilters_CancellationStopsEarlyWithoutHalfRemoving
+=== CONT  TestSegmentFilterRef_IsStoreRelative
+=== RUN   TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/a_truncated_array
+=== RUN   TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/a_truncated_object
+--- PASS: TestTruncateRunes_NeverExceedsItsBoundAndNeverSplitsARune (0.01s)
+=== CONT  TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter
+=== RUN   TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/an_object_with_no_delta_list
+=== RUN   TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/empty
+=== PAUSE TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/empty
+=== RUN   TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/no_header_newline
+=== PAUSE TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/no_header_newline
+=== RUN   TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/unparseable_header
+=== PAUSE TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/unparseable_header
+=== RUN   TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/wrong_version
+=== PAUSE TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/wrong_version
+=== RUN   TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/truncated_bits
+=== PAUSE TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/truncated_bits
+=== RUN   TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/no_bits_at_all
+=== PAUSE TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/no_bits_at_all
+=== CONT  TestSweepSegmentFilters_RemovesOnlyWhatNoSegmentNamesAndOnlyWhatItRecognises
+=== CONT  TestSweepSegmentFilters_NeedsAnExplicitKeepSet
+=== RUN   TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/an_object_with_no_base
+=== RUN   TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/an_object_with_an_unparseable_base
+--- PASS: TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt (0.02s)
+    --- PASS: TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/a_truncated_array (0.00s)
+    --- PASS: TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/a_truncated_object (0.00s)
+    --- PASS: TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/an_object_with_no_delta_list (0.01s)
+    --- PASS: TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/an_object_with_no_base (0.00s)
+    --- PASS: TestUnmarshalDeltaRecord_ReadsBothShapesAndCallsTheRestCorrupt/an_object_with_an_unparseable_base (0.00s)
+=== CONT  TestCompactDemandLog_AnUnreadableLineIsDroppedByCompactionOnly
+--- PASS: TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites (0.03s)
+=== CONT  TestCompactDemandLog_DeclinesWhenThereIsNothingToDo
+=== CONT  TestSegmentFilter_MarshalRefusesAnEmptyFilter
+--- PASS: TestSegmentFilter_OverCapacityIsPublishedIncompleteNotGrown (0.04s)
+=== CONT  TestCompactDemandLog_ADropIsRecordedAsAGapNotAsAnAbsence
+--- PASS: TestWriteSegmentFilter_RefusesAFilterWithNoBits (0.22s)
+=== CONT  TestCompactDemandLog_AReadBoundAbandonsRatherThanWritingAPrefix
+--- PASS: TestSweepSegmentFilters_AMissingSketchesDirectoryIsNotAnError (0.23s)
+=== CONT  TestCompactDemandLog_ACancelledPassChangesNothing
+--- PASS: TestSegmentFilterRef_IsStoreRelative (0.23s)
+=== CONT  TestDemandLog_ReportKeepsTheTotalsApartAndSaysWhatIsUnmeasured
+--- PASS: TestSegmentFilter_MarshalRefusesAnEmptyFilter (0.21s)
+=== CONT  TestCompactDemandLog_ExpiresWithoutTruncating
+--- PASS: TestPendingMarkerRoot_ReportsTheZeroHashForAMarkerItCannotRead (0.29s)
+=== CONT  TestSortSegments_BreaksATieOnStartTurnById
+--- PASS: TestSortSegments_BreaksATieOnStartTurnById (0.00s)
+=== CONT  TestDemandLog_AMissingFileIsNotAnError
+--- PASS: TestDemandLog_AnUnreadableLineIsAGapNotAFailure (0.56s)
+=== CONT  TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest
+=== RUN   TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest/too_short
+=== RUN   TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest/uppercase
+=== RUN   TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest/the_right_length_but_not_hex
+=== RUN   TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest/empty
+--- PASS: TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest (0.15s)
+    --- PASS: TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest/too_short (0.00s)
+    --- PASS: TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest/uppercase (0.00s)
+    --- PASS: TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest/the_right_length_but_not_hex (0.00s)
+    --- PASS: TestCaptureSidecarPath_RefusesAnObservationIdThatIsNotADigest/empty (0.00s)
+=== CONT  TestCaptureSidecar_PreservesAFutureWritersFields
+--- PASS: TestCaptureSidecar_PreservesAFutureWritersFields (0.02s)
+=== CONT  TestWriteFilesView_WritesAnEmptyObjectRatherThanNull
+--- PASS: TestWriteFilesView_WritesAnEmptyObjectRatherThanNull (0.54s)
+=== CONT  TestReadOnly_EveryExportedMethodIsClassified
+--- PASS: TestReadOnly_EveryExportedMethodIsClassified (0.28s)
+=== CONT  TestSegLog_AppendRefusesAReadOnlyLogAtItsChokePoint
+--- PASS: TestSegLog_AppendRefusesAReadOnlyLogAtItsChokePoint (0.00s)
+=== CONT  TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/an_empty_object
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/object_keys_are_sorted
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/an_empty_array
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/an_array_keeps_its_order
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/a_large_integer_keeps_every_digit
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/true
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/false
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/null
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/a_string_is_JSON-quoted
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/HTML_is_not_escaped
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/a_control_character_is_escaped
+=== RUN   TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/a_value_with_no_case_of_its_own_is_still_spelled
+--- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/an_empty_object (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/object_keys_are_sorted (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/an_empty_array (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/an_array_keeps_its_order (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/a_large_integer_keeps_every_digit (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/true (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/false (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/null (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/a_string_is_JSON-quoted (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/HTML_is_not_escaped (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/a_control_character_is_escaped (0.00s)
+    --- PASS: TestWriteCanonJSON_GivesEveryJSONShapeExactlyOneSpelling/a_value_with_no_case_of_its_own_is_still_spelled (0.00s)
+=== CONT  TestOpenReadOnly_TheValueIsNotAStore
+--- PASS: TestReadSegmentFilter_RefusesAFilterForAnotherSegment (1.59s)
+=== CONT  TestOpenReadOnly_CreatesNothing/a_directory_that_has_never_been_used_with_Qompack
+--- PASS: TestDemand_GapsAreCountedNotSmoothedOver (1.64s)
+=== CONT  TestOpenReadOnly_CreatesNothing/a_bare_.qompack_directory
+=== CONT  TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/empty
+=== CONT  TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/truncated_bits
+=== CONT  TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/no_bits_at_all
+=== CONT  TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/unparseable_header
+=== CONT  TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/wrong_version
+=== CONT  TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/no_header_newline
+--- PASS: TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter (0.00s)
+    --- PASS: TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/empty (0.00s)
+    --- PASS: TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/truncated_bits (0.00s)
+    --- PASS: TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/no_bits_at_all (0.00s)
+    --- PASS: TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/unparseable_header (0.00s)
+    --- PASS: TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/wrong_version (0.00s)
+    --- PASS: TestSegmentFilter_AnUnreadableFileIsNeverAnEmptyFilter/no_header_newline (0.00s)
+--- PASS: TestOpenReadOnly_TheValueIsNotAStore (0.19s)
+--- PASS: TestDemand_UnknownIsNotZero (1.78s)
+--- PASS: TestOpenReadOnly_CreatesNothing (0.01s)
+    --- PASS: TestOpenReadOnly_CreatesNothing/a_directory_that_has_never_been_used_with_Qompack (0.27s)
+    --- PASS: TestOpenReadOnly_CreatesNothing/a_bare_.qompack_directory (0.26s)
+--- PASS: TestWriteAndReadSegmentFilter_RoundTripsThroughDisk (1.92s)
+--- PASS: TestDemand_DistinctTouchesAreNotASecondRequestCounter (2.07s)
+--- PASS: TestSweepSegmentFilters_NeedsAnExplicitKeepSet (2.06s)
+--- PASS: TestSweepSegmentFilters_CancellationStopsEarlyWithoutHalfRemoving (2.08s)
+--- PASS: TestDemandLog_RefusesToMintAKindItCannotReadBack (2.11s)
+--- PASS: TestCompactDemandLog_DeclinesWhenThereIsNothingToDo (2.15s)
+--- PASS: TestCompactDemandLog_AnUnreadableLineIsDroppedByCompactionOnly (2.16s)
+--- PASS: TestDemandLog_AMissingFileIsNotAnError (1.93s)
+--- PASS: TestSweepSegmentFilters_RemovesOnlyWhatNoSegmentNamesAndOnlyWhatItRecognises (2.27s)
+--- PASS: TestCompactDemandLog_RecoversAStagingFileFromACrashedPass (2.44s)
+--- PASS: TestDemand_RecoveryCostIsTheMaximumNotTheMean (2.45s)
+--- PASS: TestCompactDemandLog_ACancelledPassChangesNothing (2.25s)
+--- PASS: TestDemandLog_ReportKeepsTheTotalsApartAndSaysWhatIsUnmeasured (2.26s)
+--- PASS: TestCompactDemandLog_ADropIsRecordedAsAGapNotAsAnAbsence (2.50s)
+--- PASS: TestCompactDemandLog_ExpiresWithoutTruncating (2.35s)
+--- PASS: TestCompactDemandLog_AReadBoundAbandonsRatherThanWritingAPrefix (2.62s)
+--- PASS: TestDemand_UsefulnessDenominatorIsOutcomesNotRequests (3.60s)
+--- PASS: TestDemand_FrequencyIsNotUsefulness (4.57s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	1019.518s
+exit=0

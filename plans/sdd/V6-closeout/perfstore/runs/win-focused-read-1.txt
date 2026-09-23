@@ -1,0 +1,152 @@
+=== RUN   TestDecode_RejectsDamagedFrames
+=== RUN   TestDecode_RejectsDamagedFrames/not_a_zstd_frame_at_all
+=== RUN   TestDecode_RejectsDamagedFrames/magic_bytes_only
+=== RUN   TestDecode_RejectsDamagedFrames/truncated_mid-frame
+=== RUN   TestDecode_RejectsDamagedFrames/last_byte_lopped_off
+=== RUN   TestDecode_RejectsDamagedFrames/one_flipped_byte_inside_the_frame
+--- PASS: TestDecode_RejectsDamagedFrames (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/not_a_zstd_frame_at_all (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/magic_bytes_only (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/truncated_mid-frame (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/last_byte_lopped_off (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/one_flipped_byte_inside_the_frame (0.00s)
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames/compressed
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames/uncompressed
+--- PASS: TestObjectPaths_HonourCompressionAndTryBothNames (0.16s)
+    --- PASS: TestObjectPaths_HonourCompressionAndTryBothNames/compressed (0.07s)
+    --- PASS: TestObjectPaths_HonourCompressionAndTryBothNames/uncompressed (0.09s)
+=== RUN   TestTmpObjectPath_IsUniquePerCall
+--- PASS: TestTmpObjectPath_IsUniquePerCall (0.08s)
+=== RUN   TestEnsureDir_ReportsAFailedCreateAndCachesOnlySuccess
+--- PASS: TestEnsureDir_ReportsAFailedCreateAndCachesOnlySuccess (0.01s)
+=== RUN   TestWriteStaged_NeverClobbersAnExistingFile
+--- PASS: TestWriteStaged_NeverClobbersAnExistingFile (0.10s)
+=== RUN   TestPutObject_FailsWhenTheStagingDirectoryIsUnusable
+--- PASS: TestPutObject_FailsWhenTheStagingDirectoryIsUnusable (0.10s)
+=== RUN   TestPutObject_FailsWhenTheFanoutDirectoryCannotBeCreated
+--- PASS: TestPutObject_FailsWhenTheFanoutDirectoryCannotBeCreated (0.09s)
+=== RUN   TestQuarantine_PreservesExistingEvidence
+--- PASS: TestQuarantine_PreservesExistingEvidence (0.11s)
+=== RUN   TestGetObject_LengthDisagreementQuarantines
+--- PASS: TestGetObject_LengthDisagreementQuarantines (0.12s)
+=== RUN   TestGetChunk_ReadsAnObjectWithNoIndexEntry
+--- PASS: TestGetChunk_ReadsAnObjectWithNoIndexEntry (0.11s)
+=== RUN   TestGetChunk_RejectsValidCompressedReplacement
+--- PASS: TestGetChunk_RejectsValidCompressedReplacement (0.19s)
+=== RUN   TestGetChunk_RejectsSameLengthUncompressedReplacement
+--- PASS: TestGetChunk_RejectsSameLengthUncompressedReplacement (0.18s)
+=== RUN   TestGetChunk_RejectsUnindexedSubstitutedObject
+--- PASS: TestGetChunk_RejectsUnindexedSubstitutedObject (0.11s)
+=== RUN   TestOpenReaders_RejectSubstitutedChunk
+=== RUN   TestOpenReaders_RejectSubstitutedChunk/OpenSpan
+=== RUN   TestOpenReaders_RejectSubstitutedChunk/Open
+--- PASS: TestOpenReaders_RejectSubstitutedChunk (0.37s)
+    --- PASS: TestOpenReaders_RejectSubstitutedChunk/OpenSpan (0.21s)
+    --- PASS: TestOpenReaders_RejectSubstitutedChunk/Open (0.16s)
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_indexed
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_indexed
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_orphan
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_orphan
+--- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects (0.76s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_indexed (0.22s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_indexed (0.19s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_orphan (0.12s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_orphan (0.23s)
+=== RUN   TestGetChunk_QuarantineFailurePreservesObject
+--- PASS: TestGetChunk_QuarantineFailurePreservesObject (0.30s)
+=== RUN   TestReadBoundedObject_RefusesASocketLeaf
+--- PASS: TestReadBoundedObject_RefusesASocketLeaf (0.01s)
+=== RUN   TestReadBoundedObject_RefusesADirectoryLeafAsNotRegular
+--- PASS: TestReadBoundedObject_RefusesADirectoryLeafAsNotRegular (0.01s)
+=== RUN   TestGetChunk_ADirectoryAtTheObjectPathIsDamagedNotAbsent
+--- PASS: TestGetChunk_ADirectoryAtTheObjectPathIsDamagedNotAbsent (0.17s)
+=== RUN   TestObjectPathFor_IsFilepathJoin
+--- PASS: TestObjectPathFor_IsFilepathJoin (0.48s)
+=== RUN   TestObjectPathFor_RelativeRootIsFilepathJoin
+--- PASS: TestObjectPathFor_RelativeRootIsFilepathJoin (0.00s)
+=== RUN   TestReadExactSize
+=== RUN   TestReadExactSize/exact_size_reads_and_requires_eof
+=== RUN   TestReadExactSize/a_short_reader_is_a_shrink
+=== RUN   TestReadExactSize/a_trailing_byte_is_a_growth
+=== RUN   TestReadExactSize/zero_size_empty_reader_is_ok
+=== RUN   TestReadExactSize/zero_size_with_bytes_is_a_growth
+=== RUN   TestReadExactSize/a_read_error_is_propagated
+--- PASS: TestReadExactSize (0.00s)
+    --- PASS: TestReadExactSize/exact_size_reads_and_requires_eof (0.00s)
+    --- PASS: TestReadExactSize/a_short_reader_is_a_shrink (0.00s)
+    --- PASS: TestReadExactSize/a_trailing_byte_is_a_growth (0.00s)
+    --- PASS: TestReadExactSize/zero_size_empty_reader_is_ok (0.00s)
+    --- PASS: TestReadExactSize/zero_size_with_bytes_is_a_growth (0.00s)
+    --- PASS: TestReadExactSize/a_read_error_is_propagated (0.00s)
+=== RUN   TestRequireEOF
+--- PASS: TestRequireEOF (0.00s)
+=== RUN   TestReadBoundedObject_FilesystemBounds
+=== RUN   TestReadBoundedObject_FilesystemBounds/reads_a_regular_file_exactly
+=== RUN   TestReadBoundedObject_FilesystemBounds/reads_a_zero_byte_file
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_file_past_the_limit_is_too_large
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_directory_is_not_a_regular_file
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_missing_file_reports_not_exist
+--- PASS: TestReadBoundedObject_FilesystemBounds (0.10s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/reads_a_regular_file_exactly (0.05s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/reads_a_zero_byte_file (0.00s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_file_past_the_limit_is_too_large (0.02s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_directory_is_not_a_regular_file (0.00s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_missing_file_reports_not_exist (0.00s)
+=== RUN   TestPutObject_SecondWriteIsNotNovel
+--- PASS: TestPutObject_SecondWriteIsNotNovel (0.19s)
+=== RUN   TestGetChunk_Roundtrip
+--- PASS: TestGetChunk_Roundtrip (0.41s)
+=== RUN   TestGetChunk_QuarantinesCorruption
+--- PASS: TestGetChunk_QuarantinesCorruption (0.38s)
+=== RUN   TestRecovery_RootsIndex
+=== RUN   TestRecovery_RootsIndex/malformed_lines_are_skipped_and_the_good_roots_survive
+=== RUN   TestRecovery_RootsIndex/a_truncated_final_line_is_the_normal_crash_shape
+=== RUN   TestRecovery_RootsIndex/a_class_ordinal_this_build_does_not_know_degrades_to_prose
+=== RUN   TestRecovery_RootsIndex/an_impossible_chunk_length_degrades_to_unknown_not_to_negative
+=== RUN   TestRecovery_RootsIndex/an_undecodable_signature_costs_the_signature_not_the_line
+--- PASS: TestRecovery_RootsIndex (1.19s)
+    --- PASS: TestRecovery_RootsIndex/malformed_lines_are_skipped_and_the_good_roots_survive (0.35s)
+    --- PASS: TestRecovery_RootsIndex/a_truncated_final_line_is_the_normal_crash_shape (0.39s)
+    --- PASS: TestRecovery_RootsIndex/a_class_ordinal_this_build_does_not_know_degrades_to_prose (0.15s)
+    --- PASS: TestRecovery_RootsIndex/an_impossible_chunk_length_degrades_to_unknown_not_to_negative (0.16s)
+    --- PASS: TestRecovery_RootsIndex/an_undecodable_signature_costs_the_signature_not_the_line (0.14s)
+=== RUN   TestRecovery_ToolUseIndex
+=== RUN   TestRecovery_ToolUseIndex/a_supersede_for_an_unknown_id_is_a_no_op
+=== RUN   TestRecovery_ToolUseIndex/an_oversized_line_does_not_brick_the_store
+--- PASS: TestRecovery_ToolUseIndex (0.28s)
+    --- PASS: TestRecovery_ToolUseIndex/a_supersede_for_an_unknown_id_is_a_no_op (0.14s)
+    --- PASS: TestRecovery_ToolUseIndex/an_oversized_line_does_not_brick_the_store (0.14s)
+=== RUN   TestRecovery_FileHistoryIndex
+--- PASS: TestRecovery_FileHistoryIndex (0.15s)
+=== RUN   TestRecovery_SessionIndex
+=== RUN   TestRecovery_SessionIndex/malformed_session_records_are_skipped
+=== RUN   TestRecovery_SessionIndex/recent_sessions_orders_newest_first_and_clamps_n
+--- PASS: TestRecovery_SessionIndex (0.25s)
+    --- PASS: TestRecovery_SessionIndex/malformed_session_records_are_skipped (0.14s)
+    --- PASS: TestRecovery_SessionIndex/recent_sessions_orders_newest_first_and_clamps_n (0.11s)
+=== RUN   TestRecovery_SegmentIndex
+--- PASS: TestRecovery_SegmentIndex (0.11s)
+=== RUN   TestRecovery_StoreStateCounters
+=== RUN   TestRecovery_StoreStateCounters/a_corrupt_state_file_is_recomputed_rather_than_zeroed
+=== RUN   TestRecovery_StoreStateCounters/an_absent_state_file_is_also_recomputed
+=== RUN   TestRecovery_StoreStateCounters/a_readable_state_file_is_trusted_verbatim
+--- PASS: TestRecovery_StoreStateCounters (0.55s)
+    --- PASS: TestRecovery_StoreStateCounters/a_corrupt_state_file_is_recomputed_rather_than_zeroed (0.22s)
+    --- PASS: TestRecovery_StoreStateCounters/an_absent_state_file_is_also_recomputed (0.20s)
+    --- PASS: TestRecovery_StoreStateCounters/a_readable_state_file_is_trusted_verbatim (0.13s)
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/roots.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/tool_use.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/files.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/sessions.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/segments.jsonl
+--- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable (0.26s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/roots.jsonl (0.05s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/tool_use.jsonl (0.06s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/files.jsonl (0.05s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/sessions.jsonl (0.05s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/segments.jsonl (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	7.601s

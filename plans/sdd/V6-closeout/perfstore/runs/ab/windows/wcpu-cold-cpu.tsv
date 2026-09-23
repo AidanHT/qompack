@@ -1,0 +1,18 @@
+﻿round	variant	wall_s	user_s	kernel_s	cpu_total_s	bench_line
+1	basebench2	20.796	0.844	3.062	3.906	BenchmarkPutBytes_100KB_Cold-22    	      40	 161149050 ns/op	   0.64 MB/s	 6684298 B/op	    1188 allocs/op
+1	final2	21.865	0.703	2.906	3.609	BenchmarkPutBytes_100KB_Cold-22    	      40	 184177992 ns/op	   0.56 MB/s	 1181833 B/op	     360 allocs/op
+2	final2	18.404	1.078	2.906	3.984	BenchmarkPutBytes_100KB_Cold-22    	      40	 145555952 ns/op	   0.70 MB/s	 1180260 B/op	     358 allocs/op
+2	basebench2	19.094	1.031	3.078	4.109	BenchmarkPutBytes_100KB_Cold-22    	      40	 155798325 ns/op	   0.66 MB/s	 3288994 B/op	    1180 allocs/op
+3	basebench2	17.318	0.984	2.547	3.531	BenchmarkPutBytes_100KB_Cold-22    	      40	 133877772 ns/op	   0.76 MB/s	 6290143 B/op	    1193 allocs/op
+3	final2	19.914	0.734	3.188	3.922	BenchmarkPutBytes_100KB_Cold-22    	      40	 162291382 ns/op	   0.63 MB/s	 1185090 B/op	     362 allocs/op
+4	final2	18.304	0.875	2.719	3.594	BenchmarkPutBytes_100KB_Cold-22    	      40	 158419725 ns/op	   0.65 MB/s	 1181551 B/op	     360 allocs/op
+4	basebench2	17.386	1.156	2.594	3.75	BenchmarkPutBytes_100KB_Cold-22    	      40	 124514998 ns/op	   0.82 MB/s	13094231 B/op	    1283 allocs/op
+5	basebench2	19.154	0.781	3.016	3.797	BenchmarkPutBytes_100KB_Cold-22    	      40	 171796905 ns/op	   0.60 MB/s	 9585931 B/op	    1230 allocs/op
+5	final2	20.326	0.953	2.75	3.703	BenchmarkPutBytes_100KB_Cold-22    	      40	 169954020 ns/op	   0.60 MB/s	 1186449 B/op	     361 allocs/op
+6	final2	22.562	0.906	2.906	3.812	BenchmarkPutBytes_100KB_Cold-22    	      40	 198727532 ns/op	   0.52 MB/s	 1182906 B/op	     362 allocs/op
+6	basebench2	23.23	0.719	3.344	4.062	BenchmarkPutBytes_100KB_Cold-22    	      40	 181776830 ns/op	   0.56 MB/s	 9749672 B/op	    1242 allocs/op
+7	basebench2	19.441	0.984	2.719	3.703	BenchmarkPutBytes_100KB_Cold-22    	      40	 163560610 ns/op	   0.63 MB/s	 4983683 B/op	    1180 allocs/op
+7	final2	21.031	0.859	2.438	3.297	BenchmarkPutBytes_100KB_Cold-22    	      40	 154645258 ns/op	   0.66 MB/s	 1183982 B/op	     361 allocs/op
+8	final2	65.608	0.906	2.75	3.656	BenchmarkPutBytes_100KB_Cold-22    	      40	 514636842 ns/op	   0.20 MB/s	 1181819 B/op	     360 allocs/op
+8	basebench2	21.379	0.969	2.641	3.609	BenchmarkPutBytes_100KB_Cold-22    	      40	 149741475 ns/op	   0.68 MB/s	 4729962 B/op	    1187 allocs/op
+done

@@ -1,0 +1,48 @@
+Total: 93.75s
+ROUTINE ======================== github.com/qompack/qompack/internal/paths.OpenFile in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\paths\appendonly.go
+         0     15.55s (flat, cum) 16.59% of Total
+         .      340ms     50:)
+         .       40ms     51:
+         .     15.17s     59:func mayBeProtected(p string) bool {
+ROUTINE ======================== github.com/qompack/qompack/internal/paths.WriteAtomic in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\paths\atomic.go
+         0     11.62s (flat, cum) 12.39% of Total
+         .       20ms    126:// change anything. Off Windows it always can: a POSIX mode has more than one bit, and umask may have
+         .       20ms    131:func chmodChangesStagingFile(perm fs.FileMode) bool {
+         .       10ms    132:	return runtime.GOOS != "windows" || perm&ownerWriteBit == 0
+         .      1.60s    135:// WriteAtomic writes b to p durably and atomically: stage in a temp file under the project's
+         .      4.55s    142:	root, ok := rootOf(p)
+         .      2.08s    146:
+         .      960ms    150:	}
+         .       30ms    153:		return err
+         .      2.32s    156:	// The staging file is removed on every path that leaves it behind, and only on those: after a
+         .       30ms    159:	renamed := false
+ROUTINE ======================== github.com/qompack/qompack/internal/paths.WriteAtomic.func1 in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\paths\atomic.go
+         0       20ms (flat, cum) 0.021% of Total
+         .       20ms    140:// ReplaceBloom is the one sanctioned exception, and it never calls WriteAtomic.
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).PutBytes in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\put.go
+         0     44.61s (flat, cum) 47.58% of Total
+         .      180ms    117:	red, matches := s.deps.Redact.Redact(b)
+         .      1.58s    121:	cr, err := s.deps.Canon.Run(o.Tool, o.Path, red, s.canonOptions(o))
+         .       40ms    130:	chunks := s.splitChecked(canonical)
+         .      6.95s    169:	pw := s.pending(root, refs)
+         .     27.17s    172:		n, novel, perr := s.putObject(c.Hash, plain)
+         .       40ms    180:				sink.NoteChunk(c.Hash, class, plain)
+         .      140ms    191:	rec, fidelity, err := s.admitRecovery(ctx, root, refs, red, canonical, cr.Deltas, o)
+         .      3.78s    198:	if err := s.appendRoot(rootEntry{
+         .      4.73s    205:	pw.done()
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).beginPendingWrite in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\lifecycle.go
+         0      6.95s (flat, cum)  7.41% of Total
+         .      1.07s    191:	if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
+         .      5.88s    207:	if err := paths.WriteAtomic(p, append(b, '\n'), 0o600); err != nil {
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).putObject in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\objects.go
+         0     27.17s (flat, cum) 28.98% of Total
+         .      160ms    197:}
+         .      180ms    203:// reconcile. On Windows the rename is retried a few times, because antivirus contention makes the
+         .     13.25s    211:// contending scanner can make progress without this goroutine burning either the CPU or the clock.
+         .      9.39s    219:		if err = os.Rename(paths.Long(tmp), paths.Long(dst)); err == nil {
+         .      4.19s    222:		// Another writer may have landed the identical object in the meantime.
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).writeStaged in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\objects.go
+      10ms      9.39s (flat, cum) 10.02% of Total
+         .      5.07s    236:// It returns the number of COMPRESSED bytes written and whether the object was novel. An object
+         .      1.98s    247:		return 0, false, nil
+      10ms      2.34s    251:	if s.compressing() {

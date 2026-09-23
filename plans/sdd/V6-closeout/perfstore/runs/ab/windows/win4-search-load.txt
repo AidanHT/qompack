@@ -1,0 +1,7 @@
+round 1 final3 00:17:06 cpu% 55
+round 1 basebench2 00:19:16 cpu% 65
+round 2 basebench2 00:21:46 cpu% 58
+round 2 final3 00:26:27 cpu% 70
+round 3 final3 00:32:14 cpu% 71
+round 3 basebench2 00:40:52 cpu% 72
+done 00:49:52

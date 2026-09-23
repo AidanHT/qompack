@@ -1,0 +1,18 @@
+round	variant	wall_s	user_s	sys_s	load	bench_line
+1	base	0.756	0.011	0.202	8.67	BenchmarkPutObject_NovelChunk-4   	     300	    420043 ns/op	   9.75 MB/s	   13398 B/op	      64 allocs/op
+1	final	0.644	0.033	0.187	8.67	BenchmarkPutObject_NovelChunk-4   	     300	    493953 ns/op	   8.29 MB/s	    9267 B/op	      20 allocs/op
+2	final	0.499	0.056	0.166	8.67	BenchmarkPutObject_NovelChunk-4   	     300	    504270 ns/op	   8.12 MB/s	    9263 B/op	      20 allocs/op
+2	base	0.611	0.057	0.131	8.67	BenchmarkPutObject_NovelChunk-4   	     300	    326181 ns/op	  12.56 MB/s	   75882 B/op	      65 allocs/op
+3	base	0.409	0.011	0.162	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    391184 ns/op	  10.47 MB/s	   97826 B/op	      65 allocs/op
+3	final	0.451	0.055	0.143	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    434128 ns/op	   9.43 MB/s	    9265 B/op	      20 allocs/op
+4	final	0.704	0.037	0.121	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    278756 ns/op	  14.69 MB/s	    9268 B/op	      20 allocs/op
+4	base	0.446	0.023	0.149	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    353441 ns/op	  11.59 MB/s	   13391 B/op	      64 allocs/op
+5	base	0.440	0.024	0.164	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    381803 ns/op	  10.73 MB/s	   72674 B/op	      64 allocs/op
+5	final	0.459	0.032	0.146	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    341570 ns/op	  11.99 MB/s	    9261 B/op	      20 allocs/op
+6	final	0.419	0.031	0.153	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    376817 ns/op	  10.87 MB/s	    9269 B/op	      20 allocs/op
+6	base	0.547	0.051	0.231	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    471551 ns/op	   8.69 MB/s	   75883 B/op	      65 allocs/op
+7	base	0.780	0.041	0.301	8.54	BenchmarkPutObject_NovelChunk-4   	     300	    513052 ns/op	   7.98 MB/s	   32059 B/op	      64 allocs/op
+7	final	0.493	0.011	0.222	8.42	BenchmarkPutObject_NovelChunk-4   	     300	    446575 ns/op	   9.17 MB/s	    9270 B/op	      20 allocs/op
+8	final	0.451	0.045	0.133	8.42	BenchmarkPutObject_NovelChunk-4   	     300	    382167 ns/op	  10.72 MB/s	    9269 B/op	      20 allocs/op
+8	base	0.517	0.052	0.195	8.42	BenchmarkPutObject_NovelChunk-4   	     300	    583246 ns/op	   7.02 MB/s	   75924 B/op	      65 allocs/op
+done
