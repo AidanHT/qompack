@@ -38,6 +38,7 @@ close-out by the user's later instruction and every record says so.
 | 1 | `wf_16dd5d95-b3a` | `ingest` C1.1 · `e2e` C1.2/C1.3 · `config` C1.8 · `hostperm` C1.9 · `rollover` C1.10 · `perfstore` C2.6/C2.7 · `perfobs` C2.3–C2.5 · `eval` C5.4 · `linux` C3.4 + the six unreported Windows packages. Each: implement → adversarial review (two lenses for ingest/hostperm/rollover) → fix seat |
 
 | 1b | `wf_a704d10a-845` | `packaging` C1.11 + C1.12 + C7.5 prep (implement → two-lens review → fix) |
+| 1c | `wf_e1d0d082-a01` | `rehydrate-cap` C1.14 (D5), branched from `closeout/packaging` `32e1a37` |
 
 Incident: at 17:31 a coordinator `SendMessage` to two running workflow agents (ingest, eval)
 resumed a second copy of each in the same worktree. The ingest copy stood down after writing
@@ -103,11 +104,11 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
       resource cost, GC segment retention) and enable it, or keep it default-off with the limit,
       its symptom and its recovery documented.
 
-- [ ] **C1.11** Windows hooks break without Git Bash: shipped hooks are shell form and fail under
+- [x] **C1.11** *(fixed on `closeout/packaging`, pending merge + integrated gates)* Windows hooks break without Git Bash: shipped hooks are shell form and fail under
       the host's PowerShell fallback (`ParserError: Unexpected token 'observe'`); the platform
       test's PowerShell row asserts a string that is not shipped. Move hooks to exec form with the
       exact per-target binary (`bin/qompack.exe` on Windows); prove on the real host.
-- [ ] **C1.12** Claude Code 2.1.280 rejects Qompack's `PreCompact` output
+- [x] **C1.12** *(fixed on `closeout/packaging`, real-host proven, pending merge)* Claude Code 2.1.280 rejects Qompack's `PreCompact` output
       (`hookSpecificOutput.hookEventName` not accepted), so its instructions never reach the
       summarizer and the validation error is replayed into post-compaction context. Conform every
       hook's output to the current documented schema; pin with contract tests and a real session.
