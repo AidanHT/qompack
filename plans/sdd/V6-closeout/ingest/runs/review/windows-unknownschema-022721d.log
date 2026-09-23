@@ -1,0 +1,37 @@
+022721dc76a4e060f37239f251945f2f05a7f284
+command: go test ./test/e2e -run '^TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting$' -count=1 -v -timeout=30m
+=== RUN   TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+    install_test.go:537: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:537: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-758491478 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:537: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:589: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/test/e2e/install_test.go:589
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+        	Messages:   	a newer artifact is a support gap, not a defect: 
+        	            	  publication (severity 1, count 1): publication audit is incomplete; zero observed gaps cannot certify completeness; unexpected entry in the capture tree
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- FAIL: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (14.38s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	14.592s
+FAIL
+exit=1

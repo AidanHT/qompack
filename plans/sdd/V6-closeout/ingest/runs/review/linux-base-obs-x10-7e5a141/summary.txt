@@ -1,0 +1,4 @@
+FAIL      github.com/qompack/qompack/test/e2e  (pass=3 fail=3 skip=0)
+    FAIL TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    FAIL TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    FAIL TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently

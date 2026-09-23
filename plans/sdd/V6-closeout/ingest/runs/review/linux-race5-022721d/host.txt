@@ -1,0 +1,10 @@
+run_id=cx-ingest-fix-race5-022721d-20260923T022411Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest
+rev=HEAD
+commit=022721dc76a4e060f37239f251945f2f05a7f284
+bundle_sha256=d42bd2f22d6841f41a4768315eaee144c3c3ea467b0fe24b37f28b69382920f2
+host_started_utc=2026-09-23T02:24:18Z
+inner_args=--count 5 --run ^(TestDeliveryOrder|TestDispatchLanes|TestAwaitLaneQuiet|TestSettleSessionLimit|TestIngest|TestDrain|TestDeliveryTerminal|TestSP08D3|TestCarriedDefect_SP08D3|TestPromptOrder|TestLiveDispatchedLine|TestStraggler|TestNewDrainer|TestWalSessionID|TestSessionEndRecordsRecoveryNeeded|TestDrainOfSpooledFlushLineDoesNotDeadlock|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun|TestMarkerIsWrittenByFlushAndCheckpointOnly) -- ./internal/daemon
+host_finished_utc=2026-09-23T02:36:10Z
+container_exit=0

@@ -1,0 +1,17 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "pass",
+   "passed": 9,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/fault": {
+   "result": "pass",
+   "passed": 18,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}
