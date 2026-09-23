@@ -617,10 +617,15 @@ default; `enableDeliveryGenerations` is now `true`. Against the acceptance above
 - *Horizon.* Every lease ever admitted stays resolvable, so a late copy of any retired delivery gets
   its original identity back and is skipped; a dormant session's next arrival follows its last one.
 - *Crash safety and GC.* The window is archived before the transition commits; an open that finds a
-  window already archived finishes that rotation first. Store GC reads every segment, and a GC run
-  while the journal rotates keeps every root an unsettled lease references
-  (`TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot`, with a negative
-  control that harvests segment 0 only and fails).
+  window already archived finishes that rotation first. Each rotation stages, with the new segment,
+  a carried-lease file naming every archived lease that has no acknowledgement, and store GC reads
+  the active segment's journals and that file — never an archived segment's journals — so a pass is
+  bounded by the active window and the carried leases, not by the project's history. A GC pass run
+  at every step of a rotation keeps every root an unsettled lease references, and one a rotation
+  moves the authority under halts and deletes nothing
+  (`TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot`,
+  `TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot`; negative controls:
+  harvesting segment 0 only, run 06, and ignoring the carry, run 24, each fail).
 - *Evidence test inverted:*
   `TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart` (was
   `..._LeaseJournalRefusesEveryDeliveryPastItsEntryCap`) drives a store at exactly the old cap
@@ -652,6 +657,26 @@ default-off seam. Each of these failed a test or probe before its fix (red runs 
 5. Concurrent callers read a second rotation as `ErrBudget` (found by the first drill). Fix
    (`8509447`): a rotation signal names the segment it filled, and the retry rotates past exactly it.
 
+The close-out's adversarial review of the flip found three more, fixed before the row was closed
+(`plans/sdd/V6-closeout/rollover/`, runs 20-33):
+
+6. Every store GC pass read every committed segment's journals and capped the acknowledgements it
+   folded at 65,536 pairs oldest first, so from the first rotation on the leases of every later
+   segment read as open: a pass's work and memory grew with the project's history (review finding 1;
+   `TestGCSegments_AckedArchivedLeasesAreReleasedPastTheAckSetBound` fails on the old harvest, run
+   22). Fix (`247c87d`, `d7ef6b5`): the carried-lease file above, and a harvest bounded by it.
+7. A full-window rotation stalled leases and acknowledgements for 25-125 s. The review read it as
+   hashing; a profile showed positioned reads of committed pages (45% of the time, hashing under
+   3%), because the window was written key by key in (session, arrival) order, random in the radix's
+   key space. Fix (`6a7621c`): the window is planned in memory and merged into the tree in key
+   order, each page read and written about once; five successive full windows archive in 1.5-6.0 s
+   instead of 12.3-97.6 s on Windows, and in 2.0-5.7 s on Linux
+   (`BenchmarkDeliveryRolloverArchiveWindows`, runs 20, 21 and 31).
+8. Segment 0 was frozen only after the transition to segment 1 committed, so a crash in between left
+   a pre-segment build free to append to it (review finding 3; run 23). Fix (`35fefe8`): segment 0
+   is frozen before the commit, and an open that finds it active under frozen seals over an archived
+   window finishes the rotation.
+
 The thresholds did not move (`deliveryRolloverEntries = deliveryLeaseMaxEntries`, 64 MiB bytes) and
 no configuration key exposes them.
 
@@ -671,72 +696,123 @@ no configuration key exposes them.
 - The generation corruption test reopens the store before the corrupted read, since the branch cache
   serves an already-verified page from memory; the refusal it asserts is unchanged.
 - Fixtures meaning "a store written before segments" are built with rollover off (fix 4).
+- `TestGCSegments_HarvestsOldestLeaseAcrossRotation` and `..._AckInLaterSegmentSettlesOlderLease`:
+  "GC reads segment 0's journal and retains its open lease" -> "segment 1's carried-lease file names
+  the lease and GC retains it through that file", because GC no longer reads archived journals (fix
+  6); the retention asserted is unchanged. Store segment fixtures past 0 carry an empty file by
+  default.
+- The segment staging tests: a staged segment is five files, and one carrying a different carry is a
+  conflict (an added refusal).
 
-**Recorded decisions this changes.** The integration contract's per-batch lease and ack mirror and
-its "store is a superset of the active window"
+**Recorded decisions this changes.** GC's reader no longer harvests every committed segment
+(`gc-segment-integration-work.md` Part B, `delivery-segment-retention-decision.md`): it harvests the
+active segment and the carry, with the same exact acknowledgement join. A segment past 0 is five
+files, not the four the retention decision names. The rotation order gains two steps (the carry is
+staged with the segment; segment 0 is frozen before the commit, not after it). The coordinator
+adjudication's "operator stop/backup boundary" before writer enablement
+(`delivery-rollover-main-adjudication.md`) is superseded by owner decision D2 (enable by default):
+the first rotation happens on its own, and `docs/backup.md` tells operators to take a backup before
+a project first reaches 65,536 deliveries if an older build may be needed again. The integration
+contract's per-batch lease and ack mirror and its "store is a superset of the active window"
 (`sdd/V6-remediation/delivery-capacity-integration-work.md`, Wiring 1 and 3) are replaced by
-rotation-time archival; the join that superset protected is made
-against the in-memory window, and at rotation against the lease just archived. The rotation order in
-the same document is unchanged. The old-reader barrier is the existing parsed position seal, as the
+rotation-time archival; the join that superset protected is made against the in-memory window, and
+at rotation against the lease just archived. The rotation order in the same document is kept, with
+the two steps named above added. The old-reader barrier is the existing parsed position seal, as the
 coordinator decision requires. Generation format v1 (only ever written by tests) is refused.
 
 **Evidence.** Focused tests: `TestDeliveryRollover_*` (rotation-time archival, frozen seals,
 concurrent rotation), `TestDeliveryGeneration_*` and `TestDeliveryRadix*` (packs),
 `TestDeliverySealSegment_RuleR*`,
 `TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot` (negative control
-`gc-negative-control.sh`, run 06),
+`gc-negative-control.sh`, run 06), and from the review round `TestDeliveryRadix_Merge*`,
+`TestDeliveryRollover_Archive*`, `TestDeliveryCarry_*`, `TestDeliveryRollover_Carry*`,
+`TestGCSegments_*Carr*` and `..._AckedArchivedLeasesAreReleasedPastTheAckSetBound`,
+`TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot` (negative control
+`gc-carry-negative-control.sh`, run 24),
+`TestDeliveryRollover_SegmentZeroIsFrozenBeforeItsTransitionCommits` and
+`..._CrashBetweenFreezeAndTransitionFinishesTheRotation`,
 `TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites`, and the frozen-seal tests in
 `internal/cli` and `internal/store`. Whole packages: daemon on Windows (runs 02, 07), daemon, store
 and cli on Linux (runs 08, 12), store and cli on Windows (run 11); the rollover and frozen-seal
-tests under `-race` on Linux (runs 13b, 13c). Real binaries (`rollover-drill.py`, drill3, Linux):
-a real daemon with its threshold patched to 3 rotated to segment 6 with dense arrivals and every
-capture indexed, as a never-rotated control did; the current build's fsck certified the rotated store
-without changing it; backup, verify and restore preserved the delivery state byte for byte and the
-restored copy certified and continued densely after restart; the pre-segment 301a8e9 build changed
-no delivery-state file and was refused by fsck and the seal check, and the current build then
-continued the history at its next arrival.
+tests under `-race` on Linux (runs 13b, 13c). Real binaries (`rollover-drill.py`, drill3, Linux): a
+real daemon with its threshold patched to 3 rotated to segment 6 with dense arrivals and every
+capture indexed, as a never-rotated control did; the current build's seal check certified the
+rotated store's delivery state without changing it; backup, verify and restore preserved the
+delivery state byte for byte and the restored copy's delivery state certified and continued densely
+after restart; the pre-segment 301a8e9 build changed no delivery-state file and was refused by fsck
+and the seal check, and the current build then continued the history at its next arrival. Drill 4
+(`drill/runs/20260923-drill4`, at `b30908c`, after the review fixes) repeated the drill with the
+carried-lease files and the freeze-before-commit order: every verdict PROVEN, `backup restore`
+exited 0, and every current-build `fsck --seal-check` — the rotated store, the restored copy before
+and after its restart, and the copy the old build had run on — exited 0 on every row. In drills 2
+and 3 "certified" meant the delivery row only: there every `fsck --seal-check`, the never-rotated
+control's included, exited 1 on the `captures` and `publication` rows (the base's SessionEnd flush
+defect below), and `backup restore` exited 1 on its integrity check. Drill 4 did not reproduce that
+defect, and no capture or publication code changed between drill 3 (`2e119fe`) and drill 4, so it is
+intermittent rather than fixed: gate 2's end-to-end certification rests on drill 4 and should be
+re-confirmed once that defect's own fix lands.
 
 **Resource cost (gate 5).** `BenchmarkDeliveryRolloverResourceCost` at the production thresholds:
 210,000 deliveries leased and acknowledged through the real journal by 8 concurrent callers (each
-acknowledging its previous delivery after leasing the next), three rotations. Figures only: nothing
-was gated on them and no budget changed. Both runs were co-loaded (the Windows host is shared with
-other agents, and the two runs overlapped for about half their length), so tails are upper-biased.
+acknowledging its previous delivery after leasing the next), three rotations, and since the review
+round a store GC pass at every 50,000-delivery checkpoint beside the running callers. Figures only:
+nothing was gated on them and no budget changed. The runs below are at the review round's head
+(Windows `856ab94`, run 27; Linux `60d9846`, run 30; the code under test is the same). Both hosts
+were co-loaded (the Windows host is shared with other agents, and the container runs on it), so
+tails are upper-biased. The implementer's runs before the review fixes are 10b and 16; their
+rotation stalls were 27.4 / 124.5 / 86.2 s on Windows and 28.1 / 24.8 / 35.7 s on Linux.
 
-| | Windows 11, 22 logical CPUs (run 10b) | Linux container, `GOMAXPROCS=4` (run 16) |
+| | Windows 11, 22 logical CPUs (run 27) | Linux container, `GOMAXPROCS=4` (run 30) |
 |---|---|---|
-| rotation stall, windows 1 / 2 / 3 | 27.4 / 124.5 / 86.2 s | 28.1 / 24.8 / 35.7 s |
-| lease p50 / p99, whole run | 30.8 / 220.3 ms | 58.4 / 257.4 ms |
-| lease p99 before / after the first rotation | 192.5 / 230.2 ms | 285.2 / 242.7 ms |
-| acknowledgement p50 / p99 | 29.9 / 184.4 ms | 59.4 / 253.3 ms |
-| peak Go heap in use (sys) | 244 MiB (300 MiB) | 231 MiB (260 MiB) |
-| live heap after GC at 50k / 100k / 150k / 200k | 24 / 41 / 35 / 29 MiB | 24 / 41 / 37 / 31 MiB |
-| generation store after rotation 1 / 2 / 3 | 149 / 347 / 563 MiB | 149 / 347 / 563 MiB |
+| rotation stall, windows 1 / 2 / 3 | 3.9 / 5.1 / 4.5 s | 2.3 / 3.5 / 6.8 s |
+| lease p50 / p99, whole run | 21.2 / 68.7 ms | 32.3 / 63.9 ms |
+| lease p99 before / after the first rotation | 84.4 / 52.3 ms | 71.2 / 49.0 ms |
+| acknowledgement p50 / p99 | 21.3 / 63.1 ms | 33.7 / 64.3 ms |
+| peak Go heap in use (sys) | 235 MiB (288 MiB) | 224 MiB (273 MiB) |
+| live heap after GC at 50k / 100k / 150k / 200k | 24 / 37 / 33 / 28 MiB | 24 / 37 / 32 / 29 MiB |
+| store GC pass at 50k / 100k / 150k / 200k / 210k | 0.87, 0.43, 0.31, 0.14, 0.16 s | 0.29, 0.21, 0.12, 0.05, 0.09 s |
+| heap rise during a GC pass, at most (callers included) | 52 MiB | 55 MiB |
+| GC passes that completed | 5 of 5 | 5 of 5 |
+| generation store after rotation 1 / 2 / 3 | 79 / 175 / 281 MiB | 79 / 175 / 281 MiB |
 | journals, all segments, at 210,000 | 114 MiB | 114 MiB |
-| delivery state per 100,000 deliveries | 322 MiB overall; about 383 MiB once windows are archived | same |
+| delivery state per 100,000 deliveries, at 210,000 | 188 MiB | 188 MiB |
 
-Each archived window of 65,536 deliveries adds 149, 198 and then 216 MiB to the generation store
-(about 3.3 KiB per delivery, rising slowly with the tree's depth) and about 35 MiB of journal. The
-per-lease latency shows no trend with the archive's size, the live heap after a rotation returns to
-the level before it, and the maximum operation latency is the rotation stall itself.
+The key-ordered archive also publishes fewer intermediate generations (58-59 for three windows where
+the per-key archive published 142), so the generation store is about half its earlier size. A GC
+pass does not grow with the history: it reads the active segment and the carry, and the passes got
+shorter as the run went on. The rotation stall is still the largest operation latency.
 
-**Residuals, carried as open items.** Delivery state grows with history (about 0.38 GiB per
-100,000 deliveries, above) and nothing prunes it; compressing packs or storing a lease once rather
-than under several keys would cut it and is a format change. A rotation of a full window blocks
-leases and acknowledgements while it archives (25-125 s above), so hooks spool and the drain
-re-leases under the same nonce; archiving in the background would change the recorded rotation
-order and is an owner decision. The segment authority's 1 MiB open bound allows about 5,600
-transitions (about 3.6 × 10^8 deliveries), after which the transition is refused and the journal
-fails closed; that path is not exercised by a test. A crash between the transition commit and the
-freeze leaves segment 0 unfrozen until the next current-build open re-freezes it. Store GC reads every
-segment on each pass. A pre-segment build refuses the journal and changes no delivery state, but one
-from before V6's fail-closed journal change (301a8e9 is one) still indexes what it receives there
-without identities; a store-wide barrier would stop that and its read-only commands too, which is an
-owner decision.
+**Residuals, carried as open items.** Delivery state grows with history (about 0.18 GiB per 100,000
+deliveries, above) and nothing prunes it; compressing packs or storing a lease once rather than
+under several keys would cut it and is a format change. A rotation of a full window still blocks
+leases and acknowledgements while it archives (3.9 / 5.1 / 4.5 s on Windows and 2.3 / 3.5 / 6.8 s on
+Linux above), so hooks may spool and the drain re-leases under the same nonce; archiving sealed
+leases incrementally off the barrier (the review's option b) would change the recorded rotation
+order and needs a rotation-intent record, and is an owner decision. Store GC halts, collecting
+nothing, while the active segment carries more than 65,536 archived leases that were never
+acknowledged, and a rotation refuses (the journal fails closed as at its cap) once the carry passes
+64 MiB, about 200,000 such leases; a lease denied by a terminal disposition but never acknowledged
+stays carried, because GC never released on one. The same-session ordering gate reads two
+generation-store keys with the owner mutex and the journal's state mutex held after the first
+rotation (review finding 5: `BenchmarkDeliveryRolloverDispatchGate`, about +35-45 us per call on
+Windows and +8-10 us on Linux with five archived windows, runs 26 and 32); `delivery_order.go`
+belongs to the ingest workstream, which has it. A crash while a new segment's five files are being
+created leaves a partial staged directory that the next rotation refuses as a conflict (the recorded
+rule: preserve, never overwrite); the carry added a fifth file to that window. The segment
+authority's 1 MiB open bound allows about 5,600 transitions (about 3.6 × 10^8 deliveries), after
+which the transition is refused and the journal fails closed; that path is not exercised by a test.
+A pre-segment build refuses the journal and changes no delivery state, but one from before V6's
+fail-closed journal change (301a8e9 is one) still indexes what it receives there without identities;
+a store-wide barrier would stop that and its read-only commands too, which is an owner decision.
+Nothing prompts an operator to take a backup before the first rotation, the only rollback path to an
+older build (`docs/backup.md` says to).
 
 **Found outside this row.** Both belong to the base and reproduce on a never-rotated project: a
-SessionEnd `flush` delivery writes a capture sidecar whose op `classifyCaptureView` does not know, so
-fsck fails `captures` and `publication` and `backup restore` exits 1 on its integrity check; and live
-captures are held until SessionEnd (close-out C1.1). Evidence: `drill/runs/20260922-drill2/posthoc-*`.
+SessionEnd `flush` delivery writes a capture sidecar whose op `classifyCaptureView` does not know,
+so fsck fails `captures` and `publication` and `backup restore` exits 1 on its integrity check; and
+live captures are held until SessionEnd (close-out C1.1). Evidence:
+`drill/runs/20260922-drill2/posthoc-*`. Because of the first, `backup restore` exited 1 in drills 2
+and 3; drill 4 did not reproduce it (above).
 
 ## SP20-D5 — a drain pass lowers the durable bound its own record already holds
 
