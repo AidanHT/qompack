@@ -60,5 +60,5 @@ redelivery protection; the current build does not revisit them, and resumes each
 arrival it left next. Roll back past a rotation only by restoring a backup taken before it. Do not
 delete, rename or rewrite journals, seals or segments: manual deletion can recycle observation
 identities and is not a recovery procedure. The delivery state grows with the project's delivery
-history and is never pruned; `plans/V2-WAVE1-carried-defects.md` (SP20-D4) records its measured size
-per 100,000 deliveries.
+history and is never pruned: about 0.38 GiB per 100,000 deliveries in the V6 close-out's
+measurements, most of it the generation store (`plans/V2-WAVE1-carried-defects.md`, SP20-D4).

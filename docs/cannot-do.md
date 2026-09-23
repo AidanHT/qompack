@@ -240,7 +240,8 @@ host change could lift — as prepared proposals, none of which has been filed.
 ### No bounded delivery history on disk, and no downgrade across a rotation
 
 - **Limit.** The delivery journals never forget an identity, so the delivery state on disk grows with
-  every delivery a project has ever had; nothing prunes it. And once a store's delivery journal has
+  every delivery a project has ever had — about 0.38 GiB per 100,000 deliveries as measured at the
+  V6 close-out — and nothing prunes it. And once a store's delivery journal has
   rotated (every 65,536 deliveries), a Qompack build that predates segmented rollover cannot use it:
   it refuses the journal and assigns no observation identity to anything it captures.
 - **Why.** A redelivered copy of any past delivery must get its original observation identity back,
