@@ -28,12 +28,12 @@ Before committing to an approach, call already_tried.
 - secret-scan: Scan a diff for credentials and explain why each hit is or is not a leak.
 - tf-plan-review: Read a terraform plan and flag destructive or lock-taking changes.
 - token-forensics: Trace one refresh-token family through mint, rotation, and revocation.
+- trace-read: Read a distributed trace and attribute latency to a span rather than a service.
 
 ## 7. No longer in context
 - skill * — total skill bodies ~36800 tokens exceed the host's 25000-token cap; the oldest are dropped entirely (§2.7)
 - skill migration-runner — body ~7400 tokens; the host re-injects at most 5000 per skill, head-first, so treat it as partial (§2.7)
 - skill onboard — body ~6100 tokens; the host re-injects at most 5000 per skill, head-first, so treat it as partial (§2.7)
-- skill trace-read — did not fit the rehydration budget
 - skill triage-500s — not in the compact skill index (budget 450 tokens)
 - skill tx-audit — not in the compact skill index (budget 450 tokens)
 - skill webhook-replay — not in the compact skill index (budget 450 tokens)
