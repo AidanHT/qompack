@@ -257,6 +257,9 @@ type sessionLane struct {
 	// signals counts every join and every wake. The owner compares it across a dispatch to learn
 	// whether anything happened that could let a pending head proceed.
 	signals uint64
+	// quiet is closed, and cleared, once the lane is quiet: no worker owns it and no wake has listed
+	// it for one. It exists only while someone waits for that (quietChan).
+	quiet chan struct{}
 }
 
 // dispatchLanes holds every session's lane. mu is a leaf lock: nothing is called while it is held.
@@ -322,7 +325,7 @@ func (ls *dispatchLanes) head(sess core.SessionID) (j job, signals uint64, ok bo
 		return job{}, 0, false
 	}
 	if len(l.jobs) == 0 {
-		l.running = false
+		l.stopRunning()
 		if !l.woken {
 			delete(ls.lanes, sess)
 		}
@@ -358,7 +361,7 @@ func (ls *dispatchLanes) settle(sess core.SessionID, j job, outcome dispatchOutc
 	if l.signals != signals {
 		return true
 	}
-	l.running = false
+	l.stopRunning()
 	return false
 }
 
@@ -368,11 +371,166 @@ func (ls *dispatchLanes) park(sess core.SessionID) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 	if l := ls.lanes[sess]; l != nil {
-		l.running = false
+		l.stopRunning()
 		if len(l.jobs) == 0 && !l.woken {
 			delete(ls.lanes, sess)
 		}
 	}
+}
+
+// stopRunning gives up the lane's ownership. dispatchLanes.mu must be held.
+func (l *sessionLane) stopRunning() {
+	l.running = false
+	l.noteQuiet()
+}
+
+// noteQuiet releases whoever waits for the lane to go quiet, if it now is. dispatchLanes.mu must be
+// held.
+func (l *sessionLane) noteQuiet() {
+	if !l.running && !l.woken && l.quiet != nil {
+		close(l.quiet)
+		l.quiet = nil
+	}
+}
+
+// quietChan reports whether sess's lane is quiet — no worker owns it and no wake has listed it for
+// one, so it is empty, absent or parked with nothing on its way to run it — and, if it is not,
+// returns a channel closed once it is.
+func (ls *dispatchLanes) quietChan(sess core.SessionID) (<-chan struct{}, bool) {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	l := ls.lanes[sess]
+	if l == nil || (!l.running && !l.woken) {
+		return nil, true
+	}
+	if l.quiet == nil {
+		l.quiet = make(chan struct{})
+	}
+	return l.quiet, false
+}
+
+// awaitLaneQuiet waits until no worker owns sess's lane, or ctx is done, and reports which. A quiet
+// lane can still hold parked jobs: they wait on a predecessor the worker pool does not have.
+func (i *ingest) awaitLaneQuiet(ctx context.Context, sess core.SessionID) bool {
+	for {
+		ch, quiet := i.lanes.quietChan(sess)
+		if quiet {
+			return true
+		}
+		select {
+		case <-ch:
+		case <-ctx.Done():
+			return false
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SessionEnd after the session's own deliveries (V6 close-out C1.1)
+//
+// SessionEnd is the session's last arrival. The lanes publish a session's deliveries one at a time,
+// so under a burst of hooks they lag the hooks, and the flush hook can arrive while earlier ones are
+// still queued or parked. The observer's SessionEnd closes the session's segment at its current turn
+// and forgets the session: anything of the session published afterwards lands on a fresh observer
+// session at the wrong turn, and the flush's own drain meets the delivery still in flight and stops
+// with "delivery still in progress". So the flush first lets the session settle, bounded.
+
+// settleSessionBound bounds how long a flush waits for its session's earlier deliveries before it
+// closes the session anyway. It is Stop's own bound on draining the in-flight
+// ring, used for the same job on one session, and it leaves the flush hook's reply deadline room for
+// SessionEnd and the final drain behind it.
+const settleSessionBound = stopDrainBound
+
+// counterFlushUnsettled counts flushes whose SessionEnd ran while some of the session's earlier
+// leased deliveries were still unpublished. They are not lost: they stay pending in the WAL, the
+// flush's final drain or a later one replays them, and the flush's recovery marker is cleared only by
+// a replay that completes. What they lose is the session they belonged to, which SessionEnd closed.
+const counterFlushUnsettled = "l0_flush_unsettled"
+
+// settleSession runs before the flush's SessionEnd. It waits, bounded, for sess's lane to go quiet.
+// Then, if the committed frontier still lacks any of the session's leased arrivals (a lane parked
+// behind a predecessor only the WAL or a client spool holds), it runs one drain pass, which
+// publishes them in arrival order and, when the pass ends, wakes the lane for whatever the pass had
+// to leave to it; and it waits for the lane to go quiet once more. drain is flushRoute's own: a
+// flush replayed by the drain must not drain again (drainer.mu is not reentrant), so it only waits.
+// The waits are on real time (context deadlines and channels), never on the daemon's clock. A
+// session that does not settle within settleSessionBound is not waited for any longer, and not
+// silently: noteUnsettled counts and announces it before SessionEnd runs.
+func (d *daemon) settleSession(ctx context.Context, sess core.SessionID, drain bool) {
+	bound := settleSessionBound
+	if d.ing.settleBound > 0 {
+		bound = d.ing.settleBound
+	}
+	sctx, cancel := context.WithTimeout(ctx, bound)
+	defer cancel()
+	for drained := false; ; drained = true {
+		if !d.ing.awaitLaneQuiet(sctx, sess) {
+			d.noteUnsettled(sess, "its deliveries were still publishing when the bound expired")
+			return
+		}
+		if d.sessionDelivered(sess) {
+			return
+		}
+		if !drain || drained {
+			d.noteUnsettled(sess, "some of its leased deliveries are not on the committed frontier")
+			return
+		}
+		if _, err := d.Drain(sctx); err != nil {
+			d.log.Warn("daemon: flush: the session's drain before SessionEnd did not finish",
+				"session", string(sess), "err", err)
+		}
+	}
+}
+
+// noteUnsettled counts and announces a SessionEnd about to run ahead of some of its session's own
+// earlier deliveries (counterFlushUnsettled).
+func (d *daemon) noteUnsettled(sess core.SessionID, reason string) {
+	if d.m != nil {
+		d.m.Counter(counterFlushUnsettled).Add(1)
+	}
+	d.log.Loud("daemon: flush: SessionEnd runs before the session settled; its pending deliveries stay "+
+		"in the WAL for replay", "session", string(sess), "reason", reason)
+}
+
+// sessionDelivered reports whether every leased arrival of sess is on the committed frontier or
+// retired. An unreadable journal answers true: the drain could not publish a leased line over it
+// either, so there is nothing to settle, and the flush proceeds as it did.
+func (d *daemon) sessionDelivered(sess core.SessionID) bool {
+	j, err := d.deliveryJournal()
+	if err != nil || j == nil {
+		return true
+	}
+	last, ok := j.lastArrival(sess)
+	if !ok {
+		return true
+	}
+	return last == 0 || j.predecessorsAcknowledged(sess, last+1)
+}
+
+// lastArrival returns sess's highest leased arrival (0 when it has none), read under the discipline
+// predecessorsAcknowledged uses. ok is false when the journal cannot be read.
+func (j *deliveryJournal) lastArrival(session core.SessionID) (uint64, bool) {
+	if j == nil || j.owner == nil {
+		return 0, false
+	}
+	j.owner.mu.Lock()
+	defer j.owner.mu.Unlock()
+	if !j.owner.owned() {
+		return 0, false
+	}
+	j.st.Lock()
+	defer j.st.Unlock()
+	if j.closing || j.closed || j.rotating || j.fault != nil {
+		return 0, false
+	}
+	if last, known := j.arrivals[session]; known {
+		return last, true
+	}
+	if j.gen != nil {
+		last, _, err := j.gen.lastArrival(context.Background(), session)
+		return last, err == nil
+	}
+	return 0, true
 }
 
 // wake signals sess's lane that one of its session's deliveries was consumed elsewhere. An owned lane
@@ -411,6 +569,7 @@ func (ls *dispatchLanes) claimReady() (sess core.SessionID, ok, more bool) {
 		l.woken = false
 		if l.running || len(l.jobs) == 0 {
 			if !l.running {
+				l.noteQuiet()
 				delete(ls.lanes, s)
 			}
 			continue

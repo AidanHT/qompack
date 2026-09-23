@@ -2,7 +2,11 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -10,8 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/observer"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 // V6 close-out C1.1: the live-ingest regression. The same-session ordering gate
@@ -529,4 +535,243 @@ func TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass(t *testing.T) {
 	defer mu.Unlock()
 	require.Equal(t, []int{0, 0, 0}, releasedAtDispatch, "no session is released while the pass can still dispatch its lines")
 	require.Equal(t, []core.SessionID{sess}, releases, "the session is released once, after the pass")
+}
+
+// liveOrderTool builds an observe.tool delivery carrying a real Read event, so the bound observer
+// indexes it at the session's current turn.
+func liveOrderTool(dd *daemon, root string, sess core.SessionID, i int) ipc.Request {
+	path := fmt.Sprintf("src/lane%02d.go", i)
+	return ipc.Request{
+		Op: ipc.OpObserveTool, Session: sess, TS: core.NowMilli(dd.clk) + core.UnixMilli(i),
+		Event: &hookio.Event{
+			HookEventName: "PostToolUse", SessionID: sess, CWD: root,
+			ToolName: "Read", ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_lane_%02d", i)),
+			ToolInput:    json.RawMessage(`{"file_path":"` + path + `"}`),
+			ToolResponse: json.RawMessage(fmt.Sprintf(`{"content":"package lane%02d\n"}`, i)),
+		},
+		Capture: admittedCapture(`{"hook_event_name":"PostToolUse"}`), Nonce: orderNonce(100 + i),
+	}
+}
+
+// liveOrderFlush is the SessionEnd hook's request.
+func liveOrderFlush(dd *daemon, root string, sess core.SessionID) ipc.Request {
+	return ipc.Request{
+		Op: ipc.OpFlush, Session: sess, TS: core.NowMilli(dd.clk), Reply: true,
+		Event: &hookio.Event{HookEventName: "SessionEnd", SessionID: sess, CWD: root},
+	}
+}
+
+// liveOrderInOrderTurns is what liveOrderTurns reads after the session's deliveries were published
+// in arrival order with the observer session open: the observer records prompt k at turn k and the
+// tools after it at turn k+1. items lists the arrivals in order, a tool by its liveOrderTool index
+// and a prompt by -1.
+func liveOrderInOrderTurns(sess core.SessionID, items ...int) []string {
+	out := []string{fmt.Sprintf("prompt_%s_0@0", sess)}
+	prompts := 1
+	for _, it := range items {
+		if it < 0 {
+			out = append(out, fmt.Sprintf("prompt_%s_%d@%d", sess, prompts, prompts))
+			prompts++
+			continue
+		}
+		out = append(out, fmt.Sprintf("toolu_lane_%02d@%d", it, prompts))
+	}
+	return out
+}
+
+// liveOrderRequireMonotone asserts that the turns liveOrderTurns read never go backwards: the
+// fsck invariant ("turns are monotone") the V6 close-out found broken when SessionEnd overtook the
+// session's own deliveries.
+func liveOrderRequireMonotone(t *testing.T, turns []string) {
+	t.Helper()
+	prev := -1
+	for _, it := range turns {
+		var turn int
+		_, err := fmt.Sscanf(it[strings.LastIndex(it, "@")+1:], "%d", &turn)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, turn, prev, "turn of %s goes backwards in %v", it, turns)
+		prev = turn
+	}
+}
+
+// liveOrderTurns reads index/tool_use.jsonl in publication order as "id@turn" pairs.
+func liveOrderTurns(t *testing.T, root string) []string {
+	t.Helper()
+	b, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).Index, "tool_use.jsonl")))
+	require.NoError(t, err)
+	var out []string
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var rec struct {
+			ID   string `json:"id"`
+			Turn int    `json:"turn"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(line), &rec))
+		out = append(out, fmt.Sprintf("%s@%d", rec.ID, rec.Turn))
+	}
+	return out
+}
+
+// TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd: SessionEnd is itself one of
+// the session's arrivals, the last. When the flush hook comes while the session's lane is still
+// publishing earlier deliveries (it lags the hooks: publication is serialized per session, hooks
+// are not), the flush must let them publish before the observer closes the session. Otherwise the
+// ones still queued land after SessionEnd on a fresh observer session, at the wrong turn, and the
+// flush's own drain meets the in-flight one and answers "delivery still in progress".
+func TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd(t *testing.T) {
+	root := t.TempDir()
+	_, dd, _ := wireTestDaemon(t, root, nil)
+	lock := lockFor(t, dd, root)
+	t.Cleanup(func() { _ = lock.Release() })
+	t.Cleanup(func() {
+		grace, cancel := context.WithTimeout(context.Background(), promptRecordWait)
+		defer cancel()
+		dd.stopPromptRecordings(grace)
+	})
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+
+	const sess core.SessionID = "sess-flush-settles"
+	release := make(chan struct{})
+	var once sync.Once
+	open := func() { once.Do(func() { close(release) }) }
+	t.Cleanup(open)
+	run := func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Event != nil && req.Event.ToolUseID == "toolu_lane_01" {
+			<-release
+		}
+		return dd.runIngested(ctx, req)
+	}
+	liveOrderWorkers(t, dd, 4, run)
+
+	acceptPrompt(t, dd, spD3Prompt(dd, root, sess, orderNonce(0), "p0"))
+	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 1)) // in flight when the flush comes
+	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 2))
+	acceptPrompt(t, dd, spD3Prompt(dd, root, sess, orderNonce(1), "p1"))
+	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 3))
+	require.Eventually(t, func() bool { return len(dd.ing.ring) == 0 }, liveOrderBound, liveOrderTick)
+
+	flushed := make(chan ipc.Response, 1)
+	go func() { flushed <- dd.flushRoute(context.Background(), liveOrderFlush(dd, root, sess), true) }()
+	var resp ipc.Response
+	returned := liveOrderPollUntil(liveOrderRelease/2, func() bool {
+		select {
+		case resp = <-flushed:
+			return true
+		default:
+			return false
+		}
+	})
+	open() // the in-flight delivery completes while the flush waits for it (or after it returned)
+	if !returned {
+		select {
+		case resp = <-flushed:
+		case <-time.After(liveOrderBound):
+			require.FailNow(t, "the flush never returned")
+		}
+	}
+
+	require.True(t, resp.OK, "the flush finishes once the session's earlier deliveries have: %q", resp.Err)
+	turns := liveOrderTurns(t, root)
+	liveOrderRequireMonotone(t, turns)
+	require.Equal(t, liveOrderInOrderTurns(sess, 1, 2, -1, 3), turns,
+		"every delivery before SessionEnd is published at its own turn, in arrival order")
+	require.Zero(t, dd.m.Counter(counterFlushUnsettled).Value())
+}
+
+// TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd: the session has published its first
+// turn live, and its lane is then parked behind a predecessor only a client spool holds (a hook that
+// missed its ACK deadline and spooled, or a ring drop). The flush publishes the predecessor from the
+// spool, lets the woken lane publish what was parked behind it, and only then runs SessionEnd:
+// before, the observer closed the session at turn 1 and the stragglers were replayed afterwards
+// onto a fresh session, back at turn 0.
+func TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd(t *testing.T) {
+	root := t.TempDir()
+	_, dd, _ := wireTestDaemon(t, root, nil)
+	lock := lockFor(t, dd, root)
+	t.Cleanup(func() { _ = lock.Release() })
+	t.Cleanup(func() {
+		grace, cancel := context.WithTimeout(context.Background(), promptRecordWait)
+		defer cancel()
+		dd.stopPromptRecordings(grace)
+	})
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	ctx := context.Background()
+
+	const sess core.SessionID = "sess-flush-parked"
+	first := spD3Prompt(dd, root, sess, orderNonce(0), "p0")
+	acceptPrompt(t, dd, first)
+	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 1))
+	leases := []deliveryLease{liveOrderLease(t, dd, first.Nonce), liveOrderLease(t, dd, orderNonce(101))}
+	require.Eventually(t, func() bool { return liveOrderAcked(dd, leases) == 2 }, liveOrderBound, liveOrderTick,
+		"the first turn publishes live: %s", liveOrderDiag{dd, leases})
+
+	second := spD3Prompt(dd, root, sess, orderNonce(1), "p1")
+	_, ok := dd.ing.leaseDelivery(ctx, second) // leased, then only spooled
+	require.True(t, ok)
+	writeSpoolLines(t, root, "client-00001.ndjson", second)
+	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 2))
+	require.Eventually(t, func() bool {
+		queued, running := liveOrderLane(dd, sess)
+		return queued == 1 && !running
+	}, liveOrderBound, liveOrderTick, "the last tool parks behind the spooled prompt")
+
+	resp := dd.flushRoute(ctx, liveOrderFlush(dd, root, sess), true)
+	require.True(t, resp.OK, resp.Err)
+	turns := liveOrderTurns(t, root)
+	liveOrderRequireMonotone(t, turns)
+	require.Equal(t, liveOrderInOrderTurns(sess, 1, -1, 2), turns,
+		"the parked session is published in arrival order before SessionEnd")
+	require.Zero(t, dd.m.Counter(counterFlushUnsettled).Value())
+}
+
+// TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing: when the session's deliveries cannot
+// settle within the bound, SessionEnd still runs — the flush hook has a reply deadline — but never
+// silently: the flush is counted and announced, the delivery still in flight is not consumed by the
+// flush's drain (it answers not-finished, so the recovery marker stays), and once it completes every
+// delivery is on the committed frontier.
+func TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing(t *testing.T) {
+	root := t.TempDir()
+	_, dd, _ := wireTestDaemon(t, root, nil)
+	lock := lockFor(t, dd, root)
+	t.Cleanup(func() { _ = lock.Release() })
+	t.Cleanup(func() {
+		grace, cancel := context.WithTimeout(context.Background(), promptRecordWait)
+		defer cancel()
+		dd.stopPromptRecordings(grace)
+	})
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.ing.settleBound = liveOrderTick // far shorter than the held delivery below
+
+	const sess core.SessionID = "sess-flush-unsettled"
+	release := make(chan struct{})
+	var once sync.Once
+	open := func() { once.Do(func() { close(release) }) }
+	t.Cleanup(open)
+	run := func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Event != nil && req.Event.ToolUseID == "toolu_lane_01" {
+			<-release
+		}
+		return dd.runIngested(ctx, req)
+	}
+	liveOrderWorkers(t, dd, 2, run)
+
+	first := spD3Prompt(dd, root, sess, orderNonce(0), "p0")
+	acceptPrompt(t, dd, first)
+	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 1)) // held in flight past the bound
+	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 2))
+	leases := []deliveryLease{
+		liveOrderLease(t, dd, first.Nonce), liveOrderLease(t, dd, orderNonce(101)), liveOrderLease(t, dd, orderNonce(102)),
+	}
+	require.Eventually(t, func() bool { return liveOrderAcked(dd, leases[:1]) == 1 }, liveOrderBound, liveOrderTick)
+
+	resp := dd.flushRoute(context.Background(), liveOrderFlush(dd, root, sess), true)
+	require.Equal(t, int64(1), dd.m.Counter(counterFlushUnsettled).Value(), "the unsettled SessionEnd is counted")
+	require.False(t, resp.OK, "the flush's drain met the delivery still in flight, so the flush is not finished")
+
+	open()
+	require.Eventually(t, func() bool { return liveOrderAcked(dd, leases) == len(leases) }, liveOrderBound, liveOrderTick,
+		"nothing is lost: %s", liveOrderDiag{dd, leases})
 }
