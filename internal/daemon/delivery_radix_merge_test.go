@@ -49,7 +49,7 @@ type mergeDecision struct {
 }
 
 var mergeDecisions = []mergeDecision{
-	{"keep-or-write", func(v []byte) radixDecide { return keepOrWrite(v) }},
+	{"keep-or-write", keepOrWrite},
 	{"overwrite", func(v []byte) radixDecide {
 		return func(old []byte, found bool) ([]byte, bool, error) {
 			if found && bytes.Equal(old, v) {
