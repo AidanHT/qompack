@@ -423,13 +423,16 @@ the end of `.qompack/state/delivery-journal-log.jsonl` from the same time.
 
 **Meaning.** The delivery journal rotated. Every 65,536 deliveries (or 64 MiB of journal) the daemon
 archives the full window into `.qompack/state/delivery-generations/` before it assigns the next
-identity, and leases and acknowledgements wait for it: 25 s to 2 minutes per rotation in the V6
-close-out's measurements on loaded hosts (`plans/V2-WAVE1-carried-defects.md`, SP20-D4). A hook
-that cannot get its ACK within its deadline spools the delivery, and the drain leases it afterwards
-under the same nonce, so nothing is lost or duplicated.
+identity, and leases and acknowledgements wait for it: about 2 to 7 s per rotation of a full window
+in the V6 close-out's measurements on loaded hosts (`plans/V2-WAVE1-carried-defects.md`, SP20-D4). A
+hook that cannot get its ACK within its deadline spools the delivery, and the drain leases it
+afterwards under the same nonce, so nothing is lost or duplicated.
 
 **Action.** None. Do not stop the daemon mid-rotation to "unstick" it: an interrupted rotation is
-finished on the next start before anything else is assigned.
+finished on the next start before anything else is assigned. If the first rotation stopped between
+freezing the original seals and committing the switch, then until the daemon starts again a store GC
+pass halts rather than collect, and `qompack fsck` reports a frozen legacy-segment seal with no
+later segment named.
 
 ---
 

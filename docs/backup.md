@@ -57,8 +57,14 @@ and its daemon leases and acknowledges nothing and changes no delivery-state fil
 before the V6 fail-closed journal change still indexes what it receives in that state, without
 observation identities (its degraded mode for an unavailable journal), so those captures carry no
 redelivery protection; the current build does not revisit them, and resumes each session at the
-arrival it left next. Roll back past a rotation only by restoring a backup taken before it. Do not
-delete, rename or rewrite journals, seals or segments: manual deletion can recycle observation
-identities and is not a recovery procedure. The delivery state grows with the project's delivery
-history and is never pruned: about 0.38 GiB per 100,000 deliveries in the V6 close-out's
-measurements, most of it the generation store (`plans/V2-WAVE1-carried-defects.md`, SP20-D4).
+arrival it left next. Roll back past a rotation only by restoring a backup taken before it.
+
+Nothing stops the daemon or asks for a backup before the first rotation: it happens on its own when
+the active journal reaches 65,536 entries. If you may want to run an older build on a project again,
+take a backup before then. `qompack fsck --seal-check` (or `qompack admin delivery-seal --check` on
+a stopped project) reports how many entries the active lease journal holds, and a store that has
+already rotated has a `.qompack/state/delivery-segments/` directory. Do not delete, rename or
+rewrite journals, seals or segments: manual deletion can recycle observation identities and is not a
+recovery procedure. The delivery state grows with the project's delivery history and is never
+pruned: about 0.18 GiB per 100,000 deliveries in the V6 close-out's measurements, most of it the
+generation store (`plans/V2-WAVE1-carried-defects.md`, SP20-D4).
