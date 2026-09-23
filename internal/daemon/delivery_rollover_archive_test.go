@@ -204,12 +204,18 @@ func TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen(t *testing.T) {
 // rotation signal is then progress, not a fault: the caller rotates again. Only a rotation signal on
 // the same segment it already rotated would mean something is wrong. (Found by the real-binary drill:
 // with a low threshold and the drain leasing beside the hooks, a delivery was refused with ErrBudget.)
+//
+// The retry decides which segment, and so which window, a raced delivery is assigned in, so the
+// identities are pinned too (review finding 7): every session's arrivals are exactly 1..n, every
+// observation identity is distinct, every nonce re-leases to the identical lease once its segment has
+// been archived, and acknowledgements of leases archived in different segments are all admitted.
 func TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal(t *testing.T) {
 	setRollover(t, 1) // every lease after the first in a segment rotates
 	ctx := context.Background()
 	j := openRolloverJournal(t, t.TempDir())
 	const callers, each = 8, 6
 	errs := make(chan error, callers*each)
+	got := make([][]deliveryLease, callers)
 	var wg sync.WaitGroup
 	for c := 0; c < callers; c++ {
 		wg.Add(1)
@@ -218,8 +224,11 @@ func TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal(t *
 			session := core.SessionID(fmt.Sprintf("concurrent-%d", c))
 			for i := 0; i < each; i++ {
 				nonce := genNonce(c*1000 + i)
-				_, err := j.lease(ctx, nonce, session, testDeliveryRequest(nonce))
+				l, err := j.lease(ctx, nonce, session, testDeliveryRequest(nonce))
 				errs <- err
+				if err == nil {
+					got[c] = append(got[c], l)
+				}
 			}
 		}(c)
 	}
@@ -229,4 +238,31 @@ func TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal(t *
 		require.NoError(t, err, "a rotation raced by other callers is retried, never refused as a budget")
 	}
 	require.GreaterOrEqual(t, j.segment, uint64(callers*each-1))
+
+	observations := map[core.ObservationID]string{}
+	for c := 0; c < callers; c++ {
+		session := core.SessionID(fmt.Sprintf("concurrent-%d", c))
+		require.Len(t, got[c], each)
+		for i, l := range got[c] {
+			require.Equal(t, genNonce(c*1000+i), l.Delivery)
+			require.Equal(t, session, l.Session)
+			require.Equal(t, uint64(i+1), l.ArrivalSeq, "session %s: arrivals are dense and in call order", session)
+			require.True(t, validDeliveryLease(l))
+			prev, dup := observations[l.ObservationID]
+			require.False(t, dup, "observation %s assigned to %s and %s", l.ObservationID, prev, l.Delivery)
+			observations[l.ObservationID] = l.Delivery
+		}
+	}
+	// Every nonce re-leases to its original identity (all but the last are archived now), and an
+	// acknowledgement of a lease from each caller — archived in different segments — is admitted.
+	for c := 0; c < callers; c++ {
+		for _, l := range got[c] {
+			again, err := j.lease(ctx, l.Delivery, l.Session, l.RequestHash)
+			require.NoError(t, err)
+			require.Equal(t, l, again, "a raced nonce resolves to the lease it was assigned")
+		}
+		first := got[c][0]
+		require.NoError(t, j.acknowledge(ctx, first.Delivery, first.ObservationID, core.Hash{}))
+		require.True(t, j.acknowledged(first.Delivery))
+	}
 }
