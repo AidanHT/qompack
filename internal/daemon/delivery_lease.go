@@ -21,8 +21,10 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// These are format/admission safety bounds. Reaching one refuses new assignments without
-// dropping leases; measured retention/compaction is a separate migration task.
+// These are format/admission bounds on ONE journal segment's files. With segmented rollover enabled
+// (the default, enableDeliveryGenerations) reaching one rotates the journal to a fresh segment
+// (deliveryRolloverEntries/Bytes below) rather than refusing; nothing is dropped, rebased or forgotten.
+// A build with rollover disabled still refuses new assignments at the cap without dropping leases.
 const (
 	deliveryLeaseFile       = "delivery-leases.jsonl"
 	deliveryPositionFile    = "delivery-lease-position.json"
@@ -39,10 +41,13 @@ var deliveryChainSeed = core.HashBytes(deliveryChainDomain, nil)
 // segment, and retries. It never escapes to a caller (lease maps a second occurrence to ErrBudget).
 var errRotateNeeded = errors.New("delivery journal: segment rollover needed")
 
-// deliveryRolloverEntries and deliveryRolloverBytes are the active-window thresholds at which decide
-// triggers a rotation when the seam is enabled. They default to the hard caps (so rotation replaces the
-// ErrBudget refusal exactly at the limit); a focused test sets them low to force rotation across the
-// capacity seam without writing 65 536 leases. They are package vars for that seam only.
+// deliveryRolloverEntries and deliveryRolloverBytes are the active-window thresholds at which a lease
+// or acknowledgement batch triggers a rotation. They are the hard caps themselves — 65,536 entries and
+// 64 MiB per journal file — so rotation replaces the ErrBudget refusal exactly where it used to begin,
+// and every segment's files stay within the bounds every reader (this loader, the offline tool, store
+// GC, fsck) already enforces. A focused test sets them low to force rotation across the capacity seam
+// without writing 65,536 leases; they are package vars for that seam only and no configuration key
+// exposes them.
 var (
 	deliveryRolloverEntries = deliveryLeaseMaxEntries
 	deliveryRolloverBytes   = int64(deliveryLeaseMaxBytes)
