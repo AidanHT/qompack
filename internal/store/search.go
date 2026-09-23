@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"math"
 	"sort"
@@ -559,18 +560,24 @@ func foldEqualAt(hay []byte, at int, needle string) bool {
 }
 
 // countFold counts non-overlapping, ASCII-case-insensitive occurrences of needle in hay.
+//
+// It visits only the offsets whose byte can start a match (foldCursor), because Search runs it over
+// every scanned candidate's whole content — about 4 MiB for BenchmarkSearch_1000Roots, where
+// comparing at every offset was 40 % of a Search's CPU on Linux. The count is the same: an offset
+// the cursor skips is one where foldEqualAt would have failed on its first byte.
 func countFold(hay []byte, needle string) int {
 	if needle == "" || len(hay) < len(needle) {
 		return 0
 	}
+	c := newFoldCursor(hay[:len(hay)-len(needle)+1], needle[0])
 	n := 0
-	for i := 0; i+len(needle) <= len(hay); {
+	for i := c.next(0); i >= 0; {
 		if foldEqualAt(hay, i, needle) {
 			n++
-			i += len(needle)
+			i = c.next(i + len(needle))
 			continue
 		}
-		i++
+		i = c.next(i + 1)
 	}
 	return n
 }
@@ -580,10 +587,63 @@ func indexFold(hay []byte, needle string) int {
 	if needle == "" || len(hay) < len(needle) {
 		return -1
 	}
-	for i := 0; i+len(needle) <= len(hay); i++ {
+	c := newFoldCursor(hay[:len(hay)-len(needle)+1], needle[0])
+	for i := c.next(0); i >= 0; i = c.next(i + 1) {
 		if foldEqualAt(hay, i, needle) {
 			return i
 		}
 	}
 	return -1
+}
+
+// foldCursor walks hay left to right over the offsets whose byte folds, under lowerASCII, to the
+// same byte as a given one: both spellings of an ASCII letter, or the byte itself otherwise. It
+// finds each with bytes.IndexByte and remembers the next hit of each spelling, so a walk costs one
+// vectorized scan of hay per spelling however many offsets it visits.
+type foldCursor struct {
+	hay    []byte
+	lo, up byte
+	// nextLo and nextUp are the next offsets of lo and up at or after the last query, len(hay) when
+	// there is none, and -1 before the first query.
+	nextLo, nextUp int
+}
+
+// newFoldCursor returns a cursor over the offsets of hay whose byte folds to b's fold.
+func newFoldCursor(hay []byte, b byte) foldCursor {
+	lo := lowerASCII(b)
+	up := lo
+	if lo >= 'a' && lo <= 'z' {
+		up = lo - ('a' - 'A')
+	}
+	return foldCursor{hay: hay, lo: lo, up: up, nextLo: -1, nextUp: -1}
+}
+
+// next returns the first offset at or after from whose byte is either spelling, or -1. from must
+// never decrease across calls, which every caller's left-to-right walk guarantees.
+func (c *foldCursor) next(from int) int {
+	if from >= len(c.hay) {
+		return -1
+	}
+	if c.nextLo < from {
+		c.nextLo = indexByteFrom(c.hay, from, c.lo)
+	}
+	at := c.nextLo
+	if c.up != c.lo {
+		if c.nextUp < from {
+			c.nextUp = indexByteFrom(c.hay, from, c.up)
+		}
+		at = min(at, c.nextUp)
+	}
+	if at >= len(c.hay) {
+		return -1
+	}
+	return at
+}
+
+// indexByteFrom returns the first offset at or after from holding b, or len(hay) when none does.
+func indexByteFrom(hay []byte, from int, b byte) int {
+	if j := bytes.IndexByte(hay[from:], b); j >= 0 {
+		return from + j
+	}
+	return len(hay)
 }
