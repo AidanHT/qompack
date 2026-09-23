@@ -380,7 +380,8 @@ After a compaction, Qompack injects one block. Its size is capped and its order 
   the drop report.
 - **Overflow is explicit, never silent.** What did not fit is named in section 7 ("No longer in
   context") with the call that brings it back — `why(<decision id>)`, `re_read(<path>)`,
-  `expand(tool_use_id=…)`, or `Read` on the rule file or the checkpoint file — and, when the section
+  `expand(tool_use_id=…)`, `already_tried(target="…", approach="…")` for an elimination, or `Read`
+  on the rule file, the skill's `SKILL.md` or the checkpoint file — and, when the section
   cannot list everything, it ends in `… and N more; call dropped()`. The complete report is
   persisted regardless, which is what `/qompack:dropped` reads. An essential record that could not
   be carried whole marks the payload degraded.

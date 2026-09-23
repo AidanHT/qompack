@@ -443,15 +443,32 @@ it outranks it (a tenth of the ceiling alone would cut a skill index the payload
 payload whose only admitted section would be item 7 is no payload, as a payload with no items
 already was — the floor exists so that an omission can be named next to what did fit.
 
-**Pointers.** Every record the payload leaves out is named with the call that brings it back:
-`why(<decision id>)` for a decision, `re_read(<path>)` for a file pointer,
+**Pointers.** Every record the budget or the ceiling leaves out is named with the call that brings
+it back: `why(<decision id>)` for a decision, `re_read(<path>)` for a file pointer,
 `expand(tool_use_id=…)` for a tool pointer and for the verbatim original prompt (its L0 record,
-`prompt_<session>_0`), `Read <path>` for a path rule or nested `CLAUDE.md`, and `Read
-.qompack/checkpoints/NNNN.json (<field>)` for material whose only durable home is the checkpoint —
-invariants, evolution deltas, current work. The checkpoint path is given relative to the project
-root so a drop line stays cheaper than the record it replaces, which `PropBuild_MonotoneInBudget`
-holds the payload to. Pointers go in `DropEntry.Detail`, so `dropped()` — what the counted tail
-points at — answers with them too.
+`prompt_<session>_0`), `already_tried(target="…", approach="…")` with the record's own target and
+approach, Go-quoted, for a shown elimination, `Read <path>` for a path rule, a nested `CLAUDE.md` or a
+skill-index entry (its `SKILL.md`, whether the payload or the indexer's own `skillIndexTokens`
+dropped it), and `Read .qompack/checkpoints/NNNN.json (<field>)` for material whose only durable
+home is the checkpoint — invariants, evolution deltas, current work. The checkpoint path is given
+relative to the project root so a drop line stays cheaper than the record it replaces, which
+`PropBuild_MonotoneInBudget` holds the payload to. Pointers go in `DropEntry.Detail`, so `dropped()`
+— what the counted tail points at — answers with them too.
+
+Three kinds of drop entry are not a record with a restoring call, and are left as they were before
+D5: eliminations past `runtime.rehydrate.eliminationsTopN` are one counted line (`N of M not shown`)
+whose remedy is the standing `already_tried` query on the approach about to be taken (§8.7); the
+entries in `Checkpoint.Dropped`, which the checkpointer recorded itself (an `open_question`, a
+`narrative`, a superseded tool output), are carried with its detail; and a unit the no-contents
+guard rejected, a scan or source failure, and the §2.7 skill-body warnings are reports about
+withheld, unavailable or host-side material, not omissions a call could undo.
+
+*Review correction (2026-09-23).* As first built, the skill-index drops said only "did not fit the
+rehydration budget" and a shown elimination's drop said "call already_tried(target, approach)",
+which named no target or approach the model could pass: the paragraph above claimed more than the
+code did. Both now carry the pointers listed (`TestSkillIndex_BudgetDropNamesTheSkillFile`,
+`TestSkillIndex_DropsReportUnindexedSkills`, `TestEliminations_BudgetDropNamesItsOwnQuery`), and the
+`no-checkpoint` and `state.json` goldens were re-recorded through `-update` for that change alone.
 
 **Min-fill.** It re-admits toward `minTokens` inside both bounds and never spends item 7's reserve.
 Under the baseline estimator the ceiling now binds first, so an unset build fills to the ceiling

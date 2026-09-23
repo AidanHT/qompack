@@ -312,8 +312,11 @@ revising §8.6 and ADR 0011 to match. This record belongs to C1.14.
   says how: whole records, each omission named with its restoring call, in a bounded report that
   itself fits the ceiling. The declared version is v1.6 and the Revision log carries the entry.
 - ADR 0011 §21 records the implementation (two-dimensional admission with exact character pricing,
-  record-level tier 1, the reserved drop-report floor, pointers in every drop detail) and what it
-  refines in §4, §6 and §18.
+  record-level tier 1, the reserved drop-report floor, a restoring call in the detail of every record
+  the budget or the ceiling leaves out) and what it refines in §4, §6 and §18. The review of C1.14
+  found the skill-index and shown-elimination drops without one; they now carry `Read <SKILL.md>` and
+  `already_tried(target="…", approach="…")`, and §21 names the drop entries that are counts or reports
+  rather than records.
 
 ### What did not change
 
@@ -331,9 +334,15 @@ revising §8.6 and ADR 0011 to match. This record belongs to C1.14.
   cap is covered only by the 500-character headroom and by the hook client's Loud line, which still
   fires on any over-cap field.
 - The other hook outputs Qompack emits are outside C1.14's scope and are not bounded by it: the
-  `UserPromptSubmit` thrash-warning context (one line per newly looping grammar rule) and the
-  `SessionStart` degradation banner, which quotes contract-result strings. Both are routed as open
-  items in the C1.14 report.
+  `UserPromptSubmit` thrash-warning context (one line per newly looping grammar rule, joined with no
+  count bound; `internal/observer`) and the `SessionStart` degradation banner (`systemMessage`), which
+  quotes contract-result `Expected`/`Observed` strings with no length bound (`internal/daemon`
+  `degradeBanner`). So D5's third requirement — nothing in any hook output relies on the host's
+  file-path fallback — holds for the compact rehydration only. The code excerpt is committed at
+  `plans/sdd/V6-closeout/rehydrate-cap/evidence/review-fix/unbounded-hook-outputs.txt`; both items,
+  with owners (daemon for the banner, observer for the warning), are handed to the coordinator for
+  `plans/V6-CLOSEOUT-CHECKLIST.md` in the C1.14 workstream report, which the coordinator commits at
+  `plans/sdd/V6-closeout/rehydrate-cap/report.md` as it did for the packaging workstream.
 
 ### Sources
 

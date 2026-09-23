@@ -333,8 +333,9 @@ purpose. Each one left out is named in section 7 with the call that restores it;
 means the section itself ran out of room, not that anything went unrecorded. Raising
 `runtime.rehydrate.maxTokens` does not change this: the character ceiling binds first.
 
-**Action.** Make the call section 7 names for the record you need — `why`, `re_read`, `expand`, or a
-`Read` of the rule or checkpoint file — or `dropped()` for the complete list, which is read from
+**Action.** Make the call section 7 names for the record you need — `why`, `re_read`, `expand`,
+`already_tried` with the quoted target and approach, or a `Read` of the rule, skill or checkpoint
+file — or `dropped()` for the complete list, which is read from
 `.qompack/state/rehydrate-<session>.json` and is never truncated. If the resumed session instead
 shows a `<persisted-output>` note with a file path, or `.qompack/logs/LOUD.log` has a line saying
 "hook output exceeds the host's per-field cap", that is a defect: the rehydration is built never to
