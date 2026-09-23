@@ -1,0 +1,19 @@
+# failing-test output extracted from /work/cx-ingest-a98bf9c-20260923T000523Z-race5-artifacts/test.jsonl
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (5.46s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (7.62s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (7.07s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+    delivery_order_live_test.go:680: 
+        	Error Trace:	/work/cx-ingest-a98bf9c-20260923T000523Z-race5/internal/daemon/delivery_order_live_test.go:680
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- FAIL: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (8.92s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+    delivery_order_live_test.go:680: 
+        	Error Trace:	/work/cx-ingest-a98bf9c-20260923T000523Z-race5/internal/daemon/delivery_order_live_test.go:680
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- FAIL: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (8.39s)

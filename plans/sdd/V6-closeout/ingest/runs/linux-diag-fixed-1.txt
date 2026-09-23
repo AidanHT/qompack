@@ -1,0 +1,60 @@
+hook 00 took 28.186093ms; index=0 client_spools=1
+hook 01 took 26.72626ms; index=0 client_spools=2
+hook 02 took 32.602313ms; index=0 client_spools=3
+hook 03 took 31.919256ms; index=0 client_spools=4
+hook 04 took 35.188384ms; index=0 client_spools=5
+hook 05 took 28.802864ms; index=0 client_spools=6
+hook 06 took 30.584645ms; index=0 client_spools=7
+hook 07 took 30.135557ms; index=0 client_spools=8
+hook 08 took 36.687755ms; index=0 client_spools=9
+hook 09 took 74.230479ms; index=0 client_spools=10
+hook 10 took 57.956133ms; index=0 client_spools=11
+hook 11 took 32.816578ms; index=0 client_spools=12
+hook 12 took 26.884835ms; index=0 client_spools=13
+hook 13 took 31.517114ms; index=0 client_spools=14
+hook 14 took 25.960699ms; index=0 client_spools=15
+hook 15 took 34.709028ms; index=0 client_spools=16
+hook 16 took 33.41384ms; index=0 client_spools=17
+hook 17 took 33.301554ms; index=0 client_spools=18
+hook 18 took 38.48811ms; index=0 client_spools=19
+hook 19 took 41.801679ms; index=0 client_spools=20
+hook 20 took 26.786934ms; index=0 client_spools=21
+hook 21 took 30.679008ms; index=0 client_spools=22
+hook 22 took 25.954716ms; index=0 client_spools=23
+hook 23 took 33.51281ms; index=0 client_spools=24
+hook 24 took 28.578933ms; index=0 client_spools=25
+hook 25 took 26.804589ms; index=0 client_spools=26
+hook 26 took 32.069867ms; index=0 client_spools=27
+hook 27 took 31.21002ms; index=0 client_spools=28
+hook 28 took 30.471725ms; index=0 client_spools=29
+hook 29 took 33.591165ms; index=0 client_spools=30
+hook 30 took 26.146751ms; index=0 client_spools=31
+hook 31 took 26.560829ms; index=0 client_spools=32
+hook 32 took 28.294181ms; index=0 client_spools=33
+hook 33 took 29.709271ms; index=0 client_spools=34
+hook 34 took 36.349533ms; index=0 client_spools=35
+hook 35 took 33.964766ms; index=0 client_spools=36
+hook 36 took 37.442993ms; index=1 client_spools=37
+hook 37 took 25.293213ms; index=1 client_spools=38
+hook 38 took 25.801209ms; index=1 client_spools=39
+hook 39 took 25.760687ms; index=1 client_spools=40
+=== after-hooks at +1.938038891s: index=1 client_spools=43 hot=sync
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter observer.tombstone=1
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":42,"P50":131072000,"P95":589824000,"P99":589824000,"P999":589824000,"Max":578000000},"hook_controlled_observed":{"N":42,"P50":2048000,"P95":8192000,"P99":11264000,"P999":11264000,"Max":11000000},"l0_ingest":{"N":43,"P50":122880000,"P95":589824000,"P99":589824000,"P999":589824000,"Max":574714000},"l0_process":{"N":1,"P50":1179648000,"P95":1179648000,"P99":1179648000,"P999":1179648000,"Max":1067949000}}
+  budgets null
+=== indexed-44-after-36s at +37.981415996s: index=44 client_spools=43 hot=sync
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter l0_prompt_reply_late=1
+  counter observer.subagent_capture=1
+  counter observer.tombstone=40
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":44,"P50":131072000,"P95":589824000,"P99":589824000,"P999":589824000,"Max":578000000},"hook_controlled_observed":{"N":44,"P50":2048000,"P95":8192000,"P99":11264000,"P999":11264000,"Max":11000000},"l0_ingest":{"N":44,"P50":122880000,"P95":589824000,"P99":589824000,"P999":589824000,"Max":574714000},"l0_process":{"N":44,"P50":851968000,"P95":1310720000,"P99":1441792000,"P999":1441792000,"Max":1377579000}}
+  budgets null
+commit=3336cf8ebd05a67b76fbe2cc7c84dec59b9eb05a
+ 01:13:03 up 1 day, 12:40,  0 user,  load average: 5.63, 6.88, 7.89

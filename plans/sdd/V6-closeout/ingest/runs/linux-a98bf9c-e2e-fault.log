@@ -1,0 +1,28 @@
+/work/cx-ingest-a98bf9c-20260923T000523Z.bundle: OK
+run_id=cx-ingest-a98bf9c-20260923T000523Z-e2e-fault
+commit=a98bf9c60c0da359034b4728e92ba87c136eb49d
+tree=bbad98c5c54ec66753008d4f04152703d33830f4
+bundle_sha256=df2ac3a02ac4f22285adbd6e88344bf149c19348360331a727401d2fec15a199
+started_utc=2026-09-23T00:35:25Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^(TestE2E_ObserverThroughDaemon|TestE2E_ThinSliceDropsControlOnlyEdges|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently|TestFault_.*)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+FAIL      github.com/qompack/qompack/test/e2e  (pass=1 fail=2 skip=0)
+    FAIL TestE2E_ObserverThroughDaemon
+    FAIL TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+PASS      github.com/qompack/qompack/test/fault  (pass=51 fail=0 skip=0)
+go_test_exit=1
+exit=1
+host_exit=1

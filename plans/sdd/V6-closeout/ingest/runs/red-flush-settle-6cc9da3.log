@@ -1,0 +1,32 @@
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+    delivery_order_live_test.go:642: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_live_test.go:642
+        	Error:      	Should be true
+        	Test:       	TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+        	Messages:   	the flush finishes once the session's earlier deliveries have: "daemon: drain: delivery still in progress"
+--- FAIL: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (1.22s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+    delivery_order_live_test.go:678: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_live_test.go:678
+        	Error:      	Not equal: 
+        	            	expected: []string{"prompt_sess-flush-parked_0@0", "toolu_lane_01@0", "prompt_sess-flush-parked_1@1", "toolu_lane_02@1"}
+        	            	actual  : []string{"prompt_sess-flush-parked_0@0", "toolu_lane_01@1", "prompt_sess-flush-parked_1@1", "toolu_lane_02@2"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -2,5 +2,5 @@
+        	            	  (string) (len=28) "prompt_sess-flush-parked_0@0",
+        	            	- (string) (len=15) "toolu_lane_01@0",
+        	            	+ (string) (len=15) "toolu_lane_01@1",
+        	            	  (string) (len=28) "prompt_sess-flush-parked_1@1",
+        	            	- (string) (len=15) "toolu_lane_02@1"
+        	            	+ (string) (len=15) "toolu_lane_02@2"
+        	            	 }
+        	Test:       	TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+        	Messages:   	the parked session is published in arrival order before SessionEnd
+--- FAIL: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (2.54s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	4.040s
+FAIL
+exit=1

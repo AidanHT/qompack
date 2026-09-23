@@ -1,0 +1,24 @@
+=== RUN   TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+    delivery_order_live_test.go:530: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_live_test.go:530
+        	Error:      	Not equal: 
+        	            	expected: []int{0, 0, 0}
+        	            	actual  : []int{0, 1, 2}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -2,4 +2,4 @@
+        	            	  (int) 0,
+        	            	- (int) 0,
+        	            	- (int) 0
+        	            	+ (int) 1,
+        	            	+ (int) 2
+        	            	 }
+        	Test:       	TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+        	Messages:   	no session is released while the pass can still dispatch its lines
+--- FAIL: TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass (4.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	4.415s
+FAIL
+exit=1
