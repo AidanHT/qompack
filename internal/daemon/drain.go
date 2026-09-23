@@ -206,11 +206,14 @@ type DrainConfig struct {
 	// drain itself before any of it is consumed (drainer.durableEnd). A nil SyncedWAL treats every
 	// file as not held.
 	SyncedWAL func(path string) (synced int64, held bool)
-	// Released is told the session of every leased line the drain consumes — acknowledged by this
-	// pass, found already acknowledged or complete, or retired by a proven denial. The daemon wires
-	// the ingest's wakeSession: a live successor the worker pool parked behind that delivery
-	// (delivery_order.go's lanes) is then run again at once rather than at the next drain. It must
-	// not block. A nil Released tells nobody.
+	// Released is told, once per pass and only when the pass is over, every session of which the
+	// pass consumed a leased line — acknowledged by the pass, found already acknowledged or complete,
+	// or retired by a proven denial. The daemon wires the ingest's wakeSession: a live successor the
+	// worker pool parked behind such a delivery (delivery_order.go's lanes) is then run again at once
+	// rather than at the next drain. Not mid-pass: a lane woken then would dispatch the session's
+	// next queued job while this pass was still to read that job's line, and the pass would meet it
+	// in progress and stop. It is called with the drain's mutex held, so it must not block or drain.
+	// A nil Released tells nobody.
 	Released func(sess core.SessionID)
 }
 
@@ -237,6 +240,9 @@ type drainer struct {
 	// unsyncedNoted names each spool file whose sync has failed since its last one that succeeded, so
 	// that noteUnsynced announces the failure Loud once, not on every pass. Guarded by mu.
 	unsyncedNoted map[string]bool
+	// releasedSessions collects the sessions DrainConfig.Released is told about when the pass in
+	// progress ends. Guarded by mu.
+	releasedSessions map[core.SessionID]struct{}
 	// wedgeNoted records that this drainer has already announced a refused progress state, so the
 	// Loud below fires once for a wedge rather than on every idle tick. Cleared by the first pass
 	// that gets past validateProgress, so a wedge that returns later is announced again. Guarded
@@ -274,7 +280,8 @@ func newDrainer(cfg DrainConfig) *drainer {
 func (dr *drainer) Drain(ctx context.Context) (int, error) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
-	dr.dirSynced = false // a file created since the last pass has an entry that pass's sync missed
+	defer dr.releaseSessions() // however the pass ends, and before mu is released
+	dr.dirSynced = false       // a file created since the last pass has an entry that pass's sync missed
 
 	spoolDir := paths.Of(dr.cfg.Root).Spool
 	files, err := ipc.SpoolFiles(spoolDir)
@@ -1442,11 +1449,25 @@ func (dr *drainer) leaseDelivery(ctx context.Context, req ipc.Request) (delivery
 	return lease, true
 }
 
-// released tells DrainConfig.Released that the drain consumed a line of lease's session.
+// released records that the pass consumed a line of lease's session, for releaseSessions to report
+// when the pass ends. mu must be held.
 func (dr *drainer) released(lease deliveryLease) {
-	if dr.cfg.Released != nil {
-		dr.cfg.Released(lease.Session)
+	if dr.cfg.Released == nil {
+		return
 	}
+	if dr.releasedSessions == nil {
+		dr.releasedSessions = map[core.SessionID]struct{}{}
+	}
+	dr.releasedSessions[lease.Session] = struct{}{}
+}
+
+// releaseSessions tells DrainConfig.Released every session the finished pass recorded, once each,
+// and forgets them. mu must be held.
+func (dr *drainer) releaseSessions() {
+	for sess := range dr.releasedSessions {
+		dr.cfg.Released(sess)
+	}
+	dr.releasedSessions = nil
 }
 
 // commitDelivery writes the committed-frontier record for a drained delivery.
