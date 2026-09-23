@@ -89,6 +89,9 @@ type hostSnapshot struct {
 	once  sync.Once
 	rules *hostperm.RuleSet
 	err   error
+
+	rootOnce sync.Once
+	root     string
 }
 
 // withHostSnapshot attaches an unloaded snapshot to ctx. invoke calls it for every tool call.
@@ -116,32 +119,62 @@ func (h *handlers) hostRules(ctx context.Context) (*hostperm.RuleSet, error) {
 	return snap.rules, snap.err
 }
 
+// resolvedRoot is the project root as filepath.EvalSymlinks spells it — the base paths.Norm measures
+// an adopted resolution from — computed once per call.
+func (h *handlers) resolvedRoot(ctx context.Context) string {
+	resolve := func() string {
+		if r, err := filepath.EvalSymlinks(h.root); err == nil {
+			return r
+		}
+		return h.root
+	}
+	snap, ok := ctx.Value(hostSnapshotKey{}).(*hostSnapshot)
+	if !ok {
+		return resolve()
+	}
+	snap.rootOnce.Do(func() { snap.root = resolve() })
+	return snap.root
+}
+
 // authorizeHost applies the host's current Read deny and ask rules to one path that has already
 // passed containment. It returns nil when no rule this package can see refuses the read; otherwise
 // the refusal body to render.
 //
-// path is the spelling the record (or the caller) gave — project-relative or absolute — never the
-// paths.Norm result. Norm adopts an in-project symlink's target, and the host applies a deny rule
-// when EITHER a link's own path or its target matches: judging the normalized path alone lost the
-// link's spelling on every platform whose EvalSymlinks follows links (reproduced on Linux,
-// plans/sdd/V6-closeout/hostperm/runs/04-link-spelling-linux-red.log). hostperm resolves the
-// spelling itself, so both are checked.
+// Two spellings are judged, and a refusal of either refuses the read (deny before ask):
+//
+//   - path, the spelling the record (or the caller) gave, project-relative or absolute. Norm adopts
+//     an in-project symlink's target, and the host applies a deny rule when EITHER a link's own path
+//     or its target matches, so judging the normalized path alone lost the link's spelling
+//     (reproduced on Linux, plans/sdd/V6-closeout/hostperm/runs/04-link-spelling-linux-red.log).
+//   - norm, the paths.Norm result, joined to the root as EvalSymlinks spells it. Its key is the
+//     history re_read serves, and on Windows Norm's EvalSymlinks turns `secret.env.`, `secret.env `
+//     and `CREDEN~1.SEC` into the real name, so judging the caller's spelling alone let an alias
+//     walk past a rule on that name (C1.9 review findings 1 and 4, runs/70-spelling-red-windows.log).
+//
+// hostperm then judges every spelling of each that opens the same file, and where each resolves.
 //
 // It is deliberately NOT a claim that the host would allow the read. Session-only rules, CLI
 // flags, hooks and an embedding host's policy are invisible to a plugin (internal/hostperm's
 // package comment lists them); what this enforces is every rule saved in a settings file the host
 // reads, fail-closed when one of those files cannot be read.
-func (h *handlers) authorizeHost(ctx context.Context, path string) any {
+func (h *handlers) authorizeHost(ctx context.Context, path, norm string) any {
 	rules, err := h.hostRules(ctx)
 	if err != nil {
 		return unavailable(hostUnavailableReason)
+	}
+	if rules.Empty() {
+		return nil
 	}
 	abs := path
 	if !filepath.IsAbs(abs) {
 		abs = filepath.Join(h.root, filepath.FromSlash(path))
 	}
-	d := rules.Evaluate(abs)
-	switch d.Effect {
+	effect := rules.Evaluate(abs).Effect
+	if canon := filepath.Join(h.resolvedRoot(ctx), filepath.FromSlash(norm)); effect != hostperm.Deny &&
+		canon != abs {
+		effect = stricter(effect, rules.Evaluate(canon).Effect)
+	}
+	switch effect {
 	case hostperm.Deny:
 		h.m.Counter("mcp.host_policy_denied").Add(1)
 		return denied(hostDeniedReason)
@@ -150,6 +183,17 @@ func (h *handlers) authorizeHost(ctx context.Context, path string) any {
 		return denied(hostAskReason)
 	}
 	return nil
+}
+
+// stricter returns whichever of two host answers refuses more: deny, then ask, then allow.
+func stricter(a, b hostperm.Effect) hostperm.Effect {
+	switch {
+	case a == hostperm.Deny || b == hostperm.Deny:
+		return hostperm.Deny
+	case a == hostperm.Ask || b == hostperm.Ask:
+		return hostperm.Ask
+	}
+	return hostperm.Allow
 }
 
 // authorizePath reports whether path may be resolved before its content is materialized: nil
@@ -168,7 +212,7 @@ func (h *handlers) authorizePath(ctx context.Context, path string) any {
 	if !paths.ResolvesInside(h.root, norm) {
 		return denied(authorizedDenialReason)
 	}
-	return h.authorizeHost(ctx, path)
+	return h.authorizeHost(ctx, path, norm)
 }
 
 // authorizeOrigin preserves legitimate pathless records without upgrading a lost
