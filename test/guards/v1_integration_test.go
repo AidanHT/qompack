@@ -279,6 +279,11 @@ var v1CoverageFloors = map[string]int{
 	// reaching the transform path — is a safety property whose failure mode is delivering something
 	// it should not have. The package measures 100% at its contract slice. Refs: V5, SP-21.
 	"admission": 90,
+	// hostperm (V6 close-out C1.9) joins the 90% group for admission's reason: its job is to
+	// refuse, and each rule it evaluates — a deny pattern, a carve-out that may not reopen a blocked
+	// directory, a settings file that must fail closed when it cannot be read — is a safety property
+	// whose failure mode is serving archived content the host now denies. Refs: V6, SP-13.
+	"hostperm": 90,
 
 	"scheduler": 85, "dag": 85, "analyzer": 85, "rehydrate": 85, "eval": 85, "mcp": 85,
 }

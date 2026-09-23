@@ -15,6 +15,7 @@ import (
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
@@ -111,6 +112,10 @@ type fixture struct {
 	Clock   *fakeClock
 	Deps    ToolDeps
 	Server  Server
+	// Home and Managed are the hermetic user home and managed-policy directory the fixture's host
+	// policy reads (V6-HOST-1), so no test depends on the settings of the machine it runs on.
+	Home    string
+	Managed string
 
 	// huge records whether seed should also store the 400 000-byte object the response-cap tests
 	// page through. It is off by default because chunking it costs a second per fixture, and only
@@ -288,6 +293,12 @@ func newFixture(t *testing.T, opts ...fixtureOpt) *fixture {
 	if !c.noRedactor {
 		f.Deps.Redactor = testRedactor{r: redact.New(cfg)}
 	}
+	f.Home, f.Managed = t.TempDir(), t.TempDir()
+	f.Deps.HostPolicy = hostperm.New(hostperm.Options{
+		ProjectRoot: root, Home: f.Home,
+		Getenv:  func(string) string { return "" },
+		Managed: &hostperm.ManagedSources{Dirs: []string{f.Managed}},
+	})
 
 	f.Server = NewServerWithOptions(ServerOptions{
 		Name: ServerName, Version: core.Version, Log: logging.Nop(),

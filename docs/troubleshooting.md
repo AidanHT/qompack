@@ -280,7 +280,13 @@ record's fidelity through `expand`.
 **Meaning.**
 
 - **`denied` is not empty.** A policy or privacy decision refused this read. Something exists and
-  you may not have it. Reading it as "there is nothing here" inverts the answer.
+  you may not have it. Reading it as "there is nothing here" inverts the answer. A reason that names
+  "the host's current permission rules" means a `Read` deny or ask rule in a Claude Code settings
+  file matches the archived path today; the archive follows the rule, so change the rule, not the
+  query. An `unavailable` whose reason begins "host policy unavailable" means one of those settings
+  files exists but could not be read or parsed, or that together they hold more than 5000 Read path
+  rules; every answer with a file path is withheld until it is fixed
+  ([docs/security.md §1](security.md#1-trust-boundaries)).
 - **`unavailable` is not `absent`.** The lookup failed, so the answer is *unknown*. It is never a
   licence to conclude the thing does not exist, and — per
   [docs/mcp-tools.md](mcp-tools.md#already_tried) — an `unavailable` or unrecognized state "never

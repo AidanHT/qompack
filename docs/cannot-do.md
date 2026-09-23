@@ -295,6 +295,27 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `Qompack.md` v1.5 §12 (both the risk-register row and "What this plugin cannot
   do"); [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states).
 
+### It cannot see every host permission rule
+
+- **Limit.** Qompack re-applies the `Read` deny and ask rules saved in Claude Code's settings files
+  to every archived retrieval, but it cannot see rules that exist only in the running session: rules
+  added with `/permissions` for the session alone, `--allowedTools`, `--disallowedTools`,
+  `--settings` and `--setting-sources` flags, PreToolUse hooks that refuse reads, an embedding
+  host's managed settings, a managed `policyHelper`'s output, or the session's working directory
+  when it is not the project root. Content captured without a path — shell output — has nothing for
+  a path rule to match, so `cat .env` archived as shell output is served even under `Read(./.env)`.
+- **Why.** The host offers no interface through which an MCP server can ask whether a native Read of
+  a path would be allowed now; the settings files are the only part of that decision a plugin can
+  read. Checked against the permissions and settings documentation on 2026-09-22.
+- **What Qompack does instead.** It reads every settings file the host reads (managed, cached
+  server-managed, user, project and local), re-reads one as soon as it changes, refuses an ask rule
+  as well as a deny rule, answers `unavailable` ("host policy unavailable") for every path-bearing
+  record while a settings file exists but cannot be read or parsed, and takes the more refusing
+  reading wherever the documentation leaves one open. The refusal never echoes the path or the rule
+  — [docs/security.md §1](security.md#1-trust-boundaries).
+- **Recorded at.** `internal/hostperm`'s package comment; the evidence under
+  `plans/sdd/V6-closeout/hostperm/runs/`.
+
 ### Redaction is applied at capture, and telemetry is hardwired off
 
 - **Limit.** Qompack cannot retroactively redact what it already stored, and it cannot send

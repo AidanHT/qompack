@@ -129,7 +129,9 @@ var allow = map[string][]string{
 	"checkpoint": {"store", "dag", "negknow", "pins", "grammar", "tokens"},
 	"rehydrate":  {"checkpoint", "store", "negknow", "dag", "rules", "skills", "tokens"},
 
-	"mcp": {"store", "negknow", "checkpoint"},
+	// mcp gains hostperm at the V6 close-out (C1.9, V6-HOST-1): every retrieval form re-checks a
+	// stored path against the host's current Read deny and ask rules before content is served.
+	"mcp": {"store", "negknow", "checkpoint", "hostperm"},
 
 	"contract": {"hookio", "store"},
 	"ipc":      {"hookio", "contract"},
@@ -150,4 +152,9 @@ var allow = map[string][]string{
 	// at a composition root. If a future slice needs a real internal/ import, that is another
 	// amendment to §3.2 — which is exactly the control this table exists to impose.
 	"admission": {},
+
+	// hostperm (V6 close-out C1.9, owned by SP-13) is foundation-only: it reads Claude Code's
+	// settings files and evaluates their Read deny/ask rules for one path, which needs paths and
+	// core and nothing else in internal/. mcp is its only consumer.
+	"hostperm": {},
 }

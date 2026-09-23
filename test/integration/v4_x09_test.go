@@ -101,6 +101,7 @@ func x9v4Open(t *testing.T) *x9v4Rig {
 	srv := mcp.NewServer(mcp.ServerName, "v4-x09", logging.Nop())
 	require.NoError(t, mcp.RegisterAll(srv, mcp.ToolDeps{
 		Store: s, Cfg: p.Cfg, ProjectRoot: p.Root, DisableWhy: true,
+		HostPolicy: hermeticHostPolicy(t, p.Root),
 		// mcp fails CLOSED without a retrieval-side redactor (T20-M2-04): `expand` would report
 		// itself unavailable and the growth walk below would measure nothing. Supplying it is the
 		// composition root's job, and for this rig that is here.
