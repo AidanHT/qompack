@@ -410,6 +410,19 @@ func cpRequireHostConformingPreCompact(t *testing.T, out hookio.Output) {
 // instruction in it. See v4Rig.PreCompactReply for why a row reads the instruction here.
 func cpPreCompactReply(t *testing.T, root string, sess core.SessionID) (hookio.Output, string) {
 	t.Helper()
+	return cpPreCompactReplyFor(t, root, hookio.Event{
+		HookEventName:  "PreCompact",
+		SessionID:      sess,
+		CWD:            root,
+		TranscriptPath: filepath.Join(root, "transcript.jsonl"),
+		Trigger:        "auto",
+	})
+}
+
+// cpPreCompactReplyFor is cpPreCompactReply for a caller that holds the whole PreCompact event, such
+// as a frozen host payload, rather than only its session.
+func cpPreCompactReplyFor(t *testing.T, root string, ev hookio.Event) (hookio.Output, string) {
+	t.Helper()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
 	sp, err := ipc.NewSpool(paths.Of(root).Spool)
@@ -421,17 +434,10 @@ func cpPreCompactReply(t *testing.T, root string, sess core.SessionID) (hookio.O
 	})
 	defer func() { _ = c.Close() }()
 
-	ev := hookio.Event{
-		HookEventName:  "PreCompact",
-		SessionID:      sess,
-		CWD:            root,
-		TranscriptPath: filepath.Join(root, "transcript.jsonl"),
-		Trigger:        "auto",
-	}
 	raw, err := json.Marshal(map[string]string{"trigger": ev.Trigger})
 	require.NoError(t, err)
 	resp, err := c.Send(context.Background(), ipc.Request{
-		Op: ipc.OpCheckpoint, Session: sess, TS: core.NowMilli(core.SystemClock()), Reply: true,
+		Op: ipc.OpCheckpoint, Session: ev.SessionID, TS: core.NowMilli(core.SystemClock()), Reply: true,
 		Event: &ev, Raw: raw,
 	}, cpCheckpointReplyDeadline)
 	require.NoError(t, err, "the checkpoint route must answer over IPC")
