@@ -1,0 +1,19 @@
+# run: 32-dispatch-gate-linux
+# commit: 60d9846404b19c5465c997e5093b3714b16bc2f0
+# container: qompack-v6-linux-verification (Linux 5.15.167.4-microsoft-standard-WSL2 x86_64 go version go1.26.6 linux/amd64 )
+# user: qompack-test; GOMAXPROCS=4; CGO_ENABLED=0
+# started: 2026-09-23T05:17:59Z
+# command: go test  ./internal/daemon -run ^$ -bench ^BenchmarkDeliveryRolloverDispatchGate$ -benchtime 1x -count=1 -timeout 60m
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkDeliveryRolloverDispatchGate-4   	       1	21496347180 ns/op
+--- BENCH: BenchmarkDeliveryRolloverDispatchGate-4
+    delivery_rollover_archive_bench_test.go:121: gate, empty generation store: 20000 calls, mean 6.432µs per call; per-call mean of each 100-call batch: p50 5.587µs, p90 8.96µs, p99 14.871µs, max 17.439µs
+    delivery_rollover_archive_bench_test.go:121: gate, 5 archived windows, first calls: 20000 calls, mean 16.516µs per call; per-call mean of each 100-call batch: p50 14.598µs, p90 24.001µs, p99 49.307µs, max 77.118µs
+    delivery_rollover_archive_bench_test.go:121: gate, 5 archived windows, warm: 20000 calls, mean 14.135µs per call; per-call mean of each 100-call batch: p50 12.966µs, p90 17.279µs, p99 26.748µs, max 29.548µs
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	21.597s
+# finished: 2026-09-23T05:18:36Z
+# exit: 0
