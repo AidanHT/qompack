@@ -1,0 +1,34 @@
+=== RUN   TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+    install_test.go:537: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:537: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-1443698575 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:537: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:599: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_test.go:599
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+        	Messages:   	a newer artifact is a support gap, not a defect: 
+        	            	  index.tool_use (severity 2, count 1): tool_use toolu_sp17_sess-e2e-sp17-unknown-schema_2_00 reports turn 0 after turn 1 in session sess-e2e-sp17-unknown-schema; turns are monotone
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- FAIL: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (34.81s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	35.029s
+FAIL

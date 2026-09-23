@@ -1,0 +1,33 @@
+=== RUN   TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+    install_test.go:537: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:537: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-1000283668 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:537: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:627: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_helpers_test.go:970
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_test.go:627
+        	Error:      	Condition never satisfied
+        	Test:       	TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+        	Messages:   	index/tool_use.jsonl never reached 26 records after a session through C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting2515643356\001\claude-home\plugins\cache\qompack-rehearsal\qompack\0.1.0\bin\qompack.exe
+    zz_debug_keep_test.go:41: DEBUG: kept C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting2515643356\002\project at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\keepE2b\unknown-schema
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- FAIL: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (80.50s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	80.760s
+FAIL

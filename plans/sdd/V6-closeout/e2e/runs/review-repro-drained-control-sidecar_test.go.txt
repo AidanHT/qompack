@@ -1,0 +1,69 @@
+package daemon
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/store"
+)
+
+// REVIEW REPRO (closeout/e2e, not committed as a live test): the hook client mints a nonce for
+// EVERY hook it sends (cli/hookclient.go), so a flush or checkpoint that falls back to the client
+// spool reaches the drain leased, and dispatchPending publishes a capture sidecar for any leased
+// line. The live path never does: only observe.tool/prompt/stop reach ingest.Accept. The store's
+// publication audit and fsck's captures row accept only the three observe ops.
+func TestReviewRepro_DrainedControlLineWritesNoCaptureSidecar(t *testing.T) {
+	for _, tc := range []struct {
+		op   ipc.Op
+		hook string
+	}{
+		{ipc.OpFlush, "SessionEnd"},
+		{ipc.OpCheckpoint, "PreCompact"},
+	} {
+		t.Run(string(tc.op), func(t *testing.T) {
+			root := t.TempDir()
+			_, dd, _ := wireTestDaemon(t, root, nil)
+			lock := lockFor(t, dd, root)
+			t.Cleanup(func() { _ = lock.Release() })
+			dd.drain.Store(newDrainer(dd.drainConfig()))
+			const sess core.SessionID = "sess-drained-control"
+			writeSpoolLine(t, root, "client-77777.ndjson", ipc.Request{
+				Op: tc.op, Session: sess, Reply: true, Nonce: testDeliveryToken('c'), TS: core.NowMilli(dd.clk),
+				Event: &hookio.Event{HookEventName: tc.hook, SessionID: sess, CWD: root},
+			})
+			_, err := dd.Drain(context.Background())
+			t.Logf("drain err: %v", err)
+
+			var ops []string
+			for _, p := range sidecarFiles(t, root) {
+				b, rerr := os.ReadFile(paths.Long(p))
+				require.NoError(t, rerr)
+				var sc struct {
+					Op string `json:"op"`
+				}
+				require.NoError(t, json.Unmarshal(b, &sc))
+				ops = append(ops, sc.Op)
+			}
+			s, err := store.Open(root, testConfig(), store.Deps{})
+			require.NoError(t, err)
+			defer func() { _ = s.Close() }()
+			auditor, ok := s.(interface {
+				AuditPublication(context.Context, store.PublicationScanCap) (store.PublicationAudit, error)
+			})
+			if ok {
+				a, aerr := auditor.AuditPublication(context.Background(), store.DefaultPublicationScanCap())
+				t.Logf("audit err=%v incomplete=%v notes=%v", aerr, a.Incomplete, a.Notes)
+			}
+			require.Empty(t, ops, "a %s line is not an observation, but draining it published a capture sidecar with op(s) %v",
+				tc.op, ops)
+		})
+	}
+}

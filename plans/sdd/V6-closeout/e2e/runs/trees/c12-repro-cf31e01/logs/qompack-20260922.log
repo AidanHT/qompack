@@ -1,0 +1,11 @@
+ts=2026-09-22T21:20:50.9176014Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-22T21:20:50.9588755Z level=info msg="observer: session registered" session=sess-e2e-sp17-unknown-schema source=startup turn=0 segment=1
+ts=2026-09-22T21:20:50.960513Z level=info msg="scheduler: session bound" session=sess-e2e-sp17-unknown-schema effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-22T21:20:51.6596774Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=sess-e2e-sp17-unknown-schema
+ts=2026-09-22T21:20:51.7408087Z level=info msg="observer: gc" scanned=1 deleted=0 freed=0 truncated=false
+ts=2026-09-22T21:20:53.0505719Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-22T21:20:53.1260233Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=9999-newer-plugin.json path=C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting1141025342\002\project\.qompack\checkpoints\9999-newer-plugin.json
+ts=2026-09-22T21:20:53.247387Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=10 objects_scanned=9 truncated=false notes="unexpected entry in the capture tree"
+ts=2026-09-22T21:20:53.2749707Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: session_start.source_compact (expected \"compact\", observed \"startup\")" failed=mcp.server_registered/info,session_start.source_compact/critical
+ts=2026-09-22T21:20:53.8572097Z level=warn msg="observer: stage failed" stage=segment.close err="qompack: append-only violation: segment 1 is already closed at turn 1, refused for 2"
+ts=2026-09-22T21:20:53.9338614Z level=info msg="observer: gc" scanned=10 deleted=0 freed=0 truncated=false

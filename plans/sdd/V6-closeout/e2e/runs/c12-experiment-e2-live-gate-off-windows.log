@@ -1,0 +1,81 @@
+=== RUN   TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+    install_test.go:537: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:537: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-3179457749 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:537: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:590: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_test.go:590
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+        	Messages:   	a newer artifact is a support gap, not a defect: 
+        	            	  publication (severity 1, count 1): publication audit is incomplete; zero observed gaps cannot certify completeness; unexpected entry in the capture tree
+    zz_debug_keep_test.go:41: DEBUG: kept C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting1130740423\002\project at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\keepE2\unknown-schema
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+    install_helpers_test.go:911: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_helpers_test.go:911
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1317
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1667
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2030
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/panic.go:694
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1022
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_test.go:590
+        	Error:      	Not equal: 
+        	            	expected: [REDACTED: listing of the real ~/.claude/plugins tree, removed before commit]
+        	            	actual  : [REDACTED: listing of the real ~/.claude/plugins tree, removed before commit]
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -303,2 +303,3 @@
+        	            	 data/
+        	            	+data/qompack-inline/
+        	Test:       	TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+        	Messages:   	R8-2: the user's real ~/.claude must be byte-identical across every host invocation
+    install_test.go:531: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_test.go:531
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1317
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1667
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1647
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/panic.go:694
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1022
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_helpers_test.go:911
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1317
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1667
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2030
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/panic.go:694
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1022
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_test.go:590
+        	Error:      	Not equal: 
+        	            	expected: [REDACTED: listing of the real ~/.claude/plugins tree, removed before commit]
+        	            	actual  : [REDACTED: listing of the real ~/.claude/plugins tree, removed before commit]
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -303,2 +303,3 @@
+        	            	 data/
+        	            	+data/qompack-inline/
+        	Test:       	TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+        	Messages:   	R8-2: the user's real ~/.claude must be byte-identical across every host invocation
+--- FAIL: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (39.48s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	39.881s
+FAIL

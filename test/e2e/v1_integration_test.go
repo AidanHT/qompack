@@ -385,7 +385,12 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 		require.True(t, req.Capture.Truncated)
 		require.Equal(t, len(payload), req.Capture.SourceBytes,
 			"the delivery's real size survives even though its bytes do not")
-		require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix survives as evidence")
+		// V6-AUTH-1 (00e0c98, capture-work.md "Deliberate consequence"): a cut prefix of the envelope
+		// cannot prove its file target is inside the project, so the record keeps its classification
+		// and SourceBytes and NO opaque bytes. internal/cli's TestHooks_OverBudgetDeliveryIsRecordedNotDropped
+		// pins the same delivery in process; this is its twin through the real binary.
+		require.Empty(t, req.Capture.Bytes,
+			"an incomplete envelope cannot prove scope; classification and observed size remain")
 		require.Less(t, len(req.Capture.Bytes), len(payload))
 		require.NotEmpty(t, req.Nonce, "an over-budget delivery keeps its own nonce like any other")
 	})

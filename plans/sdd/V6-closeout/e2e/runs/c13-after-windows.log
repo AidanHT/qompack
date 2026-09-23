@@ -1,0 +1,18 @@
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/project_file_wins_over_user_file
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/env_beats_both_files
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/flag_beats_everything
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_spools_a_payload_just_under_the_default_read_limit
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_rejects_a_payload_just_over_the_default_read_limit
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_never_hangs_or_crashes_on_a_grossly_oversized_payload
+--- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour (10.29s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/project_file_wins_over_user_file (2.52s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/env_beats_both_files (1.77s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/flag_beats_everything (1.60s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_spools_a_payload_just_under_the_default_read_limit (0.67s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it (0.66s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_rejects_a_payload_just_over_the_default_read_limit (0.66s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_never_hangs_or_crashes_on_a_grossly_oversized_payload (0.68s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	10.497s

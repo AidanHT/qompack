@@ -169,6 +169,12 @@ type PublicationAudit struct {
 	// Put whose root line has not landed. Not a gap; drain/GC owns it.
 	PendingObjects int
 
+	// NewerSchemaCaptures counts sidecars declaring a schema NEWER than this build. They are written by
+	// a newer plugin — a support gap (Qompack.md §7.1), never damage — and are not classified, so they
+	// make the pass Incomplete exactly like every other unreadable record. The count exists so a
+	// consumer can tell that one cause apart from the rest (IncompleteOnlyForNewerSchemas).
+	NewerSchemaCaptures int
+
 	// Incomplete is true when this pass could NOT be exhaustive: a filesystem error, an unreadable or
 	// unknown-schema/outcome record, a too-large or symlinked entry, or a budget/deadline stop. Under
 	// Incomplete the gap counts are a LOWER BOUND and must never be read as "clean" when zero.
@@ -184,6 +190,22 @@ type PublicationAudit struct {
 // Incomplete: an unpublished publishable capture, or an unindexed object candidate (the F4 cuts).
 func (a PublicationAudit) HasGaps() bool {
 	return a.UnpublishedCaptures > 0 || a.UnindexedObjectCandidates > 0
+}
+
+// noteNewerCaptureSchema is the one incompleteness note that names a support gap rather than damage.
+const noteNewerCaptureSchema = "capture sidecar schema newer than this build"
+
+// IncompleteOnlyForNewerSchemas reports whether this pass is incomplete for exactly one reason:
+// capture sidecars written by a newer build. The pass is still NOT certified — their fields are not
+// this build's to classify, so the gap counts remain a lower bound — but the cause is a support gap
+// (Qompack.md §7.1), which fsck's captures row already reports as "a support gap rather than damage".
+// Any other cause beside it — a truncation, an older or unreadable record, an unknown op or outcome,
+// an unexpected or symlinked entry, an unresolved observation intent, an interrupted scan — returns
+// false. Every cause of incompleteness is recorded through note (deduplicated), so a single note that
+// is this one means no other cause was seen; a notes list at its bound can never be length one.
+func (a PublicationAudit) IncompleteOnlyForNewerSchemas() bool {
+	return a.Incomplete && !a.Truncated && a.NewerSchemaCaptures > 0 &&
+		len(a.Notes) == 1 && a.Notes[0] == noteNewerCaptureSchema
 }
 
 // note records a generic, non-sensitive cause of incompleteness and sets Incomplete. Duplicates are
@@ -393,7 +415,8 @@ func (s *FSStore) classifyCaptureView(v captureAuditView, a *PublicationAudit) {
 		// A newer schema is a support gap; an older/zero/missing one is an unreadable version. Both
 		// mean this build cannot assert what Published/Outcome mean, so neither is classified.
 		if v.Version > CaptureSidecarVersion {
-			a.note("capture sidecar schema newer than this build")
+			a.NewerSchemaCaptures++
+			a.note(noteNewerCaptureSchema)
 		} else {
 			a.note("capture sidecar declares an unreadable version")
 		}

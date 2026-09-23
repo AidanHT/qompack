@@ -1,0 +1,42 @@
+=== RUN   TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite
+    install_test.go:325: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:325: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-4121447711 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:325: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:364: install rollback_sealed_checkpoint_restore: verified — RehearseRollback over a project that sealed a checkpoint: OK, backup verified, reader proved, writers stopped, automatic_downgrade false, evidence retained; the restored root holds the checkpoint artifact byte-for-byte. Fixed in commit 6 (ada54d1, commit6-evidence.md row 19) and its round 2: RestoreBackup writes protected artifacts through paths.CreateNew and the append-only logs through paths.RestoreLog, so the restored root can seal again (internal/store/backup.go RestoreBackup).
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite3029284816\004\rollback_sealed_checkpoint_restore.json
+    install_test.go:459: install rollback_before_first_new_write: verified — RehearseRollback(before-first-new-format-write) on a project recorded by the real launcher: refused as a RESULT beside a live daemon ("the incompatible writers could not be stopped: the qompack daemon (pid 59272) still holds C:\\Users\\Quant\\AppData\\Local\\Temp\\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite3029284816\\005\\project\\.qompack\\run\\daemon.lock"), then OK with the daemon stopped — backup verified, reader proved, writers stopped, 3 legacy ids retained, automatic_downgrade false, evidence retained
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite3029284816\004\rollback_before_first_new_write.json
+    install_test.go:464: install rollback_after_first_new_write: verified — RehearseRollback(after-first-new-format-write) against the actual new artifact: OK, 1 write enumerated in unreadable_by_old_reader (fdefaf25d11a), legacy ids still 3, automatic_downgrade false
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite3029284816\004\rollback_after_first_new_write.json
+    install_test.go:489: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/install_test.go:489
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite
+        	Messages:   	fsck over the restored root reported defects: 
+        	            	  index.tool_use (severity 2, count 1): tool_use toolu_sp17_sess-e2e-sp17-rollback_2_01 reports turn 0 after turn 1 in session sess-e2e-sp17-rollback; turns are monotone
+    zz_debug_keep_test.go:41: DEBUG: kept C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite3029284816\007\restore-pre at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\keepRB2\rollback-restored
+    zz_debug_keep_test.go:41: DEBUG: kept C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite3029284816\005\project at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\keepRB2\rollback-live
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- FAIL: TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite (72.17s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	72.494s
+FAIL

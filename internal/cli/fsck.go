@@ -795,17 +795,24 @@ func (s *fsckScan) resolveRootLine(row *fsckRowBuilder, rl fsckRootLine) {
 
 // ── 3. tool_use index ──────────────────────────────────────────────────────────────────────────
 
-// fsckToolUseLine is the subset of index/tool_use.jsonl's frozen wire shape fsck resolves.
+// fsckToolUseLine is the subset of an index/tool_use.jsonl LINE fsck resolves, spelled with the keys
+// the store writes to that file: its compact content record (internal/store tuRec: "s", "by", ...)
+// and its append-only supersede mutation ({"op":"supersede","id","by"}). It is deliberately NOT
+// store.ToolUseRecord's long-key MarshalJSON shape ("session", "superseded_by"), which is the TYPE's
+// frozen contract and is never what this file holds: decoded with those keys every session reads as
+// "" and every supersession link as absent, which silently turned the per-session turn check into a
+// cross-session one and left the link check with nothing to check.
 type fsckToolUseLine struct {
-	ID           string `json:"id"`
-	Session      string `json:"session"`
-	Turn         int64  `json:"turn"`
-	Tool         string `json:"tool"`
-	Root         string `json:"root"`
-	Path         string `json:"path"`
-	Status       int    `json:"status"`
-	SupersededBy string `json:"superseded_by"`
+	Op      string `json:"op"`
+	ID      string `json:"id"`
+	Session string `json:"s"`
+	Turn    int64  `json:"turn"`
+	Root    string `json:"root"`
+	By      string `json:"by"`
 }
+
+// fsckToolUseSupersede is the Op of the store's supersede mutation line (MarkSuperseded).
+const fsckToolUseSupersede = "supersede"
 
 // checkToolUse resolves every tool_use record's root by finalize.go's OWN rule — the object is
 // held, or the root resolves and every chunk it names is held — because that is exactly what
@@ -830,6 +837,7 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 	}
 
 	records := make([]fsckToolUseLine, 0, len(lines))
+	var marks []fsckToolUseLine
 	ids := make(map[string]bool, len(lines))
 	for i, raw := range lines {
 		var tu fsckToolUseLine
@@ -841,10 +849,27 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 			row.defect("index/tool_use.jsonl:%d carries no tool_use id", i+1)
 			continue
 		}
+		if tu.Op == fsckToolUseSupersede {
+			// A mark is a LINK between two records, not a record: it has no session and no turn, so
+			// it neither joins the turn ordering nor counts toward the population scanned.
+			marks = append(marks, tu)
+			continue
+		}
 		ids[tu.ID] = true
 		records = append(records, tu)
 	}
 	row.scan(len(records))
+
+	// The store refuses a mark whose either end it does not hold (MarkSuperseded: ErrNotFound), so a
+	// mark in the file that names a record the file does not carry is damage at either end.
+	for _, m := range marks {
+		if !ids[m.ID] {
+			row.defect("a supersede mark names %s, which this index does not record", m.ID)
+		}
+		if m.By == "" || !ids[m.By] {
+			row.defect("tool_use %s is superseded by %s, which this index does not record", m.ID, m.By)
+		}
+	}
 
 	lastTurn := map[string]int64{}
 	for _, tu := range records {
@@ -854,9 +879,9 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 		}
 		lastTurn[tu.Session] = tu.Turn
 
-		if tu.SupersededBy != "" && !ids[tu.SupersededBy] {
+		if tu.By != "" && !ids[tu.By] {
 			row.defect("tool_use %s is superseded by %s, which this index does not record",
-				tu.ID, tu.SupersededBy)
+				tu.ID, tu.By)
 		}
 		if tu.Root == "" || fsckIsZeroHash(tu.Root) || s.fsckHashHeld(tu.Root) {
 			continue

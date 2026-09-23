@@ -1,0 +1,43 @@
+package e2e
+
+// TEMPORARY, NEVER COMMITTED: preserves a project tree for C1.2 diagnosis.
+
+import (
+	"io/fs"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+func debugKeepTree(t *testing.T, root, label string) {
+	dst := os.Getenv("QOMPACK_DEBUG_KEEP")
+	if dst == "" {
+		return
+	}
+	t.Cleanup(func() {
+		out := filepath.Join(dst, label)
+		_ = filepath.WalkDir(paths.Long(root), func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			rel, rerr := filepath.Rel(paths.Long(root), p)
+			if rerr != nil {
+				return nil
+			}
+			target := filepath.Join(out, rel)
+			if d.IsDir() {
+				_ = os.MkdirAll(paths.Long(target), 0o700)
+				return nil
+			}
+			b, rerr := os.ReadFile(p)
+			if rerr != nil {
+				return nil
+			}
+			_ = os.WriteFile(paths.Long(target), b, 0o600)
+			return nil
+		})
+		t.Logf("DEBUG: kept %s at %s", root, out)
+	})
+}

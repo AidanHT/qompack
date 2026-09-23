@@ -1,0 +1,24 @@
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/project_file_wins_over_user_file
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/env_beats_both_files
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/flag_beats_everything
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_spools_a_payload_just_under_the_default_read_limit
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it
+    v1_integration_test.go:388: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/test/e2e/v1_integration_test.go:388
+        	Error:      	Should NOT be empty, but was []
+        	Test:       	TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it
+        	Messages:   	a bounded prefix survives as evidence
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_rejects_a_payload_just_over_the_default_read_limit
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_never_hangs_or_crashes_on_a_grossly_oversized_payload
+--- FAIL: TestV1_ConfigPrecedenceReachesHookBehaviour (7.67s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/project_file_wins_over_user_file (1.86s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/env_beats_both_files (1.56s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/flag_beats_everything (1.56s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_spools_a_payload_just_under_the_default_read_limit (0.41s)
+    --- FAIL: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it (0.37s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_rejects_a_payload_just_over_the_default_read_limit (0.41s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_never_hangs_or_crashes_on_a_grossly_oversized_payload (0.40s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	7.870s
+FAIL

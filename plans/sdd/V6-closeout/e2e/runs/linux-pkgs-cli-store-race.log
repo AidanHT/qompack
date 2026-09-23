@@ -1,0 +1,27 @@
+/work/cx-e2e-20260922T214814Z.bundle: OK
+run_id=cx-e2e-20260922T214814Z-pkgs
+commit=43051d590fa81a772af8473417bea76e99e4488f
+tree=c2e5a024220d643c556536eaedcb93e72239b783
+bundle_sha256=d7b5704a70dff3a8724feb42aab5a4680f5df5fe509d37e9a6467043fc75756a
+started_utc=2026-09-22T21:48:50Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/cli  (pass=314 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/internal/store  (pass=793 fail=1 skip=4)
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+go_test_exit=1
+exit=1
+exit=1
