@@ -1,0 +1,21 @@
+Reviewer finding 2 (10,000-character host cap), RED run of the new cli contract test with the hook
+client's Loud loop absent (internal/cli/hookclient.go at HEAD; internal/hookio's HostCapOverruns present),
+2026-09-22, windows/amd64.
+Command: go test ./internal/cli -run '^TestHookOutput_OverTheHostCapIsLoud$' -count=1 -v
+-----
+=== RUN   TestHookOutput_OverTheHostCapIsLoud
+=== RUN   TestHookOutput_OverTheHostCapIsLoud/at_the_cap
+=== RUN   TestHookOutput_OverTheHostCapIsLoud/one_over
+    hookoutput_contract_test.go:408: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-packaging/internal/cli/hookoutput_contract_test.go:408
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestHookOutput_OverTheHostCapIsLoudone_over1902051729\001\.qompack\logs\LOUD.log: The system cannot find the file specified.
+        	Test:       	TestHookOutput_OverTheHostCapIsLoud/one_over
+        	Messages:   	an over-cap injection must leave a LOUD.log line
+--- FAIL: TestHookOutput_OverTheHostCapIsLoud (1.96s)
+    --- PASS: TestHookOutput_OverTheHostCapIsLoud/at_the_cap (1.36s)
+    --- FAIL: TestHookOutput_OverTheHostCapIsLoud/one_over (0.59s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	2.448s
+FAIL
+exit=1

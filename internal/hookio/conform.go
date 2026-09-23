@@ -1,5 +1,7 @@
 package hookio
 
+import "unicode/utf16"
+
 // The host events Qompack registers (internal/pluginmanifest's hook table). hookio is foundation-free
 // and cannot import pluginmanifest, so the seven names are restated here; internal/cli's
 // host-contract tests drive every manifest entry point through ConformOutput, which is what ties the
@@ -72,6 +74,55 @@ func ConformOutput(event string, o Output) Output {
 		out.HookSpecificOutput = &HSO{HookEventName: event, AdditionalContext: o.HookSpecificOutput.AdditionalContext}
 	}
 	return out
+}
+
+// The host's per-field size limit, from the same hooks reference: "A hook's additionalContext,
+// systemMessage, and initialUserMessage strings, and its plain stdout, are capped at 10,000
+// characters". It is not a rejection — the host accepts the response — but over it "Claude Code
+// saves the output to a file in the session directory and replaces it with the file path and a
+// preview of up to the first 2,000 characters", and "doesn't ask Claude to read the file". Each
+// field is measured on its own, and "this cap has no setting or environment variable to raise it".
+const (
+	// HostFieldMaxChars is the longest field the host delivers whole.
+	HostFieldMaxChars = 10000
+	// HostFieldPreviewChars is how much of an over-cap field Claude sees in its place.
+	HostFieldPreviewChars = 2000
+)
+
+// FieldOverrun is one output field longer than HostFieldMaxChars.
+type FieldOverrun struct {
+	// Field is the field's JSON path in the host response, e.g. "hookSpecificOutput.additionalContext".
+	Field string
+	// Chars is its length in host characters (hostChars).
+	Chars int
+}
+
+// HostCapOverruns returns every field of o the host will replace with a file path and a preview,
+// in response order. o is what the host will actually receive, i.e. ConformOutput's result; the
+// hook client makes each overrun loud, because a rehydration the host cuts to its first 2,000
+// characters fails no check anywhere else (C1.12 review, finding 2).
+func HostCapOverruns(o Output) []FieldOverrun {
+	var out []FieldOverrun
+	if o.HookSpecificOutput != nil {
+		if n := hostChars(o.HookSpecificOutput.AdditionalContext); n > HostFieldMaxChars {
+			out = append(out, FieldOverrun{Field: "hookSpecificOutput.additionalContext", Chars: n})
+		}
+	}
+	if n := hostChars(o.SystemMessage); n > HostFieldMaxChars {
+		out = append(out, FieldOverrun{Field: "systemMessage", Chars: n})
+	}
+	return out
+}
+
+// hostChars is s's length as Claude Code, a JavaScript program, measures a string: UTF-16 code
+// units. That is an inference from the host's runtime, not a documented rule; it is never smaller
+// than the rune count, so an overrun it misses is one no reading of "characters" would report.
+func hostChars(s string) int {
+	n := 0
+	for _, r := range s {
+		n += utf16.RuneLen(r)
+	}
+	return n
 }
 
 // KnownEvent reports whether ConformOutput has a contract for event.

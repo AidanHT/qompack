@@ -362,3 +362,54 @@ func TestHookEvent_MatchesTheManifest(t *testing.T) {
 	}
 	require.Empty(t, hookEvent(ipc.OpStatus, nil), "a non-hook op has no host event")
 }
+
+// TestHookOutput_OverTheHostCapIsLoud covers the host limit the schema check above cannot see: a
+// hook's additionalContext or systemMessage "capped at 10,000 characters", over which "Claude Code
+// saves the output to a file in the session directory and replaces it with the file path and a
+// preview of up to the first 2,000 characters" and "doesn't ask Claude to read the file" (hooks
+// reference, 2026-09-22). The host accepts such a response, so nothing fails; the rehydration
+// payload, budgeted in tokens up to runtime.rehydrate.maxTokens, simply stops reaching Claude
+// beyond its first 2,000 characters. The field is passed through unchanged — what an over-cap
+// injection should become is an owner decision (the report's review resolution, finding 2) — and
+// the degradation is made loud, which is the one thing a hook can always do about it.
+func TestHookOutput_OverTheHostCapIsLoud(t *testing.T) {
+	schema := loadHostHookSchema(t)
+	e := pluginmanifest.HookEntryPoint{Event: "SessionStart", Subcommand: "session-start"}
+
+	for _, tc := range []struct {
+		name  string
+		chars int
+		loud  bool
+	}{
+		{"at the cap", hookio.HostFieldMaxChars, false},
+		{"one over", hookio.HostFieldMaxChars + 1, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := replyProject(t)
+			injected := strings.Repeat("r", tc.chars)
+			reply := hookio.SessionStartOutput(injected)
+			replyDaemon(t, root, func(ipc.Request) *hookio.Output { return &reply })
+
+			stdout := runEntryPoint(t, root, e)
+			require.Empty(t, hostSchemaViolations(schema, e.Event, stdout), "stdout conforms either way")
+			var out hookio.Output
+			require.NoError(t, json.Unmarshal(stdout, &out))
+			require.NotNil(t, out.HookSpecificOutput)
+			require.Equal(t, injected, out.HookSpecificOutput.AdditionalContext,
+				"the injection is passed through whole; the host, not the hook, cuts it")
+
+			loud, err := os.ReadFile(filepath.Join(paths.Of(root).Logs, "LOUD.log"))
+			if !tc.loud {
+				if err == nil {
+					require.NotContains(t, string(loud), "host's per-field cap", "a field at the cap is delivered whole")
+				}
+				return
+			}
+			require.NoError(t, err, "an over-cap injection must leave a LOUD.log line")
+			require.Contains(t, string(loud), "host's per-field cap")
+			require.Contains(t, string(loud), "hookSpecificOutput.additionalContext")
+			require.Contains(t, string(loud), fmt.Sprint(tc.chars))
+			require.NotContains(t, string(loud), injected[:64], "the Loud names sizes, never content")
+		})
+	}
+}

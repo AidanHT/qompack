@@ -380,6 +380,11 @@ The shipped defaults that implement the target are in
 `checkpoint.budgetTokens` for the checkpoint artifact, `runtime.rehydrate.minTokens` and
 `runtime.rehydrate.maxTokens` for the injected payload.
 
+One limit sits outside that accounting. Claude Code delivers at most 10,000 characters of a hook's
+`additionalContext` whole; past that, Claude sees a file path and the first 2,000 characters. The
+drop report cannot name what the host cut. Qompack logs a Loud line when it happens
+([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
+
 The rehydration budget is a target for Qompack-added material, not the total restored native context.
 What the host restores on its own is the host's business; Qompack neither measures nor controls it,
 and no claim here says the native input shrinks

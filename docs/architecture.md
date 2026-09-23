@@ -228,6 +228,13 @@ answered — `additionalContext` and `systemMessage` for `SessionStart`, `UserPr
 and never `continue`. The table is pinned against a transcription of the documented schema in
 `testdata/host/hooks-output-schema.json`.
 
+That transcription also records the host's per-field cap: an `additionalContext` or `systemMessage`
+over 10,000 characters is accepted, but Claude receives only a file path and a 2,000-character
+preview in its place. The hook client passes such a field through unchanged and logs a Loud line
+with its size (`hookio.HostCapOverruns`). The rehydration budget below is in tokens and can exceed
+the cap several times over, so a large payload is cut to its preview
+([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
+
 Two things about that payload are load-bearing, per `internal/rehydrate`'s package comment. Its
 **order** is normative — `ItemKind`'s constants are the importance order, and a rehydration that
 reorders them is wrong even if it fits the budget, because position decides what survives
