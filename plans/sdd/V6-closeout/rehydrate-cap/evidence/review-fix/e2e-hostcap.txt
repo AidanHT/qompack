@@ -1,0 +1,5 @@
+=== RUN   TestE2E_SessionStartCompactFitsTheHostCap
+    c114_hostcap_test.go:59: compact additionalContext: 7378 host characters (ceiling 9500, host cap 10000); restorable rules offered: 15750
+--- PASS: TestE2E_SessionStartCompactFitsTheHostCap (2.17s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	2.371s

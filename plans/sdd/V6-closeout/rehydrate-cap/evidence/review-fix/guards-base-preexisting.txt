@@ -1,0 +1,5 @@
+--- FAIL: TestGuard_TheV1DeliveryPositionHasOneEncoder (0.10s)
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.358s
+FAIL
