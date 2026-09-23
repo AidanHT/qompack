@@ -45,6 +45,19 @@ Classification:
   filesystem constraint, not algorithmic waste.** `SameFile` is arguably redundant with the downstream
   content hash for *integrity*, but it is cheap (no syscall) and is path verification; do not remove it
   to make timing pass.
+
+  **Superseded on Windows by V6 close-out C2.7 (`5213545`, 2026-09-22), pending owner acceptance.**
+  Windows object reads no longer run the pre-open `Lstat` and the post-open `SameFile`.
+  `openObjectLeaf` (`internal/store/object_open_windows.go`) opens the leaf once with
+  `FILE_FLAG_OPEN_REPARSE_POINT` and checks that handle's own Stat. A handle without the reparse
+  attribute must be a regular file, and it is the handle that is read, so no window remains between
+  the check and the read. A reparse-point leaf falls back to this section's
+  `Lstat`/open/`Fstat`/`SameFile` check, unchanged. The premise above that `SameFile` costs no
+  syscall does not hold on Windows: over a path-based `Lstat`, it reopens the path to fetch the file
+  ID (`os.(*fileStat).loadFileId`). Linux and darwin keep the `Lstat` and `SameFile` and add
+  `O_NOFOLLOW|O_NONBLOCK` to the open. The guardrail's purpose (never read through a link or a
+  nonregular leaf, and never read a file other than the one checked) is kept. Evidence is in
+  `plans/sdd/V6-closeout/perfstore/runs/`.
 - **Algorithmic waste — safe to remove (both platforms, zero safety loss):**
   - **W1 — `io.ReadAll` regrowth in `readBoundedObject` (objects.go:326).** `limit` is
     `encodedObjectLimit()`/`MaxPutBytes` (up to 64 MiB), so `io.ReadAll` starts at 512 B and doubles to
@@ -106,6 +119,13 @@ chunk and it is already close to minimal.
 Nothing on the write path is a safe algorithmic win of comparable value; its overage is the
 filesystem constraint in §3.
 
+*Note (V6 close-out C2.6, 2026-09-22).* The write path did carry one algorithmic cost that this
+analysis missed. `Encode` kept its zstd encoders in a `sync.Pool`, which two garbage collections
+empty, so the encoder was rebuilt with `GOMAXPROCS` match-table sets. On the 22-thread host each
+rebuild allocated 29 MB, which was 69 % of the bytes a cold put allocated. `f4b5376` keeps one encoder
+for the process. Under the co-load of that run, its wall-clock effect on `PutBytes_100KB_Cold` could
+not be measured. Evidence is in `plans/sdd/V6-closeout/perfstore/runs/`.
+
 ## 5. Windows filesystem constraint vs algorithmic waste (summary)
 
 - **Filesystem constraint (platform, not fixable by these edits):** per-chunk small-file creation + AV
@@ -143,6 +163,10 @@ correction I would forward as low-risk without a contract decision.
    and label it a platform characteristic (as the hosted-fsync-tail precedent does), not a code target.
 4. **No fsync/hash/path removal is part of any variant.** Every A/B keeps the content hash, the
    Lstat/Fstat/SameFile path checks, and the SP-20 publication barrier.
+   *Superseded in part by V6 close-out C2.7 (`5213545`, 2026-09-22), pending owner acceptance.* On
+   Windows, a no-follow check on the read handle replaces the Lstat/Fstat/SameFile triple for a
+   non-reparse leaf (see the §2 note). A reparse-point leaf still gets the triple. The content hash
+   and the publication barrier are kept on every platform.
 
 ## 8. Invariants that must not change (guardrails on any later implementation)
 
@@ -163,6 +187,11 @@ concurrency (the `putLock` stripes and `s.mu` discipline). W1/W2/W3 touch none o
    Windows, keep the budgets against the reference platform"?
 3. `SameFile` is redundant with the content hash for integrity but is cheap path verification. Keep as
    defense-in-depth (my recommendation) or revisit? Durable-data call is main's.
+   *Changed in code by V6 close-out C2.7 (`5213545`, 2026-09-22), pending owner acceptance.* On
+   Windows, `SameFile` no longer runs on the common read path: a non-reparse leaf is checked on the
+   same handle it is read through. `SameFile` still runs for reparse-point leaves, and on Linux and
+   darwin. The owner still has to decide this item: accept the Windows fast path, or revert
+   `5213545`.
 
 ## 10. Implemented — W1 + W2 (correctness only; no budget claim)
 
@@ -179,7 +208,8 @@ would accept an appended suffix under the valid-prefix hash; `requireEOF` refuse
 `io.ReadFull` refuses a short read (a shrink). Both surface as ordinary read errors that
 `readObjectFile` maps to `ErrDamaged` (wraps `core.ErrNotFound`), exactly as before.
 
-**Preserved, unchanged:** the pre-open `Lstat`, the post-open `Fstat`+`SameFile` swap guard, the
+**Preserved, unchanged** (by W1+W2; the §2 note records the later C2.7 change on Windows)**:** the
+pre-open `Lstat`, the post-open `Fstat`+`SameFile` swap guard, the
 `opened.Size() > limit` → `errObjectTooLarge` fast path, `getObject`'s indexed-length cross-check and
 plaintext `DomainChunk` content hash, and the quarantine-on-damage behaviour. The existing
 same-length-substitution, length-disagreement, damaged-frame and quarantine tests still exercise those
