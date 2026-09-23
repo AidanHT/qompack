@@ -198,8 +198,22 @@ func openGenReadonly(ctx context.Context, stateRoot *os.Root) (*genReadonly, boo
 	defer func() { _ = genRoot.Close() }()
 
 	head, hasHead, err := readGenHead(genRoot)
-	if err != nil || !hasHead {
+	if err != nil {
 		return nil, false, errSegmentReaderRefused
+	}
+	if !hasHead {
+		// A store that has never archived anything: the producer's recover() reads no head beside an
+		// absent or EMPTY manifest as a fresh, empty store, and so does this view (the empty root, whose
+		// every lookup is a proven absence). A manifest with records but no head is head loss: refused.
+		// Whether an empty store is consistent with the authority is the caller's check.
+		info, lerr := genRoot.Lstat(genLogFile)
+		if lerr != nil && !os.IsNotExist(lerr) {
+			return nil, false, errSegmentReaderRefused
+		}
+		if lerr == nil && (!info.Mode().IsRegular() || info.Size() != 0) {
+			return nil, false, errSegmentReaderRefused
+		}
+		return &genReadonly{}, false, nil
 	}
 	recovered, tail, err := scanGenChain(ctx, genRoot, head)
 	if err != nil {
