@@ -432,9 +432,13 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, state string, sta
 		}
 	}
 
-	var arrivalBase func(core.SessionID) (uint64, bool, error)
+	var (
+		arrivalBase func(core.SessionID) (uint64, bool, error)
+		br          radixHash
+	)
 	if t.Active >= 1 {
-		br, ok := hexToRadixHash(t.BaseRoot)
+		var ok bool
+		br, ok = hexToRadixHash(t.BaseRoot)
 		if !ok {
 			return nil, fmt.Errorf("%s: segment %d: its base root is malformed; nothing was written: %w",
 				deliverySealToolName, t.Active, deliveryJournalError())
@@ -484,6 +488,16 @@ func (o DeliverySealOptions) checkSegment(ctx context.Context, state string, sta
 	}
 	fmt.Fprintf(o.Out, "  segment %d ack journal: loads, %d entries, %d bytes (archived ACKs joined to "+
 		"their original leases)\n", t.Active, ackPos.Count, ackPos.Bytes)
+	if t.Active >= 1 {
+		carried, err := gv.checkCarry(ctx, segRoot, t.Active, br)
+		if err != nil {
+			return nil, fmt.Errorf("%s: segment %d: its carried-lease file does not check read-only against "+
+				"its header and the generation store at the segment's base root; nothing was written: %w",
+				deliverySealToolName, t.Active, err)
+		}
+		fmt.Fprintf(o.Out, "  segment %d carried leases: %d archived with no acknowledgement, each resolved "+
+			"at the base root\n", t.Active, carried)
+	}
 	if ackAccepted {
 		r, err := o.acceptedSegmentSeal(segRoot, "ack", dir, deliveryAckFile, deliveryAckPositionFile,
 			deliveryAckChainSeed, deliveryAckChainDomain, ackPos)

@@ -1505,8 +1505,17 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 		return deliveryJournalError()
 	}
 	next := j.segment + 1
-	// 2. Stage the fresh, empty segment durably (idempotent against a crashed identical attempt).
-	if err := createFreshSegment(j.stateDir, next); err != nil {
+	// 2. Stage the fresh, empty segment durably (idempotent against a crashed identical attempt), with
+	//    the archived leases that have no acknowledgement carried into it for store GC (delivery_carry.go).
+	carried, err := j.carriedLeases()
+	if err != nil {
+		return err
+	}
+	carry, err := encodeDeliveryCarry(next, carried)
+	if err != nil {
+		return err
+	}
+	if err := createFreshSegment(j.stateDir, next, carry); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {

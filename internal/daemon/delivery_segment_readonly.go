@@ -339,6 +339,36 @@ func (g *genReadonly) resolveLease(ctx context.Context, delivery string) (delive
 	return lease, true, nil
 }
 
+// checkCarry validates a segment's carried-lease file read-only (delivery_carry.go): it decodes against
+// its own header, and every lease it carries is the lease the generation store holds for that nonce at
+// the segment's base root — the root the rotation that wrote the carry had just archived — with no
+// acknowledgement recorded there. That proves the carry names archived leases exactly and carries none
+// already settled; that it omits none is the writer's construction, which a read-only check could only
+// confirm by walking the whole archive.
+func (g *genReadonly) checkCarry(ctx context.Context, segRoot *os.Root, seq uint64, base radixHash) (int, error) {
+	raw, err := readCarryConfined(segRoot)
+	if err != nil {
+		return 0, errSegmentReaderRefused
+	}
+	leases, err := decodeDeliveryCarry(raw, seq)
+	if err != nil {
+		return 0, errSegmentReaderRefused
+	}
+	for _, l := range leases {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
+		stored, found, err := g.radix.lookup(ctx, base, nonceGenKey(l.Delivery))
+		if err != nil || !found || !bytes.Equal(stored, mustLeaseValue(l)) {
+			return 0, errSegmentReaderRefused
+		}
+		if _, acked, err := g.radix.lookup(ctx, base, ackGenKey(l.Delivery)); err != nil || acked {
+			return 0, errSegmentReaderRefused
+		}
+	}
+	return len(leases), nil
+}
+
 // checkLeaseJournal scans one segment's lease journal read-only THROUGH the pinned segment root, against
 // its seal — canonical lines, the sealed chain/count/older checkpoint, dense per-session arrivals — but
 // seeded from arrivalBase (the segment's predecessor root) so a segment carrying global arrivals passes.
