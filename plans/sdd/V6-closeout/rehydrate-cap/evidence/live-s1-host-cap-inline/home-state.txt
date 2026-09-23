@@ -1,0 +1,31 @@
+BEFORE (2026-09-23T03:40:03Z):
+== plugins/data
+rust-analyzer-lsp-claude-plugins-official
+superpowers-claude-plugins-official
+== session-env count
+85
+== hashes
+eaee1ba9ed3958c3a28e61514187f4281bcdb0138551cd399f15e909b06e69b6 *<home>/.claude/settings.json
+4a301260e2f93ddbe5496104049efbf4550c4b9cbba25729f53564ff28908b28 *<home>/.claude/plugins/blocklist.json
+728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd *<home>/.claude/plugins/installed_plugins.json
+1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725 *<home>/.claude/plugins/known_marketplaces.json
+4d2dcfd50b565526044239eac77bf1730abebe68b1b309aaf653f94c5c6f3289 *<home>/.claude/plugins/plugin-catalog-cache.json
+
+Created by the session (session id 374bb22a-eae0-4570-b460-285f51e289a1), found by name, then removed:
+  <home>/.claude/plugins/data/qompack-inline/   (empty directory; --plugin-dir inline data)
+  <home>/.claude/session-env/374bb22a-eae0-4570-b460-285f51e289a1/   (empty directory)
+  <home>/.claude/projects/<scratch-encoded>-live-project/   (the transcript 374bb22a-eae0-4570-b460-285f51e289a1.jsonl, copied to the evidence first, sha256 f6ea8a472d5b6e8f764d7778028e08de9329537883bda00b99659f16248d5c60; and an empty memory/ directory)
+Not removed (attribution uncertain; shared caches other live sessions also write): <home>/.claude/cache/*, <home>/.claude.json
+
+AFTER (2026-09-23T03:43:40Z):
+== plugins/data
+rust-analyzer-lsp-claude-plugins-official
+superpowers-claude-plugins-official
+== session-env count
+85
+== hashes
+eaee1ba9ed3958c3a28e61514187f4281bcdb0138551cd399f15e909b06e69b6 *<home>/.claude/settings.json
+4a301260e2f93ddbe5496104049efbf4550c4b9cbba25729f53564ff28908b28 *<home>/.claude/plugins/blocklist.json
+728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd *<home>/.claude/plugins/installed_plugins.json
+1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725 *<home>/.claude/plugins/known_marketplaces.json
+4d2dcfd50b565526044239eac77bf1730abebe68b1b309aaf653f94c5c6f3289 *<home>/.claude/plugins/plugin-catalog-cache.json

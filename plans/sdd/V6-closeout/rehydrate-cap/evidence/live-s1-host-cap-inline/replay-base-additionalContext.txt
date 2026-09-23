@@ -1,0 +1,97 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 374bb22a
+
+## 1. Invariants (pinned, verbatim)
+- [inv_03b63ceff294] Release rule A: every deployment to the payments cluster goes through the rel/2026-q4 train, is approved by two on-call reviewers, carries a rollback plan that has been rehearsed in staging within the last seven days, and is announced in the release channel at least thirty minutes before the cutover window opens, with the change ticket linked in the announcement text. (source: user)
+- [inv_ab3c02ae996a] Release rule B: never widen a database connection pool, a statement timeout, or a retry budget to make an intermittent failure go away; first reproduce the failure under load, attribute it to a specific lock, dependency or saturation cliff, and record the attribution with its evidence in the incident notes before any configuration value is touched in any environment at all. (source: user)
+- [inv_2fd29105430d] Release rule C: secrets, tokens and customer identifiers never appear in logs, commit messages, test fixtures or chat transcripts; a leak found anywhere is treated as an incident, the credential is rotated first and investigated second, and the fixture or log line that carried it is deleted from history rather than merely edited in a follow-up commit to the same branch. (source: user)
+- [inv_c2a424716bf4] Release rule D: a change that touches the refresh-token rotation path must keep rotation single-use and reuse detection on, must be covered by the concurrency reproduction in test/load/refresh-storm, and must show no increase in p99 latency or in pool acquisition timeouts against the previous release's recorded baseline before it may be merged or deployed anywhere. (source: user)
+- [inv_808be6da02c0] Release rule E: when a production symptom has more than one plausible cause, write the candidate causes down, rank them by evidence rather than by intuition, eliminate them one at a time with a recorded experiment each, and never ship a speculative fix for a cause that has not survived at least one experiment that could have shown it to be wrong in the first place. (source: user)
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Keep this brief on file for later; do not act on it and do not use any tools. Reply with just OK.
+> The deployment codeword is TEAL-OSPREY-42.
+> filler 000: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 001: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 002: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 003: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 004: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 005: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 006: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 007: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 008: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 009: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 010: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 011: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 012: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 013: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 014: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 015: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 016: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 017: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 018: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 019: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 020: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 021: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 022: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 023: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 024: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 025: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 026: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 027: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 028: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 029: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 030: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 031: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 032: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 033: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 034: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 035: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 036: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 037: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 038: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 039: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 040: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 041: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 042: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 043: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 044: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 045: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 046: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 047: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 048: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 049: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 050: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 051: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 052: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 053: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 054: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 055: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 056: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 057: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 058: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 059: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 060: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 061: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 062: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 063: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 064: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 065: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 066: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 067: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 068: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 069: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 070: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 071: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 072: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 073: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 074: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+> filler 075: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.
+
+## 7. No longer in context
+- pointer_git_unavailable — checkpoint: git index unsupported: reading index: GetFileAttributesEx <scratch>\project\.git\index: The system cannot find the file specified.
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-9977b9dbbdfe -->

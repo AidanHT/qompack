@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "session": "374bb22a-eae0-4570-b460-285f51e289a1",
+  "seq": 1,
+  "created": "2026-09-23T03:40:26.700Z",
+  "encoded_segments": [],
+  "invariants": [
+    {
+      "id": "inv_03b63ceff294",
+      "text": "Release rule A: every deployment to the payments cluster goes through the rel/2026-q4 train, is approved by two on-call reviewers, carries a rollback plan that has been rehearsed in staging within the last seven days, and is announced in the release channel at least thirty minutes before the cutover window opens, with the change ticket linked in the announcement text.",
+      "source": "user",
+      "pinned": 1790134789042
+    },
+    {
+      "id": "inv_ab3c02ae996a",
+      "text": "Release rule B: never widen a database connection pool, a statement timeout, or a retry budget to make an intermittent failure go away; first reproduce the failure under load, attribute it to a specific lock, dependency or saturation cliff, and record the attribution with its evidence in the incident notes before any configuration value is touched in any environment at all.",
+      "source": "user",
+      "pinned": 1790134789047
+    },
+    {
+      "id": "inv_2fd29105430d",
+      "text": "Release rule C: secrets, tokens and customer identifiers never appear in logs, commit messages, test fixtures or chat transcripts; a leak found anywhere is treated as an incident, the credential is rotated first and investigated second, and the fixture or log line that carried it is deleted from history rather than merely edited in a follow-up commit to the same branch.",
+      "source": "user",
+      "pinned": 1790134789062
+    },
+    {
+      "id": "inv_c2a424716bf4",
+      "text": "Release rule D: a change that touches the refresh-token rotation path must keep rotation single-use and reuse detection on, must be covered by the concurrency reproduction in test/load/refresh-storm, and must show no increase in p99 latency or in pool acquisition timeouts against the previous release's recorded baseline before it may be merged or deployed anywhere.",
+      "source": "user",
+      "pinned": 1790134789077
+    },
+    {
+      "id": "inv_808be6da02c0",
+      "text": "Release rule E: when a production symptom has more than one plausible cause, write the candidate causes down, rank them by evidence rather than by intuition, eliminate them one at a time with a recorded experiment each, and never ship a speculative fix for a cause that has not survived at least one experiment that could have shown it to be wrong in the first place.",
+      "source": "user",
+      "pinned": 1790134789093
+    }
+  ],
+  "user_intent": {
+    "original": "Keep this brief on file for later; do not act on it and do not use any tools. Reply with just OK.\nThe deployment codeword is TEAL-OSPREY-42.\nfiller 000: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 001: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 002: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 003: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 004: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 005: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 006: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 007: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 008: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 009: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 010: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 011: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 012: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 013: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 014: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 015: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 016: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 017: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 018: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 019: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 020: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 021: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 022: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 023: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 024: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 025: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 026: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 027: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 028: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 029: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 030: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 031: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 032: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 033: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 034: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 035: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 036: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 037: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 038: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 039: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 040: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 041: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 042: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 043: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 044: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 045: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 046: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 047: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 048: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 049: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 050: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 051: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 052: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 053: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 054: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 055: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 056: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 057: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 058: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 059: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 060: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 061: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 062: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 063: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 064: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 065: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 066: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 067: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 068: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 069: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 070: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 071: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 072: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 073: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 074: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.\nfiller 075: the release train stays on branch rel/2026-q4 and nothing in this line needs any action.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [
+    {
+      "kind": "pointer_git_unavailable",
+      "id": "",
+      "detail": "checkpoint: git index unsupported: reading index: GetFileAttributesEx <scratch>\\project\\.git\\index: The system cannot find the file specified."
+    }
+  ],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}
