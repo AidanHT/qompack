@@ -29,3 +29,11 @@ Observed (transcript-facts.json, stream.jsonl):
 This is the documented behaviour, now observed: over 10,000 characters, Claude gets a path and a
 2 KB preview, and the rest of a Qompack rehydration payload would not reach the model unless it
 chooses to read the file. home-state.txt records the cleanup.
+
+Owner decision (open, C1.12 review finding 2): the rehydration payload is budgeted in tokens
+(runtime.rehydrate.maxTokens 12000, Qompack.md §8.6 "target 8-12K", ADR 0011), several times the
+host's 10,000-character cap. Either hold the rendered payload under the cap (contradicts §8.6/ADR 0011)
+or accept that a large rehydration reaches Claude as a path plus a 2 KB preview. Until decided, the
+hook client passes the field through whole and records one Loud line per overrun with sizes only
+(internal/hookio HostCapOverruns, internal/cli TestHookOutput_OverTheHostCapIsLoud). It does not
+truncate: that would lose the tail the host at least keeps in a file, drop report included.

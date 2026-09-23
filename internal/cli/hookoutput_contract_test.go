@@ -369,9 +369,11 @@ func TestHookEvent_MatchesTheManifest(t *testing.T) {
 // preview of up to the first 2,000 characters" and "doesn't ask Claude to read the file" (hooks
 // reference, 2026-09-22). The host accepts such a response, so nothing fails; the rehydration
 // payload, budgeted in tokens up to runtime.rehydrate.maxTokens, simply stops reaching Claude
-// beyond its first 2,000 characters. The field is passed through unchanged — what an over-cap
-// injection should become is an owner decision (the report's review resolution, finding 2) — and
-// the degradation is made loud, which is the one thing a hook can always do about it.
+// beyond its first 2,000 characters (observed on 2.1.280:
+// plans/sdd/V6-closeout/packaging/evidence/review/f2-live-host-cap-probe/README.txt). The field is
+// passed through unchanged — what an over-cap injection should become is an owner decision, recorded
+// in that README — and the degradation is made loud, which is the one thing a hook can always do
+// about it.
 func TestHookOutput_OverTheHostCapIsLoud(t *testing.T) {
 	schema := loadHostHookSchema(t)
 	e := pluginmanifest.HookEntryPoint{Event: "SessionStart", Subcommand: "session-start"}
