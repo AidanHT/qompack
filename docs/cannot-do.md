@@ -157,10 +157,11 @@ host change could lift — as prepared proposals, none of which has been filed.
 
 ### The host delivers at most 10,000 characters of injected context whole
 
-- **Limit.** A rehydration payload longer than 10,000 characters does not reach Claude whole. The
-  host keeps the full text in a file and gives Claude its path and a preview of the first 2,000
-  characters. The defaults budget the payload in tokens up to `runtime.rehydrate.maxTokens`
-  `12000`, several times the cap, so a long session's rehydration can be cut to that preview.
+- **Limit.** A hook field longer than 10,000 characters does not reach Claude whole: the host keeps
+  the full text in a file and gives Claude its path and a preview of the first 2,000 characters.
+  Qompack cannot raise the cap, so a rehydration can carry at most that much — less than a long
+  session's restorable material (a single restored rule can run to thousands of characters), so some
+  of it is always left for Claude to fetch.
 - **Why.** The hooks reference (fetched 2026-09-22): "A hook's `additionalContext`,
   `systemMessage`, and `initialUserMessage` strings, and its plain stdout, are capped at 10,000
   characters"; over it "Claude Code saves the output to a file in the session directory and
@@ -169,13 +170,20 @@ host change could lift — as prepared proposals, none of which has been filed.
   file". Observed on Claude Code 2.1.280: an 11,082-character SessionStart context reached Claude as
   a 2,391-character `<persisted-output>` block, and the model could quote only what the preview held
   ([evidence](../plans/sdd/V6-closeout/packaging/evidence/review/f2-live-host-cap-probe/README.txt)).
-  The host accepts such a response, so no check fails.
-- **What Qompack does instead.** The hook client passes the payload through unchanged and records a
-  Loud line naming the event, the field and its length (`internal/hookio` `HostCapOverruns`). Tier-1
-  material renders first, so it is what a preview keeps. Whether the budget should instead be held
-  under the cap is an open owner decision (C1.12 review, finding 2).
+  The host accepts such a response, so no check fails. The unit is UTF-16 code units: the host's own
+  code tests `field.length <= 1e4`
+  ([evidence](../plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt)).
+- **What Qompack does instead.** It fits the cap (owner decision D5). The whole compact
+  `additionalContext`, contract probe included, is at most 9,500 host characters. Records are chosen
+  in the fixed §8.6 order and admitted whole or not at all; each one left out is named in section 7
+  of the payload with the call that brings it back (`why`, `re_read`, `expand`, or `Read` on the rule
+  or checkpoint file), and the section ends in a counted tail pointing at `dropped()` when it cannot
+  list everything. The hook client still records a Loud line if any field ever overruns the cap
+  (`internal/hookio` `HostCapOverruns`); for the rehydration that is a defence that does not fire.
 - **Recorded at.** `testdata/host/hooks-output-schema.json` (`limits`);
-  `internal/cli` `TestHookOutput_OverTheHostCapIsLoud`.
+  [ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md);
+  `internal/rehydrate` `TestBuild_NeverExceedsTheHostCeiling`; `test/e2e`
+  `TestE2E_SessionStartCompactFitsTheHostCap`; `internal/cli` `TestHookOutput_OverTheHostCapIsLoud`.
 
 ### No PostCompact dependency
 

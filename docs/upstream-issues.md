@@ -53,6 +53,8 @@ capability it cannot verify.
   "how much of it" is now documented and observed: over 10,000 characters the host swaps the text
   for a file path and a 2,000-character preview, with no signal to the hook
   ([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
+  Qompack now holds its compact rehydration to 9,500 characters so that case does not arise for it;
+  a delivered-size signal would still be the only way to confirm it on a given host.
 - **Proposal.** Report delivery of hook-supplied additional context back to the hook's own process:
   a delivered/not-delivered flag and the delivered size, on the same event, would be enough.
 - **What Qompack would do with it.** Declare the producer for
