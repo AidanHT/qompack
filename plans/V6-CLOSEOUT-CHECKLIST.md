@@ -25,6 +25,29 @@ start; hosted-runner fsync figures never become constants.
 Defaults taken without a separate question (owner may overrule): C1.9 host deny-rule honoring;
 C7.2 hosted runners report-only for fsync-bound rows (Q1 third option).
 
+**Routing.** On 2026-09-22 the user asked for parallel "ultracode" workflow subagents. Children
+therefore run as workflow subagents inheriting the coordinator's model (Opus 5.5), not the
+2026-09-14 Opus 4.8 headless route the V6 plan names; that override is superseded for this
+close-out by the user's later instruction and every record says so.
+
+## Dispatch log
+
+| Wave | Run | Workstreams (branch `closeout/<ws>`, worktree `../qompack-cx-<ws>`, base `cf31e01`) |
+|---|---|---|
+| 1 | `wf_16dd5d95-b3a` | `ingest` C1.1 · `e2e` C1.2/C1.3 · `config` C1.8 · `hostperm` C1.9 · `rollover` C1.10 · `perfstore` C2.6/C2.7 · `perfobs` C2.3–C2.5 · `eval` C5.4 · `linux` C3.4 + the six unreported Windows packages. Each: implement → adversarial review (two lenses for ingest/hostperm/rollover) → fix seat |
+
+| 1b | `wf_a704d10a-845` | `packaging` C1.11 + C1.12 + C7.5 prep (implement → two-lens review → fix) |
+
+Incident: at 17:31 a coordinator `SendMessage` to two running workflow agents (ingest, eval)
+resumed a second copy of each in the same worktree. The ingest copy stood down after writing
+`handoff-from-duplicate.md`; the eval copy was stopped at ~17:47. `COORDINATOR-DECISION.md` in
+the eval worktree records which files each copy wrote, and they are kept as evidence.
+
+Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (container
+`/work/linux-test-candidate-3dab390-artifacts`) retained a **data race** in `internal/daemon`
+(`handleAdminShutdown`'s `sync.Once` vs `daemon.Run`) and failures in `test/guards`,
+`test/integration` and `test/security` beyond the ingest family — assigned to the `linux` lane.
+
 ## Where things stand (found at takeover)
 
 - The "pending" integrated whole-tree run on `65bc8d7` actually **finished its first 78 packages and
