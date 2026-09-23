@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -624,6 +625,15 @@ type gcRootFile struct {
 	// journal, proved present at resolve time — is a referenced file that vanished mid-harvest, and it
 	// halts the pass rather than being silently skipped as "empty".
 	required bool
+	// carry, when non-nil, marks a delivery segment's carried-lease file (dcarryFile): its header is
+	// checked against the segment it names and its body against the header (harvestCarry), and each
+	// body line is read through lines exactly as a lease journal line is.
+	carry *dcarryExpect
+}
+
+// dcarryExpect is what a carried-lease file must declare: the segment whose directory holds it.
+type dcarryExpect struct {
+	segment uint64
 }
 
 // gcRootFiles returns every file whose hash references keep content alive.
@@ -646,13 +656,13 @@ type gcRootFile struct {
 // answers to the budget, so a deadline truncates the pass rather than the file list.
 func (s *FSStore) gcRootFiles(budget *gcBudget) ([]gcRootFile, dsegView, bool, error) {
 	out := []gcRootFile{
-		{filepath.Join(s.l.Pins, invariantsFile), RetentionPin, "referenced by a pinned invariant", nil, false},
-		{filepath.Join(s.l.Records, eliminationsFile), RetentionEvidence, "referenced by elimination evidence", nil, false},
-		{filepath.Join(s.l.Records, evidenceRootsFile), RetentionEvidence, "referenced by an evidence record", nil, false},
+		{filepath.Join(s.l.Pins, invariantsFile), RetentionPin, "referenced by a pinned invariant", nil, false, nil},
+		{filepath.Join(s.l.Records, eliminationsFile), RetentionEvidence, "referenced by elimination evidence", nil, false, nil},
+		{filepath.Join(s.l.Records, evidenceRootsFile), RetentionEvidence, "referenced by an evidence record", nil, false, nil},
 	}
-	// Delivery leases: the legacy segment on an unmigrated tree, or every committed and staged segment
-	// once the daemon has rotated. A torn/missing/conflicting/unknown segment authority halts here. The
-	// returned frontier is rechecked AFTER the harvest (harvestHashes).
+	// Delivery leases: the legacy segment on an unmigrated tree; once the daemon has rotated, the active
+	// segment's journal and carried leases, and every staged segment's. A torn/missing/conflicting/unknown
+	// segment authority halts here. The returned frontier is rechecked AFTER the harvest (harvestHashes).
 	leaseFiles, frontier, err := s.deliveryLeaseSources(budget)
 	if err != nil {
 		return nil, dsegView{}, false, err
@@ -660,7 +670,7 @@ func (s *FSStore) gcRootFiles(budget *gcBudget) ([]gcRootFile, dsegView, bool, e
 	out = append(out, leaseFiles...)
 	out = append(out, gcRootFile{
 		filepath.Join(s.l.State, retentionRootsFile), RetentionRollback, declaredRootReason,
-		s.declaredRetentionLines(), false,
+		s.declaredRetentionLines(), false, nil,
 	})
 
 	checkpoints, truncated, err := s.listRetentionDir(s.l.Checkpoints, budget, maxRetentionSources-len(out), func(e fs.DirEntry) (gcRootFile, bool) {
@@ -671,7 +681,7 @@ func (s *FSStore) gcRootFiles(budget *gcBudget) ([]gcRootFile, dsegView, bool, e
 		case ".json", ".jsonl":
 			return gcRootFile{
 				filepath.Join(s.l.Checkpoints, e.Name()), RetentionCheckpoint,
-				"referenced by committed checkpoint " + e.Name(), nil, false,
+				"referenced by committed checkpoint " + e.Name(), nil, false, nil,
 			}, true
 		}
 		return gcRootFile{}, false
@@ -688,24 +698,33 @@ func (s *FSStore) gcRootFiles(budget *gcBudget) ([]gcRootFile, dsegView, bool, e
 	return append(out, pending...), frontier, false, nil
 }
 
-// deliveryLeaseSources returns the open-lease harvest sources for every delivery segment GC must read,
-// and the frontier witness for the post-harvest stable-frontier recheck.
+// deliveryLeaseSources returns the open-lease harvest sources and the frontier witness for the
+// post-harvest stable-frontier recheck.
 //
 // On a genuinely unmigrated tree it is the single legacy lease journal, harvested exactly as before
-// segments existed. Once the daemon has rotated, it is the lease journal of every COMMITTED segment
-// (whose four files resolveDeliverySegments has already proved present, and which are marked REQUIRED so
-// a mid-harvest disappearance halts) plus every STAGED (uncommitted) segment, whose lease roots are
-// conservatively retained but not required. ACKs are folded across ALL segments first, so an
-// acknowledgement recorded in a newer segment settles an older segment's lease. Any unreadable or
-// conflicting authority is returned as errRetentionRootsUnavailable, which halts the pass — the reader
-// never reverts to the legacy segment when a rotation's authority is present but cannot be read.
+// segments existed. Once the daemon has rotated it is BOUNDED by the active window, not by the
+// project's history (review finding 1): the ACTIVE segment's lease journal, which resolveDeliverySegments
+// has already proved present and which is marked REQUIRED so a mid-harvest disappearance halts; from
+// segment 1 on, the active segment's carried-lease file (dcarryFile), equally required, which the daemon
+// wrote at the rotation that opened the segment and which names every archived lease that had no
+// acknowledgement then; and every STAGED (uncommitted) segment's lease journal and carry, conservatively
+// retained but not required. Acknowledgements fold from the same segments, so an acknowledgement the
+// active segment records settles a carried lease of any older segment. An archived segment's own
+// journals are not read: every lease in them is either acknowledged, and so released, or carried.
+// Any unreadable or conflicting authority is returned as errRetentionRootsUnavailable, which halts the
+// pass — the reader never reverts to the legacy segment when a rotation's authority is present but
+// cannot be read.
 func (s *FSStore) deliveryLeaseSources(budget *gcBudget) ([]gcRootFile, dsegView, error) {
 	view, err := s.resolveDeliverySegments(budget)
 	if err != nil {
 		return nil, dsegView{}, err
 	}
-	segs := make([]uint64, 0, len(view.committed)+len(view.staged))
-	segs = append(segs, view.committed...)
+	if len(view.committed) == 0 {
+		return nil, dsegView{}, retentionUnavailable("delivery segment authority names no committed segment")
+	}
+	active := view.committed[len(view.committed)-1]
+	segs := make([]uint64, 0, 1+len(view.staged))
+	segs = append(segs, active)
 	segs = append(segs, view.staged...)
 
 	ackPaths := make([]string, 0, len(segs))
@@ -714,31 +733,26 @@ func (s *FSStore) deliveryLeaseSources(budget *gcBudget) ([]gcRootFile, dsegView
 	}
 	acked := s.acknowledgedDeliveriesFrom(ackPaths)
 
-	out := make([]gcRootFile, 0, len(segs))
-	for _, seq := range segs {
-		staged := !view.legacy && !containsSeq(view.committed, seq)
-		reason, required := openLeaseReason, false
-		switch {
-		case staged:
+	out := make([]gcRootFile, 0, 2*len(segs))
+	for i, seq := range segs {
+		staged := i > 0
+		reason, required := openLeaseReason, !view.legacy && !staged
+		if staged {
 			reason = "held by a staged (uncommitted) delivery segment lease"
-		case !view.legacy:
-			required = true // a committed segment's lease journal must exist for the whole harvest
 		}
 		out = append(out, gcRootFile{
 			filepath.Join(s.dsegSegmentDir(seq), deliveryLeaseFile), RetentionLease, reason,
-			openLeaseLines(acked), required,
+			openLeaseLines(acked), required, nil,
+		})
+		if seq == 0 {
+			continue // the original segment carries nothing: nothing was archived before it
+		}
+		out = append(out, gcRootFile{
+			filepath.Join(s.dsegSegmentDir(seq), dcarryFile), RetentionLease, reason,
+			openLeaseLines(acked), required, &dcarryExpect{segment: seq},
 		})
 	}
 	return out, view, nil
-}
-
-func containsSeq(xs []uint64, x uint64) bool {
-	for _, v := range xs {
-		if v == x {
-			return true
-		}
-	}
-	return false
 }
 
 // pendingRootFiles lists the durable pending-write registry: one marker per Put that has written
@@ -759,7 +773,7 @@ func (s *FSStore) pendingRootFiles(budget *gcBudget, limit int) ([]gcRootFile, b
 		}
 		return gcRootFile{
 			filepath.Join(dir, e.Name()), RetentionPending,
-			"written but not yet rooted (pending marker " + e.Name() + ")", nil, false,
+			"written but not yet rooted (pending marker " + e.Name() + ")", nil, false, nil,
 		}, true
 	})
 }
@@ -880,8 +894,9 @@ const (
 // deliveryAckSetMax bounds the acknowledged-delivery set one pass builds, so a runaway or hostile
 // frontier journal cannot cost a GC pass unbounded memory. It matches internal/daemon's own
 // per-journal entry bound. Stopping at it leaves the remaining leases OPEN, which is the safe
-// direction: the pass over-retains rather than closing a lease it never read the ack for.
-const deliveryAckSetMax = 1 << 16
+// direction: the pass over-retains rather than closing a lease it never read the ack for. A variable
+// only so a test can make it bind at fixture scale.
+var deliveryAckSetMax = 1 << 16
 
 // acknowledgedDeliveries reads the daemon's committed-frontier journal and returns the set of
 // delivery nonces whose publication is complete.
@@ -913,11 +928,14 @@ const deliveryAckSetMax = 1 << 16
 // releases a lease only when its own observation identity is one of them (main's adjudication:
 // invalid/unknown/conflicting ack evidence conservatively retains, never releases a different lease).
 //
-// ackPaths is one ack journal per delivery segment (segment 0 alone in the legacy case). An ACK in a
-// LATER segment may settle an OLDER lease, so every segment's acks fold into the ONE returned set,
-// which openLeaseLines then applies to every segment's lease file. The deliveryAckSetMax cap is on the
-// TOTAL admitted (nonce, observation) pairs ACROSS all segments; hitting it leaves the rest of the
-// leases open (over-retain). A per-file open/read failure contributes nothing and never halts.
+// ackPaths is one ack journal per harvested delivery segment (segment 0 alone in the legacy case; the
+// active segment and any staged ones once the daemon has rotated). An ACK in the active segment may
+// settle a lease an OLDER segment archived (and carried), so every harvested segment's acks fold into
+// the ONE returned set, which openLeaseLines then applies to every harvested lease line. The
+// deliveryAckSetMax cap is on the TOTAL admitted (nonce, observation) pairs across those journals —
+// the daemon bounds each at the same count, so a committed store never reaches it; hitting it leaves
+// the rest of the leases open (over-retain). A per-file open/read failure contributes nothing and
+// never halts.
 func (s *FSStore) acknowledgedDeliveriesFrom(ackPaths []string) map[string]map[core.ObservationID]struct{} {
 	acked := make(map[string]map[core.ObservationID]struct{})
 	total := 0 // total admitted (nonce, observation) pairs across all segments
@@ -1201,6 +1219,9 @@ func (s *FSStore) harvestFile(f gcRootFile, into map[core.Hash]RetentionRoot, bu
 	}
 	defer func() { _ = fh.Close() }()
 
+	if f.carry != nil {
+		return s.harvestCarry(fh, f, into, budget)
+	}
 	if f.lines == nil {
 		return s.harvestTokens(fh, f.class, f.reason, into, budget)
 	}
@@ -1224,6 +1245,71 @@ func (s *FSStore) harvestFile(f gcRootFile, into map[core.Hash]RetentionRoot, bu
 		// An overlong line or a mid-file read error cut the scan short: the lines after it were
 		// never read, so the harvest is incomplete and the pass must not sweep against it.
 		return false, fmt.Errorf("%w: read retention root %s: %w", errRetentionRootsUnavailable, f.path, scErr)
+	}
+	return false, nil
+}
+
+// harvestCarry harvests a segment's carried-lease file. The header must be canonical, of this build's
+// format, name the segment whose directory holds the file, and carry no more than dcarryMaxLeases; each
+// body line is filtered by f.lines and harvested exactly as a lease journal line is; and the body must
+// end exactly where the header says, with the digest it names. Anything else halts the pass: the carry
+// is the only record of the archived leases that are still open, so a short or altered one would read
+// as "fewer open leases" and sweep what they need.
+func (s *FSStore) harvestCarry(r io.Reader, f gcRootFile, into map[core.Hash]RetentionRoot, budget *gcBudget) (bool, error) {
+	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 0, scannerInitialBuf), scannerMaxBuf)
+	if !sc.Scan() {
+		if err := sc.Err(); err != nil {
+			return false, retentionUnavailable("read carried leases %s: %v", f.path, err)
+		}
+		return false, retentionUnavailable("carried-lease file %s is empty", f.path)
+	}
+	raw := sc.Bytes()
+	var h dcarryHeader
+	if json.Unmarshal(raw, &h) != nil || h.Version != dcarryVersion || h.Format != dcarryFormat ||
+		h.Segment != f.carry.segment || h.Count < 0 || h.Bytes < 0 {
+		return false, retentionUnavailable("carried-lease file %s has a malformed, unknown or misplaced header", f.path)
+	}
+	if canon, err := json.Marshal(h); err != nil || !bytes.Equal(canon, raw) {
+		return false, retentionUnavailable("carried-lease file %s has a noncanonical header", f.path)
+	}
+	want, ok := dsegHexHash(h.Digest)
+	if !ok {
+		return false, retentionUnavailable("carried-lease file %s has a malformed digest", f.path)
+	}
+	if h.Count > dcarryMaxLeases {
+		return false, retentionUnavailable("carried-lease file %s carries %d leases, over the %d-lease harvest bound",
+			f.path, h.Count, dcarryMaxLeases)
+	}
+	digest := sha256.New()
+	_, _ = digest.Write([]byte(dcarryFormat))
+	_, _ = digest.Write([]byte{0})
+	n, size := 0, int64(0)
+	for sc.Scan() {
+		line := sc.Bytes()
+		n++
+		size += int64(len(line)) + 1
+		if n > h.Count || size > h.Bytes {
+			return false, retentionUnavailable("carried-lease file %s runs past its header", f.path)
+		}
+		_, _ = digest.Write(line)
+		_, _ = digest.Write([]byte{'\n'})
+		class, reason, retains := f.lines(line)
+		if !retains {
+			continue
+		}
+		truncated, err := s.harvestTokens(bytes.NewReader(line), class, reason, into, budget)
+		if err != nil || truncated {
+			return truncated, err
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return false, retentionUnavailable("read carried leases %s: %v", f.path, err)
+	}
+	var got [32]byte
+	digest.Sum(got[:0])
+	if n != h.Count || size != h.Bytes || got != want {
+		return false, retentionUnavailable("carried-lease file %s does not match its header", f.path)
 	}
 	return false, nil
 }
