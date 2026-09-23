@@ -163,12 +163,14 @@ func TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites(t *testin
 }
 
 // TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot (V6 close-out C1.10, gate
-// 3): store GC runs WHILE the journal rotates, pass after pass, and after the rotations stop. A root an
+// 3): store GC runs beside the rotating journal, pass after pass, and after the rotations stop. A root an
 // unsettled lease references is never collected, whichever segment the lease was archived into; a root
 // only a settled lease referenced becomes collectible. Every pass either completes or halts (a rotation
-// moved the authority under it) — a halted pass deletes nothing. The negative control is
-// plans/sdd/V6-closeout/rollover/gc-negative-control.sh: with GC's segmented harvest reduced to segment 0,
-// this test fails.
+// moved the authority under it) — a halted pass deletes nothing. Whether a pass overlaps a rotation here
+// is left to the scheduler (the recorded runs saw none halt); the interleavings are forced, step by step,
+// by TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot. Negative controls:
+// plans/sdd/V6-closeout/rollover/gc-negative-control.sh (segment 0 only, run 06, against the harvest
+// before the carry) and gc-carry-negative-control.sh (carried leases ignored).
 func TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot(t *testing.T) {
 	setRollover(t, 1) // every lease after the first in a segment rotates
 	ctx := context.Background()

@@ -1121,6 +1121,9 @@ func (s *FSStore) harvestHashes(budget *gcBudget) (map[core.Hash]RetentionRoot, 
 			return nil, truncated, err
 		}
 	}
+	if hook := gcAfterHarvest.Load(); hook != nil {
+		(*hook)()
+	}
 	// Stable-frontier recheck AFTER every retention source has been harvested: prove the delivery
 	// segment authority did not switch, and no required segment file vanished, under the pass. A
 	// committed rotation is a durable log append that precedes the head checkpoint, so this recheck
