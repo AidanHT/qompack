@@ -1705,7 +1705,9 @@ func (s *fsckScan) checkDeliveryPositions(row *fsckRowBuilder) {
 					"the store has rotated to segment %d, whose journals --seal-check reads", name, entries, sealed, active)
 			} else {
 				row.defect("state/%s is a frozen legacy-segment seal, but no readable segment authority "+
-					"names a later segment", name)
+					"names a later segment: either a rotation stopped between freezing segment 0 and "+
+					"committing its transition, which the daemon finishes at its next start when the window "+
+					"was archived, or damage", name)
 			}
 			continue
 		}
