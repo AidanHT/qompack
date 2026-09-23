@@ -54,6 +54,41 @@ const (
 
 var dsegChainSeed = dsegDigest(dsegChainSalt, nil)
 
+// The carried-lease file (V6 close-out C1.10). At each rotation the daemon writes, into the new
+// segment's directory and before the transition commits, every archived lease that has no
+// acknowledgement: the previous segment's carry and the outgoing window, less what the window's
+// acknowledgement journal settled. So the ACTIVE segment's journals plus its carry name every lease
+// that can still be open, and GC harvests those and nothing older — without it GC had to re-read every
+// segment's journals on every pass (review finding 1). Mirrored from internal/daemon/delivery_carry.go.
+//
+// The file is a canonical header line, then one canonical lease line per carried lease:
+//
+//	{"v":1,"format":"qompack.delivery.carried-leases.v1","segment":N,"count":C,"bytes":B,"digest":"<hex>"}
+//
+// where B is the body's byte length and the digest is dsegDigest(format, body). It is written once
+// and never rewritten, so a body that disagrees with its header is damage, and damage halts the pass.
+const (
+	dcarryFile    = "delivery-carried-leases.jsonl"
+	dcarryFormat  = "qompack.delivery.carried-leases.v1"
+	dcarryVersion = 1
+)
+
+// dcarryMaxLeases bounds the carried leases one pass harvests (the daemon's per-journal entry bound):
+// a carry past it halts the pass, over-retaining, rather than costing the pass unbounded memory. A
+// variable only so a test can reach it at fixture scale.
+var dcarryMaxLeases = 1 << 16
+
+// dcarryHeader mirrors the daemon's header field for field and in order, so a json.Marshal round trip
+// reproduces the on-disk bytes.
+type dcarryHeader struct {
+	Version int    `json:"v"`
+	Format  string `json:"format"`
+	Segment uint64 `json:"segment"`
+	Count   int    `json:"count"`
+	Bytes   int64  `json:"bytes"`
+	Digest  string `json:"digest"`
+}
+
 // dsegDigest mirrors the daemon's radixDigest: sha256(domain ++ 0x00 ++ b).
 func dsegDigest(domain string, b []byte) [32]byte {
 	h := sha256.New()
