@@ -83,8 +83,10 @@ func ConformOutput(event string, o Output) Output {
 // preview of up to the first 2,000 characters", and "doesn't ask Claude to read the file". Each
 // field is measured on its own, and "this cap has no setting or environment variable to raise it".
 const (
-	// HostFieldMaxChars is the longest field the host delivers whole.
-	HostFieldMaxChars = 10000
+	// HostFieldMaxChars is the longest field the host delivers whole. It is the host's number, not
+	// Qompack's: no config key may change it, because "this cap has no setting or environment
+	// variable to raise it". It equals sketches.bloom.capacity's default only by coincidence.
+	HostFieldMaxChars = 10000 //nomagic:allow Claude Code's documented hook-field cap, not a config default; unrelated to sketches.bloom.capacity
 	// HostFieldPreviewChars is how much of an over-cap field Claude sees in its place.
 	HostFieldPreviewChars = 2000
 )
