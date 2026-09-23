@@ -234,8 +234,10 @@ func (rs *RuleSet) Empty() bool {
 
 // Evaluate reports what the rules say about reading the absolute path abs.
 //
-// Both the path as written and the path its links resolve to are checked, and a match on either is
-// enough: the host checks a symlink and its target, and a deny rule applies when either matches.
+// Every spelling that opens the same file is checked, and a match on any one is enough: the path
+// as written, the name the operating system opens for it (osAlias: on Windows its trailing-dot,
+// stream and 8.3 aliases) and the path each of those resolves to through links. The host checks a
+// symlink and its target, and a deny rule applies when either matches.
 // The path itself is treated as possibly being a directory, so a directory-only rule (`secrets/`)
 // also matches a plain file of that name — a refusal the host might not make, taken because an
 // archived path's kind at capture time is not recorded.
@@ -243,14 +245,7 @@ func (rs *RuleSet) Evaluate(abs string) Decision {
 	if rs.Empty() || abs == "" {
 		return Decision{Effect: Allow}
 	}
-	cands := [][]string{posixSegments(abs, rs.goos, rs.fold)}
-	if rs.resolve {
-		if r, ok := resolveLinks(abs); ok {
-			if rp := posixSegments(r, rs.goos, rs.fold); !equalSegments(rp, cands[0]) {
-				cands = append(cands, rp)
-			}
-		}
-	}
+	cands := spellings(abs, rs.goos, rs.fold, rs.resolve)
 	for _, l := range rs.deny {
 		if rule, ok := l.match(cands); ok {
 			return Decision{Effect: Deny, Rule: rule, Source: l.source}
@@ -262,6 +257,39 @@ func (rs *RuleSet) Evaluate(abs string) Decision {
 		}
 	}
 	return Decision{Effect: Allow}
+}
+
+// spellings returns every distinct spelling of the absolute path p as POSIX segments: p itself
+// and, when onDisk is set, the name the operating system opens for it and where each of those
+// resolves through links. onDisk is false only when a test evaluates another platform's paths.
+func spellings(p, goos string, fold, onDisk bool) [][]string {
+	out := [][]string{posixSegments(p, goos, fold)}
+	if !onDisk {
+		return out
+	}
+	names := []string{p}
+	if a := osAlias(p); a != "" {
+		var added bool
+		if out, added = appendDistinct(out, posixSegments(a, goos, fold)); added {
+			names = append(names, a)
+		}
+	}
+	for _, n := range names {
+		if r, ok := resolveLinks(n); ok {
+			out, _ = appendDistinct(out, posixSegments(r, goos, fold))
+		}
+	}
+	return out
+}
+
+// appendDistinct appends segs unless an identical list is already present.
+func appendDistinct(all [][]string, segs []string) ([][]string, bool) {
+	for _, s := range all {
+		if equalSegments(s, segs) {
+			return all, false
+		}
+	}
+	return append(all, segs), true
 }
 
 // ruleList is one `deny` or `ask` array from one source, in order.
@@ -392,22 +420,14 @@ func (l *ruleList) settingsAnchors(p *Policy) [][]string {
 	return out
 }
 
-// anchorVariants returns dir in POSIX segments, plus the location its links resolve to when that
-// differs.
+// anchorVariants returns dir in POSIX segments, plus every other spelling of it that spellings
+// finds: a project root or home supplied through 8.3 names measures its rules from its real name
+// too, as well as from the location its links resolve to.
 func (p *Policy) anchorVariants(dir string) [][]string {
 	if dir == "" {
 		return nil
 	}
-	lex := posixSegments(dir, p.goos, p.fold)
-	out := [][]string{lex}
-	if p.goos == runtime.GOOS {
-		if r, ok := resolveLinks(dir); ok {
-			if rp := posixSegments(r, p.goos, p.fold); !equalSegments(rp, lex) {
-				out = append(out, rp)
-			}
-		}
-	}
-	return out
+	return spellings(dir, p.goos, p.fold, p.goos == runtime.GOOS)
 }
 
 // throughLinks returns the aliases of an anchored rule written through a symlinked directory:

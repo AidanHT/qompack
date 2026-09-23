@@ -34,8 +34,11 @@
 // list of the same file, and cannot reopen a file inside a directory a rule blocks as a whole.
 // Deny rules are checked against both the lexical path and the path its symlinks and junctions
 // resolve to, and a rule written through a symlinked directory also applies at its real location.
-// Paths are compared in the host's POSIX form (C:\x becomes /c/x) and case-insensitively on Windows
-// and macOS.
+// On Windows the name the operating system opens is checked as well: a trailing dot or space, a
+// `:stream` suffix and an 8.3 short name all open the same file, so a rule on its real name holds
+// for each, and a project root or home spelled through short names anchors rules at its real name
+// too. Paths are compared in the host's POSIX form (C:\x becomes /c/x) and case-insensitively on
+// Windows and macOS.
 //
 // Where the documentation leaves a choice open this package takes the one that refuses more, never
 // less: a `/path` rule in a managed or cached source is anchored at both the project and the file's
