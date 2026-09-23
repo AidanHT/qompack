@@ -1,0 +1,27 @@
+# EXPERIMENT E3 (never committed): git archive 6edd2e4 + runs/experiment-e3-drain-before-session-end.patch
+# go test ./internal/daemon -run 'TestFlush_SessionEndIsOrderedAfterAcceptedArrivals|TestSessionEndRecordsRecoveryNeeded|TestStragglerAfterSessionEnd|TestDrainOfSpooledFlushLine|TestStartupDrainOfSpooledFlushLine|TestMarkerIsWrittenByFlushAndCheckpointOnly' -count=1 -v -timeout=30m
+=== RUN   TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== PAUSE TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== RUN   TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun
+--- PASS: TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun (0.27s)
+=== RUN   TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== PAUSE TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== RUN   TestSessionEndRecordsRecoveryNeeded
+--- PASS: TestSessionEndRecordsRecoveryNeeded (0.33s)
+=== RUN   TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+=== PAUSE TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (3.15s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (1.64s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (1.51s)
+=== CONT  TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== CONT  TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+=== CONT  TestMarkerIsWrittenByFlushAndCheckpointOnly
+--- PASS: TestDrainOfSpooledFlushLineDoesNotDeadlock (0.25s)
+--- PASS: TestMarkerIsWrittenByFlushAndCheckpointOnly (0.34s)
+--- PASS: TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment (0.57s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	4.532s
+exit=0

@@ -1,0 +1,14 @@
+diff --git a/internal/daemon/handlers.go b/internal/daemon/handlers.go
+index 15c4e22..09dd2f9 100644
+--- a/internal/daemon/handlers.go
++++ b/internal/daemon/handlers.go
+@@ -982,6 +982,9 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
+ 	// because SessionEnd is SP-08's L1 flush semantics (store.Flush and friends), which is
+ 	// recording work, not acting work, so it belongs behind the same predicate row 1's
+ 	// ingest.Accept uses, not behind MayAct() (M-3).
++	if drain { // TEMPORARY EXPERIMENT E3, NEVER COMMIT: settle the session before SessionEnd
++		_, _ = d.Drain(ctx)
++	}
+ 	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
+ 		d.markRecoveryNeeded(ev.SessionID, recoveryStageSessionEnd, 0)
+ 		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
