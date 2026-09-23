@@ -119,7 +119,7 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 Found by the packaging workstream's real-host sessions (evidence on `closeout/packaging` under
 `plans/sdd/V6-closeout/packaging/`):
 
-- [ ] **C1.14** (D5) The rehydration payload (budget up to ~12K tokens) exceeds the host's
+- [x] **C1.14** *(fixed on `closeout/rehydrate-cap` `2148fa6`; live session: 3,048 units inline, overflow pointer resolved via MCP `expand`; pending merge)* (D5) The rehydration payload (budget up to ~12K tokens) exceeds the host's
       10,000-character `additionalContext` cap. When it does, Claude gets a file path and a
       2,000-char preview and is not asked to read the file. Fit the payload under the cap, report
       the rest as overflow with pointers, and revise Qompack.md §8.6 and ADR 0011.
@@ -134,6 +134,11 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
 - [ ] **C1.18** The daemon still renders and records PreCompact summarizer instructions that no
       host accepts (`precompact.custom_instructions_accepted` warns). Retire the producer and keep
       the checkpoint.
+- [ ] **C1.20** Other hook fields are still unbounded by the host cap: the SessionStart
+      `degradeBanner` systemMessage (`internal/daemon/handlers.go`) quotes contract
+      Expected/Observed values with no length limit, and the UserPromptSubmit thrash warning
+      (`internal/observer`) joins lines without a count limit. Bound both and pin each with a
+      `HostChars <= cap` test.
 - [ ] **C1.19** Pre-existing gate failures on the base: `devtool lint` bindeps
       (`golang.org/x/sys/unix` via `internal/paths`), and `stubskips` reports four skips with
       non-permitted reasons in `internal/daemon`, `internal/hookio` and `internal/store` tests.
