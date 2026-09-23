@@ -55,7 +55,6 @@ func (j *deliveryJournal) signalRotate() error { return rotateSignal{from: j.seg
 // ErrBudget. Every attempt past the first follows a rotation that moved the journal to a later segment
 // (an empty segment never signals), so reaching it means other callers filled that many segments while
 // this one waited; the delivery then stays pending in durable input, like any refusal.
-// //nomagic:allow retry bound, not a budget
 const deliveryRotateAttempts = 64
 
 // deliveryRolloverEntries and deliveryRolloverBytes are the active-window thresholds at which a lease

@@ -308,7 +308,7 @@ type radixReader interface {
 // genTxnMaxHeld bounds the radix pages one write transaction holds in memory before the commit in
 // progress publishes what it has as a generation of its own and continues in a fresh transaction. It
 // is a memory bound, not a capacity bound: a large reconcile becomes several generations, each an
-// exact, valid superset of the one before. //nomagic:allow in-memory page bound, not a budget
+// exact, valid superset of the one before.
 const genTxnMaxHeld = 1 << 15
 
 // genWriter is one commit call's running state: the transaction, the root it has reached, the sessions
