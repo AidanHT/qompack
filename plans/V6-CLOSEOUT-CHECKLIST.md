@@ -41,6 +41,8 @@ close-out by the user's later instruction and every record says so.
 | 1 | `wf_16dd5d95-b3a` | `ingest` C1.1 · `e2e` C1.2/C1.3 · `config` C1.8 · `hostperm` C1.9 · `rollover` C1.10 · `perfstore` C2.6/C2.7 · `perfobs` C2.3–C2.5 · `eval` C5.4 · `linux` C3.4 + the six unreported Windows packages. Each: implement → adversarial review (two lenses for ingest/hostperm/rollover) → fix seat |
 | 1b | `wf_a704d10a-845` | `packaging` C1.11 + C1.12 + C7.5 prep (implement → two-lens review → fix) |
 | 1c | `wf_e1d0d082-a01` | `rehydrate-cap` C1.14 (D5), branched from `closeout/packaging` `32e1a37` |
+| int | — | All ten wave-1/1b/1c branches merged `--no-ff` into `closeout/integration` (`../qompack-cx-int`) at `b070bbe`, with no textual conflicts; `go build ./...` and `go vet ./...` are clean. The rollover merge's `git merge` hung for about 2 h after creating its commit (no child process; the likely cause is a Windows file lock over thousands of new evidence files). The coordinator stopped its own process and ran `git merge --quit`, and the merge commit `ecaa08a` stands. Integrated gates `int1-windows-whole-tree` and `int1-linux-race` (non-root, ALL-NON-E2E) started together, with co-load declared |
+| 2 | `wf_0d8775ab-04e` | off `b070bbe`: `w2-sessionend` C1.15 + C1.13 remainder + drained control-line sidecars · `w2-lifetime` C1.16 + C1.17 + admin.shutdown reply loss + hermetic mcpop tests · `w2-hookout` C1.18 + C1.20 + two unclassified e2e reds · `w2-rollover2` D6 diagnostics, gcrun memory claim, lock-held lookups, race-suite duration · `w2-lint` C1.19 · `w2-eval2` first independent review of the eval harness + `qompack eval` wiring |
 
 Incident: at 17:31 a coordinator `SendMessage` to two running workflow agents (ingest, eval)
 resumed a second copy of each in the same worktree. The ingest copy stood down after writing
@@ -79,7 +81,7 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 
 ## Phase 1 — Fix the product defects that block a working plugin
 
-- [ ] **C1.1** Root-cause and fix the live-ingest regression (events stranded behind the ordering
+- [x] **C1.1** *(fixed on `closeout/ingest`, merged in integration; integrated gates pending)* Root-cause and fix the live-ingest regression (events stranded behind the ordering
       gate and not recovered by the drain). Failing regression test first; fixes the observer,
       thin-slice and X10 e2e cases and the six `test/fault` cases, or each gets its own diagnosis.
 - [ ] **C1.2** `TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting`: fsck reports a
@@ -94,14 +96,14 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
       gaps on the packaged bundle; state honestly whether automatic *recovery* exists.
 - [ ] **C1.7** V6-RECOVERY-2: operator backup/verify/restore through the shipped CLI
       (`4a12eff`), pre- and post-new-write rollback rehearsed on the packaged bundle.
-- [ ] **C1.8** SP-18's discovered defect: one bad config key must not make every hook capture
+- [x] **C1.8** *(fixed on `closeout/config` (D8), merged; integrated gates pending)* SP-18's discovered defect: one bad config key must not make every hook capture
       nothing while `self-test` says `config.load ok` — verify or fix `config.LoadForCapture`.
-- [ ] **C1.9** V6-HOST-1 (archive reads vs the host's deny rules): implement honoring Claude Code
+- [x] **C1.9** *(fixed on `closeout/hostperm` incl. the Windows alias bypass found by review (D7), merged; integrated gates pending)* V6-HOST-1 (archive reads vs the host's deny rules): implement honoring Claude Code
       `permissions.deny` `Read(...)` rules from the user/project/local/managed settings files for
       every retrieval form, with fail-closed on unreadable settings, and document the residual gap
       (session-only/CLI-flag rules are invisible to a plugin). *Default taken unless the owner
       objects.*
-- [ ] **C1.10** SP20-D4 journal capacity (65,536 deliveries / 64 MiB, after which capture stops):
+- [x] **C1.10** *(rollover enabled by default on `closeout/rollover` with gates 1–5 (D2, D6), merged; D6 diagnostics in wave 2; integrated gates pending)* SP20-D4 journal capacity (65,536 deliveries / 64 MiB, after which capture stops):
       per the owner decision, either complete the rollover gates (old-reader, backup/restore,
       resource cost, GC segment retention) and enable it, or keep it default-off with the limit,
       its symptom and its recovery documented.
