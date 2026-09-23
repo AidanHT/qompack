@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -271,64 +272,99 @@ func cleanLiteral(segs []string) []string {
 // matchSelfOrAncestor reports whether the pattern matches rel or any directory above it. A rule
 // that matches a directory denies everything inside it, which is gitignore's own rule and the
 // host's ("a carve-out can't reopen a file inside a directory that a rule blocks as a whole").
-func (p *pattern) matchSelfOrAncestor(rel []string) bool {
+func (p *pattern) matchSelfOrAncestor(rel []string, sc *scratch) bool {
 	if len(p.segs) == 0 && !p.literal {
 		return true
 	}
-	for i := 1; i <= len(rel); i++ {
-		if p.match(rel[:i]) {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(p.row(rel, sc)[1:], true)
 }
 
 // match reports whether the pattern matches exactly rel.
-func (p *pattern) match(rel []string) bool {
-	if p.inert {
-		return false
-	}
-	if p.literal {
-		if len(p.segs) != len(rel) {
-			return false
-		}
-		for i := range rel {
-			if p.segs[i] != rel[i] {
-				return false
-			}
-		}
-		return true
-	}
-	if len(p.segs) == 0 {
-		return true
-	}
-	return matchSegments(p.segs, rel)
+func (p *pattern) match(rel []string, sc *scratch) bool {
+	return p.row(rel, sc)[len(rel)]
 }
 
-// matchSegments matches glob segments against path segments. `**` matches zero or more segments,
-// except in last position, where gitignore gives it "everything inside": one or more. The table is
-// quadratic in the two lengths and never backtracks, so a hostile pattern in a cloned repository's
-// settings cannot make a retrieval spin.
-func matchSegments(pat, segs []string) bool {
-	n, m := len(pat), len(segs)
-	w := m + 1
-	dp := make([]bool, (n+1)*w)
-	dp[n*w+m] = true
-	for i := n - 1; i >= 0; i-- {
-		last := i == n-1
-		for j := m; j >= 0; j-- {
+// row reports, for every k from 0 to len(rel), whether the pattern matches exactly rel[:k]: the
+// path's first k segments. The answer belongs to sc and holds until sc is next used.
+func (p *pattern) row(rel []string, sc *scratch) []bool {
+	switch {
+	case p.inert:
+		return sc.cleared(len(rel) + 1)
+	case p.literal:
+		r := sc.cleared(len(rel) + 1)
+		if k := len(p.segs); k <= len(rel) && slices.Equal(p.segs, rel[:k]) {
+			r[k] = true
+		}
+		return r
+	case len(p.segs) == 0:
+		r := sc.cleared(len(rel) + 1)
+		for k := range r {
+			r[k] = true
+		}
+		return r
+	}
+	return prefixRow(p.segs, rel, sc)
+}
+
+// scratch is one evaluation's reusable matcher buffers. A RuleSet is shared by concurrent requests,
+// so the buffers belong to the Evaluate call, never to the rule set.
+type scratch struct {
+	a, b []bool
+	// rules and pos are carvedMatch's per-prefix answer: the deciding rule and its polarity.
+	rules []string
+	pos   []bool
+}
+
+// cleared returns sc's first row buffer resized to n cells, all false.
+func (sc *scratch) cleared(n int) []bool {
+	sc.a = resize(sc.a, n)
+	return sc.a
+}
+
+// resize returns buf with n cleared cells, reusing its allocation when it is big enough.
+func resize[T any](buf []T, n int) []T {
+	if cap(buf) < n {
+		return make([]T, n)
+	}
+	buf = buf[:n]
+	clear(buf)
+	return buf
+}
+
+// matchSegments reports whether glob segments match exactly the path segments segs.
+func matchSegments(pat, segs []string, sc *scratch) bool {
+	return prefixRow(pat, segs, sc)[len(segs)]
+}
+
+// prefixRow reports, for every k from 0 to len(segs), whether the glob segments pat match exactly
+// segs[:k]. `**` matches zero or more segments, except in last position, where gitignore gives it
+// "everything inside": one or more.
+//
+// One forward pass answers every prefix at once, so checking a path and each directory above it
+// costs one table rather than one per directory, and a segment is compared only where the pattern
+// can have reached it. The table is quadratic in the two lengths and never backtracks, so a hostile
+// pattern in a cloned repository's settings cannot make a retrieval spin. The answer belongs to sc.
+func prefixRow(pat, segs []string, sc *scratch) []bool {
+	m := len(segs)
+	sc.a, sc.b = resize(sc.a, m+1), resize(sc.b, m+1)
+	prev, cur := sc.a, sc.b
+	prev[0] = true // the empty pattern matches the empty prefix only
+	for i, ps := range pat {
+		last := i == len(pat)-1
+		for j := 0; j <= m; j++ {
 			var v bool
 			switch {
-			case pat[i] == "**" && last:
-				v = j < m
-			case pat[i] == "**":
-				v = dp[(i+1)*w+j] || (j < m && dp[i*w+j+1])
-			case j < m:
-				ok, _ := path.Match(pat[i], segs[j])
-				v = ok && dp[(i+1)*w+j+1]
+			case ps == "**" && last:
+				v = j > 0 && (prev[j-1] || cur[j-1])
+			case ps == "**":
+				v = prev[j] || (j > 0 && cur[j-1])
+			case j > 0 && prev[j-1]:
+				v, _ = path.Match(ps, segs[j-1])
 			}
-			dp[i*w+j] = v
+			cur[j] = v
 		}
+		prev, cur = cur, prev
 	}
-	return dp[0]
+	sc.a, sc.b = prev, cur
+	return prev
 }

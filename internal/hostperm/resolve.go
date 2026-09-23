@@ -1,6 +1,8 @@
 package hostperm
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,8 +14,33 @@ import (
 // the containment check this package's answer sits beside.
 const maxLinkHops = 64
 
+// linkMemo caches os.Readlink answers for one rule-set build, where every anchored rule re-walks the
+// same anchor directories: without it a build paid one Readlink per anchor component per rule, and
+// the first request after an edit to a large rule list waited seconds for it. A nil memo reads the
+// disk every time, which is what Evaluate uses, because a request must see links as they are now.
+type linkMemo map[string]linkAnswer
+
+// linkAnswer is one cached Readlink result.
+type linkAnswer struct {
+	target string
+	err    error
+}
+
+// readlink is os.Readlink through the memo.
+func (m linkMemo) readlink(p string) (string, error) {
+	if m == nil {
+		return os.Readlink(paths.Long(p))
+	}
+	if a, ok := m[p]; ok {
+		return a.target, a.err
+	}
+	t, err := os.Readlink(paths.Long(p))
+	m[p] = linkAnswer{target: t, err: err}
+	return t, err
+}
+
 // resolveLinks resolves p component by component from its volume root, following every symlink,
-// junction and mount point it meets, and reports false for a cycle.
+// junction and mount point it meets, and reports false for a cycle. memo may be nil.
 //
 // It is the same walk internal/paths uses for ResolvesInside (which returns only a verdict, not the
 // path), repeated here because §3.2 keeps that helper unexported. It does not use
@@ -22,7 +49,7 @@ const maxLinkHops = 64
 // past a check built on it. A component that does not exist contributes nothing to follow, so a
 // deleted file still resolves through whatever its surviving ancestors point at — the right answer
 // for a historical read.
-func resolveLinks(p string) (string, bool) {
+func resolveLinks(p string, memo linkMemo) (string, bool) {
 	p = filepath.Clean(p)
 	sep := string(filepath.Separator)
 	vol := filepath.VolumeName(p)
@@ -37,7 +64,12 @@ func resolveLinks(p string) (string, bool) {
 			continue
 		}
 		cur = filepath.Join(cur, part)
-		target, err := os.Readlink(paths.Long(cur))
+		target, err := memo.readlink(cur)
+		if errors.Is(err, fs.ErrNotExist) {
+			// Nothing below a missing component exists, so nothing below it is a link: the rest is
+			// appended as written, which is what walking it would produce, without a syscall each.
+			return filepath.Join(append([]string{cur}, parts[i+1:]...)...), true
+		}
 		if err != nil {
 			i++
 			continue

@@ -2,6 +2,7 @@ package hostperm
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -160,6 +161,7 @@ func (p *Policy) build(srcs []source, sigs []signature) (*RuleSet, bool, error) 
 	now := p.o.Clock.Now()
 	racy := false
 	var lists []ruleList
+	compiled, segments := 0, 0
 	for i := range srcs {
 		s, sig := &srcs[i], sigs[i]
 		switch {
@@ -180,6 +182,16 @@ func (p *Policy) build(srcs []source, sigs []signature) (*RuleSet, bool, error) 
 		got, err := parseSettings(data, s, p.goos, p.fold)
 		if err != nil {
 			return nil, false, err
+		}
+		for _, l := range got {
+			compiled += len(l.patterns)
+			for _, pt := range l.patterns {
+				segments += len(pt.segs)
+			}
+		}
+		if compiled > maxReadPatterns || segments > maxReadSegments {
+			return nil, false, sourceError(s.id, fmt.Sprintf("the Read path rules in force across the "+
+				"settings sources exceed %d patterns or %d path segments", maxReadPatterns, maxReadSegments))
 		}
 		lists = append(lists, got...)
 	}
@@ -245,14 +257,15 @@ func (rs *RuleSet) Evaluate(abs string) Decision {
 	if rs.Empty() || abs == "" {
 		return Decision{Effect: Allow}
 	}
-	cands := spellings(abs, rs.goos, rs.fold, rs.resolve)
+	cands := spellings(abs, rs.goos, rs.fold, rs.resolve, nil)
+	var sc scratch
 	for _, l := range rs.deny {
-		if rule, ok := l.match(cands); ok {
+		if rule, ok := l.match(cands, &sc); ok {
 			return Decision{Effect: Deny, Rule: rule, Source: l.source}
 		}
 	}
 	for _, l := range rs.ask {
-		if rule, ok := l.match(cands); ok {
+		if rule, ok := l.match(cands, &sc); ok {
 			return Decision{Effect: Ask, Rule: rule, Source: l.source}
 		}
 	}
@@ -262,7 +275,8 @@ func (rs *RuleSet) Evaluate(abs string) Decision {
 // spellings returns every distinct spelling of the absolute path p as POSIX segments: p itself
 // and, when onDisk is set, the name the operating system opens for it and where each of those
 // resolves through links. onDisk is false only when a test evaluates another platform's paths.
-func spellings(p, goos string, fold, onDisk bool) [][]string {
+// memo may be nil; see linkMemo.
+func spellings(p, goos string, fold, onDisk bool, memo linkMemo) [][]string {
 	out := [][]string{posixSegments(p, goos, fold)}
 	if !onDisk {
 		return out
@@ -275,7 +289,7 @@ func spellings(p, goos string, fold, onDisk bool) [][]string {
 		}
 	}
 	for _, n := range names {
-		if r, ok := resolveLinks(n); ok {
+		if r, ok := resolveLinks(n, memo); ok {
 			out, _ = appendDistinct(out, posixSegments(r, goos, fold))
 		}
 	}
@@ -308,7 +322,7 @@ type ruleList struct {
 
 // match reports whether any candidate spelling of the path is refused by this list, and by which
 // entry.
-func (l *ruleList) match(cands [][]string) (string, bool) {
+func (l *ruleList) match(cands [][]string, sc *scratch) (string, bool) {
 	if l.toolRule != "" {
 		return l.toolRule, true
 	}
@@ -318,14 +332,14 @@ func (l *ruleList) match(cands [][]string) (string, bool) {
 				continue
 			}
 			for _, a := range p.anchors {
-				if rel, ok := under(c, a); ok && p.matchSelfOrAncestor(rel) {
+				if rel, ok := under(c, a); ok && p.matchSelfOrAncestor(rel, sc) {
 					return p.raw, true
 				}
 			}
 		}
 		for _, a := range l.cwdAnchors {
 			if rel, ok := under(c, a); ok {
-				if rule, hit := l.carvedMatch(rel); hit {
+				if rule, hit := l.carvedMatch(rel, sc); hit {
 					return rule, true
 				}
 			}
@@ -336,25 +350,29 @@ func (l *ruleList) match(cands [][]string) (string, bool) {
 
 // carvedMatch applies gitignore's ordering to the carvable group: a directory above rel that the
 // group excludes excludes rel outright, and otherwise the last pattern matching rel decides.
-func (l *ruleList) carvedMatch(rel []string) (string, bool) {
-	for i := 1; i < len(rel); i++ {
-		if rule, pos := l.lastCarvable(rel[:i]); pos {
-			return rule, true
-		}
-	}
-	return l.lastCarvable(rel)
-}
-
-// lastCarvable returns the polarity of the last carvable pattern matching rel.
-func (l *ruleList) lastCarvable(rel []string) (string, bool) {
-	rule, pos := "", false
+//
+// For every prefix of rel — each directory above it, and rel itself — the last carvable pattern
+// matching exactly that prefix decides its polarity. One pass over the patterns fills in every
+// prefix's answer at once, because each pattern's row answers every prefix.
+func (l *ruleList) carvedMatch(rel []string, sc *scratch) (string, bool) {
+	n := len(rel)
+	sc.rules, sc.pos = resize(sc.rules, n+1), resize(sc.pos, n+1)
 	for _, p := range l.patterns {
-		if !p.carvable || !p.match(rel) {
+		if !p.carvable {
 			continue
 		}
-		rule, pos = p.raw, !p.neg
+		for k, hit := range p.row(rel, sc) {
+			if hit {
+				sc.rules[k], sc.pos[k] = p.raw, !p.neg
+			}
+		}
 	}
-	return rule, pos
+	for k := 1; k < n; k++ {
+		if sc.pos[k] {
+			return sc.rules[k], true
+		}
+	}
+	return sc.rules[n], sc.pos[n]
 }
 
 // equalSegments reports whether two segment lists are identical.
@@ -376,8 +394,9 @@ func (p *Policy) newRuleSet(lists []ruleList) *RuleSet {
 	if len(lists) == 0 {
 		return rs
 	}
-	cwd := p.anchorVariants(p.o.ProjectRoot)
-	home := p.anchorVariants(p.home())
+	memo := linkMemo{}
+	cwd := p.anchorVariants(p.o.ProjectRoot, memo)
+	home := p.anchorVariants(p.home(), memo)
 	for i := range lists {
 		l := &lists[i]
 		var aliases []*pattern
@@ -389,7 +408,7 @@ func (p *Policy) newRuleSet(lists []ruleList) *RuleSet {
 			case anchorHome:
 				base = home
 			case anchorSettings:
-				base = l.settingsAnchors(p)
+				base = l.settingsAnchors(p, memo)
 			default:
 				base = cwd
 			}
@@ -397,7 +416,7 @@ func (p *Policy) newRuleSet(lists []ruleList) *RuleSet {
 				pt.anchors = append(pt.anchors, ancestorsUp(a, pt.up))
 			}
 			if !pt.neg && pt.kind != anchorCwd {
-				aliases = append(aliases, p.throughLinks(pt)...)
+				aliases = append(aliases, p.throughLinks(pt, memo)...)
 			}
 		}
 		l.patterns = append(l.patterns, aliases...)
@@ -412,10 +431,10 @@ func (p *Policy) newRuleSet(lists []ruleList) *RuleSet {
 }
 
 // settingsAnchors returns the directories a `/path` rule from this list's source is measured from.
-func (l *ruleList) settingsAnchors(p *Policy) [][]string {
+func (l *ruleList) settingsAnchors(p *Policy, memo linkMemo) [][]string {
 	var out [][]string
 	for _, d := range l.settingsDirs {
-		out = append(out, p.anchorVariants(d)...)
+		out = append(out, p.anchorVariants(d, memo)...)
 	}
 	return out
 }
@@ -423,17 +442,17 @@ func (l *ruleList) settingsAnchors(p *Policy) [][]string {
 // anchorVariants returns dir in POSIX segments, plus every other spelling of it that spellings
 // finds: a project root or home supplied through 8.3 names measures its rules from its real name
 // too, as well as from the location its links resolve to.
-func (p *Policy) anchorVariants(dir string) [][]string {
+func (p *Policy) anchorVariants(dir string, memo linkMemo) [][]string {
 	if dir == "" {
 		return nil
 	}
-	return spellings(dir, p.goos, p.fold, p.goos == runtime.GOOS)
+	return spellings(dir, p.goos, p.fold, p.goos == runtime.GOOS, memo)
 }
 
 // throughLinks returns the aliases of an anchored rule written through a symlinked directory:
 // the host applies such a rule at the directory's real location too. The walk stops at the first
 // segment that is a glob, which is as far as a rule names a concrete directory.
-func (p *Policy) throughLinks(pt *pattern) []*pattern {
+func (p *Policy) throughLinks(pt *pattern, memo linkMemo) []*pattern {
 	if p.goos != runtime.GOOS || pt.literal {
 		return nil
 	}
@@ -447,7 +466,7 @@ func (p *Policy) throughLinks(pt *pattern) []*pattern {
 	var out []*pattern
 	for _, a := range pt.anchors {
 		lit := append(append([]string{}, a...), pt.segs[:prefix]...)
-		r, ok := resolveLinks(nativePath(lit, p.goos))
+		r, ok := resolveLinks(nativePath(lit, p.goos), memo)
 		if !ok {
 			continue
 		}

@@ -23,6 +23,20 @@ const maxSettingsBytes = 8 << 20
 // maxDropIns bounds managed-settings.d. Past it the managed policy is refused as unusable.
 const maxDropIns = 256
 
+// maxReadPatterns bounds the compiled Read path patterns one snapshot holds, summed over every
+// source. Evaluating a path costs time in proportion to it, and a request evaluates one path per
+// recall hit, drop entry and hash origin, so an unbounded list let a committed settings file make
+// every retrieval arbitrarily slow (C1.9 review finding 2). Past the bound the policy is refused as
+// unusable, which fails closed exactly as a malformed rule does. Real settings hold tens of Read
+// rules; the cost at the bound is measured in plans/sdd/V6-closeout/hostperm/report.md.
+const maxReadPatterns = 4096
+
+// maxReadSegments bounds the path segments of those patterns, summed. Matching one path costs time
+// in proportion to the segments it is matched against, so a few rules of millions of segments each
+// would be as slow as millions of rules; this is 16 segments per pattern at maxReadPatterns, where
+// a real rule has two to four.
+const maxReadSegments = 16 * maxReadPatterns
+
 // maxNesting bounds the walk for `permissions` objects inside the server-managed settings cache,
 // whose on-disk shape is not documented.
 const maxNesting = 8

@@ -354,7 +354,7 @@ func TestMacOSComparesWithoutCase(t *testing.T) {
 func TestMatchSegmentsStaysPolynomialOnHostilePatterns(t *testing.T) {
 	pat := strings.Split(strings.Repeat("**/a*a*a*a*/", 40)+"b", "/")
 	segs := strings.Split(strings.Repeat("aaaaaaaaaaaaaaaa/", 200)+"c", "/")
-	require.False(t, matchSegments(pat, segs))
+	require.False(t, matchSegments(pat, segs, &scratch{}))
 }
 
 func TestEvaluateOnAnEmptySetIsAllow(t *testing.T) {
