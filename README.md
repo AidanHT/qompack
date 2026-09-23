@@ -104,8 +104,13 @@ through five layers (defaults → `~/.qompack/config.json` → `<project>/.qompa
 `QOMPACK_*` environment → `--set <dotted.key>=<value>`), the merge is deep and per leaf, an invalid
 value is never fatal (the leaf falls back to its default, the violation is reported and recorded in
 `.qompack/state/config-violations.json`), and an unknown key produces a warning rather than an
-error. `qompack config print --provenance` shows the effective value of every key and where it came
-from.
+error. The hooks follow the same rules, except that two kinds of problem stop recording instead:
+input they cannot read safely (a config file that does not parse, is not a plain file or is over its
+size bound, or an oversized `QOMPACK_*` or `--set` value), and a setting of `runtime.redact` or
+`runtime.mode` that cannot be applied as written, where a fallback would record under a privacy
+policy you did not write, or record while you were switching recording off. `qompack config print --provenance` shows the effective value of
+every key and where it came from, and `qompack self-test`'s `config.capture` row says whether the
+hooks can load it ([docs/troubleshooting.md](docs/troubleshooting.md#6-configuration-and-schema-compatibility)).
 
 ## What ships off, and why you should leave it off
 

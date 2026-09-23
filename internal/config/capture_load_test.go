@@ -31,9 +31,10 @@ func TestLoadForCapture_AcceptsStrictJSONCAndFiveLayerPrecedence(t *testing.T) {
 	}
 	env.Flags = map[string]string{"scheduler.softFloorPct": "0.8"}
 
-	cfg, prov, violations, err := config.LoadForCapture(env)
+	cfg, prov, violations, warnings, err := config.LoadForCapture(env)
 	require.NoError(t, err)
 	require.Empty(t, violations)
+	require.Empty(t, warnings)
 	require.Equal(t, 0.8, cfg.Scheduler.SoftFloorPct)
 	require.Equal(t, config.OriginFlag, prov["scheduler.softFloorPct"].Origin)
 	require.False(t, cfg.Runtime.Redact.Enabled, "explicit redaction disable is a valid setting")
@@ -59,9 +60,10 @@ func TestLoadForCapture_RequiresAbsoluteRoots(t *testing.T) {
 }
 
 func TestLoadForCapture_MissingFilesRemainValid(t *testing.T) {
-	cfg, prov, violations, err := config.LoadForCapture(baseEnv(t))
+	cfg, prov, violations, warnings, err := config.LoadForCapture(baseEnv(t))
 	require.NoError(t, err)
 	require.Empty(t, violations)
+	require.Empty(t, warnings)
 	require.Equal(t, config.Defaults(), cfg)
 	require.Equal(t, config.OriginDefault, prov["runtime.redact.enabled"].Origin)
 }
@@ -164,61 +166,286 @@ func TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy(t *testing.T) {
 	}
 }
 
-func TestLoadForCapture_RefusesSchemaEnvFlagAndEffectiveConfigurationFailures(t *testing.T) {
+// TestLoadForCapture_RefusesAnyPrivacyPolicyProblem pins the one per-leaf problem that stays a
+// refusal on the capture path: anything inside runtime.redact, the subtree the capture privacy policy
+// is compiled from.
+//
+// Criterion change (V6 close-out C1.8). This test was
+// TestLoadForCapture_RefusesSchemaEnvFlagAndEffectiveConfigurationFailures, and it required a
+// refusal of the WHOLE capture for an unknown key, a wrong leaf type, an unparseable environment
+// value, an unknown flag and an unparseable flag value anywhere in the schema. That was the defect,
+// not the contract: one such line made every hook admit nothing, while the documented contract
+// (README "Configuration", docs/config-reference.md) is that an invalid value falls back and an
+// unknown key only warns. Those five rows moved, with the same inputs, to captureFallbackCases,
+// where they must now fall back per leaf and agree with config.Load.
+//
+// What they did guard is kept here, narrowed to where it is a security bound rather than an outage:
+// every fallback inside runtime.redact would capture under a weaker policy than the operator wrote,
+// so a problem there still refuses, reveals nothing, and names only its class.
+func TestLoadForCapture_RefusesAnyPrivacyPolicyProblem(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
+		user  string
 		file  string
 		env   func(string) string
 		flags map[string]string
 	}{
 		{
-			name: "unknown key",
-			file: `{"capture-secret":true}`,
+			name: "policy leaf of the wrong type",
+			file: `{"runtime":{"redact":{"patterns":"capture-secret"}}}`,
 		},
 		{
-			name: "wrong leaf type",
-			file: `{"scheduler":{"softFloorPct":"wrong"}}`,
+			// Falling back here would leave the user layer's false in force: capture unredacted.
+			name: "mistyped enable over a lower layer's disable",
+			user: `{"runtime":{"redact":{"enabled":false}}}`,
+			file: `{"runtime":{"redact":{"enabled":"capture-secret"}}}`,
 		},
-		// An out-of-range VALUE is no longer a refusal — finding S-7: it clamps, and
-		// TestLoadForCapture_ClampsViolationsInsteadOfRefusing covers that. A newer
-		// settingsVersion is the same clamp (the whole block resets); those rows live there too.
 		{
-			name: "invalid environment value",
+			name: "unknown key inside the policy",
+			file: `{"runtime":{"redact":{"capture-secret":["x"]}}}`,
+		},
+		{
+			name: "policy section that is not an object",
+			file: `{"runtime":{"redact":"capture-secret"}}`,
+		},
+		{
+			name: "unparseable environment value for a policy leaf",
 			env: func(name string) string {
-				if name == "QOMPACK_SCHEDULER__SOFTFLOORPCT" {
-					return "NaN"
+				if name == "QOMPACK_RUNTIME__REDACT__ENABLED" {
+					return "capture-secret"
 				}
 				return ""
 			},
 		},
 		{
-			name:  "unknown flag",
-			flags: map[string]string{"unknown.capture.option": "capture-secret"},
+			name:  "unparseable flag value for a policy leaf",
+			flags: map[string]string{"runtime.redact.enabled": "capture-secret"},
 		},
 		{
-			name:  "invalid flag value",
-			flags: map[string]string{"scheduler.softFloorPct": "NaN"},
+			name:  "unknown flag inside the policy",
+			flags: map[string]string{"runtime.redact.capture-secret": "x"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := baseEnv(t)
+			if tc.user != "" {
+				writeConfigFile(t, env.HomeDir, tc.user)
+			}
 			if tc.file != "" {
 				writeConfigFile(t, env.ProjectRoot, tc.file)
 			}
-			env.Getenv = tc.env
+			if tc.env != nil {
+				env.Getenv = tc.env
+			}
 			env.Flags = tc.flags
 			requireCaptureRefusal(t, env, "capture-secret", tc.file)
+			_, _, _, _, err := config.LoadForCapture(env)
+			require.ErrorContains(t, err, "runtime.redact setting cannot be applied as written")
+		})
+	}
+}
+
+// TestLoadForCapture_RefusesAnyCaptureSwitchProblem: runtime.mode is the operator's other control
+// over whether anything is captured at all. "off" makes every hook admit nothing (internal/cli's
+// admitHookCapture), and docs/troubleshooting.md's safe-disable ladder tells an operator to use it.
+// A setting of it that cannot be applied as written therefore has no per-leaf fallback on the hook
+// path: the fallback — to the default "auto", or to whatever a lower layer said — records a project
+// whose operator may have been switching recording off, so the capture is refused instead, which is
+// what "off" would have done. The soft loader is unchanged: it clamps, warns and continues.
+//
+// Before C1.8 the mistyped rows refused, because every merge Warning did; the out-of-enum rows have
+// clamped to "auto" and recorded since S-7. Both are the V6 close-out C1.8 review's finding 2.
+func TestLoadForCapture_RefusesAnyCaptureSwitchProblem(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		user  string
+		file  string
+		env   map[string]string
+		flags map[string]string
+	}{
+		{name: "value outside the enum", file: `{"runtime":{"mode":"capture-secret"}}`},
+		{name: "off in the wrong case", file: `{"runtime":{"mode":"OFF"}}`},
+		{name: "wrong type", file: `{"runtime":{"mode":false}}`},
+		{
+			// Here a fallback would happen to keep the user's off; the refusal must not depend on
+			// what a lower layer said.
+			name: "wrong type over a lower layer's off",
+			user: `{"runtime":{"mode":"off"}}`,
+			file: `{"runtime":{"mode":0}}`,
+		},
+		{
+			// The clamp restores the DEFAULT, not the lower layer: this one would record.
+			name: "value outside the enum over a lower layer's off",
+			user: `{"runtime":{"mode":"off"}}`,
+			file: `{"runtime":{"mode":"capture-secret"}}`,
+		},
+		{name: "object where the switch belongs", file: `{"runtime":{"mode":{"capture-secret":true}}}`},
+		{name: "environment value outside the enum", env: map[string]string{"QOMPACK_RUNTIME__MODE": "capture-secret"}},
+		{name: "flag value outside the enum", flags: map[string]string{"runtime.mode": "capture-secret"}},
+		{name: "unknown flag under the switch", flags: map[string]string{"runtime.mode.capture-secret": "off"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := baseEnv(t)
+			if tc.user != "" {
+				writeConfigFile(t, env.HomeDir, tc.user)
+			}
+			if tc.file != "" {
+				writeConfigFile(t, env.ProjectRoot, tc.file)
+			}
+			if tc.env != nil {
+				env.Getenv = func(name string) string { return tc.env[name] }
+			}
+			env.Flags = tc.flags
+			requireCaptureRefusal(t, env, "capture-secret", tc.file)
+			_, _, _, _, err := config.LoadForCapture(env)
+			require.ErrorContains(t, err, "runtime.mode setting cannot be applied as written")
+
+			_, _, _, err = config.Load(env)
+			require.NoError(t, err, "the soft loader keeps its per-leaf fallback for the same input")
+		})
+	}
+}
+
+// TestLoadForCapture_AppliesEveryValidCaptureSwitchValue is the other side of the rule above: every
+// value the enum allows, from any layer, is applied as written and refuses nothing.
+func TestLoadForCapture_AppliesEveryValidCaptureSwitchValue(t *testing.T) {
+	for _, mode := range []string{"auto", "full", "passive", "off"} {
+		t.Run("file "+mode, func(t *testing.T) {
+			env := baseEnv(t)
+			writeConfigFile(t, env.ProjectRoot, `{"runtime":{"mode":"`+mode+`"}}`)
+			cfg, _, violations, warnings, err := config.LoadForCapture(env)
+			require.NoError(t, err)
+			require.Equal(t, mode, cfg.Runtime.Mode)
+			require.Empty(t, violations)
+			require.Empty(t, warnings)
+		})
+		t.Run("environment "+mode, func(t *testing.T) {
+			env := baseEnv(t)
+			env.Getenv = func(name string) string {
+				if name == "QOMPACK_RUNTIME__MODE" {
+					return mode
+				}
+				return ""
+			}
+			cfg, _, _, _, err := config.LoadForCapture(env)
+			require.NoError(t, err)
+			require.Equal(t, mode, cfg.Runtime.Mode)
+		})
+	}
+}
+
+// TestLoadForCapture_CaptureSwitchAncestorProblemDoesNotRefuse bounds the switch rule the way
+// TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse bounds the policy rule: a `runtime` that is
+// not an object is not a setting of runtime.mode, and the lower layer's off stays in force.
+func TestLoadForCapture_CaptureSwitchAncestorProblemDoesNotRefuse(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.HomeDir, `{"runtime":{"mode":"off"}}`)
+	writeConfigFile(t, env.ProjectRoot, `{"runtime":5}`)
+
+	cfg, _, _, warnings, err := config.LoadForCapture(env)
+	require.NoError(t, err)
+	require.Equal(t, "off", cfg.Runtime.Mode)
+	require.Len(t, warnings, 1)
+	require.Equal(t, "runtime", warnings[0].Key)
+}
+
+// TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse is the boundary of
+// TestLoadForCapture_RefusesAnyPrivacyPolicyProblem's rule: a `runtime`
+// that is not an object carries no privacy rule to lose. Its layer is dropped with a warning and the
+// policy a lower layer set stays exactly as written.
+func TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.HomeDir, `{"runtime":{"redact":{"patterns":["PRIVATE-[A-Z]{12}"]}}}`)
+	writeConfigFile(t, env.ProjectRoot, `{"runtime":5}`)
+
+	cfg, _, _, warnings, err := config.LoadForCapture(env)
+	require.NoError(t, err)
+	require.Equal(t, []string{"PRIVATE-[A-Z]{12}"}, cfg.Runtime.Redact.Patterns)
+	require.True(t, cfg.Runtime.Redact.Enabled)
+	require.Len(t, warnings, 1)
+	require.Equal(t, "runtime", warnings[0].Key)
+}
+
+// TestLoadForCapture_ReturnsWhatItDidNotApply: a per-leaf fallback is only honest if the caller can
+// report it. Every dropped key comes back as a Warning naming it, and every clamped leaf as a
+// Violation, so the hook path can put both where an operator looks.
+func TestLoadForCapture_ReturnsWhatItDidNotApply(t *testing.T) {
+	env := baseEnv(t)
+	// The invalid value is retrieval.defaultSpan's, not runtime.mode's: an unappliable capture switch
+	// is a refusal (TestLoadForCapture_RefusesAnyCaptureSwitchProblem), not a fallback.
+	writeConfigFile(t, env.ProjectRoot,
+		`{"retrieval":{"defaultSpan":"sideways"},"runtime":{"notAKey":1},"checkpoint":{"budgetTokens":"9000"}}`)
+
+	_, prov, violations, warnings, err := config.LoadForCapture(env)
+	require.NoError(t, err)
+
+	require.Len(t, violations, 1)
+	require.Equal(t, "retrieval.defaultSpan", violations[0].Key)
+	require.Equal(t, config.OriginDefault, prov["retrieval.defaultSpan"].Origin, "provenance records the fallback")
+
+	byKey := map[string]string{}
+	for _, w := range warnings {
+		byKey[w.Key] = w.Message
+	}
+	require.Equal(t, "unknown key", byKey["runtime.notAKey"])
+	require.Contains(t, byKey["checkpoint.budgetTokens"], "invalid type")
+	require.Len(t, warnings, 2)
+}
+
+// TestLoadForCapture_RefusalNamesItsStructuralClassOnly: a refusal must tell an operator which rule
+// was broken — `self-test` and `doctor` print it — and still reveal nothing about the input.
+func TestLoadForCapture_RefusalNamesItsStructuralClassOnly(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T, env *config.Env)
+		class string
+	}{
+		{
+			name:  "relative root",
+			setup: func(_ *testing.T, env *config.Env) { env.ProjectRoot = "capture-secret" },
+			class: "project or home root is not an absolute path",
+		},
+		{
+			name: "project file not strict JSONC",
+			setup: func(t *testing.T, env *config.Env) {
+				writeConfigFile(t, env.ProjectRoot, `{"capture-secret":`)
+			},
+			class: "the project config file is not a single strict JSONC object",
+		},
+		{
+			name: "user file not a regular leaf",
+			setup: func(t *testing.T, env *config.Env) {
+				require.NoError(t, os.MkdirAll(filepath.Join(env.HomeDir, ".qompack", "config.json"), 0o700))
+			},
+			class: "the user config file is not a bounded regular file",
+		},
+		{
+			name: "oversize flag",
+			setup: func(_ *testing.T, env *config.Env) {
+				env.Flags = map[string]string{"capture-secret": strings.Repeat("x", 64<<10+1)}
+			},
+			class: "an environment or --set value exceeds the capture bounds",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := baseEnv(t)
+			tc.setup(t, &env)
+			_, _, _, _, err := config.LoadForCapture(env)
+			require.ErrorIs(t, err, core.ErrDegraded)
+			require.ErrorContains(t, err, tc.class)
+			require.NotContains(t, err.Error(), "capture-secret")
 		})
 	}
 }
 
 func requireCaptureRefusal(t *testing.T, env config.Env, hidden ...string) {
 	t.Helper()
-	cfg, prov, violations, err := config.LoadForCapture(env)
+	cfg, prov, violations, warnings, err := config.LoadForCapture(env)
 	require.ErrorIs(t, err, core.ErrDegraded)
 	require.Equal(t, config.Config{}, cfg)
 	require.Nil(t, prov)
 	require.Nil(t, violations)
+	require.Nil(t, warnings)
 	for _, forbidden := range hidden {
 		if forbidden != "" {
 			require.NotContains(t, err.Error(), forbidden, "capture admission errors must not reveal inputs")
@@ -303,8 +530,9 @@ func TestLoadForCapture_ClampsViolationsInsteadOfRefusing(t *testing.T) {
 			env := baseEnv(t)
 			writeConfigFile(t, env.ProjectRoot, tc.file)
 
-			cfg, prov, violations, err := config.LoadForCapture(env)
+			cfg, prov, violations, warnings, err := config.LoadForCapture(env)
 			require.NoError(t, err, "a violation must clamp, not disable capture")
+			require.Empty(t, warnings, "a clamp is a violation, not a warning")
 			require.NotNil(t, prov)
 			require.Empty(t, cfg.Validate(), "the returned configuration must be valid")
 			require.NotEmpty(t, violations, "the clamp must be returned so a caller can record it")
@@ -353,7 +581,7 @@ func TestLoadAndLoadForCapture_AgreeOnNewerSettingsVersion(t *testing.T) {
 
 			loaded, _, loadWarns, err := config.Load(env)
 			require.NoError(t, err)
-			captured, _, capViolations, err := config.LoadForCapture(env)
+			captured, _, capViolations, _, err := config.LoadForCapture(env)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.want(), tc.got(loaded))
@@ -380,9 +608,10 @@ func TestLoadAndLoadForCapture_AgreeOnNewerSettingsVersion(t *testing.T) {
 }
 
 func TestLoadForCapture_CleanConfigReturnsNoViolations(t *testing.T) {
-	cfg, prov, violations, err := config.LoadForCapture(baseEnv(t))
+	cfg, prov, violations, warnings, err := config.LoadForCapture(baseEnv(t))
 	require.NoError(t, err)
 	require.Empty(t, violations)
+	require.Empty(t, warnings)
 	require.Equal(t, config.Defaults(), cfg)
 	require.NotNil(t, prov)
 }

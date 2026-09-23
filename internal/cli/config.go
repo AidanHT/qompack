@@ -2,8 +2,10 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/logging"
@@ -65,17 +67,20 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 	return cfg, prov, nil
 }
 
-// reportCaptureViolations is the hook path's half of §11.3, and it is the second half of finding
-// S-7: config.LoadForCapture now CLAMPS an out-of-range value instead of refusing the delivery, and
-// a clamp nobody records is a silent configuration change.
+// reportCaptureConfig is the hook path's half of §11.3, and it is the second half of finding S-7
+// and of V6 close-out item C1.8: config.LoadForCapture now CLAMPS an out-of-range value and DROPS an
+// unknown or mistyped key instead of refusing the delivery, and a fallback nobody records is a
+// silent configuration change.
 //
-// It is deliberately narrower than LoadConfigAndReport. It runs on the hot path, so it does exactly
+// It is deliberately narrower than LoadConfigAndReport. It runs on the hot path, so it does at most
 // one durable write and only where there is already somewhere durable to write: a project with no
-// .qompack directory has not opted in, and a hook must never conjure one out of a diagnostic. The
-// Loud goes through the hook logger, which materializes a file sink only if logs/ already exists
-// and otherwise still reaches the process-wide Loud ring. Nothing here can fail the delivery.
-func reportCaptureViolations(root, home string, violations []config.Violation) {
-	if len(violations) == 0 || root == "" || !isDir(paths.Of(root).Dot) {
+// .qompack directory has not opted in, and a hook must never conjure one out of a diagnostic. Each
+// violation is a Loud and each warning a Warn — LoadConfigAndReport's levels and fields — through the
+// hook logger, which materializes a file sink only if logs/ already exists and otherwise still
+// reaches the process-wide Loud ring. Only the violations are persisted: state/config-violations.json
+// is the §11.3 list, and an unknown key has never belonged in it. Nothing here can fail the delivery.
+func reportCaptureConfig(root, home string, violations []config.Violation, warnings []config.Warning) {
+	if len(violations)+len(warnings) == 0 || root == "" || !isDir(paths.Of(root).Dot) {
 		return
 	}
 	log := newHookLoggerWithHome(root, home)
@@ -85,11 +90,37 @@ func reportCaptureViolations(root, home string, violations []config.Violation) {
 	if hl, ok := log.(*hookLogger); ok {
 		defer hl.closeSink()
 	}
+	for _, w := range warnings {
+		log.Warn("configuration warning", "key", w.Key, "message", w.Message, "location", w.Location)
+	}
 	for _, v := range violations {
 		log.Loud("invalid configuration value, using default",
 			"key", v.Key, "got", v.Got, "want", v.Want, "message", v.Message)
 	}
-	persistViolations(root, violations, log)
+	if len(violations) > 0 {
+		persistViolations(root, violations, log)
+	}
+}
+
+// captureConfigDegradedSummary is the one-line account self-test and doctor give of a capture
+// configuration the hook path loaded only partly. A "setting" is a §11.3 violation, which is a leaf
+// or, for a newer settingsVersion, a whole versioned block.
+func captureConfigDegradedSummary(violations []config.Violation, warnings []config.Warning) string {
+	return fmt.Sprintf("capture continues: %d setting(s) fell back to the default, %d key(s) not applied",
+		len(violations), len(warnings))
+}
+
+// captureConfigKeys names every key the capture loader did not apply as written, with the loader's
+// own message for it — the same text the day log and state/config-violations.json carry.
+func captureConfigKeys(violations []config.Violation, warnings []config.Warning) string {
+	parts := make([]string, 0, len(violations)+len(warnings))
+	for _, v := range violations {
+		parts = append(parts, v.Key+": "+v.Message)
+	}
+	for _, w := range warnings {
+		parts = append(parts, w.Key+": "+w.Message)
+	}
+	return strings.Join(parts, "; ")
 }
 
 // persistViolations writes the typed §11.3 list to state/config-violations.json.
