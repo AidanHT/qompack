@@ -511,7 +511,7 @@ qompack/                                  module: github.com/qompack/qompack
 | **L3 Scheduler** | BOCD · Young–Daly · p-selection · TTL awareness | `scheduler` | SP-12 |
 | **L4 Checkpointer** | PreCompact → immutable versioned artifact, importance-ordered | `checkpoint` `pins` | SP-10 |
 | **L5 Rehydrator** | SessionStart(compact) · progressive budget fill · drop report | `rehydrate` `rules` `skills` | SP-11 |
-| **L6 Retrieval** | recall · expand · re_read · already_tried · timeline · why · dropped · delivered-result admission | `mcp` `commands` `admission` | SP-13 (MCP) · SP-14 (commands) · SP-21 (`admission`, reserved) |
+| **L6 Retrieval** | recall · expand · re_read · already_tried · timeline · why · dropped · delivered-result admission · host Read-rule check | `mcp` `commands` `admission` `hostperm` | SP-13 (MCP, `hostperm`) · SP-14 (commands) · SP-21 (`admission`, reserved) |
 | **L7 Evaluation** | replay harness · Belady OPT · CI gate | `eval` `test/replay` | SP-02 |
 | **cross** | config, logging, metrics, contracts, degradation, tokens | `core` `paths` `config` `logging` `obs` `contract` `tokens` `pluginmanifest` `testutil` | SP-01 (+ SP-05 `contract`, + SP-06 `tokens` exact accounting) |
 
@@ -527,7 +527,7 @@ are exhaustive; anything not listed is forbidden.
 | `paths`, `config` | `core` |
 | `logging`, `obs` | `core` `paths` `config` |
 | *(the five above are the **foundation**; every package below may also import all of them)* | |
-| `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler`, `pluginmanifest`, `state`, `admission` | foundation only |
+| `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler`, `pluginmanifest`, `state`, `admission`, `hostperm` | foundation only |
 | `canon` | `sketch` |
 | `dag` | — |
 | `store` | `chunk` `canon` `sketch` `symbols` `redact` `tokens` |
@@ -535,7 +535,7 @@ are exhaustive; anything not listed is forbidden.
 | `analyzer` | `store` `dag` `sketch` `scheduler` |
 | `checkpoint` | `store` `dag` `negknow` `pins` `grammar` `tokens` |
 | `rehydrate` | `checkpoint` `store` `negknow` `dag` `rules` `skills` `tokens` |
-| `mcp` | `store` `negknow` `checkpoint` |
+| `mcp` | `store` `negknow` `checkpoint` `hostperm` |
 | `contract` | `hookio` `store` |
 | `ipc` | `hookio` `contract` |
 | `observer` | `hookio` `store` `chunk` `canon` `sketch` `dag` `grammar` `negknow` `tokens` |
@@ -555,6 +555,12 @@ declared alongside the others.
 allow-set and its composition-root set is an error there — so a new `internal/` package cannot
 land without an amendment commit to this section *and* the matching entry in `importrules.go`.
 The two must be edited together; the checker is not permitted to be a superset of the table.
+
+**`hostperm` (V6 close-out C1.9, V6-HOST-1) is foundation-only by the same construction.** It reads
+Claude Code's settings files and evaluates their `permissions.deny`/`permissions.ask` Read rules for
+one absolute path; `mcp` is its only consumer and calls it after the containment check on every
+path-bearing retrieval. It needs `paths` and `core` and nothing else in `internal/`, so the amendment
+is one foundation-only row entry and one `mcp` allow-set entry.
 
 **Two reserved names carry no consumers yet.** `state` (SP-20 M2-01) and `admission` (SP-21 M4) are
 foundation-only by construction rather than by accident: each defines its own ports and is wired at a
@@ -2454,7 +2460,7 @@ byte-identical session, so replay numbers are comparable across commits.
 
 | Package group | Line coverage floor |
 |---|---|
-| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `pins`, `paths`, `redact`, `tokens`, `admission` | **90%** |
+| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `pins`, `paths`, `redact`, `tokens`, `admission`, `hostperm` | **90%** |
 | `scheduler`, `dag`, `analyzer`, `rehydrate`, `eval`, `mcp` | **85%** |
 | everything else | **75%** |
 
@@ -2476,6 +2482,11 @@ same class as `redact` and `checkpoint`: its job is to refuse. Every rule in it 
 replacement, privacy denial outranking the kill switch, an unmapped stage never reaching the
 transform path — is a safety property whose failure mode is delivering something it should not
 have. A 75% floor would leave a quarter of that policy ungraded.
+
+`hostperm` (V6 close-out C1.9) joins the 90% group for the same reason: its job is to refuse. A deny
+pattern, a carve-out that may not reopen a blocked directory and a settings file that must fail
+closed when it cannot be read are each a safety property whose failure mode is serving archived
+content the host now denies.
 
 **Composition roots are exempt.** A `main` package that declares nothing but `func main`, whose
 body only constructs dependencies and hands off to a library entry point, carries no floor. The

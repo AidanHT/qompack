@@ -1,0 +1,30 @@
+=== RUN   TestV6_ArchivedReadRetainsItsAuthorizationBoundary
+    v6_authorization_test.go:44: security v6_outside_read_by_id: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\Documents\Programming\Projects\qompack-cx-hostperm\plans\sdd\V6-closeout\hostperm\runs\security-windows\v6_outside_read_by_id.json
+--- PASS: TestV6_ArchivedReadRetainsItsAuthorizationBoundary (5.22s)
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/tool_use_id
+    v6_authorization_test.go:102: security v6_escape_tool_use_id: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\Documents\Programming\Projects\qompack-cx-hostperm\plans\sdd\V6-closeout\hostperm\runs\security-windows\v6_escape_tool_use_id.json
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/root_hash
+    v6_authorization_test.go:102: security v6_escape_root_hash: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\Documents\Programming\Projects\qompack-cx-hostperm\plans\sdd\V6-closeout\hostperm\runs\security-windows\v6_escape_root_hash.json
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/chunk_hash
+    v6_authorization_test.go:102: security v6_escape_chunk_hash: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\Documents\Programming\Projects\qompack-cx-hostperm\plans\sdd\V6-closeout\hostperm\runs\security-windows\v6_escape_chunk_hash.json
+--- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization (2.58s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/tool_use_id (0.03s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/root_hash (0.01s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/chunk_hash (0.00s)
+=== RUN   TestV6_HostReadRulesGovernArchivedRetrieval
+    v6_host_permissions_test.go:174: security v6_host_read_rules_govern_archived_retrieval: verified — every retrieval form of the packaged MCP server refused a path under a current Claude Code deny or ask rule, and withheld path-bearing content while a settings file was unreadable
+          detail:   ask/expand_chunk_hash=denied(found=false); ask/expand_root_hash=denied(found=false); ask/expand_tool_use_id=denied(found=false); ask/re_read_at_hash=denied(found=false); ask/re_read_latest=denied(found=false); ask/recall=hits=0,denied=8,host_policy=false; deny/expand_chunk_hash=denied(found=false); deny/expand_root_hash=denied(found=false); deny/expand_tool_use_id=denied(found=false); deny/re_read_at_hash=denied(found=false); deny/re_read_latest=denied(found=false); deny/recall=hits=0,denied=6,host_policy=false; unreadable/expand_chunk_hash=unavailable; unreadable/expand_root_hash=unavailable; unreadable/expand_tool_use_id=unavailable; unreadable/re_read_at_hash=unavailable; unreadable/re_read_latest=unavailable; unreadable/recall=hits=0,denied=10,host_policy=true
+          artifact: C:\Users\Quant\Documents\Programming\Projects\qompack-cx-hostperm\plans\sdd\V6-closeout\hostperm\runs\security-windows\v6_host_read_rules_govern_archived_retrieval.json
+--- PASS: TestV6_HostReadRulesGovernArchivedRetrieval (3.40s)
+PASS
+ok  	github.com/qompack/qompack/test/security	13.497s
+exit=0

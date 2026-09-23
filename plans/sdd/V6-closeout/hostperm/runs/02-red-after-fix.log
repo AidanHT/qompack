@@ -1,0 +1,10 @@
+=== RUN   TestHostDenyRed_ExpandServesAPathTheHostNowDenies
+=== RUN   TestHostDenyRed_ExpandServesAPathTheHostNowDenies/tool_use_id
+=== RUN   TestHostDenyRed_ExpandServesAPathTheHostNowDenies/root_hash
+--- PASS: TestHostDenyRed_ExpandServesAPathTheHostNowDenies (0.67s)
+    --- PASS: TestHostDenyRed_ExpandServesAPathTheHostNowDenies/tool_use_id (0.14s)
+    --- PASS: TestHostDenyRed_ExpandServesAPathTheHostNowDenies/root_hash (0.01s)
+=== RUN   TestReReadHashFormRed_JunctionEscapeIsServedThroughAnotherPath
+--- PASS: TestReReadHashFormRed_JunctionEscapeIsServedThroughAnotherPath (2.20s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	3.703s

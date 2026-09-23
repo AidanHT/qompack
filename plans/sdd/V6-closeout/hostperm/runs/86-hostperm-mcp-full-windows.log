@@ -1,0 +1,54 @@
+7f80138
+ M internal/hostperm/bench_test.go
+ M internal/hostperm/policy.go
+ M internal/hostperm/resolve.go
+ M internal/hostperm/rules.go
+ M internal/hostperm/rules_test.go
+ M internal/hostperm/sources.go
+ M internal/mcp/authorize.go
+ M internal/mcp/handlers.go
+ M internal/mcp/hostperm_test.go
+ M test/e2e/v4_mcp_test.go
+ M test/integration/v4_x09_test.go
+ M test/integration/v5_x08_test.go
+ M test/security/v6_host_permissions_test.go
+?? internal/hostperm/alias_other.go
+?? internal/hostperm/alias_windows.go
+?? internal/hostperm/alias_windows_test.go
+?? internal/hostperm/cap_test.go
+?? internal/hostperm/matcher_equiv_test.go
+?? internal/mcp/hostperm_shortname_windows_test.go
+?? internal/mcp/hostperm_spelling_test.go
+?? plans/sdd/V6-closeout/hostperm/runs/70-spelling-red-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/71-hostperm-alias-red-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/72-rule-cap-red-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/73-rule-count-cost-before-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/74-rule-count-cost-after-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/75-spelling-green-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/76-match-only-cost-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/77-match-only-cost-onepass-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/78-evaluate-paired-base-vs-fix-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/79-e2e-hermetic-red-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/80-integration-hermetic-red-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/81-security-v6-windows-fix.log
+?? plans/sdd/V6-closeout/hostperm/runs/82-security-hash-rerun-alone-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/83-security-host-rules-windows-fix.log
+?? plans/sdd/V6-closeout/hostperm/runs/84-security-host-rules-base-7f80138-coload-daemon-unavailable-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/85-security-host-rules-base-7f80138-red-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/86-hostperm-mcp-full-windows.log
+?? plans/sdd/V6-closeout/hostperm/runs/security-windows-hash-rerun/
+?? plans/sdd/V6-closeout/hostperm/runs/security-windows-host-base-7f80138/
+?? plans/sdd/V6-closeout/hostperm/runs/security-windows-host-fix/
+?? test/e2e/v4_hostpolicy_test.go
+?? test/integration/hostpolicy_test.go
+ok  	github.com/qompack/qompack/internal/hostperm	21.164s
+--- FAIL: TestBudgetBF (221.41s)
+    bench_test.go:131: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/mcp/bench_test.go:131
+        	Error:      	"327.68ms" is not less than "250ms"
+        	Test:       	TestBudgetBF
+        	Messages:   	B-F breached over 2000 tool uses / ~39 MB: limit=250ms n=200 p50=61.44ms p95=327.68ms p99=491.52ms max=4.593262s
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	369.668s
+FAIL
+exit=1

@@ -1,0 +1,7 @@
+FAIL      github.com/qompack/qompack/test/security  (pass=22 fail=2 skip=0)
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ArchivedTextIsDataNeverAnInstruction
+FAIL      github.com/qompack/qompack/test/integration  (pass=67 fail=3 skip=0)
+    FAIL TestIntegration_GCNeverCollectsALiveRootUnderIngest
+    FAIL TestIntegration_DegradedPassiveStillWritesToTheRealStore
+    FAIL TestIntegration_HotPathWarmWithRealResidentState

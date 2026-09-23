@@ -1,0 +1,12 @@
+=== RUN   TestV6_HostReadRulesGovernArchivedRetrieval
+    v6_host_permissions_test.go:62: security: a daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-security-2067809192\proj after 996ms
+    v6_host_permissions_test.go:97: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/base-7f80138/test/security/v6_host_permissions_test.go:97
+        	Error:      	"qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running" does not contain "V6-HOST-1-PACKAGED-ARCHIVE-5b18e2d4"
+        	Test:       	TestV6_HostReadRulesGovernArchivedRetrieval
+        	Messages:   	control: expand_tool_use_id must serve before any rule exists
+--- FAIL: TestV6_HostReadRulesGovernArchivedRetrieval (33.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/security	39.862s
+FAIL
+exit=1

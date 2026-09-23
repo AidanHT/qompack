@@ -25,6 +25,7 @@ import (
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/eval"
 	"github.com/qompack/qompack/internal/grammar"
+	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/mcp"
@@ -213,6 +214,16 @@ func stubRegistry() []stubPackage {
 		// is still a stub, which it is not.
 		{pkg: "admission", build: func(*testing.T) any {
 			return admission.NewPipeline(admission.Gate{Enabled: true, Owned: true}, admission.Ports{})
+		}, pureMethods: allMethodsAreReal},
+		// hostperm is REAL from its first commit (V6 close-out C1.9, owned by SP-13): Check and
+		// Snapshot read Claude Code's settings files and evaluate their Read deny/ask rules. The
+		// seam is built over temporary directories with no managed sources, so the walk's
+		// zero-argument calls read nothing of the machine it runs on.
+		{pkg: "hostperm", build: func(t *testing.T) any {
+			return hostperm.New(hostperm.Options{
+				ProjectRoot: t.TempDir(), Home: t.TempDir(),
+				Getenv: func(string) string { return "" }, Managed: &hostperm.ManagedSources{},
+			})
 		}, pureMethods: allMethodsAreReal},
 	}
 }
@@ -450,11 +461,12 @@ func TestStubRegistry_ListsEveryPackageOnDisk(t *testing.T) {
 	}
 }
 
-// wantStubPackages is the §5 interface-package count commit 7 of the subplan enumerates, plus two:
-// SP-20 M2-01 added internal/state and SP-21's contract slice added internal/admission, both after
-// wave 0, and TestStubRegistry_ListsEveryPackageOnDisk requires every package with a
-// plans/OWNERS.tsv stub probe to be registered here too.
-const wantStubPackages = 25
+// wantStubPackages is the §5 interface-package count commit 7 of the subplan enumerates, plus three:
+// SP-20 M2-01 added internal/state, SP-21's contract slice added internal/admission and the V6
+// close-out (C1.9) added internal/hostperm, all after wave 0, and
+// TestStubRegistry_ListsEveryPackageOnDisk requires every package with a plans/OWNERS.tsv stub
+// probe to be registered here too.
+const wantStubPackages = 26
 
 // ownersWithProbes reads plans/OWNERS.tsv and returns every package whose row names a stub probe.
 func ownersWithProbes(t *testing.T) []string {

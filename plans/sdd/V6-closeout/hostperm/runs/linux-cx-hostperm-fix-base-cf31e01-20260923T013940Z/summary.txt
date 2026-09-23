@@ -1,0 +1,4 @@
+FAIL      github.com/qompack/qompack/test/integration  (pass=0 fail=3 skip=0)
+    FAIL TestIntegration_GCNeverCollectsALiveRootUnderIngest
+    FAIL TestIntegration_DegradedPassiveStillWritesToTheRealStore
+    FAIL TestIntegration_HotPathWarmWithRealResidentState

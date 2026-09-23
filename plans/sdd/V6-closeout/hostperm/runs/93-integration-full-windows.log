@@ -1,0 +1,53 @@
+692343c
+--- FAIL: TestIntegration_GCNeverCollectsALiveRootUnderIngest (111.01s)
+    appendonly_test.go:937: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/appendonly_test.go:937
+        	Error:      	Should be true
+        	Test:       	TestIntegration_GCNeverCollectsALiveRootUnderIngest
+        	Messages:   	pass 0: a truncated pass must persist its cursor
+--- FAIL: TestIntegration_DegradedPassiveStillWritesToTheRealStore (34.37s)
+    contractmonitor_test.go:484: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/contractmonitor_test.go:484
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_DegradedPassiveStillWritesToTheRealStore
+        	Messages:   	the 20 observe.tool events never all reached the store
+--- FAIL: TestIntegration_SpooledEventsSurviveToTheStore (36.82s)
+    hookflow_test.go:1046: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/hookflow_test.go:500
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/hookflow_test.go:1046
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_SpooledEventsSurviveToTheStore
+        	Messages:   	in-process daemon never became reachable at \\.\pipe\qompack.16797c09ccd9 within 12s (8×daemon.SpawnPollBound)
+--- FAIL: TestIntegration_HotPathWarmWithRealResidentState (620.27s)
+    hotpath_test.go:652: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:662: §4.6 resident sketch set on disk: tried.bloom=12072B touch.cms=54474B explore.hll=2102B
+    hotpath_test.go:766: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-2256160820\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-47120-2c860436c1b82237)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+        hotpath: measuring B-E (50 x qompack checkpoint)...
+        hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+    hotpath_test.go:770: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/hotpath_test.go:770
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestIntegration_HotPathWarmWithRealResidentState
+        	Messages:   	bench-hotpath exited non-zero (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<15ms and B-E's wall row p99<2000ms) breached against the real resident state, or the harness itself failed (its own delivery-integrity guard included)
+        	            	stderr:
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestIntegration_HotPathWarmWithRealResidentState2670974185\001\project\.qompack\index\files.jsonl: The process cannot access the file because it is being used by another process.
+--- FAIL: TestIntegration_HotPathDegradesRatherThanBlocks (649.13s)
+    hotpath_test.go:991: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:1098: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/hotpath_test.go:295
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/hotpath_test.go:1098
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_HotPathDegradesRatherThanBlocks
+        	Messages:   	3343/3344 distinct events through the binding within daemon.DrainLineDeadline — an in-flight dispatch is bounded by the same per-line ceiling a drained line runs under, so exceeding it means an event was lost, not delayed (pipeline errors: [])
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	1666.788s
+FAIL
+exit=1

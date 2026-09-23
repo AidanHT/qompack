@@ -10,6 +10,7 @@ import (
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
@@ -109,6 +110,11 @@ type handlers struct {
 	// redactForRetrieval — never an identity pass-through.
 	redactor Redactor
 
+	// host evaluates the host's current Read deny and ask rules (V6-HOST-1). It is nil only when no
+	// project root was supplied, and a path-bearing record then has no containment answer either;
+	// authorizeHost still refuses rather than trusting the absence. See authorize.go.
+	host *hostperm.Policy
+
 	// disableWhy and disableDropped are the explicit operator/build gate for the two
 	// checkpoint-dependent tools (interface contract: "Core archive retrieval is independently
 	// testable before checkpoint/rehydration enablement"). They are distinct from a nil ckpt/drops
@@ -142,6 +148,10 @@ func newHandlers(d ToolDeps) *handlers {
 		l := d.Ledger
 		ledgerFn = func() negknow.Ledger { return l }
 	}
+	host := d.HostPolicy
+	if host == nil && d.ProjectRoot != "" {
+		host = hostperm.New(hostperm.Options{ProjectRoot: d.ProjectRoot})
+	}
 	return &handlers{
 		store: d.Store, ledgerFn: ledgerFn, ckpt: d.Checkpoints,
 		drops: d.Rehydrator, prom: d.Promoter, wide: d.Widener,
@@ -150,6 +160,7 @@ func newHandlers(d ToolDeps) *handlers {
 		clk:  clk, log: log, m: m,
 		bfHist:     bfHistName(),
 		redactor:   d.Redactor,
+		host:       host,
 		disableWhy: d.DisableWhy, disableDropped: d.DisableDropped,
 	}
 }
@@ -263,7 +274,7 @@ func (h *handlers) invoke(ctx context.Context, r Request, name string,
 	if vs := schema.Validate(args); len(vs) > 0 {
 		return errResponse("invalid arguments for " + name + ": " + vs[0].String())
 	}
-	resp, err := fn(ctx, r, args)
+	resp, err := fn(h.withHostSnapshot(ctx), r, args)
 	if err != nil {
 		h.log.Warn("mcp: tool failed", "tool", name, "err", err.Error())
 		return errResponse(name + " failed: " + err.Error())

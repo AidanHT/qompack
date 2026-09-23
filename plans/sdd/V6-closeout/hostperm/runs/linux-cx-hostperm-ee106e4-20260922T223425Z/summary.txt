@@ -1,0 +1,15 @@
+FAIL      github.com/qompack/qompack/test/security  (pass=22 fail=2 skip=0)
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ArchivedTextIsDataNeverAnInstruction
+FAIL      github.com/qompack/qompack/test/guards  (pass=158 fail=10 skip=0)
+    FAIL TestGuard_TheV1DeliveryPositionHasOneEncoder/every_deliveryPosition_marshal_site_is_named_here
+    FAIL TestGuard_TheV1DeliveryPositionHasOneEncoder
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D4
+    FAIL TestCarriedDefects_WaveReportRequiresResolution
+PASS      github.com/qompack/qompack/tools/devtool  (pass=250 fail=0 skip=0)

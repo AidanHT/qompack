@@ -1,0 +1,32 @@
+=== RUN   TestHostDenyRed_ExpandServesAPathTheHostNowDenies
+=== RUN   TestHostDenyRed_ExpandServesAPathTheHostNowDenies/tool_use_id
+    hostperm_red_test.go:46: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/mcp/hostperm_red_test.go:46
+        	Error:      	"{\"found\":true,\"hash\":\"sha256:59e2db172e3566cdf35847d0b9b63ab7838f05a61cdb5041e92e354880d91321\",\"path\":\"config/secret.env\",\"tool\":\"Read\",\"span\":[0,34],\"total_bytes\":34,\"truncated\":false,\"widened\":false,\"expansions\":1,\"promoted\":false,\"content\":\"V6-HOST-1-DENIED-ARCHIVE-3f9a0c71\\n\"}" should not contain "V6-HOST-1-DENIED-ARCHIVE-3f9a0c71"
+        	Test:       	TestHostDenyRed_ExpandServesAPathTheHostNowDenies/tool_use_id
+        	Messages:   	expand re-served a host-denied path
+=== RUN   TestHostDenyRed_ExpandServesAPathTheHostNowDenies/root_hash
+    hostperm_red_test.go:46: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/mcp/hostperm_red_test.go:46
+        	Error:      	"{\"found\":true,\"hash\":\"sha256:59e2db172e3566cdf35847d0b9b63ab7838f05a61cdb5041e92e354880d91321\",\"span\":[0,34],\"total_bytes\":34,\"truncated\":false,\"widened\":false,\"expansions\":2,\"promoted\":true,\"content\":\"V6-HOST-1-DENIED-ARCHIVE-3f9a0c71\\n\"}" should not contain "V6-HOST-1-DENIED-ARCHIVE-3f9a0c71"
+        	Test:       	TestHostDenyRed_ExpandServesAPathTheHostNowDenies/root_hash
+        	Messages:   	expand re-served a host-denied path
+=== NAME  TestHostDenyRed_ExpandServesAPathTheHostNowDenies
+    hostperm_red_test.go:53: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/mcp/hostperm_red_test.go:53
+        	Error:      	"{\"found\":true,\"hash\":\"sha256:59e2db172e3566cdf35847d0b9b63ab7838f05a61cdb5041e92e354880d91321\",\"path\":\"config/secret.env\",\"source\":\"store\",\"turn\":1,\"span\":[0,34],\"total_bytes\":34,\"truncated\":false,\"widened\":false,\"expansions\":3,\"promoted\":true,\"content\":\"V6-HOST-1-DENIED-ARCHIVE-3f9a0c71\\n\"}" should not contain "V6-HOST-1-DENIED-ARCHIVE-3f9a0c71"
+        	Test:       	TestHostDenyRed_ExpandServesAPathTheHostNowDenies
+        	Messages:   	re_read re-served a host-denied path
+--- FAIL: TestHostDenyRed_ExpandServesAPathTheHostNowDenies (0.22s)
+    --- FAIL: TestHostDenyRed_ExpandServesAPathTheHostNowDenies/tool_use_id (0.03s)
+    --- FAIL: TestHostDenyRed_ExpandServesAPathTheHostNowDenies/root_hash (0.02s)
+=== RUN   TestReReadHashFormRed_JunctionEscapeIsServedThroughAnotherPath
+    hostperm_red_test.go:78: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/mcp/hostperm_red_test.go:78
+        	Error:      	Should be false
+        	Test:       	TestReReadHashFormRed_JunctionEscapeIsServedThroughAnotherPath
+        	Messages:   	re_read served an escaping path's archive (200000 bytes) through another path
+--- FAIL: TestReReadHashFormRed_JunctionEscapeIsServedThroughAnotherPath (1.99s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	2.522s
+FAIL

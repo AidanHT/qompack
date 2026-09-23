@@ -1,0 +1,38 @@
+=== RUN   TestWindowsAliasesOfADeniedFileAreJudged
+    alias_windows_test.go:62: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/hostperm/alias_windows_test.go:62
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestWindowsAliasesOfADeniedFileAreJudged
+        	Messages:   	"configuration\\credentials.secret." opens the denied file
+--- FAIL: TestWindowsAliasesOfADeniedFileAreJudged (0.06s)
+=== RUN   TestAShortDirectoryOfADeletedFileIsExpanded
+    alias_windows_test.go:84: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/hostperm/alias_windows_test.go:84
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestAShortDirectoryOfADeletedFileIsExpanded
+--- FAIL: TestAShortDirectoryOfADeletedFileIsExpanded (0.04s)
+=== RUN   TestAnAliasOfALinkIsJudgedAsTheLink
+    alias_windows_test.go:105: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/hostperm/alias_windows_test.go:105
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestAnAliasOfALinkIsJudgedAsTheLink
+        	Messages:   	"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestAnAliasOfALinkIsJudgedAsTheLink557476310\\001\\linkeddirectory.\\key.pem" names the file through the denied link
+--- FAIL: TestAnAliasOfALinkIsJudgedAsTheLink (0.21s)
+=== RUN   TestAShortSpelledProjectRootAnchorsRulesAtItsRealName
+    alias_windows_test.go:127: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/hostperm/alias_windows_test.go:127
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestAShortSpelledProjectRootAnchorsRulesAtItsRealName
+        	Messages:   	"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestAShortSpelledProjectRootAnchorsRulesAtItsRealName797307245\\001\\configuration\\credentials.secret" is the denied file
+--- FAIL: TestAShortSpelledProjectRootAnchorsRulesAtItsRealName (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/hostperm	2.293s
+FAIL

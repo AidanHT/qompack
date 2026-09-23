@@ -1,0 +1,17 @@
+{
+  "name": "bounds_retrieval_and_checkpoint_survive_corruption",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "8167097dd99bbe027fe70afec02f91669cea979d8e881ddd6a3efd1f5e673269"
+  },
+  "outcome": "verified",
+  "reason": "after five hostile objects the daemon still held its lock, the MCP server still expanded the healthy control object, and the checkpoint hook still exited 0 with a host-parseable document. No corrupt object was ever reported found.",
+  "detail": "by tool_use_id: content_hash_mismatch=unavailable damaged_zstd_frame=unavailable decompression_bomb=unavailable physical_size_past_the_read_bound=unavailable truncated_object=unavailable"
+}

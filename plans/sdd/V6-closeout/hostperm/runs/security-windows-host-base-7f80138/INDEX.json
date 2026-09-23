@@ -1,0 +1,14 @@
+{
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "e512f93651b4d4cb38889776b1f219bf85b4cf114d27269c689970e3bbe53549"
+  },
+  "records": [
+    "v6_host_read_rules_govern_archived_retrieval"
+  ]
+}

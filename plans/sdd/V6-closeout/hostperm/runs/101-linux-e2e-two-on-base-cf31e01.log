@@ -1,0 +1,27 @@
+base=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd rid=cx-hostperm-fix-base-cf31e01-e2e-20260923T014955Z
+/work/cx-hostperm-fix-692343c-20260923T005941Z.bundle: OK
+run_id=cx-hostperm-fix-base-cf31e01-e2e-20260923T014955Z
+commit=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+tree=d139e4cabc5f1d96007241e70eec0895d592ecbf
+bundle_sha256=bf4f5ce6ba3850bde265b7383c55fa140a689445f486fdbc9bff00dbfa68516d
+started_utc=2026-09-23T01:49:58Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=1
+run=^(TestV4_TombstoneToRecallToExpandRoundTrip|TestV4_HotPathUnchangedWithTheFullWave3ResidentSet)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+FAIL      github.com/qompack/qompack/test/e2e  (pass=1 fail=1 skip=0)
+    FAIL TestV4_TombstoneToRecallToExpandRoundTrip
+go_test_exit=1
+exit=1
+exit=1

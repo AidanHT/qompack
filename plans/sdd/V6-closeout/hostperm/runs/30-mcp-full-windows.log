@@ -1,0 +1,10 @@
+--- FAIL: TestBudgetBF (206.17s)
+    bench_test.go:131: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/mcp/bench_test.go:131
+        	Error:      	"327.68ms" is not less than "250ms"
+        	Test:       	TestBudgetBF
+        	Messages:   	B-F breached over 2000 tool uses / ~39 MB: limit=250ms n=200 p50=49.152ms p95=327.68ms p99=589.824ms max=4.608877s
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	1294.005s
+FAIL
+exit=1

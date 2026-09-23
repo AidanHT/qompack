@@ -1,0 +1,11 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/hostperm": {
+   "result": "pass",
+   "passed": 111,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}
