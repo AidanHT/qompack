@@ -22,6 +22,9 @@ start; hosted-runner fsync figures never become constants.
 | D3 | Live runs: **agent-run on this machine, moderate budget (~40–80 real sessions)** | UAT and live trials are recorded as *agent-executed on the real installed host*, never as human UAT |
 | D4 | Outward actions: **push `verify/v6` + hosted CI and merge to `develop`; ask before `main`, tag, GitHub Release, marketplace** | C7.2–C7.3(develop) authorized; C7.3(main), C7.4, C7.5 need a further yes |
 | D5 | Rehydration **fits under the host's 10,000-character `additionalContext` cap**: a priority-ordered payload of whole records within ~9,500 chars including the wrapper, with the rest reported as overflow plus pointers for the MCP tools | C1.14; authorizes revising Qompack.md §8.6 and ADR 0011 to match |
+| D6 | Rollover residuals **accepted and documented**: a bounded rotation pause of 2.3–6.8 s every 65,536 deliveries (hooks fall back to the durable spool), and GC halts safely once the carry passes 65,536 unacknowledged archived leases. Both get a loud diagnostic and counter, a Warn before the first rotation recommends a backup to keep a downgrade path, and incremental archiving is deferred past the release | C1.10 closes with these residuals documented |
+| D7 | V6-HOST-1 **closes with the residual documented**: saved-settings Read deny/ask rules are honoured and fail closed. Session-only rules, CLI flags and hook policies stay invisible to a plugin. This supersedes the older rejection of settings parsing (authority-review.md §6) | C1.9 |
+| D8 | Config: an unappliable `runtime.redact` or `runtime.mode` **fails closed** (stops recording, reported loudly); every other invalid key still falls back and warns | C1.8; docs state the exception |
 
 Defaults taken without a separate question (owner may overrule): C1.9 host deny-rule honoring;
 C7.2 hosted runners report-only for fsync-bound rows (Q1 third option).
