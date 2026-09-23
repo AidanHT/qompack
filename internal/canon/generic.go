@@ -3,6 +3,8 @@ package canon
 import (
 	"bytes"
 	"regexp"
+	"regexp/syntax"
+	"strings"
 )
 
 // The replacement tokens every rule in this package substitutes for a volatile span
@@ -249,6 +251,11 @@ type reRule struct {
 	// anchored with (?m)^ may set it, and only because such a rule cannot match across a newline
 	// in the first place.
 	perLine bool
+	// plain is re specialized to a PLAIN line — one holding neither a carriage return nor an ESC
+	// byte — and plainLead is the literal its first significant byte run must begin with. Both are
+	// derived by withPlainLines from re itself, never written by hand; see plainLineRule.
+	plain     *regexp.Regexp
+	plainLead string
 }
 
 // THE PREFILTER. Every rule that can name a literal it cannot match without must name one, and
@@ -362,11 +369,22 @@ func equalFold(buf []byte, lit string) bool {
 // anyway, so emitting one would only cost a slot in the sort.
 func ruleMatches(in []byte, rules []reRule) []Match {
 	var dst []Match
+	// A buffer with no carriage return and no ESC anywhere has only plain lines, which is the
+	// common case; asking once here spares every per-line rule re-scanning every line for them.
+	allPlain := isPlainLine(in)
 	for i := range rules {
 		r := &rules[i]
 		if r.perLine {
 			forEachLine(in, func(start, end int) {
-				if line := in[start:end]; r.triggered(line) {
+				line := in[start:end]
+				switch {
+				case r.plain != nil && (allPlain || isPlainLine(line)):
+					// The lead check first: it looks at the line's first few bytes, where the
+					// need literals' search reads the whole line. Both are necessary conditions.
+					if hasPlainLead(line, r.plainLead) && r.triggered(line) {
+						dst = appendPlainLineSpans(dst, r, line, start)
+					}
+				case r.triggered(line):
 					dst = appendRuleSpans(dst, r, line, start)
 				}
 			})
@@ -392,6 +410,99 @@ func appendRuleSpans(dst []Match, r *reRule, buf []byte, base int) []Match {
 		}
 	}
 	return dst
+}
+
+// appendPlainLineSpans is appendRuleSpans for a plain line through r.plain. The line is rejected
+// without running any automaton when its first byte past the indentation does not begin
+// r.plainLead, which r.plain cannot match without. It finds at most one match: r.plain is anchored
+// at the start of the line and matches no empty string, so the whole-line scan it replaces could
+// not have found a second one either.
+func appendPlainLineSpans(dst []Match, r *reRule, line []byte, base int) []Match {
+	if !hasPlainLead(line, r.plainLead) {
+		return dst
+	}
+	loc := r.plain.FindSubmatchIndex(line)
+	if loc == nil {
+		return dst
+	}
+	for _, g := range r.spans {
+		lo, hi := loc[2*g], loc[2*g+1]
+		if lo < 0 || hi <= lo {
+			continue
+		}
+		dst = append(dst, Match{Offset: base + lo, Len: hi - lo, Token: r.token, Class: r.class})
+	}
+	return dst
+}
+
+// hasPlainLead reports whether line, past its leading spaces and tabs, begins with lead.
+func hasPlainLead(line []byte, lead string) bool {
+	k := 0
+	for k < len(line) && (line[k] == ' ' || line[k] == '\t') {
+		k++
+	}
+	return bytes.HasPrefix(line[k:], []byte(lead))
+}
+
+// isPlainLine reports whether line holds neither a carriage return nor an ESC byte, which is when a
+// line-anchored rule's plain form finds exactly what its full form finds.
+func isPlainLine(line []byte) bool {
+	return bytes.IndexByte(line, '\r') < 0 && bytes.IndexByte(line, escByte) < 0
+}
+
+// THE PLAIN-LINE FORM (SP08-D1). Every line-anchored rule opens with lineLead, whose first
+// alternative is (?:[^\n]*\r)? — the carriage-returned prefix of a progress bar — and whose loop
+// admits escape sequences between the anchor and the rule's first literal. On a line that holds no
+// '\r' the optional prefix can only match empty; on a line that holds no ESC byte no escape shape
+// can match at all, because every one of them begins with ESC (escAnyInline). On such a line
+// lineLead therefore matches exactly what [ \t]* matches, sepRun exactly what [^\S\n]+ matches, and
+// lineTail exactly what [ \t]*$ matches — with the same greedy preferences, and without adding or
+// removing a capture group, since every fragment is non-capturing. The plain form is the rule's own
+// pattern with those three fragments substituted and the anchor tightened from (?m)^ to \A (the
+// same position on a line slice, which holds no '\n'). It finds the same matches with the same
+// submatch offsets, and the automaton no longer scans the whole line for a '\r' before it looks at
+// the first byte: on go test output, whose every "--- PASS" line is a real match, that scan was
+// most of the testrunner canonicalizer's cost on BenchmarkOnToolUse_TestOutput256KB.
+//
+// Nothing here is trusted by construction alone. TestPrefilterAgreesWithFullScan and its property
+// and fuzz forms compare ruleMatches against the unoptimized whole-buffer scan, so they cover the
+// plain path, and TestPlainLineRules pins the per-line equivalence and that every line-anchored
+// rule actually carries its plain form.
+
+// plainLineAnchor is how every line-anchored rule's pattern opens.
+const plainLineAnchor = `(?m)^` + lineLead
+
+// withPlainLines fills in plain and plainLead for every per-line rule of rules that plainLineRule
+// can specialize, and returns rules. It runs once, when the table is built.
+func withPlainLines(rules []reRule) []reRule {
+	for i := range rules {
+		if rules[i].perLine {
+			rules[i].plain, rules[i].plainLead = plainLineRule(rules[i].re.String())
+		}
+	}
+	return rules
+}
+
+// plainLineRule derives the plain-line form of a line-anchored pattern. It reports nil — leaving
+// the rule on its full pattern — when the pattern does not open with plainLineAnchor, when it is a
+// top-level alternation (only its first branch would be anchored, so neither the one-match nor the
+// lead argument would hold), or when its first significant literal is empty or could begin inside
+// the indentation (a leading space or tab), the one shape for which the lead check could reject a
+// line the pattern matches.
+func plainLineRule(src string) (*regexp.Regexp, string) {
+	rest, ok := strings.CutPrefix(src, plainLineAnchor)
+	if !ok {
+		return nil, ""
+	}
+	if top, err := syntax.Parse(src, syntax.Perl); err != nil || top.Op == syntax.OpAlternate {
+		return nil, ""
+	}
+	rest = strings.NewReplacer(sepRun, `[^\S\n]+`, lineTail, `[ \t]*$`).Replace(rest)
+	lead, _ := regexp.MustCompile(rest).LiteralPrefix()
+	if lead == "" || lead[0] == ' ' || lead[0] == '\t' {
+		return nil, ""
+	}
+	return regexp.MustCompile(`(?m)\A[ \t]*` + rest), lead
 }
 
 // The two bytes that terminate an escape sequence, named because escLen tests them by value.
@@ -738,7 +849,7 @@ func (c durationsCanon) Canonicalize(in []byte, o Options) (Result, error) {
 // canonicalization verbatim. §5.6's no-growth property is enforced there, structurally, rather
 // than by giving this rule a shorter token that would read worse everywhere else.
 // TestPIDs_Table names this reliance directly.
-var pidRules = []reRule{
+var pidRules = withPlainLines([]reRule{
 	// "pid=41235", "PID: 990", "pid 1234" — the three spellings that cover essentially every
 	// runtime, daemon and process-manager log line.
 	{re: regexp.MustCompile(`(?i)` + wordEdge + `pid[=: ]\s*(\d{2,7})\b`), spans: firstGroup, token: []byte(tokenNumber), class: ClassPIDs, need: []string{"pid=", "pid:", "pid "}, needFold: true},
@@ -748,7 +859,7 @@ var pidRules = []reRule{
 	{re: regexp.MustCompile(`(?m)^` + lineLead + `\[(\d{2,7})\]`), spans: firstGroup, token: []byte(tokenNumber), class: ClassPIDs, need: []string{"["}, perLine: true},
 	// "process 1234", as printed by kill/taskkill-shaped diagnostics.
 	{re: regexp.MustCompile(wordEdge + `process (\d{2,7})\b`), spans: firstGroup, token: []byte(tokenNumber), class: ClassPIDs, need: []string{"process "}},
-}
+})
 
 // pidsCanon strips process ids (00-ARCHITECTURE.md §5.6).
 type pidsCanon struct{}

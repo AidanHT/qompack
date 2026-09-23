@@ -284,7 +284,7 @@ func (c bashCanon) Canonicalize(in []byte, o Options) (Result, error) {
 // without one: a boundary appearing at that position on a later pass could only enable a rule whose
 // span ENDS there, and the only spans that can end on an escape sequence's final byte or on
 // whitespace are ansiRules' and trailingWSMatches' — neither of which asserts a boundary at all.
-var testRunnerRules = []reRule{
+var testRunnerRules = withPlainLines([]reRule{
 	// go test: the per-package summary line. "(cached)" is left completely alone — it is not a
 	// duration, and it is the single most informative token on the line. The column separators are
 	// sepRun rather than \s+ because gotestsum and go-junit-report colourize the columns.
@@ -319,7 +319,7 @@ var testRunnerRules = []reRule{
 	// greedy `.*` and no anchor, a line holding two " in <duration>" phrases converges only after
 	// two passes.
 	{re: regexp.MustCompile(`(?m)^` + lineLead + `Finished .* in (\d+\.\d+s)` + lineTail), spans: firstGroup, token: []byte(tokenDuration), class: ClassDurations, need: []string{"Finished "}, perLine: true},
-}
+})
 
 // tokenSeed replaces a pytest-randomly seed. Six bytes: it is named rather than reusing
 // tokenNumber because a seed is not a small ordinal and the canonical line reads better saying so,
@@ -649,7 +649,7 @@ const tokenSHA = "<sha>"
 //
 // All three rules are line-anchored, which is what keeps a 40-hex-character run appearing anywhere
 // else in the output — in a diff body, a lockfile, a test fixture — out of scope.
-var gitRules = []reRule{
+var gitRules = withPlainLines([]reRule{
 	// `git log` / `git show`: the commit line. The '$' anchor means a decorated line
 	// ("commit abc… (HEAD -> main)") is left alone rather than half-rewritten.
 	{re: regexp.MustCompile(`(?m)^` + lineLead + `commit ([0-9a-f]{40})` + lineTail), spans: firstGroup, token: []byte(tokenSHA), class: ClassAddresses, need: []string{"commit "}, perLine: true},
@@ -662,7 +662,7 @@ var gitRules = []reRule{
 	{re: regexp.MustCompile(`(?m)^` + lineLead + `index ([0-9a-f]{7,40})\.\.([0-9a-f]{7,40})\b`), spans: bothGroups, token: []byte(tokenSHA), class: ClassAddresses, need: []string{"index "}, perLine: true},
 	// `git format-patch`: the mailbox From line.
 	{re: regexp.MustCompile(`(?m)^` + lineLead + `From ([0-9a-f]{40}) `), spans: firstGroup, token: []byte(tokenSHA), class: ClassAddresses, need: []string{"From "}, perLine: true},
-}
+})
 
 // gitCanon strips git object hashes (00-ARCHITECTURE.md §5.6).
 type gitCanon struct{}
