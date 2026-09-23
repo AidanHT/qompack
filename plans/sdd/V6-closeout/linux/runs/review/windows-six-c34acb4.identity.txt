@@ -1,0 +1,8 @@
+label=windows-six-c34acb4
+src=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/ao-c34acb4
+commit=c34acb41410eadd373bf46ec8c41e455ab9031c7
+status_lines=0
+go=go version go1.26.6 windows/amd64
+cmd=CGO_ENABLED=0 go test ./test/guards ./test/integration ./test/platform ./test/release ./test/security ./tools/devtool -count=1 -timeout=40m -json
+started_utc=2026-09-23T01:34:48Z
+finished_utc=2026-09-23T01:57:57Z
