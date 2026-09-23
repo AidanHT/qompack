@@ -1,0 +1,21 @@
+run_id=cx-linux-base-failing-cf31e01-20260922T213245Z
+commit=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+tree=d139e4cabc5f1d96007241e70eec0895d592ecbf
+bundle_sha256=5aa500647a9c77b384ca6268b5eb024c92af85879fb9a83c269927dbf8457f45
+started_utc=2026-09-22T21:32:54Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=1
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-22T22:03:21Z

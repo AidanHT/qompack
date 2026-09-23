@@ -1,0 +1,21 @@
+run_id=cx-linux-daemon-race-fixed2-a448561-20260922T220935Z
+commit=a448561cd9d1bb1f02f939733a381b6438086f51
+tree=2af652ff03114051321f52da5da266379e4a6200
+bundle_sha256=30c5dc4ecc97f8d165f94ebdca771a036b1ad74e59f88cc6aaee76defdc06192
+started_utc=2026-09-22T22:09:47Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=400 timeout=30m gomaxprocs=4 coload=0
+run=^(TestRunReturnsOnlyAfterAsyncStopHasFinished|TestAdminShutdownStopsTheDaemon)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-22T22:12:42Z

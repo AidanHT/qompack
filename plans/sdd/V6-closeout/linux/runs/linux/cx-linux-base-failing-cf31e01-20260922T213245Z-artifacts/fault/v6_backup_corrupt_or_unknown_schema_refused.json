@@ -1,0 +1,19 @@
+{
+  "name": "v6_backup_corrupt_or_unknown_schema_refused",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "794ba99a393e26ee1c4f8481d30a84c53025a0e22f62ab70ff73ec0047456136"
+  },
+  "boundary": "restore of a corrupted backup and of an unknown-schema manifest",
+  "seed_method": "packaged hooks seed a store; daemon stopped; a valid backup is taken; then one tree file is tampered and, separately, the manifest schema is bumped beyond this build; each restore is aimed at its own fresh destination",
+  "outcome": "failed",
+  "reason": "a corrupted or unknown-schema restore did not fail, or it published a destination store",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,14 @@
+PASS      github.com/qompack/qompack/internal/ipc  (pass=139 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/paths  (pass=130 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/testutil  (pass=40 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/guards  (pass=159 fail=8 skip=0)
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D4
+    FAIL TestCarriedDefects_WaveReportRequiresResolution
+FAIL      github.com/qompack/qompack/test/security  (pass=22 fail=1 skip=0)
+    FAIL TestSecurity_ArchivedTextIsDataNeverAnInstruction

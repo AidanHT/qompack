@@ -95,6 +95,16 @@ var deliveryPositionMarshalSites = []struct {
 			"invisible to a literal-only scan, and a second WRITER in that same shape would have " +
 			"been invisible too",
 	},
+	{
+		fn: "parseDeliveryPositionV1",
+		why: "the offline segment reader's strict v1 check (delivery_segment_readonly.go), and no " +
+			"producer of bytes either: it is loadDeliveryPosition's canonicality check applied to " +
+			"bytes already read through a pinned os.Root — it re-encodes the record it has just " +
+			"DECODED, compares that with the bytes it read and refuses a non-canonical sidecar, and " +
+			"writes what it marshals nowhere. It duplicates loadDeliveryPosition's checks rather " +
+			"than sharing them, so the two v1 readers can drift; that is a reader-agreement risk " +
+			"for the segment family to close, not a second encoder",
+	},
 }
 
 // TestGuard_TheV1DeliveryPositionHasOneEncoder pins both halves of design §5's "one v1 encoder".

@@ -1,0 +1,17 @@
+{
+  "name": "bounds_config_cannot_raise_the_capture_cap",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "74adf409f4048486a83ade89b6763c0c42ca5ed5d9cff864381ed5411f157229"
+  },
+  "outcome": "verified",
+  "reason": "the configured payload bound was clamped to the supported value, the oversize payload was refused, and the hook contract held.",
+  "detail": "config print reports runtime.hotPath.maxPayloadBytes=1048576; 1 configuration violation(s) recorded; daemon reachable=true; ordinary capture retained=true"
+}

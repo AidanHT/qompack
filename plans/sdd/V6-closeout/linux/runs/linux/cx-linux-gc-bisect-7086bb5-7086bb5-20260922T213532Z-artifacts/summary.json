@@ -1,0 +1,13 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/integration": {
+   "result": "fail",
+   "passed": 0,
+   "failed": [
+    "TestIntegration_GCNeverCollectsALiveRootUnderIngest"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

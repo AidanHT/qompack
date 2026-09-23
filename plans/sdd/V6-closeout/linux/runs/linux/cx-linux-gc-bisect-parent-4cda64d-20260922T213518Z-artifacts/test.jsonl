@@ -1,0 +1,8 @@
+{"Time":"2026-09-22T21:35:51.975918429Z","Action":"start","Package":"github.com/qompack/qompack/test/integration"}
+{"Time":"2026-09-22T21:35:52.002433591Z","Action":"run","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest"}
+{"Time":"2026-09-22T21:35:52.00249975Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"=== RUN   TestIntegration_GCNeverCollectsALiveRootUnderIngest\n"}
+{"Time":"2026-09-22T21:38:54.875852253Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Output":"--- PASS: TestIntegration_GCNeverCollectsALiveRootUnderIngest (182.90s)\n"}
+{"Time":"2026-09-22T21:38:54.876512386Z","Action":"pass","Package":"github.com/qompack/qompack/test/integration","Test":"TestIntegration_GCNeverCollectsALiveRootUnderIngest","Elapsed":182.9}
+{"Time":"2026-09-22T21:38:54.876621793Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Output":"PASS\n"}
+{"Time":"2026-09-22T21:38:54.917703776Z","Action":"output","Package":"github.com/qompack/qompack/test/integration","Output":"ok  \tgithub.com/qompack/qompack/test/integration\t182.968s\n"}
+{"Time":"2026-09-22T21:38:54.917904022Z","Action":"pass","Package":"github.com/qompack/qompack/test/integration","Elapsed":182.97}

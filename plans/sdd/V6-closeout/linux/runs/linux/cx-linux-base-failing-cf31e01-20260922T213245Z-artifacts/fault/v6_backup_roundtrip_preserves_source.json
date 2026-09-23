@@ -1,0 +1,19 @@
+{
+  "name": "v6_backup_roundtrip_preserves_source",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "794ba99a393e26ee1c4f8481d30a84c53025a0e22f62ab70ff73ec0047456136"
+  },
+  "boundary": "operator backup/verify/restore of a stopped store into a fresh destination",
+  "seed_method": "packaged hooks seed a store and captures; daemon stopped; backup create/verify; a real hook then writes a new root; daemon stopped; restore into a fresh destination",
+  "outcome": "failed",
+  "reason": "the packaged backup round-trip did not complete or did not preserve the source, later writes, or the original backup",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,11 @@
+label=windows-hotpath-diag-scratch-fc9ec15-alone
+src=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/hp-diag
+commit=fc9ec15090537d67d758c5e84b6fdbbd1f9c750e
+describe=v0.1.0-852-gfc9ec15
+status_lines=0
+go=go version go1.26.6 windows/amd64
+cmd=go test ./test/integration -run '^TestIntegration_HotPathWarmWithRealResidentState$' -count=1 -timeout=40m -json
+env_extra=QOMPACK_UNDER_COLOAD=1
+CGO_ENABLED=0
+started_utc=2026-09-23T01:10:55Z
+finished_utc=2026-09-23T01:19:52Z

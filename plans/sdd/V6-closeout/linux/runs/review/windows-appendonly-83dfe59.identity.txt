@@ -1,0 +1,11 @@
+label=windows-appendonly-83dfe59
+src=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+commit=83dfe597d8c2177ffd8a0cea62a5aeb234f20111
+describe=v0.1.0-851-g83dfe59
+status_lines=1
+go=go version go1.26.6 windows/amd64
+cmd=go test ./test/integration -run '^TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites$' -count=3 -timeout=40m -json
+env_extra=
+CGO_ENABLED=0
+started_utc=2026-09-23T00:22:09Z
+finished_utc=2026-09-23T00:27:59Z

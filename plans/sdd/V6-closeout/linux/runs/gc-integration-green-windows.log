@@ -1,0 +1,5 @@
+=== RUN   TestIntegration_GCNeverCollectsALiveRootUnderIngest
+--- PASS: TestIntegration_GCNeverCollectsALiveRootUnderIngest (97.85s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	98.099s
+exit=0

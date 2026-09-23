@@ -1,0 +1,26 @@
+=== RUN   TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    denied_test.go:267: security: toolu_security_denied_inside_01 was indexed after 7.1s
+    denied_test.go:330: DBG waited_ticks=15
+        total 28
+        drwx------  2 qompack-test qompack-test 4096 Sep 22 21:54 .
+        drwx------ 19 qompack-test qompack-test 4096 Sep 22 21:54 ..
+        -rw-------  1 qompack-test qompack-test  152 Sep 22 21:54 files.jsonl
+        -rw-------  1 qompack-test qompack-test 1878 Sep 22 21:54 observations.jsonl
+        -rw-------  1 qompack-test qompack-test 2060 Sep 22 21:54 roots.jsonl
+        -rw-------  1 qompack-test qompack-test   86 Sep 22 21:54 segments.jsonl
+        -rw-------  1 qompack-test qompack-test    0 Sep 22 21:54 sessions.jsonl
+        -rw-------  1 qompack-test qompack-test 1784 Sep 22 21:54 tool_use.jsonl
+        {"v":1,"path":"src/auth.ts","ts":1790114087927,"turn":0,"root":"sha256:e69645625e0d0487f5233ea7af0a67358ad23ed0b9e92e4132623acc7c79f6bb","bytes":24636}
+        == .qompack/logs/qompack-20260922.log
+        ts=2026-09-22T21:54:44.410569488Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+        ts=2026-09-22T21:54:45.143345865Z level=info msg="observer: session registered" session=sess-security-denied-0001 source=startup turn=0 segment=1
+        ts=2026-09-22T21:54:45.143672533Z level=info msg="scheduler: session bound" session=sess-security-denied-0001 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+        total 8
+        drwx------  2 qompack-test qompack-test 4096 Sep 22 21:54 .
+        drwx------ 19 qompack-test qompack-test 4096 Sep 22 21:54 ..
+    denied_test.go:294: security archive_trust_re_read_never_reads_the_live_disk: verified — re_read served the archived bytes after the working-tree file was replaced, and again after it was deleted; the replacement marker never appeared in either response.
+          detail:   
+          artifact: /tmp/TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk1809600872/001/archive_trust_re_read_never_reads_the_live_disk.json
+--- PASS: TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk (16.87s)
+PASS
+ok  	github.com/qompack/qompack/test/security	16.884s

@@ -1,0 +1,17 @@
+{
+  "name": "bounds_content_hash_mismatch",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "49fa821b3c8ca0cfb54434a7b014ff37646e040b6fbf7ce4635b90c83c03f74c"
+  },
+  "outcome": "verified",
+  "reason": "content_hash_mismatch was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a valid frame of the right length whose plaintext hashes to another address.",
+  "detail": "read error: qompack: not found: object refused as damaged: object d031e75962c4 has the wrong content hash"
+}

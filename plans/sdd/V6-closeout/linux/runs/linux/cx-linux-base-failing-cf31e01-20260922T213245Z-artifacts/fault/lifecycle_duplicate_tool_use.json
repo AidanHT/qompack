@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_duplicate_tool_use",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "794ba99a393e26ee1c4f8481d30a84c53025a0e22f62ab70ff73ec0047456136"
+  },
+  "boundary": "the same tool_use_id delivered twice",
+  "seed_method": "the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:8 roots:8 sidecars:8 checkpoints:0 dangling:0 reported:0}; after {tool_uses:17 roots:17 sidecars:26 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,65 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/ipc": {
+   "result": "pass",
+   "passed": 139,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/paths": {
+   "result": "pass",
+   "passed": 130,
+   "failed": [],
+   "skipped": [
+    "TestOpenFile_HandlesUnresolvableRootGracefully",
+    "TestRestoreLog_UnstatablePathIsNotCreated",
+    "TestReplaceBloom_PruneSurvivesUnreadableSketchesDir",
+    "TestHighestBloomBackupSeq_UnreadableDirIsAnError",
+    "TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows",
+    "TestReplacePinsView_DeniedStagingCreatePreservesView",
+    "TestTerminatePartialTail_UnreadablePathIsLeftAlone",
+    "TestWriteAtomic_CreateTempFailureLeavesNoStaging",
+    "TestEnsureLayout_WriteAtomicFailureIsPropagated",
+    "TestLong_IdentityWhenAbsFails",
+    "TestLong_PrefixesOverThreshold",
+    "TestLong_IdempotentOnAlreadyPrefixed",
+    "TestLong_UNCGetsUNCPrefix",
+    "TestManifest_ReadPropagatesNonNotExistOpenError",
+    "TestNorm_RejectsDifferentVolume",
+    "TestNorm_LeavesUNCVolumeMismatchUnresolved",
+    "TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved",
+    "TestResolve_PropagatesAbsFailure"
+   ]
+  },
+  "github.com/qompack/qompack/internal/testutil": {
+   "result": "pass",
+   "passed": 40,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "fail",
+   "passed": 159,
+   "failed": [
+    "TestCarriedDefects_WaveReportRequiresResolution/SP06-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP10-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP09-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D3",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D4",
+    "TestCarriedDefects_WaveReportRequiresResolution"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/security": {
+   "result": "fail",
+   "passed": 22,
+   "failed": [
+    "TestSecurity_ArchivedTextIsDataNeverAnInstruction"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

@@ -1,0 +1,18 @@
+{
+  "name": "privacy_surface_metrics",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "794ba99a393e26ee1c4f8481d30a84c53025a0e22f62ab70ff73ec0047456136"
+  },
+  "outcome": "verified",
+  "reason": "no literal and no \u003e8-byte fragment of any of the 11 planted credential families survives under metrics.",
+  "detail": "1 files, 2307 bytes swept, 0 redaction placeholders",
+  "artifact": "privacy-surface-sweep.json"
+}

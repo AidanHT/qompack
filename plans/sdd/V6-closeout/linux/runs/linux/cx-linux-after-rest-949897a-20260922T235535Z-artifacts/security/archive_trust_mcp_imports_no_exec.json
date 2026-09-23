@@ -1,0 +1,17 @@
+{
+  "name": "archive_trust_mcp_imports_no_exec",
+  "capability": "archive_trust",
+  "scope": "repository",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "74adf409f4048486a83ade89b6763c0c42ca5ed5d9cff864381ed5411f157229"
+  },
+  "outcome": "verified",
+  "reason": "the transitive import set of internal/mcp contains no os/exec: the retrieval layer has no mechanism to execute anything, archived or otherwise. The no-network rule for the same graph is owned by test/guards' TestGuard_NoNetworkImports and is cited, not duplicated, here.",
+  "detail": "146 transitive packages inspected"
+}

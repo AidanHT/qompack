@@ -1,0 +1,18 @@
+{
+  "name": "privacy_surface_eval_export",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "c5b1b8df642275792bed82dbee4b2ddfd852e4e8d2bb15316f92f34bee9ac3dc"
+  },
+  "outcome": "verified",
+  "reason": "no literal and no \u003e8-byte fragment of any of the 11 planted credential families survives under eval-export.",
+  "detail": "1 files, 1361 bytes swept, 0 redaction placeholders",
+  "artifact": "privacy-surface-sweep.json"
+}

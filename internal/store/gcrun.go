@@ -833,10 +833,19 @@ func (s *FSStore) listRetentionDir(
 			}
 			return nil, false, retentionUnavailable("read retention dir %s: %v", dir, rerr)
 		}
-		// A batch returned entries and there may be more. Check the budget BETWEEN batches — never before
-		// the first read — so a trivially small (or empty) directory always completes, exactly as the old
-		// os.ReadDir did, while a genuinely large enumeration still answers to ctx and the deadline. ctx
-		// cancellation is an error; an expired deadline truncates (nothing collected, resumable).
+		// Check the budget BETWEEN batches — never before the first read — so a trivially small (or empty)
+		// directory always completes, exactly as the old os.ReadDir did, while a genuinely large
+		// enumeration still answers to ctx and the deadline. ctx cancellation is an error; an expired
+		// deadline truncates (nothing collected, resumable).
+		//
+		// Only a FULL batch means there may be more. ReadDir(n) keeps reading until it has n entries or
+		// the directory ends, and it reports io.EOF on the call AFTER the one that returned the last
+		// entries, not on that call itself — so a short batch is the whole remainder, and checking the
+		// deadline after it would truncate the entire mark over a listing that is already complete. A
+		// short batch simply reads again and meets the io.EOF above.
+		if len(ents) < gcDirBatch {
+			continue
+		}
 		if cerr := budget.ctx.Err(); cerr != nil {
 			return nil, false, cerr
 		}

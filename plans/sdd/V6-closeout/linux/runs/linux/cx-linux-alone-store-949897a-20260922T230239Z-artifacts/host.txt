@@ -1,0 +1,10 @@
+run_id=cx-linux-alone-store-949897a-20260922T230239Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=949897a
+commit=949897abd6d3b811f8ff40e2d782ff0cf4d6c9d7
+bundle_sha256=cc714604801520411c2993346ea44f3e503529267dd57077a0652d9a2c078793
+host_started_utc=2026-09-22T23:03:27Z
+inner_args=-- ./internal/store
+host_finished_utc=2026-09-22T23:24:28Z
+container_exit=1

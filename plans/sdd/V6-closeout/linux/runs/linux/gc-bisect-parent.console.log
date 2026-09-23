@@ -1,0 +1,35 @@
+run_id=cx-linux-gc-bisect-parent-4cda64d-20260922T213518Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=4cda64d69bf1e30d69e462b927d5743f0b5a0888
+commit=4cda64d69bf1e30d69e462b927d5743f0b5a0888
+bundle_sha256=3d7e77a1248e84bcfb1fee80eb969cbfb369ea3f6b452a6d96f8bc16728a570e
+host_started_utc=2026-09-22T21:35:31Z
+inner_args=--no-race --run ^TestIntegration_GCNeverCollectsALiveRootUnderIngest$ -- ./test/integration
+/work/cx-linux-gc-bisect-parent-4cda64d-20260922T213518Z.bundle: OK
+run_id=cx-linux-gc-bisect-parent-4cda64d-20260922T213518Z
+commit=4cda64d69bf1e30d69e462b927d5743f0b5a0888
+tree=7874d3450ea0463b29094a2bc1316e5a90de9903
+bundle_sha256=3d7e77a1248e84bcfb1fee80eb969cbfb369ea3f6b452a6d96f8bc16728a570e
+started_utc=2026-09-22T21:35:36Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^TestIntegration_GCNeverCollectsALiveRootUnderIngest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/test/integration  (pass=1 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/cx-linux/runs/cx-linux-gc-bisect-parent-4cda64d-20260922T213518Z-artifacts
+exit=0
+exit=0

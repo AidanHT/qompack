@@ -1,0 +1,10 @@
+run_id=cx-linux-alone-daemon-949897a-20260922T232432Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=949897a
+commit=949897abd6d3b811f8ff40e2d782ff0cf4d6c9d7
+bundle_sha256=71a541508a988d1fcc1e3d9916cf3a5e3b6f29a6ef55275f40d6be89dc225d08
+host_started_utc=2026-09-22T23:25:06Z
+inner_args=-- ./internal/daemon
+host_finished_utc=2026-09-22T23:55:33Z
+container_exit=1

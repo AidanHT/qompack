@@ -1,0 +1,544 @@
+{"Time":"2026-09-22T21:48:57.360310251Z","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-09-22T21:48:57.42195174Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:48:57.422018317Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:48:57.509152576Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.09s)\n"}
+{"Time":"2026-09-22T21:48:57.509226365Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.09}
+{"Time":"2026-09-22T21:48:57.509248008Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:48:57.509253816Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:48:57.656128119Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"    daemon_test.go:1079: \n"}
+{"Time":"2026-09-22T21:48:57.656177319Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"        \tError Trace:\t/work/cx-linux-daemon-race-fixed-f73b629-20260922T214809Z/internal/daemon/daemon_test.go:1079\n"}
+{"Time":"2026-09-22T21:48:57.656184966Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"        \tError:      \tShould be true\n"}
+{"Time":"2026-09-22T21:48:57.656189368Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"        \tTest:       \tTestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:48:57.656194768Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"        \tMessages:   \tadmin.shutdown sent over the transport was not answered OK: {OK:false Mode:full Hot:0 Output:\u003cnil\u003e Err: Data:[]}\n"}
+{"Time":"2026-09-22T21:48:57.656959762Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- FAIL: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.15s)\n"}
+{"Time":"2026-09-22T21:48:57.65700274Z","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.15}
+{"Time":"2026-09-22T21:48:57.659989214Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:48:57.660044981Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:48:57.759387462Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.10s)\n"}
+{"Time":"2026-09-22T21:48:57.759450243Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.1}
+{"Time":"2026-09-22T21:48:57.759468668Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:48:57.759473692Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:48:58.39605075Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.64s)\n"}
+{"Time":"2026-09-22T21:48:58.396120293Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.64}
+{"Time":"2026-09-22T21:48:58.400259474Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:48:58.400328478Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:48:58.474366267Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.07s)\n"}
+{"Time":"2026-09-22T21:48:58.474420628Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.07}
+{"Time":"2026-09-22T21:48:58.474434126Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:48:58.47443874Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:48:58.986996572Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.51s)\n"}
+{"Time":"2026-09-22T21:48:58.987063886Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.51}
+{"Time":"2026-09-22T21:48:58.990388627Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:48:58.990534604Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:48:59.393703224Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.40s)\n"}
+{"Time":"2026-09-22T21:48:59.393815051Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.4}
+{"Time":"2026-09-22T21:48:59.393929335Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:48:59.393946855Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:48:59.792709743Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.40s)\n"}
+{"Time":"2026-09-22T21:48:59.792772002Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.4}
+{"Time":"2026-09-22T21:48:59.797777918Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:48:59.797853836Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:48:59.911776438Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.11s)\n"}
+{"Time":"2026-09-22T21:48:59.912084502Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.11}
+{"Time":"2026-09-22T21:48:59.912130892Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:48:59.912139396Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:00.516656452Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.60s)\n"}
+{"Time":"2026-09-22T21:49:00.516738627Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.6}
+{"Time":"2026-09-22T21:49:00.523735046Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:00.523816765Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:00.615931026Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.09s)\n"}
+{"Time":"2026-09-22T21:49:00.615995148Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.09}
+{"Time":"2026-09-22T21:49:00.61601477Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:00.616021661Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:01.324884035Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.71s)\n"}
+{"Time":"2026-09-22T21:49:01.327514786Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.71}
+{"Time":"2026-09-22T21:49:01.32824575Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:01.328308754Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:01.494638851Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.17s)\n"}
+{"Time":"2026-09-22T21:49:01.494704372Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.17}
+{"Time":"2026-09-22T21:49:01.494725152Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:01.494732795Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:02.143682823Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.65s)\n"}
+{"Time":"2026-09-22T21:49:02.143779379Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.65}
+{"Time":"2026-09-22T21:49:02.161117467Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:02.161563181Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:02.332377171Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.17s)\n"}
+{"Time":"2026-09-22T21:49:02.33243401Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.17}
+{"Time":"2026-09-22T21:49:02.332452877Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:02.332466169Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:03.303102987Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.97s)\n"}
+{"Time":"2026-09-22T21:49:03.303294983Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.97}
+{"Time":"2026-09-22T21:49:03.307192054Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:03.307239739Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:03.448951412Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.14s)\n"}
+{"Time":"2026-09-22T21:49:03.449016263Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.14}
+{"Time":"2026-09-22T21:49:03.449047065Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:03.449054691Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:04.265426836Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.82s)\n"}
+{"Time":"2026-09-22T21:49:04.265501629Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.82}
+{"Time":"2026-09-22T21:49:04.283563363Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:04.283639062Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:04.403961241Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.12s)\n"}
+{"Time":"2026-09-22T21:49:04.404038412Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.12}
+{"Time":"2026-09-22T21:49:04.404377499Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:04.404421257Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:05.546673501Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (1.14s)\n"}
+{"Time":"2026-09-22T21:49:05.546743268Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":1.14}
+{"Time":"2026-09-22T21:49:05.557142779Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:05.557229256Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:05.858305931Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.30s)\n"}
+{"Time":"2026-09-22T21:49:05.858397523Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.3}
+{"Time":"2026-09-22T21:49:05.858427621Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:05.858439883Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:06.883666431Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (1.02s)\n"}
+{"Time":"2026-09-22T21:49:06.883764166Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":1.02}
+{"Time":"2026-09-22T21:49:06.89285378Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:06.892935133Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:07.052377899Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.16s)\n"}
+{"Time":"2026-09-22T21:49:07.052525305Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.16}
+{"Time":"2026-09-22T21:49:07.052554891Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:07.052565276Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:07.920591603Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.87s)\n"}
+{"Time":"2026-09-22T21:49:07.920684353Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.87}
+{"Time":"2026-09-22T21:49:07.924066246Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:07.924138766Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:07.982193673Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:07.982302597Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:07.982325729Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:07.982334436Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:09.030088165Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (1.05s)\n"}
+{"Time":"2026-09-22T21:49:09.030181921Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":1.05}
+{"Time":"2026-09-22T21:49:09.04348894Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:09.043541714Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:09.216803019Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.17s)\n"}
+{"Time":"2026-09-22T21:49:09.216876072Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.17}
+{"Time":"2026-09-22T21:49:09.217155215Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:09.21717361Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:09.755689029Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.54s)\n"}
+{"Time":"2026-09-22T21:49:09.755749729Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.54}
+{"Time":"2026-09-22T21:49:09.757916346Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:09.757949871Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:09.832209359Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.07s)\n"}
+{"Time":"2026-09-22T21:49:09.832255277Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.07}
+{"Time":"2026-09-22T21:49:09.832268132Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:09.832271851Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:10.584743834Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.75s)\n"}
+{"Time":"2026-09-22T21:49:10.584791185Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.75}
+{"Time":"2026-09-22T21:49:10.588524067Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:10.58857471Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:10.636556556Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:10.63660474Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:10.636720491Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:10.636745208Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:11.183028903Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.55s)\n"}
+{"Time":"2026-09-22T21:49:11.183125916Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.55}
+{"Time":"2026-09-22T21:49:11.185278168Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:11.185335789Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:11.242026682Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:11.242080394Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:11.242091478Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:11.242095419Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:11.595225728Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.35s)\n"}
+{"Time":"2026-09-22T21:49:11.595282165Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.35}
+{"Time":"2026-09-22T21:49:11.597946963Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:11.597989918Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:11.856986957Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.26s)\n"}
+{"Time":"2026-09-22T21:49:11.857190729Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.26}
+{"Time":"2026-09-22T21:49:11.857392869Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:11.857412106Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:12.25041636Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.39s)\n"}
+{"Time":"2026-09-22T21:49:12.250513534Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.39}
+{"Time":"2026-09-22T21:49:12.253288188Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:12.253331105Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:12.303007585Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:12.303072322Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:12.303093321Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:12.303096732Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:12.591035014Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.29s)\n"}
+{"Time":"2026-09-22T21:49:12.591096913Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.29}
+{"Time":"2026-09-22T21:49:12.594130761Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:12.594165034Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:12.641176513Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:12.641225927Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:12.641337709Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:12.641358436Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:13.02864814Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.39s)\n"}
+{"Time":"2026-09-22T21:49:13.028702663Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.39}
+{"Time":"2026-09-22T21:49:13.037827103Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:13.038476648Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:13.094129089Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:13.094188481Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:13.094286276Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:13.094306016Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:13.497788198Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.40s)\n"}
+{"Time":"2026-09-22T21:49:13.497840573Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.4}
+{"Time":"2026-09-22T21:49:13.501037972Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:13.501077568Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:13.585182192Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.08s)\n"}
+{"Time":"2026-09-22T21:49:13.585225093Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.08}
+{"Time":"2026-09-22T21:49:13.585237416Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:13.585241583Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:13.892748811Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.31s)\n"}
+{"Time":"2026-09-22T21:49:13.892805375Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.31}
+{"Time":"2026-09-22T21:49:13.895395516Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:13.895451248Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:13.964497435Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.07s)\n"}
+{"Time":"2026-09-22T21:49:13.964553356Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.07}
+{"Time":"2026-09-22T21:49:13.964676053Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:13.964701023Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:14.617910821Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.65s)\n"}
+{"Time":"2026-09-22T21:49:14.617959581Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.65}
+{"Time":"2026-09-22T21:49:14.620560345Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:14.620659212Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:14.701247161Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.08s)\n"}
+{"Time":"2026-09-22T21:49:14.701296831Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.08}
+{"Time":"2026-09-22T21:49:14.701308486Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:14.701312365Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:15.04488945Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.34s)\n"}
+{"Time":"2026-09-22T21:49:15.044947805Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.34}
+{"Time":"2026-09-22T21:49:15.056755668Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:15.056842145Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:15.107685668Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:15.107745932Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:15.107763949Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:15.107769292Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:15.438078062Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.33s)\n"}
+{"Time":"2026-09-22T21:49:15.438122793Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.33}
+{"Time":"2026-09-22T21:49:15.440180006Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:15.440223153Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:15.618434458Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.18s)\n"}
+{"Time":"2026-09-22T21:49:15.618493923Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.18}
+{"Time":"2026-09-22T21:49:15.618510304Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:15.618515294Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:15.996657032Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.38s)\n"}
+{"Time":"2026-09-22T21:49:15.996711348Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.38}
+{"Time":"2026-09-22T21:49:15.999081929Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:15.999138114Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:16.054519384Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:16.054571327Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:16.054584137Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:16.054587628Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:16.386879294Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.33s)\n"}
+{"Time":"2026-09-22T21:49:16.386996822Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.33}
+{"Time":"2026-09-22T21:49:16.389172474Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:16.389224147Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:16.44364626Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:16.443695559Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:16.443707901Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:16.443717014Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:16.82360693Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.38s)\n"}
+{"Time":"2026-09-22T21:49:16.823662441Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.38}
+{"Time":"2026-09-22T21:49:16.826069412Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:16.8261163Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:16.88900837Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:16.889049572Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:16.889061953Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:16.889065524Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:17.197267641Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.31s)\n"}
+{"Time":"2026-09-22T21:49:17.197318665Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.31}
+{"Time":"2026-09-22T21:49:17.19970327Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:17.199741991Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:17.271254406Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.07s)\n"}
+{"Time":"2026-09-22T21:49:17.27130195Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.07}
+{"Time":"2026-09-22T21:49:17.271315266Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:17.27131952Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:17.704355211Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.43s)\n"}
+{"Time":"2026-09-22T21:49:17.704404418Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.43}
+{"Time":"2026-09-22T21:49:17.706895882Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:17.706933708Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:17.763049399Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:17.763107724Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:17.763123831Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:17.763133086Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:18.193473985Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.43s)\n"}
+{"Time":"2026-09-22T21:49:18.193533697Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.43}
+{"Time":"2026-09-22T21:49:18.195779228Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:18.195833154Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:18.247920859Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:18.247983613Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:18.247999673Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:18.248005393Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:18.715842223Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.47s)\n"}
+{"Time":"2026-09-22T21:49:18.715906118Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.47}
+{"Time":"2026-09-22T21:49:18.718376539Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:18.718427757Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:18.83367957Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.12s)\n"}
+{"Time":"2026-09-22T21:49:18.83373601Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.12}
+{"Time":"2026-09-22T21:49:18.833831279Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:18.833840144Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:19.19230635Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.36s)\n"}
+{"Time":"2026-09-22T21:49:19.192363528Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.36}
+{"Time":"2026-09-22T21:49:19.194782905Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:19.194826389Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:19.259780203Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:19.259858104Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:19.2600049Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:19.260017661Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:19.758695755Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.50s)\n"}
+{"Time":"2026-09-22T21:49:19.758751338Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.5}
+{"Time":"2026-09-22T21:49:19.76134975Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:19.761430655Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:19.820802304Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:19.82085393Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:19.820877782Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:19.820883089Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:20.279731872Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.46s)\n"}
+{"Time":"2026-09-22T21:49:20.279867313Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.46}
+{"Time":"2026-09-22T21:49:20.28213153Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:20.282176816Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:20.355600774Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.07s)\n"}
+{"Time":"2026-09-22T21:49:20.355689994Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.07}
+{"Time":"2026-09-22T21:49:20.355789926Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:20.355910457Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:20.758423169Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.40s)\n"}
+{"Time":"2026-09-22T21:49:20.758476773Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.4}
+{"Time":"2026-09-22T21:49:20.761059783Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:20.761127279Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:20.845740717Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.08s)\n"}
+{"Time":"2026-09-22T21:49:20.845794258Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.08}
+{"Time":"2026-09-22T21:49:20.845913324Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:20.845923703Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:21.135901539Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.29s)\n"}
+{"Time":"2026-09-22T21:49:21.135946925Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.29}
+{"Time":"2026-09-22T21:49:21.138394706Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:21.138435239Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:21.377680622Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.24s)\n"}
+{"Time":"2026-09-22T21:49:21.377735471Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.24}
+{"Time":"2026-09-22T21:49:21.377748499Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:21.37775252Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:21.523726057Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"    daemon_test.go:1079: \n"}
+{"Time":"2026-09-22T21:49:21.524149301Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"        \tError Trace:\t/work/cx-linux-daemon-race-fixed-f73b629-20260922T214809Z/internal/daemon/daemon_test.go:1079\n"}
+{"Time":"2026-09-22T21:49:21.524159209Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"        \tError:      \tShould be true\n"}
+{"Time":"2026-09-22T21:49:21.52418968Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"        \tTest:       \tTestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:21.524195621Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"        \tMessages:   \tadmin.shutdown sent over the transport was not answered OK: {OK:false Mode:full Hot:0 Output:\u003cnil\u003e Err: Data:[]}\n"}
+{"Time":"2026-09-22T21:49:21.524586969Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"    testing.go:1464: TempDir RemoveAll cleanup: unlinkat /tmp/TestRunReturnsOnlyAfterAsyncStopHasFinished4026318546/001/.qompack: directory not empty\n"}
+{"Time":"2026-09-22T21:49:21.524928519Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- FAIL: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.15s)\n"}
+{"Time":"2026-09-22T21:49:21.525125016Z","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.15}
+{"Time":"2026-09-22T21:49:21.527156587Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:21.527191579Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:21.587159256Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:21.587210602Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:21.587322978Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:21.587345791Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:21.867832184Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.28s)\n"}
+{"Time":"2026-09-22T21:49:21.867974212Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.28}
+{"Time":"2026-09-22T21:49:21.870475508Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:21.870513371Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:21.919843287Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:21.919893272Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:21.919906213Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:21.919909821Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:22.223912072Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.30s)\n"}
+{"Time":"2026-09-22T21:49:22.223966556Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.3}
+{"Time":"2026-09-22T21:49:22.226604923Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:22.226654252Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:22.290919877Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:22.290980623Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:22.290995219Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:22.291000591Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:22.745856424Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.45s)\n"}
+{"Time":"2026-09-22T21:49:22.745918042Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.45}
+{"Time":"2026-09-22T21:49:22.747904483Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:22.747943179Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:22.818187493Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.07s)\n"}
+{"Time":"2026-09-22T21:49:22.818246864Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.07}
+{"Time":"2026-09-22T21:49:22.818266248Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:22.818271254Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:23.116244828Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.30s)\n"}
+{"Time":"2026-09-22T21:49:23.116308602Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.3}
+{"Time":"2026-09-22T21:49:23.119119953Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:23.11917099Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:23.413177012Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.29s)\n"}
+{"Time":"2026-09-22T21:49:23.413369154Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.29}
+{"Time":"2026-09-22T21:49:23.413411773Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:23.413435271Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:23.896738873Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.48s)\n"}
+{"Time":"2026-09-22T21:49:23.896799392Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.48}
+{"Time":"2026-09-22T21:49:23.899575504Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:23.899626398Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:23.953930051Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:23.953988103Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:23.954016644Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:23.954022654Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:24.302171081Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.35s)\n"}
+{"Time":"2026-09-22T21:49:24.302222903Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.35}
+{"Time":"2026-09-22T21:49:24.305154615Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:24.3052063Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:24.363649899Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:24.363709808Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:24.363724603Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:24.363729656Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:24.701716812Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.34s)\n"}
+{"Time":"2026-09-22T21:49:24.701799426Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.34}
+{"Time":"2026-09-22T21:49:24.704811243Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:24.70486487Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:24.946710818Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.24s)\n"}
+{"Time":"2026-09-22T21:49:24.946783704Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.24}
+{"Time":"2026-09-22T21:49:24.946800666Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:24.946805255Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:25.563332484Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.62s)\n"}
+{"Time":"2026-09-22T21:49:25.563373072Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.62}
+{"Time":"2026-09-22T21:49:25.566306484Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:25.566342209Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:25.624937888Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:25.624984733Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:25.625089029Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:25.625112146Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:26.049165937Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.42s)\n"}
+{"Time":"2026-09-22T21:49:26.049234407Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.42}
+{"Time":"2026-09-22T21:49:26.05026547Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:26.050295768Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:26.160020572Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.11s)\n"}
+{"Time":"2026-09-22T21:49:26.160074108Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.11}
+{"Time":"2026-09-22T21:49:26.160098257Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:26.160103152Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:26.646211676Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.49s)\n"}
+{"Time":"2026-09-22T21:49:26.646262949Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.49}
+{"Time":"2026-09-22T21:49:26.648682698Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:26.648752458Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:26.726615918Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.08s)\n"}
+{"Time":"2026-09-22T21:49:26.726752754Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.08}
+{"Time":"2026-09-22T21:49:26.726897701Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:26.726909463Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:27.320803576Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.59s)\n"}
+{"Time":"2026-09-22T21:49:27.320864966Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.59}
+{"Time":"2026-09-22T21:49:27.323402438Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:27.323447355Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:27.407936679Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.08s)\n"}
+{"Time":"2026-09-22T21:49:27.407984967Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.08}
+{"Time":"2026-09-22T21:49:27.408111223Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:27.408134428Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:27.796295358Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.39s)\n"}
+{"Time":"2026-09-22T21:49:27.796344507Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.39}
+{"Time":"2026-09-22T21:49:27.798700457Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:27.798794101Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:27.853087087Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:27.853127873Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:27.853139098Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:27.853142422Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:28.158765072Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.31s)\n"}
+{"Time":"2026-09-22T21:49:28.158838213Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.31}
+{"Time":"2026-09-22T21:49:28.161379053Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:28.161435762Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:28.261377411Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.10s)\n"}
+{"Time":"2026-09-22T21:49:28.261436364Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.1}
+{"Time":"2026-09-22T21:49:28.26147383Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:28.261479915Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:28.706438726Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.44s)\n"}
+{"Time":"2026-09-22T21:49:28.706489195Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.44}
+{"Time":"2026-09-22T21:49:28.708735201Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:28.708772823Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:28.771830754Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:28.771879747Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:28.771897645Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:28.771902583Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:29.199641411Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.43s)\n"}
+{"Time":"2026-09-22T21:49:29.199715689Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.43}
+{"Time":"2026-09-22T21:49:29.202105023Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:29.202161431Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:29.269933377Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.07s)\n"}
+{"Time":"2026-09-22T21:49:29.270030803Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.07}
+{"Time":"2026-09-22T21:49:29.270054611Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:29.270071078Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:29.664723982Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.39s)\n"}
+{"Time":"2026-09-22T21:49:29.664810082Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.39}
+{"Time":"2026-09-22T21:49:29.667682938Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:29.667736157Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:29.731865013Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:29.731927608Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:29.731946269Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:29.73195182Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:30.292770278Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.56s)\n"}
+{"Time":"2026-09-22T21:49:30.292827144Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.56}
+{"Time":"2026-09-22T21:49:30.295452953Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:30.295498893Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:30.383053158Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.09s)\n"}
+{"Time":"2026-09-22T21:49:30.383123353Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.09}
+{"Time":"2026-09-22T21:49:30.383142579Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:30.383148324Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:30.842254145Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.46s)\n"}
+{"Time":"2026-09-22T21:49:30.842369365Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.46}
+{"Time":"2026-09-22T21:49:30.845148351Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:30.845218575Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:30.932935979Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.09s)\n"}
+{"Time":"2026-09-22T21:49:30.93298697Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.09}
+{"Time":"2026-09-22T21:49:30.933108784Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:30.933121436Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:31.305401013Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.37s)\n"}
+{"Time":"2026-09-22T21:49:31.305491257Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.37}
+{"Time":"2026-09-22T21:49:31.307784544Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:31.307836815Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:31.36672176Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:31.366780696Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:31.36679702Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:31.366801912Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:31.942573735Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.57s)\n"}
+{"Time":"2026-09-22T21:49:31.943061803Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.57}
+{"Time":"2026-09-22T21:49:31.948368853Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:31.948411938Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:32.044123564Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.10s)\n"}
+{"Time":"2026-09-22T21:49:32.044188692Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.1}
+{"Time":"2026-09-22T21:49:32.044199599Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:32.044202964Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:32.516633276Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.47s)\n"}
+{"Time":"2026-09-22T21:49:32.516798357Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.47}
+{"Time":"2026-09-22T21:49:32.523238322Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:32.523307183Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:32.575216024Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:32.575307366Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:32.575343998Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:32.575347835Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:33.399928128Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.82s)\n"}
+{"Time":"2026-09-22T21:49:33.400172656Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.82}
+{"Time":"2026-09-22T21:49:33.402439039Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:33.402486025Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:33.456703254Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:33.456752362Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:33.457017768Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:33.457039789Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:33.809851891Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.35s)\n"}
+{"Time":"2026-09-22T21:49:33.809909875Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.35}
+{"Time":"2026-09-22T21:49:33.812986911Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:33.813020847Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:33.878102795Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.06s)\n"}
+{"Time":"2026-09-22T21:49:33.87815791Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.06}
+{"Time":"2026-09-22T21:49:33.878175019Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:33.878180779Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:34.258688374Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.38s)\n"}
+{"Time":"2026-09-22T21:49:34.25874056Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.38}
+{"Time":"2026-09-22T21:49:34.260976372Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:34.261019918Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:34.34610824Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.08s)\n"}
+{"Time":"2026-09-22T21:49:34.346174432Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.08}
+{"Time":"2026-09-22T21:49:34.346193139Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:34.34619946Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:34.744603333Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.40s)\n"}
+{"Time":"2026-09-22T21:49:34.744655485Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.4}
+{"Time":"2026-09-22T21:49:34.74676704Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:34.746814359Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:34.987611695Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.24s)\n"}
+{"Time":"2026-09-22T21:49:34.987666991Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.24}
+{"Time":"2026-09-22T21:49:34.987679707Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:34.987683489Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:35.225205069Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.24s)\n"}
+{"Time":"2026-09-22T21:49:35.225264838Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.24}
+{"Time":"2026-09-22T21:49:35.227657904Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:35.227701935Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:35.273373196Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T21:49:35.273423978Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T21:49:35.273438538Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:35.273451322Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:35.499475237Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.23s)\n"}
+{"Time":"2026-09-22T21:49:35.499536502Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.23}
+{"Time":"2026-09-22T21:49:35.503725968Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:35.50379021Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:35.568931123Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.07s)\n"}
+{"Time":"2026-09-22T21:49:35.568996805Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.07}
+{"Time":"2026-09-22T21:49:35.569123024Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:49:35.569164795Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:49:36.291234417Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"--- PASS: TestRunReturnsOnlyAfterAsyncStopHasFinished (0.72s)\n"}
+{"Time":"2026-09-22T21:49:36.291328521Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Elapsed":0.72}
+{"Time":"2026-09-22T21:49:36.293785937Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T21:49:36.293829428Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T21:49:36.395391449Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"FAIL\tgithub.com/qompack/qompack/internal/daemon\t39.037s\n"}
+{"Time":"2026-09-22T21:49:36.395450755Z","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":39.038}

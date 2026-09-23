@@ -1,0 +1,10 @@
+run_id=cx-linux-overshoot-ab-head-949897a-20260922T233649Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=949897a
+commit=949897abd6d3b811f8ff40e2d782ff0cf4d6c9d7
+bundle_sha256=b5264034dc82b7444205144bfec2dd2fa92acd1e07c1a7265072d3b4f385c03d
+host_started_utc=2026-09-22T23:36:59Z
+inner_args=--run ^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$ --count 3 -- ./internal/store
+host_finished_utc=2026-09-22T23:50:45Z
+container_exit=1

@@ -1,0 +1,7 @@
+github.com/qompack/qompack/internal/ipc
+github.com/qompack/qompack/internal/paths
+github.com/qompack/qompack/internal/testutil
+github.com/qompack/qompack/test/fault
+github.com/qompack/qompack/test/guards
+github.com/qompack/qompack/test/integration
+github.com/qompack/qompack/test/security

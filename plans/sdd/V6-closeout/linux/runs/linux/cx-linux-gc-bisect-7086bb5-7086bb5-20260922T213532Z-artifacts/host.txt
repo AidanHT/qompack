@@ -1,0 +1,10 @@
+run_id=cx-linux-gc-bisect-7086bb5-7086bb5-20260922T213532Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=7086bb5
+commit=7086bb52dd2e3cb5f377a74d115a9f1a8b5d564e
+bundle_sha256=73dddb1db55a2513ef8e4ee81ab306657d56f94110b9a8dbbc9800dead518a14
+host_started_utc=2026-09-22T21:35:41Z
+inner_args=--no-race --run ^TestIntegration_GCNeverCollectsALiveRootUnderIngest$ -- ./test/integration
+host_finished_utc=2026-09-22T21:38:54Z
+container_exit=1

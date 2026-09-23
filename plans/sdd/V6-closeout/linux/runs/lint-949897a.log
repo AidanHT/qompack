@@ -1,0 +1,111 @@
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (71 package(s) checked)
+PASS importgraph
+== devtool lint: testdeps ==
+testdeps: OK (73 package(s) checked)
+PASS testdeps
+== devtool lint: bindeps ==
+  linux/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  linux/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+FAIL bindeps: bindeps: 4 violation(s)
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+== devtool lint: stubskips ==
+stubskips: github.com/qompack/qompack/internal/analyzer/analyzertest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/canon/canontest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/checkpoint: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/checkpoint/checkpointtest: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/chunk/chunktest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/config: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/contract/contracttest: 4 skip(s)
+stubskips: github.com/qompack/qompack/internal/daemon: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/dag/dagtest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/eval: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/grammar/grammartest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/hookio: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/ipc: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/ipc/ipctest: 6 skip(s)
+stubskips: github.com/qompack/qompack/internal/mcp/mcptest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/negknow: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/negknow/negknowtest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/observer/observertest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/paths: 7 skip(s)
+stubskips: github.com/qompack/qompack/internal/pins/pinstest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/redact/redacttest: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/rehydrate/rehydratetest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/skills: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/store/storetest: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/symbols/symbolstest: 1 skip(s)
+stubskips: github.com/qompack/qompack/test/canary: 4 skip(s)
+stubskips: github.com/qompack/qompack/test/release: 2 skip(s)
+stubskips: github.com/qompack/qompack/test/security: 1 skip(s)
+  notice: github.com/qompack/qompack/internal/checkpoint (TestValidatePointersFollowsADirectorySymlinkLikeNorm): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/checkpoint (TestValidatePointersFollowsAFileSymlinkLikeNorm): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/config (TestLoadForCapture_RefusesUnsafeConfigFileLeaves/symlink_leaf): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/eval (TestSynthesize_WriteCorpus): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/ipc (TestWindowsPipeACLRejectsOtherUser): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/negknow (TestRecordContractFixtures): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestEnsureLayout_ReportsAnUnexpectedStatError): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestHighestBloomBackupSeq_ReportsAnUnexpectedReadDirError): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestNorm_LeavesSymlinkOutsideRootUnresolved): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestNorm_ResolvesSymlinkInsideRoot): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestNorm_ResolvesSymlinkWhenRootPathIsItselfASymlink): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestNorm_SymlinkedRootStillRefusesEscape): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestReadManifest_ReportsAnUnexpectedOpenError): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/skills (TestIndex_SkipsSymlinks): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/canary (TestCanary_CompactionBlocking): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/canary (TestCanary_NewResultReplacement): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/canary (TestCanary_SessionStartReinjection): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/canary (TestCanary_UsageAttribution): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/release (TestSwitch_ModePassiveStopsActingAndKeepsRecording): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/release (TestSwitch_ReinjectionSessionStartCompactOff): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/security (TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject/captured_file_replaced_by_link_outside): platform-gated, not run on this host
+  github.com/qompack/qompack/internal/daemon (TestDeliveryPath_V6_RefusesAliasedSegmentParent): skipped with a reason matching none of the three permitted messages (Rule W-1, Rule W-2, or "platform: " followed by a reason)
+  github.com/qompack/qompack/internal/daemon: test binary killed for running past -timeout=30m, so every skip it had not yet reached is missing from this run — the tree was only partly inspected
+  github.com/qompack/qompack/internal/hookio (TestCaptureScope_JunctionSwapDefeatsLexicalContainment): skipped with a reason matching none of the three permitted messages (Rule W-1, Rule W-2, or "platform: " followed by a reason)
+  github.com/qompack/qompack/internal/store: test binary killed for running past -timeout=30m, so every skip it had not yet reached is missing from this run — the tree was only partly inspected
+  github.com/qompack/qompack/test/e2e: test binary killed for running past -timeout=30m, so every skip it had not yet reached is missing from this run — the tree was only partly inspected
+  github.com/qompack/qompack/test/integration: test binary killed for running past -timeout=30m, so every skip it had not yet reached is missing from this run — the tree was only partly inspected
+FAIL stubskips: stubskips: 6 problem(s)
+== devtool lint: runpatterns ==
+runpatterns: plans/V2-VERIFY-primitives-store-dag-and-baseline.md:530: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: plans/sdd/V5-VERIFY/inventory-SP-05.md:70: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed|TestListenReturnsErrAddrInUse" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: 895 -run patterns parsed, 716 of 716 checkable resolved against 69 packages, 2 skipped (package not in tree yet), 7 skipped (unlanded wave and the package's test set is not settled), 2 platform-excluded, 20 waived
+runpatterns: waivers in force:
+  plans/V2-SP02-handoff.md:52: "TestImports" — the transcript below demonstrates the unsatisfiable command this section reports
+  plans/V2-VERIFY-primitives-store-dag-and-baseline.md:318: "TestImports" — quotes the unsatisfiable command this finding is about; the corrected row is below
+  plans/sdd/V3-SP-08-observer-l0/global-constraints.md:65: "<pattern>" — the -run argument is a placeholder metavariable in an iteration recipe, not a row to verify
+  plans/sdd/V3-SP-08-observer-l0/task-0-report.md:221: "<the seven new/extended tests>" — metavariable summarizing the report's per-test runs above, not a command to verify
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:422: "TestGraphEdges" — quotes the defective V6 command this finding documents
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:467: "TestGraphEdges" — left side quotes the defective V6 command being corrected
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:467: "TestGraph_" — left side quotes the defective V6 command being corrected
+  plans/sdd/V5-SP-15/report-E.md:84: "…" — the -run argument in this column header is a placeholder for the per-row test names below, not a command to verify
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:72: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:89: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:89: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:71: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:87: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:87: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-14.md:103: "TestRenderStatus_DegradedIsLoud" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-14.md:105: "TestE2E_EverySubcommandResolves|TestE2E_StatusAgainstRealDaemon|TestE2E_StatusWithDaemonStopped|TestE2E_CheckpointNowThenStatus" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-15.md:138: "TestCodecSizeBudget" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-15.md:139: "TestBuildActionHistory|TestRenderActionHistory|TestFold|TestFinalizeIncludesActionHistory|TestTruncateDropsActionHistoryFirst" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:151: "^(TestGoreleaserBuildsNothingAndDraftsTheRelease" — the alternation is split at the shell-pipeline character by this checker's parser; every branch is named in the PASS lines below
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:338: "^(TestBackup_RestoreOpensAsARealStore" — the alternation is split at the shell-pipeline character by this checker's parser; the -list output directly below names every branch
+PASS runpatterns
+== devtool lint: docmarkers ==
+docmarkers: 257 plan document(s) scanned
+PASS docmarkers
+== devtool lint: coveragefloors ==
+coveragefloors: 63 floor claim(s) across 257 plan document(s) checked against plans/OWNERS.tsv
+PASS coveragefloors
+devtool: lint: lint: failed sub-check(s): bindeps, stubskips
+exit status 1
+exit=1

@@ -1,0 +1,6 @@
+FAIL      github.com/qompack/qompack/test/security  (pass=0 fail=5 skip=0)
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk

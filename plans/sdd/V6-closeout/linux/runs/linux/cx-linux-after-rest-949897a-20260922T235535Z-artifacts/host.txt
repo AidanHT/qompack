@@ -1,0 +1,10 @@
+run_id=cx-linux-after-rest-949897a-20260922T235535Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=949897a
+commit=949897abd6d3b811f8ff40e2d782ff0cf4d6c9d7
+bundle_sha256=c7b91e71cde030c849ab947e227151dc91fddc2fc8055a6f31f1a0abc5cd5f35
+host_started_utc=2026-09-22T23:55:41Z
+inner_args=--coload -- ./internal/ipc ./internal/paths ./internal/testutil ./test/guards ./test/security
+host_finished_utc=2026-09-22T23:58:07Z
+container_exit=1
