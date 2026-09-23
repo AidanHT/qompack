@@ -477,3 +477,56 @@ func TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView(t *testing.T) 
 	require.True(t, full, "a job past the capacity is not held")
 	require.Equal(t, 3, ls.held)
 }
+
+// TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass: the drain tells DrainConfig.Released
+// about the sessions whose leased lines it consumed only once its pass is over, once per session.
+// Releasing a session mid-pass woke its parked live lane while the same pass was still reading that
+// session's later lines: the woken worker took the next queued job, the pass then met that job's
+// line with its seen key held, and "delivery still in progress" aborted the pass (a flush answered
+// OK:false for it). Every dispatch of the pass must therefore see no release yet.
+func TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass(t *testing.T) {
+	root := t.TempDir()
+	_, dd, _ := wireTestDaemon(t, root, nil)
+	lock := lockFor(t, dd, root)
+	t.Cleanup(func() { _ = lock.Release() })
+	t.Cleanup(func() {
+		grace, cancel := context.WithTimeout(context.Background(), promptRecordWait)
+		defer cancel()
+		dd.stopPromptRecordings(grace)
+	})
+
+	const sess core.SessionID = "sess-release-after-pass"
+	const k = 3
+	var mu sync.Mutex
+	var releases []core.SessionID
+	var releasedAtDispatch []int
+	cfg := dd.drainConfig()
+	dispatch := cfg.Dispatch
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		mu.Lock()
+		releasedAtDispatch = append(releasedAtDispatch, len(releases))
+		mu.Unlock()
+		return dispatch(ctx, req)
+	}
+	cfg.Released = func(s core.SessionID) {
+		mu.Lock()
+		releases = append(releases, s)
+		mu.Unlock()
+	}
+	dd.drain.Store(newDrainer(cfg))
+
+	for i := range k {
+		acceptPrompt(t, dd, spD3Prompt(dd, root, sess, orderNonce(i), fmt.Sprintf("p%d", i)))
+	}
+	for range k {
+		<-dd.ing.ring // no worker pool: only the drain publishes these
+	}
+
+	n, err := dd.Drain(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, k, n)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, []int{0, 0, 0}, releasedAtDispatch, "no session is released while the pass can still dispatch its lines")
+	require.Equal(t, []core.SessionID{sess}, releases, "the session is released once, after the pass")
+}
