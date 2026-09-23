@@ -37,9 +37,26 @@ const (
 var deliveryChainSeed = core.HashBytes(deliveryChainDomain, nil)
 
 // errRotateNeeded is decide's internal signal that the active segment has reached the rollover
-// threshold: the batch answers the triggering member with it, and lease() drains, rotates to a fresh
-// segment, and retries. It never escapes to a caller (lease maps a second occurrence to ErrBudget).
+// threshold: the batch answers the triggering member with a rotateSignal naming that segment, and
+// lease() (or acknowledge()) rotates past it and retries. It never escapes to a caller.
 var errRotateNeeded = errors.New("delivery journal: segment rollover needed")
+
+// rotateSignal is errRotateNeeded for one segment: the segment that was full when the batch decided.
+// The retry rotates past exactly that segment — or finds another caller already has — so concurrent
+// callers that each find a freshly rotated segment already full again keep making progress instead
+// of reading a second signal as a fault.
+type rotateSignal struct{ from uint64 }
+
+func (rotateSignal) Error() string             { return errRotateNeeded.Error() }
+func (rotateSignal) Is(target error) bool      { return target == errRotateNeeded }
+func (j *deliveryJournal) signalRotate() error { return rotateSignal{from: j.segment} }
+
+// deliveryRotateAttempts bounds how many rotations one call will ride through before it answers
+// ErrBudget. Every attempt past the first follows a rotation that moved the journal to a later segment
+// (an empty segment never signals), so reaching it means other callers filled that many segments while
+// this one waited; the delivery then stays pending in durable input, like any refusal.
+// //nomagic:allow retry bound, not a budget
+const deliveryRotateAttempts = 64
 
 // deliveryRolloverEntries and deliveryRolloverBytes are the active-window thresholds at which a lease
 // or acknowledgement batch triggers a rotation. They are the hard caps themselves — 65,536 entries and
@@ -571,22 +588,21 @@ func (j *deliveryJournal) lease(ctx context.Context, delivery string, session co
 	if j == nil || j.owner == nil {
 		return deliveryLease{}, deliveryJournalError()
 	}
-	// The batch answers a member with errRotateNeeded when the active segment reached the rollover
-	// threshold. Drain + rotate to a fresh segment (once) and retry; a fresh empty segment has room, so a
-	// second rotation signal means something is wrong and is answered as a budget refusal, never a loop.
-	for attempt := 0; ; attempt++ {
+	// The batch answers a member with a rotateSignal when the active segment reached the rollover
+	// threshold: rotate past THAT segment (or find another caller already has) and retry. An empty
+	// segment never signals, so every retry follows real progress; deliveryRotateAttempts bounds it.
+	for attempt := 0; attempt < deliveryRotateAttempts; attempt++ {
 		r := &leaseReq{ctx: ctx, delivery: delivery, session: session, request: request, err: deliveryJournalError()}
 		j.leaseQ.run(r, j.commitLeases)
-		if !errors.Is(r.err, errRotateNeeded) {
+		var sig rotateSignal
+		if !errors.As(r.err, &sig) {
 			return r.lease, r.err
 		}
-		if attempt >= 1 {
-			return deliveryLease{}, core.ErrBudget
-		}
-		if err := j.rotate(ctx); err != nil {
+		if err := j.rotate(ctx, sig.from); err != nil {
 			return deliveryLease{}, err
 		}
 	}
+	return deliveryLease{}, core.ErrBudget
 }
 
 // leaseReq is one lease call's request in leaseQ (design §2.6).
@@ -697,7 +713,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 	// rather than refusing. lease() drains, rotates to a fresh segment, and retries; earlier mints in
 	// this batch still commit. Below the boundary this never fires and behaviour is exactly as before.
 	if j.rolloverArmed() && b.count >= deliveryRolloverEntries {
-		return leasePending{err: errRotateNeeded}
+		return leasePending{err: j.signalRotate()}
 	}
 	if b.count >= deliveryLeaseMaxEntries || prev == math.MaxUint64 {
 		return leasePending{err: core.ErrBudget}
@@ -719,7 +735,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 		return leasePending{err: core.ErrBudget}
 	}
 	if j.rolloverArmed() && b.size+int64(len(line)) > deliveryRolloverBytes && b.count > 0 {
-		return leasePending{err: errRotateNeeded} // roll before the byte limit; a lone oversize line still refuses
+		return leasePending{err: j.signalRotate()} // roll before the byte limit; a lone oversize line still refuses
 	}
 	if b.size+int64(len(line)) > deliveryLeaseMaxBytes {
 		return leasePending{err: core.ErrBudget}
@@ -1412,17 +1428,22 @@ func deliveryJournalError() error {
 // open and only ever changed under the rotation barrier, which excludes decide.
 func (j *deliveryJournal) rolloverArmed() bool { return j.seg != nil && j.gen != nil }
 
-// rotate performs one segment rotation under an EXCLUSIVE barrier: it excludes both journal pipelines
-// (rotating blocks enter) while their normal independent commits are undisturbed until the barrier
-// closes, drains admitted work to zero, reconciles the outgoing window into the generation store,
-// stages a fresh segment, commits the transition (the single clear commit point) and switches the live
-// window. It never holds the owner lock across the drain wait. A caller that arrives while another
-// rotation is in flight waits for it and returns — the caller's own retry then finds the fresh segment.
-func (j *deliveryJournal) rotate(ctx context.Context) error {
+// rotate performs one segment rotation past segment from under an EXCLUSIVE barrier: it excludes both
+// journal pipelines (rotating blocks enter) while their normal independent commits are undisturbed until
+// the barrier closes, drains admitted work to zero, reconciles the outgoing window into the generation
+// store, stages a fresh segment, commits the transition (the single clear commit point) and switches the
+// live window. It never holds the owner lock across the drain wait. A caller that arrives while another
+// rotation is in flight waits for it and returns, and one whose segment another caller has already
+// rotated past returns at once — the caller's own retry then finds the later segment.
+func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 	if j == nil || j.owner == nil {
 		return deliveryJournalError()
 	}
 	j.st.Lock()
+	if !j.rotating && j.segment != from && !j.closing && !j.closed && j.fault == nil {
+		j.st.Unlock()
+		return nil // another caller already rotated past the segment that signalled
+	}
 	if j.rotating {
 		for j.rotating && !j.closing && !j.closed && j.fault == nil {
 			j.rotateDone.Wait()
@@ -1725,22 +1746,20 @@ func (j *deliveryJournal) acknowledge(ctx context.Context, delivery string, id c
 	if j == nil || j.owner == nil {
 		return deliveryJournalError()
 	}
-	// As in lease: a batch answers errRotateNeeded when the active segment's acknowledgement journal
-	// reached the rollover threshold. Rotate once and retry on the fresh segment; a second signal is a
-	// budget refusal, never a loop.
-	for attempt := 0; ; attempt++ {
+	// As in lease: a batch answers a rotateSignal when the active segment's acknowledgement journal
+	// reached the rollover threshold; rotate past that segment and retry, within the same bound.
+	for attempt := 0; attempt < deliveryRotateAttempts; attempt++ {
 		r := &ackReq{ctx: ctx, delivery: delivery, id: id, root: root, err: deliveryJournalError()}
 		j.ackQ.run(r, j.commitAcks)
-		if !errors.Is(r.err, errRotateNeeded) {
+		var sig rotateSignal
+		if !errors.As(r.err, &sig) {
 			return r.err
 		}
-		if attempt >= 1 {
-			return core.ErrBudget
-		}
-		if err := j.rotate(ctx); err != nil {
+		if err := j.rotate(ctx, sig.from); err != nil {
 			return err
 		}
 	}
+	return core.ErrBudget
 }
 
 // ackReq is one acknowledge call's request in ackQ (design §2.8).
@@ -1838,7 +1857,7 @@ func (b *ackBatch) decide(j *deliveryJournal, r *ackReq) ackPending {
 	// its lease journal (it also settles leases archived before the segment opened), so it rolls at its
 	// own threshold rather than refusing.
 	if j.rolloverArmed() && b.count >= deliveryRolloverEntries {
-		return ackPending{err: errRotateNeeded}
+		return ackPending{err: j.signalRotate()}
 	}
 	if b.count >= deliveryLeaseMaxEntries {
 		return ackPending{err: core.ErrBudget}
@@ -1850,7 +1869,7 @@ func (b *ackBatch) decide(j *deliveryJournal, r *ackReq) ackPending {
 	}
 	line = append(line, '\n')
 	if j.rolloverArmed() && b.size+int64(len(line)) > deliveryRolloverBytes && b.count > 0 {
-		return ackPending{err: errRotateNeeded}
+		return ackPending{err: j.signalRotate()}
 	}
 	if len(line) > deliveryLeaseMaxLine || b.size+int64(len(line)) > deliveryLeaseMaxBytes {
 		return ackPending{err: core.ErrBudget}

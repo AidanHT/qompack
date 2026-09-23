@@ -3,8 +3,10 @@ package daemon
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -195,4 +197,36 @@ func TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen(t *testing.T) {
 	next, err := reopened.lease(ctx, genNonce(3), "interrupted", testDeliveryRequest(genNonce(3)))
 	require.NoError(t, err)
 	require.Equal(t, uint64(4), next.ArrivalSeq)
+}
+
+// TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal: a caller that triggered a
+// rotation retries on the new segment — but other callers may fill that segment first. A second
+// rotation signal is then progress, not a fault: the caller rotates again. Only a rotation signal on
+// the same segment it already rotated would mean something is wrong. (Found by the real-binary drill:
+// with a low threshold and the drain leasing beside the hooks, a delivery was refused with ErrBudget.)
+func TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal(t *testing.T) {
+	setRollover(t, 1) // every lease after the first in a segment rotates
+	ctx := context.Background()
+	j := openRolloverJournal(t, t.TempDir())
+	const callers, each = 8, 6
+	errs := make(chan error, callers*each)
+	var wg sync.WaitGroup
+	for c := 0; c < callers; c++ {
+		wg.Add(1)
+		go func(c int) {
+			defer wg.Done()
+			session := core.SessionID(fmt.Sprintf("concurrent-%d", c))
+			for i := 0; i < each; i++ {
+				nonce := genNonce(c*1000 + i)
+				_, err := j.lease(ctx, nonce, session, testDeliveryRequest(nonce))
+				errs <- err
+			}
+		}(c)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err, "a rotation raced by other callers is retried, never refused as a budget")
+	}
+	require.GreaterOrEqual(t, j.segment, uint64(callers*each-1))
 }
