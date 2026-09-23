@@ -1,0 +1,16 @@
+# failing-test output extracted from /work/cx-ingest-3336cf8-20260923T004902Z-e2e-alone-artifacts/test.jsonl
+=== RUN   TestE2E_ObserverThroughDaemon
+    observer_e2e_test.go:213: 
+        	Error Trace:	/work/cx-ingest-3336cf8-20260923T004902Z-e2e-alone/test/e2e/observer_e2e_test.go:213
+        	Error:      	Condition never satisfied
+        	Test:       	TestE2E_ObserverThroughDaemon
+        	Messages:   	index/tool_use.jsonl never reached 44 lines: index holds 33 lines; undrained client spool [client-74809.ndjson client-74815.ndjson client-74820.ndjson client-74825.ndjson client-74830.ndjson client-74835.ndjson client-74840.ndjson client-74845.ndjson client-74850.ndjson client-74855.ndjson client-74860.ndjson client-74865.ndjson client-74870.ndjson client-74875.ndjson client-74880.ndjson client-74885.ndjson client-74889.ndjson client-74894.ndjson client-74899.ndjson client-74904.ndjson client-74910.ndjson client-74916.ndjson client-74921.ndjson client-74926.ndjson client-74933.ndjson client-74938.ndjson client-74943.ndjson client-74948.ndjson client-74953.ndjson client-74958.ndjson client-74963.ndjson client-74968.ndjson client-74973.ndjson client-74978.ndjson client-74983.ndjson client-74988.ndjson client-74993.ndjson client-74998.ndjson client-75003.ndjson client-75008.ndjson client-75013.ndjson client-75018.ndjson client-75028.ndjson], so at least one event degraded to the spool and this waited on the 30s idle-tick drain
+--- FAIL: TestE2E_ObserverThroughDaemon (71.07s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:463: 
+        	Error Trace:	/work/cx-ingest-3336cf8-20260923T004902Z-e2e-alone/test/e2e/v3_x10_test.go:224
+        	            				/work/cx-ingest-3336cf8-20260923T004902Z-e2e-alone/test/e2e/v3_x10_test.go:463
+        	Error:      	Condition never satisfied
+        	Test:       	TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+        	Messages:   	control run: index/tool_use.jsonl never reached 50 lines (have 1)
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (180.00s)

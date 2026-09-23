@@ -1,0 +1,38 @@
+=== RUN   TestE2E_ObserverThroughDaemon
+    observer_e2e_test.go:190: e2eShutdownIfReachable: the daemon (pid 28675) released /tmp/TestE2E_ObserverThroughDaemon4232123891/001/project/.qompack/run/daemon.lock but was still running after 20s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to
+--- PASS: TestE2E_ObserverThroughDaemon (69.60s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:347: 
+        	Error Trace:	/work/cx-ingest-fix-base-obs-x10-7e5a141-20260923T015314Z/test/e2e/v3_x10_test.go:155
+        	            				/work/cx-ingest-fix-base-obs-x10-7e5a141-20260923T015314Z/test/e2e/v3_x10_test.go:347
+        	Error:      	Condition never satisfied
+        	Test:       	TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+        	Messages:   	the killed daemon (pid 28989) never exited
+    v3_x10_test.go:302: e2eShutdownIfReachable: a live daemon (pid 28989) still held /tmp/TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently3695684205/001/project/.qompack/run/daemon.lock after 20s of retried admin.shutdown; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (70.05s)
+=== RUN   TestE2E_ObserverThroughDaemon
+    observer_e2e_test.go:190: e2eShutdownIfReachable: the daemon (pid 29161) released /tmp/TestE2E_ObserverThroughDaemon4196497848/001/project/.qompack/run/daemon.lock but was still running after 20s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to
+--- PASS: TestE2E_ObserverThroughDaemon (77.17s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:347: 
+        	Error Trace:	/work/cx-ingest-fix-base-obs-x10-7e5a141-20260923T015314Z/test/e2e/v3_x10_test.go:155
+        	            				/work/cx-ingest-fix-base-obs-x10-7e5a141-20260923T015314Z/test/e2e/v3_x10_test.go:347
+        	Error:      	Condition never satisfied
+        	Test:       	TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+        	Messages:   	the killed daemon (pid 29418) never exited
+    v3_x10_test.go:302: e2eShutdownIfReachable: a live daemon (pid 29418) still held /tmp/TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently506653821/001/project/.qompack/run/daemon.lock after 20s of retried admin.shutdown; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (53.27s)
+=== RUN   TestE2E_ObserverThroughDaemon
+    observer_e2e_test.go:190: e2eShutdownIfReachable: the daemon (pid 29595) released /tmp/TestE2E_ObserverThroughDaemon3841977661/001/project/.qompack/run/daemon.lock but was still running after 20s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to
+--- PASS: TestE2E_ObserverThroughDaemon (71.38s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:347: 
+        	Error Trace:	/work/cx-ingest-fix-base-obs-x10-7e5a141-20260923T015314Z/test/e2e/v3_x10_test.go:155
+        	            				/work/cx-ingest-fix-base-obs-x10-7e5a141-20260923T015314Z/test/e2e/v3_x10_test.go:347
+        	Error:      	Condition never satisfied
+        	Test:       	TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+        	Messages:   	the killed daemon (pid 29848) never exited
+    v3_x10_test.go:302: e2eShutdownIfReachable: a live daemon (pid 29848) still held /tmp/TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently412182535/001/project/.qompack/run/daemon.lock after 20s of retried admin.shutdown; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (75.42s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	416.908s

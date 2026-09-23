@@ -941,12 +941,17 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 }
 
 // precompactTimeoutMs reads the PreCompact hook's manifest timeout (internal/pluginmanifest),
-// converted to milliseconds. The manifest exposes it as a per-second integer on the one
-// HookEntry PreCompact's HookGroup carries; an unexpectedly empty manifest shape reports 0
-// (unknown) rather than guessing.
+// converted to milliseconds (manifestHookTimeoutMs).
 func precompactTimeoutMs() int64 {
+	return manifestHookTimeoutMs("PreCompact")
+}
+
+// manifestHookTimeoutMs reads a hook event's manifest timeout (internal/pluginmanifest), converted
+// to milliseconds. The manifest exposes it as a per-second integer on the one HookEntry the event's
+// HookGroup carries; an unexpectedly empty manifest shape reports 0 (unknown) rather than guessing.
+func manifestHookTimeoutMs(event string) int64 {
 	m := pluginmanifest.Default(core.Version)
-	groups, ok := m.Hooks.Hooks["PreCompact"]
+	groups, ok := m.Hooks.Hooks[event]
 	if !ok || len(groups) == 0 || len(groups[0].Hooks) == 0 {
 		return 0
 	}
@@ -983,9 +988,16 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 	// recording work, not acting work, so it belongs behind the same predicate row 1's
 	// ingest.Accept uses, not behind MayAct() (M-3).
 	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
+		// SessionEnd is the session's last arrival: its earlier deliveries publish first (C1.1).
+		d.settleSession(ctx, ev.SessionID, drain)
 		d.markRecoveryNeeded(ev.SessionID, recoveryStageSessionEnd, 0)
 		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
 			d.log.Warn("daemon: SessionEnd failed", "err", err)
+		}
+		// What the settle left parked is the WAL's now; the ended session's lane stops holding it.
+		if n := d.ing.lanes.forget(ev.SessionID); n > 0 {
+			d.log.Debug("daemon: flush: released the ended session's parked deliveries to the WAL",
+				"session", string(ev.SessionID), "jobs", n)
 		}
 	}
 

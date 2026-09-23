@@ -1,0 +1,15 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 3,
+   "failed": [
+    "TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently",
+    "TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently",
+    "TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

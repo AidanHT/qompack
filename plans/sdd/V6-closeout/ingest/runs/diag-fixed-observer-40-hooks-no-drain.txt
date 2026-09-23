@@ -1,0 +1,61 @@
+hook 00 took 195.7244ms; index=0 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 01 took 112.1359ms; index=0 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 02 took 124.5477ms; index=1 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 03 took 108.7469ms; index=1 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 04 took 113.3665ms; index=2 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 05 took 126.6612ms; index=2 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 06 took 99.6038ms; index=3 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 07 took 149.0936ms; index=3 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 08 took 153.639ms; index=4 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 09 took 177.2451ms; index=5 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 10 took 133.4227ms; index=5 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 11 took 115.1077ms; index=6 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 12 took 112.2699ms; index=6 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 13 took 129.3052ms; index=7 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 14 took 153.3502ms; index=7 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 15 took 169.1461ms; index=8 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 16 took 147.3809ms; index=9 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 17 took 101.0726ms; index=9 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 18 took 89.7006ms; index=10 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 19 took 97.6909ms; index=10 spool=[client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 20 took 154.5412ms; index=10 spool=[client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 21 took 186.4193ms; index=10 spool=[client-17024.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 22 took 200.4479ms; index=11 spool=[client-17024.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 23 took 166.3287ms; index=11 spool=[client-17024.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 24 took 134.8192ms; index=11 spool=[client-17024.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 25 took 148.3366ms; index=12 spool=[client-17024.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 26 took 138.2929ms; index=12 spool=[client-17024.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 27 took 219.5411ms; index=12 spool=[client-12348.ndjson client-17024.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 28 took 246.46ms; index=13 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 29 took 252.9727ms; index=13 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 30 took 203.3571ms; index=14 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-45536.ndjson client-49436.ndjson wal-sess-e2e-daemon.ndjson]
+hook 31 took 195.3372ms; index=14 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+hook 32 took 161.9309ms; index=14 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+hook 33 took 162.3648ms; index=15 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+hook 34 took 139.4509ms; index=15 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+hook 35 took 111.5856ms; index=16 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+hook 36 took 203.7119ms; index=16 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-40736.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+hook 37 took 130.1323ms; index=16 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-40736.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+hook 38 took 117.4733ms; index=17 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-40736.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+hook 39 took 160.9436ms; index=17 spool=[client-12348.ndjson client-17024.ndjson client-29436.ndjson client-40736.ndjson client-45536.ndjson client-49436.ndjson client-54232.ndjson wal-sess-e2e-daemon.ndjson]
+=== after-hooks at +6.5040402s: index=17 spool_files=8
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter observer.tombstone=17
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":40,"P50":57344000,"P95":163840000,"P99":294912000,"P999":294912000,"Max":292000000},"hook_controlled_observed":{"N":40,"P50":14336000,"P95":45056000,"P99":61440000,"P999":61440000,"Max":61000000},"l0_ingest":{"N":40,"P50":28672000,"P95":73728000,"P99":163840000,"P999":163840000,"Max":152914000},"l0_process":{"N":17,"P50":294912000,"P95":655360000,"P99":655360000,"P999":655360000,"Max":626095000}}
+=== indexed-40-after-7s at +13.7120496s: index=40 spool_files=8
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter observer.tombstone=40
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":40,"P50":57344000,"P95":163840000,"P99":294912000,"P999":294912000,"Max":292000000},"hook_controlled_observed":{"N":40,"P50":14336000,"P95":45056000,"P99":61440000,"P999":61440000,"Max":61000000},"l0_ingest":{"N":40,"P50":28672000,"P95":73728000,"P99":163840000,"P999":163840000,"Max":152914000},"l0_process":{"N":40,"P50":294912000,"P95":589824000,"P99":655360000,"P999":655360000,"Max":626095000}}
+=== final at +13.7153601s: index=40 spool_files=8
+  counter contract_fail_mcp_server_registered=1
+  counter daemon.publication.unindexed_object_candidates=0
+  counter daemon.publication.unpublished_captures=0
+  counter observer.tombstone=40
+  counter sched.pselection.enabled=1
+  latency {"hook_controlled":{"N":40,"P50":57344000,"P95":163840000,"P99":294912000,"P999":294912000,"Max":292000000},"hook_controlled_observed":{"N":40,"P50":14336000,"P95":45056000,"P99":61440000,"P999":61440000,"Max":61000000},"l0_ingest":{"N":40,"P50":28672000,"P95":73728000,"P99":163840000,"P999":163840000,"Max":152914000},"l0_process":{"N":40,"P50":294912000,"P95":589824000,"P99":655360000,"P999":655360000,"Max":626095000}}

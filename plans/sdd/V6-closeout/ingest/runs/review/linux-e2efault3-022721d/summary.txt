@@ -1,0 +1,2 @@
+PASS      github.com/qompack/qompack/test/e2e  (pass=9 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/fault  (pass=18 fail=0 skip=0)

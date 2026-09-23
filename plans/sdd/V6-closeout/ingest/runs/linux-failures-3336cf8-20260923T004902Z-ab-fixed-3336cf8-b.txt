@@ -1,0 +1,12 @@
+# failing-test output extracted from /work/cx-ingest-3336cf8-20260923T004902Z-ab-fixed-3336cf8-b-artifacts/test.jsonl
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (52.47s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (44.21s)
+=== RUN   TestE2E_ObserverThroughDaemon
+    observer_e2e_test.go:213: 
+        	Error Trace:	/work/cx-ingest-3336cf8-20260923T004902Z-ab-fixed-3336cf8-b/test/e2e/observer_e2e_test.go:213
+        	Error:      	Condition never satisfied
+        	Test:       	TestE2E_ObserverThroughDaemon
+        	Messages:   	index/tool_use.jsonl never reached 44 lines: index holds 43 lines; undrained client spool [client-83042.ndjson client-83047.ndjson client-83052.ndjson client-83057.ndjson client-83062.ndjson client-83067.ndjson client-83072.ndjson client-83077.ndjson client-83082.ndjson client-83087.ndjson client-83092.ndjson client-83097.ndjson client-83104.ndjson client-83113.ndjson client-83118.ndjson client-83123.ndjson client-83128.ndjson client-83133.ndjson client-83139.ndjson client-83144.ndjson client-83149.ndjson client-83154.ndjson client-83160.ndjson client-83166.ndjson client-83171.ndjson client-83175.ndjson client-83191.ndjson client-83197.ndjson client-83202.ndjson client-83207.ndjson client-83213.ndjson client-83218.ndjson client-83223.ndjson client-83228.ndjson client-83232.ndjson client-83237.ndjson client-83242.ndjson client-83247.ndjson client-83252.ndjson client-83257.ndjson client-83272.ndjson client-83277.ndjson], so at least one event degraded to the spool and this waited on the 30s idle-tick drain
+--- FAIL: TestE2E_ObserverThroughDaemon (69.93s)

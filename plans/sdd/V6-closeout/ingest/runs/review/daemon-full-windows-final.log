@@ -1,0 +1,6 @@
+022721dc76a4e060f37239f251945f2f05a7f284
+ M plans/sdd/V6-remediation/delivery-order-decision.md
+ M plans/sdd/V6-remediation/delivery-order-work.md
+command: go test ./internal/daemon -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/daemon	518.147s
+exit=0

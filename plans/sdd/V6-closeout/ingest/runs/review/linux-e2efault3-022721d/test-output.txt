@@ -1,0 +1,229 @@
+=== RUN   TestFault_AuditSeesADeletedObjectUnderALiveIndex
+=== RUN   TestE2E_ObserverThroughDaemon
+    audit_test.go:66: fault: deleting one object under a live index produced 3 dangling reference(s): root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-audit-selftest_0): tool_use prompt_sess-fault-audit-selftest_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-audit-selftest_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+--- PASS: TestFault_AuditSeesADeletedObjectUnderALiveIndex (5.13s)
+=== RUN   TestFault_MCPChildKilledMidRequest
+    child_test.go:94: fault child_mcp_killed_mid_request: recovered — the client saw the session end as an error rather than hanging (the mcp launcher closed its stdout before answering); every object present before the MCP session is still present with the same bytes, and nothing dangles
+          boundary: the MCP server child is killed mid-request
+          seed:     a real session through the installed binary, then `<bundle>/bin/qompack mcp` launched the way plugin/.mcp.json instructs (exec form, no shell), killed between a request and its answer
+          dangling: 0→0
+          detail:   first call: isError=false found=true denied=false available=<absent> reason=""
+        after the kill: transport/protocol error: the mcp launcher closed its stdout before answering
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:4 roots:4 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        objects present before the session: 3, of which changed or gone afterwards: []
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/child_mcp_killed_mid_request.json
+--- PASS: TestFault_MCPChildKilledMidRequest (2.74s)
+=== RUN   TestFault_DaemonKilledMidIngest
+    child_test.go:134: fault: killed daemon pid 31960 serving the fixture /tmp/qompack-fault-1133331155/proj
+    child_test.go:134: fault: aged /tmp/qompack-fault-1133331155/proj/.qompack/run/daemon.hb past the staleness window so the next daemon may reclaim the lock
+    child_test.go:158: fault child_daemon_killed_mid_ingest: recovered — the restarted daemon replayed the spool the killed one left, went on recording, and introduced no dangling reference
+          boundary: the daemon is killed during a burst of `observe tool` deliveries
+          seed:     a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 6 client-* spool file(s)
+          dangling: 1→0
+          detail:   spool wal/client 1/6 → 0/1; recording resumed: true
+        audit before {tool_uses:3 roots:3 sidecars:4 checkpoints:0 dangling:1 reported:0}; after {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:0}; reported gaps: none
+        degradation (new since the kill): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/child_daemon_killed_mid_ingest.json
+--- PASS: TestFault_DaemonKilledMidIngest (9.75s)
+=== RUN   TestFault_UnavailableHistoricalObject
+--- PASS: TestE2E_ObserverThroughDaemon (19.22s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+    historical_test.go:111: fault historical_object_unavailable: explicit_incomplete — the retrieval layer answered `unavailable` for an address whose bytes are gone rather than reporting a miss, the damaged object was quarantined as evidence, and a forced GC pass left that evidence in place
+          boundary: an object present at capture, damaged afterwards, asked for through the installed MCP server
+          seed:     a real session captures a file through the installed binary; one of the stored object files is then truncated in half — §12.3's "store corrupt (bad CRC, truncated object)" — and the retrieval is driven through `<bundle>/bin/qompack mcp`
+          dangling: 0→3
+          detail:   damaged: truncated the object file for chunk 6139dde14f6a from 52 to 26 bytes
+        expand(hash=91daa03aa2e6): isError=false found=false denied=false available=false reason="the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it"
+        expand(tool_use_id=prompt_sess-fault-historical_0): isError=false found=false denied=false available=false reason="the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it"
+        quarantined: true
+        forced GC (RetainDays -1, RetainSessions -1) deleted 3 object(s); quarantine 0→0, capture sidecars 3→3
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:5 roots:4 sidecars:3 checkpoints:0 dangling:3 reported:9}
+        named as reported: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; root_chunk(e5ec33f50136/62706e319837): root e5ec33f50136 names chunk 62706e319837, which the object store does not hold; root_chunk(8152211d8f49/3e0c1c855d16): root 8152211d8f49 names chunk 3e0c1c855d16, which the object store does not hold; root_chunk(b072bdf2002a/fad664912af9): root b072bdf2002a names chunk fad664912af9, which the object store does not hold; tool_use_root(prompt_sess-fault-historical_0): tool_use prompt_sess-fault-historical_0 points at root 91daa03aa2e6, which cannot be materialized; tool_use_root(toolu_fault_historical_01): tool_use toolu_fault_historical_01 points at root e5ec33f50136, which cannot be materialized; tool_use_root(toolu_fault_historical_02): tool_use toolu_fault_historical_02 points at root 8152211d8f49, which cannot be materialized; tool_use_root(qompack-mcp:d3435d556cbf): tool_use qompack-mcp:d3435d556cbf points at root b072bdf2002a, which cannot be materialized; tool_use_root(qompack-mcp:0bbf96fada5b): tool_use qompack-mcp:0bbf96fada5b points at root b072bdf2002a, which cannot be materialized
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_object_unavailable.json
+--- PASS: TestFault_UnavailableHistoricalObject (4.17s)
+=== RUN   TestFault_CheckpointDropsAnUnresolvablePointer
+    historical_test.go:260: fault historical_checkpoint_drops_pointer: reproduced the returned finding F4-1 (owner internal/store (the index keeps naming bytes that are gone)); the record is the deliverable and nothing here fixes it
+    historical_test.go:260: fault historical_checkpoint_drops_pointer: failed — 3 reference(s) the cut introduced do not resolve and NO surface gained anything about it — not LOUD.log, not status --json taken with the recovery daemon up, not self-test --json, not the day log, not a DropEntry. Owner: internal/store (the index keeps naming bytes that are gone). Returned as F4-1.
+          boundary: a checkpoint written after the object one of its pointers names went away
+          seed:     a real session, one stored object removed outright, then a real PreCompact through the installed binary, then one more observation so the judge has a measured "did recording go on" rather than an assumed one
+          dangling: 0→3
+          detail:   removed: removed the object file for chunk 6139dde14f6a
+        artifacts 0 -> 1 (sealed 1); pointers across them: 4
+        new drop entries: [pointer_git_unavailable()], of which naming the cut: []
+        recovery observation toolu_fault_historical_drop_03 indexed: true
+        everything the surfaces gained: daylog[1]: qompack-20260923.log: ts=2026-09-23T02:37:05.260903583Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=sess-fault-historical-drop; drop[1]: pointer_git_unavailable(); surfaces checkpoint DropEntry+day log (warn)
+        of which naming this cut (quarantin, materialize, dangling, missing object, prompt_sess-fault-historical-drop_0, 6139dde14f6a): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        note: the sealed checkpoint's OWN pointers all resolve on disk, so the references listed as newly dangling below are not the checkpoint's — they are what the removed object left behind in the index that outlived it. This row cannot distinguish finalize having DROPPED an unresolvable pointer from the pointer never having been a candidate: no drop entry names the removed object either way.
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:3 reported:0}
+        degradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        newly dangling: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+        newly reported: none
+        remaining dangling after recovery: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_checkpoint_drops_pointer.json
+--- PASS: TestFault_CheckpointDropsAnUnresolvablePointer (6.47s)
+=== RUN   TestFault_CheckpointResolvabilityIsBlindToADeletedObject
+    historical_test.go:541: fault historical_resolvability_blind_to_deleted_object: recovered — the predicate internal/checkpoint decides pointer resolvability with agrees with the filesystem about a deleted object, and so does the root-level form of it. store.Has still answers from the index, which is its documented contract and no longer what a durable promise is made on.
+          boundary: store.Has answers `held` for an object whose bytes are gone but whose index line survives, and checkpoint finalize decides pointer resolvability with it
+          seed:     a real session through the installed binary, then one object file deleted from objects/ with index/roots.jsonl untouched; store.Has and an on-disk Lstat are then asked the same question
+          dangling: 0→0
+          detail:   after deleting the object backing chunk 6139dde14f6a with its index line intact: store.Has(chunk)=true (the index's belief), store.ObjectOnDisk(chunk)=false (offered=true, the predicate the checkpoint decides with), the bytes are on disk=false, and the whole root 91daa03aa2e6 answers resolvable=false
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_resolvability_blind_to_deleted_object.json
+--- PASS: TestFault_CheckpointResolvabilityIsBlindToADeletedObject (4.03s)
+=== RUN   TestFault_AuditSeesADeletedObjectUnderALiveIndex
+    audit_test.go:66: fault: deleting one object under a live index produced 3 dangling reference(s): root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-audit-selftest_0): tool_use prompt_sess-fault-audit-selftest_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-audit-selftest_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+--- PASS: TestFault_AuditSeesADeletedObjectUnderALiveIndex (2.43s)
+=== RUN   TestFault_MCPChildKilledMidRequest
+    child_test.go:94: fault child_mcp_killed_mid_request: recovered — the client saw the session end as an error rather than hanging (the mcp launcher closed its stdout before answering); every object present before the MCP session is still present with the same bytes, and nothing dangles
+          boundary: the MCP server child is killed mid-request
+          seed:     a real session through the installed binary, then `<bundle>/bin/qompack mcp` launched the way plugin/.mcp.json instructs (exec form, no shell), killed between a request and its answer
+          dangling: 0→0
+          detail:   first call: isError=false found=true denied=false available=<absent> reason=""
+        after the kill: transport/protocol error: the mcp launcher closed its stdout before answering
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:4 roots:4 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        objects present before the session: 3, of which changed or gone afterwards: []
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/child_mcp_killed_mid_request.json
+--- PASS: TestFault_MCPChildKilledMidRequest (5.24s)
+=== RUN   TestFault_DaemonKilledMidIngest
+    child_test.go:134: fault: killed daemon pid 32585 serving the fixture /tmp/qompack-fault-2444483452/proj
+    child_test.go:134: fault: aged /tmp/qompack-fault-2444483452/proj/.qompack/run/daemon.hb past the staleness window so the next daemon may reclaim the lock
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (22.65s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    child_test.go:158: fault child_daemon_killed_mid_ingest: recovered — the restarted daemon replayed the spool the killed one left, went on recording, and introduced no dangling reference
+          boundary: the daemon is killed during a burst of `observe tool` deliveries
+          seed:     a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 6 client-* spool file(s)
+          dangling: 1→0
+          detail:   spool wal/client 1/6 → 0/1; recording resumed: true
+        audit before {tool_uses:3 roots:4 sidecars:4 checkpoints:0 dangling:1 reported:0}; after {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:0}; reported gaps: none
+        degradation (new since the kill): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/child_daemon_killed_mid_ingest.json
+--- PASS: TestFault_DaemonKilledMidIngest (4.74s)
+=== RUN   TestFault_UnavailableHistoricalObject
+    historical_test.go:111: fault historical_object_unavailable: explicit_incomplete — the retrieval layer answered `unavailable` for an address whose bytes are gone rather than reporting a miss, the damaged object was quarantined as evidence, and a forced GC pass left that evidence in place
+          boundary: an object present at capture, damaged afterwards, asked for through the installed MCP server
+          seed:     a real session captures a file through the installed binary; one of the stored object files is then truncated in half — §12.3's "store corrupt (bad CRC, truncated object)" — and the retrieval is driven through `<bundle>/bin/qompack mcp`
+          dangling: 0→3
+          detail:   damaged: truncated the object file for chunk 6139dde14f6a from 52 to 26 bytes
+        expand(hash=91daa03aa2e6): isError=false found=false denied=false available=false reason="the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it"
+        expand(tool_use_id=prompt_sess-fault-historical_0): isError=false found=false denied=false available=false reason="the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it"
+        quarantined: true
+        forced GC (RetainDays -1, RetainSessions -1) deleted 3 object(s); quarantine 0→0, capture sidecars 3→3
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:5 roots:4 sidecars:3 checkpoints:0 dangling:3 reported:9}
+        named as reported: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; root_chunk(e5ec33f50136/62706e319837): root e5ec33f50136 names chunk 62706e319837, which the object store does not hold; root_chunk(8152211d8f49/3e0c1c855d16): root 8152211d8f49 names chunk 3e0c1c855d16, which the object store does not hold; root_chunk(b072bdf2002a/fad664912af9): root b072bdf2002a names chunk fad664912af9, which the object store does not hold; tool_use_root(prompt_sess-fault-historical_0): tool_use prompt_sess-fault-historical_0 points at root 91daa03aa2e6, which cannot be materialized; tool_use_root(toolu_fault_historical_01): tool_use toolu_fault_historical_01 points at root e5ec33f50136, which cannot be materialized; tool_use_root(toolu_fault_historical_02): tool_use toolu_fault_historical_02 points at root 8152211d8f49, which cannot be materialized; tool_use_root(qompack-mcp:ca425d014039): tool_use qompack-mcp:ca425d014039 points at root b072bdf2002a, which cannot be materialized; tool_use_root(qompack-mcp:59d7bf160ff2): tool_use qompack-mcp:59d7bf160ff2 points at root b072bdf2002a, which cannot be materialized
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_object_unavailable.json
+--- PASS: TestFault_UnavailableHistoricalObject (2.59s)
+=== RUN   TestFault_CheckpointDropsAnUnresolvablePointer
+    historical_test.go:260: fault historical_checkpoint_drops_pointer: reproduced the returned finding F4-1 (owner internal/store (the index keeps naming bytes that are gone)); the record is the deliverable and nothing here fixes it
+    historical_test.go:260: fault historical_checkpoint_drops_pointer: failed — 3 reference(s) the cut introduced do not resolve and NO surface gained anything about it — not LOUD.log, not status --json taken with the recovery daemon up, not self-test --json, not the day log, not a DropEntry. Owner: internal/store (the index keeps naming bytes that are gone). Returned as F4-1.
+          boundary: a checkpoint written after the object one of its pointers names went away
+          seed:     a real session, one stored object removed outright, then a real PreCompact through the installed binary, then one more observation so the judge has a measured "did recording go on" rather than an assumed one
+          dangling: 0→3
+          detail:   removed: removed the object file for chunk 6139dde14f6a
+        artifacts 0 -> 1 (sealed 1); pointers across them: 4
+        new drop entries: [pointer_git_unavailable()], of which naming the cut: []
+        recovery observation toolu_fault_historical_drop_03 indexed: true
+        everything the surfaces gained: daylog[1]: qompack-20260923.log: ts=2026-09-23T02:37:27.31876183Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=sess-fault-historical-drop; drop[1]: pointer_git_unavailable(); surfaces checkpoint DropEntry+day log (warn)
+        of which naming this cut (quarantin, materialize, dangling, missing object, prompt_sess-fault-historical-drop_0, 6139dde14f6a): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        note: the sealed checkpoint's OWN pointers all resolve on disk, so the references listed as newly dangling below are not the checkpoint's — they are what the removed object left behind in the index that outlived it. This row cannot distinguish finalize having DROPPED an unresolvable pointer from the pointer never having been a candidate: no drop entry names the removed object either way.
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:3 reported:0}
+        degradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        newly dangling: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+        newly reported: none
+        remaining dangling after recovery: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_checkpoint_drops_pointer.json
+--- PASS: TestFault_CheckpointDropsAnUnresolvablePointer (2.75s)
+=== RUN   TestFault_CheckpointResolvabilityIsBlindToADeletedObject
+    historical_test.go:541: fault historical_resolvability_blind_to_deleted_object: recovered — the predicate internal/checkpoint decides pointer resolvability with agrees with the filesystem about a deleted object, and so does the root-level form of it. store.Has still answers from the index, which is its documented contract and no longer what a durable promise is made on.
+          boundary: store.Has answers `held` for an object whose bytes are gone but whose index line survives, and checkpoint finalize decides pointer resolvability with it
+          seed:     a real session through the installed binary, then one object file deleted from objects/ with index/roots.jsonl untouched; store.Has and an on-disk Lstat are then asked the same question
+          dangling: 0→0
+          detail:   after deleting the object backing chunk 6139dde14f6a with its index line intact: store.Has(chunk)=true (the index's belief), store.ObjectOnDisk(chunk)=false (offered=true, the predicate the checkpoint decides with), the bytes are on disk=false, and the whole root 91daa03aa2e6 answers resolvable=false
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_resolvability_blind_to_deleted_object.json
+--- PASS: TestFault_CheckpointResolvabilityIsBlindToADeletedObject (4.57s)
+=== RUN   TestFault_AuditSeesADeletedObjectUnderALiveIndex
+    audit_test.go:66: fault: deleting one object under a live index produced 3 dangling reference(s): root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-audit-selftest_0): tool_use prompt_sess-fault-audit-selftest_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-audit-selftest_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+--- PASS: TestFault_AuditSeesADeletedObjectUnderALiveIndex (1.52s)
+=== RUN   TestFault_MCPChildKilledMidRequest
+    child_test.go:94: fault child_mcp_killed_mid_request: recovered — the client saw the session end as an error rather than hanging (the mcp launcher closed its stdout before answering); every object present before the MCP session is still present with the same bytes, and nothing dangles
+          boundary: the MCP server child is killed mid-request
+          seed:     a real session through the installed binary, then `<bundle>/bin/qompack mcp` launched the way plugin/.mcp.json instructs (exec form, no shell), killed between a request and its answer
+          dangling: 0→0
+          detail:   first call: isError=false found=true denied=false available=<absent> reason=""
+        after the kill: transport/protocol error: the mcp launcher closed its stdout before answering
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:4 roots:4 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        objects present before the session: 3, of which changed or gone afterwards: []
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/child_mcp_killed_mid_request.json
+--- PASS: TestFault_MCPChildKilledMidRequest (2.50s)
+=== RUN   TestFault_DaemonKilledMidIngest
+    child_test.go:134: fault: killed daemon pid 33533 serving the fixture /tmp/qompack-fault-3748811129/proj
+    child_test.go:134: fault: aged /tmp/qompack-fault-3748811129/proj/.qompack/run/daemon.hb past the staleness window so the next daemon may reclaim the lock
+    child_test.go:158: fault child_daemon_killed_mid_ingest: recovered — the restarted daemon replayed the spool the killed one left, went on recording, and introduced no dangling reference
+          boundary: the daemon is killed during a burst of `observe tool` deliveries
+          seed:     a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 5 client-* spool file(s)
+          dangling: 1→0
+          detail:   spool wal/client 1/5 → 0/1; recording resumed: true
+        audit before {tool_uses:3 roots:4 sidecars:4 checkpoints:0 dangling:1 reported:0}; after {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:0}; reported gaps: none
+        degradation (new since the kill): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/child_daemon_killed_mid_ingest.json
+--- PASS: TestFault_DaemonKilledMidIngest (4.77s)
+=== RUN   TestFault_UnavailableHistoricalObject
+    historical_test.go:111: fault historical_object_unavailable: explicit_incomplete — the retrieval layer answered `unavailable` for an address whose bytes are gone rather than reporting a miss, the damaged object was quarantined as evidence, and a forced GC pass left that evidence in place
+          boundary: an object present at capture, damaged afterwards, asked for through the installed MCP server
+          seed:     a real session captures a file through the installed binary; one of the stored object files is then truncated in half — §12.3's "store corrupt (bad CRC, truncated object)" — and the retrieval is driven through `<bundle>/bin/qompack mcp`
+          dangling: 0→3
+          detail:   damaged: truncated the object file for chunk 6139dde14f6a from 52 to 26 bytes
+        expand(hash=91daa03aa2e6): isError=false found=false denied=false available=false reason="the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it"
+        expand(tool_use_id=prompt_sess-fault-historical_0): isError=false found=false denied=false available=false reason="the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it"
+        quarantined: true
+        forced GC (RetainDays -1, RetainSessions -1) deleted 3 object(s); quarantine 0→0, capture sidecars 3→3
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:5 roots:4 sidecars:3 checkpoints:0 dangling:3 reported:9}
+        named as reported: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; root_chunk(e5ec33f50136/62706e319837): root e5ec33f50136 names chunk 62706e319837, which the object store does not hold; root_chunk(8152211d8f49/3e0c1c855d16): root 8152211d8f49 names chunk 3e0c1c855d16, which the object store does not hold; root_chunk(b072bdf2002a/fad664912af9): root b072bdf2002a names chunk fad664912af9, which the object store does not hold; tool_use_root(prompt_sess-fault-historical_0): tool_use prompt_sess-fault-historical_0 points at root 91daa03aa2e6, which cannot be materialized; tool_use_root(toolu_fault_historical_01): tool_use toolu_fault_historical_01 points at root e5ec33f50136, which cannot be materialized; tool_use_root(toolu_fault_historical_02): tool_use toolu_fault_historical_02 points at root 8152211d8f49, which cannot be materialized; tool_use_root(qompack-mcp:ea0cc4c315d4): tool_use qompack-mcp:ea0cc4c315d4 points at root b072bdf2002a, which cannot be materialized; tool_use_root(qompack-mcp:da190af6bc6a): tool_use qompack-mcp:da190af6bc6a points at root b072bdf2002a, which cannot be materialized
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_object_unavailable.json
+--- PASS: TestFault_UnavailableHistoricalObject (4.42s)
+=== RUN   TestFault_CheckpointDropsAnUnresolvablePointer
+    historical_test.go:260: fault historical_checkpoint_drops_pointer: reproduced the returned finding F4-1 (owner internal/store (the index keeps naming bytes that are gone)); the record is the deliverable and nothing here fixes it
+    historical_test.go:260: fault historical_checkpoint_drops_pointer: failed — 3 reference(s) the cut introduced do not resolve and NO surface gained anything about it — not LOUD.log, not status --json taken with the recovery daemon up, not self-test --json, not the day log, not a DropEntry. Owner: internal/store (the index keeps naming bytes that are gone). Returned as F4-1.
+          boundary: a checkpoint written after the object one of its pointers names went away
+          seed:     a real session, one stored object removed outright, then a real PreCompact through the installed binary, then one more observation so the judge has a measured "did recording go on" rather than an assumed one
+          dangling: 0→3
+          detail:   removed: removed the object file for chunk 6139dde14f6a
+        artifacts 0 -> 1 (sealed 1); pointers across them: 4
+        new drop entries: [pointer_git_unavailable()], of which naming the cut: []
+        recovery observation toolu_fault_historical_drop_03 indexed: true
+        everything the surfaces gained: daylog[1]: qompack-20260923.log: ts=2026-09-23T02:37:47.939872081Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=sess-fault-historical-drop; drop[1]: pointer_git_unavailable(); surfaces checkpoint DropEntry+day log (warn)
+        of which naming this cut (quarantin, materialize, dangling, missing object, prompt_sess-fault-historical-drop_0, 6139dde14f6a): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        note: the sealed checkpoint's OWN pointers all resolve on disk, so the references listed as newly dangling below are not the checkpoint's — they are what the removed object left behind in the index that outlived it. This row cannot distinguish finalize having DROPPED an unresolvable pointer from the pointer never having been a candidate: no drop entry names the removed object either way.
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:3 reported:0}
+        degradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        newly dangling: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+        newly reported: none
+        remaining dangling after recovery: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_checkpoint_drops_pointer.json
+--- PASS: TestFault_CheckpointDropsAnUnresolvablePointer (2.95s)
+=== RUN   TestFault_CheckpointResolvabilityIsBlindToADeletedObject
+    historical_test.go:541: fault historical_resolvability_blind_to_deleted_object: recovered — the predicate internal/checkpoint decides pointer resolvability with agrees with the filesystem about a deleted object, and so does the root-level form of it. store.Has still answers from the index, which is its documented contract and no longer what a durable promise is made on.
+          boundary: store.Has answers `held` for an object whose bytes are gone but whose index line survives, and checkpoint finalize decides pointer resolvability with it
+          seed:     a real session through the installed binary, then one object file deleted from objects/ with index/roots.jsonl untouched; store.Has and an on-disk Lstat are then asked the same question
+          dangling: 0→0
+          detail:   after deleting the object backing chunk 6139dde14f6a with its index line intact: store.Has(chunk)=true (the index's belief), store.ObjectOnDisk(chunk)=false (offered=true, the predicate the checkpoint decides with), the bytes are on disk=false, and the whole root 91daa03aa2e6 answers resolvable=false
+          artifact: /work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts/fault/historical_resolvability_blind_to_deleted_object.json
+--- PASS: TestFault_CheckpointResolvabilityIsBlindToADeletedObject (3.16s)
+PASS
+ok  	github.com/qompack/qompack/test/fault	73.921s
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (35.61s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (5.50s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (11.26s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (15.14s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (5.20s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (6.09s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (14.85s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	135.525s

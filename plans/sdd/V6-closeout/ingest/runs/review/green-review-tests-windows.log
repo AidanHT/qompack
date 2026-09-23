@@ -1,0 +1,61 @@
+25c5691425672f998a172eb4cc7a2caa0bdecc3e
+working tree: review-round fix (uncommitted at run time)
+=== RUN   TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes
+--- PASS: TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes (1.42s)
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+--- PASS: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (0.93s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1.80s)
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+--- PASS: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.76s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (9.88s)
+=== RUN   TestDispatchLanes_PerSessionBoundOverflowAndForget
+--- PASS: TestDispatchLanes_PerSessionBoundOverflowAndForget (0.00s)
+=== RUN   TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls
+--- PASS: TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls (1.23s)
+=== RUN   TestSettleSessionLimitNestsInsideTheFlushDeadlines
+--- PASS: TestSettleSessionLimitNestsInsideTheFlushDeadlines (0.00s)
+=== RUN   TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+--- PASS: TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain (4.16s)
+=== RUN   TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+--- PASS: TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain (0.94s)
+=== RUN   TestDeliveryOrder_LiveOtherSessionsAreNotSerialized
+--- PASS: TestDeliveryOrder_LiveOtherSessionsAreNotSerialized (0.95s)
+=== RUN   TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+--- PASS: TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor (0.95s)
+=== RUN   TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain
+--- PASS: TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain (1.64s)
+=== RUN   TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun
+--- PASS: TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun (0.88s)
+=== RUN   TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView
+--- PASS: TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView (0.00s)
+=== RUN   TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+--- PASS: TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass (1.65s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (3.91s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (3.36s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (3.85s)
+=== RUN   TestDeliveryOrder_PredecessorsAcknowledgedGate
+--- PASS: TestDeliveryOrder_PredecessorsAcknowledgedGate (0.48s)
+=== RUN   TestDeliveryOrder_DrainReversedWALvsLeaseOrder
+--- PASS: TestDeliveryOrder_DrainReversedWALvsLeaseOrder (1.35s)
+=== RUN   TestDeliveryOrder_UnreadableFrontierFailsClosed
+--- PASS: TestDeliveryOrder_UnreadableFrontierFailsClosed (0.33s)
+=== RUN   TestDeliveryOrder_MissingJournalGetterFailsClosed
+--- PASS: TestDeliveryOrder_MissingJournalGetterFailsClosed (0.15s)
+=== RUN   TestDeliveryOrder_UnreadableFrontierNoPublication
+--- PASS: TestDeliveryOrder_UnreadableFrontierNoPublication (0.42s)
+=== RUN   TestDeliveryOrder_DrainReversedPrefixBeyondBufferBoundDoesNotWedge
+--- PASS: TestDeliveryOrder_DrainReversedPrefixBeyondBufferBoundDoesNotWedge (58.48s)
+=== RUN   TestDeliveryOrder_DrainOrdersPerSessionIndependently
+--- PASS: TestDeliveryOrder_DrainOrdersPerSessionIndependently (1.58s)
+=== RUN   TestDeliveryOrder_DrainCancellationPreservesUnconsumed
+--- PASS: TestDeliveryOrder_DrainCancellationPreservesUnconsumed (0.32s)
+=== RUN   TestDeliveryOrder_LeasedDenyOnRetryPreservedPending
+--- PASS: TestDeliveryOrder_LeasedDenyOnRetryPreservedPending (0.45s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	102.196s
+exit=0

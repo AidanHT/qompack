@@ -1,0 +1,10 @@
+run_id=cx-ingest-fix-pacedtests-race3-b88b734-20260923T030203Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest
+rev=HEAD
+commit=b88b734a452109cbd2a178710d50fae3cc603c27
+bundle_sha256=7ebf850ceb94e0c17a0118f988d79311dd8a3931695ff740d8c8689056c894b7
+host_started_utc=2026-09-23T03:02:06Z
+inner_args=--count 3 --run ^(TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing|TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls|TestDispatchLanes_PerSessionBoundOverflowAndForget)$ -- ./internal/daemon
+host_finished_utc=2026-09-23T03:02:48Z
+container_exit=0

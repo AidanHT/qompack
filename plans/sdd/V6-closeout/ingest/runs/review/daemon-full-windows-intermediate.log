@@ -1,0 +1,11 @@
+25c5691425672f998a172eb4cc7a2caa0bdecc3e
+working tree: review-round fix, uncommitted at run time
+ internal/daemon/daemon.go                   |   6 +-
+ internal/daemon/delivery_order.go           | 378 ++++++++++++++++++++--------
+ internal/daemon/delivery_order_live_test.go |  65 +++--
+ internal/daemon/handlers.go                 |  18 +-
+ internal/daemon/ingest.go                   |  95 ++++---
+ 5 files changed, 397 insertions(+), 165 deletions(-)
+ok  	github.com/qompack/qompack/internal/daemon	691.126s
+exit=0
+NOTE: intermediate run - compiled from the review-round working tree before the drain.go release-semantics change and the lane-eviction change; superseded by daemon-full-windows-final.log

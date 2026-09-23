@@ -1,0 +1,21 @@
+run_id=cx-ingest-fix-base-obs-x10-7e5a141-20260923T015314Z
+commit=7e5a141aadfaf252594c112d2f39621630ee3e4a
+tree=7e08449938e90d40c6823a4557cb404fcc890a40
+bundle_sha256=29bdd12025def7d7f6f270d2404e4e41d8c8e5b95ff87f42aa1f2f31439b3ef6
+started_utc=2026-09-23T01:53:23Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^(TestE2E_ObserverThroughDaemon|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-23T02:00:28Z

@@ -1,0 +1,22 @@
+b88b734a452109cbd2a178710d50fae3cc603c27
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.85s)
+=== RUN   TestDispatchLanes_PerSessionBoundOverflowAndForget
+--- PASS: TestDispatchLanes_PerSessionBoundOverflowAndForget (0.00s)
+=== RUN   TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls
+--- PASS: TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls (1.10s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.92s)
+=== RUN   TestDispatchLanes_PerSessionBoundOverflowAndForget
+--- PASS: TestDispatchLanes_PerSessionBoundOverflowAndForget (0.00s)
+=== RUN   TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls
+--- PASS: TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls (1.10s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (7.03s)
+=== RUN   TestDispatchLanes_PerSessionBoundOverflowAndForget
+--- PASS: TestDispatchLanes_PerSessionBoundOverflowAndForget (0.00s)
+=== RUN   TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls
+--- PASS: TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls (1.10s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	25.325s
+exit=0

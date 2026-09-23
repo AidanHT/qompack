@@ -1,0 +1,43 @@
+25c5691425672f998a172eb4cc7a2caa0bdecc3e
+red variant: helpers map to HEAD API (newDispatchLanes(capacity), no drain requester, settleBound=stall)
+=== RUN   TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes
+    delivery_order_lanes_test.go:100: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_lanes_test.go:100
+        	Error:      	Condition never satisfied
+        	Test:       	TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes
+        	Messages:   	another session publishes live beside a stuck one: 0 of 2 arrivals acknowledged, l0_ordering_deferred=0
+--- FAIL: TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes (30.76s)
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+    delivery_order_lanes_test.go:148: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_lanes_test.go:148
+        	Error:      	Condition never satisfied
+        	Test:       	TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+        	Messages:   	the parked lane never got the drain its predecessor needs: 0 of 2 arrivals acknowledged, l0_ordering_deferred=1
+--- FAIL: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (30.57s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    delivery_order_lanes_test.go:176: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_lanes_test.go:176
+        	Error:      	Condition never satisfied
+        	Test:       	TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+        	Messages:   	every job past the session's share is refused while its lane is busy
+--- FAIL: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (30.44s)
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+    delivery_order_lanes_test.go:209: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_lanes_test.go:209
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+        	Messages:   	SessionEnd over an unreadable frontier is counted, not taken for settled
+--- FAIL: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.47s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+    delivery_order_lanes_test.go:244: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_lanes_test.go:244
+        	Error:      	Should be true
+        	Test:       	TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+        	Messages:   	the flush finishes once the session's backlog has: "daemon: drain: delivery still in progress"
+--- FAIL: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (7.98s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	100.477s
+FAIL
+exit=1
