@@ -983,6 +983,8 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 	// recording work, not acting work, so it belongs behind the same predicate row 1's
 	// ingest.Accept uses, not behind MayAct() (M-3).
 	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
+		// SessionEnd is the session's last arrival: its earlier deliveries publish first (C1.1).
+		d.settleSession(ctx, ev.SessionID, drain)
 		d.markRecoveryNeeded(ev.SessionID, recoveryStageSessionEnd, 0)
 		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
 			d.log.Warn("daemon: SessionEnd failed", "err", err)

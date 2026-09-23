@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
@@ -164,6 +165,9 @@ type ingest struct {
 	// the ready list itself lives in lanes, so a signal is never lost, only merged.
 	lanes *dispatchLanes
 	wake  chan struct{}
+	// settleBound, when positive, replaces settleSessionBound as how long a flush waits for its
+	// session to settle (daemon.settleSession). Only tests set it, to reach the unsettled path.
+	settleBound time.Duration
 
 	// journal resolves the daemon's held delivery journal. It is a function rather than a field
 	// because the journal belongs to the singleton Lock, which Run acquires after the ingest queue
