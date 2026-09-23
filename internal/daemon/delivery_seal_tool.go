@@ -179,7 +179,11 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 			"nothing was written. Preserve it and roll back via a verified backup and a compatible "+
 			"reader: %w", deliverySealToolName, state, aerr)
 	}
-	if migrated {
+	// A store whose authority still names segment 0 has never rotated: segment 0 is its one, active
+	// journal, exactly as on a store written before segments, so the legacy tool below — check,
+	// conversion to v1 and Rule R — applies to it unchanged (the authority chain was validated
+	// read-only just above). Only a store that has rotated needs the segmented walk.
+	if migrated && auth.transitions[len(auth.transitions)-1].Active >= 1 {
 		return o.runSegmented(lock, state, auth)
 	}
 
@@ -296,6 +300,14 @@ func (o DeliverySealOptions) runSegmented(lock *Lock, state string, auth segment
 	if genTail {
 		fmt.Fprintf(o.Out, "  note: a complete committed generation beyond the manifest head is present and "+
 			"was carried forward as the recovered root; no on-disk checkpoint was written\n")
+	}
+	// A store that has never rotated archives nothing, so an empty generation store is exactly what it
+	// should have. Once a segment past 0 is committed its base root was archived first, and an empty
+	// store there is lost history — the producer refuses to open it, and so does this check.
+	if gv.root.isZero() && auth.transitions[len(auth.transitions)-1].Active >= 1 {
+		return fmt.Errorf("%s: the authority names segment %d, but the generation store holds no archived "+
+			"history; nothing was written: %w", deliverySealToolName,
+			auth.transitions[len(auth.transitions)-1].Active, errSegmentReaderRefused)
 	}
 
 	// The segments directory is pinned once, only if any non-legacy segment exists.

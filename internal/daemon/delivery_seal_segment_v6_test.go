@@ -227,18 +227,50 @@ func TestDeliverySealSegment_ConversionRefusedPreservesBytes(t *testing.T) {
 func TestDeliverySealSegment_UnmigratedLegacyTreeStillChecks(t *testing.T) {
 	root := t.TempDir()
 	ctx := context.Background()
-	// A plain legacy store: seam OFF, so no authority or generation store is created.
-	lock, err := acquireTestDeliveryLock(root)
-	require.NoError(t, err)
-	j, err := lock.openDeliveryJournal()
-	require.NoError(t, err)
-	_, err = j.lease(ctx, genNonce(0), "s", testDeliveryRequest("a"))
-	require.NoError(t, err)
-	require.NoError(t, lock.Release())
+	// A plain legacy store, as a build that predates rollover wrote it: no authority or generation
+	// store is created.
+	legacyFixture(t, func() {
+		lock, err := acquireTestDeliveryLock(root)
+		require.NoError(t, err)
+		j, err := lock.openDeliveryJournal()
+		require.NoError(t, err)
+		_, err = j.lease(ctx, genNonce(0), "s", testDeliveryRequest("a"))
+		require.NoError(t, err)
+		require.NoError(t, lock.Release())
+	})
+	_, err := os.Lstat(filepath.Join(paths.Of(root).State, deliverySegmentHeadFile))
+	require.True(t, os.IsNotExist(err), "fixture: a genuinely unmigrated tree")
 
 	out, err := checkSeal(t, root)
 	require.NoError(t, err, "an unmigrated legacy tree still checks as before")
 	require.Contains(t, out, "checked")
+}
+
+// TestDeliverySealSegment_FreshStoreThatNeverRotatedChecks: a store the current build opened carries
+// the active-0 authority and an EMPTY generation store (nothing is archived before the first
+// rotation). Segment 0 is still its one active journal, so the tool checks it exactly as it checks a
+// store written before segments, after validating the authority read-only.
+func TestDeliverySealSegment_FreshStoreThatNeverRotatedChecks(t *testing.T) {
+	root := t.TempDir()
+	ctx := context.Background()
+	lock, err := acquireTestDeliveryLock(root)
+	require.NoError(t, err)
+	j, err := lock.openDeliveryJournal()
+	require.NoError(t, err)
+	l, err := j.lease(ctx, genNonce(0), "s", testDeliveryRequest("a"))
+	require.NoError(t, err)
+	require.NoError(t, j.acknowledge(ctx, l.Delivery, l.ObservationID, core.Hash{}))
+	require.Equal(t, uint64(0), j.segment)
+	require.Zero(t, j.gen.generationCount(), "nothing is archived before the first rotation")
+	require.NoError(t, lock.Release())
+	_, err = os.Lstat(filepath.Join(paths.Of(root).State, deliverySegmentHeadFile))
+	require.NoError(t, err, "fixture: the active-0 authority exists")
+
+	before := digestState(t, root)
+	out, err := checkSeal(t, root)
+	require.NoError(t, err, "a store that has not rotated yet checks")
+	require.Contains(t, out, "checked; nothing was written")
+	require.Equal(t, before, digestState(t, root), "--check writes nothing")
 }
 
 // genRootPagePath is the on-disk root pointer for a committed root (its content hash names it); the
