@@ -241,8 +241,11 @@ passes the same validator `--validate` applies. `--check` regenerates and compar
 
 **Where it goes.** `release.yml` uploads it beside the zips (the draft stays a draft).
 `marketplace.yml` runs when a release is PUBLISHED: it re-downloads the zips, re-verifies them
-against the release's `checksums.txt`, regenerates `.claude-plugin/marketplace.json` from the
-served bytes, requires it to equal the uploaded document and opens a pull request onto `develop`.
+against the release's `checksums.txt`, regenerates the document from the served bytes with the
+tag's own generator (a generator change on `develop` since the tag cannot fail the comparison),
+requires it to equal the uploaded document and opens a pull request onto `develop` that puts it at
+`.claude-plugin/marketplace.json`. A re-run replaces its `marketplace/<tag>` branch under an
+explicit lease and reuses an open pull request (`test/guards/marketplace_workflow_test.go`).
 `release-check`'s `marketplace` step validates the generator for the tag and any committed document.
 
 **Evidence (2026-09-22, Claude Code 2.1.280, this host).** A real six-target

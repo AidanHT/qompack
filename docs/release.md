@@ -30,9 +30,12 @@ current failure records.
    reaches users because a tag was pushed.
 7. **After publishing: review the marketplace pull request.** Publishing (not drafting, and not a
    pre-release) triggers `.github/workflows/marketplace.yml`, which re-downloads the six zips from
-   the published release, re-verifies each against the release's `checksums.txt`, regenerates
-   `.claude-plugin/marketplace.json` from the served bytes, requires it to equal the uploaded
-   `marketplace.json`, and opens a pull request onto `develop`. Merging it is what makes
+   the published release, re-verifies each against the release's `checksums.txt`, regenerates the
+   marketplace from the served bytes with the release's own generator (the tag's `devtool`, not
+   `develop`'s), requires it to equal the uploaded `marketplace.json`, and opens a pull request
+   onto `develop` that puts it at `.claude-plugin/marketplace.json`. Re-running the job after a
+   partial failure replaces its `marketplace/<tag>` branch and reuses an open pull request. Merging
+   it is what makes
    `claude plugin marketplace add AidanHT/qompack` offer the release. The repository setting "Allow
    GitHub Actions to create and approve pull requests" must be on for the workflow to open it, and
    a pull request opened with `GITHUB_TOKEN` does not start CI by itself. A pre-release is tested
