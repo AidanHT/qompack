@@ -102,6 +102,19 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
       resource cost, GC segment retention) and enable it, or keep it default-off with the limit,
       its symptom and its recovery documented.
 
+- [ ] **C1.11** Windows hooks break without Git Bash: shipped hooks are shell form and fail under
+      the host's PowerShell fallback (`ParserError: Unexpected token 'observe'`); the platform
+      test's PowerShell row asserts a string that is not shipped. Move hooks to exec form with the
+      exact per-target binary (`bin/qompack.exe` on Windows); prove on the real host.
+- [ ] **C1.12** Claude Code 2.1.280 rejects Qompack's `PreCompact` output
+      (`hookSpecificOutput.hookEventName` not accepted), so its instructions never reach the
+      summarizer and the validation error is replayed into post-compaction context. Conform every
+      hook's output to the current documented schema; pin with contract tests and a real session.
+- [ ] **C1.13** Session end must wait for that session's earlier queued or deferred events
+      (from the e2e finding), and the idle drain only runs after 120 s of inactivity
+      (`DetectAfterSeconds`), while the e2e tests assume a 30 s drain. Confirm C1.1's fix covers
+      both, or follow up.
+
 ## Phase 2 — Carried defects (all must be `fixed` or `wontfix` before the V6 report)
 
 - [ ] **C2.1** SP08-D3 — verify the V6 prompt-replay recovery and re-disposition to `fixed`.
@@ -192,6 +205,10 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 - [ ] **C7.3** Merge `verify/v6` → `develop` → `main`; enable branch protection.
 - [ ] **C7.4** `release-check --tag`; tag; `release.yml` publishes six-target bundles + checksums.
 - [ ] **C7.5** Publish a marketplace manifest so users can add the plugin from the public repo;
-      install it from GitHub on a clean profile and smoke-test.
+      install it from GitHub on a clean profile and smoke-test. Design adopted (research,
+      2026-09-22): six per-target `archive`-source entries (`qompack-<os>-<arch>`) pinned by
+      sha256 to the GitHub Release zips; all six targets ship `.zip`; a `devtool marketplace`
+      generator plus a publish-time PR workflow. Still open: whether the host keeps exec bits when
+      it extracts a zip on linux/darwin (needs a published pre-release).
 - [ ] **C7.6** Housekeeping with owner consent: ~85 stale worktrees (some hold uncommitted work),
       the dirty root `verify/v3` checkout, the orphaned fault-test daemon left by the interrupted run.
