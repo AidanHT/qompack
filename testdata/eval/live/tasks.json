@@ -1,0 +1,636 @@
+{
+  "version": 1,
+  "id": "qompack-live-v1",
+  "description": "V6 close-out C5.4/C5.5 confirmatory task set. Frozen 2026-09-22 before any trial outcome; see plans/sdd/V6-closeout/eval/preregistration.md. Changing a task after outcomes exist requires a new id.",
+  "defaults": {
+    "max_turns": 12,
+    "allowed_tools": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash(go:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "PowerShell(go:*)",
+      "mcp__plugin_qompack_qompack"
+    ]
+  },
+  "analysis": {
+    "model": "claude-sonnet-5",
+    "confidence": 0.95,
+    "non_inferiority_margin": 0.2,
+    "trials_per_arm": 2
+  },
+  "tasks": [
+    {
+      "id": "constraint-verbatim",
+      "title": "Session rules stated once, applied after compaction",
+      "category": "constraint-retention",
+      "variant": "base",
+      "held_out": false,
+      "fixture": "fixtures/mathx",
+      "hidden_fixture": "hidden/constraint-verbatim",
+      "steps": [
+        {
+          "id": "rules",
+          "prompt": "Before we start, three rules for this whole session, which I will not repeat: (1) never modify go.mod; (2) every exported function you write must have a doc comment that begins with the function's name; (3) do not import any package outside the Go standard library. Reply only with OK."
+        },
+        {
+          "id": "clamp",
+          "prompt": "Implement func Clamp(v, lo, hi int) int in mathx/clamp.go (you may assume lo <= hi) with a table-driven test in mathx/clamp_test.go. Run go test ./... and tell me the result in one line."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "more",
+          "prompt": "Now add func Lerp(a, b, t float64) float64 in mathx/lerp.go and func Sign(x int) int (returns -1, 0 or 1) in mathx/sign.go, each with tests. Run go test ./... and report in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "behaviour",
+          "outcome": "task",
+          "kind": "command",
+          "description": "hidden tests of Clamp, Lerp and Sign pass",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        },
+        {
+          "id": "gomod",
+          "outcome": "constraint",
+          "kind": "file_unchanged",
+          "description": "go.mod is byte-identical to the fixture",
+          "path": "go.mod"
+        },
+        {
+          "id": "doc-lerp",
+          "outcome": "constraint",
+          "kind": "file_matches",
+          "description": "Lerp's doc comment begins with its name",
+          "path": "mathx/lerp.go",
+          "pattern": "(?m)^// Lerp\\b"
+        },
+        {
+          "id": "doc-sign",
+          "outcome": "constraint",
+          "kind": "file_matches",
+          "description": "Sign's doc comment begins with its name",
+          "path": "mathx/sign.go",
+          "pattern": "(?m)^// Sign\\b"
+        },
+        {
+          "id": "stdlib-lerp",
+          "outcome": "constraint",
+          "kind": "file_not_matches",
+          "description": "lerp.go imports only the standard library",
+          "path": "mathx/lerp.go",
+          "pattern": "\"[a-z0-9-]+\\.[a-z]{2,}[a-z0-9./-]*\""
+        },
+        {
+          "id": "stdlib-sign",
+          "outcome": "constraint",
+          "kind": "file_not_matches",
+          "description": "sign.go imports only the standard library",
+          "path": "mathx/sign.go",
+          "pattern": "\"[a-z0-9-]+\\.[a-z]{2,}[a-z0-9./-]*\""
+        }
+      ]
+    },
+    {
+      "id": "recall-user-fact",
+      "title": "Facts given only in conversation, needed after compaction",
+      "category": "fact-recovery",
+      "variant": "base",
+      "held_out": false,
+      "fixture": "fixtures/svc",
+      "hidden_fixture": "hidden/recall-user-fact",
+      "steps": [
+        {
+          "id": "facts",
+          "prompt": "Context you will need later: our deployment region code is QX-7731-EU and the on-call alias is tundra-owl. Do not write these anywhere yet. Reply only with noted."
+        },
+        {
+          "id": "readme",
+          "prompt": "Read README.md and summarize the service's retry policy in two sentences."
+        },
+        {
+          "id": "retries",
+          "prompt": "Add func MaxRetries() int to config/config.go returning the attempt limit README.md specifies, with a test in config/config_test.go. Run go test ./... and report in one line."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "region",
+          "prompt": "Make Region() in config/config.go return the deployment region code I gave you at the very start of this session. Do not ask me for it and do not use a placeholder. Run go test ./... and report in one line."
+        },
+        {
+          "id": "alias",
+          "prompt": "What is the on-call alias I mentioned at the start? Answer with just the alias."
+        }
+      ],
+      "checks": [
+        {
+          "id": "region-file",
+          "outcome": "recovery",
+          "kind": "file_matches",
+          "description": "Region() returns the code given before compaction",
+          "path": "config/config.go",
+          "pattern": "QX-7731-EU"
+        },
+        {
+          "id": "alias-answer",
+          "outcome": "recovery",
+          "kind": "answer_matches",
+          "description": "the alias given before compaction is recalled",
+          "step": "alias",
+          "pattern": "(?i)tundra-owl"
+        },
+        {
+          "id": "behaviour",
+          "outcome": "task",
+          "kind": "command",
+          "description": "hidden tests of Region and MaxRetries pass",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        },
+        {
+          "id": "readme",
+          "outcome": "constraint",
+          "kind": "file_unchanged",
+          "description": "README.md is not edited",
+          "path": "README.md"
+        }
+      ]
+    },
+    {
+      "id": "eliminated-approach",
+      "title": "A ruled-out approach stays ruled out after compaction",
+      "category": "negative-knowledge",
+      "variant": "base",
+      "held_out": false,
+      "fixture": "fixtures/dur",
+      "hidden_fixture": "hidden/eliminated-approach",
+      "steps": [
+        {
+          "id": "inspect",
+          "prompt": "Run go test ./... and tell me which test fails, in one line."
+        },
+        {
+          "id": "history",
+          "prompt": "Important history, so you do not repeat it: last week we tried rewriting Parse on top of time.ParseDuration. It broke the legacy day unit (\"5d\") and we reverted it, so that approach is ruled out for good. Do not fix anything yet; reply only with understood."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "fix",
+          "prompt": "Fix the failing test by fixing dur/dur.go; do not edit the test file. Run go test ./... and report in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "behaviour",
+          "outcome": "task",
+          "kind": "command",
+          "description": "the fixture's and the hidden tests of Parse pass",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        },
+        {
+          "id": "no-parseduration",
+          "outcome": "constraint",
+          "kind": "file_not_matches",
+          "description": "the ruled-out approach is not used",
+          "path": "dur/dur.go",
+          "pattern": "time\\.ParseDuration"
+        },
+        {
+          "id": "test-untouched",
+          "outcome": "constraint",
+          "kind": "file_unchanged",
+          "description": "the test file is not edited",
+          "path": "dur/dur_test.go"
+        }
+      ]
+    },
+    {
+      "id": "changing-requirement-format",
+      "title": "A requirement changes after compaction; an earlier rule still holds",
+      "category": "requirement-change",
+      "variant": "changing-requirement",
+      "held_out": false,
+      "fixture": "fixtures/money",
+      "hidden_fixture": "hidden/changing-requirement-format",
+      "steps": [
+        {
+          "id": "rule",
+          "prompt": "Rule for the money package for this whole session: never use fmt.Sprintf or any other fmt.Sprint function in it; build strings with strconv and strings.Builder. Acknowledge with OK."
+        },
+        {
+          "id": "dollars",
+          "prompt": "Implement func FormatPrice(cents int64) string in money/price.go that renders dollars like \"$12.34\" (negative amounts like \"-$0.05\"), with tests in money/price_test.go. Run go test ./... and report in one line."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "euros",
+          "prompt": "Requirement change: FormatPrice must now render euros with a comma decimal separator and the euro sign after a space, for example 1234 -> \"12,34 €\" and -5 -> \"-0,05 €\". Update the implementation and the tests, keeping every rule I gave you earlier. Run go test ./... and report in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "behaviour",
+          "outcome": "task",
+          "kind": "command",
+          "description": "hidden tests of the euro format pass",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        },
+        {
+          "id": "no-sprint",
+          "outcome": "constraint",
+          "kind": "file_not_matches",
+          "description": "the money package never uses fmt.Sprint*",
+          "path": "money/price.go",
+          "pattern": "fmt\\.Sprint"
+        }
+      ]
+    },
+    {
+      "id": "tool-output-recall",
+      "title": "A tool result from before compaction, needed without re-running the tool",
+      "category": "tool-result-recovery",
+      "variant": "base",
+      "held_out": false,
+      "fixture": "fixtures/probe",
+      "steps": [
+        {
+          "id": "probe",
+          "prompt": "Run go run ./cmd/probe and tell me the build token it prints, in one line."
+        },
+        {
+          "id": "read",
+          "prompt": "Read notes/architecture.md and list its section headings."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "token",
+          "prompt": "Write the build token the probe printed earlier into a file named TOKEN at the project root, just the token on one line. Do not run the probe or any other program again to get it."
+        }
+      ],
+      "checks": [
+        {
+          "id": "token-file",
+          "outcome": "recovery",
+          "kind": "file_matches",
+          "description": "TOKEN holds the probe's output from before compaction",
+          "path": "TOKEN",
+          "pattern": "^\\s*975408daf9b5\\s*$"
+        },
+        {
+          "id": "no-rerun",
+          "outcome": "constraint",
+          "kind": "tool_not_used_after",
+          "description": "the token was not re-derived after compaction",
+          "step": "compact",
+          "pattern": "(?i)cmd/probe|go run|sha256|qompack-live-probe"
+        },
+        {
+          "id": "builds",
+          "outcome": "task",
+          "kind": "command",
+          "description": "the module still builds and vets",
+          "argv": [
+            "go",
+            "vet",
+            "./..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "decision-rationale",
+      "title": "A design decision and its reason, needed after compaction",
+      "category": "decision-recovery",
+      "variant": "base",
+      "held_out": false,
+      "fixture": "fixtures/store",
+      "hidden_fixture": "hidden/decision-rationale",
+      "steps": [
+        {
+          "id": "decision",
+          "prompt": "Design decision D-17 for the store package: entries are persisted as newline-delimited JSON, one object per line, not with encoding/gob, because operators must be able to grep the files during incidents. Do not write this down anywhere; reply OK."
+        },
+        {
+          "id": "save",
+          "prompt": "Implement func Save(w io.Writer, entries []Entry) error in store/save.go following D-17, with a test in store/save_test.go. Run go test ./... and report in one line."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "load",
+          "prompt": "Implement func Load(r io.Reader) ([]Entry, error) in store/load.go that reads what Save writes, with a round-trip test. Run go test ./... and report in one line."
+        },
+        {
+          "id": "why",
+          "prompt": "In one sentence: why did we choose this storage format?"
+        }
+      ],
+      "checks": [
+        {
+          "id": "behaviour",
+          "outcome": "task",
+          "kind": "command",
+          "description": "hidden JSON-lines and round-trip tests pass",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        },
+        {
+          "id": "no-gob-load",
+          "outcome": "constraint",
+          "kind": "file_not_matches",
+          "description": "Load does not use encoding/gob",
+          "path": "store/load.go",
+          "pattern": "encoding/gob"
+        },
+        {
+          "id": "reason",
+          "outcome": "recovery",
+          "kind": "answer_matches",
+          "description": "the decision's reason is recalled",
+          "step": "why",
+          "pattern": "(?i)grep"
+        }
+      ]
+    },
+    {
+      "id": "regression-guard",
+      "title": "Relied-on behaviour stays unchanged while new work lands",
+      "category": "regression",
+      "variant": "base",
+      "held_out": false,
+      "fixture": "fixtures/list",
+      "hidden_fixture": "hidden/regression-guard",
+      "steps": [
+        {
+          "id": "constraint",
+          "prompt": "Standing constraint: other teams rely on ParseList's exact behaviour, so never change what it returns for any input, and never edit list/list_test.go. Reply OK."
+        },
+        {
+          "id": "explain",
+          "prompt": "Read list/list.go and list/list_test.go and explain in two sentences what ParseList does."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "join",
+          "prompt": "Add func JoinList(items []string) string in list/join.go that is the inverse of ParseList for items without commas (join with \", \"), with tests in list/join_test.go. Also make ParseList faster if you see an easy win. Run go test ./... and report in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "pinned",
+          "outcome": "constraint",
+          "kind": "command",
+          "description": "ParseList's behaviour is unchanged on every pinned input",
+          "argv": [
+            "go",
+            "test",
+            "./list",
+            "-run",
+            "^TestHiddenEvalParseListPinned$"
+          ]
+        },
+        {
+          "id": "tests-untouched",
+          "outcome": "constraint",
+          "kind": "file_unchanged",
+          "description": "list_test.go is not edited",
+          "path": "list/list_test.go"
+        },
+        {
+          "id": "join",
+          "outcome": "task",
+          "kind": "command",
+          "description": "hidden tests of JoinList pass",
+          "argv": [
+            "go",
+            "test",
+            "./list",
+            "-run",
+            "^TestHiddenEvalJoinList$"
+          ]
+        },
+        {
+          "id": "all",
+          "outcome": "task",
+          "kind": "command",
+          "description": "every test passes",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "constraint-naming",
+      "title": "Held out: a naming and style rule applied after compaction",
+      "category": "constraint-retention",
+      "variant": "base",
+      "held_out": true,
+      "fixture": "fixtures/geo",
+      "hidden_fixture": "hidden/constraint-naming",
+      "steps": [
+        {
+          "id": "rule",
+          "prompt": "House rule for this session: every test function you write must be named TestSpec_<Something>, and every test must call t.Parallel() first. Acknowledge with OK."
+        },
+        {
+          "id": "dist",
+          "prompt": "Implement func Dist(a, b Point) float64 in geo/dist.go with a test in geo/dist_test.go. Run go test ./... and report in one line."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "mid",
+          "prompt": "Add func Mid(a, b Point) Point in geo/mid.go with tests in geo/mid_test.go. Run go test ./... and report in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "behaviour",
+          "outcome": "task",
+          "kind": "command",
+          "description": "hidden tests of Dist and Mid pass",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        },
+        {
+          "id": "spec-name",
+          "outcome": "constraint",
+          "kind": "file_matches",
+          "description": "mid_test.go names its tests TestSpec_*",
+          "path": "geo/mid_test.go",
+          "pattern": "func TestSpec_"
+        },
+        {
+          "id": "no-other-names",
+          "outcome": "constraint",
+          "kind": "file_not_matches",
+          "description": "mid_test.go has no test outside the TestSpec_ rule",
+          "path": "geo/mid_test.go",
+          "pattern": "func Test(?:[^S]|S[^p])"
+        },
+        {
+          "id": "parallel",
+          "outcome": "constraint",
+          "kind": "file_matches",
+          "description": "mid_test.go calls t.Parallel()",
+          "path": "geo/mid_test.go",
+          "pattern": "t\\.Parallel\\(\\)"
+        }
+      ]
+    },
+    {
+      "id": "changing-requirement-slug",
+      "title": "Held out: a behaviour change after compaction under an earlier ban",
+      "category": "requirement-change",
+      "variant": "changing-requirement",
+      "held_out": true,
+      "fixture": "fixtures/slug",
+      "hidden_fixture": "hidden/changing-requirement-slug",
+      "steps": [
+        {
+          "id": "ban",
+          "prompt": "Constraint for the slug package for the whole session: do not use the regexp package. Acknowledge with OK."
+        },
+        {
+          "id": "v1",
+          "prompt": "Implement func Slugify(s string) string in slug/slug.go: lowercase, spaces become '-', every other character kept. Tests in slug/slug_test.go. Run go test ./... and report in one line."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "v2",
+          "prompt": "Requirement change: Slugify must now use '_' instead of '-', collapse every run of whitespace into one '_', and drop every character that is not a letter, a digit or '_'. Update the code and the tests; everything else I asked earlier still applies. Run go test ./... and report in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "behaviour",
+          "outcome": "task",
+          "kind": "command",
+          "description": "hidden tests of the new behaviour pass",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        },
+        {
+          "id": "no-regexp",
+          "outcome": "constraint",
+          "kind": "file_not_matches",
+          "description": "slug.go does not import regexp",
+          "path": "slug/slug.go",
+          "pattern": "\"regexp\""
+        }
+      ]
+    },
+    {
+      "id": "seed-recall",
+      "title": "Held out: a program's output from before compaction, used without re-running it",
+      "category": "tool-result-recovery",
+      "variant": "base",
+      "held_out": true,
+      "fixture": "fixtures/seed",
+      "steps": [
+        {
+          "id": "seed",
+          "prompt": "Run go run ./cmd/seed and tell me the seed it prints, in one line."
+        },
+        {
+          "id": "runbook",
+          "prompt": "Read notes/filler.md and tell me how many numbered steps its Runbook section has."
+        },
+        {
+          "id": "compact",
+          "compact": true
+        },
+        {
+          "id": "const",
+          "prompt": "Create config/seed.go in package config declaring const Seed = \"<the seed>\" with the seed the program printed earlier. Do not run the program or any other program to get it again. Then run go vet ./... and report in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "seed-const",
+          "outcome": "recovery",
+          "kind": "file_matches",
+          "description": "the seed from before compaction is declared",
+          "path": "config/seed.go",
+          "pattern": "const Seed = \"5cc87334711f2d40\""
+        },
+        {
+          "id": "no-rerun",
+          "outcome": "constraint",
+          "kind": "tool_not_used_after",
+          "description": "the seed was not re-derived after compaction",
+          "step": "compact",
+          "pattern": "(?i)cmd/seed|go run|sha256|qompack-live-seed"
+        },
+        {
+          "id": "vets",
+          "outcome": "task",
+          "kind": "command",
+          "description": "the module vets",
+          "argv": [
+            "go",
+            "vet",
+            "./..."
+          ]
+        }
+      ]
+    }
+  ]
+}
