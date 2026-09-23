@@ -686,6 +686,40 @@ func TestEliminations_NotShownProducesDropEntry(t *testing.T) {
 	}}, got.drops)
 }
 
+// TestEliminations_BudgetDropNamesItsOwnQuery asserts a top-N elimination the budget then cuts is
+// named with the already_tried call that brings THAT record back — its own target and approach,
+// which is what the ledger is keyed on and what the call returns the reason and evidence for. The
+// generic "already_tried(target, approach)" left the model a drop line naming only elim_… and
+// nothing to pass (D5, ADR 0011 §21). The fields are quoted because they are free text: a comma or
+// a quote inside one must not read as an argument boundary, and a newline must not end the line.
+func TestEliminations_BudgetDropNamesItsOwnQuery(t *testing.T) {
+	cp := ckEmpty()
+	r := requestFor(t, cp, generousTestBudget)
+	r.Cfg.Runtime.Rehydrate.EliminationsTopN = 2
+
+	d := depsWith(&spyLogger{})
+	d.Ledger = newFakeLedger().withActive(negknow.ScopeSession,
+		elim("elim_a", "src/auth.ts:refreshToken", "widen pool timeout", "r"),
+		elim("elim_b", "db, pool", "say \"retry\"\nthen wait", "r"),
+	)
+
+	got := buildEliminations(bg(), r, d, nil)
+
+	details := map[string]string{}
+	for _, u := range got.units {
+		if u.drop.ID != "" {
+			require.Equal(t, dropKindElimination, u.drop.Kind)
+			details[u.drop.ID] = u.drop.Detail
+		}
+	}
+	require.Equal(t, map[string]string{
+		"elim_a": `did not fit the rehydration budget; call already_tried(target="src/auth.ts:refreshToken", ` +
+			`approach="widen pool timeout")`,
+		"elim_b": `did not fit the rehydration budget; call already_tried(target="db, pool", ` +
+			`approach="say \"retry\" then wait")`,
+	}, details)
+}
+
 // TestEliminations_LedgerErrorFallsBackToCheckpoint asserts a broken ledger degrades to the
 // checkpoint's frozen copy and says so, rather than emitting nothing.
 func TestEliminations_LedgerErrorFallsBackToCheckpoint(t *testing.T) {
@@ -1235,24 +1269,62 @@ func TestSkillIndex_RendersTheCompactIndex(t *testing.T) {
 	require.Empty(t, got.drops)
 }
 
+// skillAt is skill with the project-relative SKILL.md path the real indexer always sets. That path
+// is the pointer an omitted skill's drop detail restores it by.
+func skillAt(name, desc string) skills.Entry {
+	e := skill(name, desc)
+	e.Source = ".claude/skills/" + name + "/SKILL.md"
+	return e
+}
+
 // TestSkillIndex_DropsReportUnindexedSkills asserts a skill the compact index could not afford is
 // NAMED. A model told the skill exists can invoke it; a model not told assumes it does not.
+//
+// Each detail also ends in the pointer that restores the entry — a Read of its SKILL.md — because
+// D5 has every omitted record named with a call the model can act on (ADR 0011 §21). An entry with
+// no Source (the real indexer always sets one) falls back to restoreClause's dropped() clause
+// rather than rendering "Read " with nothing after it.
 func TestSkillIndex_DropsReportUnindexedSkills(t *testing.T) {
 	cp := ckEmpty()
 	r := requestFor(t, cp, generousTestBudget)
 	d := depsWith(&spyLogger{})
 	d.Skills = &fakeIndexer{
-		all:  []skills.Entry{skill("code-review", "a"), skill("migration-runner", "b"), skill("release", "c")},
-		kept: []skills.Entry{skill("code-review", "a")},
+		all:  []skills.Entry{skillAt("code-review", "a"), skillAt("migration-runner", "b"), skill("release", "c")},
+		kept: []skills.Entry{skillAt("code-review", "a")},
 	}
 
 	got := buildSkillIndex(bg(), r, d, nil)
 
 	budget := itoa(r.Cfg.Runtime.Rehydrate.SkillIndexTokens)
 	require.Equal(t, []checkpoint.DropEntry{
-		{Kind: dropKindSkill, ID: "migration-runner", Detail: "not in the compact skill index (budget " + budget + " tokens)"},
-		{Kind: dropKindSkill, ID: "release", Detail: "not in the compact skill index (budget " + budget + " tokens)"},
+		{Kind: dropKindSkill, ID: "migration-runner", Detail: "not in the compact skill index (budget " + budget +
+			" tokens); restore: Read .claude/skills/migration-runner/SKILL.md"},
+		{Kind: dropKindSkill, ID: "release", Detail: "not in the compact skill index (budget " + budget +
+			" tokens); call dropped() for the full accounting"},
 	}, got.drops)
+}
+
+// TestSkillIndex_BudgetDropNamesTheSkillFile asserts an index line the PAYLOAD cannot afford — the
+// drop the D5 ceiling produces most, ten of them in the state golden — names the file that restores
+// it. Before the fix it read "did not fit the rehydration budget" and nothing else.
+func TestSkillIndex_BudgetDropNamesTheSkillFile(t *testing.T) {
+	cp := ckEmpty()
+	r := requestFor(t, cp, generousTestBudget)
+	entries := []skills.Entry{skillAt("code-review", "a"), skill("bare", "b")}
+	d := depsWith(&spyLogger{})
+	d.Skills = &fakeIndexer{all: entries, kept: entries}
+
+	got := buildSkillIndex(bg(), r, d, nil)
+
+	require.Len(t, got.units, 2)
+	require.Equal(t, checkpoint.DropEntry{
+		Kind: dropKindSkill, ID: "code-review",
+		Detail: "did not fit the rehydration budget; restore: Read .claude/skills/code-review/SKILL.md",
+	}, got.units[0].drop)
+	require.Equal(t, checkpoint.DropEntry{
+		Kind: dropKindSkill, ID: "bare",
+		Detail: "did not fit the rehydration budget; call dropped() for the full accounting",
+	}, got.units[1].drop)
 }
 
 // TestSkillIndex_WarnsOnHostHeadTruncation asserts §2.7's per-skill cap is surfaced. The host
