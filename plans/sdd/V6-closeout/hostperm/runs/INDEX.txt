@@ -1,0 +1,31 @@
+C1.9 / V6-HOST-1 evidence (branch closeout/hostperm, base cf31e01). One line per artifact:
+file | command | commit or tree | result.
+
+01-red-before-fix.log | go test ./internal/mcp -run 'HostDenyRed|HashFormRed' -count=1 -v | cf31e01 + two new tests (unfixed tree) | FAIL as expected: expand/re_read served a host-denied path; re_read at=sha256 served a junction-escaped archive under another path
+02-red-after-fix.log | same two tests | working tree of 7df2c1d | PASS
+03-link-spelling-windows-prefix-pass.log | go test ./internal/mcp -run TestHostPolicy_ALinkSpellingIsJudgedToo -v | ed5a80c + that test | PASS on Windows only because EvalSymlinks does not follow a junction
+04-link-spelling-linux-red.log | same test, Linux container, uid 10001, run id cx-hostperm-linkrepro-20260922T221538Z | ed5a80c + internal/mcp/hostperm_link_test.go | FAIL as expected (the defect fixed in 6dacb7c)
+05-mcp-focused-after-link-fix-windows.log | go test ./internal/mcp -run 'HostPolicy|V6Host_|V6Auth_|V6_|AuthorizePath|Damaged|ReRead' -count=1 | working tree of 6dacb7c | PASS
+10-bench-windows.log | go test ./internal/hostperm -run '^$' -bench . -benchmem -count=5 -benchtime=2000x | working tree of 2f04ae7 | measured under co-load
+20-security-v6-windows.log + security-windows/ | QOMPACK_SECURITY_ARTIFACTS=<dir> go test ./test/security -run 'TestV6_' -count=1 -v | working tree of ed5a80c | PASS (3 cases); record v6_host_read_rules_govern_archived_retrieval.json outcome verified
+30-mcp-full-windows.log | go test ./internal/mcp -count=1 -timeout=30m | working tree of 7df2c1d | only TestBudgetBF failed: p95 327.68ms > 250ms (co-load, see 31/32)
+31-budget-bf-head-alone-windows.log | go test ./internal/mcp -run '^TestBudgetBF$' -count=1 -v | working tree of ee106e4, CPU ~84 %, 24 *.test processes | FAIL p50 655ms p95 3.93s (co-load)
+32-budget-bf-base-cf31e01-alone-windows.log | same, on a git archive of cf31e01 | cf31e01, CPU ~78 %, 23 *.test processes | FAIL p50 655ms p95 5.24s: the base breaches worse under the same load
+33-mcp-hostperm-full-at-head-windows.log | go test ./internal/mcp ./internal/hostperm -count=1 -timeout=30m -skip '^TestBudgetBF$' | e98f408 | PASS (mcp 66.8s, hostperm 1.9s)
+40-docs-windows.log | go test ./test/docs -count=1 | working tree of 9df73a4 | PASS
+50-linux-race-hostperm-mcp.log + linux-cx-hostperm-9df73a4-20260922T221904Z/ | inner.sh --gomaxprocs 4 --coload (race on) -- ./internal/hostperm ./internal/mcp, uid 10001 | 9df73a4 | PASS: hostperm 106 pass 0 skip, mcp 365 pass 0 skip, no race report
+51-linux-security-guards-devtool.log + linux-cx-hostperm-ee106e4-20260922T223425Z/ | inner.sh --gomaxprocs 4 --coload --no-race -- ./test/security ./test/guards ./tools/devtool, uid 10001 | ee106e4 | devtool PASS 250; security 22 pass 2 fail; guards 158 pass 10 fail (7 carried defects + 1 delivery-position encoder); every failure also fails on cf31e01 (52) or is a carried defect; host-rule record verified on linux
+52-linux-base-cf31e01-three-failures.log + linux-cx-hostperm-base-cf31e01-20260922T233213Z/ | the three non-carried failures of 51, same runner | cf31e01 | the same three fail on the base
+60-vet.log | go vet on hostperm, mcp, test/security, test/guards, tools/devtool; GOOS=linux and darwin for hostperm and mcp | 6dacb7c tree | clean
+61-lint-windows.log | go run ./tools/devtool lint | ee106e4 | golangci-lint: 2 findings in this branch's test files (fixed in e98f408); bindeps and stubskips fail for pre-existing reasons (64; no stubskips problem names hostperm or mcp); other sub-checks PASS
+62-golangci-touched-after-fix-windows.log | pinned golangci-lint run on hostperm, mcp, test/security, test/guards, tools/devtool | e98f408 | clean
+63-golangci-touched-goos-linux-darwin.log | same binary, GOOS=linux (hostperm, mcp) and GOOS=darwin (hostperm) | e98f408 | clean
+64-bindeps-attribution.log | GOOS=linux go list -deps ./cmd/qompack at cf31e01 and HEAD | both | golang.org/x/sys/unix reaches the binary on both, via internal/paths
+
+Docs relied on (fetched 2026-09-22 with curl -sSL https://code.claude.com/docs/en/<page>.md), sha256:
+permissions ec2d99b65c1534d870b7023a4d239ae25493af36fb63a9d21962bb3b24bc2adc
+settings 0c5162aa9850ad928c0232e4fd0930f832578602e9cfd52f6fea39ad6d5271b3
+managed-settings 34887612d23b1657e3daf32b3bf9391c689c3fd27b002213c5efed806887ccc1
+server-managed-settings a87aff031ad28c284ce86fa3dd0f2da0b9b27d08428ac724726fd10816efa5e8
+env-vars a6ffb00019004668fdce55e33af7e26be4559a467ed1da57e3ff48c760bd3287
+iam f7cd13d3a488bba04a52cdac53a5e640aac56a7bcf59dba870179ded9589ef17 (now the Authentication page; no rule text)

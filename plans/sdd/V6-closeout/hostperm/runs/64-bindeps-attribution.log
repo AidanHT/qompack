@@ -1,0 +1,7 @@
+# bindeps attribution: does golang.org/x/sys/unix reach cmd/qompack for GOOS=linux?
+## base cf31e01 (git archive in scratchpad)
+golang.org/x/sys/unix
+## head e98f408
+golang.org/x/sys/unix
+## who imports it at head (non-test, GOOS=linux)
+github.com/qompack/qompack/internal/paths

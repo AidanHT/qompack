@@ -1,0 +1,21 @@
+run_id=cx-hostperm-ee106e4-20260922T223425Z
+commit=ee106e41a45ea9c10d594e4b3fc9da3c264442e2
+tree=c318da73881b82e73a71b35532900dc3440a8936
+bundle_sha256=50faa815f23189c8587a9286844204a3eba2c0f02fdd5d8d7e8f9456d4c5e146
+started_utc=2026-09-22T23:21:28Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=1
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-22T23:24:13Z

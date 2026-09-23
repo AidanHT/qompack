@@ -1,0 +1,4 @@
+=== RUN   TestHostPolicy_ALinkSpellingIsJudgedToo
+--- PASS: TestHostPolicy_ALinkSpellingIsJudgedToo (0.43s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	0.742s

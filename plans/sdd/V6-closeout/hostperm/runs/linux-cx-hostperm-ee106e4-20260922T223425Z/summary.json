@@ -1,0 +1,37 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/security": {
+   "result": "fail",
+   "passed": 22,
+   "failed": [
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk",
+    "TestSecurity_ArchivedTextIsDataNeverAnInstruction"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "fail",
+   "passed": 158,
+   "failed": [
+    "TestGuard_TheV1DeliveryPositionHasOneEncoder/every_deliveryPosition_marshal_site_is_named_here",
+    "TestGuard_TheV1DeliveryPositionHasOneEncoder",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP06-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP10-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP09-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D3",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D4",
+    "TestCarriedDefects_WaveReportRequiresResolution"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/tools/devtool": {
+   "result": "pass",
+   "passed": 250,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

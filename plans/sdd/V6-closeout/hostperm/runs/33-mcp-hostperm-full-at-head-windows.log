@@ -1,0 +1,4 @@
+head=e98f408092017369c0fa93bd21a6f0c7a024d644 note=TestBudgetBF skipped deliberately: judged separately in 30/31/32 (co-load)
+ok  	github.com/qompack/qompack/internal/mcp	66.839s
+ok  	github.com/qompack/qompack/internal/hostperm	1.896s
+exit=0

@@ -1,0 +1,2 @@
+PASS      github.com/qompack/qompack/internal/hostperm  (pass=106 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/mcp  (pass=365 fail=0 skip=0)
