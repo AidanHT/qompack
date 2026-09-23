@@ -15,8 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // The SP20-D4 resource-cost measurement (V6 close-out C1.10, gate 5). It is a benchmark, run on
@@ -41,7 +43,10 @@ import (
 //   - the on-disk size and file count of the delivery state, split into the journals and the
 //     generation store, at every 50,000 deliveries and at the end;
 //   - the Go heap: live heap after a forced GC at every checkpoint, and the peak in-use heap sampled
-//     every 50 ms, which is what bounds memory across rotations.
+//     every 50 ms, which is what bounds memory across rotations;
+//   - one store GC pass over the project at every checkpoint, beside the running callers: its wall
+//     time, the heap it adds, and whether it completed (review finding 1: the pass must not grow with
+//     the project's delivery history).
 //
 // What it DOES assert is correctness, so a figure is never reported for a broken run: every delivery
 // is leased once with a dense per-session arrival, every acknowledgement is admitted, the journal
@@ -74,6 +79,15 @@ type rolloverResourceCheckpoint struct {
 	GenerationMiB    float64 `json:"generation_mib"`
 	TotalStateMiB    float64 `json:"total_state_mib"`
 	PerHundredKDelMB float64 `json:"state_mib_per_100k_deliveries"`
+	// One store GC pass over the project at this checkpoint, beside the running callers (review
+	// finding 1): its wall time, how far the in-use heap rose above where it started while the pass
+	// ran (an upper bound: the callers allocate too), and whether it completed rather than halting
+	// (a rotation moving the authority under it) or truncating.
+	GCSeconds           float64 `json:"gc_pass_seconds"`
+	GCHeapRiseMiB       float64 `json:"gc_pass_heap_rise_mib"`
+	GCCompleted         bool    `json:"gc_pass_completed"`
+	GCRetentionHalted   bool    `json:"gc_pass_halted_by_retention"`
+	GCRetentionRootsLen int     `json:"gc_pass_roots"`
 }
 
 // rolloverResourceRotation is one operation that carried a rotation.
@@ -159,6 +173,11 @@ func runRolloverResourceCost(b *testing.B, deliveries, workers int) rolloverReso
 	}
 	state := paths.Of(root).State
 	ctx := context.Background()
+	st, err := store.Open(root, config.Defaults(), store.Deps{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer func() { _ = st.Close() }()
 
 	// Peak memory, sampled for the whole run.
 	var peakHeap, peakSys uint64
@@ -222,6 +241,40 @@ func runRolloverResourceCost(b *testing.B, deliveries, workers int) rolloverReso
 			})
 		}
 	}
+	gcPass := func(cp *rolloverResourceCheckpoint) {
+		runtime.GC()
+		var before runtime.MemStats
+		runtime.ReadMemStats(&before)
+		peak := before.HeapInuse
+		stop, sampledGC := make(chan struct{}), make(chan struct{})
+		go func() {
+			defer close(sampledGC)
+			for {
+				var ms runtime.MemStats
+				runtime.ReadMemStats(&ms)
+				if ms.HeapInuse > peak {
+					peak = ms.HeapInuse
+				}
+				select {
+				case <-stop:
+					return
+				case <-time.After(10 * time.Millisecond):
+				}
+			}
+		}()
+		t0 := time.Now()
+		rep, err := st.GC(ctx, store.GCPolicy{RetainDays: -1, RetainSessions: -1})
+		cp.GCSeconds = time.Since(t0).Seconds()
+		close(stop)
+		<-sampledGC
+		if err != nil {
+			b.Fatalf("store GC pass at %d deliveries: %v", cp.Deliveries, err)
+		}
+		cp.GCHeapRiseMiB = float64(peak-before.HeapInuse) / (1 << 20)
+		cp.GCRetentionHalted = rep.RetentionRootsError
+		cp.GCCompleted = !rep.RetentionRootsError && !rep.Truncated
+		cp.GCRetentionRootsLen = rep.Roots
+	}
 	checkpoint := func(n int) {
 		runtime.GC()
 		var ms runtime.MemStats
@@ -252,6 +305,9 @@ func runRolloverResourceCost(b *testing.B, deliveries, workers int) rolloverReso
 			}
 			return nil
 		})
+		if n > 0 {
+			gcPass(&cp)
+		}
 		cp.JournalMiB = float64(cp.JournalBytes) / (1 << 20)
 		cp.GenerationMiB = float64(cp.GenerationBytes) / (1 << 20)
 		cp.TotalStateMiB = float64(cp.JournalBytes+cp.GenerationBytes+cp.OtherStateBytes) / (1 << 20)
