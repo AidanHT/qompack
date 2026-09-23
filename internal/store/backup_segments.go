@@ -130,7 +130,7 @@ func backupSegmentMutableFile(name string) bool {
 		return false
 	}
 	switch parts[3] {
-	case deliveryLeaseFile, deliveryAckFile, deliveryLeasePositionFile, deliveryAckPositionFile:
+	case deliveryLeaseFile, deliveryAckFile, deliveryLeasePositionFile, deliveryAckPositionFile, dcarryFile:
 		return true
 	default:
 		return false

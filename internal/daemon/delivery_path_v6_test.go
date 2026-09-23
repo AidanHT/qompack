@@ -12,11 +12,11 @@ import (
 
 func TestDeliveryPath_V6_ExtraStagedEvidenceRefusesAdoption(t *testing.T) {
 	state := t.TempDir()
-	require.NoError(t, createFreshSegment(state, 1))
+	require.NoError(t, createFreshSegment(state, 1, emptyCarry(t, 1)))
 	conflict := filepath.Join(segmentDir(state, 1), "interrupted-attempt")
 	want := []byte("retain for recovery")
 	require.NoError(t, os.WriteFile(conflict, want, 0o600))
-	require.Error(t, createFreshSegment(state, 1))
+	require.Error(t, createFreshSegment(state, 1, emptyCarry(t, 1)))
 	got, err := os.ReadFile(conflict)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
@@ -80,7 +80,7 @@ func TestDeliveryPath_V6_RefusesAliasedSegmentParent(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(state, deliverySegmentsDir)); err != nil {
 		t.Skipf("platform cannot create this symlink fixture: %v", err)
 	}
-	require.Error(t, createFreshSegment(state, 1))
+	require.Error(t, createFreshSegment(state, 1, emptyCarry(t, 1)))
 	entries, err := os.ReadDir(outside)
 	require.NoError(t, err)
 	require.Empty(t, entries, "no stage may be written through the alias")

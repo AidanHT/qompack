@@ -129,8 +129,16 @@ func TestDeliveryGeneration_ArchivedAckExactJoinAndCorruptionRefusal(t *testing.
 	require.ErrorIs(t, g.verifyArchivedAck(ctx, never), errGenerationUnavailable,
 		"an ACK whose lease does not resolve is unavailable, never a blind join")
 
-	// Corrupt the current root page: the join can no longer be read → unavailable, never fresh.
-	require.NoError(t, os.WriteFile(paths.Long(g.radix.pagePath(g.currentRoot())), []byte("corrupt"), 0o600))
+	// Corrupt the current root page: the join can no longer be read → unavailable, never fresh. The
+	// store is reopened first: a running store keeps verified upper pages in memory (radixNodeCache), so
+	// on-disk damage to a page it already holds surfaces at its next cold read, which a reopen forces.
+	root := g.currentRoot()
+	dir := g.dir
+	require.NoError(t, g.close())
+	require.NoError(t, os.WriteFile(paths.Long(g.radix.pagePath(root)), []byte("corrupt"), 0o600))
+	g, err = openDeliveryGenerations(dir)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = g.close() })
 	err = g.verifyArchivedAck(ctx, good)
 	require.Error(t, err)
 	require.True(t, err == errRadixUnavailable || err == errGenerationUnavailable, "corruption must be unavailable, got %v", err)

@@ -77,9 +77,10 @@ const (
 	deliveryAckPositionFile = "delivery-ack-position.json"
 	// The SP20-D4 generation store internal/daemon keeps under state/delivery-generations/. Named as
 	// literals for the same reason as the sidecars: daemon imports store, so store cannot import daemon
-	// back (00-ARCHITECTURE.md §3.2). Only the manifest and its atomic head are watched — the
-	// content-addressed page files under pages/ are immutable (a page's name IS its content hash), so a
-	// captured page always equals the live one and cannot move under the walk; what CAN move is the
+	// back (00-ARCHITECTURE.md §3.2). Only the manifest and its atomic head are watched — the files
+	// under pages/ are write-once (a generation's pack under pages/packs/ and its root pointer, named by
+	// the root's content hash, are each published by a create-new link and never rewritten), so a
+	// captured one always equals the live one and cannot move under the walk; what CAN move is the
 	// store advancing a generation, which rewrites the head and appends the manifest.
 	deliveryGenerationsDir          = "delivery-generations"
 	deliveryGenerationsManifestFile = "manifest.jsonl"
@@ -114,10 +115,11 @@ const (
 // naming a root whose newest pages the walk never saw, or the copied manifest can hold a different
 // frontier from the copied head. Compare both files before, during and after the copy. A change
 // before the file's own turn in the walk must be detected too. Immutable page closure still depends
-// on the writer protocol and restore validation; this check alone does not prove that closure. These
-// files exist only when rollover is enabled (default off, delivery_generation.go); until then the
-// directory is absent and refuseIfTheProjectMoved's "not copied, still absent → continue" branch makes
-// watching them a no-op.
+// on the writer protocol and restore validation; this check alone does not prove that closure. The
+// store holds generations once the delivery journal has first rotated (rollover is on by default since
+// the V6 close-out). Before that it is absent, or an empty manifest with no head that nothing appends
+// to, and watching it changes nothing: refuseIfTheProjectMoved's "not copied, still absent → continue"
+// branch covers the absent head.
 // The active segment authority is watched too; refuseIfTheProjectMoved adds
 // each copied segment's mutable journals/seals to the same comparison.
 var backupLiveWriterFiles = []string{

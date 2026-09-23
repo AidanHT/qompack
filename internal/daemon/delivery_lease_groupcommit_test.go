@@ -1801,6 +1801,9 @@ func TestDeliveryJournal_BatchMatchesSequentialOutcomes(t *testing.T) {
 }
 
 func runLeaseTwin(t *testing.T, seed uint64, start leaseStart, n int) {
+	if start.entries > 0 {
+		withRolloverDisabled(t) // the bounds refuse only in a journal that cannot rotate
+	}
 	script := newLeaseScript(rand.New(rand.NewPCG(seed, uint64(n))), n, start.big)
 	gate := leaseCall{delivery: leaseToken(0), session: "t12-gate", request: testDeliveryRequest("t12 gate")}
 	open := func() *deliveryJournal {

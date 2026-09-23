@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -102,12 +103,17 @@ func TestDeliverySealSegment_RefusesCorruptActiveSegmentThatLegacyOnlyAccepts(t 
 	state := paths.Of(root).State
 
 	// Negative control: segment 0 (the legacy four files) is independently valid, which is exactly what
-	// the pre-fix tool checked — so it would have reported this store fine.
+	// the pre-fix tool checked — so it would have reported this store fine. Segment 0 is archived, so its
+	// seal is the frozen old-reader barrier (delivery_frozen_seal.go), which the legacy seal reader refuses
+	// by design; the journal is loaded against the position that frozen seal names, with the same scan.
 	lock, err := acquireTestDeliveryLock(root)
 	require.NoError(t, err)
 	seg0 := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
 	seg0.ackPath = filepath.Join(state, deliveryAckFile)
-	_, err = seg0.load()
+	frozen, isFrozen, err := readFrozenSealFile(seg0.positionPath(), deliveryChainSeed)
+	require.NoError(t, err)
+	require.True(t, isFrozen, "an archived segment 0 carries the frozen seal")
+	_, err = seg0.loadFrom(frozen, nil)
 	require.NoError(t, err, "segment 0 loads on its own; a legacy-only check accepts the whole store")
 	require.NoError(t, lock.Release())
 
@@ -221,25 +227,71 @@ func TestDeliverySealSegment_ConversionRefusedPreservesBytes(t *testing.T) {
 func TestDeliverySealSegment_UnmigratedLegacyTreeStillChecks(t *testing.T) {
 	root := t.TempDir()
 	ctx := context.Background()
-	// A plain legacy store: seam OFF, so no authority or generation store is created.
-	lock, err := acquireTestDeliveryLock(root)
-	require.NoError(t, err)
-	j, err := lock.openDeliveryJournal()
-	require.NoError(t, err)
-	_, err = j.lease(ctx, genNonce(0), "s", testDeliveryRequest("a"))
-	require.NoError(t, err)
-	require.NoError(t, lock.Release())
+	// A plain legacy store, as a build that predates rollover wrote it: no authority or generation
+	// store is created.
+	legacyFixture(t, func() {
+		lock, err := acquireTestDeliveryLock(root)
+		require.NoError(t, err)
+		j, err := lock.openDeliveryJournal()
+		require.NoError(t, err)
+		_, err = j.lease(ctx, genNonce(0), "s", testDeliveryRequest("a"))
+		require.NoError(t, err)
+		require.NoError(t, lock.Release())
+	})
+	_, err := os.Lstat(filepath.Join(paths.Of(root).State, deliverySegmentHeadFile))
+	require.True(t, os.IsNotExist(err), "fixture: a genuinely unmigrated tree")
 
 	out, err := checkSeal(t, root)
 	require.NoError(t, err, "an unmigrated legacy tree still checks as before")
 	require.Contains(t, out, "checked")
 }
 
-// genRootPagePath is the on-disk radix page file for a committed root (its content hash names it).
+// TestDeliverySealSegment_FreshStoreThatNeverRotatedChecks: a store the current build opened carries
+// the active-0 authority and an EMPTY generation store (nothing is archived before the first
+// rotation). Segment 0 is still its one active journal, so the tool checks it exactly as it checks a
+// store written before segments, after validating the authority read-only.
+func TestDeliverySealSegment_FreshStoreThatNeverRotatedChecks(t *testing.T) {
+	root := t.TempDir()
+	ctx := context.Background()
+	lock, err := acquireTestDeliveryLock(root)
+	require.NoError(t, err)
+	j, err := lock.openDeliveryJournal()
+	require.NoError(t, err)
+	l, err := j.lease(ctx, genNonce(0), "s", testDeliveryRequest("a"))
+	require.NoError(t, err)
+	require.NoError(t, j.acknowledge(ctx, l.Delivery, l.ObservationID, core.Hash{}))
+	require.Equal(t, uint64(0), j.segment)
+	require.Zero(t, j.gen.generationCount(), "nothing is archived before the first rotation")
+	require.NoError(t, lock.Release())
+	_, err = os.Lstat(filepath.Join(paths.Of(root).State, deliverySegmentHeadFile))
+	require.NoError(t, err, "fixture: the active-0 authority exists")
+
+	before := digestState(t, root)
+	out, err := checkSeal(t, root)
+	require.NoError(t, err, "a store that has not rotated yet checks")
+	require.Contains(t, out, "checked; nothing was written")
+	require.Equal(t, before, digestState(t, root), "--check writes nothing")
+}
+
+// genRootPagePath is the on-disk root pointer for a committed root (its content hash names it); the
+// pointer names the pack record that holds the root page's bytes.
 func genRootPagePath(state, rootHex string) string {
 	b, _ := hex.DecodeString(rootHex)
 	shard := hex.EncodeToString(b[:1])
-	return filepath.Join(state, "delivery-generations", "pages", shard, rootHex+".page")
+	return filepath.Join(state, "delivery-generations", "pages", shard, rootHex+radixRootSuffix)
+}
+
+// corruptGenRootPage flips one byte of a committed root's PAGE bytes inside the pack its pointer names,
+// so the page no longer hashes to its name (the pointer itself stays intact).
+func corruptGenRootPage(t *testing.T, state, rootHex string) {
+	t.Helper()
+	pointer, err := os.ReadFile(paths.Long(genRootPagePath(state, rootHex)))
+	require.NoError(t, err)
+	require.Len(t, pointer, radixRootFileLen)
+	pack := binary.BigEndian.Uint64(pointer[len(radixRootMagic):])
+	off := binary.BigEndian.Uint64(pointer[len(radixRootMagic)+8:])
+	packPath := filepath.Join(state, "delivery-generations", "pages", radixPacksDir, radixPackName(pack))
+	flipPackByte(t, packPath, int64(off)+radixRecordHeaderLen+7)
 }
 
 // TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused is the fix for main's #1: the
@@ -274,9 +326,8 @@ func TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused(t *te
 	require.Equal(t, active, h.Active)
 	require.NotEmpty(t, h.BaseRoot, "the active segment has a real predecessor root")
 
-	pagePath := genRootPagePath(state, h.BaseRoot)
-	require.FileExists(t, pagePath)
-	require.NoError(t, os.WriteFile(paths.Long(pagePath), []byte("corrupt"), 0o600))
+	require.FileExists(t, genRootPagePath(state, h.BaseRoot))
+	corruptGenRootPage(t, state, h.BaseRoot)
 
 	_, err = checkSeal(t, root)
 	require.Error(t, err, "a corrupt predecessor page under a first-arrival lease must refuse, not be swallowed")
