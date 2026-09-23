@@ -553,6 +553,14 @@ func liveOrderTool(dd *daemon, root string, sess core.SessionID, i int) ipc.Requ
 	}
 }
 
+// liveOrderSettleBound is the settle bound the two flush-ordering tests below give the flush in
+// place of the product's settleSessionBound. They assert WHAT the flush publishes before SessionEnd,
+// not how fast: a race-instrumented run with GOMAXPROCS=4 on a co-loaded host took more than the
+// product's 5 s to publish four deliveries, and the flush then correctly gave up and said so. What
+// the flush does when its bound expires is the subject of
+// TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing, with its own short bound.
+const liveOrderSettleBound = liveOrderBound
+
 // liveOrderFlush is the SessionEnd hook's request.
 func liveOrderFlush(dd *daemon, root string, sess core.SessionID) ipc.Request {
 	return ipc.Request{
@@ -631,6 +639,7 @@ func TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd(t *testin
 		dd.stopPromptRecordings(grace)
 	})
 	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.ing.settleBound = liveOrderSettleBound
 
 	const sess core.SessionID = "sess-flush-settles"
 	release := make(chan struct{})
@@ -697,6 +706,7 @@ func TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd(t *testing.T) {
 		dd.stopPromptRecordings(grace)
 	})
 	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.ing.settleBound = liveOrderSettleBound
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	ctx := context.Background()
 
