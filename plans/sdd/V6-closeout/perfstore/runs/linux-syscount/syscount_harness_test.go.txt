@@ -1,0 +1,98 @@
+package store
+
+// Syscall-count harness for the V6 close-out perfstore report. NOT part of the repository's test
+// suite: it is copied into a base and a final tree inside a throwaway container and run under
+// `strace -f`, and the trace is cut at the two marker stats below. Everything outside the markers
+// (store open, fixture puts) is setup and is not counted.
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/core"
+)
+
+func syscountMark(name string) { _, _ = os.Stat("/qompack-syscount-" + name) }
+
+func TestSyscallHarness(t *testing.T) {
+	op := os.Getenv("QP_SYSCOUNT_OP")
+	if op == "" {
+		t.Skip("harness only")
+	}
+	ctx := context.Background()
+	const n = 20
+	switch op {
+	case "getchunk":
+		tp := newTestStore(t)
+		res, err := tp.Store.PutBytes(ctx, bigPayload(100<<10), PutOptions{Path: "src/bench.ts"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := res.Root.Chunks[len(res.Root.Chunks)/2].Hash
+		if _, err := tp.Store.GetChunk(ctx, h); err != nil {
+			t.Fatal(err)
+		}
+		syscountMark("begin")
+		for i := 0; i < n; i++ {
+			if _, err := tp.Store.GetChunk(ctx, h); err != nil {
+				t.Fatal(err)
+			}
+		}
+		syscountMark("end")
+	case "putcold":
+		stores := make([]*testProject, n)
+		payloads := make([][]byte, n)
+		for i := range stores {
+			stores[i] = newTestStore(t)
+			payloads[i] = append([]byte(fmt.Sprintf("iteration %d\n", i)), bigPayload(100<<10)...)
+		}
+		syscountMark("begin")
+		for i := range stores {
+			if _, err := stores[i].Store.PutBytes(ctx, payloads[i], PutOptions{Tool: "FileRead", Path: "src/bench.ts"}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		syscountMark("end")
+	case "putwarm":
+		tp := newTestStore(t)
+		p := bigPayload(100 << 10)
+		if _, err := tp.Store.PutBytes(ctx, p, PutOptions{Tool: "FileRead", Path: "src/bench.ts"}); err != nil {
+			t.Fatal(err)
+		}
+		syscountMark("begin")
+		for i := 0; i < n; i++ {
+			if _, err := tp.Store.PutBytes(ctx, p, PutOptions{Tool: "FileRead", Path: "src/bench.ts"}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		syscountMark("end")
+	case "search":
+		tp := newTestStore(t, func(_ *config.Config, d *Deps) { d.Chunker = fixedChunker{size: 4096} })
+		body := []byte(strings.Repeat("the quick brown fox jumps over the lazy dog\n", 190))
+		for i := 0; i < 1000; i++ {
+			payload := append(append([]byte{}, body...), []byte(fmt.Sprintf("unique tail %d\n", i))...)
+			res, err := tp.Store.PutBytes(ctx, payload, PutOptions{Tool: "FileRead", Path: fmt.Sprintf("src/f%04d.ts", i)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := tp.Store.RecordToolUse(ctx, ToolUseRecord{
+				ID: core.ToolUseID(fmt.Sprintf("tu-%04d", i)), Session: "sess-bench",
+				TS: core.UnixMilli(int64(i)), Tool: "FileRead", Root: res.Root.Hash,
+				Path: fmt.Sprintf("src/f%04d.ts", i),
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		syscountMark("begin")
+		if _, err := tp.Store.Search(ctx, Query{Text: "lazy dog", K: 10}); err != nil {
+			t.Fatal(err)
+		}
+		syscountMark("end")
+	default:
+		t.Fatalf("unknown op %q", op)
+	}
+}

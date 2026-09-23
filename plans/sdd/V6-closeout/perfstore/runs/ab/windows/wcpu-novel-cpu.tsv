@@ -1,0 +1,18 @@
+﻿round	variant	wall_s	user_s	kernel_s	cpu_total_s	bench_line
+1	basebench2	4.959	0.203	1.156	1.359	BenchmarkPutObject_NovelChunk-22    	     300	  12028963 ns/op	   0.34 MB/s	  735566 B/op	     128 allocs/op
+1	final2	5.298	0.266	0.891	1.156	BenchmarkPutObject_NovelChunk-22    	     300	  11224968 ns/op	   0.36 MB/s	   10240 B/op	      18 allocs/op
+2	final2	4.295	0.406	0.625	1.031	BenchmarkPutObject_NovelChunk-22    	     300	   8716956 ns/op	   0.47 MB/s	   10232 B/op	      18 allocs/op
+2	basebench2	7.432	0.359	1	1.359	BenchmarkPutObject_NovelChunk-22    	     300	  14731260 ns/op	   0.28 MB/s	  717197 B/op	     126 allocs/op
+3	basebench2	7.017	0.266	1.203	1.469	BenchmarkPutObject_NovelChunk-22    	     300	  18035097 ns/op	   0.23 MB/s	  509790 B/op	     125 allocs/op
+3	final2	6.663	0.188	0.859	1.047	BenchmarkPutObject_NovelChunk-22    	     300	  14917263 ns/op	   0.27 MB/s	   10220 B/op	      18 allocs/op
+4	final2	5.188	0.188	0.984	1.172	BenchmarkPutObject_NovelChunk-22    	     300	  14392851 ns/op	   0.28 MB/s	   10234 B/op	      18 allocs/op
+4	basebench2	2.85	0.266	0.703	0.969	BenchmarkPutObject_NovelChunk-22    	     300	   7580909 ns/op	   0.54 MB/s	 1027972 B/op	     128 allocs/op
+5	basebench2	1.992	0.328	0.656	0.984	BenchmarkPutObject_NovelChunk-22    	     300	   3560442 ns/op	   1.15 MB/s	 1143201 B/op	     130 allocs/op
+5	final2	2.238	0.156	0.672	0.828	BenchmarkPutObject_NovelChunk-22    	     300	   4593012 ns/op	   0.89 MB/s	   10232 B/op	      18 allocs/op
+6	final2	2.289	0.328	0.516	0.844	BenchmarkPutObject_NovelChunk-22    	     300	   4267167 ns/op	   0.96 MB/s	   10234 B/op	      18 allocs/op
+6	basebench2	1.734	0.438	0.516	0.953	BenchmarkPutObject_NovelChunk-22    	     300	   4080142 ns/op	   1.00 MB/s	  734486 B/op	     128 allocs/op
+7	basebench2	1.698	0.281	0.688	0.969	BenchmarkPutObject_NovelChunk-22    	     300	   4198208 ns/op	   0.98 MB/s	  605171 B/op	     125 allocs/op
+7	final2	1.373	0.234	0.625	0.859	BenchmarkPutObject_NovelChunk-22    	     300	   2701889 ns/op	   1.52 MB/s	   10219 B/op	      18 allocs/op
+8	final2	1.249	0.188	0.562	0.75	BenchmarkPutObject_NovelChunk-22    	     300	   2889678 ns/op	   1.42 MB/s	   10233 B/op	      18 allocs/op
+8	basebench2	1.557	0.312	0.578	0.891	BenchmarkPutObject_NovelChunk-22    	     300	   3162617 ns/op	   1.30 MB/s	  702975 B/op	     125 allocs/op
+done

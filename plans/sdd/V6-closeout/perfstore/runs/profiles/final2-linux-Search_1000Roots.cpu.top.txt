@@ -1,0 +1,50 @@
+File: store-final.test
+Build ID: 6750d62458495a42fe27c018ec35fddb64d1c094
+Type: cpu
+Time: 2026-09-23 00:11:19 UTC
+Duration: 137.29s, Total samples = 3.34s ( 2.43%)
+Active filters:
+   focus=materializeAll.func1|FSStore..Search
+Showing nodes accounting for 0.68s, 20.36% of 3.34s total
+Showing top 40 nodes out of 101
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      0.47s 14.07%  github.com/qompack/qompack/internal/store.(*FSStore).materializeAll.func1
+     0.01s   0.3%   0.3%      0.47s 14.07%  github.com/qompack/qompack/internal/store.(*FSStore).materializeWith
+         0     0%   0.3%      0.45s 13.47%  github.com/qompack/qompack/internal/store.(*FSStore).getObject
+         0     0%   0.3%      0.45s 13.47%  github.com/qompack/qompack/internal/store.(*sharedChunkReads).get
+         0     0%   0.3%      0.42s 12.57%  github.com/qompack/qompack/internal/store.(*FSStore).readObjectFile
+         0     0%   0.3%      0.42s 12.57%  github.com/qompack/qompack/internal/store.readBoundedObject
+         0     0%   0.3%      0.39s 11.68%  github.com/qompack/qompack/internal/store.(*FSStore).Search
+         0     0%   0.3%      0.39s 11.68%  github.com/qompack/qompack/internal/store.BenchmarkSearch_1000Roots
+         0     0%   0.3%      0.39s 11.68%  testing.(*B).runN
+     0.01s   0.3%   0.6%      0.38s 11.38%  github.com/qompack/qompack/internal/store.(*FSStore).score
+         0     0%   0.6%      0.38s 11.38%  testing.(*B).launch
+     0.36s 10.78% 11.38%      0.36s 10.78%  internal/runtime/syscall/linux.Syscall6
+         0     0% 11.38%      0.36s 10.78%  syscall.RawSyscall6
+         0     0% 11.38%      0.33s  9.88%  github.com/qompack/qompack/internal/store.openObjectChecked
+         0     0% 11.38%      0.33s  9.88%  github.com/qompack/qompack/internal/store.openObjectLeaf (inline)
+     0.06s  1.80% 13.17%      0.32s  9.58%  github.com/qompack/qompack/internal/store.countFold
+         0     0% 13.17%      0.27s  8.08%  os.ignoringEINTR (inline)
+         0     0% 13.17%      0.27s  8.08%  syscall.Syscall6
+     0.23s  6.89% 20.06%      0.26s  7.78%  github.com/qompack/qompack/internal/store.foldEqualAt (inline)
+         0     0% 20.06%      0.19s  5.69%  os.Lstat
+         0     0% 20.06%      0.19s  5.69%  os.lstatNolog
+         0     0% 20.06%      0.17s  5.09%  os.lstatNolog.func1 (inline)
+         0     0% 20.06%      0.17s  5.09%  syscall.Lstat (inline)
+         0     0% 20.06%      0.17s  5.09%  syscall.fstatat
+         0     0% 20.06%      0.12s  3.59%  os.OpenFile
+         0     0% 20.06%      0.12s  3.59%  os.openFileNolog
+         0     0% 20.06%      0.10s  2.99%  os.open
+         0     0% 20.06%      0.10s  2.99%  os.openFileNolog.func1 (inline)
+         0     0% 20.06%      0.10s  2.99%  syscall.Open (inline)
+         0     0% 20.06%      0.10s  2.99%  syscall.openat
+         0     0% 20.06%      0.09s  2.69%  syscall.Syscall
+         0     0% 20.06%      0.07s  2.10%  github.com/qompack/qompack/internal/store.readExactSize
+     0.01s   0.3% 20.36%      0.07s  2.10%  internal/poll.(*FD).Read
+         0     0% 20.36%      0.07s  2.10%  io.ReadAtLeast
+         0     0% 20.36%      0.07s  2.10%  io.ReadFull (inline)
+         0     0% 20.36%      0.07s  2.10%  os.(*File).Read
+         0     0% 20.36%      0.07s  2.10%  os.(*File).read (inline)
+         0     0% 20.36%      0.06s  1.80%  internal/poll.ignoringEINTRIO (inline)
+         0     0% 20.36%      0.06s  1.80%  syscall.Read (inline)
+         0     0% 20.36%      0.06s  1.80%  syscall.read

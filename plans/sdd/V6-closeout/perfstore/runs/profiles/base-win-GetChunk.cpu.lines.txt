@@ -1,0 +1,49 @@
+Total: 16.73s
+ROUTINE ======================== github.com/qompack/qompack/internal/paths.OpenFile in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\paths\appendonly.go
+         0      340ms (flat, cum)  2.03% of Total
+         .      340ms     59:func mayBeProtected(p string) bool {
+ROUTINE ======================== github.com/qompack/qompack/internal/paths.WriteAtomic in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\paths\atomic.go
+         0      830ms (flat, cum)  4.96% of Total
+         .       50ms    132:	return runtime.GOOS != "windows" || perm&ownerWriteBit == 0
+         .      210ms    135:// WriteAtomic writes b to p durably and atomically: stage in a temp file under the project's
+         .      100ms    142:	root, ok := rootOf(p)
+         .      170ms    146:
+         .       90ms    150:	}
+         .       10ms    153:		return err
+         .      190ms    156:	// The staging file is removed on every path that leaves it behind, and only on those: after a
+         .       10ms    159:	renamed := false
+ROUTINE ======================== github.com/qompack/qompack/internal/paths.WriteAtomic.func1 in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\paths\atomic.go
+         0       10ms (flat, cum)  0.06% of Total
+         .       10ms    140:// ReplaceBloom is the one sanctioned exception, and it never calls WriteAtomic.
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).PutBytes in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\put.go
+         0      2.21s (flat, cum) 13.21% of Total
+         .      170ms    121:	cr, err := s.deps.Canon.Run(o.Tool, o.Path, red, s.canonOptions(o))
+         .       10ms    130:	chunks := s.splitChecked(canonical)
+         .      320ms    169:	pw := s.pending(root, refs)
+         .      1.68s    172:		n, novel, perr := s.putObject(c.Hash, plain)
+         .       30ms    198:	if err := s.appendRoot(rootEntry{
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).beginPendingWrite in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\lifecycle.go
+         0      320ms (flat, cum)  1.91% of Total
+         .       90ms    191:	if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
+         .      230ms    207:	if err := paths.WriteAtomic(p, append(b, '\n'), 0o600); err != nil {
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).putObject in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\objects.go
+         0      1.68s (flat, cum) 10.04% of Total
+         .       50ms    197:}
+         .       30ms    203:// reconcile. On Windows the rename is retried a few times, because antivirus contention makes the
+         .      580ms    211:// contending scanner can make progress without this goroutine burning either the CPU or the clock.
+         .      640ms    219:		if err = os.Rename(paths.Long(tmp), paths.Long(dst)); err == nil {
+         .      380ms    222:		// Another writer may have landed the identical object in the meantime.
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).writeStaged in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\objects.go
+         0      640ms (flat, cum)  3.83% of Total
+         .      180ms    236:// It returns the number of COMPRESSED bytes written and whether the object was novel. An object
+         .      190ms    247:		return 0, false, nil
+         .      270ms    251:	if s.compressing() {
+ROUTINE ======================== github.com/qompack/qompack/internal/store.readBoundedObject in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\objects.go
+         0      3.51s (flat, cum) 20.98% of Total
+         .      120ms    312:		b, readErr := readBoundedObject(p, limit)
+         .      740ms    313:		if readErr == nil {
+         .       60ms    317:			s.quarantine(h, p, "physical size exceeds limit")
+         .      1.03s    320:		if !os.IsNotExist(readErr) {
+         .      160ms    325:			// string lives in mcp.damaged, which this package does not own.
+         .      770ms    329:	// No candidate file exists. Whether that is ABSENCE or DAMAGE is a question only the index can
+         .      630ms    335:	//

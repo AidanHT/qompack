@@ -1,0 +1,40 @@
+=== RUN   TestEncode_KeepsItsEncoderAcrossGarbageCollection
+--- PASS: TestEncode_KeepsItsEncoderAcrossGarbageCollection (0.01s)
+=== RUN   TestEncode_IsByteIdenticalToAFreshEncoder
+--- PASS: TestEncode_IsByteIdenticalToAFreshEncoder (0.44s)
+=== RUN   TestGolden_IndexFormats
+--- PASS: TestGolden_IndexFormats (0.73s)
+=== RUN   TestGolden_IndexFormatsAreStableWithinAProcess
+--- PASS: TestGolden_IndexFormatsAreStableWithinAProcess (1.07s)
+=== RUN   TestDecode_RejectsDamagedFrames
+=== RUN   TestDecode_RejectsDamagedFrames/not_a_zstd_frame_at_all
+=== RUN   TestDecode_RejectsDamagedFrames/magic_bytes_only
+=== RUN   TestDecode_RejectsDamagedFrames/truncated_mid-frame
+=== RUN   TestDecode_RejectsDamagedFrames/last_byte_lopped_off
+=== RUN   TestDecode_RejectsDamagedFrames/one_flipped_byte_inside_the_frame
+--- PASS: TestDecode_RejectsDamagedFrames (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/not_a_zstd_frame_at_all (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/magic_bytes_only (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/truncated_mid-frame (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/last_byte_lopped_off (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/one_flipped_byte_inside_the_frame (0.00s)
+=== RUN   TestEncode_IsReusableAcrossCalls
+--- PASS: TestEncode_IsReusableAcrossCalls (0.00s)
+=== RUN   TestEncodedObjectLimit_PadsThePlaintextLimitRatherThanRepeatingIt
+=== PAUSE TestEncodedObjectLimit_PadsThePlaintextLimitRatherThanRepeatingIt
+=== RUN   TestGolden_RootsV2IndexLoadsThroughTheReader
+--- PASS: TestGolden_RootsV2IndexLoadsThroughTheReader (0.16s)
+=== RUN   TestGolden_RootsV1IndexStillLoadsByteIdentically
+--- PASS: TestGolden_RootsV1IndexStillLoadsByteIdentically (0.20s)
+=== RUN   TestStoreCompress_RoundTrip
+    compress_test.go:20: [rapid] OK, passed 100 tests (1.5621802s)
+--- PASS: TestStoreCompress_RoundTrip (1.56s)
+=== RUN   TestStoreCompress_Encode_EmptyInput
+--- PASS: TestStoreCompress_Encode_EmptyInput (0.00s)
+=== RUN   TestStoreCompress_Decode_RejectsOversizedBomb
+--- PASS: TestStoreCompress_Decode_RejectsOversizedBomb (0.13s)
+=== CONT  TestEncodedObjectLimit_PadsThePlaintextLimitRatherThanRepeatingIt
+--- PASS: TestEncodedObjectLimit_PadsThePlaintextLimitRatherThanRepeatingIt (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	4.609s
+exit=0

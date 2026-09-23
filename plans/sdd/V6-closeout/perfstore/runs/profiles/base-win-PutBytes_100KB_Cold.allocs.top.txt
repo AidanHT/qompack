@@ -1,0 +1,48 @@
+File: store-base.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\perfstore\store-base.exe2026-09-22 17:22:33.8917402 -0400 EDT
+Type: alloc_objects
+Time: 2026-09-22 17:26:10 EDT
+Showing nodes accounting for 249120, 98.58% of 252697 total
+Dropped 75 nodes (cum <= 1263)
+Showing top 40 nodes out of 156
+      flat  flat%   sum%        cum   cum%
+     46541 18.42% 18.42%      46541 18.42%  syscall.UTF16FromString
+     32768 12.97% 31.39%      32784 12.97%  os.(*File).readdir
+     26527 10.50% 41.88%      26527 10.50%  strings.(*Builder).WriteString (inline)
+     16385  6.48% 48.37%      16385  6.48%  regexp/syntax.(*parser).maybeConcat
+     15604  6.17% 54.54%      15654  6.19%  github.com/qompack/qompack/internal/store.openSegLog
+     15555  6.16% 60.70%      15555  6.16%  runtime.mallocgc
+     10923  4.32% 65.02%      10923  4.32%  internal/sync.newEntryNode[go.shape.interface {},go.shape.interface {}] (inline)
+     10923  4.32% 69.34%      10923  4.32%  time.Time.Format
+     10084  3.99% 73.33%      30558 12.09%  syscall.FullPath
+      9362  3.70% 77.04%       9362  3.70%  regexp/syntax.(*parser).newRegexp (inline)
+      8671  3.43% 80.47%       8671  3.43%  regexp/syntax.(*compiler).inst (inline)
+      8192  3.24% 83.71%      24577  9.73%  regexp/syntax.(*parser).push
+      8192  3.24% 86.95%       8192  3.24%  regexp/syntax.appendRange
+      5461  2.16% 89.11%       5461  2.16%  runtime/pprof.allFrames
+      4681  1.85% 90.97%       4681  1.85%  regexp/syntax.(*Regexp).Simplify
+      4681  1.85% 92.82%       4681  1.85%  syscall.UTF16ToString
+      3277  1.30% 94.12%       3277  1.30%  compress/gzip.NewWriterLevel
+      2731  1.08% 95.20%       2731  1.08%  os.newFile
+      2731  1.08% 96.28%       2731  1.08%  strings.(*Builder).WriteByte (inline)
+      2049  0.81% 97.09%       2049  0.81%  github.com/klauspost/compress/zstd.(*fseEncoder).allocCtable (inline)
+      1820  0.72% 97.81%       1820  0.72%  github.com/qompack/qompack/internal/tokens.(*exact).NoteChunk
+      1638  0.65% 98.46%       1638  0.65%  github.com/qompack/qompack/internal/store.(*FSStore).indexRootLocked
+       270  0.11% 98.56%       4007  1.59%  github.com/qompack/qompack/internal/store.Encode
+        33 0.013% 98.58%       2218  0.88%  github.com/qompack/qompack/internal/store.(*FSStore).loadSessions
+        21 0.0083% 98.58%     153867 60.89%  github.com/qompack/qompack/internal/store.BenchmarkPutBytes_100KB_Cold
+         0     0% 98.58%       3737  1.48%  github.com/klauspost/compress/zstd.(*Encoder).EncodeAll
+         0     0% 98.58%       3478  1.38%  github.com/klauspost/compress/zstd.(*Encoder).encodeAll
+         0     0% 98.58%       2482  0.98%  github.com/klauspost/compress/zstd.(*blockEnc).encode
+         0     0% 98.58%       2049  0.81%  github.com/klauspost/compress/zstd.(*fseEncoder).setRLE
+         0     0% 98.58%       7022  2.78%  github.com/qompack/qompack/internal/paths.AppendOnly
+         0     0% 98.58%      10294  4.07%  github.com/qompack/qompack/internal/paths.EnsureLayout
+         0     0% 98.58%      13654  5.40%  github.com/qompack/qompack/internal/paths.IsProtected
+         0     0% 98.58%      25852 10.23%  github.com/qompack/qompack/internal/paths.Long
+         0     0% 98.58%      21846  8.65%  github.com/qompack/qompack/internal/paths.Of
+         0     0% 98.58%      27777 10.99%  github.com/qompack/qompack/internal/paths.OpenFile
+         0     0% 98.58%      12845  5.08%  github.com/qompack/qompack/internal/paths.WriteAtomic
+         0     0% 98.58%       2521     1%  github.com/qompack/qompack/internal/paths.WriteAtomic.func1
+         0     0% 98.58%      14669  5.80%  github.com/qompack/qompack/internal/paths.rootOf
+         0     0% 98.58%       2731  1.08%  github.com/qompack/qompack/internal/paths.tmpDirFor
+         0     0% 98.58%      49685 19.66%  github.com/qompack/qompack/internal/redact.New (inline)

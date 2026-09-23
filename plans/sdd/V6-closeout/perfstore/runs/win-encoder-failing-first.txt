@@ -1,0 +1,15 @@
+=== RUN   TestEncode_KeepsItsEncoderAcrossGarbageCollection
+    compress_encoder_test.go:37: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-perfstore/internal/store/compress_encoder_test.go:37
+        	Error:      	"29354608" is not less than "1048576"
+        	Test:       	TestEncode_KeepsItsEncoderAcrossGarbageCollection
+        	Messages:   	round 0: an Encode after a collection allocated 29354608 bytes, so it rebuilt encoder state
+--- FAIL: TestEncode_KeepsItsEncoderAcrossGarbageCollection (0.10s)
+=== RUN   TestEncode_IsByteIdenticalToAFreshEncoder
+--- PASS: TestEncode_IsByteIdenticalToAFreshEncoder (0.65s)
+=== RUN   TestEncode_IsReusableAcrossCalls
+--- PASS: TestEncode_IsReusableAcrossCalls (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1.283s
+FAIL
+exit=1

@@ -1,0 +1,21 @@
+round 1 base 22:43:42 load 7.04 5.18 5.58
+round 1 final 22:44:03 load 6.95 5.28 5.60
+round 2 final 22:44:18 load 6.51 5.27 5.59
+round 2 base 22:44:35 load 6.25 5.27 5.59
+round 3 base 22:44:54 load 5.75 5.22 5.56
+round 3 final 22:45:15 load 6.09 5.32 5.59
+round 4 final 22:45:37 load 6.74 5.54 5.66
+round 4 base 22:45:58 load 10.26 6.41 5.94
+round 5 base 22:46:14 load 9.31 6.39 5.94
+round 5 final 22:46:33 load 8.13 6.32 5.93
+round 6 final 22:46:49 load 7.29 6.22 5.90
+round 6 base 22:47:07 load 6.42 6.09 5.86
+round 7 base 22:47:24 load 6.03 6.02 5.84
+round 7 final 22:47:46 load 6.09 6.03 5.85
+round 8 final 22:48:05 load 5.76 5.96 5.83
+round 8 base 22:48:20 load 5.37 5.87 5.80
+round 9 base 22:48:36 load 5.29 5.81 5.79
+round 9 final 22:48:53 load 5.07 5.74 5.76
+round 10 final 22:49:15 load 5.19 5.72 5.76
+round 10 base 22:49:31 load 4.99 5.64 5.73
+done 22:49:59 load 5.71 5.75 5.76

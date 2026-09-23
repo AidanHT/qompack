@@ -1,0 +1,2 @@
+first level missing=true: MkdirAll median 6415 us/leaf (min 4843 max 9000); create-first median 6050 us/leaf (min 3894 max 8858); create-first faster in 6/10 rounds
+first level missing=false: MkdirAll median 1653 us/leaf (min 469 max 6156); create-first median 2067 us/leaf (min 628 max 6605); create-first faster in 4/10 rounds

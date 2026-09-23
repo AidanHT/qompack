@@ -1,0 +1,30 @@
+=== RUN   TestPlatform_ProjectRootShapes
+=== RUN   TestPlatform_ProjectRootShapes/plain
+    paths_test.go:58: platform path-root-plain: verified — an ordinary ASCII project root (the control)
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1166387082\\plain-project" (75 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-1166387082\plain-project\.qompack exists; daemon reachable at \\.\pipe\qompack.aa591aaa6abc; admin.ping answered (mode=full hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-1166387082\plain-project\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-1166387082\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesplain3071169130\001\path-root-plain.json
+=== RUN   TestPlatform_ProjectRootShapes/spaces
+    paths_test.go:58: platform path-root-spaces: verified — a project root containing spaces
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1447331390\\my proj ect" (73 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-1447331390\my proj ect\.qompack exists; daemon reachable at \\.\pipe\qompack.ffeccafd51b1; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-1447331390\my proj ect\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-1447331390\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesspaces3654681348\001\path-root-spaces.json
+=== RUN   TestPlatform_ProjectRootShapes/unicode
+    paths_test.go:58: platform path-root-unicode: verified — a project root containing non-ASCII characters
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-2298636011\\prøjekt-日本-ünï" (83 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-2298636011\prøjekt-日本-ünï\.qompack exists; daemon reachable at \\.\pipe\qompack.f50fc1e3156c; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-2298636011\prøjekt-日本-ünï\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-2298636011\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesunicode2630312196\001\path-root-unicode.json
+=== RUN   TestPlatform_ProjectRootShapes/long
+    paths_test.go:58: platform path-root-long: verified — a project root whose absolute path exceeds MAX_PATH
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1175726738\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd" (373 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-1175726738\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\.qompack exists; daemon reachable at \\.\pipe\qompack.a0ffe6363dbb; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-1175726738\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-1175726738\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapeslong2529858415\001\path-root-long.json
+--- PASS: TestPlatform_ProjectRootShapes (160.57s)
+    --- PASS: TestPlatform_ProjectRootShapes/plain (17.97s)
+    --- PASS: TestPlatform_ProjectRootShapes/spaces (31.48s)
+    --- PASS: TestPlatform_ProjectRootShapes/unicode (72.08s)
+    --- PASS: TestPlatform_ProjectRootShapes/long (13.81s)
+=== RUN   TestPlatform_MixedCaseProjectRoot
+    paths_test.go:329: platform path-root-mixed-case: verified — mixed-case project root, resolved through the payload cwd, with the product exercised at both spellings
+          detail:   case-insensitive volume and case-folding normalization agree: "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-2301067353\\Proj-Case" and "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-2301067353\\proj-case" share ipc.ProjectHash12 63f117f75782 and transport \\.\pipe\qompack.63f117f75782; session-start ran at BOTH spellings and one daemon (pid 57460) served both, answering admin.ping (mode=full hot=sync)
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_MixedCaseProjectRoot4223730528\001\path-root-mixed-case.json
+--- PASS: TestPlatform_MixedCaseProjectRoot (5.17s)
+PASS
+ok  	github.com/qompack/qompack/test/platform	168.377s
+exit=0

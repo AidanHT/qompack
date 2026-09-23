@@ -1,0 +1,331 @@
+=== RUN   TestRenameWithRetry_LeavesADirectoryDestinationUntouched
+--- PASS: TestRenameWithRetry_LeavesADirectoryDestinationUntouched (0.09s)
+=== RUN   TestLong_ShortAbsoluteFastPathMatchesTheFullPathRule
+--- PASS: TestLong_ShortAbsoluteFastPathMatchesTheFullPathRule (1.06s)
+=== RUN   TestMayBeProtected_EveryProtectedLocationTakesTheWalk
+--- PASS: TestMayBeProtected_EveryProtectedLocationTakesTheWalk (2.05s)
+=== RUN   TestMayBeProtected_OrdinaryStorePathsSkipTheWalk
+--- PASS: TestMayBeProtected_OrdinaryStorePathsSkipTheWalk (0.00s)
+=== RUN   TestMayBeProtected_NeverHidesAProtectedPath
+--- PASS: TestMayBeProtected_NeverHidesAProtectedPath (1.72s)
+=== RUN   TestRenameDirectoryNoReplace
+--- PASS: TestRenameDirectoryNoReplace (4.17s)
+=== RUN   TestNTPathPreservesUNCServerAndShare
+=== RUN   TestNTPathPreservesUNCServerAndShare/UNC
+=== RUN   TestNTPathPreservesUNCServerAndShare/extended_UNC
+--- PASS: TestNTPathPreservesUNCServerAndShare (0.00s)
+    --- PASS: TestNTPathPreservesUNCServerAndShare/UNC (0.00s)
+    --- PASS: TestNTPathPreservesUNCServerAndShare/extended_UNC (0.00s)
+=== RUN   TestWindowsPathAPIsRejectEmbeddedNULWithoutSideEffects
+=== RUN   TestWindowsPathAPIsRejectEmbeddedNULWithoutSideEffects/source
+=== RUN   TestWindowsPathAPIsRejectEmbeddedNULWithoutSideEffects/destination
+=== RUN   TestWindowsPathAPIsRejectEmbeddedNULWithoutSideEffects/read
+--- PASS: TestWindowsPathAPIsRejectEmbeddedNULWithoutSideEffects (0.42s)
+    --- PASS: TestWindowsPathAPIsRejectEmbeddedNULWithoutSideEffects/source (0.02s)
+    --- PASS: TestWindowsPathAPIsRejectEmbeddedNULWithoutSideEffects/destination (0.02s)
+    --- PASS: TestWindowsPathAPIsRejectEmbeddedNULWithoutSideEffects/read (0.00s)
+=== RUN   TestAppendJSONL_TornTailDoesNotSwallowTheNextRecord
+--- PASS: TestAppendJSONL_TornTailDoesNotSwallowTheNextRecord (0.17s)
+=== RUN   TestAppendJSONL_WellTerminatedFileGainsNoBlankLine
+--- PASS: TestAppendJSONL_WellTerminatedFileGainsNoBlankLine (0.21s)
+=== RUN   TestAppendJSONL_FirstRecordInAnEmptyFileIsUnchanged
+--- PASS: TestAppendJSONL_FirstRecordInAnEmptyFileIsUnchanged (0.13s)
+=== RUN   TestIsProtected_Table
+=== RUN   TestIsProtected_Table/the_live_bloom_file
+=== RUN   TestIsProtected_Table/a_bloom_backup_is_not_the_live_file
+=== RUN   TestIsProtected_Table/a_checkpoint_artifact
+=== RUN   TestIsProtected_Table/the_checkpoint_manifest
+=== RUN   TestIsProtected_Table/pins_invariants_log
+=== RUN   TestIsProtected_Table/an_unrelated_state_file
+=== RUN   TestIsProtected_Table/outside_.qompack_entirely
+--- PASS: TestIsProtected_Table (0.66s)
+    --- PASS: TestIsProtected_Table/the_live_bloom_file (0.00s)
+    --- PASS: TestIsProtected_Table/a_bloom_backup_is_not_the_live_file (0.00s)
+    --- PASS: TestIsProtected_Table/a_checkpoint_artifact (0.00s)
+    --- PASS: TestIsProtected_Table/the_checkpoint_manifest (0.00s)
+    --- PASS: TestIsProtected_Table/pins_invariants_log (0.00s)
+    --- PASS: TestIsProtected_Table/an_unrelated_state_file (0.00s)
+    --- PASS: TestIsProtected_Table/outside_.qompack_entirely (0.00s)
+=== RUN   TestAppendOnlyGuard
+=== RUN   TestAppendOnlyGuard/a_trunc_on_checkpoint
+=== RUN   TestAppendOnlyGuard/b_nonappend_write_on_pins
+=== RUN   TestAppendOnlyGuard/c_writeatomic_on_bloom
+=== RUN   TestAppendOnlyGuard/d_createnew_twice
+=== RUN   TestAppendOnlyGuard/e_appendonly_wrong_extension
+--- PASS: TestAppendOnlyGuard (0.52s)
+    --- PASS: TestAppendOnlyGuard/a_trunc_on_checkpoint (0.00s)
+    --- PASS: TestAppendOnlyGuard/b_nonappend_write_on_pins (0.00s)
+    --- PASS: TestAppendOnlyGuard/c_writeatomic_on_bloom (0.00s)
+    --- PASS: TestAppendOnlyGuard/d_createnew_twice (0.00s)
+    --- PASS: TestAppendOnlyGuard/e_appendonly_wrong_extension (0.00s)
+=== RUN   TestOpenFile_HandlesUnresolvableRootGracefully
+--- PASS: TestOpenFile_HandlesUnresolvableRootGracefully (0.00s)
+=== RUN   TestAppendOnly_ExtensionAllowlist
+--- PASS: TestAppendOnly_ExtensionAllowlist (0.59s)
+=== RUN   TestAppendJSONL_OneLinePerRecord
+--- PASS: TestAppendJSONL_OneLinePerRecord (0.42s)
+=== RUN   TestAppendJSONL_PropagatesEncodeError
+--- PASS: TestAppendJSONL_PropagatesEncodeError (0.33s)
+=== RUN   TestAppendJSONL_PropagatesAppendOnlyExtensionError
+--- PASS: TestAppendJSONL_PropagatesAppendOnlyExtensionError (0.61s)
+=== RUN   TestAppendJSONL_CompactsEmbeddedRawMessageWhitespace
+--- PASS: TestAppendJSONL_CompactsEmbeddedRawMessageWhitespace (1.07s)
+=== RUN   TestAppendJSONL_DisablesHTMLEscaping
+--- PASS: TestAppendJSONL_DisablesHTMLEscaping (0.78s)
+=== RUN   TestCreateNew_SetsReadOnly
+--- PASS: TestCreateNew_SetsReadOnly (0.52s)
+=== RUN   TestRestoreLog_CreatesAnAppendableLogAndRefusesToOverwrite
+--- PASS: TestRestoreLog_CreatesAnAppendableLogAndRefusesToOverwrite (0.65s)
+=== RUN   TestRestoreLog_MissingParentIsAnError
+--- PASS: TestRestoreLog_MissingParentIsAnError (0.66s)
+=== RUN   TestRestoreLog_ExistingNonLogIsAppendOnly
+--- PASS: TestRestoreLog_ExistingNonLogIsAppendOnly (0.05s)
+=== RUN   TestRestoreLog_DirectoryAtPathWritesNothing
+--- PASS: TestRestoreLog_DirectoryAtPathWritesNothing (0.07s)
+=== RUN   TestRestoreLog_UnstatablePathIsNotCreated
+--- PASS: TestRestoreLog_UnstatablePathIsNotCreated (0.06s)
+=== RUN   TestCreateNew_DirectoryAtPathIsNotACollision
+--- PASS: TestCreateNew_DirectoryAtPathIsNotACollision (0.36s)
+=== RUN   TestCreateNew_MissingParentIsAnError
+--- PASS: TestCreateNew_MissingParentIsAnError (0.11s)
+=== RUN   TestCreateNew_NonRegularEntryIsNotACollision
+--- PASS: TestCreateNew_NonRegularEntryIsNotACollision (0.07s)
+=== RUN   TestReplaceBloom_KeepsOneBackup
+--- PASS: TestReplaceBloom_KeepsOneBackup (0.88s)
+=== RUN   TestReplaceBloom_FirstCallWithNoPriorFile
+--- PASS: TestReplaceBloom_FirstCallWithNoPriorFile (0.61s)
+=== RUN   TestReplaceBloom_IsTheOnlyWayToReplaceIt
+--- PASS: TestReplaceBloom_IsTheOnlyWayToReplaceIt (0.26s)
+=== RUN   TestReplaceBloom_IgnoresUnrelatedAndMalformedSketchFiles
+--- PASS: TestReplaceBloom_IgnoresUnrelatedAndMalformedSketchFiles (0.41s)
+=== RUN   TestReplaceBloom_PruneSurvivesUnreadableSketchesDir
+--- PASS: TestReplaceBloom_PruneSurvivesUnreadableSketchesDir (2.33s)
+=== RUN   TestReplaceBloom_RenameToBackupFails
+--- PASS: TestReplaceBloom_RenameToBackupFails (4.96s)
+=== RUN   TestReplaceBloom_MkdirTmpFails
+--- PASS: TestReplaceBloom_MkdirTmpFails (1.36s)
+=== RUN   TestReplaceBloom_WriteStagingFileFails
+--- PASS: TestReplaceBloom_WriteStagingFileFails (0.18s)
+=== RUN   TestHighestBloomBackupSeq_Table
+=== RUN   TestHighestBloomBackupSeq_Table/a_sketches_directory_that_does_not_exist_is_not_an_error
+=== RUN   TestHighestBloomBackupSeq_Table/an_empty_sketches_directory_reports_no_backup
+=== RUN   TestHighestBloomBackupSeq_Table/the_live_file_alone_is_not_a_backup
+=== RUN   TestHighestBloomBackupSeq_Table/the_highest_sequence_wins,_not_the_newest_file
+=== RUN   TestHighestBloomBackupSeq_Table/unrelated,_malformed_and_directory_entries_are_ignored
+=== RUN   TestHighestBloomBackupSeq_Table/what_ReplaceBloom_leaves_behind_is_what_this_reports
+--- PASS: TestHighestBloomBackupSeq_Table (9.10s)
+    --- PASS: TestHighestBloomBackupSeq_Table/a_sketches_directory_that_does_not_exist_is_not_an_error (0.02s)
+    --- PASS: TestHighestBloomBackupSeq_Table/an_empty_sketches_directory_reports_no_backup (1.78s)
+    --- PASS: TestHighestBloomBackupSeq_Table/the_live_file_alone_is_not_a_backup (1.26s)
+    --- PASS: TestHighestBloomBackupSeq_Table/the_highest_sequence_wins,_not_the_newest_file (3.06s)
+    --- PASS: TestHighestBloomBackupSeq_Table/unrelated,_malformed_and_directory_entries_are_ignored (2.55s)
+    --- PASS: TestHighestBloomBackupSeq_Table/what_ReplaceBloom_leaves_behind_is_what_this_reports (0.44s)
+=== RUN   TestHighestBloomBackupSeq_UnreadableDirIsAnError
+--- PASS: TestHighestBloomBackupSeq_UnreadableDirIsAnError (1.59s)
+=== RUN   TestReplacePinsViewLandsUnderAnOpenReader
+=== RUN   TestReplacePinsViewLandsUnderAnOpenReader/held_with_os.Open
+=== RUN   TestReplacePinsViewLandsUnderAnOpenReader/held_with_paths.OpenShared
+--- PASS: TestReplacePinsViewLandsUnderAnOpenReader (0.80s)
+    --- PASS: TestReplacePinsViewLandsUnderAnOpenReader/held_with_os.Open (0.50s)
+    --- PASS: TestReplacePinsViewLandsUnderAnOpenReader/held_with_paths.OpenShared (0.29s)
+=== RUN   TestReplacePinsViewReplacesTheViewInFull
+--- PASS: TestReplacePinsViewReplacesTheViewInFull (0.33s)
+=== RUN   TestReplacePinsView_MkdirStagingFailsPreservesView
+--- PASS: TestReplacePinsView_MkdirStagingFailsPreservesView (0.92s)
+=== RUN   TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging
+=== RUN   TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/nonempty_destination_directory
+=== RUN   TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows
+--- PASS: TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging (0.84s)
+    --- PASS: TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/nonempty_destination_directory (0.27s)
+    --- PASS: TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows (0.57s)
+=== RUN   TestReplacePinsView_DeniedStagingCreatePreservesView
+--- PASS: TestReplacePinsView_DeniedStagingCreatePreservesView (0.82s)
+=== RUN   TestReplacePinsView_ReplacesAReadOnlyDestination
+--- PASS: TestReplacePinsView_ReplacesAReadOnlyDestination (0.55s)
+=== RUN   TestReplacePinsView_MissingPinsDirCleansStaging
+--- PASS: TestReplacePinsView_MissingPinsDirCleansStaging (0.32s)
+=== RUN   TestTerminatePartialTail_WellTerminatedFileIsUnchanged
+--- PASS: TestTerminatePartialTail_WellTerminatedFileIsUnchanged (0.06s)
+=== RUN   TestTerminatePartialTail_UnreadablePathIsLeftAlone
+--- PASS: TestTerminatePartialTail_UnreadablePathIsLeftAlone (2.10s)
+=== RUN   TestWriteAtomic_ReplacesAndSyncs
+--- PASS: TestWriteAtomic_ReplacesAndSyncs (0.94s)
+=== RUN   TestWriteAtomic_CreatesWhenAbsent
+--- PASS: TestWriteAtomic_CreatesWhenAbsent (0.94s)
+=== RUN   TestWriteAtomic_RefusesProtected
+--- PASS: TestWriteAtomic_RefusesProtected (1.12s)
+=== RUN   TestWriteAtomic_OutsideProjectFallsBackToDirLocalTmp
+--- PASS: TestWriteAtomic_OutsideProjectFallsBackToDirLocalTmp (0.08s)
+=== RUN   TestWriteAtomic_RetriesOnReadOnlyTarget
+--- PASS: TestWriteAtomic_RetriesOnReadOnlyTarget (0.18s)
+=== RUN   TestWriteAtomic_MkdirAllFails
+--- PASS: TestWriteAtomic_MkdirAllFails (0.35s)
+=== RUN   TestWriteAtomic_TargetIsExistingDirectory
+--- PASS: TestWriteAtomic_TargetIsExistingDirectory (0.05s)
+=== RUN   TestWriteAtomic_DestinationParentMissing
+--- PASS: TestWriteAtomic_DestinationParentMissing (0.19s)
+=== RUN   TestWriteAtomic_CreateTempFailureLeavesNoStaging
+--- PASS: TestWriteAtomic_CreateTempFailureLeavesNoStaging (0.81s)
+=== RUN   TestWriteAtomic_AppliesPermToTheReplacement
+--- PASS: TestWriteAtomic_AppliesPermToTheReplacement (0.34s)
+=== RUN   TestHighestBloomBackupSeq_ReportsAnUnexpectedReadDirError
+    errorpaths_test.go:50: platform: os.ReadDir on a regular file returns an empty listing rather than ENOTDIR on Windows, so the unexpected-error branch cannot be provoked here
+--- SKIP: TestHighestBloomBackupSeq_ReportsAnUnexpectedReadDirError (0.01s)
+=== RUN   TestReadManifest_ReportsAnUnexpectedOpenError
+    errorpaths_test.go:68: platform: Windows maps a traversal through a non-directory to ERROR_PATH_NOT_FOUND, which os.IsNotExist reports as absent — the branch under test is POSIX's ENOTDIR
+--- SKIP: TestReadManifest_ReportsAnUnexpectedOpenError (0.00s)
+=== RUN   TestEnsureLayout_ReportsAnUnexpectedStatError
+    errorpaths_test.go:96: platform: creating a symlink needs a privilege ordinary Windows processes lack, so the ELOOP this case turns on cannot be staged here
+--- SKIP: TestEnsureLayout_ReportsAnUnexpectedStatError (0.00s)
+=== RUN   TestEnsureLayout_CreatesAllDirsAndSelfIgnore
+--- PASS: TestEnsureLayout_CreatesAllDirsAndSelfIgnore (0.07s)
+=== RUN   TestEnsureLayout_IdempotentAndNeverRewritesGitignore
+--- PASS: TestEnsureLayout_IdempotentAndNeverRewritesGitignore (0.21s)
+=== RUN   TestEnsureLayout_MkdirFailsWhenPathIsAFile
+--- PASS: TestEnsureLayout_MkdirFailsWhenPathIsAFile (0.06s)
+=== RUN   TestEnsureLayout_WriteAtomicFailureIsPropagated
+--- PASS: TestEnsureLayout_WriteAtomicFailureIsPropagated (0.89s)
+=== RUN   TestOf_FieldsAreUnderDot
+--- PASS: TestOf_FieldsAreUnderDot (0.42s)
+=== RUN   TestLongPath_Over260
+--- PASS: TestLongPath_Over260 (0.75s)
+=== RUN   TestLong_IdentityBelowThreshold
+--- PASS: TestLong_IdentityBelowThreshold (0.23s)
+=== RUN   TestLong_IdentityWhenAbsFails
+--- PASS: TestLong_IdentityWhenAbsFails (0.00s)
+=== RUN   TestLong_EmptyStringIsIdentity
+--- PASS: TestLong_EmptyStringIsIdentity (0.00s)
+=== RUN   TestLong_PrefixesOverThreshold
+--- PASS: TestLong_PrefixesOverThreshold (0.24s)
+=== RUN   TestLong_IdempotentOnAlreadyPrefixed
+--- PASS: TestLong_IdempotentOnAlreadyPrefixed (0.22s)
+=== RUN   TestLong_UNCGetsUNCPrefix
+--- PASS: TestLong_UNCGetsUNCPrefix (0.00s)
+=== RUN   TestCheckpointPath_Format
+--- PASS: TestCheckpointPath_Format (0.48s)
+=== RUN   TestManifestPath_LivesUnderCheckpointsAndIsProtected
+--- PASS: TestManifestPath_LivesUnderCheckpointsAndIsProtected (1.00s)
+=== RUN   TestManifest_AppendAndRead
+--- PASS: TestManifest_AppendAndRead (0.77s)
+=== RUN   TestManifest_ReadMissingReturnsEmptyNotError
+--- PASS: TestManifest_ReadMissingReturnsEmptyNotError (0.34s)
+=== RUN   TestManifest_OnlyAppendManifestCanWriteIt
+--- PASS: TestManifest_OnlyAppendManifestCanWriteIt (0.34s)
+=== RUN   TestManifest_SkipsBlankLines
+--- PASS: TestManifest_SkipsBlankLines (0.48s)
+=== RUN   TestManifest_ReadCorruptLineErrors
+--- PASS: TestManifest_ReadCorruptLineErrors (0.47s)
+=== RUN   TestManifest_ReadOversizedLineErrors
+--- PASS: TestManifest_ReadOversizedLineErrors (0.70s)
+=== RUN   TestManifest_ReadPropagatesNonNotExistOpenError
+--- PASS: TestManifest_ReadPropagatesNonNotExistOpenError (0.00s)
+=== RUN   TestNorm_RejectsEscape
+=== RUN   TestNorm_RejectsEscape/leading_dotdot
+=== RUN   TestNorm_RejectsEscape/dotdot_inside_an_abs
+--- PASS: TestNorm_RejectsEscape (1.05s)
+    --- PASS: TestNorm_RejectsEscape/leading_dotdot (0.44s)
+    --- PASS: TestNorm_RejectsEscape/dotdot_inside_an_abs (0.36s)
+=== RUN   TestNorm_RejectsExistingPathOutsideRoot
+--- PASS: TestNorm_RejectsExistingPathOutsideRoot (0.83s)
+=== RUN   TestNorm_EmptyProjectRoot
+--- PASS: TestNorm_EmptyProjectRoot (0.00s)
+=== RUN   TestNorm_RootItself
+--- PASS: TestNorm_RootItself (0.60s)
+=== RUN   TestNorm_RejectsDifferentVolume
+--- PASS: TestNorm_RejectsDifferentVolume (0.38s)
+=== RUN   TestNorm_LeavesUNCVolumeMismatchUnresolved
+--- PASS: TestNorm_LeavesUNCVolumeMismatchUnresolved (0.28s)
+=== RUN   TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved
+--- PASS: TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved (0.56s)
+=== RUN   TestNorm_ForwardSlashRelative
+--- PASS: TestNorm_ForwardSlashRelative (0.24s)
+=== RUN   TestNorm_ResolvesExistingPathInsideRoot
+--- PASS: TestNorm_ResolvesExistingPathInsideRoot (0.25s)
+=== RUN   TestNorm_ResolvesSymlinkInsideRoot
+    norm_test.go:133: platform: symlinks unavailable in this environment: symlink C:\Users\Quant\AppData\Local\Temp\TestNorm_ResolvesSymlinkInsideRoot922703150\001\real C:\Users\Quant\AppData\Local\Temp\TestNorm_ResolvesSymlinkInsideRoot922703150\001\link: A required privilege is not held by the client.
+--- SKIP: TestNorm_ResolvesSymlinkInsideRoot (0.01s)
+=== RUN   TestNorm_LeavesSymlinkOutsideRootUnresolved
+    norm_test.go:148: platform: symlinks unavailable in this environment: symlink C:\Users\Quant\AppData\Local\Temp\TestNorm_LeavesSymlinkOutsideRootUnresolved1095673137\002\real C:\Users\Quant\AppData\Local\Temp\TestNorm_LeavesSymlinkOutsideRootUnresolved1095673137\001\link: A required privilege is not held by the client.
+--- SKIP: TestNorm_LeavesSymlinkOutsideRootUnresolved (0.04s)
+=== RUN   TestNorm_ResolvesSymlinkWhenRootPathIsItselfASymlink
+    norm_test.go:171: platform: symlinks unavailable in this environment: symlink C:\Users\Quant\AppData\Local\Temp\TestNorm_ResolvesSymlinkWhenRootPathIsItselfASymlink357930924\001\realroot C:\Users\Quant\AppData\Local\Temp\TestNorm_ResolvesSymlinkWhenRootPathIsItselfASymlink357930924\001\linkroot: A required privilege is not held by the client.
+--- SKIP: TestNorm_ResolvesSymlinkWhenRootPathIsItselfASymlink (0.17s)
+=== RUN   TestNorm_SymlinkedRootStillRefusesEscape
+    norm_test.go:192: platform: symlinks unavailable in this environment: symlink C:\Users\Quant\AppData\Local\Temp\TestNorm_SymlinkedRootStillRefusesEscape4131938955\001\realroot C:\Users\Quant\AppData\Local\Temp\TestNorm_SymlinkedRootStillRefusesEscape4131938955\001\linkroot: A required privilege is not held by the client.
+--- SKIP: TestNorm_SymlinkedRootStillRefusesEscape (0.04s)
+=== RUN   TestKeyFold
+--- PASS: TestKeyFold (0.00s)
+=== RUN   TestKey_UsesDefaultFold
+--- PASS: TestKey_UsesDefaultFold (0.00s)
+=== RUN   TestNorm_Property
+    norm_test.go:216: [rapid] OK, passed 100 tests (51.8939692s)
+--- PASS: TestNorm_Property (51.98s)
+=== RUN   TestResolve_EnvWins
+--- PASS: TestResolve_EnvWins (0.10s)
+=== RUN   TestResolve_WalksToGitDir
+--- PASS: TestResolve_WalksToGitDir (0.12s)
+=== RUN   TestResolve_GitFileWorktree
+--- PASS: TestResolve_GitFileWorktree (0.08s)
+=== RUN   TestResolve_FallsBackToCWD
+--- PASS: TestResolve_FallsBackToCWD (0.02s)
+=== RUN   TestResolve_EmptyCWDWithNoEnv
+--- PASS: TestResolve_EmptyCWDWithNoEnv (0.00s)
+=== RUN   TestResolve_PropagatesAbsFailure
+--- PASS: TestResolve_PropagatesAbsFailure (0.00s)
+=== RUN   TestGlobal_JoinsHomeAndDotDir
+--- PASS: TestGlobal_JoinsHomeAndDotDir (0.04s)
+=== RUN   TestResolvesInside_RefusesAParentReplacedByALinkOutside
+--- PASS: TestResolvesInside_RefusesAParentReplacedByALinkOutside (3.75s)
+=== RUN   TestResolvesInside_AllowsOrdinaryPaths
+--- PASS: TestResolvesInside_AllowsOrdinaryPaths (1.32s)
+=== RUN   TestResolvesInside_RefusesLexicalEscapesAndEmptyInputs
+--- PASS: TestResolvesInside_RefusesLexicalEscapesAndEmptyInputs (0.42s)
+=== RUN   TestResolvesInside_AllowsALinkThatStaysInside
+--- PASS: TestResolvesInside_AllowsALinkThatStaysInside (1.27s)
+=== RUN   TestResolvesInside_RefusesAChainedLinkThroughAnotherLink
+=== RUN   TestResolvesInside_RefusesAChainedLinkThroughAnotherLink/absolute_two-junction
+=== RUN   TestResolvesInside_RefusesAChainedLinkThroughAnotherLink/relative-target
+--- PASS: TestResolvesInside_RefusesAChainedLinkThroughAnotherLink (23.91s)
+    --- PASS: TestResolvesInside_RefusesAChainedLinkThroughAnotherLink/absolute_two-junction (2.66s)
+    --- PASS: TestResolvesInside_RefusesAChainedLinkThroughAnotherLink/relative-target (21.25s)
+=== RUN   TestResolvesInside_HopBoundIsFailClosed
+--- PASS: TestResolvesInside_HopBoundIsFailClosed (10.78s)
+=== RUN   TestOpenSharedRW_ReadersStillReadTheHeldFile
+--- PASS: TestOpenSharedRW_ReadersStillReadTheHeldFile (0.57s)
+=== RUN   TestOpenSharedRW_OtherWritersStillWriteTheHeldFile
+--- PASS: TestOpenSharedRW_OtherWritersStillWriteTheHeldFile (0.32s)
+=== RUN   TestOpenSharedRW_HeldFileCanBeRemovedAndItsNameReused
+--- PASS: TestOpenSharedRW_HeldFileCanBeRemovedAndItsNameReused (0.30s)
+=== RUN   TestOpenSharedRW_WriteAtomicReplacesTheHeldPath
+--- PASS: TestOpenSharedRW_WriteAtomicReplacesTheHeldPath (1.13s)
+=== RUN   TestOpenSharedRW_NeverCreatesAndRefusesWhatItMustNotWrite
+=== RUN   TestOpenSharedRW_NeverCreatesAndRefusesWhatItMustNotWrite/a_missing_path
+=== RUN   TestOpenSharedRW_NeverCreatesAndRefusesWhatItMustNotWrite/a_directory
+=== RUN   TestOpenSharedRW_NeverCreatesAndRefusesWhatItMustNotWrite/a_protected_path
+--- PASS: TestOpenSharedRW_NeverCreatesAndRefusesWhatItMustNotWrite (0.70s)
+    --- PASS: TestOpenSharedRW_NeverCreatesAndRefusesWhatItMustNotWrite/a_missing_path (0.00s)
+    --- PASS: TestOpenSharedRW_NeverCreatesAndRefusesWhatItMustNotWrite/a_directory (0.00s)
+    --- PASS: TestOpenSharedRW_NeverCreatesAndRefusesWhatItMustNotWrite/a_protected_path (0.02s)
+=== RUN   TestSyncData_FlushesAnInPlaceOverwrite
+--- PASS: TestSyncData_FlushesAnInPlaceOverwrite (1.32s)
+=== RUN   TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader
+=== RUN   TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader/held_with_os.Open
+=== RUN   TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader/held_with_paths.OpenShared
+--- PASS: TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader (2.83s)
+    --- PASS: TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader/held_with_os.Open (1.19s)
+    --- PASS: TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader/held_with_paths.OpenShared (1.64s)
+=== RUN   TestReadFileSharedMatchesOsReadFile
+=== RUN   TestReadFileSharedMatchesOsReadFile/an_ordinary_file_reads_identically
+=== RUN   TestReadFileSharedMatchesOsReadFile/an_empty_file_reads_as_an_empty_slice
+=== RUN   TestReadFileSharedMatchesOsReadFile/a_missing_file_is_os.ErrNotExist,_not_contention
+--- PASS: TestReadFileSharedMatchesOsReadFile (0.70s)
+    --- PASS: TestReadFileSharedMatchesOsReadFile/an_ordinary_file_reads_identically (0.02s)
+    --- PASS: TestReadFileSharedMatchesOsReadFile/an_empty_file_reads_as_an_empty_slice (0.01s)
+    --- PASS: TestReadFileSharedMatchesOsReadFile/a_missing_file_is_os.ErrNotExist,_not_contention (0.00s)
+=== RUN   TestSyncDir_SyncsAnExistingDirectory
+--- PASS: TestSyncDir_SyncsAnExistingDirectory (0.01s)
+=== RUN   TestSyncDir_ReportsAMissingDirectoryOffWindows
+--- PASS: TestSyncDir_ReportsAMissingDirectoryOffWindows (0.12s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	166.520s
+exit=0
