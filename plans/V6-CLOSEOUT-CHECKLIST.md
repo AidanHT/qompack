@@ -21,6 +21,7 @@ start; hosted-runner fsync figures never become constants.
 | D2 | Delivery-journal rollover: **finish the gates, then enable by default** | C1.10 completes old-reader, backup/restore, GC-retention and resource tests, then flips `enableDeliveryGenerations` on |
 | D3 | Live runs: **agent-run on this machine, moderate budget (~40–80 real sessions)** | UAT and live trials are recorded as *agent-executed on the real installed host*, never as human UAT |
 | D4 | Outward actions: **push `verify/v6` + hosted CI and merge to `develop`; ask before `main`, tag, GitHub Release, marketplace** | C7.2–C7.3(develop) authorized; C7.3(main), C7.4, C7.5 need a further yes |
+| D5 | Rehydration **fits under the host's 10,000-character `additionalContext` cap**: a priority-ordered payload of whole records within ~9,500 chars including the wrapper, with the rest reported as overflow plus pointers for the MCP tools | C1.14; authorizes revising Qompack.md §8.6 and ADR 0011 to match |
 
 Defaults taken without a separate question (owner may overrule): C1.9 host deny-rule honoring;
 C7.2 hosted runners report-only for fsync-bound rows (Q1 third option).
@@ -114,6 +115,28 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
       (from the e2e finding), and the idle drain only runs after 120 s of inactivity
       (`DetectAfterSeconds`), while the e2e tests assume a 30 s drain. Confirm C1.1's fix covers
       both, or follow up.
+
+Found by the packaging workstream's real-host sessions (evidence on `closeout/packaging` under
+`plans/sdd/V6-closeout/packaging/`):
+
+- [ ] **C1.14** (D5) The rehydration payload (budget up to ~12K tokens) exceeds the host's
+      10,000-character `additionalContext` cap. When it does, Claude gets a file path and a
+      2,000-char preview and is not asked to read the file. Fit the payload under the cap, report
+      the rest as overflow with pointers, and revise Qompack.md §8.6 and ADR 0011.
+- [ ] **C1.15** The `SessionEnd` flush hook is reported "Hook cancelled". Plugin hooks share a
+      1.5 s SessionEnd budget, and the manifest's 20 s timeout does not raise it for plugin hooks.
+      The flush hook must answer well inside 1.5 s, and nothing may depend on it (§8.2).
+- [ ] **C1.16** Under load, a `SessionStart(source=compact)` took 10.3 s and answered `{}` at the
+      10 s reply deadline, which lost that rehydration. It must answer reliably and fast.
+- [ ] **C1.17** The resident daemon outlives the session and keeps the plugin's `qompack.exe`
+      open, which left a half-deleted plugin extraction directory. The same thing can break plugin
+      update or uninstall on Windows. Fix with idle exit, or by running from a copy outside the plugin root.
+- [ ] **C1.18** The daemon still renders and records PreCompact summarizer instructions that no
+      host accepts (`precompact.custom_instructions_accepted` warns). Retire the producer and keep
+      the checkpoint.
+- [ ] **C1.19** Pre-existing gate failures on the base: `devtool lint` bindeps
+      (`golang.org/x/sys/unix` via `internal/paths`), and `stubskips` reports four skips with
+      non-permitted reasons in `internal/daemon`, `internal/hookio` and `internal/store` tests.
 
 ## Phase 2 — Carried defects (all must be `fixed` or `wontfix` before the V6 report)
 
