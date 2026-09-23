@@ -29,6 +29,10 @@ number is changed by this page.
 
 ## Supported environments
 
+**Claude Code 2.1.139 or later** is required for any install: every hook is exec form, and 2.1.139
+added the hook `args` field that form needs. Installing from the marketplace
+needs **2.1.224 or later**. See [docs/install.md](docs/install.md).
+
 The following checks are configured in `.github/workflows/ci.yml`; this table does not establish
 that the current candidate passed them. Go jobs pin
 `1.26.6` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
