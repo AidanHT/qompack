@@ -127,18 +127,15 @@ var genChainSeed = radixDigest(genChainSalt, nil)
 // refuseDeliveryRecreation reserves as migration evidence (delivery_migration_guard.go).
 const deliveryGenerationsDirName = "delivery-generations"
 
-// enableDeliveryGenerations gates the LIVE wiring of the generation store into the delivery journal
-// (openGenerations + the decide-consult and the lease/ack mirrors). It is default OFF, and turning it
-// on is the READER/WRITER half of rollover: every admitted lease and ack mirrors into the durable
-// superset index, and decide resolves an archived nonce's redelivery from it instead of minting a
-// fresh identity. The capacity-FREEING half — compacting settled leases out of the active journal so
-// the 65536/64MiB budget is reclaimed — is deliberately NOT enabled here, because it needs a
-// cross-package change store GC owns: gcrun.go reads the EXACT delivery-leases.jsonl (and
-// delivery-acks.jsonl) as retention roots and does not glob segments, so rotating the active file away
-// would strip retention from still-open leases and risk object loss. See
-// delivery-capacity-integration-work.md §"Unresolved cross-package contract". A focused test flips this
-// to exercise the wired path; production leaves it off until that contract is resolved.
-var enableDeliveryGenerations = false
+// enableDeliveryGenerations gates segmented rollover of the delivery journals: the segment authority,
+// this generation store, and the rotation that replaces the 65,536-entry / 64 MiB refusal. It is ON by
+// default since the V6 close-out (C1.10, owner decision D2, after the gates in
+// plans/sdd/V6-closeout/rollover/report.md): a journal at its cap rotates to a fresh segment and keeps
+// assigning identities, an archived nonce's redelivery resolves its ORIGINAL lease from this store, and
+// store GC harvests every segment. With it off a current build refuses any store that has migration
+// evidence (existingDeliveryMigration), because disabling a mechanism cannot authorize an older writer;
+// a focused test turns it off only to pin that refusal.
+var enableDeliveryGenerations = true
 
 // genHead is the atomic root-anchored checkpoint: the last committed generation. LastLen is the byte
 // length of the manifest record ending at LogBytes, which lets recovery verify the head sits on a real
