@@ -167,6 +167,20 @@ func TestHostFieldCap_MatchesTheTranscribedSchema(t *testing.T) {
 	}
 }
 
+// TestHostChars_CountsUTF16CodeUnits pins the unit the host measures its cap in — JavaScript's
+// String.prototype.length on the parsed field, read from Claude Code 2.1.280's own code
+// (plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt) — which internal/rehydrate
+// restates for its ceiling and ties back to this function.
+func TestHostChars_CountsUTF16CodeUnits(t *testing.T) {
+	require.Equal(t, 0, hookio.HostChars(""))
+	require.Equal(t, 3, hookio.HostChars("abc"))
+	require.Equal(t, 1, hookio.HostChars("é"), "a two-byte UTF-8 rune is one unit")
+	require.Equal(t, 1, hookio.HostChars("中"), "a three-byte UTF-8 rune is one unit")
+	require.Equal(t, 2, hookio.HostChars("\U0001F600"), "an astral rune is a surrogate pair")
+	require.Equal(t, 2, hookio.HostChars(string([]byte{0xff, 0xfe})),
+		"each invalid byte reaches the host as one U+FFFD")
+}
+
 // TestHostCapOverruns reports exactly the kept fields the host would swap for a file path and a
 // 2,000-character preview, measured the way a JavaScript host measures a string: UTF-16 code units.
 func TestHostCapOverruns(t *testing.T) {

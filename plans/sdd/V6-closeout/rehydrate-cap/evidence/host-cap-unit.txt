@@ -1,0 +1,41 @@
+How Claude Code 2.1.280 measures a hook field against its 10,000-character cap
+Source: the installed host binary, read-only; excerpts are verbatim minified JavaScript.
+binary: %APPDATA%/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+bytes: 237100192
+sha256: 0e4195524b73eb77efbdf3e2b36de5322a29f0ca575dfd2d9b4f946b1d425469
+version marker at offset 194827003
+
+== threshold constant (offset 196494171)
+gpo=1e4
+
+== the cap check (e = the field string, s = threshold, default gpo) (offset 201799013)
+async function one(e,r,n,{threshold:s=gpo,storageV5:a}={}){if(e.length<=s)return e;let o=await MB(e,`hook-${r}
+
+== the SessionStart/UserPromptSubmit/PostToolUse additionalContext call site (offset 204388255)
+if(hr.additionalContext){bn.additionalContextChars+=hr.additionalContext.length,mr(hr.hook,"additionalContextChars",hr.additionalContext.length),t(`Hook ${Le} (${gR(hr.hook)}) provided additionalContext (${hr.additionalContext.length} chars)`);let dr=await one(hr.additionalContext,`${s}-${gr}`,"additionalContext",{storageV5:Ue})
+
+== the systemMessage call site (offset 204387951)
+.systemMessage){bn.systemMessageChars+=hr.systemMessage.length,mr(hr.hook,"systemMessageChars",hr.systemMessage.length);let dr=await one(hr.systemMessage,`${s}-${gr}`,"systemMessage",{storageV5:Ue});i
+
+== the preview replacement text (offset 201791235)
+function ice(e){let r=`${wX}
+`;return r+=e.truncatedAtBytes===void 0?`Output too large (${Dt(e.originalSize)}). Full output saved to: ${e.filepath}
+
+`:`Output exceeded the ${Dt(e.truncatedAtBytes)} persist limit; only the first ${Dt(e.truncatedAtBytes)} were saved to: ${e.filepath}
+
+`,r+=`Preview (first ${Dt(kye)}):
+`,r+=e.preview,r+=e.hasMore?`
+...
+`:`
+`,r+=Vkn,r}var K="1023 bytes";function qkn(e,r){if(Array.isArray
+
+Reading: `e.length<=s` is JavaScript String.prototype.length on the parsed field, i.e. UTF-16
+code units; a field of exactly 10,000 units is delivered whole and 10,001 is replaced. Bytes
+(UTF-8) are not the unit. Code points are never more than UTF-16 units, so counting UTF-16
+units is the conservative reading of 'characters' as well as the host's own.
+
+Scope of the check: `one` runs once per hook per field (additionalContext, systemMessage,
+initialUserMessage, and plain stdout). A JSON reply is parsed before any of this, so its stdout
+is not itself capped; only the fields are. The per-dispatch aggregate limiter in the same bundle
+(`cvn`/`hMt`, 200,000 a dispatch) serves the managed `tool.call`/`prompt.submit` contexts, not
+SessionStart command hooks.

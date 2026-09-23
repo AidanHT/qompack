@@ -95,7 +95,7 @@ const (
 type FieldOverrun struct {
 	// Field is the field's JSON path in the host response, e.g. "hookSpecificOutput.additionalContext".
 	Field string
-	// Chars is its length in host characters (hostChars).
+	// Chars is its length in host characters (HostChars).
 	Chars int
 }
 
@@ -106,20 +106,25 @@ type FieldOverrun struct {
 func HostCapOverruns(o Output) []FieldOverrun {
 	var out []FieldOverrun
 	if o.HookSpecificOutput != nil {
-		if n := hostChars(o.HookSpecificOutput.AdditionalContext); n > HostFieldMaxChars {
+		if n := HostChars(o.HookSpecificOutput.AdditionalContext); n > HostFieldMaxChars {
 			out = append(out, FieldOverrun{Field: "hookSpecificOutput.additionalContext", Chars: n})
 		}
 	}
-	if n := hostChars(o.SystemMessage); n > HostFieldMaxChars {
+	if n := HostChars(o.SystemMessage); n > HostFieldMaxChars {
 		out = append(out, FieldOverrun{Field: "systemMessage", Chars: n})
 	}
 	return out
 }
 
-// hostChars is s's length as Claude Code, a JavaScript program, measures a string: UTF-16 code
-// units. That is an inference from the host's runtime, not a documented rule; it is never smaller
-// than the rune count, so an overrun it misses is one no reading of "characters" would report.
-func hostChars(s string) int {
+// HostChars is s's length as Claude Code measures a hook field against HostFieldMaxChars: UTF-16
+// code units, JavaScript's String.prototype.length. The hooks reference says only "characters";
+// the unit is read from the host's own code (2.1.280 tests `field.length <= 1e4` on the parsed
+// string, so a field of exactly the cap is delivered whole), recorded in
+// plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt. It is never smaller than the rune
+// count, so an overrun it misses is one no reading of "characters" would report. It is exported so
+// that a producer bounding its own output (internal/rehydrate, which may not import this package)
+// can be tested against the very function the hook client measures with.
+func HostChars(s string) int {
 	n := 0
 	for _, r := range s {
 		n += utf16.RuneLen(r)
