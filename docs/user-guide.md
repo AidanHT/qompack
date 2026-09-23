@@ -359,6 +359,13 @@ in a digest as a claim that has not been verified end to end.
 After a compaction, Qompack injects one block. Its size is capped and its order is fixed, per
 [ADR 0011](adr/0011-rehydration-budget-and-item-order.md):
 
+- **It always fits what Claude Code delivers whole.** Claude Code hands a hook's
+  `additionalContext` to Claude only up to 10,000 characters; past that, Claude gets a file path and
+  a 2,000-character preview instead. So the whole block — every heading, handle and the report on
+  what was left out — is held to 9,500 characters, and no setting raises that. On a long session
+  that is less than everything Qompack could restore, which is what section 7 and the retrieval
+  tools are for.
+
 - **The budget is a hard cap that is never raised.** A caller's budget may be lowered or filled in,
   never raised — not even to the configured minimum. Ask for 600 tokens and you get at most 600.
 - **Order is importance, and importance decides what survives.** Items are filled in a fixed order;
@@ -371,18 +378,18 @@ After a compaction, Qompack injects one block. Its size is capped and its order 
 - **A path rule is restored whole or not at all.** A half-restored instruction is worse than an
   absent one, because you cannot tell you are reading half of it; an absent one at least appears in
   the drop report.
-- **Overflow is explicit, never silent.** What did not fit is named in the drop report, the payload
-  is marked degraded, and the complete report is persisted even when the rendered section was
-  truncated to a counted line — which is what `/qompack:dropped` reads.
+- **Overflow is explicit, never silent.** What did not fit is named in section 7 ("No longer in
+  context") with the call that brings it back — `why(<decision id>)`, `re_read(<path>)`,
+  `expand(tool_use_id=…)`, or `Read` on the rule file or the checkpoint file — and, when the section
+  cannot list everything, it ends in `… and N more; call dropped()`. The complete report is
+  persisted regardless, which is what `/qompack:dropped` reads. An essential record that could not
+  be carried whole marks the payload degraded.
 
-The shipped defaults that implement the target are in
-[docs/config-reference.md](config-reference.md#checkpoint) and its `runtime` section:
-`checkpoint.budgetTokens` for the checkpoint artifact, `runtime.rehydrate.minTokens` and
-`runtime.rehydrate.maxTokens` for the injected payload.
-
-One limit sits outside that accounting. Claude Code delivers at most 10,000 characters of a hook's
-`additionalContext` whole; past that, Claude sees a file path and the first 2,000 characters. The
-drop report cannot name what the host cut. Qompack logs a Loud line when it happens
+The shipped defaults are in [docs/config-reference.md](config-reference.md#checkpoint) and its
+`runtime` section: `checkpoint.budgetTokens` for the checkpoint artifact, `runtime.rehydrate.minTokens`
+and `runtime.rehydrate.maxTokens` for the injected payload. The 9,500-character ceiling binds before
+the default token budget does (it is roughly 2,400 tokens of prose), so raising `maxTokens` does not
+make the block larger; lowering it below that can make it smaller
 ([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
 
 The rehydration budget is a target for Qompack-added material, not the total restored native context.

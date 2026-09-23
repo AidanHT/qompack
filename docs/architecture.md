@@ -230,9 +230,11 @@ and never `continue`. The table is pinned against a transcription of the documen
 
 That transcription also records the host's per-field cap: an `additionalContext` or `systemMessage`
 over 10,000 characters is accepted, but Claude receives only a file path and a 2,000-character
-preview in its place. The hook client passes such a field through unchanged and logs a Loud line
-with its size (`hookio.HostCapOverruns`). The rehydration budget below is in tokens and can exceed
-the cap several times over, so a large payload is cut to its preview
+preview in its place, and is not asked to read the file. The host counts UTF-16 code units — its
+own code tests `field.length <= 1e4` (2.1.280; `hookio.HostChars`,
+`plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt`). The hook client passes an
+over-cap field through unchanged and logs a Loud line with its size (`hookio.HostCapOverruns`); for
+the rehydration that path is now a defence that does not fire, because the payload is built to fit
 ([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
 
 Two things about that payload are load-bearing, per `internal/rehydrate`'s package comment. Its
@@ -240,13 +242,30 @@ Two things about that payload are load-bearing, per `internal/rehydrate`'s packa
 reorders them is wrong even if it fits the budget, because position decides what survives
 truncation. Its **size** is deliberately small.
 
+**The host ceiling (owner decision D5, 2026-09-22).** The whole compact `additionalContext` — the
+injection-tagged payload, its headings and separators, every handle, the overflow report, and the
+contract probe the daemon appends — is at most 9,500 host characters
+(`rehydrate.HostContextCeilingChars`), 500 under the host's 10,000. `rehydrate.Build` prices every
+unit in tokens and in host characters and admits it only when it fits both; the character count is
+exact, so the ceiling is a guarantee rather than an estimate. It is a host constant, not a
+configuration key: nothing raises it, and the token budget below can only bound the payload lower.
+Selection keeps the §8.6 order with whole records — tier 1 (the retrieval line first, then pinned
+invariants and the verbatim original intent), then items 2–6a by their shares — and a record that
+does not fit is left out whole, never cut. Everything left out is named in section 7 with the call
+that restores it (`why(dec_…)`, `re_read(path)`, `expand(tool_use_id=…)`, `Read <rule file>`, or the
+checkpoint file and field); section 7 is a bounded prefix plus a counted tail (`… and N more; call
+dropped()`), and its smallest form is reserved before anything else is admitted, so the report on
+what is missing always fits. The complete list is persisted for `dropped()` regardless
+([ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md)).
+
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`
 §8.6. It is not the total restored native context, and nothing here claims the native input shrinks:
 what the host restores on its own is the host's business, and Qompack neither measures nor controls
-it. The shipped defaults that implement the target are `runtime.rehydrate.minTokens` `8000` and
-`runtime.rehydrate.maxTokens` `12000`, with `checkpoint.budgetTokens` `12000` for the checkpoint
-artifact itself (`docs/config-reference.md`).
+it. The shipped defaults are `runtime.rehydrate.minTokens` `8000` and `runtime.rehydrate.maxTokens`
+`12000`, with `checkpoint.budgetTokens` `12000` for the checkpoint artifact itself
+(`docs/config-reference.md`). Since D5 the host ceiling binds first: 9,500 characters is roughly
+2,400 tokens of prose, so the token keys now matter only when set below that.
 
 Injection has an independent kill switch: `runtime.migration.reinjection.sessionStartCompact`
 (default `true`). Setting it false disables injection without touching recording. It names the one
@@ -289,7 +308,7 @@ date line, the cell says so rather than guessing one.
 | 0008 | [Observer L0: capture, tombstones, supersession, and the Phase 1 exit](adr/0008-observer-l0.md) | Accepted. Implemented by SP-08; 2026-08-25 | Stands |
 | 0009 | [Negative knowledge: the bloom is a cache, and nine decisions that follow from it](adr/0009-negative-knowledge-bloom-as-cache.md) | Accepted. Implemented by SP-09 (`internal/negknow`); 2026-08-23 | Stands |
 | 0010 | [A wall-clock budget is judged only where it is judgeable](adr/0010-wall-clock-under-coload.md) | Accepted. Implemented at the close of V3-VERIFY's J5 backfill; 2026-09-06 | Current amendment |
-| 0011 | [Rehydration budget, item order, and whole-rule restoration](adr/0011-rehydration-budget-and-item-order.md) | accepted; 2026-09-06; subplan SP-11 | Stands |
+| 0011 | [Rehydration budget, item order, and whole-rule restoration](adr/0011-rehydration-budget-and-item-order.md) | accepted; 2026-09-06; subplan SP-11; amended 2026-09-22 (§21, D5) | Current amendment. §21 holds the payload under the host's 10,000-character `additionalContext` cap; §1–§20 stand as refined there |
 | 0012 | [Scheduler L3: the composite trigger, BOCD, cache regimes and p-selection](adr/0012-scheduler-l3.md) | Accepted; 2026-09-06 | Stands |
 | 0013 | [Migration contracts: identities, publication, the shared ledger, envelopes and ownership](adr/0013-migration-contracts.md) | "Proposed by SP-19 M0-02 on branch `arch/migration-contracts`"; 2026-09-07 | Current amendment, proposed |
 | 0014 | [The delivery path's group commit and the A/B seal](adr/0014-delivery-group-commit-and-ab-seal.md) | Accepted, on branch `verify/v5-final`; 2026-09-13 | Current amendment |
