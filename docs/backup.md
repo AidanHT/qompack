@@ -40,9 +40,25 @@ A backup with a `.certification-pending` marker was not confirmed under the writ
 be verified or restored by these commands. Preserve it for diagnosis; create a new backup with a
 fresh ID after resolving the writer problem. Deleting the marker is not a supported repair.
 
-The current delivery journal has a finite 65,536-entry and 64 MiB admission bound. Once a bound is
-reached, new identified deliveries remain pending in durable input and are reported unavailable;
-they must not be processed as identity-free replacements. Existing completed identities remain
-readable. Automatic journal rollover is not yet enabled or release-verified: preserve the journals and pending input,
-stop recording, and retain a consistent backup before planning an engine-compatible migration.
-Manual journal deletion can recycle observation identities and is not a recovery procedure.
+The delivery journals rotate instead of stopping. Each journal file keeps its 65,536-entry and
+64 MiB bound; when either is reached the journal archives its whole window into the generation store
+(`.qompack/state/delivery-generations/`), opens a fresh segment under
+`.qompack/state/delivery-segments/<n>/`, and records the switch in the segment authority
+(`delivery-journal.json` and `delivery-journal-log.jsonl`). Every retired delivery keeps its
+observation identity and its acknowledgement, arrivals continue densely, and a late copy of an
+archived delivery is still recognised. A backup copies all of it — the original four journal files,
+every segment, the authority and the generation store — and refuses a copy if any of them moves under
+it; a restore runs the offline check over every segment.
+
+The first rotation freezes the seals of the original four files (`delivery-lease-position.json`,
+`delivery-ack-position.json`), so a build that predates rotation refuses the journal rather than
+appending to it: its `fsck` and `admin delivery-seal --check` report that the seals carry no version,
+and its daemon leases and acknowledges nothing and changes no delivery-state file. A build from
+before the V6 fail-closed journal change still indexes what it receives in that state, without
+observation identities (its degraded mode for an unavailable journal), so those captures carry no
+redelivery protection; the current build does not revisit them, and resumes each session at the
+arrival it left next. Roll back past a rotation only by restoring a backup taken before it. Do not
+delete, rename or rewrite journals, seals or segments: manual deletion can recycle observation
+identities and is not a recovery procedure. The delivery state grows with the project's delivery
+history and is never pruned; `plans/V2-WAVE1-carried-defects.md` (SP20-D4) records its measured size
+per 100,000 deliveries.

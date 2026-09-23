@@ -416,6 +416,51 @@ expected answer beside a running daemon, not an exceptional one.
 
 ---
 
+**Symptom.** For a while, hooks fall back to the spool although nothing failed.
+
+**Diagnose.** Look for a new directory under `.qompack/state/delivery-segments/` and a new record at
+the end of `.qompack/state/delivery-journal-log.jsonl` from the same time.
+
+**Meaning.** The delivery journal rotated. Every 65,536 deliveries (or 64 MiB of journal) the daemon
+archives the full window into `.qompack/state/delivery-generations/` before it assigns the next
+identity, and leases and acknowledgements wait for it — seconds to tens of seconds for a full window
+(`plans/V2-WAVE1-carried-defects.md`, SP20-D4, has the measured figures). A hook that cannot get its
+ACK within its deadline spools the delivery, and the drain leases it afterwards under the same nonce,
+so nothing is lost or duplicated.
+
+**Action.** None. Do not stop the daemon mid-rotation to "unstick" it: an interrupted rotation is
+finished on the next start before anything else is assigned.
+
+---
+
+**Symptom.** An older Qompack build's `fsck` reports `state/delivery-lease-position.json parses as
+JSON and carries no version`, and that build's daemon assigns no observation identities.
+
+**Meaning.** The store has rotated its delivery journal, and its original seals are frozen so that a
+build that predates segments refuses the journal rather than appending to it with arrival numbers
+later segments already used. The current build reads the frozen seal as the archived segment 0 and
+resumes each session at the arrival it left next. A build from before the V6 fail-closed journal
+change still indexes deliveries in that state, without identities; the current build does not
+revisit them.
+
+**Action.** Use the current build. To go back to an older build, restore a backup taken before the
+first rotation into a fresh destination ([Backup and restore](backup.md)); do not edit the seals.
+
+---
+
+**Symptom.** After a crash, the daemon refuses to open the delivery journal of a rotated store and
+`qompack admin delivery-seal --check` reports a v2 seal with one torn slot in the active segment.
+
+**Meaning.** The crash landed in the middle of the active segment's seal write. The daemon's reader
+is strict and refuses the torn image.
+
+**Action.** Stop the daemon, then run `qompack admin delivery-seal --check --accept-torn-slot --yes`
+to see exactly which journal lines accepting the valid slot would admit, and
+`qompack admin delivery-seal --to v1 --accept-torn-slot --yes` to repair the active segment's seal
+at the position its journal's full scan recovers. The tool refuses Rule R on any archived segment.
+
+---
+
 **Symptom.** A daemon will not start, or a lock file looks orphaned.
 
 **Diagnose.** `.qompack/run/daemon.lock` carries the owning `pid`, start time, address and version

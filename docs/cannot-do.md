@@ -237,6 +237,22 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** [ADR 0010](adr/0010-wall-clock-under-coload.md) (Context, "What this does not
   decide", Addendum 1); `plans/V5-report.md` §29.
 
+### No bounded delivery history on disk, and no downgrade across a rotation
+
+- **Limit.** The delivery journals never forget an identity, so the delivery state on disk grows with
+  every delivery a project has ever had; nothing prunes it. And once a store's delivery journal has
+  rotated (every 65,536 deliveries), a Qompack build that predates segmented rollover cannot use it:
+  it refuses the journal and assigns no observation identity to anything it captures.
+- **Why.** A redelivered copy of any past delivery must get its original observation identity back,
+  and a session's arrivals must never restart, so every lease, acknowledgement and arrival stays
+  resolvable. Memory and each lookup are bounded by the active window; storage is not. An older build
+  cannot see the later segments, and appending to the original journal would re-mint arrival numbers
+  those segments already assigned, so the first rotation makes it refuse instead.
+- **What Qompack does instead.** It archives rotated windows compactly (one pack file per generation)
+  and keeps the refusal fail-closed: pending input is retained for the current build. A backup taken
+  before the first rotation is the rollback path.
+- **Recorded at.** `plans/CARRIED-DEFECTS.tsv` SP20-D4; `plans/V2-WAVE1-carried-defects.md` §SP20-D4.
+
 ### No cost or price guarantee
 
 - **Limit.** Qompack cannot tell you what a session cost. Reported usage is not an estimated price,
