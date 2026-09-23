@@ -18,6 +18,7 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
@@ -109,15 +110,32 @@ func (v v4Redactor) Redact(in []byte) ([]byte, []string) {
 // It supplies the retrieval-side Redactor when a row did not, because that is the composition
 // root's job and this file is the composition root for these rows: mcp fails CLOSED without one —
 // `expand` and `re_read` report themselves unavailable and `recall` withholds its summaries — so a
-// row that omitted it would be testing the degradation rather than the tool.
+// row that omitted it would be testing the degradation rather than the tool. It supplies a hermetic
+// host policy for the same reason (v4HostPolicy).
 func v4Server(t *testing.T, deps mcp.ToolDeps) mcp.Server {
 	t.Helper()
 	if deps.Redactor == nil {
 		deps.Redactor = v4Redactor{r: redact.New(deps.Cfg)}
 	}
+	if deps.HostPolicy == nil && deps.ProjectRoot != "" {
+		deps.HostPolicy = v4HostPolicy(t, deps.ProjectRoot)
+	}
 	srv := mcp.NewServer(mcp.ServerName, "v4-e2e", logging.Nop())
 	require.NoError(t, mcp.RegisterAll(srv, deps), "the eight §8.7 tools must register")
 	return srv
+}
+
+// v4HostPolicy is a host policy with no machine behind it: an empty home, an empty environment and
+// no managed sources. Left nil, internal/mcp reads the real machine's host settings, so a row would
+// pass or fail with the Read rules of whichever machine runs it (C1.9 review finding 3). A row
+// about the host's rules builds its own policy and passes it in.
+func v4HostPolicy(t *testing.T, root string) *hostperm.Policy {
+	t.Helper()
+	return hostperm.New(hostperm.Options{
+		ProjectRoot: root, Home: t.TempDir(),
+		Getenv:  func(string) string { return "" },
+		Managed: &hostperm.ManagedSources{},
+	})
 }
 
 // v4Call invokes one registered tool's real Handler and decodes its single text block into v.
