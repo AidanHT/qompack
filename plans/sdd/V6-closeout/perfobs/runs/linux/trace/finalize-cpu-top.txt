@@ -1,0 +1,50 @@
+File: checkpoint.test
+Build ID: cd89b292fdb865fdc4bf827983996f1b5c4447e9
+Type: cpu
+Time: 2026-09-22 22:34:18 UTC
+Duration: 167.37s, Total samples = 3.34s ( 2.00%)
+Active filters:
+   focus=FileWriter..Finalize$
+Showing nodes accounting for 0.04s, 1.20% of 3.34s total
+Showing top 40 nodes out of 64
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      0.07s  2.10%  github.com/qompack/qompack/internal/checkpoint.(*FileWriter).Finalize
+         0     0%     0%      0.07s  2.10%  github.com/qompack/qompack/internal/checkpoint_test.BenchmarkFinalize
+         0     0%     0%      0.07s  2.10%  testing.(*B).run1.func1
+         0     0%     0%      0.07s  2.10%  testing.(*B).runN
+         0     0%     0%      0.04s  1.20%  github.com/qompack/qompack/internal/checkpoint.(*FileWriter).Begin
+         0     0%     0%      0.03s   0.9%  github.com/qompack/qompack/internal/checkpoint.(*FileWriter).seedTierOne
+         0     0%     0%      0.03s   0.9%  github.com/qompack/qompack/internal/checkpoint.(*fileReader).Get
+         0     0%     0%      0.03s   0.9%  github.com/qompack/qompack/internal/checkpoint.(*fileReader).load
+         0     0%     0%      0.03s   0.9%  github.com/qompack/qompack/internal/checkpoint.Unmarshal
+     0.02s   0.6%   0.6%      0.02s   0.6%  encoding/hex.Decode
+         0     0%   0.6%      0.02s   0.6%  encoding/hex.DecodeString
+         0     0%   0.6%      0.02s   0.6%  encoding/json.(*Decoder).Decode
+         0     0%   0.6%      0.02s   0.6%  encoding/json.(*Encoder).Encode
+         0     0%   0.6%      0.02s   0.6%  encoding/json.(*decodeState).array
+         0     0%   0.6%      0.02s   0.6%  encoding/json.(*decodeState).literalStore
+         0     0%   0.6%      0.02s   0.6%  encoding/json.(*decodeState).object
+         0     0%   0.6%      0.02s   0.6%  encoding/json.(*decodeState).unmarshal
+         0     0%   0.6%      0.02s   0.6%  encoding/json.(*decodeState).value
+         0     0%   0.6%      0.02s   0.6%  github.com/qompack/qompack/internal/checkpoint.Marshal
+         0     0%   0.6%      0.02s   0.6%  github.com/qompack/qompack/internal/checkpoint.warnUnknownFields
+         0     0%   0.6%      0.02s   0.6%  github.com/qompack/qompack/internal/core.(*Hash).UnmarshalJSON
+         0     0%   0.6%      0.02s   0.6%  github.com/qompack/qompack/internal/core.ParseHash
+         0     0%   0.6%      0.02s   0.6%  os.ignoringEINTR (inline)
+         0     0%   0.6%      0.01s   0.3%  bytes.(*Buffer).Write
+         0     0%   0.6%      0.01s   0.3%  bytes.(*Buffer).grow
+         0     0%   0.6%      0.01s   0.3%  bytes.growSlice
+     0.01s   0.3%   0.9%      0.01s   0.3%  encoding/hex.Encode (inline)
+         0     0%   0.9%      0.01s   0.3%  encoding/hex.EncodeToString (inline)
+         0     0%   0.9%      0.01s   0.3%  encoding/json.(*encodeState).marshal
+         0     0%   0.9%      0.01s   0.3%  encoding/json.(*encodeState).reflectValue
+         0     0%   0.9%      0.01s   0.3%  encoding/json.Unmarshal
+         0     0%   0.9%      0.01s   0.3%  encoding/json.addrMarshalerEncoder
+         0     0%   0.9%      0.01s   0.3%  encoding/json.arrayEncoder.encode
+     0.01s   0.3%  1.20%      0.01s   0.3%  encoding/json.checkValid
+         0     0%  1.20%      0.01s   0.3%  encoding/json.condAddrEncoder.encode
+         0     0%  1.20%      0.01s   0.3%  encoding/json.sliceEncoder.encode
+         0     0%  1.20%      0.01s   0.3%  encoding/json.structEncoder.encode
+         0     0%  1.20%      0.01s   0.3%  github.com/qompack/qompack/internal/checkpoint.(*Draft).persist
+         0     0%  1.20%      0.01s   0.3%  github.com/qompack/qompack/internal/checkpoint.(*Draft).persistLocked
+         0     0%  1.20%      0.01s   0.3%  github.com/qompack/qompack/internal/checkpoint.allChunksPresent (inline)

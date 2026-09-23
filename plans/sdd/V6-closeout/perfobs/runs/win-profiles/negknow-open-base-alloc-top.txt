@@ -1,0 +1,30 @@
+File: negknow.test.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\base\negknow.test.exe2026-09-22 17:19:44.3765226 -0400 EDT
+Type: alloc_space
+Time: 2026-09-22 17:30:40 EDT
+Active filters:
+   focus=negknow.Open$
+Showing nodes accounting for 471.64MB, 65.29% of 722.40MB total
+Dropped 14 nodes (cum <= 3.61MB)
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%   473.79MB 65.59%  github.com/qompack/qompack/internal/negknow.BenchmarkOpen
+         0     0%     0%   473.79MB 65.59%  github.com/qompack/qompack/internal/negknow.Open
+         0     0%     0%   473.79MB 65.59%  testing.(*B).runN
+         0     0%     0%   471.64MB 65.29%  github.com/qompack/qompack/internal/negknow.(*ledger).loadRecords
+         0     0%     0%   425.94MB 58.96%  testing.(*B).launch
+   72.41MB 10.02% 10.02%   256.94MB 35.57%  github.com/qompack/qompack/internal/negknow.replayLogSized
+   65.52MB  9.07% 19.09%   184.53MB 25.54%  github.com/qompack/qompack/internal/negknow.replayLogSized.func2
+         0     0% 19.09%   184.53MB 25.54%  github.com/qompack/qompack/internal/negknow.replayLogSized.func3 (inline)
+  139.82MB 19.35% 38.45%   139.82MB 19.35%  github.com/qompack/qompack/internal/paths.ReadFileShared
+         0     0% 38.45%    83.50MB 11.56%  github.com/qompack/qompack/internal/negknow.decodeLogLine
+         0     0% 38.45%    83.50MB 11.56%  github.com/qompack/qompack/internal/negknow.decodeRecordLineFast
+   80.50MB 11.14% 49.59%    80.50MB 11.14%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).str (inline)
+   40.87MB  5.66% 55.25%    74.87MB 10.36%  github.com/qompack/qompack/internal/negknow.(*ledger).reindex
+         0     0% 55.25%    47.85MB  6.62%  testing.(*B).run1.func1
+    8.50MB  1.18% 56.43%    35.50MB  4.91%  github.com/qompack/qompack/internal/negknow.recordFromWire
+      34MB  4.71% 61.13%       34MB  4.71%  github.com/qompack/qompack/internal/negknow.hexString (inline)
+      27MB  3.74% 64.87%       27MB  3.74%  encoding/hex.DecodeString
+         0     0% 64.87%       27MB  3.74%  github.com/qompack/qompack/internal/core.ParseHash
+       3MB  0.42% 65.29%       21MB  2.91%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).deps
+         0     0% 65.29%    17.50MB  2.42%  github.com/qompack/qompack/internal/negknow.dedupHexKey
+         0     0% 65.29%    15.50MB  2.15%  github.com/qompack/qompack/internal/negknow.parseHashOrZero (inline)

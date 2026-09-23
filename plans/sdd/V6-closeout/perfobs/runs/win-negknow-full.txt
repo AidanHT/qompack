@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/negknow	50.708s
+exit=0

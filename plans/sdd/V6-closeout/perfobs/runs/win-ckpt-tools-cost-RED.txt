@@ -1,0 +1,13 @@
+=== RUN   TestKeepResolvableToolsStatsEachChunkOnceAndNeverTheRoot
+    finalize_tools_cost_test.go:110: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-perfobs/internal/checkpoint/finalize_tools_cost_test.go:110
+        	Error:      	Should be zero, but was 2
+        	Test:       	TestKeepResolvableToolsStatsEachChunkOnceAndNeverTheRoot
+        	Messages:   	root 5284dcc8d882 was statted: a root the index resolves is never an object file
+--- FAIL: TestKeepResolvableToolsStatsEachChunkOnceAndNeverTheRoot (0.20s)
+=== RUN   TestKeepResolvableToolsVerdictsMatchTheDefinition
+--- PASS: TestKeepResolvableToolsVerdictsMatchTheDefinition (0.32s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.731s
+FAIL
+exit=1

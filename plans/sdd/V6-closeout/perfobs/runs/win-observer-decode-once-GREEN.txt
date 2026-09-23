@@ -1,0 +1,6 @@
+=== RUN   TestOnToolUseDecodesTheToolResponseOnce
+    response_decode_cost_test.go:63: one decode of the 396000-byte payload: 1229381 bytes; one OnToolUse: 1734208 bytes
+--- PASS: TestOnToolUseDecodesTheToolResponseOnce (0.35s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	0.541s
+exit=0

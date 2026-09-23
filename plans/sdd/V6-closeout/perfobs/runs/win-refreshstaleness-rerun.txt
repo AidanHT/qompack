@@ -1,0 +1,28 @@
+== side=new
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: 5.627185ms CPU/op over 286 iterations (best of 1) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 5.0743ms wall/op over 286 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (5.09s)
+PASS
+exit=0 side=new at 23:18:46
+== side=base
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:740: BenchmarkRefreshStaleness: 4.386697ms CPU/op over 374 iterations (best of 1) against a 10ms budget
+    bench_test.go:740: BenchmarkRefreshStaleness: 3.461574ms wall/op over 374 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (2.60s)
+PASS
+exit=0 side=base at 23:18:49
+== side=new
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: 3.860294ms CPU/op over 340 iterations (best of 1) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 3.086216ms wall/op over 340 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (2.25s)
+PASS
+exit=0 side=new at 23:18:52
+== side=base
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:740: BenchmarkRefreshStaleness: 5.416027ms CPU/op over 326 iterations (best of 1) against a 10ms budget
+    bench_test.go:740: BenchmarkRefreshStaleness: 4.193585ms wall/op over 326 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (3.20s)
+PASS
+exit=0 side=base at 23:18:56

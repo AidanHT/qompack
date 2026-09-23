@@ -1,0 +1,20 @@
+=== RUN   TestBudget_Open
+    bench_test.go:834: BenchmarkOpen: 104.910714ms CPU/op over 14 iterations (best of 1) against a 300ms budget
+    bench_test.go:834: BenchmarkOpen: 141.410414ms wall/op over 14 iterations (best of 1) against a 300ms budget
+--- PASS: TestBudget_Open (4.81s)
+PASS
+# round=1 side=new exit=0 at 22:42:52
+=== RUN   TestBudget_Open
+    bench_test.go:834: BenchmarkOpen: 191.40625ms CPU/op over 4 iterations (best of 1) against a 300ms budget
+    bench_test.go:834: BenchmarkOpen: 268.524675ms wall/op over 4 iterations (best of 1) against a 300ms budget
+--- PASS: TestBudget_Open (3.67s)
+PASS
+# round=2 side=new exit=0 at 22:43:00
+=== RUN   TestBudget_Open
+    bench_test.go:834: BenchmarkOpen: attempt 1 is 410.620383ms wall/op and 226.5625ms CPU/op, over the 300ms ceiling on a gated clock — retrying
+    bench_test.go:834: BenchmarkOpen: budget met on attempt 2 of 3
+    bench_test.go:834: BenchmarkOpen: 120.535714ms CPU/op over 7 iterations (best of 2) against a 300ms budget
+    bench_test.go:834: BenchmarkOpen: 145.9673ms wall/op over 7 iterations (best of 2) against a 300ms budget
+--- PASS: TestBudget_Open (10.22s)
+PASS
+# round=3 side=new exit=0 at 22:43:15

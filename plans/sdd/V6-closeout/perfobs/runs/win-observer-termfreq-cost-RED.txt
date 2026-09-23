@@ -1,0 +1,18 @@
+=== RUN   TestTermFrequenciesMatchTheTokenRegexp
+    features_cost_test.go:79: [rapid] OK, passed 100 tests (1.7124ms)
+    features_cost_test.go:83: [rapid] OK, passed 100 tests (4.1104ms)
+--- PASS: TestTermFrequenciesMatchTheTokenRegexp (0.13s)
+=== RUN   TestWindowTermFrequenciesMatchTheConcatenation
+    features_cost_test.go:95: [rapid] OK, passed 100 tests (493.5433ms)
+--- PASS: TestWindowTermFrequenciesMatchTheConcatenation (0.49s)
+=== RUN   TestTermFrequenciesCostIsPerDistinctToken
+    features_cost_test.go:131: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-perfobs/internal/observer/features_cost_test.go:131
+        	Error:      	"12030" is not less than or equal to "1211"
+        	Test:       	TestTermFrequenciesCostIsPerDistinctToken
+        	Messages:   	4000 tokens allocated 12030 times against 1211 for 400 tokens of the same 16 terms: the cost grows with tokens
+--- FAIL: TestTermFrequenciesCostIsPerDistinctToken (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	1.194s
+FAIL
+exit=1

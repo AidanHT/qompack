@@ -1,0 +1,56 @@
+File: observer.test.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\base\observer.test.exe2026-09-22 17:19:20.5471455 -0400 EDT
+Type: cpu
+Time: 2026-09-22 17:19:50 EDT
+Duration: 42.18s, Total samples = 41.63s (98.70%)
+Showing nodes accounting for 41.63s, 100% of 41.63s total
+----------------------------------------------------------+-------------
+      flat  flat%   sum%        cum   cum%   calls calls% + context 	 	 
+----------------------------------------------------------+-------------
+                                            39.34s   100% |   github.com/qompack/qompack/internal/observer.(*observer).OnToolUse.func1
+     0.01s 0.024% 0.024%     39.34s 94.50%                | github.com/qompack/qompack/internal/observer.(*observer).onToolUse
+                                            30.03s 76.33% |   github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+                                             5.12s 13.01% |   github.com/qompack/qompack/internal/observer.(*observer).features
+                                             2.23s  5.67% |   github.com/qompack/qompack/internal/observer.ExtractSignals
+                                             1.89s  4.80% |   github.com/qompack/qompack/internal/observer.responseText
+                                             0.02s 0.051% |   github.com/qompack/qompack/internal/observer.(*observer).publishRecord
+                                             0.02s 0.051% |   github.com/qompack/qompack/internal/store.ArgsDigest
+                                             0.01s 0.025% |   github.com/qompack/qompack/internal/hookio.CaptureScope
+                                             0.01s 0.025% |   github.com/qompack/qompack/internal/observer.(*observer).recordRecent (inline)
+----------------------------------------------------------+-------------
+                                            11.90s   100% |   github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+         0     0% 0.024%     11.90s 28.59%                | github.com/qompack/qompack/internal/canon.(*registry).Run
+                                             8.01s 67.31% |   github.com/qompack/qompack/internal/canon.(*registry).collect
+                                             3.28s 27.56% |   github.com/qompack/qompack/internal/sketch.MinHash (inline)
+                                             0.56s  4.71% |   github.com/qompack/qompack/internal/canon.compose
+                                             0.05s  0.42% |   github.com/qompack/qompack/internal/canon.appliedNames
+----------------------------------------------------------+-------------
+                                             7.74s   100% |   github.com/qompack/qompack/internal/canon.(*registry).collect
+         0     0% 0.024%      7.74s 18.59%                | github.com/qompack/qompack/internal/canon.MatchesOf
+                                             4.44s 57.36% |   github.com/qompack/qompack/internal/canon.testRunnerCanon.Matches
+                                             0.75s  9.69% |   github.com/qompack/qompack/internal/canon.bashCanon.Matches
+                                             0.66s  8.53% |   github.com/qompack/qompack/internal/canon.timestampsCanon.Matches
+                                             0.64s  8.27% |   github.com/qompack/qompack/internal/canon.tmpPathsCanon.Matches
+                                             0.44s  5.68% |   github.com/qompack/qompack/internal/canon.durationsCanon.Matches
+                                             0.38s  4.91% |   github.com/qompack/qompack/internal/canon.gitCanon.Matches
+                                             0.30s  3.88% |   github.com/qompack/qompack/internal/canon.pidsCanon.Matches
+                                             0.11s  1.42% |   github.com/qompack/qompack/internal/canon.addressesCanon.Matches
+                                             0.02s  0.26% |   github.com/qompack/qompack/internal/canon.crlfCanon.Matches
+----------------------------------------------------------+-------------
+                                             5.12s   100% |   github.com/qompack/qompack/internal/observer.(*observer).onToolUse
+         0     0% 0.024%      5.12s 12.30%                | github.com/qompack/qompack/internal/observer.(*observer).features
+                                             4.96s 96.88% |   github.com/qompack/qompack/internal/observer.cosineTokens
+                                             0.16s  3.12% |   github.com/qompack/qompack/internal/observer.concatText (inline)
+----------------------------------------------------------+-------------
+                                             2.19s 53.68% |   github.com/qompack/qompack/internal/observer.ExtractTestOutcome
+                                             1.89s 46.32% |   github.com/qompack/qompack/internal/observer.(*observer).onToolUse
+         0     0% 0.024%      4.08s  9.80%                | github.com/qompack/qompack/internal/observer.responseText
+                                             4.04s 99.02% |   encoding/json.Unmarshal
+                                             0.04s  0.98% |   runtime.stringtoslicebyte
+----------------------------------------------------------+-------------
+                                            10.11s   100% |   github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+         0     0% 0.024%     10.11s 24.29%                | github.com/qompack/qompack/internal/redact.(*rx).Redact
+                                             8.69s 85.95% |   regexp.(*Regexp).FindAllSubmatchIndex
+                                             1.41s 13.95% |   github.com/qompack/qompack/internal/redact.rule.mayMatch
+                                             0.01s 0.099% |   regexp.(*Regexp).FindAllIndex
+----------------------------------------------------------+-------------

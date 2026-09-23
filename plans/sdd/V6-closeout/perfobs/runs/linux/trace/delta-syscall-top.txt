@@ -1,0 +1,32 @@
+File: observer.test
+Type: delay
+Active filters:
+   focus=onToolUse$
+Showing nodes accounting for 14.38s, 92.91% of 15.47s total
+Dropped 54 nodes (cum <= 0.08s)
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     14.58s 94.24%  github.com/qompack/qompack/internal/obs.Timed
+         0     0%     0%     14.58s 94.24%  github.com/qompack/qompack/internal/observer.(*observer).OnToolUse
+         0     0%     0%     14.58s 94.24%  github.com/qompack/qompack/internal/observer.(*observer).OnToolUse.func1
+         0     0%     0%     14.58s 94.24%  github.com/qompack/qompack/internal/observer.(*observer).onToolUse
+         0     0%     0%     14.58s 94.24%  github.com/qompack/qompack/internal/observer.(*observer).timed
+         0     0%     0%     14.58s 94.24%  github.com/qompack/qompack/internal/observer.BenchmarkOnToolUse_TestOutput256KB.func1
+         0     0%     0%     14.58s 94.24%  github.com/qompack/qompack/internal/observer.runOnToolUseBench
+         0     0%     0%     14.58s 94.24%  testing.(*B).runN
+         0     0%     0%     14.58s 94.23%  github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+         0     0%     0%     14.44s 93.35%  testing.(*B).launch
+         0     0%     0%     14.33s 92.62%  github.com/qompack/qompack/internal/store.(*FSStore).beginPendingWrite
+         0     0%     0%     14.33s 92.62%  github.com/qompack/qompack/internal/store.(*FSStore).pending
+         0     0%     0%     14.32s 92.58%  github.com/qompack/qompack/internal/paths.WriteAtomic
+         0     0%     0%     14.23s 91.96%  internal/poll.(*FD).Fsync
+         0     0%     0%     14.23s 91.96%  os.(*File).Sync
+    14.23s 91.96% 91.96%     14.23s 91.96%  syscall.Fsync
+         0     0% 91.96%      7.20s 46.51%  github.com/qompack/qompack/internal/paths.fsyncDir
+         0     0% 91.96%      7.15s 46.21%  github.com/qompack/qompack/internal/store.(*FSStore).admitRecovery
+         0     0% 91.96%      7.14s 46.15%  github.com/qompack/qompack/internal/store.(*FSStore).putDeltas
+         0     0% 91.96%      7.14s 46.15%  github.com/qompack/qompack/internal/store.(*FSStore).putSideRecord
+         0     0% 91.96%      0.22s  1.43%  github.com/qompack/qompack/internal/store.(*FSStore).putObject
+         0     0% 91.96%      0.16s  1.01%  os.MkdirAll
+         0     0% 91.96%      0.15s  0.97%  github.com/qompack/qompack/internal/store.ensureDir
+     0.15s  0.94% 92.91%      0.15s  0.94%  syscall.Mkdirat
+         0     0% 92.91%      0.14s   0.9%  testing.(*B).run1.func1

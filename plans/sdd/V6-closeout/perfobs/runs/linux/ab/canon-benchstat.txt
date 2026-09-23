@@ -1,0 +1,31 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+                 │ canon-base.txt │            canon-new.txt            │
+                 │     sec/op     │    sec/op     vs base               │
+Run_Bash100KB-4      4.857m ± 32%   4.463m ± 57%        ~ (p=0.505 n=8)
+Run_GoTest-4         1.649m ± 38%   1.465m ± 51%        ~ (p=0.574 n=8)
+Run_KeepDeltas-4     6.139m ± 44%   4.177m ± 72%        ~ (p=0.234 n=8)
+geomean              3.663m         3.012m        -17.79%
+
+                 │ canon-base.txt │            canon-new.txt             │
+                 │      B/s       │      B/s       vs base               │
+Run_Bash100KB-4     20.11Mi ± 38%   22.03Mi ± 59%        ~ (p=0.523 n=8)
+Run_GoTest-4        6.900Mi ± 50%   8.016Mi ± 60%        ~ (p=0.574 n=8)
+Run_KeepDeltas-4    15.98Mi ± 41%   23.57Mi ± 49%        ~ (p=0.234 n=8)
+geomean             13.04Mi         16.09Mi        +23.38%
+
+                 │ canon-base.txt │           canon-new.txt            │
+                 │      B/op      │     B/op      vs base              │
+Run_Bash100KB-4      1.021Mi ± 0%   1.012Mi ± 0%  -0.82% (p=0.000 n=8)
+Run_GoTest-4         532.0Ki ± 0%   503.1Ki ± 0%  -5.44% (p=0.000 n=8)
+Run_KeepDeltas-4     1.023Mi ± 0%   1.012Mi ± 0%  -1.03% (p=0.000 n=8)
+geomean              835.1Ki        814.6Ki       -2.45%
+
+                 │ canon-base.txt │           canon-new.txt           │
+                 │   allocs/op    │ allocs/op   vs base               │
+Run_Bash100KB-4        38.00 ± 3%   36.50 ± 1%   -3.95% (p=0.000 n=8)
+Run_GoTest-4           285.0 ± 0%   168.5 ± 0%  -40.88% (p=0.000 n=8)
+Run_KeepDeltas-4       39.00 ± 5%   36.00 ± 3%   -7.69% (p=0.001 n=8)
+geomean                75.03        60.50       -19.37%

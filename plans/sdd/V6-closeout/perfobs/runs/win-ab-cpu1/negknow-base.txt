@@ -1,0 +1,84 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 374636480 ns/op	 114062500 cpu-ns/op	46070237 B/op	  400565 allocs/op
+PASS
+# round=1 side=base exit=0 at 22:23:13
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 290052690 ns/op	 118750000 cpu-ns/op	46070237 B/op	  400565 allocs/op
+PASS
+# round=2 side=base exit=0 at 22:23:59
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 228803680 ns/op	 120312500 cpu-ns/op	46070228 B/op	  400565 allocs/op
+PASS
+# round=3 side=base exit=0 at 22:24:09
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 366448820 ns/op	 159375000 cpu-ns/op	46070242 B/op	  400565 allocs/op
+PASS
+# round=4 side=base exit=0 at 22:24:24
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 388729860 ns/op	 212500000 cpu-ns/op	46070237 B/op	  400565 allocs/op
+PASS
+# round=5 side=base exit=0 at 22:25:04
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 126969380 ns/op	  92187500 cpu-ns/op	46069940 B/op	  400564 allocs/op
+PASS
+# round=6 side=base exit=0 at 22:25:11
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 404197160 ns/op	 131250000 cpu-ns/op	46070204 B/op	  400565 allocs/op
+PASS
+# round=7 side=base exit=0 at 22:25:26
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 164686430 ns/op	 104687500 cpu-ns/op	46070231 B/op	  400565 allocs/op
+PASS
+# round=8 side=base exit=0 at 22:25:54
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 376334650 ns/op	 114062500 cpu-ns/op	46070237 B/op	  400565 allocs/op
+PASS
+# round=9 side=base exit=0 at 22:26:07
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 324378220 ns/op	 151562500 cpu-ns/op	46070230 B/op	  400565 allocs/op
+PASS
+# round=10 side=base exit=0 at 22:26:32
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 292647800 ns/op	 125000000 cpu-ns/op	46070242 B/op	  400565 allocs/op
+PASS
+# round=11 side=base exit=0 at 22:26:58
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen 	      10	 273072950 ns/op	 140625000 cpu-ns/op	46069940 B/op	  400564 allocs/op
+PASS
+# round=12 side=base exit=0 at 22:27:23

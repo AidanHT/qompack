@@ -1,0 +1,19 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+        │ negknow-base.txt │        negknow-new.txt         │
+        │      sec/op      │    sec/op     vs base          │
+Open-22       231.1m ± 74%   258.8m ± 58%  ~ (p=0.887 n=12)
+
+        │ negknow-base.txt │        negknow-new.txt         │
+        │    cpu-sec/op    │  cpu-sec/op   vs base          │
+Open-22       172.7m ± 34%   179.7m ± 37%  ~ (p=0.639 n=12)
+
+        │ negknow-base.txt │           negknow-new.txt            │
+        │       B/op       │     B/op      vs base                │
+Open-22       43.97Mi ± 0%   34.15Mi ± 0%  -22.33% (p=0.000 n=12)
+
+        │ negknow-base.txt │           negknow-new.txt           │
+        │    allocs/op     │  allocs/op   vs base                │
+Open-22        400.6k ± 0%   260.6k ± 0%  -34.95% (p=0.000 n=12)

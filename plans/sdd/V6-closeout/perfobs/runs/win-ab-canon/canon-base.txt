@@ -1,0 +1,90 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     234	   4372585 ns/op	  23.42 MB/s	 1059962 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	     896	   1379754 ns/op	   8.64 MB/s	  539212 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     171	   9661356 ns/op	  10.60 MB/s	 1059784 B/op	      34 allocs/op
+PASS
+# round=1 side=base exit=0 at 22:54:41
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     260	   5074784 ns/op	  20.18 MB/s	 1059789 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	    1053	   3410898 ns/op	   3.50 MB/s	  539214 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     147	   8176559 ns/op	  12.52 MB/s	 1059785 B/op	      34 allocs/op
+PASS
+# round=2 side=base exit=0 at 22:54:55
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     256	   4698130 ns/op	  21.80 MB/s	 1059776 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	     854	   1612213 ns/op	   7.40 MB/s	  539213 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     159	   8469945 ns/op	  12.09 MB/s	 1059782 B/op	      34 allocs/op
+PASS
+# round=3 side=base exit=0 at 22:55:07
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     169	   6736321 ns/op	  15.20 MB/s	 1059790 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	     664	   2404233 ns/op	   4.96 MB/s	  539214 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     126	   8037496 ns/op	  12.74 MB/s	 1059785 B/op	      34 allocs/op
+PASS
+# round=4 side=base exit=0 at 22:55:26
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     234	   5662242 ns/op	  18.09 MB/s	 1059789 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	     655	   2086706 ns/op	   5.72 MB/s	  539213 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     135	   7993000 ns/op	  12.81 MB/s	 1059789 B/op	      34 allocs/op
+PASS
+# round=5 side=base exit=0 at 22:55:38
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     214	   5869495 ns/op	  17.45 MB/s	 1059779 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	    1058	   1391846 ns/op	   8.57 MB/s	  539213 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     100	  17795856 ns/op	   5.75 MB/s	 1059788 B/op	      34 allocs/op
+PASS
+# round=6 side=base exit=0 at 22:55:49
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     262	   4691387 ns/op	  21.83 MB/s	 1059779 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	     846	   1780525 ns/op	   6.70 MB/s	  539257 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     146	   8568323 ns/op	  11.95 MB/s	 1060079 B/op	      34 allocs/op
+PASS
+# round=7 side=base exit=0 at 22:56:03
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     225	   5957928 ns/op	  17.19 MB/s	 1059778 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	     676	   2066944 ns/op	   5.77 MB/s	  539212 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     134	   7813019 ns/op	  13.11 MB/s	 1059781 B/op	      34 allocs/op
+PASS
+# round=8 side=base exit=0 at 22:56:14
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     249	   4919318 ns/op	  20.82 MB/s	 1059789 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	     787	   1386145 ns/op	   8.60 MB/s	  539213 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     169	   8908775 ns/op	  11.50 MB/s	 1060040 B/op	      34 allocs/op
+PASS
+# round=9 side=base exit=0 at 22:56:24
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB  	     242	   6476409 ns/op	  15.81 MB/s	 1059790 B/op	      34 allocs/op
+BenchmarkRun_GoTest     	     642	   2251540 ns/op	   5.30 MB/s	  539213 B/op	     284 allocs/op
+BenchmarkRun_KeepDeltas 	     121	  11515985 ns/op	   8.89 MB/s	 1059784 B/op	      34 allocs/op
+PASS
+# round=10 side=base exit=0 at 22:56:38
