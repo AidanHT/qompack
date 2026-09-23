@@ -31,7 +31,7 @@ func requireShortNames(t *testing.T, long string) string {
 	t.Helper()
 	s := shortPath(t, long)
 	if strings.EqualFold(s, long) {
-		t.Skip("precondition: this volume records no 8.3 names, so there is no short spelling to test")
+		t.Skip("platform: this volume records no 8.3 names, so there is no short spelling to test")
 	}
 	return s
 }
