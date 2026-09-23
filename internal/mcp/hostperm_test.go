@@ -422,7 +422,7 @@ func TestHostPolicy_DefaultPolicyIsBuiltFromTheProjectRoot(t *testing.T) {
 
 	h := newHandlers(ToolDeps{})
 	require.Nil(t, h.host)
-	require.Equal(t, unavailable(hostUnavailableReason), h.authorizeHost(context.Background(), "a.txt"),
+	require.Equal(t, unavailable(hostUnavailableReason), h.authorizeHost(context.Background(), "a.txt", "a.txt"),
 		"no policy is never read as no rules")
 }
 

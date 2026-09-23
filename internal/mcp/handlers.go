@@ -907,12 +907,13 @@ func (h *handlers) filterDrops(ctx context.Context, entries []checkpoint.DropEnt
 			kept = append(kept, e)
 			continue
 		}
-		if _, err := paths.Norm(h.root, p); err != nil {
+		norm, err := paths.Norm(h.root, p)
+		if err != nil {
 			// Out of scope for a path rule to name; containment is not this tool's check.
 			kept = append(kept, e)
 			continue
 		}
-		if refusal := h.authorizeHost(ctx, p); refusal != nil {
+		if refusal := h.authorizeHost(ctx, p, norm); refusal != nil {
 			deniedCount++
 			hostUnavailable = hostUnavailable || isHostUnavailable(refusal)
 			continue
