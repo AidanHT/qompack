@@ -1,0 +1,108 @@
+# review red: finding 2 (runtime.mode fallback on the hook path), config unit, on a8ead17 + new tests, unmodified capture_load.go, 2026-09-22T22:27:54Z, windows
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/off_in_the_wrong_case
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/off_in_the_wrong_case
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type_over_a_lower_layer's_off
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type_over_a_lower_layer's_off
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum_over_a_lower_layer's_off
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum_over_a_lower_layer's_off
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/object_where_the_switch_belongs
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/object_where_the_switch_belongs
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/environment_value_outside_the_enum
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/environment_value_outside_the_enum
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/flag_value_outside_the_enum
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/flag_value_outside_the_enum
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/unknown_flag_under_the_switch
+    capture_load_test.go:299: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:442
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_test.go:299
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestLoadForCapture_RefusesAnyCaptureSwitchProblem/unknown_flag_under_the_switch
+--- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem (19.00s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum (0.27s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/off_in_the_wrong_case (0.38s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type (0.55s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type_over_a_lower_layer's_off (1.22s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum_over_a_lower_layer's_off (2.72s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/object_where_the_switch_belongs (3.03s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/environment_value_outside_the_enum (4.39s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/flag_value_outside_the_enum (2.16s)
+    --- FAIL: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/unknown_flag_under_the_switch (4.27s)
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_auto
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_auto
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_full
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_full
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_passive
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_passive
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_off
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_off
+--- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue (7.30s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_auto (3.67s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_auto (0.70s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_full (0.89s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_full (0.66s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_passive (0.60s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_passive (0.38s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_off (0.17s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_off (0.23s)
+=== RUN   TestLoadForCapture_CaptureSwitchAncestorProblemDoesNotRefuse
+--- PASS: TestLoadForCapture_CaptureSwitchAncestorProblemDoesNotRefuse (0.30s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	28.022s
+FAIL
+exit=1

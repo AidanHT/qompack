@@ -437,3 +437,75 @@ func warningKeys(ws []config.Warning) []string {
 	}
 	return out
 }
+
+// TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything is the soft loader's half of the same
+// contract. A value that passed the merge-time type gate but could not be decoded into its Go field —
+// a NaN from the environment or --set, a whole number past the platform int in a file — used to
+// fail fromMap's decode, and fromMap answers a failed decode with Defaults(): EVERY layer was
+// silently discarded, with no warning at all, over one leaf. It must cost that one leaf, and say so.
+func TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		file  string
+		env   map[string]string
+		flags map[string]string
+		key   string
+	}{
+		{
+			name: "nonfinite environment value",
+			file: `{"checkpoint":{"budgetTokens":9000}}`,
+			env:  map[string]string{"QOMPACK_SCHEDULER__SOFTFLOORPCT": "NaN"},
+			key:  "scheduler.softFloorPct",
+		},
+		{
+			name:  "infinite flag value",
+			file:  `{"checkpoint":{"budgetTokens":9000}}`,
+			flags: map[string]string{"scheduler.softFloorPct": "+Inf"},
+			key:   "scheduler.softFloorPct",
+		},
+		{
+			name: "integer beyond the platform int",
+			file: `{"checkpoint":{"budgetTokens":9000},"retrieval":{"promoteAfterExpansions":1e300}}`,
+			key:  "retrieval.promoteAfterExpansions",
+		},
+		// MaxInt64 parses as an int64, but float64 cannot hold it: every value from 2^63-512 up
+		// rounds to 2^63, which no Go int decodes. On a 32-bit target anything past MaxInt32 fails
+		// the same decode. Either way it must be this one leaf's warning.
+		{
+			name: "largest int64 environment value",
+			file: `{"checkpoint":{"budgetTokens":9000}}`,
+			env:  map[string]string{"QOMPACK_RUNTIME__DAEMON__MAXSESSIONS": "9223372036854775807"},
+			key:  "runtime.daemon.maxSessions",
+		},
+		{
+			name:  "largest int64 flag value",
+			file:  `{"checkpoint":{"budgetTokens":9000}}`,
+			flags: map[string]string{"runtime.daemon.maxSessions": "9223372036854775807"},
+			key:   "runtime.daemon.maxSessions",
+		},
+		{
+			name: "largest int64 literal in a file",
+			file: `{"checkpoint":{"budgetTokens":9000},"runtime":{"daemon":{"maxSessions":9223372036854775807}}}`,
+			key:  "runtime.daemon.maxSessions",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := baseEnv(t)
+			writeConfigFile(t, env.ProjectRoot, tc.file)
+			if tc.env != nil {
+				env.Getenv = func(name string) string { return tc.env[name] }
+			}
+			env.Flags = tc.flags
+
+			cfg, _, warns, err := config.Load(env)
+			require.NoError(t, err)
+			require.Equal(t, 9000, cfg.Checkpoint.BudgetTokens,
+				"one unrepresentable leaf must not discard every other layer")
+			var keys []string
+			for _, w := range warns {
+				keys = append(keys, w.Key)
+			}
+			require.Contains(t, keys, tc.key, "the dropped value must be reported, not silently discarded")
+		})
+	}
+}

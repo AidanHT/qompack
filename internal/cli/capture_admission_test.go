@@ -71,6 +71,10 @@ func TestHookCapture_RefusesBeforeSpoolAndDaemonStart(t *testing.T) {
 		`{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}}`,
 		`{"runtime":{"redact":{"patterns":["["]}}}`,
 		`{"runtime":{"redact":{"enabled":false,"enabled":true}}}`,
+		// runtime.mode is the capture on/off switch: a setting of it the hook path cannot apply as
+		// written refuses instead of recording under the default "auto" (C1.8 review, finding 2).
+		`{"runtime":{"mode":"OFF"}}`,
+		`{"runtime":{"mode":false}}`,
 		// A gated runtime.migration switch set to true is NOT in this list any more: since finding
 		// S-7 an out-of-range VALUE clamps rather than refusing the delivery, and clamping a gate to
 		// false is the safe direction — the switch still cannot be turned on by editing a file.

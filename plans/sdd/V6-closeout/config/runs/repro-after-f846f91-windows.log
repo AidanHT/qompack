@@ -1,0 +1,140 @@
+# probe of closeout/config f846f91 (C1.8 review fixes), 2026-09-22T22:36:12Z, windows; cases: runs/probe-cases-review.txt
+=== case p1: {}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./run ./run/spawn.lock ./spool ./spool/client-39584.ndjson 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=True severity=0 observed=applied as written 
+stopped self-test-spawned daemon pid=8368
+=== case p2: {"runtime":{"notAKey":1}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./run ./run/spawn.lock ./spool ./spool/client-59356.ndjson 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 0 setting(s) fell back to the default, 1 key(s) not applied detail=runtime.notAKey: unknown key
+stopped self-test-spawned daemon pid=47656
+=== case p3: {"runtime":{"migration":{"settingsVersion":99}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./run ./run/spawn.lock ./spool ./spool/client-46532.ndjson ./state ./state/config-violations.json ./tmp 
+config-violations.json:
+[
+  {
+    "Key": "runtime.migration",
+    "Message": "settingsVersion 99 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off",
+    "Got": null,
+    "Want": null
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 1 setting(s) fell back to the default, 0 key(s) not applied detail=runtime.migration: settingsVersion 99 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off
+stopped self-test-spawned daemon pid=61200
+=== case p4: {"runtime":{"mode":"sideways"}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: a runtime.mode setting cannot be applied as written, and the capture on/off switch has no per-leaf fallback
+stopped self-test-spawned daemon pid=56880
+=== case p5: {"runtime":{"phase7":{"reuse":{"scopedCandidates":true}}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./run ./run/spawn.lock ./spool ./spool/client-59780.ndjson ./state ./state/config-violations.json ./tmp 
+config-violations.json:
+[
+  {
+    "Key": "runtime.phase7.reuse.scopedCandidates",
+    "Message": "invalid value, using default: true not in false",
+    "Got": "true",
+    "Want": "false"
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 1 setting(s) fell back to the default, 0 key(s) not applied detail=runtime.phase7.reuse.scopedCandidates: invalid value, using default: true not in false
+stopped self-test-spawned daemon pid=26420
+=== case p6: {"scheduler":{"youngDaly":{"enabled":true}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./run ./run/spawn.lock ./spool ./spool/client-37804.ndjson 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=True severity=0 observed=applied as written 
+stopped self-test-spawned daemon pid=21080
+=== case p7: {"checkpoint":{"budgetTokens":"12000"}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./run ./run/spawn.lock ./spool ./spool/client-5056.ndjson 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 0 setting(s) fell back to the default, 1 key(s) not applied detail=checkpoint.budgetTokens: invalid type for checkpoint.budgetTokens: expected int
+stopped self-test-spawned daemon pid=43736
+=== case p8: {"runtime":{"mode":"sideways","notAKey":1}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: a runtime.mode setting cannot be applied as written, and the capture on/off switch has no per-leaf fallback
+stopped self-test-spawned daemon pid=58060
+=== case p9: {"runtime":{"redact":{"patterns":"PRIVATE-[A-Z]{12}"}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: a runtime.redact setting cannot be applied as written, and the capture privacy policy has no per-leaf fallback
+stopped self-test-spawned daemon pid=12636
+=== case p10: {"runtime":
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: the project config file is not a single strict JSONC object
+stopped self-test-spawned daemon pid=41056
+=== case p11: {"runtime":{"mode":"OFF"}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: a runtime.mode setting cannot be applied as written, and the capture on/off switch has no per-leaf fallback
+stopped self-test-spawned daemon pid=37008
+=== case p12: {"runtime":{"mode":false}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: a runtime.mode setting cannot be applied as written, and the capture on/off switch has no per-leaf fallback
+stopped self-test-spawned daemon pid=59000
+probe exit=0

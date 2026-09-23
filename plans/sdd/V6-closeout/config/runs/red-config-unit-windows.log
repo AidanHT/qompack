@@ -1,0 +1,161 @@
+--- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing (0.12s)
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_top-level_key (0.01s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_top-level_key
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_nested_key (0.01s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_nested_key
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type (0.02s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type_keeps_the_lower_layer (0.02s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type_keeps_the_lower_layer
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/section_that_is_not_an_object (0.01s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/section_that_is_not_an_object
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/integer_leaf_beyond_the_platform_int (0.01s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/integer_leaf_beyond_the_platform_int
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/invalid_value_beside_an_unknown_key (0.02s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/invalid_value_beside_an_unknown_key
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_environment_value (0.00s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_environment_value
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_environment_value (0.00s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_environment_value
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_flag (0.00s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_flag
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_flag_value (0.00s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_flag_value
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+    --- FAIL: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_flag_value (0.00s)
+        capture_load_fallback_test.go:137: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:137
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_flag_value
+            	Messages:   	a per-leaf problem must not refuse the whole capture
+--- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem (0.05s)
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_top-level_key (0.00s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_top-level_key
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_nested_key (0.01s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_nested_key
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type (0.01s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type_keeps_the_lower_layer (0.01s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type_keeps_the_lower_layer
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/section_that_is_not_an_object (0.01s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/section_that_is_not_an_object
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/integer_leaf_beyond_the_platform_int (0.01s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/integer_leaf_beyond_the_platform_int
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/invalid_value_beside_an_unknown_key (0.01s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/invalid_value_beside_an_unknown_key
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_environment_value (0.00s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_environment_value
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_environment_value (0.00s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_environment_value
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_flag (0.00s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_flag
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_flag_value (0.00s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_flag_value
+    --- FAIL: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_flag_value (0.00s)
+        capture_load_fallback_test.go:158: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/config/capture_load_fallback_test.go:158
+            	Error:      	Received unexpected error:
+            	            	qompack: running in degraded mode: capture configuration unavailable
+            	Test:       	TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_flag_value
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	1.164s
+FAIL

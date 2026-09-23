@@ -1,0 +1,78 @@
+# review: finding 1 on a 32-bit target (GOARCH=386, WOW64), fixed load.go, 2026-09-22T22:21:25Z; not a release target, run only to exercise the strconv.IntSize path
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_top-level_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_nested_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type_keeps_the_lower_layer
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/section_that_is_not_an_object
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/integer_leaf_beyond_the_platform_int
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/invalid_value_beside_an_unknown_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_environment_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_environment_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_environment_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_flag_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_flag
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_flag_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_flag_value
+--- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing (14.33s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_top-level_key (1.28s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_nested_key (1.34s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type (0.87s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type_keeps_the_lower_layer (0.81s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/section_that_is_not_an_object (1.03s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/integer_leaf_beyond_the_platform_int (0.74s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/invalid_value_beside_an_unknown_key (0.81s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_environment_value (0.45s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_environment_value (0.71s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_environment_value (1.25s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_flag_value (1.40s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_flag (1.07s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_flag_value (0.72s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_flag_value (1.84s)
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_top-level_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_nested_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type_keeps_the_lower_layer
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/section_that_is_not_an_object
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/integer_leaf_beyond_the_platform_int
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/invalid_value_beside_an_unknown_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_flag_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_flag
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_flag_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_flag_value
+--- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem (9.48s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_top-level_key (0.92s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_nested_key (1.41s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type (0.57s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type_keeps_the_lower_layer (1.52s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/section_that_is_not_an_object (0.72s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/integer_leaf_beyond_the_platform_int (0.61s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/invalid_value_beside_an_unknown_key (0.65s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_environment_value (0.68s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_environment_value (0.20s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_environment_value (0.39s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_flag_value (0.58s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_flag (0.21s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_flag_value (0.50s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_flag_value (0.50s)
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/nonfinite_environment_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/infinite_flag_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/integer_beyond_the_platform_int
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_environment_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_flag_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_literal_in_a_file
+--- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything (2.98s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/nonfinite_environment_value (0.35s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/infinite_flag_value (0.23s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/integer_beyond_the_platform_int (0.37s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_environment_value (0.81s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_flag_value (0.52s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_literal_in_a_file (0.71s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	28.069s
+exit=0

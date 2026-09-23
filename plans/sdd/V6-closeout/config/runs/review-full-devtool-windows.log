@@ -1,0 +1,4 @@
+# review: full tools/devtool at working tree over f846f91 (genconfigdocs.go edited), 2026-09-22T22:42:31Z, windows
+vet exit=0
+ok  	github.com/qompack/qompack/tools/devtool	80.773s
+exit=0

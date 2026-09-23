@@ -1,0 +1,29 @@
+# finding 1 real-binary probe, BEFORE: 1062c50 (implementer's HEAD), 2026-09-22T22:38:53Z, windows
+=== project config: {"checkpoint":{"budgetTokens":9000}}; QOMPACK_RUNTIME__DAEMON__MAXSESSIONS=9223372036854775807
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+config print (env) exit=0 checkpoint.budgetTokens runtime.daemon.maxSessions = 12000 8
+config print (env) stderr: 
+config print (flag) exit=0 checkpoint.budgetTokens runtime.daemon.maxSessions = 12000 8
+config print (flag) stderr: 
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: the effective configuration does not decode
+probe exit=0
+
+# finding 1 real-binary probe, AFTER: f846f91, 2026-09-22T22:38:58Z, windows
+=== project config: {"checkpoint":{"budgetTokens":9000}}; QOMPACK_RUNTIME__DAEMON__MAXSESSIONS=9223372036854775807
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+config print (env) exit=0 checkpoint.budgetTokens runtime.daemon.maxSessions = 9000 8
+config print (env) stderr: 
+config print (flag) exit=0 checkpoint.budgetTokens runtime.daemon.maxSessions = 9000 8
+config print (flag) stderr: 
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 0 setting(s) fell back to the default, 1 key(s) not applied detail=runtime.daemon.maxSessions: invalid env value QOMPACK_RUNTIME__DAEMON__MAXSESSIONS="9223372036854775807": expected int
+stopped self-test-spawned daemon pid=61388
+probe exit=0
+note (appended after the run): the BEFORE self-test's daemon (pid 25316, 'qompack-1062c50.exe daemon --project <scratch>/probe-int64-1062c50/p') wrote its lock only after the probe's lock check, so the probe did not stop it; it was stopped by PID afterwards, having been verified by its command line as this probe's own daemon.

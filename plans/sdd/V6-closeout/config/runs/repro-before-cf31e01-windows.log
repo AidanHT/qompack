@@ -1,0 +1,109 @@
+# probe of candidate cf31e01 (closeout/config base), 2026-09-22T21:26:16Z, windows
+=== case p1: {}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./run ./run/daemon.hb ./run/daemon.lock ./run/spawn.lock ./spool ./spool/client-58080.ndjson 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=51564
+=== case p2: {"runtime":{"notAKey":1}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=59992
+=== case p3: {"runtime":{"migration":{"settingsVersion":99}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./dag ./grammar ./index ./objects ./run ./run/daemon.hb ./run/daemon.lock ./run/spawn.lock ./sketches ./spool ./spool/client-53620.ndjson ./state ./state/config-violations.json ./tmp 
+config-violations.json:
+[
+  {
+    "Key": "runtime.migration",
+    "Message": "settingsVersion 99 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off",
+    "Got": null,
+    "Want": null
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=26160
+=== case p4: {"runtime":{"mode":"sideways"}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/LOUD.log ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-46824.ndjson ./state ./state/config-violations.json ./state/delivery-acks.jsonl ./state/delivery-lease-position.json ./state/delivery-leases.jsonl ./tmp 
+config-violations.json:
+[
+  {
+    "Key": "runtime.mode",
+    "Message": "invalid value, using default: sideways not in auto|full|passive|off",
+    "Got": "sideways",
+    "Want": "auto|full|passive|off"
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=43980
+=== case p5: {"runtime":{"phase7":{"reuse":{"scopedCandidates":true}}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./config.json ./run ./run/daemon.hb ./run/daemon.lock ./run/spawn.lock ./spool ./spool/client-61380.ndjson ./state ./state/config-violations.json ./tmp 
+config-violations.json:
+[
+  {
+    "Key": "runtime.phase7.reuse.scopedCandidates",
+    "Message": "invalid value, using default: true not in false",
+    "Got": "true",
+    "Want": "false"
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=55540
+=== case p6: {"scheduler":{"youngDaly":{"enabled":true}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/spawn.lock ./sketches ./spool ./spool/client-40976.ndjson ./state ./tmp 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=31816
+=== case p7: {"checkpoint":{"budgetTokens":"12000"}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=9788
+=== case p8: {"runtime":{"mode":"sideways","notAKey":1}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=48064
+=== case p9: {"runtime":{"redact":{"patterns":"PRIVATE-[A-Z]{12}"}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+stopped self-test-spawned daemon pid=46708
