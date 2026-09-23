@@ -291,6 +291,24 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		seg = s
 	}
 
+	// Segment 0 still active with a frozen seal is a rotation stopped between freezing segment 0 and
+	// committing its transition: finish it, or refuse when its window was never archived.
+	if enableDeliveryGenerations && active == 0 && !initActiveZero {
+		frozen, err := legacySealFrozen(stateDir)
+		if err != nil {
+			_ = closeSegments(seg)
+			return nil, err
+		}
+		if frozen {
+			j, err := l.finishFrozenLegacyRotation(stateDir, seg)
+			if err != nil {
+				return nil, err
+			}
+			l.journalOpenFault = false
+			return j, nil
+		}
+	}
+
 	p := segmentLeasePath(stateDir, active)
 	positionPath := filepath.Join(filepath.Dir(p), deliveryPositionFile)
 	_, journalErr := os.Lstat(paths.Long(p))
@@ -1497,6 +1515,9 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 	if err := j.reconcileGenerations(ctx); err != nil {
 		return err
 	}
+	if err := deliveryRotateStage(rotateStageArchived); err != nil {
+		return err
+	}
 	root := j.gen.currentRoot()
 	if root.isZero() {
 		return deliveryJournalError() // a rotation must archive a non-empty window
@@ -1518,18 +1539,86 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 	if err := createFreshSegment(j.stateDir, next, carry); err != nil {
 		return err
 	}
+	if err := deliveryRotateStage(rotateStageStaged); err != nil {
+		return err
+	}
+	// 3. The legacy segment 0 — the four files every build that predates segments opens and appends to —
+	//    is frozen now, its window archived and before the transition commits (delivery_frozen_seal.go),
+	//    so a pre-segment build that opens the store at any point after this refuses the journal instead
+	//    of re-minting arrivals the new segment will assign. A crash between this and the commit leaves
+	//    segment 0 active with frozen seals over an archived window; the next open finishes the rotation
+	//    (finishFrozenLegacyRotation). Freezing only after the commit left a window in which a
+	//    pre-segment build could still append (V6 close-out review, finding 3).
+	if j.segment == 0 {
+		if err := j.closeSealHandles(); err != nil {
+			return err
+		}
+		if err := freezeLegacySeals(j.stateDir,
+			deliveryPosition{Version: core.EvidenceVersion, Bytes: j.bytes, Count: len(j.leases), Chain: j.chain},
+			deliveryPosition{Version: core.EvidenceVersion, Bytes: j.ackBytes, Count: len(j.acks), Chain: j.ackChain},
+		); err != nil {
+			return err
+		}
+		if err := deliveryRotateStage(rotateStageFrozen); err != nil {
+			return err
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if !j.owner.ownedByFile() {
 		return deliveryJournalError()
 	}
-	// 3. The fsynced transition log commits the switch; the atomic head checkpoints it.
+	// 4. The fsynced transition log commits the switch; the atomic head checkpoints it.
 	if err := j.seg.commitTransition(next, hex.EncodeToString(root[:])); err != nil {
 		return err
 	}
-	// 4. Switch the live window to the new segment, resuming arrivals from the committed base root.
+	if err := deliveryRotateStage(rotateStageCommitted); err != nil {
+		return err
+	}
+	// 5. Switch the live window to the new segment, resuming arrivals from the committed base root.
 	return j.switchToSegment(next, root)
+}
+
+// The points of a rotation deliveryRotateHook is called at, each after the step it names.
+const (
+	rotateStageArchived  = "archived"  // the window is in the generation store
+	rotateStageStaged    = "staged"    // the next segment and its carry are staged
+	rotateStageFrozen    = "frozen"    // segment 0's seals are frozen (a rotation out of segment 0 only)
+	rotateStageCommitted = "committed" // the transition is committed; the live window has not switched
+)
+
+// deliveryRotateHook, when set, runs at each stage of a rotation with the barrier held, and an error it
+// returns fails the rotation there, as a crash at that point would leave it. Only tests set it: to
+// run a store GC pass while the authority is part-way through a move, and to stop a rotation between
+// two of its durable steps. It is nil in production.
+var deliveryRotateHook func(stage string) error
+
+func deliveryRotateStage(stage string) error {
+	if deliveryRotateHook == nil {
+		return nil
+	}
+	return deliveryRotateHook(stage)
+}
+
+// closeSealHandles closes the held seal handles of the journal's current segment. The rotation barrier
+// is held (no batch can seal), and the switch that follows opens the next segment's.
+func (j *deliveryJournal) closeSealHandles() error {
+	if j.seal != nil {
+		s := j.seal
+		j.seal = nil
+		if err := s.close(); err != nil {
+			return deliveryJournalError()
+		}
+	}
+	if j.ackSeal != nil {
+		s := j.ackSeal
+		j.ackSeal = nil
+		if err := s.close(); err != nil {
+			return deliveryJournalError()
+		}
+	}
+	return nil
 }
 
 // reconcileGenerations archives the outgoing window into the generation store (idempotent): its leases
@@ -1574,31 +1663,9 @@ func (j *deliveryJournal) switchToSegment(seq uint64, baseRoot radixHash) error 
 			return deliveryJournalError()
 		}
 	}
-	if j.seal != nil {
-		s := j.seal
-		j.seal = nil
-		if err := s.close(); err != nil {
-			return deliveryJournalError()
-		}
-	}
-	if j.ackSeal != nil {
-		s := j.ackSeal
-		j.ackSeal = nil
-		if err := s.close(); err != nil {
-			return deliveryJournalError()
-		}
-	}
-	// The outgoing segment is archived. When it is the legacy segment 0 — the four files every build
-	// that predates segments would open and append to — freeze its two seals now, with no handle left
-	// on them, so such a build refuses the journal instead of re-minting arrivals past the transition
-	// just committed (delivery_frozen_seal.go). A later open repeats this if a crash intervenes.
-	if j.segment == 0 {
-		if err := freezeLegacySeals(j.stateDir,
-			deliveryPosition{Version: core.EvidenceVersion, Bytes: j.bytes, Count: len(j.leases), Chain: j.chain},
-			deliveryPosition{Version: core.EvidenceVersion, Bytes: j.ackBytes, Count: len(j.acks), Chain: j.ackChain},
-		); err != nil {
-			return err
-		}
+	// The outgoing segment's seals (already closed and frozen when it is segment 0, doRotate step 3).
+	if err := j.closeSealHandles(); err != nil {
+		return err
 	}
 
 	j.st.Lock()
