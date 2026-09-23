@@ -192,15 +192,31 @@ func (r *v4Rig) CompactStart(t *testing.T, sess core.SessionID) string {
 	return out.HookSpecificOutput.AdditionalContext
 }
 
-// PreCompact runs `qompack checkpoint` and returns the emitted customInstructions, or "" when the
-// daemon suppressed them.
-func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) (hookio.Output, string) {
+// PreCompact runs `qompack checkpoint` as a real process and holds what it wrote to the host's
+// PreCompact contract: the empty response. Claude Code has no PreCompact hookSpecificOutput variant
+// and rejects the whole response over one (C1.12), and it discards a PreCompact systemMessage, so a
+// conforming checkpoint hook says nothing on stdout whether or not it sealed. A row that needs to
+// know the seal happened reads the artifact (cpCheckpointArtifacts), not stdout.
+func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) hookio.Output {
 	t.Helper()
 	out := r.Hook(t, []string{"checkpoint"}, cpPreCompactPayload(t, r.P.Root, sess))
-	if out.HookSpecificOutput == nil {
-		return out, ""
-	}
-	return out, out.HookSpecificOutput.CustomInstructions
+	cpRequireHostConformingPreCompact(t, out)
+	return out
+}
+
+// PreCompactReply sends the PreCompact a host would deliver straight to the daemon's checkpoint
+// route over the real IPC transport — the hop between the hook client and the daemon — and returns
+// the daemon's own reply with the focus instruction in it ("" when the daemon suppressed it).
+//
+// It exists because that instruction no longer travels any further. The daemon still renders
+// Qompack.md §8.5's O1 focus paragraphs and records them (contract.History.PrecompactInstr), but
+// the hook client reduces the reply to what the host accepts for PreCompact, which is nothing. The
+// rows that pin the instruction's CONTENT — the span paragraph, the sentinel, what must never leak
+// into it — therefore read it on the hop where it still exists. Every other row, and the seal
+// itself, goes through the real binary via PreCompact.
+func (r *v4Rig) PreCompactReply(t *testing.T, sess core.SessionID) (hookio.Output, string) {
+	t.Helper()
+	return cpPreCompactReply(t, r.P.Root, sess)
 }
 
 // OpenLedgerByCompacting drives one SessionStart(source=compact) so that the lazily-opened

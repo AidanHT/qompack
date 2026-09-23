@@ -1,0 +1,18 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 374bb22a
+
+## 1. Invariants (pinned, verbatim)
+- [inv_03b63ceff294] Release rule A: every deployment to the payments cluster goes through the rel/2026-q4 train, is approved by two on-call reviewers, carries a rollback plan that has been rehearsed in staging within the last seven days, and is announced in the release channel at least thirty minutes before the cutover window opens, with the change ticket linked in the announcement text. (source: user)
+- [inv_ab3c02ae996a] Release rule B: never widen a database connection pool, a statement timeout, or a retry budget to make an intermittent failure go away; first reproduce the failure under load, attribute it to a specific lock, dependency or saturation cliff, and record the attribution with its evidence in the incident notes before any configuration value is touched in any environment at all. (source: user)
+- [inv_2fd29105430d] Release rule C: secrets, tokens and customer identifiers never appear in logs, commit messages, test fixtures or chat transcripts; a leak found anywhere is treated as an incident, the credential is rotated first and investigated second, and the fixture or log line that carried it is deleted from history rather than merely edited in a follow-up commit to the same branch. (source: user)
+- [inv_c2a424716bf4] Release rule D: a change that touches the refresh-token rotation path must keep rotation single-use and reuse detection on, must be covered by the concurrency reproduction in test/load/refresh-storm, and must show no increase in p99 latency or in pool acquisition timeouts against the previous release's recorded baseline before it may be merged or deployed anywhere. (source: user)
+- [inv_808be6da02c0] Release rule E: when a production symptom has more than one plausible cause, write the candidate causes down, rank them by evidence rather than by intuition, eliminate them one at a time with a recorded experiment each, and never ship a speculative fix for a cause that has not survived at least one experiment that could have shown it to be wrong in the first place. (source: user)
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_374bb22a-eae0-4570-b460-285f51e289a1_0)
+- pointer_git_unavailable — checkpoint: git index unsupported: reading index: GetFileAttributesEx <scratch>\project\.git\index: The system cannot find the file specified.
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-8dc3f920a699 -->

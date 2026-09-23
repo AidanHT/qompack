@@ -29,10 +29,30 @@ It is a directory, not an archive. An archive would interpose a compression form
 and a modification time between the bytes this repository produces and the bytes a host reads, and
 each of those is a place where two builds of the same source stop agreeing.
 
-**There is no shell launcher.** The manifest is identical on all six targets: every hook and the MCP
-server invoke `${CLAUDE_PLUGIN_ROOT}/bin/qompack <subcommand>`, which the host expands to the
-installed plugin directory. One manifest for every OS is what keeps the generated tree a single
-source; see the open question in §7 about how that string resolves on Windows.
+**There is no shell launcher, and no shell.** Every hook and the MCP server are EXEC form: `command`
+is exactly the executable this bundle ships and `args` is the subcommand, for example
+
+```json
+{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe", "args": ["observe", "tool"], "timeout": 5 }
+```
+
+in a windows bundle and `${CLAUDE_PLUGIN_ROOT}/bin/qompack` in the other four. The Claude Code hooks
+reference (fetched 2026-09-22) is explicit about why: "Exec form runs when `args` is present. Claude
+Code resolves `command` as an executable on `PATH` and spawns it directly with `args` as the argument
+vector. There is no shell ... path placeholders like `${CLAUDE_PLUGIN_ROOT}` are substituted into
+`command` and into each `args` element as plain strings"; "On Windows, exec form requires `command`
+to resolve to a real executable such as a `.exe`." A shell-form `command` is run through "`sh -c` on
+macOS and Linux, Git Bash on Windows, or PowerShell when Git Bash isn't installed", and the quoted
+string this bundle used to ship is a PowerShell `ParserError: Unexpected token 'observe'` (C1.11,
+reproduced by `test/platform`'s `TestPlatform_HookLauncherForms`).
+
+So the manifest is rendered **per target** (`pluginmanifest.ForTarget`), and the two windows bundles
+differ from the other four only in the executable's `.exe`. The committed `plugin/` tree in this
+repository is the linux/darwin rendering (`pluginmanifest.Default`, `CommittedGOOS = "linux"`): it
+exists so a change to the manifest is a reviewable diff and `devtool plugin-validate` has something
+to compare against. It holds no `bin/` and is not itself an installable plugin; install a bundle.
+
+Exec form needs Claude Code 2.1.139 or later, the release that added the hook `args` field.
 
 ## 2. Identity — `BUNDLE.json`
 
@@ -168,7 +188,10 @@ executed, that a host loaded the manifest, or that the launcher was discovered o
 
 These are deliberately unanswered here. Guessing at them is exactly what a matrix exists to stop.
 
-1. **Windows resolution of `bin/qompack`.** The manifest names `${CLAUDE_PLUGIN_ROOT}/bin/qompack`
+1. **Answered by C1.11 (2026-09-22).** Windows no longer resolves anything: each bundle's manifest
+   names its exact executable in exec form (§1), and `test/platform`'s `TestPlatform_HookLauncherForms`
+   spawns every entry from a spaced, non-ASCII install directory. The question as first asked:
+   **Windows resolution of `bin/qompack`.** The manifest names `${CLAUDE_PLUGIN_ROOT}/bin/qompack`
    on every target, while the Windows bundle ships `bin/qompack.exe`. Whether a Windows host appends
    the extension when it executes the hook command — and whether that differs between the hook
    runner and the MCP server launcher — is unverified. The alternatives if it does not (an
@@ -190,4 +213,51 @@ go run ./tools/devtool bundle --target windows/amd64   # one target
 go run ./tools/devtool bundle --version v1.2.3         # override the version rule
 go run ./tools/devtool bundle --out /tmp/b             # assemble somewhere else
 go run ./tools/devtool bundle --host-validate --evidence <path>   # assemble, then ask the host
+go run ./tools/devtool bundle --archive --version 0.3.0           # also pack six zips + checksums.txt
+go run ./tools/devtool marketplace --tag v0.3.0                   # marketplace.json from checksums.txt
+go run ./tools/devtool marketplace --tag v0.3.0 --check           # regenerate and compare
+go run ./tools/devtool marketplace --validate .claude-plugin/marketplace.json
 ```
+
+## 9. Archives and the marketplace (C7.5)
+
+**Archives.** `bundle --archive` packs every target's bundle into
+`qompack-plugin-<version>-<os>-<arch>.zip` — all six targets, because a Claude Code marketplace
+`archive` source is a "Zip archive downloaded over HTTPS" (plugin-marketplaces, fetched
+2026-09-22). Members sit at the zip root ("Claude Code looks for `.claude-plugin/` at the top of the
+archive, then inside a single top-level folder"), are sorted by slash path, carry the DOS epoch as
+their time and no extra fields, and record Unix modes — 0755 under `bin/`, 0644 elsewhere — with
+the Unix creator host, so an extractor that honours modes restores the executable bit. The four
+POSIX targets shipped `.tar.gz` before C7.5. `checksums.txt` covers the six zips.
+
+**The marketplace document.** `devtool marketplace --tag vX.Y.Z` reads that `checksums.txt` and
+writes `marketplace.json`: marketplace `qompack`, one `archive` entry per target named
+`qompack-<os>-<arch>`, each pointing at
+`https://github.com/AidanHT/qompack/releases/download/vX.Y.Z/qompack-plugin-X.Y.Z-<os>-<arch>.zip`
+and pinned by that zip's sha256. No entry carries `version` — "Avoid setting `version` in both
+`plugin.json` and the marketplace entry" — because each zip's `plugin.json` already does. It refuses
+a checksums file missing a target or naming any other qompack archive, and every document it writes
+passes the same validator `--validate` applies. `--check` regenerates and compares.
+
+**Where it goes.** `release.yml` uploads it beside the zips (the draft stays a draft).
+`marketplace.yml` runs when a release is PUBLISHED: it re-downloads the zips, re-verifies them
+against the release's `checksums.txt`, regenerates the document from the served bytes with the
+tag's own generator (a generator change on `develop` since the tag cannot fail the comparison),
+requires it to equal the uploaded document and opens a pull request onto `develop` that puts it at
+`.claude-plugin/marketplace.json`. A re-run replaces its `marketplace/<tag>` branch under an
+explicit lease and reuses an open pull request (`test/guards/marketplace_workflow_test.go`).
+`release-check`'s `marketplace` step validates the generator for the tag and any committed document.
+
+**Evidence (2026-09-22, Claude Code 2.1.280, this host).** A real six-target
+`bundle --archive --version 0.3.0-rc.pkg` and the document generated from its `checksums.txt`:
+`claude plugin validate <marketplace dir> --strict --json` reported `success: true` with no errors
+or warnings, and each of the six bundle directories validated the same way
+(`plans/sdd/V6-closeout/packaging/evidence/c7.5-marketplace/`).
+
+**Not yet verified — owner action.** Installing an entry needs a PUBLISHED release: an archive URL
+must be HTTPS on a non-loopback host, so a local rehearsal cannot serve one. In particular, whether
+Claude Code keeps `bin/qompack`'s executable bit when it extracts the zip on linux/darwin is
+unobserved; it needs a published pre-release installed on a Linux or macOS host. The 2.1.269
+changelog's fix for "plugin archives extracted for a session ... keeping world-writable bits from
+the archive" suggests the session extractor reads recorded modes — which is neither the install
+path nor having seen it.

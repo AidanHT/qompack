@@ -1,0 +1,4 @@
+# two-way fuzz inventory: func Fuzz* under internal/ vs nightly.yml (pkg, fn) rows
+source targets: 25  matrix rows: 25
+in source, no row:
+row, not in source:

@@ -61,6 +61,10 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 
 	cfg := r.Cfg.Runtime.Rehydrate
 	budget := clampBudget(r.Budget, cfg)
+	// The payload is bounded in two dimensions at once: the token budget above, and the host's
+	// fixed character ceiling (hostcap.go, owner decision D5). Every admission below must fit both;
+	// the character half is exact, so it is a guarantee and not a target.
+	limit := cost{tok: budget, chars: PayloadCeilingChars}
 
 	// ── 1. the fixed wrapper, charged before anything is admitted ────────────────────────────
 	//
@@ -70,25 +74,35 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// There is deliberately no synthetic ItemStat{Kind:"overhead"}: it would make the total exceed
 	// the sum by construction, which runBudgetCase rejects at every budget.
 	header := documentHeader(r)
-	overhead := estimate(d, fmt.Sprintf(checkpoint.InjectionOpenTag, int(r.Ref.Seq), checkpoint.SchemaVersion)+"\n") +
-		estimate(d, header+"\n") +
-		estimate(d, "\n"+checkpoint.InjectionCloseTag)
+	openTag := fmt.Sprintf(checkpoint.InjectionOpenTag, int(r.Ref.Seq), checkpoint.SchemaVersion)
+	overhead := cost{
+		tok: estimate(d, openTag+"\n") +
+			estimate(d, header+"\n") +
+			estimate(d, "\n"+checkpoint.InjectionCloseTag),
+		chars: wrapperChars(openTag, header, checkpoint.InjectionCloseTag),
+	}
 
-	if overhead >= budget {
+	if overhead.tok >= limit.tok || overhead.chars >= limit.chars {
 		// Not even the wrapper fits. No items means no payload — never an empty tagged wrapper,
 		// and never a silent one either: this is a zero/tiny-budget OVERFLOW (T11-BUDGET-02), named
 		// as such so Overflowed(res.Dropped) recognizes it regardless of which estimator priced
 		// overhead — the bare (len+3)/4 fallback and a calibrated tokens.Estimator agree on the
 		// COMPARISON this branch makes even when they disagree on the exact count.
 		res := Result{Degraded: true, Seq: r.Ref.Seq}
-		res.Dropped = append(res.Dropped, checkpoint.DropEntry{
-			Kind: dropKindOverflow, ID: "payload",
-			Detail: "OVERFLOW: the injection wrapper alone (" + itoa(int(overhead)) +
-				" tokens) exceeds the rehydration budget (" + itoa(int(budget)) +
-				" tokens); nothing was injected — call dropped() for the full accounting",
-		})
+		detail := "OVERFLOW: the injection wrapper alone (" + itoa(int(overhead.tok)) +
+			" tokens) exceeds the rehydration budget (" + itoa(int(budget)) +
+			" tokens); nothing was injected — call dropped() for the full accounting"
+		if overhead.tok < limit.tok {
+			// Only a pathological header (a session id or sequence thousands of characters wide) can
+			// reach this: the wrapper is otherwise about a hundred characters.
+			detail = "OVERFLOW: the injection wrapper alone (" + itoa(overhead.chars) +
+				" host characters) exceeds the rehydration ceiling (" + itoa(limit.chars) +
+				"); nothing was injected — call dropped() for the full accounting"
+		}
+		res.Dropped = append(res.Dropped, checkpoint.DropEntry{Kind: dropKindOverflow, ID: "payload", Detail: detail})
 		d.Log.Loud("rehydrate: budget cannot hold the injection wrapper",
-			"budget", int(budget), "overhead", int(overhead))
+			"budget", int(budget), "overhead", int(overhead.tok),
+			"ceiling_chars", limit.chars, "overhead_chars", overhead.chars)
 		return res, nil, nil
 	}
 
@@ -97,67 +111,68 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	all := buildAll(ctx, r, d, sc)
 	priceAll(d, all)
 
-	// ── 3. tier 1: admitted whole or not at all, never over the cap ──────────────────────────
+	// ── 3. tier 1: each record admitted whole or not at all, never over the cap ───────────────
 	//
 	// "Never truncated" means never PARTIALLY emitted; it is not a licence to overrun the cap.
 	// §8.6's own preamble introduces the eight items as "filled in importance order until the
 	// budget is reached", 00-ARCHITECTURE §5.15 calls Request.Budget a hard cap from config, the
 	// shipped contract on Result.Tokens says it never exceeds it, and runBudgetCase asserts that
 	// at a budget of 1. A payload that overran its cap is one the host may refuse outright — an
-	// all-or-nothing loss where a partial one was available.
+	// all-or-nothing loss where a partial one was available — and one that overran the host's
+	// character cap reaches the model as a file path and a 2,000-character preview (D5).
+	//
+	// Item 7's floor is held back from the first admission on: whatever tier 1 cannot carry is
+	// then always namable, with the call that restores it, inside the ceiling.
 	spent := overhead
 	degraded := false
 	fills := make(map[ItemKind]*admitted, len(renderOrder))
-	for _, k := range tier1Order {
+	floor := dropReportFloor(d)
+	for _, k := range tier1Admission {
 		units := tier1Units(k, all[k])
 		if len(units) == 0 {
 			continue
 		}
-		cost := headingCost(d, k) + totalOf(units)
-		if spent+cost > budget {
-			// Does not fit whole: drop the item entirely and say so.
+		a := fillTier1(d, k, all[k], units, limit.minus(spent).minus(floor))
+		fills[k] = a
+		spent = spent.plus(a.used)
+		if a.truncated {
 			degraded = true
-			a := &admitted{truncated: true}
-			for _, u := range units {
-				a.dropped = append(a.dropped, tier1Drop(k, u))
-				a.pending = append(a.pending, u)
-			}
-			fills[k] = a
-			continue
 		}
-		fills[k] = &admitted{units: units, used: cost}
-		spent += cost
 	}
 	if degraded {
 		d.Log.Loud("rehydrate: tier-1 material exceeds the hard budget cap",
-			"budget", int(budget), "spent", int(spent))
+			"budget", int(budget), "spent", int(spent.tok),
+			"ceiling_chars", limit.chars, "spent_chars", spent.chars)
 	}
 
 	// ── 4-6. reserves and per-item shares ────────────────────────────────────────────────────
-	reserveDrop := budget / dropReportReserveDiv
-	reserveSkill := core.Tokens(cfg.SkillIndexTokens)
-	if r := budget / dropReportReserveDiv; reserveSkill > r {
-		reserveSkill = r
+	//
+	// Item 7 reserves a tenth of each dimension and never less than its floor; item 6b reserves
+	// runtime.rehydrate.skillIndexTokens (capped at a tenth of the budget) and a tenth of the
+	// ceiling. Both are held back from every share and from every item's room below.
+	reserveDrop := cost{tok: budget / dropReportReserveDiv, chars: limit.chars / dropReportReserveDiv}.atLeast(floor)
+	reserveSkill := cost{tok: core.Tokens(cfg.SkillIndexTokens), chars: limit.chars / dropReportReserveDiv}
+	if r := budget / dropReportReserveDiv; reserveSkill.tok > r {
+		reserveSkill.tok = r
 	}
-	avail := budget - spent - reserveDrop - reserveSkill
-	if avail < 0 {
-		avail = 0
-	}
+	held := reserveDrop.plus(reserveSkill)
+	avail := limit.minus(spent).minus(held).nonNegative()
 
 	// The remainder from integer division goes to the LAST share-taking item in renderOrder, so
-	// the arithmetic is lossless and deterministic rather than quietly dropping a few tokens.
-	var allocated core.Tokens
-	shares := make(map[ItemKind]core.Tokens, 6)
+	// the arithmetic is lossless and deterministic rather than quietly dropping a few units.
+	var allocated cost
+	shares := make(map[ItemKind]cost, len(shareOrder))
 	for _, k := range shareOrder {
 		pct, _ := sharePctFor(k)
-		s := shareOf(avail, pct)
-		shares[k] = s
-		allocated += s
+		sh := cost{tok: shareOf(avail.tok, pct), chars: shareCharsOf(avail.chars, pct)}
+		shares[k] = sh
+		allocated = allocated.plus(sh)
 	}
-	shares[shareOrder[len(shareOrder)-1]] += avail - allocated
+	last := shareOrder[len(shareOrder)-1]
+	shares[last] = shares[last].plus(avail.minus(allocated))
 
 	// ── 7. fill in renderOrder, carrying forward ─────────────────────────────────────────────
-	var carry core.Tokens
+	var carry cost
 	for _, k := range shareOrder {
 		b := all[k]
 		units := b.units
@@ -168,46 +183,48 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 				units = units[1:]
 			}
 		}
-		allowance := shares[k] + carry
+		allowance := shares[k].plus(carry)
 		if len(units) == 0 {
 			carry = allowance
 			continue
 		}
-		var a *admitted
-		if _, already := fills[k]; already && k == ItemUserIntent {
-			// The heading was already charged with the tier-1 original unit, so the evolution
-			// deltas pay for themselves only — charging it twice would inflate the item's Tokens
-			// above its true rendered cost and eat budget nothing renders.
-			f := fillPrefix(units, allowance, false)
-			a = &f
-		} else {
-			a = fillWithHeading(d, k, units, allowance)
-		}
+		// The heading is charged with the first unit this section emits. For item 2 that is the
+		// tier-1 original when step 3 admitted it — charging it again would inflate the item above
+		// its true rendered cost — and the first evolution delta when step 3 could not.
+		charge := fills[k] == nil || len(fills[k].units) == 0
+		a := fillWithHeading(d, k, b, units, allowance, limit.minus(spent).minus(held), charge)
 		fills[k] = mergeIntent(fills[k], a)
-		spent += a.used
-		carry = allowance - a.used
+		spent = spent.plus(a.used)
+		carry = allowance.minus(a.used)
 	}
 
-	// ── 8. the skill index, against its own reserve ──────────────────────────────────────────
+	// ── 8. the skill index, against its own reserve plus what the shares left ────────────────
+	//
+	// Item 6b outranks item 7, so it is offered the carry first; item 7 keeps its own reserve and
+	// is offered what 6b leaves. The token half of this is bounded by the indexer itself — it only
+	// ever returns the entries that fit runtime.rehydrate.skillIndexTokens — so the carry matters in
+	// the character half, where a tenth of the ceiling would otherwise cut a payload that has room.
+	skillAllowance := reserveSkill.plus(carry)
 	if b := all[ItemSkillIndex]; len(b.units) > 0 {
-		a := fillWithHeading(d, ItemSkillIndex, b.units, reserveSkill)
+		a := fillWithHeading(d, ItemSkillIndex, b, b.units, skillAllowance, limit.minus(spent).minus(reserveDrop), true)
 		fills[ItemSkillIndex] = a
-		spent += a.used
+		spent = spent.plus(a.used)
+		skillAllowance = skillAllowance.minus(a.used)
 	}
+	carry = skillAllowance
 
 	// ── 9. min-fill, for an unset request only ───────────────────────────────────────────────
 	if r.Budget <= 0 {
-		// The new total is deliberately discarded. Min-fill re-admits into fills, which is what
-		// render reads; the running counter is not consulted again, and step 10 sizes item 7 from
-		// carry and its own reserve rather than from spent.
-		minFill(fills, shareOrder, spent, core.Tokens(cfg.MinTokens), budget)
+		spent = minFill(d, all, fills, shareOrder, spent, core.Tokens(cfg.MinTokens), limit, reserveDrop)
 	}
 
 	// ── 10. the drop report, last, because it reports on everything above ────────────────────
 	//
-	// It is built from the COMPLETE drop set and may be rendered truncated; Result.Dropped below
-	// keeps the whole list either way, which is what makes `dropped()` able to answer for what
-	// section 7 could not show.
+	// It is built from the COMPLETE drop set and may be rendered as a prefix plus a counted tail;
+	// Result.Dropped below keeps the whole list either way, which is what makes `dropped()` able to
+	// answer for what section 7 could not show. Its allowance is its reserve plus whatever the
+	// shares carried forward, never less than the floor held since step 3, and never more than the
+	// payload has left.
 	drops := collectDrops(r, all, fills)
 	if b := buildDropReport(drops); len(b.units) > 0 {
 		priceUnits(d, b.units)
@@ -216,14 +233,8 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		// built for it and the state file records units_seen: 0 for a section that had a dozen
 		// lines to choose from — the exact pair SP-16 is meant to tune the tier boundaries from.
 		all[ItemDropReport] = b
-		a := fillWithHeading(d, ItemDropReport, b.units, reserveDrop+carry)
-		if a.truncated {
-			rest := len(b.units) - len(a.units)
-			more := moreDropsUnit(d, rest)
-			a.units = append(a.units, more)
-			a.used += more.tokens
-		}
-		fills[ItemDropReport] = a
+		allowance := reserveDrop.plus(carry).atLeast(floor).atMost(limit.minus(spent))
+		fills[ItemDropReport] = fillDropReport(d, b, allowance)
 		// spent is deliberately not advanced here. Item 7 is the last thing filled, nothing reads
 		// the running total afterwards, and the hard-cap loop below re-derives the true cost from
 		// the rendered Items rather than from this counter.
@@ -237,27 +248,27 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 			"session", string(r.Session), "seq", int(r.Ref.Seq))
 	}
 
-	res, stats := render(r, d, fills, all, overhead)
+	res, stats := render(r, d, fills, all, overhead.tok)
 	res.Dropped = drops
 	res.Degraded = res.Degraded || degraded || sourceUnavailable(drops)
 	res.Seq = r.Ref.Seq
 
 	// ── the hard-cap assertion, unconditional ────────────────────────────────────────────────
 	//
-	// Degraded or not, Result.Tokens <= budget must hold. This is a panic-free re-truncation
-	// rather than an assert: a rehydration that discovered it had overrun must still return a
-	// payload, and the Loud is what makes the arithmetic bug visible.
+	// Degraded or not, Result.Tokens <= budget and hostChars(Result.Text) <= PayloadCeilingChars
+	// must hold. This is a panic-free re-truncation rather than an assert: a rehydration that
+	// discovered it had overrun must still return a payload, and the Loud is what makes the
+	// arithmetic bug visible. The character half is exact above, so only a token estimator that
+	// prices the assembled payload above the sum of its parts can reach it.
 	//
 	// It evicts in IMPORTANCE order, not in render order, and that distinction is load-bearing.
-	// Steps 3 and 7 admit a handful of units unconditionally — the tier-1 material, and item 3's
-	// standing instruction, which carries no drop entry and must survive whatever the allowance
-	// says — so at a budget far below the §8.6 band the admitted set can genuinely exceed the cap.
-	// Evicting the literal tail then removes items 7 and 8 first: the drop report that says what
-	// was lost, and the affordance line that says how to ask for it back. That inverts §8.6
-	// exactly, and it is worst in precisely the case that needs them most.
-	for res.Tokens > budget && len(res.Items) > 0 {
+	// Evicting the literal tail removes items 7 and 8 first: the drop report that says what was
+	// lost, and the affordance line that says how to ask for it back. That inverts §8.6 exactly,
+	// and it is worst in precisely the case that needs them most.
+	for (res.Tokens > limit.tok || hostChars(res.Text) > limit.chars) && len(res.Items) > 0 {
 		d.Log.Loud("rehydrate: payload exceeded its budget after filling; re-truncating",
-			"tokens", int(res.Tokens), "budget", int(budget))
+			"tokens", int(res.Tokens), "budget", int(budget),
+			"chars", hostChars(res.Text), "ceiling_chars", limit.chars)
 		i := evictIndex(res.Items)
 		gone := res.Items[i]
 		res.Items = append(res.Items[:i], res.Items[i+1:]...)
@@ -270,9 +281,16 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		}
 		// A whole section removed by the hard cap is a NAMED overflow, not a silent erasure: the
 		// agent must be told which requirement is no longer in context, exactly as tier-1 overflow
-		// and the wrapper-alone case already are. It is appended to the same Dropped list dropped()
-		// answers from.
+		// and the wrapper-alone case already are. Each discretionary record the section carried is
+		// named too, with its own restore pointer, so dropped() can answer for every one of them.
 		res.Dropped = append(res.Dropped, evictionDrop(gone.Kind))
+		if a := fills[gone.Kind]; a != nil && gone.Kind != ItemDropReport {
+			for _, u := range a.units {
+				if !isFixedUnit(u) {
+					res.Dropped = append(res.Dropped, u.drop)
+				}
+			}
+		}
 		// Re-measure against the assembled text after EACH eviction rather than decrementing by the
 		// evicted row's allocated share: the share was an allocation, and the true remaining cost is
 		// what the estimator prices the shorter payload at (wrapper and separators included). Then
@@ -283,9 +301,13 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		syncStatTokens(stats, res.Items)
 		res.Degraded = true
 	}
-	if len(res.Items) == 0 {
+	if len(res.Items) == 0 || onlyDropReport(res.Items) {
+		// A payload with nothing left but the report on what it lost is no payload: render's own
+		// rule, re-applied after eviction.
+		res.Items, stats = nil, nil
 		res.Text = ""
 		res.Tokens = 0
+		res.Degraded = true
 	}
 	return res, stats, nil
 }

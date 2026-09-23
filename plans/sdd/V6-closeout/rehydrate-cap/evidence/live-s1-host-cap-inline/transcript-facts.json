@@ -1,0 +1,55 @@
+{
+ "transcript_file": "374bb22a-eae0-4570-b460-285f51e289a1.jsonl",
+ "hook_additional_context": [
+  {
+   "hookName": "SessionStart",
+   "utf16_units": 61,
+   "is_rehydration": false,
+   "contains_persisted_output": false,
+   "contains_section_7": false,
+   "contains_expand_pointer": false
+  },
+  {
+   "hookName": "SessionStart",
+   "utf16_units": 3048,
+   "is_rehydration": true,
+   "contains_persisted_output": false,
+   "contains_section_7": true,
+   "contains_expand_pointer": true
+  }
+ ],
+ "tool_uses": [
+  {
+   "name": "ToolSearch",
+   "input": {
+    "query": "select:mcp__plugin_qompack_qompack__expand",
+    "max_results": 1
+   }
+  },
+  {
+   "name": "mcp__plugin_qompack_qompack__expand",
+   "input": {
+    "tool_use_id": "prompt_374bb22a-eae0-4570-b460-285f51e289a1_0",
+    "full": true
+   }
+  }
+ ],
+ "tool_results": [
+  {
+   "chars": 80,
+   "contains_codeword_TEAL-OSPREY-42": false,
+   "head": "[{\"type\": \"tool_reference\", \"tool_name\": \"mcp__plugin_qompack_qompack__expand\"}]"
+  },
+  {
+   "chars": 8261,
+   "contains_codeword_TEAL-OSPREY-42": true,
+   "head": "[{\"type\": \"text\", \"text\": \"{\\\"found\\\":true,\\\"hash\\\":\\\"sha256:0d89682c16f72a6f4e8793c1cd4c9cfffcb366b94d0febdf9415c27080fad26a\\\",\\\"tool\\\":\\\"UserPromptSubmit\\\",\\\"span\\\":[0,7816],\\\"total_bytes\\\":7816,\\\"truncated\\\":false,\\\"widened\\\":false,\\\"exp"
+  }
+ ],
+ "persisted_output_anywhere": false,
+ "transcript_bytes": 446051,
+ "assistant_texts": [
+  "OK",
+  "(1) Qompack's SessionStart context reached me inline within the system-reminder block, not as a file path.\n\n(2) Executing the expand call with tool_use_id=prompt_374bb22a-eae0-4570-b460-285f51e289a1_0 and full=true.\n\n(3) **The deployment codeword is TEAL-OSPREY-42.**"
+ ]
+}

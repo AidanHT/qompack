@@ -1,0 +1,68 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session sess_01J
+
+## 1. Invariants (pinned, verbatim)
+- [inv_7c1a9e2f4b60] The refresh-token rotation must remain single-use; reuse detection is a security requirement, not a preference. (source: user)
+- [inv_2d8f0a6c3e15] Never change the pgbouncer pool mode without re-running the connection-exhaustion reproduction. (source: agent)
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Fix the intermittent 500s on POST /api/session/refresh. They started after the connection-pool change last Tuesday.
+Evolution (most recent first):
+> Scope widened to include the pgbouncer transaction-mode interaction after the timeout fix did not help.
+> Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- src/auth.ts:refreshToken — "widen pool timeout" — pgbouncer 1.18 ignores statement_timeout in transaction pooling mode, so the widened timeout never takes effect [active] [evidence sha256:4d7a0c3f6b9e2158a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3]
+Before committing to an approach, call already_tried.
+
+## 4. Decisions
+- [dec_a3f2c9e14b70] (turn 61) Move refresh-token rotation out of the request transaction and into a dedicated short-lived connection.
+  why: The rotation holds a row lock for the duration of the outbound identity-provider call, which is what exhausts the pool under concurrent refreshes.
+  rejected: Widen the pool timeout — eliminated: pgbouncer ignores it in transaction mode.; Increase pool size — rejected: moves the cliff without removing the lock-hold-across-IO pattern.
+  evidence: sha256:c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9
+
+## 5. Current work
+goal: Eliminate pool exhaustion on POST /api/session/refresh under 200 concurrent refreshes.
+next step: Extract the identity-provider call out of the transaction in refreshToken, then re-run the reproduction.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- docker-compose.yml sha256:1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d — pins the pgbouncer version and pool mode the elimination depends on
+- src/auth.ts sha256:0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c — refreshToken lives here; the lock-across-IO pattern is at the top of the function
+- tool_use toolu_01A2B3C4D5E6F7G8H9J0K1L2 sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f — load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts
+
+## 6b. Skill index (names and one-line descriptions only)
+- api-lint: Check a route against the API conventions: codes, pagination, idempotency.
+- changelog-bump: Bump the version and update the changelog per the release protocol.
+- code-review: Review a diff for correctness, security, and convention drift before merge.
+- compose-doctor: Diagnose a docker compose environment that no longer reproduces a bug.
+- dep-audit: Audit dependencies for advisories and pin drift; propose the minimal upgrade.
+- flaky-triage: Quarantine a flaky test, assign an owner, and write the reproduction note.
+- incident-writeup: Draft an incident report from a timeline, with contributing factors.
+- load-test: Run and read the load suite under test/load, including refresh-storm.
+- log-grep: Find the structured log lines for one session across the retained window.
+- migration-runner: Plan and run a forward-only migration, including the backfill split.
+- onboard: Walk a new contributor through the repository layout and review protocol.
+- perf-profile: Capture and read a CPU or allocation profile; name the top three costs.
+- pool-watch: Read the connection-pool metrics and say whether the cliff is near.
+- release-notes: Assemble release notes from merged pull requests by user-visible change.
+- repro-protocol: Run the pool-exhaustion reproduction end to end and record the result.
+- schema-diff: Diff two database schemas and explain the lock each change would take.
+- secret-scan: Scan a diff for credentials and explain why each hit is or is not a leak.
+- tf-plan-review: Read a terraform plan and flag destructive or lock-taking changes.
+- token-forensics: Trace one refresh-token family through mint, rotation, and revocation.
+- trace-read: Read a distributed trace and attribute latency to a span rather than a service.
+
+## 7. No longer in context
+- path_rule .claude/rules/api-conventions.md — matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/api-conventions.md
+- path_rule .claude/rules/auth-conventions.md — matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/auth-conventions.md
+- path_rule .claude/rules/db-conventions.md — matched docker-compose.yml; did not fit the rehydration budget; restore: Read .claude/rules/db-conventions.md
+- path_rule .claude/rules/infra-conventions.md — matched docker-compose.yml; did not fit the rehydration budget; restore: Read .claude/rules/infra-conventions.md
+- path_rule .claude/rules/security-conventions.md — matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/security-conventions.md
+- path_rule .claude/rules/testing-conventions.md — matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/testing-conventions.md
+- path_rule api-conventions.md — path-scoped rule for src/api/**; no pointer in this checkpoint matched its globs
+- … and 9 more; call dropped()
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->

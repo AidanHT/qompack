@@ -1,0 +1,18 @@
+{
+ "command": "claude plugin validate <scratch>/mkt --strict --json",
+ "claude": "2.1.280 (Claude Code)",
+ "exit": 0,
+ "output": {
+  "success": true,
+  "strict": true,
+  "target": "<scratch>/mkt/.claude-plugin/marketplace.json",
+  "manifest": {
+   "file": "<scratch>/mkt/.claude-plugin/marketplace.json",
+   "type": "marketplace",
+   "errors": [],
+   "warnings": [],
+   "notes": []
+  },
+  "contents": []
+ }
+}

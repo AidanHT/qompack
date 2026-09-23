@@ -68,7 +68,7 @@ type TelemetryCfg struct {
 // RehydrateCfg controls the L5 rehydrator's context-injection budget (§8.6).
 type RehydrateCfg struct {
 	MinTokens        int `json:"minTokens"        doc:"lower bound of the rehydration budget" rng:"[1,maxTokens]" sec:"§8.6"`
-	MaxTokens        int `json:"maxTokens"        doc:"upper bound of the rehydration budget" rng:"[minTokens,∞)" sec:"§8.6"`
+	MaxTokens        int `json:"maxTokens"        doc:"upper bound of the rehydration token budget; the payload is also held under the host's fixed 9,500-character additionalContext ceiling, which no key raises" rng:"[minTokens,∞)" sec:"§8.6"`
 	SkillIndexTokens int `json:"skillIndexTokens" doc:"token budget for the compact skill index" rng:"[1,∞)" sec:"§8.6"`
 	EliminationsTopN int `json:"eliminationsTopN" doc:"number of eliminated approaches surfaced verbatim in the rehydrated digest" rng:"[1,∞)" sec:"§8.6"`
 }

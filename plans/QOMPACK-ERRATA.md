@@ -1,6 +1,6 @@
 # `Qompack.md` verification record
 
-**Current revision:** v1.5, 2026-09-06, deliberately authorized by the user for Markdown-only planning. The v1.3 record below is preserved verbatim history, not current endorsement of its arithmetic, internal constants or compatibility conclusions. See the appended v1.5 record for superseded claims.
+**Current revision:** v1.6, 2026-09-22: §8.6 bounds the post-compaction rehydration by the host's additionalContext cap, authorized by the owner's decision D5 (V6 close-out). The v1.5 revision of 2026-09-06 was deliberately authorized by the user for Markdown-only planning. The v1.3 record below is preserved verbatim history, not current endorsement of its arithmetic, internal constants or compatibility conclusions. See the appended v1.5 record for superseded claims.
 
 `Qompack.md` is **read-only** (`plans/README.md`, Global rules). It carries a **Revision log**, so it
 is revisable — but only deliberately, as a versioned revision, never edited in passing by a subplan.
@@ -16,6 +16,9 @@ design of record and the shipped conformance suite were found to disagree about 
 
 **v1.5 landed on the combined wave-3 baseline (SP-19 M0-01)**, appended after it: the 2026-09-06 planning-only
 revision and its merge-first addendum, renumbered from their draft label "v1.4" (see the numbering note in that section).
+
+**v1.6 landed 2026-09-22** (V6 close-out C1.14), appended last: §8.6 now holds the post-compaction
+rehydration under Claude Code's 10,000-character hook-field cap.
 
 **Why a record at all, when the document itself has a revision log.** The log says what changed. This
 says what was *checked and did not change*, which is the more perishable half — without it the next
@@ -267,3 +270,82 @@ SP-19 now starts with M0-00/M0-G0: nominate current delivery tips, preserve work
 The master execution guide, design order/closing, architecture precedence, V4 verification and evidence ledger now share that sequencing. SP-10–13 status/placement text distinguishes user-completed original deliveries from future corrections. The new merge gate includes abort/retry/revert-or-forward-fix planning without shared-history resets; merging does not authorize deployment or data migration.
 
 This addendum changes only existing authorized planning Markdown. No merge, branch creation, code/configuration edit, test, build or runtime validation occurs here. Documentation checks and focused review are recorded in MIGRATION-EVIDENCE.md; no promise of a perfect future merge substitutes for actual reviewed evidence.
+
+
+## v1.6 — §8.6 rehydration fits the host's additionalContext cap (2026-09-22)
+
+### Origin
+
+The V6 close-out's packaging workstream found, on the real host, that Claude Code 2.1.280 delivers a
+hook's `additionalContext` whole only up to 10,000 characters: an 11,082-character SessionStart
+context reached the model as a 2,391-character `<persisted-output>` block (a saved-file path and a
+2,000-character preview) and the model could quote only what the preview held
+(`plans/sdd/V6-closeout/packaging/evidence/review/f2-live-host-cap-probe/`). §8.6 budgeted the
+rehydration in tokens ("8–12K", `runtime.rehydrate.maxTokens` 12,000 ≈ 48,000 characters), so a long
+session's payload reached the model as its first 2,000 characters. The owner decided on 2026-09-22
+(D5, `plans/V6-CLOSEOUT-CHECKLIST.md`) that the rehydration must fit under the cap, and authorized
+revising §8.6 and ADR 0011 to match. This record belongs to C1.14.
+
+### Checked, and what held
+
+- **The cap and its behaviour.** The hooks reference as transcribed on 2026-09-22
+  (`testdata/host/hooks-output-schema.json`, `limits`): additionalContext, systemMessage,
+  initialUserMessage and plain stdout "are capped at 10,000 characters"; over it the host saves the
+  output and substitutes "the file path and a preview of up to the first 2,000 characters"; "this cap
+  has no setting or environment variable to raise it"; and "Claude Code doesn't ask Claude to read
+  the file". Observed on 2.1.280 by the probe above.
+- **The unit.** The reference does not name it. The installed 2.1.280 bundle does: the field is
+  compared with `e.length<=s` against `gpo=1e4`, i.e. JavaScript `String.length` — UTF-16 code units —
+  inclusive of 10,000, per field and per hook; a JSON reply's stdout is parsed first and is not itself
+  capped (`plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt`, with the binary's sha256).
+  `internal/hookio.HostChars` and `internal/rehydrate`'s counter measure exactly that.
+- **The size of the problem.** The frozen `full` rehydration fixture rendered to 32,049 characters at
+  the default budget, and an end-to-end compact SessionStart over six 2,600-character path rules to
+  20,033, with the hook client's over-cap Loud line firing
+  (`plans/sdd/V6-closeout/rehydrate-cap/evidence/red-base-*.txt`).
+
+### What changed
+
+- `Qompack.md` §8.6: the budget gains a fixed second bound — the whole compact `additionalContext`
+  (payload, wrapper, separators, handles, overflow report, contract probe) at most 9,500 host
+  characters, a host constant and not configuration — and "overflow is explicit and recoverable" now
+  says how: whole records, each omission named with its restoring call, in a bounded report that
+  itself fits the ceiling. The declared version is v1.6 and the Revision log carries the entry.
+- ADR 0011 §21 records the implementation (two-dimensional admission with exact character pricing,
+  record-level tier 1, the reserved drop-report floor, a restoring call in the detail of every record
+  the budget or the ceiling leaves out) and what it refines in §4, §6 and §18. The review of C1.14
+  found the skill-index and shown-elimination drops without one; they now carry `Read <SKILL.md>` and
+  `already_tried(target="…", approach="…")`, and §21 names the drop entries that are counts or reports
+  rather than records.
+
+### What did not change
+
+- The §8.6 importance order, the whole-record rule, current authority first, and the token budget's
+  semantics (`Request.Budget` is still a hard cap that is never raised). The 8–12K target still
+  describes Qompack-added material; at the shipped defaults the character ceiling simply binds first.
+- Every other section of `Qompack.md`, including §12's cannot-do list: this bounds what L5 emits, it
+  claims no new power over the host.
+- Appendix C's values. `runtime.rehydrate.maxTokens`' description in `internal/config` now says the
+  payload is also held under the ceiling, and `docs/config-reference.md` was regenerated from it.
+
+### What was not verified
+
+- Hosts other than Claude Code 2.1.280 on windows/amd64. A future host that changed the unit or the
+  cap is covered only by the 500-character headroom and by the hook client's Loud line, which still
+  fires on any over-cap field.
+- The other hook outputs Qompack emits are outside C1.14's scope and are not bounded by it: the
+  `UserPromptSubmit` thrash-warning context (one line per newly looping grammar rule, joined with no
+  count bound; `internal/observer`) and the `SessionStart` degradation banner (`systemMessage`), which
+  quotes contract-result `Expected`/`Observed` strings with no length bound (`internal/daemon`
+  `degradeBanner`). So D5's third requirement — nothing in any hook output relies on the host's
+  file-path fallback — holds for the compact rehydration only. The code excerpt is committed at
+  `plans/sdd/V6-closeout/rehydrate-cap/evidence/review-fix/unbounded-hook-outputs.txt`; both items,
+  with owners (daemon for the banner, observer for the warning), are handed to the coordinator for
+  `plans/V6-CLOSEOUT-CHECKLIST.md` in the C1.14 workstream report, which the coordinator commits at
+  `plans/sdd/V6-closeout/rehydrate-cap/report.md` as it did for the packaging workstream.
+
+### Sources
+
+The hooks reference transcription and its evidence pointer (`testdata/host/hooks-output-schema.json`);
+the installed Claude Code 2.1.280 bundle (read-only excerpt, `host-cap-unit.txt`); the packaging
+probe; the C1.14 evidence directory `plans/sdd/V6-closeout/rehydrate-cap/evidence/`.

@@ -1,0 +1,51 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README', LF will be replaced by CRLF the next time Git touches it
+warning: remote HEAD refers to nonexistent ref, unable to checkout
+variant=old run=1 exit=0
+    Switched to a new branch 'marketplace/v9.9.9'
+    warning: in the working copy of '.claude-plugin/marketplace.json', LF will be replaced by CRLF the next time Git touches it
+    [marketplace/v9.9.9 28fbafe] chore(marketplace): pin the v9.9.9 release archives
+     1 file changed, 1 insertion(+)
+     create mode 100644 .claude-plugin/marketplace.json
+    To <scratch>/origin.git
+     * [new branch]      marketplace/v9.9.9 -> marketplace/v9.9.9
+    https://example.invalid/pull/1
+warning: remote HEAD refers to nonexistent ref, unable to checkout
+variant=old run=2 exit=1
+    Switched to a new branch 'marketplace/v9.9.9'
+    warning: in the working copy of '.claude-plugin/marketplace.json', LF will be replaced by CRLF the next time Git touches it
+    [marketplace/v9.9.9 89ad4a5] chore(marketplace): pin the v9.9.9 release archives
+     1 file changed, 1 insertion(+)
+     create mode 100644 .claude-plugin/marketplace.json
+    To <scratch>/origin.git
+     ! [rejected]        marketplace/v9.9.9 -> marketplace/v9.9.9 (non-fast-forward)
+    error: failed to push some refs to '<scratch>/origin.git'
+    hint: Updates were rejected because the tip of your current branch is behind
+    hint: its remote counterpart. If you want to integrate the remote changes,
+    hint: use 'git pull' before pushing again.
+    hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+warning: remote HEAD refers to nonexistent ref, unable to checkout
+variant=new run=1 exit=0
+    branch 'marketplace/v9.9.9' set up to track 'origin/develop'.
+    Switched to a new branch 'marketplace/v9.9.9'
+    warning: in the working copy of '.claude-plugin/marketplace.json', LF will be replaced by CRLF the next time Git touches it
+    [marketplace/v9.9.9 797bc0a] chore(marketplace): pin the v9.9.9 release archives
+     1 file changed, 1 insertion(+)
+     create mode 100644 .claude-plugin/marketplace.json
+    To <scratch>/origin.git
+     * [new branch]      marketplace/v9.9.9 -> marketplace/v9.9.9
+    https://example.invalid/pull/1
+warning: remote HEAD refers to nonexistent ref, unable to checkout
+variant=new run=2 exit=0
+    branch 'marketplace/v9.9.9' set up to track 'origin/develop'.
+    Switched to a new branch 'marketplace/v9.9.9'
+    warning: in the working copy of '.claude-plugin/marketplace.json', LF will be replaced by CRLF the next time Git touches it
+    [marketplace/v9.9.9 f518781] chore(marketplace): pin the v9.9.9 release archives
+     1 file changed, 1 insertion(+)
+     create mode 100644 .claude-plugin/marketplace.json
+    To <scratch>/origin.git
+     + 797bc0a...f518781 marketplace/v9.9.9 -> marketplace/v9.9.9 (forced update)
+    pull request #1 already proposes marketplace/v9.9.9; the push above updated it
+origin branches after the new variant:
+    refs/heads/develop a491326
+    refs/heads/marketplace/v9.9.9 f518781

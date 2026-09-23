@@ -1,0 +1,26 @@
+{
+ "transcript_file": "ec3702cb-b4a7-4e32-9773-7e327ce3ae83.jsonl",
+ "transcript_bytes": 208146,
+ "hook_additional_context": [
+  {
+   "hookName": "SessionStart",
+   "chars_claude_received": 2391,
+   "contains_CAPPROBE-HEAD_codeword": true,
+   "contains_CAPPROBE-TAIL_codeword": false,
+   "content_verbatim_redacted": "<persisted-output>\nOutput too large (10.8KB). Full output saved to: <home>\\.claude\\projects\\<scratch-capprobe-project>\\ec3702cb-b4a7-4e32-9773-7e327ce3ae83\\tool-results\\hook-4fe301a6-4f24-4789-8ee4-2a8b5bca4111-1-additionalContext.txt\n\nPreview (first 2KB):\nCAPPROBE-HEAD codeword: amber-falcon.\nfiller line 0000: this line carries no information and exists only to take up room.\nfiller line 0001: this line carries no information and exists only to take up room.\nfiller line 0002: this line carries no information and exists only to take up room.\nfiller line 0003: this line carries no information and exists only to take up room.\nfiller line 0004: this line carries no information and exists only to take up room.\nfiller line 0005: this line carries no information and exists only to take up room.\nfiller line 0006: this line carries no information and exists only to take up room.\nfiller line 0007: this line carries no information and exists only to take up room.\nfiller line 0008: this line carries no information and exists only to take up room.\nfiller line 0009: this line carries no information and exists only to take up room.\nfiller line 0010: this line carries no information and exists only to take up room.\nfiller line 0011: this line carries no information and exists only to take up room.\nfiller line 0012: this line carries no information and exists only to take up room.\nfiller line 0013: this line carries no information and exists only to take up room.\nfiller line 0014: this line carries no information and exists only to take up room.\nfiller line 0015: this line carries no information and exists only to take up room.\nfiller line 0016: this line carries no information and exists only to take up room.\nfiller line 0017: this line carries no information and exists only to take up room.\nfiller line 0018: this line carries no information and exists only to take up room.\nfiller line 0019: this line carries no information and exists only to take up room.\nfiller line 0020: this line carries no information and exists only to take up room.\nfiller line 0021: this line carries no information and exists only to take up room.\nfiller line 0022: this line carries no information and exists only to take up room.\n...\n</persisted-output>"
+  }
+ ],
+ "stream_hook_responses": [
+  {
+   "hook_name": "SessionStart:startup",
+   "exit_code": 0,
+   "stdout_chars": 11298
+  }
+ ],
+ "stream_result": {
+  "result": "I can see the CAPPROBE output is saved to a file (output too large). From the preview I can see:\n\n**CAPPROBE-HEAD codeword: amber-falcon**",
+  "num_turns": 1,
+  "is_error": false,
+  "total_cost_usd": 0.0201553
+ }
+}

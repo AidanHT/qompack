@@ -11,9 +11,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `devtool bundle` assembles a deterministic, versioned plugin bundle per release target, with a
   `BUNDLE.json` identity and a `sha256sum`-format `checksums.txt`; see `packaging/README.md`.
-- `devtool bundle --archive` packs each bundle reproducibly (sorted entries, a fixed epoch mtime,
-  normalised modes, a gzip header carrying no name or timestamp) and writes one `checksums.txt`
-  over the archives — the files a release uploads.
+- `devtool bundle --archive` packs each bundle reproducibly into a `.zip` for every target (sorted
+  entries, the DOS-epoch mtime, normalised Unix modes with `bin/` at 0755, no extra fields) and
+  writes one `checksums.txt` over the archives — the files a release uploads.
+- `devtool marketplace` generates the release's `marketplace.json` from that `checksums.txt`: six
+  per-target `archive` entries, each pinned by sha256 to its release zip.
 - `devtool release-check` is the release gate: version agreement, `ci-local`'s own sequence,
   `build-all`, the generated-doc checks, `test/guards`, govulncheck, the licence inventory,
   real-binary determinism, the store rollback rehearsal and `plugin-validate`, stopping at the

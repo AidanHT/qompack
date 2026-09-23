@@ -371,10 +371,19 @@ func TestUserIntent_EvolutionUnitsFollowTheOriginal(t *testing.T) {
 	require.True(t, strings.HasPrefix(got.units[1].text, "Evolution (most recent first):\n"))
 	require.False(t, strings.Contains(got.units[2].text, "Evolution"))
 
-	require.Equal(t, checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "1"}, got.units[1].drop,
-		"the newest delta (index 1) is built FIRST so it survives budget pressure")
-	require.Equal(t, checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "0"}, got.units[2].drop,
-		"the oldest delta (index 0) is built LAST so it is the first one truncation drops")
+	// Each drop names the delta by its TRUE index and says where it can be read back from (D5: an
+	// omission is reported with a pointer the model can act on). The checkpoint artifact is the
+	// delta's only durable home, named relative to the project root.
+	require.Equal(t, checkpoint.DropEntry{
+		Kind: dropKindUserIntentEvolution, ID: "1",
+		Detail: "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json " +
+			"(user_intent.evolution[1])",
+	}, got.units[1].drop, "the newest delta (index 1) is built FIRST so it survives budget pressure")
+	require.Equal(t, checkpoint.DropEntry{
+		Kind: dropKindUserIntentEvolution, ID: "0",
+		Detail: "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json " +
+			"(user_intent.evolution[0])",
+	}, got.units[2].drop, "the oldest delta (index 0) is built LAST so it is the first one truncation drops")
 }
 
 // ── item 3: eliminations ──
@@ -677,6 +686,40 @@ func TestEliminations_NotShownProducesDropEntry(t *testing.T) {
 	}}, got.drops)
 }
 
+// TestEliminations_BudgetDropNamesItsOwnQuery asserts a top-N elimination the budget then cuts is
+// named with the already_tried call that brings THAT record back — its own target and approach,
+// which is what the ledger is keyed on and what the call returns the reason and evidence for. The
+// generic "already_tried(target, approach)" left the model a drop line naming only elim_… and
+// nothing to pass (D5, ADR 0011 §21). The fields are quoted because they are free text: a comma or
+// a quote inside one must not read as an argument boundary, and a newline must not end the line.
+func TestEliminations_BudgetDropNamesItsOwnQuery(t *testing.T) {
+	cp := ckEmpty()
+	r := requestFor(t, cp, generousTestBudget)
+	r.Cfg.Runtime.Rehydrate.EliminationsTopN = 2
+
+	d := depsWith(&spyLogger{})
+	d.Ledger = newFakeLedger().withActive(negknow.ScopeSession,
+		elim("elim_a", "src/auth.ts:refreshToken", "widen pool timeout", "r"),
+		elim("elim_b", "db, pool", "say \"retry\"\nthen wait", "r"),
+	)
+
+	got := buildEliminations(bg(), r, d, nil)
+
+	details := map[string]string{}
+	for _, u := range got.units {
+		if u.drop.ID != "" {
+			require.Equal(t, dropKindElimination, u.drop.Kind)
+			details[u.drop.ID] = u.drop.Detail
+		}
+	}
+	require.Equal(t, map[string]string{
+		"elim_a": `did not fit the rehydration budget; call already_tried(target="src/auth.ts:refreshToken", ` +
+			`approach="widen pool timeout")`,
+		"elim_b": `did not fit the rehydration budget; call already_tried(target="db, pool", ` +
+			`approach="say \"retry\" then wait")`,
+	}, details)
+}
+
 // TestEliminations_LedgerErrorFallsBackToCheckpoint asserts a broken ledger degrades to the
 // checkpoint's frozen copy and says so, rather than emitting nothing.
 func TestEliminations_LedgerErrorFallsBackToCheckpoint(t *testing.T) {
@@ -956,7 +999,10 @@ func TestCurrentWork_BlockedOnNil(t *testing.T) {
 		"blocked on: none",
 		"",
 	}, "\n"), got.units[0].text)
-	require.Equal(t, checkpoint.DropEntry{Kind: dropKindCurrentWork, ID: dropKindCurrentWork}, got.units[0].drop)
+	require.Equal(t, checkpoint.DropEntry{
+		Kind: dropKindCurrentWork, ID: dropKindCurrentWork,
+		Detail: "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (current_work)",
+	}, got.units[0].drop, "an omission names where it can be read back from (D5)")
 }
 
 // TestCurrentWork_RendersABlocker asserts a real blocker is surfaced verbatim on one line.
@@ -1002,10 +1048,16 @@ func TestPointers_FilesBeforeTools(t *testing.T) {
 		"- tool_use toolu_01A2B3C4D5E6F7G8H9J0K1L2 sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f — load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts\n",
 	}, unitTexts(got), "files first, each group ordered by score then by path/id ascending")
 
+	// Each pointer's drop carries the exact retrieval call for that record (D5), not a list of tools
+	// to choose from: re_read for a file, expand for a tool result.
 	require.Equal(t, checkpoint.DropEntry{
 		Kind: dropKindPointer, ID: "docker-compose.yml",
-		Detail: "did not fit the rehydration budget; call recall or re_read",
+		Detail: "did not fit the rehydration budget; call re_read(docker-compose.yml)",
 	}, got.units[0].drop)
+	require.Equal(t, checkpoint.DropEntry{
+		Kind: dropKindPointer, ID: "toolu_01A2B3C4D5E6F7G8H9J0K1L2",
+		Detail: "did not fit the rehydration budget; call expand(tool_use_id=toolu_01A2B3C4D5E6F7G8H9J0K1L2)",
+	}, got.units[2].drop)
 }
 
 // TestPointers_RankedBySliceScore asserts relevance beats the alphabetical tiebreak.
@@ -1101,8 +1153,8 @@ func TestRestored_PathRulesBeforeNested(t *testing.T) {
 
 	require.Equal(t, dropKindPathRule, got.units[0].drop.Kind)
 	require.Equal(t, dropKindNestedClaudeMD, got.units[2].drop.Kind)
-	require.Equal(t, "did not fit the rehydration budget", got.units[2].drop.Detail,
-		"a nested CLAUDE.md is directory-scoped: there is no matching glob to name")
+	require.Equal(t, "did not fit the rehydration budget; restore: Read src/webhooks/CLAUDE.md", got.units[2].drop.Detail,
+		"a nested CLAUDE.md is directory-scoped: there is no matching glob to name, only the file to read back")
 }
 
 // TestRestored_DropNamesTheMatchingPointerWhenTheMatcherIsWired asserts the path-rule drop says WHY
@@ -1115,12 +1167,13 @@ func TestRestored_DropNamesTheMatchingPointerWhenTheMatcherIsWired(t *testing.T)
 	d.Rules = &fakeScanner{pathScoped: []rules.Rule{rule(".claude/rules/api.md", "b", "src/*.ts")}}
 
 	unwired := buildRestoredInstructions(bg(), r, d, nil)
-	require.Equal(t, "did not fit the rehydration budget", unwired.units[0].drop.Detail)
+	require.Equal(t, "did not fit the rehydration budget; restore: Read .claude/rules/api.md", unwired.units[0].drop.Detail)
 
 	// A stand-in for rules.Match, which lands with the real Scanner.
 	match := func(pattern, key string) bool { return strings.HasPrefix(key, "src/") && pattern == "src/*.ts" }
 	wired := buildRestoredInstructions(bg(), r, d, match)
-	require.Equal(t, "matched src/auth.ts; did not fit the rehydration budget", wired.units[0].drop.Detail)
+	require.Equal(t, "matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/api.md",
+		wired.units[0].drop.Detail)
 }
 
 // TestRestored_BodyIsWholeOrAbsent asserts the one place progressive truncation within a unit is
@@ -1216,24 +1269,62 @@ func TestSkillIndex_RendersTheCompactIndex(t *testing.T) {
 	require.Empty(t, got.drops)
 }
 
+// skillAt is skill with the project-relative SKILL.md path the real indexer always sets. That path
+// is the pointer an omitted skill's drop detail restores it by.
+func skillAt(name, desc string) skills.Entry {
+	e := skill(name, desc)
+	e.Source = ".claude/skills/" + name + "/SKILL.md"
+	return e
+}
+
 // TestSkillIndex_DropsReportUnindexedSkills asserts a skill the compact index could not afford is
 // NAMED. A model told the skill exists can invoke it; a model not told assumes it does not.
+//
+// Each detail also ends in the pointer that restores the entry — a Read of its SKILL.md — because
+// D5 has every omitted record named with a call the model can act on (ADR 0011 §21). An entry with
+// no Source (the real indexer always sets one) falls back to restoreClause's dropped() clause
+// rather than rendering "Read " with nothing after it.
 func TestSkillIndex_DropsReportUnindexedSkills(t *testing.T) {
 	cp := ckEmpty()
 	r := requestFor(t, cp, generousTestBudget)
 	d := depsWith(&spyLogger{})
 	d.Skills = &fakeIndexer{
-		all:  []skills.Entry{skill("code-review", "a"), skill("migration-runner", "b"), skill("release", "c")},
-		kept: []skills.Entry{skill("code-review", "a")},
+		all:  []skills.Entry{skillAt("code-review", "a"), skillAt("migration-runner", "b"), skill("release", "c")},
+		kept: []skills.Entry{skillAt("code-review", "a")},
 	}
 
 	got := buildSkillIndex(bg(), r, d, nil)
 
 	budget := itoa(r.Cfg.Runtime.Rehydrate.SkillIndexTokens)
 	require.Equal(t, []checkpoint.DropEntry{
-		{Kind: dropKindSkill, ID: "migration-runner", Detail: "not in the compact skill index (budget " + budget + " tokens)"},
-		{Kind: dropKindSkill, ID: "release", Detail: "not in the compact skill index (budget " + budget + " tokens)"},
+		{Kind: dropKindSkill, ID: "migration-runner", Detail: "not in the compact skill index (budget " + budget +
+			" tokens); restore: Read .claude/skills/migration-runner/SKILL.md"},
+		{Kind: dropKindSkill, ID: "release", Detail: "not in the compact skill index (budget " + budget +
+			" tokens); call dropped() for the full accounting"},
 	}, got.drops)
+}
+
+// TestSkillIndex_BudgetDropNamesTheSkillFile asserts an index line the PAYLOAD cannot afford — the
+// drop the D5 ceiling produces most, ten of them in the state golden — names the file that restores
+// it. Before the fix it read "did not fit the rehydration budget" and nothing else.
+func TestSkillIndex_BudgetDropNamesTheSkillFile(t *testing.T) {
+	cp := ckEmpty()
+	r := requestFor(t, cp, generousTestBudget)
+	entries := []skills.Entry{skillAt("code-review", "a"), skill("bare", "b")}
+	d := depsWith(&spyLogger{})
+	d.Skills = &fakeIndexer{all: entries, kept: entries}
+
+	got := buildSkillIndex(bg(), r, d, nil)
+
+	require.Len(t, got.units, 2)
+	require.Equal(t, checkpoint.DropEntry{
+		Kind: dropKindSkill, ID: "code-review",
+		Detail: "did not fit the rehydration budget; restore: Read .claude/skills/code-review/SKILL.md",
+	}, got.units[0].drop)
+	require.Equal(t, checkpoint.DropEntry{
+		Kind: dropKindSkill, ID: "bare",
+		Detail: "did not fit the rehydration budget; call dropped() for the full accounting",
+	}, got.units[1].drop)
 }
 
 // TestSkillIndex_WarnsOnHostHeadTruncation asserts §2.7's per-skill cap is surfaced. The host

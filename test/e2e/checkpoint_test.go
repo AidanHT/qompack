@@ -27,6 +27,7 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/pins"
@@ -70,11 +71,12 @@ const (
 	cpFrontierTurn = core.TurnIndex(cpSegments*cpSegmentTurns - 1)
 )
 
-// cpRelCheckpointPath is the project-relative, forward-slash form of the first checkpoint
-// artifact — the exact string FocusInstructions renders into the O1 span paragraph through
-// FileWriter.relPath (§14 item 2: forward slashes on every platform, so this literal is correct on
-// Windows too).
-const cpRelCheckpointPath = ".qompack/checkpoints/0001.json"
+// cpRelCheckpointPathOf is the project-relative, forward-slash form of checkpoint seq's artifact —
+// the exact string FocusInstructions renders into the O1 span paragraph through FileWriter.relPath
+// (§14 item 2: forward slashes on every platform, so this form is correct on Windows too).
+func cpRelCheckpointPathOf(seq core.CheckpointSeq) string {
+	return fmt.Sprintf(".qompack/checkpoints/%04d.json", int(seq))
+}
 
 // cpIdleBudget is the budget handed to IdleController.RunOnce. Basis: B-E is 2 s for the whole
 // PreCompact hook and the cadence task shares that shape, while advance_frontier's own budget
@@ -390,6 +392,68 @@ func cpPreCompactPayload(t *testing.T, root string, sess core.SessionID) []byte 
 	return b
 }
 
+// cpRequireHostConformingPreCompact holds a `qompack checkpoint` stdout to the host's PreCompact
+// contract (testdata/host/hooks-output-schema.json): no hookSpecificOutput, because the host has no
+// PreCompact variant and rejects the whole response over one (C1.12), and no systemMessage or
+// continue, which the host discards for PreCompact.
+func cpRequireHostConformingPreCompact(t *testing.T, out hookio.Output) {
+	t.Helper()
+	require.Nil(t, out.HookSpecificOutput,
+		"`qompack checkpoint` must not answer the host with a hookSpecificOutput: Claude Code has no "+
+			"PreCompact variant and rejects the whole response over one (C1.12)")
+	require.Empty(t, out.SystemMessage, "the host discards a PreCompact systemMessage")
+	require.Nil(t, out.Continue, "the host discards a PreCompact continue")
+}
+
+// cpPreCompactReply sends one PreCompact to the daemon's checkpoint route over the real IPC
+// transport, exactly as the hook client frames it, and returns the daemon's reply and the focus
+// instruction in it. See v4Rig.PreCompactReply for why a row reads the instruction here.
+func cpPreCompactReply(t *testing.T, root string, sess core.SessionID) (hookio.Output, string) {
+	t.Helper()
+	return cpPreCompactReplyFor(t, root, hookio.Event{
+		HookEventName:  "PreCompact",
+		SessionID:      sess,
+		CWD:            root,
+		TranscriptPath: filepath.Join(root, "transcript.jsonl"),
+		Trigger:        "auto",
+	})
+}
+
+// cpPreCompactReplyFor is cpPreCompactReply for a caller that holds the whole PreCompact event, such
+// as a frozen host payload, rather than only its session.
+func cpPreCompactReplyFor(t *testing.T, root string, ev hookio.Event) (hookio.Output, string) {
+	t.Helper()
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+	sp, err := ipc.NewSpool(paths.Of(root).Spool)
+	require.NoError(t, err)
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
+		ProjectRoot:     root,
+		ConnectDeadline: e2eRoundTripDeadline,
+		AckDeadline:     e2eRoundTripDeadline,
+	})
+	defer func() { _ = c.Close() }()
+
+	raw, err := json.Marshal(map[string]string{"trigger": ev.Trigger})
+	require.NoError(t, err)
+	resp, err := c.Send(context.Background(), ipc.Request{
+		Op: ipc.OpCheckpoint, Session: ev.SessionID, TS: core.NowMilli(core.SystemClock()), Reply: true,
+		Event: &ev, Raw: raw,
+	}, cpCheckpointReplyDeadline)
+	require.NoError(t, err, "the checkpoint route must answer over IPC")
+	require.True(t, resp.OK, "the checkpoint route must answer OK: %s", resp.Err)
+	require.NotNil(t, resp.Output, "a Reply request is answered with an Output")
+	out := *resp.Output
+	if out.HookSpecificOutput == nil {
+		return out, ""
+	}
+	return out, out.HookSpecificOutput.CustomInstructions
+}
+
+// cpCheckpointReplyDeadline mirrors internal/cli's checkpointReplyDeadline (15 s), the reply
+// deadline the hook client itself gives the checkpoint route.
+const cpCheckpointReplyDeadline = 15 * time.Second
+
 // cpRunCheckpointHook runs `qompack checkpoint` as a real process against a real daemon and
 // asserts the two invariants §2.3 gives the host on EVERY path — exit 0, and a stdout that is one
 // valid hookio.Output — returning the decoded response for the row's own mode-specific
@@ -437,8 +501,9 @@ func cpFirstLine(s string) string {
 // and may not be merged), one idle tick advances the frontier into the live draft, and then a real
 // `qompack checkpoint` process feeds a real PreCompact payload down stdin.
 //
-// What it pins that a unit test cannot: that the emitted customInstructions really came back over
-// the wire in the hook's own stdout, and that the artifact on disk is immutable and
+// What it pins that a unit test cannot: that the hook's own stdout is the host's PreCompact
+// contract (the empty object, C1.12) while the seal still happens, that the focus instruction is
+// still rendered on the daemon's side of the wire, and that the artifact on disk is immutable and
 // manifest-consistent as a SEPARATE process left it. It asserts the artifact's identity three ways
 // — it exists, it carries no write bit, and it re-hashes to its MANIFEST.jsonl line — because
 // those are three different failures (not written, written mutably, written corrupt) that a single
@@ -500,12 +565,11 @@ func TestE2E_CheckpointHookWritesImmutableArtifact(t *testing.T) {
 		cpSegments)
 
 	// ── The hook: a real process, a real PreCompact payload on stdin ─────────────────────────────
+	// What reaches the host is the empty response. This row once required the focus instruction on
+	// the hook's stdout; Claude Code rejects exactly that shape (C1.12), so the host half is now the
+	// documented contract and the instruction is read, further down, on the IPC hop it never leaves.
 	out := cpRunCheckpointHook(t, bin, p, cpSession)
-	require.NotNil(t, out.HookSpecificOutput,
-		"in ModeFull the bound Services.PreCompact seam must answer through hookSpecificOutput")
-	require.Equal(t, "PreCompact", out.HookSpecificOutput.HookEventName)
-	instr := out.HookSpecificOutput.CustomInstructions
-	require.NotEmpty(t, instr, "the full-mode PreCompact path must emit customInstructions")
+	cpRequireHostConformingPreCompact(t, out)
 
 	// ── state/precompact.json: the debug artifact, and the only published carrier of Ref.Frontier ─
 	artifactPath := filepath.Join(paths.Of(p.Root).State, "precompact.json")
@@ -522,22 +586,8 @@ func TestE2E_CheckpointHookWritesImmutableArtifact(t *testing.T) {
 	require.Equal(t, cpPreCompactTimeoutMs(t), art.TimeoutMs,
 		"timeout_ms comes from the daemon's pluginmanifest read, never from a literal inside internal/checkpoint")
 	require.GreaterOrEqual(t, art.WallMs, int64(0))
-
-	// ── The instruction itself: the span paragraph, the sentinel, and SP-05's probe ──────────────
-	require.Contains(t, instr,
-		fmt.Sprintf("A durable checkpoint (`%s`) fully covers the session through turn %d",
-			cpRelCheckpointPath, int(art.Frontier)),
-		"the O1 span paragraph must name the artifact's project-relative path and the frontier\ninstructions:\n%s", instr)
-	require.Contains(t, instr, fmt.Sprintf("Summarize only what happened after turn %d", int(art.Frontier)),
-		"the span paragraph's whole purpose is narrowing the summarizer to the residual span\ninstructions:\n%s", instr)
-	require.Contains(t, instr, checkpoint.SentinelPhrase,
-		"ForbidSnippets is always true on the PreCompact path, so the sentinel appears in every emitted payload")
-	require.NotContains(t, instr, `\`,
-		"the span paragraph's path is rendered with forward slashes on every platform (§14 item 2)")
-	require.GreaterOrEqual(t, utf8.RuneCountInString(cpFirstLine(instr)), cpMinProbeRunes,
-		"the FIRST LINE is what contract.probePhrase turns into a probe; below %d runes "+
-			"precompact.custom_instructions_accepted can never observe anything again",
-		cpMinProbeRunes)
+	require.Positive(t, art.InstructionsBytes,
+		"the daemon rendered the focus instruction for this seal, even though the host never receives it")
 
 	// ── The artifact: it exists, it is immutable, and it re-hashes to its manifest line ──────────
 	require.Equal(t, []string{"0001.json"}, cpCheckpointArtifacts(t, p.Root),
@@ -570,4 +620,32 @@ func TestE2E_CheckpointHookWritesImmutableArtifact(t *testing.T) {
 	require.Empty(t, cp.Parent, "the first checkpoint of a chain has no parent")
 	require.Subset(t, cp.EncodedSegments, segIDs,
 		"the DPI record: the artifact names the segments whose ORIGINAL content it encoded (§4.6)")
+
+	// ── The instruction itself, read where it still exists: the daemon's IPC reply ───────────────
+	// A second compaction of the same session, sent to the checkpoint route the way the hook client
+	// frames it. It seals 0002.json over the same frontier, and its reply carries the O1 paragraphs
+	// the hook client withholds from the host.
+	_, instr := cpPreCompactReply(t, p.Root, cpSession)
+	require.NotEmpty(t, instr, "the full-mode checkpoint route must still render the focus instruction")
+	rawArtifact, err = os.ReadFile(paths.Long(artifactPath))
+	require.NoError(t, err)
+	var art2 cpPreCompactArtifact
+	require.NoError(t, json.Unmarshal(rawArtifact, &art2), "state/precompact.json:\n%s", rawArtifact)
+	require.Equal(t, core.CheckpointSeq(2), art2.Seq, "the second compaction seals seq 2")
+	require.Equal(t, cpFrontierTurn, art2.Frontier, "no segment moved, so neither did the frontier")
+	require.Contains(t, instr,
+		fmt.Sprintf("A durable checkpoint (`%s`) fully covers the session through turn %d",
+			cpRelCheckpointPathOf(art2.Seq), int(art2.Frontier)),
+		"the O1 span paragraph must name the artifact's project-relative path and the frontier\ninstructions:\n%s", instr)
+	require.Contains(t, instr, fmt.Sprintf("Summarize only what happened after turn %d", int(art2.Frontier)),
+		"the span paragraph's whole purpose is narrowing the summarizer to the residual span\ninstructions:\n%s", instr)
+	require.Contains(t, instr, checkpoint.SentinelPhrase,
+		"ForbidSnippets is always true on the PreCompact path, so the sentinel appears in every rendered payload")
+	require.NotContains(t, instr, `\`,
+		"the span paragraph's path is rendered with forward slashes on every platform (§14 item 2)")
+	require.GreaterOrEqual(t, utf8.RuneCountInString(cpFirstLine(instr)), cpMinProbeRunes,
+		"the FIRST LINE is what contract.probePhrase turns into a probe; below %d runes "+
+			"precompact.custom_instructions_accepted can never observe anything again",
+		cpMinProbeRunes)
+	require.Equal(t, len(instr), art2.InstructionsBytes, "the debug artifact records the rendered length")
 }

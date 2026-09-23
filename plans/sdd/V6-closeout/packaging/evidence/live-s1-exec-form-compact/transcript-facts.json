@@ -1,0 +1,100 @@
+{
+ "transcript_file": "60db6d68-4f25-4254-a168-b470ee4216e6.jsonl",
+ "bytes": 400827,
+ "contains_validation_failed": false,
+ "contains_hookSpecificOutput_PreCompact": false,
+ "contains_ParserError": true,
+ "hooks": [
+  {
+   "type": "hook_success",
+   "hookName": "SessionStart:startup",
+   "hookEvent": "SessionStart",
+   "exitCode": 0,
+   "durationMs": 3073
+  },
+  {
+   "type": "hook_success",
+   "hookName": "PostToolUse:Read",
+   "hookEvent": "PostToolUse",
+   "exitCode": 0,
+   "durationMs": 478
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 983
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 997
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 1181
+  },
+  {
+   "type": "hook_non_blocking_error",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 1,
+   "durationMs": 1461
+  },
+  {
+   "type": "hook_success",
+   "hookName": "SessionStart:compact",
+   "hookEvent": "SessionStart",
+   "exitCode": 0,
+   "durationMs": 1024
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 159
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 173
+  },
+  {
+   "type": "hook_success",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 0,
+   "durationMs": 224
+  },
+  {
+   "type": "hook_non_blocking_error",
+   "hookName": "Stop",
+   "hookEvent": "Stop",
+   "exitCode": 1,
+   "durationMs": 1657
+  }
+ ],
+ "compact_boundaries": [
+  {
+   "trigger": "manual",
+   "preTokens": 25562,
+   "postTokens": 1974,
+   "durationMs": 13149
+  }
+ ],
+ "additional_context_heads": [
+  {
+   "hookName": "SessionStart",
+   "head": "<!-- qompack:injected seq=1 ver=1 -->\n# Qompack rehydration \u2014 checkpoint 0001, session 60db6d68\n\n## 2. Original user intent (verbatim from L0 capture \u2014 never su"
+  }
+ ]
+}

@@ -338,8 +338,9 @@ func TestV5_NoPackageWritesOutsideDotQompack(t *testing.T) {
 		cpCloseObserverSegment(t, r.Segs, x16v5Session)
 		cpCloseSegment(t, r.Segs, x16v5Session, 0, 9) // turns 0..9 of the first burst, as v4_x11 closes them
 		r.RunIdle(t)
-		_, instr := r.PreCompact(t, x16v5Session)
-		require.NotEmpty(t, instr, "the arm needs a sealed checkpoint so the checkpoint writer is in the write set")
+		r.PreCompact(t, x16v5Session)
+		require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root),
+			"the arm needs a sealed checkpoint so the checkpoint writer is in the write set")
 		r.CompactStart(t, x16v5Session)
 		obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, x16v5Session), env)
 

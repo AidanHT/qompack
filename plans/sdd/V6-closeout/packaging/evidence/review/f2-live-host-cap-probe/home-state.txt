@@ -1,0 +1,33 @@
+Home state around the cap probe session (real ~/.claude of the owner's machine, Claude Code 2.1.280).
+
+BEFORE (2026-09-23T00:24:38Z):
+== plugins/data
+rust-analyzer-lsp-claude-plugins-official
+superpowers-claude-plugins-official
+== hashes
+eaee1ba9ed3958c3a28e61514187f4281bcdb0138551cd399f15e909b06e69b6 *<home>/.claude/settings.json
+4a301260e2f93ddbe5496104049efbf4550c4b9cbba25729f53564ff28908b28 *<home>/.claude/plugins/blocklist.json
+728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd *<home>/.claude/plugins/installed_plugins.json
+1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725 *<home>/.claude/plugins/known_marketplaces.json
+4d2dcfd50b565526044239eac77bf1730abebe68b1b309aaf653f94c5c6f3289 *<home>/.claude/plugins/plugin-catalog-cache.json
+
+Created by the session (session id ec3702cb-b4a7-4e32-9773-7e327ce3ae83), found by name, then removed:
+  <home>/.claude/plugins/data/qpkcapprobe-inline/            (empty directory; --plugin-dir inline data)
+  <home>/.claude/session-env/ec3702cb-b4a7-4e32-9773-7e327ce3ae83/   (empty directory)
+  <home>/.claude/projects/<scratch-encoded>-capprobe-project/  (transcript, plus tool-results/hook-...-1-additionalContext.txt,
+      11082 bytes, sha256 bc2b3389d3e75a965b359a62aadb292a61718b9a78ea07e38a3e8f0ca79ddfeb - the full context the host persisted)
+Not removed (attribution uncertain; shared caches other live sessions also write):
+  <home>/.claude/cache/model-catalog/*.json, <home>/.claude.json (outside ~/.claude; every session updates it)
+
+AFTER (2026-09-23T00:26:11Z):
+== plugins/data
+rust-analyzer-lsp-claude-plugins-official
+superpowers-claude-plugins-official
+== hashes
+eaee1ba9ed3958c3a28e61514187f4281bcdb0138551cd399f15e909b06e69b6 *<home>/.claude/settings.json
+4a301260e2f93ddbe5496104049efbf4550c4b9cbba25729f53564ff28908b28 *<home>/.claude/plugins/blocklist.json
+728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd *<home>/.claude/plugins/installed_plugins.json
+1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725 *<home>/.claude/plugins/known_marketplaces.json
+4d2dcfd50b565526044239eac77bf1730abebe68b1b309aaf653f94c5c6f3289 *<home>/.claude/plugins/plugin-catalog-cache.json
+
+settings.json and every plugins/*.json hash identical before and after; plugins/data listing identical.

@@ -105,7 +105,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.redact.enabled` | boolean | `true` | — | 00-ARCH §5.23 | scrub secrets before content enters the store |
 | `runtime.redact.patterns` | array | `[]` | — | 00-ARCH §5.23 | additional user-supplied secret-detection patterns |
 | `runtime.rehydrate.eliminationsTopN` | integer | `8` | [1,∞) | §8.6 | number of eliminated approaches surfaced verbatim in the rehydrated digest |
-| `runtime.rehydrate.maxTokens` | integer | `12000` | [minTokens,∞) | §8.6 | upper bound of the rehydration budget |
+| `runtime.rehydrate.maxTokens` | integer | `12000` | [minTokens,∞) | §8.6 | upper bound of the rehydration token budget; the payload is also held under the host's fixed 9,500-character additionalContext ceiling, which no key raises |
 | `runtime.rehydrate.minTokens` | integer | `8000` | [1,maxTokens] | §8.6 | lower bound of the rehydration budget |
 | `runtime.rehydrate.skillIndexTokens` | integer | `450` | [1,∞) | §8.6 | token budget for the compact skill index |
 | `runtime.scheduler.cache.assumeMaxTTLSeconds` | integer | `3600` | [scheduler.cache.ttlSeconds,∞) | 00-ARCH §11.5 / Qompack.md §5.4 | upper TTL bound the scheduler assumes when the cache regime cannot be identified |

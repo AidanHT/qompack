@@ -1,0 +1,98 @@
+Reviewer finding 5 (marketplace.yml): RED run of the final guards against the implementer's workflow
+(HEAD:.github/workflows/marketplace.yml from d9b0069, temporarily restored), 2026-09-22, windows/amd64.
+Command: go test ./test/guards -run '^TestMarketplaceWorkflow' -count=1 -v
+-----
+=== RUN   TestMarketplaceWorkflowPinsWithTheReleasesGenerator
+=== PAUSE TestMarketplaceWorkflowPinsWithTheReleasesGenerator
+=== RUN   TestMarketplaceWorkflowReRunsCleanly
+=== PAUSE TestMarketplaceWorkflowReRunsCleanly
+=== CONT  TestMarketplaceWorkflowPinsWithTheReleasesGenerator
+=== CONT  TestMarketplaceWorkflowReRunsCleanly
+    marketplace_workflow_test.go:85: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-packaging/test/guards/marketplace_workflow_test.go:85
+        	Error:      	Expect "git push origin "$branch" gh pr create --base develop --head "$branch" \ --title "chore(marketplace): pin the $TAG release archives" \ --body "Pins the six per-target archive entries of .claude-plugin/marketplace.json to the $TAG release zips (sha256 re-verified against the release's checksums.txt, and equal to the uploaded marketplace.json). Merging it is what makes \`/plugin marketplace add AidanHT/qompack\` offer $TAG."" to match "--force-with-lease="?refs/heads/[^:\s]+:"
+        	Test:       	TestMarketplaceWorkflowReRunsCleanly
+        	Messages:   	a re-run finds marketplace/<tag> already pushed; the push must replace it under an explicit lease (--force-with-lease=refs/heads/<branch>:<expected>) rather than fail
+--- FAIL: TestMarketplaceWorkflowReRunsCleanly (0.11s)
+=== NAME  TestMarketplaceWorkflowPinsWithTheReleasesGenerator
+    marketplace_workflow_test.go:43: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-packaging/test/guards/marketplace_workflow_test.go:43
+        	Error:      	Expect "name: marketplace
+        	            	
+        	            	
+        	            	on:
+        	            	  release:
+        	            	    types: [published]
+        	            	
+        	            	permissions:
+        	            	  contents: write
+        	            	  pull-requests: write
+        	            	
+        	            	concurrency:
+        	            	  group: marketplace-${{ github.event.release.tag_name }}
+        	            	  cancel-in-progress: false
+        	            	
+        	            	env:
+        	            	  GOTOOLCHAIN: local
+        	            	  CGO_ENABLED: '0'
+        	            	  TAG: ${{ github.event.release.tag_name }}
+        	            	
+        	            	jobs:
+        	            	  pin:
+        	            	    if: startsWith(github.event.release.tag_name, 'v') && !github.event.release.prerelease
+        	            	    runs-on: ubuntu-latest
+        	            	    steps:
+        	            	      - uses: actions/checkout@v4
+        	            	        with: { ref: develop, fetch-depth: 0 }
+        	            	      - uses: actions/setup-go@v5
+        	            	        with: { go-version: '1.26.6', cache: true }
+        	            	      - name: download the published archives, checksums and marketplace
+        	            	        env:
+        	            	          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        	            	        run: |
+        	            	          mkdir -p dist/published
+        	            	          gh release download "$TAG" --dir dist/published \
+        	            	            --pattern 'qompack-plugin-*.zip' --pattern checksums.txt --pattern marketplace.json
+        	            	          ls -l dist/published
+        	            	      - name: re-verify every archive against the release's checksums.txt
+        	            	        working-directory: dist/published
+        	            	        run: sha256sum --strict -c checksums.txt
+        	            	      - name: digest exactly what GitHub serves, and require it to be what was released
+        	            	        run: |
+        	            	          (cd dist/published && sha256sum qompack-plugin-*.zip) > dist/served.sha256
+        	            	          diff <(sort dist/published/checksums.txt) <(sort dist/served.sha256)
+        	            	      - name: regenerate the marketplace from the served bytes
+        	            	        run: |
+        	            	          go run ./tools/devtool marketplace --tag "$TAG" --checksums dist/served.sha256 \
+        	            	            --out .claude-plugin/marketplace.json
+        	            	          go run ./tools/devtool marketplace --validate .claude-plugin/marketplace.json
+        	            	          cmp .claude-plugin/marketplace.json dist/published/marketplace.json
+        	            	      - name: open the pull request onto develop
+        	            	        env:
+        	            	          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        	            	        run: |
+        	            	          if git diff --quiet -- .claude-plugin/marketplace.json && \
+        	            	             git ls-files --error-unmatch .claude-plugin/marketplace.json >/dev/null 2>&1; then
+        	            	            echo "develop already pins $TAG"
+        	            	            exit 0
+        	            	          fi
+        	            	          branch="marketplace/$TAG"
+        	            	          git switch -c "$branch"
+        	            	          git add .claude-plugin/marketplace.json
+        	            	          git -c user.name='github-actions[bot]' \
+        	            	              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+        	            	              commit -m "chore(marketplace): pin the $TAG release archives" \
+        	            	              -m "Generated by devtool marketplace from the sha256 of each published zip, re-verified against the release's checksums.txt."
+        	            	          git push origin "$branch"
+        	            	          gh pr create --base develop --head "$branch" \
+        	            	            --title "chore(marketplace): pin the $TAG release archives" \
+        	            	            --body "Pins the six per-target archive entries of .claude-plugin/marketplace.json to the $TAG release zips (sha256 re-verified against the release's checksums.txt, and equal to the uploaded marketplace.json). Merging it is what makes \`/plugin marketplace add AidanHT/qompack\` offer $TAG."
+        	            	
+        	            	" to NOT match "(?m)\bref:\s*['"]?develop['"]?\s*[,}\n]"
+        	Test:       	TestMarketplaceWorkflowPinsWithTheReleasesGenerator
+        	Messages:   	marketplace.yml checks out develop: the generator it then runs is develop's, not the one that wrote the release's marketplace.json, so any generator change made since the tag fails the byte comparison and no pull request is opened
+--- FAIL: TestMarketplaceWorkflowPinsWithTheReleasesGenerator (0.12s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.336s
+FAIL
+exit=1

@@ -1,0 +1,16 @@
+{
+ "base": {
+  "exit": 0,
+  "additionalContext_utf16": 10882,
+  "over_host_cap": true,
+  "loud_over_cap_lines": [
+   "ts=2026-09-23T03:42:09.9450115Z level=loud msg=\"hook output exceeds the host's per-field cap; Claude sees only a preview of it\" event=SessionStart field=hookSpecificOutput.additionalContext chars=10882 cap=10000 preview=2000"
+  ]
+ },
+ "new": {
+  "exit": 0,
+  "additionalContext_utf16": 3048,
+  "over_host_cap": false,
+  "loud_over_cap_lines": []
+ }
+}

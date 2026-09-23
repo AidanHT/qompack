@@ -1,0 +1,5 @@
+{
+  "name": "qompack-shell-probe",
+  "version": "0.0.1",
+  "description": "C1.11 diagnostic: the pre-fix shell-form hook string vs exec form, under the host's own launcher"
+}

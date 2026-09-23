@@ -68,8 +68,9 @@ func TestV4_WhyAndDroppedAnswerFromRealProducers(t *testing.T) {
 	}
 	require.Contains(t, r.RunIdle(t), "advance_frontier")
 
-	_, instr := r.PreCompact(t, x10v4Session)
-	require.NotEmpty(t, instr, "the PreCompact must have sealed a checkpoint to read decisions from")
+	r.PreCompact(t, x10v4Session)
+	require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root),
+		"the PreCompact must have sealed a checkpoint to read decisions from")
 
 	// ── The decisions a REAL ExtractDecisions run created, read back through the real reader ─────
 	rd, err := checkpoint.OpenReader(p.Root, p.Log, r.Opts.Metrics)

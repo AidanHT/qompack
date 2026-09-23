@@ -1,0 +1,63 @@
+Source: qompack-cx-eval (branch closeout/eval), plans/sdd/V6-closeout/eval/runs/smoke2-plugin-dir-compact/stream.jsonl line 26
+sha256(stream.jsonl) = ebdb737db3bb607da8a3d605205cb11b38f3fadefc06ad3020518a5137de1783
+Host: Claude Code 2.1.280 on windows/amd64, claude -p --input-format stream-json, manual /compact, run 2026-09-22 (eval workstream)
+The user-role message the host appended to the post-compaction transcript, verbatim:
+-----
+<local-command-stdout>Compacted PreCompact ["${CLAUDE_PLUGIN_ROOT}/bin/qompack" checkpoint] failed: Hook JSON output validation failed — hookSpecificOutput.hookEventName: expected one of "PreToolUse" | "UserPromptSubmit" | "UserPromptExpansion" | "SessionStart" | "Setup" | "PreModelSwitch" | …
+
+The hook's output was: {
+  "hookSpecificOutput": {
+    "hookEventName": "PreCompact",
+    "customInstructions": "Encode what a competent engineer with no session history would get wrong. Do not restate file contents, directory structure, or command output — those are retrievable. Prioritise: intent, decisions and their rationale, approaches eliminated and why, and constraints discovered empirically.\n\nDo not include code snippets: every file named above is available by path and hash through the qompack checkpoint, and a pointer costs roughly 20 tokens where a snippet costs roughly 500."
+  }
+}
+
+Expected schema:
+{
+  "continue": "boolean (optional)",
+  "suppressOutput": "boolean (optional)",
+  "stopReason": "string (optional)",
+  "decision": "\"approve\" | \"block\" (optional)",
+  "reason": "string (optional)",
+  "systemMessage": "string (optional)",
+  "terminalSequence": "string (optional)",
+  "hookSpecificOutput": {
+    "for PreToolUse": {
+      "hookEventName": "\"PreToolUse\"",
+      "permissionDecision": "\"allow\" | \"deny\" | \"ask\" | \"defer\" (optional)",
+      "permissionDecisionReason": "string (optional)",
+      "updatedInput": "object (optional) - Modified tool input to use"
+    },
+    "for PermissionRequest": {
+      "hookEventName": "\"PermissionRequest\"",
+      "decision": {
+        "to allow": {
+          "behavior": "\"allow\"",
+          "updatedInput": "object (optional) - Modified tool input to use",
+          "updatedPermissions": "array (optional) - Permission updates"
+        },
+        "to deny": {
+          "behavior": "\"deny\"",
+          "message": "string (optional)",
+          "interrupt": "boolean (optional)"
+        }
+      }
+    },
+    "for UserPromptSubmit": {
+      "hookEventName": "\"UserPromptSubmit\"",
+      "additionalContext": "string (optional)"
+    },
+    "for PostToolUse": {
+      "hookEventName": "\"PostToolUse\"",
+      "additionalContext": "string (optional)"
+    },
+    "for PostToolBatch": {
+      "hookEventName": "\"PostToolBatch\"",
+      "additionalContext": "string (optional)"
+    },
+    "for Stop / SubagentStop": {
+      "hookEventName": "\"Stop\" | \"SubagentStop\"",
+      "additionalContext": "string (optional) - Feedback for the model; the conversation continues so the model can act on it"
+    }
+  }
+}</local-command-stdout>
