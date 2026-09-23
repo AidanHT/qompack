@@ -223,8 +223,8 @@ func x10StatsObjects(t *testing.T, bin string) int {
 	}
 	require.Eventually(t, func() bool { return len(obsToolUseLines(p.Root)) >= x10Total },
 		obsProcessBound, obsProcessTick,
-		"control run: index/tool_use.jsonl never reached %d lines (have %d)",
-		x10Total, len(obsToolUseLines(p.Root)))
+		"control run: index/tool_use.jsonl never reached %d lines: %s",
+		x10Total, obsWaitDiag{p.Root})
 	e2eShutdownIfReachable(t, p.Root)
 
 	_, m, s, closeAll := x10OpenLedger(t, p)
@@ -321,7 +321,8 @@ func TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently(t *testing.T) {
 	require.Equal(t, x10KillAfter, x10WalLines(t, p.Root, x10Session),
 		"every accepted event is WAL'd exactly once before its ACK, so 30 hooks mean 30 lines")
 	require.Eventually(t, func() bool { return len(obsToolUseLines(p.Root)) >= x10KillAfter },
-		obsProcessBound, obsProcessTick, "the first %d events were never all indexed", x10KillAfter)
+		obsProcessBound, obsProcessTick, "the first %d events were never all indexed: %s", x10KillAfter,
+		obsWaitDiag{p.Root})
 
 	// ── phase 2: three eliminations through the real ledger, before the kill ──
 	// The ledger is open concurrently with the live daemon, over the same project: its writes
@@ -373,8 +374,8 @@ func TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently(t *testing.T) {
 	// store.RecordToolUse treats a replayed id with the same Root as a silent no-op.
 	require.Eventually(t, func() bool { return len(obsToolUseLines(p.Root)) >= x10Total },
 		obsProcessBound, obsProcessTick,
-		"the startup drain never brought index/tool_use.jsonl to %d records (have %d)",
-		x10Total, len(obsToolUseLines(p.Root)))
+		"the startup drain never brought index/tool_use.jsonl to %d records: %s",
+		x10Total, obsWaitDiag{p.Root})
 
 	ids := x10IndexIDs(t, p.Root)
 	require.Len(t, ids, x10Total,
