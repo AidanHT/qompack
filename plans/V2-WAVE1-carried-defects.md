@@ -547,10 +547,12 @@ the worst observed sample was 4.6 %, and the fourth run exceeded it. `DetectorSc
 
 ## SP20-D4 — the delivery journals never retire a lease, so leasing stops for good at 65,536
 
-`deferred:V6-VERIFY`. Found at the V5 close-out (2026-09-11) while designing SP20-D1's group commit,
-which rewrites the same journal code. `internal/daemon/delivery_lease.go` bounds
-`state/delivery-leases.jsonl` and `delivery-acks.jsonl` at `deliveryLeaseMaxEntries` = 65,536 entries
-and `deliveryLeaseMaxBytes` = 64 MiB each. Its comment calls them admission safety bounds and leaves
+`fixed` at the V6 close-out (C1.10, 2026-09-22) by segmented rollover, enabled by default; see
+**Resolution** at the end of this section. It was `deferred:V6-VERIFY` until then, and the text down
+to the resolution is the defect as it was found. Found at the V5 close-out (2026-09-11) while
+designing SP20-D1's group commit, which rewrites the same journal code.
+`internal/daemon/delivery_lease.go` bounds `state/delivery-leases.jsonl` and `delivery-acks.jsonl`
+at `deliveryLeaseMaxEntries` = 65,536 entries and `deliveryLeaseMaxBytes` = 64 MiB each. Its comment calls them admission safety bounds and leaves
 "measured retention/compaction" to "a separate migration task" that no plan owns. Only the daemon
 writes either file, and it only appends; store GC (`internal/store/gcrun.go`) only reads them. No
 lease is ever retired, even for a delivery acknowledged long ago, so once a project has leased 65,536
@@ -603,6 +605,138 @@ SP20-D1 is rewriting at the close-out, so it cannot land safely beside that chan
 - The evidence test inverted: a project past 65,536 leases leases its next delivery, and a late copy
   of a retired delivery is still skipped.
 - The startup load cost bounded independently of the project's age.
+
+**Resolution (V6 close-out, C1.10, branch `closeout/rollover`).** Nothing is retired: the journals
+are segmented instead. Each segment's two files keep the 65,536-entry and 64 MiB bounds, and reaching
+either rotates the journal — the outgoing window (leases, acknowledgements, terminal dispositions) is
+archived into the generation store, a Merkle radix keyed by nonce, arrival, acknowledgement,
+terminal and per-session frontier, and the switch is one fsynced record in the segment authority's
+chained log. Owner decision D2 (2026-09-22) was to finish the rollover gates and then enable it by
+default; `enableDeliveryGenerations` is now `true`. Against the acceptance above:
+
+- *Horizon.* Every lease ever admitted stays resolvable, so a late copy of any retired delivery gets
+  its original identity back and is skipped; a dormant session's next arrival follows its last one.
+- *Crash safety and GC.* The window is archived before the transition commits; an open that finds a
+  window already archived finishes that rotation first. Store GC reads every segment, and a GC run
+  while the journal rotates keeps every root an unsettled lease references
+  (`TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot`, with a negative
+  control that harvests segment 0 only and fails).
+- *Evidence test inverted:*
+  `TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart` (was
+  `..._LeaseJournalRefusesEveryDeliveryPastItsEntryCap`) drives a store at exactly the old cap
+  through `dispatchOp`, a rotation and a restart, and a late copy of an archived delivery is not
+  published again.
+- *Startup cost.* Open loads the active segment's journals (bounded by the entry cap), the authority
+  and the generation head; archived segments are not re-read, and segment 0's frozen seals are
+  checked by size only.
+
+**Why it could not simply be switched on.** At `cf31e01` the segmented journal existed behind a
+default-off seam. Each of these failed a test or probe before its fix (red runs under
+`plans/sdd/V6-closeout/rollover/runs/`, real-binary drills under its `drill/runs/`):
+
+1. The generation store wrote one file per radix page (file and directory fsync each) and was
+   committed inside every lease and acknowledgement batch, so inside `ingest.Accept`. A 200-delivery
+   probe measured 1,853.6 ms per lease and 1,100.1 ms per acknowledgement on Windows (5.8 / 5.4 ms
+   with the seam off) and 1,695.8 / 1,652.3 ms on Linux (54.2 / 31.6 ms), 49 files per delivery; one
+   400-lease commit took 1,354 s. Fix: pages packed one file per generation plus a root pointer
+   (`52c77b6`), the window archived at rotation instead of per batch (`3200254`), and a one-pass
+   archive with a branch-page cache (`32602a4`: a full-window rotation 135 s -> 27 s on Windows).
+2. After a rotation the legacy files stay as segment 0 with seals a pre-segment build still accepts,
+   so that build appended and re-numbered arrivals. Fix (`26bbd3f`): archiving segment 0 rewrites its
+   two seals as frozen documents with no `"v"`, which every pre-segment reader refuses.
+3. A torn active-segment seal had no repair on a segmented store. Fix (`7577fde`): Rule R
+   (`--accept-torn-slot --yes`) reaches the active segment only; an archived segment's seal cannot be
+   torn by a crash.
+4. A store that had never rotated failed its own offline check (empty generation store). Fix
+   (`2e99fdd`).
+5. Concurrent callers read a second rotation as `ErrBudget` (found by the first drill). Fix
+   (`8509447`): a rotation signal names the segment it filled, and the retry rotates past exactly it.
+
+The thresholds did not move (`deliveryRolloverEntries = deliveryLeaseMaxEntries`, 64 MiB bytes) and
+no configuration key exposes them.
+
+**Criterion changes (old -> new, why).**
+
+- The evidence test, as above: refusal past the cap -> capture continues past it, because that is
+  this row's acceptance.
+- `TestDeliveryGenerationWiring_*` (two tests): "an admitted lease / acknowledgement is mirrored into
+  the store" -> "absent before its segment rotates, exact after it; an acknowledgement of an archived
+  lease advances the frontier at once", because per-batch mirroring was the cost removed in fix 1.
+- The group-commit twins at the entry and byte caps and the ack check-order case at the entry cap
+  now run with rollover off: the refusal they pin still exists only for a journal that cannot rotate.
+- `TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites` expects the segment authority's
+  head and log too: store already watched them.
+- The segmented offline-check negative control loads segment 0 against its frozen position, since
+  the legacy seal reader now refuses it by design (fix 2).
+- The generation corruption test reopens the store before the corrupted read, since the branch cache
+  serves an already-verified page from memory; the refusal it asserts is unchanged.
+- Fixtures meaning "a store written before segments" are built with rollover off (fix 4).
+
+**Recorded decisions this changes.** The integration contract's per-batch lease and ack mirror and
+its "store is a superset of the active window"
+(`sdd/V6-remediation/delivery-capacity-integration-work.md`, Wiring 1 and 3) are replaced by
+rotation-time archival; the join that superset protected is made
+against the in-memory window, and at rotation against the lease just archived. The rotation order in
+the same document is unchanged. The old-reader barrier is the existing parsed position seal, as the
+coordinator decision requires. Generation format v1 (only ever written by tests) is refused.
+
+**Evidence.** Focused tests: `TestDeliveryRollover_*` (rotation-time archival, frozen seals,
+concurrent rotation), `TestDeliveryGeneration_*` and `TestDeliveryRadix*` (packs),
+`TestDeliverySealSegment_RuleR*`,
+`TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot` (negative control
+`gc-negative-control.sh`, run 06),
+`TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites`, and the frozen-seal tests in
+`internal/cli` and `internal/store`. Whole packages: daemon on Windows (runs 02, 07), daemon, store
+and cli on Linux (runs 08, 12), store and cli on Windows (run 11); the rollover and frozen-seal
+tests under `-race` on Linux (runs 13b, 13c). Real binaries (`rollover-drill.py`, drill3, Linux):
+a real daemon with its threshold patched to 3 rotated to segment 6 with dense arrivals and every
+capture indexed, as a never-rotated control did; the current build's fsck certified the rotated store
+without changing it; backup, verify and restore preserved the delivery state byte for byte and the
+restored copy certified and continued densely after restart; the pre-segment 301a8e9 build changed
+no delivery-state file and was refused by fsck and the seal check, and the current build then
+continued the history at its next arrival.
+
+**Resource cost (gate 5).** `BenchmarkDeliveryRolloverResourceCost` at the production thresholds:
+210,000 deliveries leased and acknowledged through the real journal by 8 concurrent callers (each
+acknowledging its previous delivery after leasing the next), three rotations. Figures only: nothing
+was gated on them and no budget changed. Both runs were co-loaded (the Windows host is shared with
+other agents, and the two runs overlapped for about half their length), so tails are upper-biased.
+
+| | Windows 11, 22 logical CPUs (run 10b) | Linux container, `GOMAXPROCS=4` (run 16) |
+|---|---|---|
+| rotation stall, windows 1 / 2 / 3 | 27.4 / 124.5 / 86.2 s | 28.1 / 24.8 / 35.7 s |
+| lease p50 / p99, whole run | 30.8 / 220.3 ms | 58.4 / 257.4 ms |
+| lease p99 before / after the first rotation | 192.5 / 230.2 ms | 285.2 / 242.7 ms |
+| acknowledgement p50 / p99 | 29.9 / 184.4 ms | 59.4 / 253.3 ms |
+| peak Go heap in use (sys) | 244 MiB (300 MiB) | 231 MiB (260 MiB) |
+| live heap after GC at 50k / 100k / 150k / 200k | 24 / 41 / 35 / 29 MiB | 24 / 41 / 37 / 31 MiB |
+| generation store after rotation 1 / 2 / 3 | 149 / 347 / 563 MiB | 149 / 347 / 563 MiB |
+| journals, all segments, at 210,000 | 114 MiB | 114 MiB |
+| delivery state per 100,000 deliveries | 322 MiB overall; about 383 MiB once windows are archived | same |
+
+Each archived window of 65,536 deliveries adds 149, 198 and then 216 MiB to the generation store
+(about 3.3 KiB per delivery, rising slowly with the tree's depth) and about 35 MiB of journal. The
+per-lease latency shows no trend with the archive's size, the live heap after a rotation returns to
+the level before it, and the maximum operation latency is the rotation stall itself.
+
+**Residuals, carried as open items.** Delivery state grows with history (about 0.38 GiB per
+100,000 deliveries, above) and nothing prunes it; compressing packs or storing a lease once rather
+than under several keys would cut it and is a format change. A rotation of a full window blocks
+leases and acknowledgements while it archives (25-125 s above), so hooks spool and the drain
+re-leases under the same nonce; archiving in the background would change the recorded rotation
+order and is an owner decision. The segment authority's 1 MiB open bound allows about 5,600
+transitions (about 3.6 × 10^8 deliveries), after which the transition is refused and the journal
+fails closed; that path is not exercised by a test. A crash between the transition commit and the
+freeze leaves segment 0 unfrozen until the next current-build open re-freezes it. Store GC reads every
+segment on each pass. A pre-segment build refuses the journal and changes no delivery state, but one
+from before V6's fail-closed journal change (301a8e9 is one) still indexes what it receives there
+without identities; a store-wide barrier would stop that and its read-only commands too, which is an
+owner decision.
+
+**Found outside this row.** Both belong to the base and reproduce on a never-rotated project: a
+SessionEnd `flush` delivery writes a capture sidecar whose op `classifyCaptureView` does not know, so
+fsck fails `captures` and `publication` and `backup restore` exits 1 on its integrity check; and live
+captures are held until SessionEnd (close-out C1.1). Evidence: `drill/runs/20260922-drill2/posthoc-*`.
 
 ## SP20-D5 — a drain pass lowers the durable bound its own record already holds
 
@@ -814,3 +948,9 @@ earlier statement that no rollover implementation exists without claiming the
 enabled production capacity limitation is resolved. Evidence is recorded under
 `sdd/V6-remediation/reader-integration-resolution.md` and
 `sdd/V6-remediation/linux-runtime-resolution.md`.
+
+## V6 close-out update — 2026-09-22
+
+**SP20-D4 -> fixed.** This supersedes the "partial mitigation, still unresolved" paragraph and the
+2026-09-22 integration follow-up above: segmented rollover is enabled by default (C1.10), and the
+resolution, its evidence test and its residuals are at the end of the SP20-D4 section.
