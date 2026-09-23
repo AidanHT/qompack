@@ -2,8 +2,10 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
@@ -36,9 +38,10 @@ const (
 	// counterOrderingDeferred / counterDrainOrderingDeferred count leased dispatches deferred because
 	// an earlier arrival of the session was not yet acknowledged (live worker / drain). The delivery
 	// stays pending (WAL retained), never spun on: a live one stays queued in its session's lane and
-	// is retried when the lane is next joined or woken (below), and a drain retries it too. Since the
-	// lanes dispatch a session in arrival order, a live deferral means the predecessor never reached
-	// the worker pool (a ring drop, a reordered ring, a spooled or drain-owned delivery).
+	// is retried when the lane is next joined or woken (below), and the parked lane asks for a drain
+	// (ingest.requestDrain), which retries it too. Since the lanes dispatch a session in arrival order,
+	// a live deferral means the predecessor never reached the worker pool (a ring drop, a job the lanes
+	// refused, a reordered ring, a spooled or drain-owned delivery).
 	counterOrderingDeferred      = "l0_ordering_deferred"
 	counterDrainOrderingDeferred = "l0_drain_ordering_deferred"
 	// counterDrainOrderingResolved counts deferred lines a bounded look-ahead un-blocked within the
@@ -211,38 +214,65 @@ func (i *ingest) noteFrontierUnavailable() {
 // for another: a worker whose job joins a lane someone else owns returns to the ring at once.
 //
 // A job that does not settle — the gate deferred it (its predecessor was never queued here: a ring
-// drop, a reordered ring, a line the drain owns), or its publication failed — stays at the head, and
-// the owner keeps the lane only if something signalled it while that dispatch ran. Otherwise the
-// lane PARKS: no owner, no polling, no spin. It is run again by the next job that joins it, and by
-// wake, which the drain calls whenever it consumes a leased line of the session, so a predecessor
-// the drain acknowledges releases the live successors queued behind it. Parked jobs hold no seen
-// ownership, so the drain can publish them itself; the lane then finds them complete and drops them.
+// drop, a job the lanes refused, a reordered ring, a line the drain owns), or its publication failed
+// — stays at the head, and the owner keeps the lane only if something signalled it while that
+// dispatch ran. Otherwise the lane PARKS: no owner, no polling, no spin. It is run again by the next
+// job that joins it, and by wake, which the drain calls once a pass that published or retired one
+// of the session's leased lines has ended (drain.go releaseSessions), so a predecessor the drain
+// acknowledges releases the live successors queued behind it. Parked jobs hold no seen ownership,
+// so the drain can publish them itself; the lane then finds them complete and drops them.
+//
+// A lane that parks on a head only a drain can now publish, or that runs dry after the lanes refused
+// one of its session's jobs, asks for that drain itself (ingest.requestDrain, served by
+// daemon.drainOnRequest) rather than leaving the session to the daemon's other drains, which run only
+// on a flush, admin.drain, a restart or after DetectAfterSeconds (120 s) of project-wide idleness.
 //
 // Nothing here is durable, and nothing needs to be: every queued job's bytes are already in the WAL
-// and its identity in the lease journal. A job the lanes cannot hold (laneCapacity) is dropped
-// exactly as a full ring drops one, and the drain delivers it. Crash and restart semantics are
-// therefore those of the ring: the WAL is retained until a durable acknowledgement, and no
-// identity is minted here.
+// and its identity in the lease journal. A job the lanes cannot hold (laneCapacity, or its session's
+// laneSessionCapacity) is refused exactly as a full ring drops one, and the drain delivers it. Crash
+// and restart semantics are therefore those of the ring: the WAL is retained until a durable
+// acknowledgement, and no identity is minted here.
 
 // laneCapacity bounds the jobs held across every lane. The lanes are the ring's continuation (a job
 // leaves the ring for a lane), so they get the ring's own bound.
 const laneCapacity = ringCapacity
 
-// counterOrderingLaneFull counts leased jobs the lanes could not hold. Each one is left, durable, in
-// the WAL for the drain, as a full ring's job is.
+// laneSessionCapacity bounds the jobs one session's lane holds. Without it one session whose head
+// can never publish — its capture or its handler fails on every retry, or it waits on a predecessor
+// nothing can publish — kept queuing its later arrivals behind that head until the lanes held
+// laneCapacity of them, and every other session's live jobs were refused from then on (C1.1 review
+// F1). It is the drain's own bound on the deferred lines of one spool file it holds in memory
+// (orderingLookaheadBound), because a lane is that look-ahead's live counterpart for one session.
+// laneCapacity is four such lanes: several sessions stuck at once can still fill the lanes, and their
+// jobs are then refused like any overflow — left in the WAL for a drain the lanes ask for, never
+// lost and never waited on.
+const laneSessionCapacity = orderingLookaheadBound
+
+// counterOrderingLaneFull counts leased jobs the lanes could not hold, because every lane together
+// or the job's own session was at its bound. Each one is left, durable, in the WAL for the drain, as a
+// full ring's job is.
 const counterOrderingLaneFull = "l0_ordering_lane_full"
+
+// counterOrderingDrainRequested counts the drains the lanes asked for (ingest.requestDrain): a lane
+// parked on a head only a drain can now publish, or jobs the lanes or the ring could not hold.
+// Requests made while one is pending merge, so this counts requests, not passes.
+const counterOrderingDrainRequested = "l0_ordering_drain_requested"
 
 // dispatchOutcome is what one dispatch of a job tells its lane.
 type dispatchOutcome int
 
 const (
-	// dispatchPending: the job may still need a live dispatch — the gate deferred it, another
-	// handler owns it right now, or a stage of its publication failed. Its WAL bytes are retained.
-	// It is the zero value, so a dispatch that panicked is pending.
+	// dispatchPending: the job may still need a live dispatch — the gate deferred it or a stage of
+	// its publication failed. Its WAL bytes are retained. It is the zero value, so a dispatch that
+	// panicked is pending.
 	dispatchPending dispatchOutcome = iota
 	// dispatchSettled: nothing is left for a live dispatch to do — the job reached the committed
 	// frontier, was already complete, or was retired by a proven policy denial.
 	dispatchSettled
+	// dispatchBusy: another handler owns the delivery right now — the drain, which publishes it
+	// itself. The lane treats it as pending but asks for no drain: the pass that owns it releases the
+	// session when it ends.
+	dispatchBusy
 )
 
 // sessionLane is one session's queued leased jobs.
@@ -257,38 +287,53 @@ type sessionLane struct {
 	// signals counts every join and every wake. The owner compares it across a dispatch to learn
 	// whether anything happened that could let a pending head proceed.
 	signals uint64
-	// quiet is closed, and cleared, once the lane is quiet: no worker owns it and no wake has listed
-	// it for one. It exists only while someone waits for that (quietChan).
-	quiet chan struct{}
+	// settled counts the jobs the lane has settled. A flush waiting for the lane reads it to tell a
+	// lane still publishing from one that has stopped (awaitLaneQuiet).
+	settled uint64
+	// overflow records that the lanes refused one of this session's jobs while a worker owned the
+	// lane. That job is only in the WAL now, so when the lane next parks or runs dry its owner asks
+	// for a drain.
+	overflow bool
+	// changed is closed, and cleared, at the lane's next settle or once it is quiet: no worker owns
+	// it and no wake has listed it for one. It exists only while someone waits for either (watch).
+	changed chan struct{}
 }
 
 // dispatchLanes holds every session's lane. mu is a leaf lock: nothing is called while it is held.
 type dispatchLanes struct {
-	mu       sync.Mutex
-	capacity int
-	held     int
-	lanes    map[core.SessionID]*sessionLane
+	mu         sync.Mutex
+	capacity   int
+	perSession int
+	held       int
+	lanes      map[core.SessionID]*sessionLane
 	// ready lists parked lanes a wake found with queued jobs, each at most once (sessionLane.woken),
 	// so it never holds more entries than there are lanes.
 	ready []core.SessionID
 }
 
-func newDispatchLanes(capacity int) *dispatchLanes {
-	return &dispatchLanes{capacity: capacity, lanes: map[core.SessionID]*sessionLane{}}
+// newDispatchLanes returns lanes that hold at most capacity jobs in all and perSession jobs of any
+// one session.
+func newDispatchLanes(capacity, perSession int) *dispatchLanes {
+	return &dispatchLanes{capacity: capacity, perSession: perSession, lanes: map[core.SessionID]*sessionLane{}}
 }
 
 // join queues j in its session's lane. own reports that no worker owned the lane, so the caller now
-// does and must run it (ingest.runLane). full reports that the lanes are at capacity and j was not
-// queued; it stays durable in the WAL for the drain. A second job for a delivery already queued (the
-// same nonce accepted twice) is not queued again, but still counts as a signal.
-func (ls *dispatchLanes) join(j job) (own, full bool) {
+// does and must run it (ingest.runLane). full reports that a job was refused — every lane together,
+// or its session's lane, is at its bound — and stays durable in the WAL for the drain. The refused
+// job is j, unless j is an earlier arrival than the lane's latest: the lowest arrivals are the ones
+// that can publish next (j may be the very predecessor the lane is parked on), so j takes the latest
+// one's place and that one is refused instead. drain then reports that nothing else will ask for
+// the refused job's drain: no worker owns the lane to ask for it when the lane parks or runs dry
+// (settle, head), so the caller asks. A second job for a delivery already queued (the same nonce
+// accepted twice) is not queued again, but still counts as a signal.
+func (ls *dispatchLanes) join(j job) (own, full, drain bool) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 	sess := j.lease.Session
 	l := ls.lanes[sess]
 	if l == nil {
-		if ls.held >= ls.capacity {
-			return false, true
+		if ls.held >= ls.capacity || ls.perSession <= 0 {
+			return false, true, true
 		}
 		l = &sessionLane{}
 		ls.lanes[sess] = l
@@ -299,8 +344,20 @@ func (ls *dispatchLanes) join(j job) (own, full bool) {
 		duplicate = duplicate || l.jobs[k].lease.Delivery == j.lease.Delivery
 	}
 	if !duplicate {
-		if ls.held >= ls.capacity {
-			return false, true
+		if ls.held >= ls.capacity || len(l.jobs) >= ls.perSession {
+			if pos == len(l.jobs) {
+				if l.running {
+					l.overflow = true
+					return false, true, false
+				}
+				return false, true, true
+			}
+			last := len(l.jobs) - 1
+			l.jobs[last] = job{} // drop the request the backing array would otherwise keep
+			l.jobs = l.jobs[:last]
+			ls.held--
+			l.overflow = true // its owner, or the caller about to become it, asks for the drain
+			full = true
 		}
 		l.jobs = append(l.jobs, job{})
 		copy(l.jobs[pos+1:], l.jobs[pos:])
@@ -309,42 +366,49 @@ func (ls *dispatchLanes) join(j job) (own, full bool) {
 	}
 	l.signals++
 	if l.running {
-		return false, false
+		return false, full, false
 	}
 	l.running = true
-	return true, false
+	return true, full, false
 }
 
 // head returns the owner's next job, the lane's lowest arrival, with the lane's signal count as the
-// owner read it. An empty lane is released and forgotten, and ok is false.
-func (ls *dispatchLanes) head(sess core.SessionID) (j job, signals uint64, ok bool) {
+// owner read it. An empty lane is released and forgotten, and ok is false; drain then reports that
+// the lanes refused one of the session's jobs while the owner ran the lane, so the owner asks for
+// the drain that job needs.
+func (ls *dispatchLanes) head(sess core.SessionID) (j job, signals uint64, ok, drain bool) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 	l := ls.lanes[sess]
 	if l == nil {
-		return job{}, 0, false
+		return job{}, 0, false, false
 	}
 	if len(l.jobs) == 0 {
+		drain = l.overflow
+		l.overflow = false
 		l.stopRunning()
 		if !l.woken {
 			delete(ls.lanes, sess)
 		}
-		return job{}, 0, false
+		return job{}, 0, false, drain
 	}
-	return l.jobs[0], l.signals, true
+	return l.jobs[0], l.signals, true, false
 }
 
 // settle records the owner's outcome for j and reports whether the owner goes on. A settled job
-// leaves the lane and the owner takes the next. A pending job stays queued; the owner goes on only
-// if the lane was signalled while it dispatched (a join, which may be the missing predecessor, or a
-// wake after the drain consumed one of the session's lines), and otherwise parks the lane: it gives
-// up ownership and the next join or wake runs it again.
-func (ls *dispatchLanes) settle(sess core.SessionID, j job, outcome dispatchOutcome, signals uint64) bool {
+// leaves the lane and the owner takes the next. A pending or busy job stays queued; the owner goes on
+// only if the lane was signalled while it dispatched (a join, which may be the missing predecessor,
+// or a wake after a drain pass published one of the session's lines), and otherwise parks the lane: it
+// gives up ownership and the next join or wake runs it again. drain reports that the parked lane
+// needs a drain nothing else will ask for: its head is pending — only a drain can publish a
+// predecessor the worker pool never had, and only a drain retries a failed head before the session's
+// next arrival — or the lanes refused one of its jobs while it ran.
+func (ls *dispatchLanes) settle(sess core.SessionID, j job, outcome dispatchOutcome, signals uint64) (goOn, drain bool) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 	l := ls.lanes[sess]
 	if l == nil {
-		return false
+		return false, false
 	}
 	if outcome == dispatchSettled {
 		for k := range l.jobs {
@@ -356,13 +420,17 @@ func (ls *dispatchLanes) settle(sess core.SessionID, j job, outcome dispatchOutc
 				break
 			}
 		}
-		return true
+		l.settled++
+		l.notify()
+		return true, false
 	}
 	if l.signals != signals {
-		return true
+		return true, false
 	}
+	drain = outcome == dispatchPending || l.overflow
+	l.overflow = false
 	l.stopRunning()
-	return false
+	return false, drain
 }
 
 // park gives up ownership of sess's lane without touching its queue; a lane with nothing queued is
@@ -378,49 +446,87 @@ func (ls *dispatchLanes) park(sess core.SessionID) {
 	}
 }
 
+// forget drops sess's queued jobs unless a worker owns its lane, and reports how many it dropped.
+// The flush calls it once SessionEnd has run: whatever is still parked then is published by a drain
+// or by nothing, every job of it is already durable in the WAL, and a lane parked on a head that
+// never publishes would otherwise hold its jobs until the daemon restarts. A lane a worker owns is
+// left to its owner, which releases it once it runs dry or parks.
+func (ls *dispatchLanes) forget(sess core.SessionID) int {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	l := ls.lanes[sess]
+	if l == nil || l.running {
+		return 0
+	}
+	n := len(l.jobs)
+	ls.held -= n
+	delete(ls.lanes, sess) // a listed lane that is gone is simply unlisted by claimReady
+	l.notify()
+	return n
+}
+
 // stopRunning gives up the lane's ownership. dispatchLanes.mu must be held.
 func (l *sessionLane) stopRunning() {
 	l.running = false
 	l.noteQuiet()
 }
 
-// noteQuiet releases whoever waits for the lane to go quiet, if it now is. dispatchLanes.mu must be
-// held.
+// noteQuiet releases whoever waits on the lane, if it is now quiet. dispatchLanes.mu must be held.
 func (l *sessionLane) noteQuiet() {
-	if !l.running && !l.woken && l.quiet != nil {
-		close(l.quiet)
-		l.quiet = nil
+	if !l.running && !l.woken {
+		l.notify()
 	}
 }
 
-// quietChan reports whether sess's lane is quiet — no worker owns it and no wake has listed it for
-// one, so it is empty, absent or parked with nothing on its way to run it — and, if it is not,
-// returns a channel closed once it is.
-func (ls *dispatchLanes) quietChan(sess core.SessionID) (<-chan struct{}, bool) {
+// notify releases whoever waits on the lane (watch). dispatchLanes.mu must be held.
+func (l *sessionLane) notify() {
+	if l.changed != nil {
+		close(l.changed)
+		l.changed = nil
+	}
+}
+
+// watch reports whether sess's lane is quiet — no worker owns it and no wake has listed it for one,
+// so it is empty, absent or parked with nothing on its way to run it — and, if it is not, how many
+// jobs it has settled so far and a channel closed at its next settle or once it is quiet.
+func (ls *dispatchLanes) watch(sess core.SessionID) (changed <-chan struct{}, settled uint64, quiet bool) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 	l := ls.lanes[sess]
 	if l == nil || (!l.running && !l.woken) {
-		return nil, true
+		return nil, 0, true
 	}
-	if l.quiet == nil {
-		l.quiet = make(chan struct{})
+	if l.changed == nil {
+		l.changed = make(chan struct{})
 	}
-	return l.quiet, false
+	return l.changed, l.settled, false
 }
 
-// awaitLaneQuiet waits until no worker owns sess's lane, or ctx is done, and reports which. A quiet
-// lane can still hold parked jobs: they wait on a predecessor the worker pool does not have.
-func (i *ingest) awaitLaneQuiet(ctx context.Context, sess core.SessionID) bool {
-	for {
-		ch, quiet := i.lanes.quietChan(sess)
+// awaitLaneQuiet waits until no worker owns sess's lane, and reports whether it got there. It gives
+// up when ctx is done, or when stall passes without one of the lane's jobs settling: a lane that keeps
+// publishing is waited for however long its backlog takes within ctx, and one that has stopped
+// settling is not waited for any longer. why names the bound it gave up on. A quiet lane can still
+// hold parked jobs: they wait on a predecessor the worker pool does not have. The waits are on real
+// time (a timer and ctx), never on the daemon's clock.
+func (i *ingest) awaitLaneQuiet(ctx context.Context, sess core.SessionID, stall time.Duration) (quiet bool, why string) {
+	timer := time.NewTimer(stall)
+	defer timer.Stop()
+	var last uint64
+	for first := true; ; first = false {
+		changed, settled, quiet := i.lanes.watch(sess)
 		if quiet {
-			return true
+			return true, ""
 		}
+		if !first && settled != last {
+			timer.Reset(stall)
+		}
+		last = settled
 		select {
-		case <-ch:
+		case <-changed:
+		case <-timer.C:
+			return false, fmt.Sprintf("its lane settled no delivery for %s", stall)
 		case <-ctx.Done():
-			return false
+			return false, "its deliveries were still publishing when the settle limit expired"
 		}
 	}
 }
@@ -435,44 +541,76 @@ func (i *ingest) awaitLaneQuiet(ctx context.Context, sess core.SessionID) bool {
 // session at the wrong turn, and the flush's own drain meets the delivery still in flight and stops
 // with "delivery still in progress". So the flush first lets the session settle, bounded.
 
-// settleSessionBound bounds how long a flush waits for its session's earlier deliveries before it
-// closes the session anyway. It is Stop's own bound on draining the in-flight
-// ring, used for the same job on one session, and it leaves the flush hook's reply deadline room for
-// SessionEnd and the final drain behind it.
-const settleSessionBound = stopDrainBound
+// settleSessionStall bounds how long a flush waits for its session's lane to settle one more
+// delivery: a lane still publishing is waited for, one that has stopped is not. It is Stop's own
+// bound on draining the in-flight ring, used for the same job on one session.
+const settleSessionStall = stopDrainBound
+
+// settleSessionHeadroom is what the flush keeps back from its own deadline, after the settle, for
+// SessionEnd, the marker, the sketches and the start of the flush's final drain. It is Stop's bound
+// on the one step of those it can name, a drain.
+const settleSessionHeadroom = stopDrainBound
+
+// sessionEndHook is the host hook event the flush route serves.
+const sessionEndHook = "SessionEnd"
+
+// settleSessionLimit bounds the whole settle. The flush's own deadline is the manifest's SessionEnd
+// timeout less the slack that already puts the PreCompact route's deadline inside the hook client's
+// reply wait (precompactDeadlineSlack): SessionEnd ships with the same 20 s host timeout, and
+// internal/cli waits the same 15 s for its reply (flushReplyDeadline), so the same nesting holds —
+// the daemon's 14 s inside the client's 15 s inside the host's 20 s. The settle takes that deadline
+// less settleSessionHeadroom: 9 s with the shipped manifest. A manifest with no SessionEnd timeout
+// (not this build's own) leaves the settle one stall bound, the fixed bound it had before.
+func settleSessionLimit() time.Duration {
+	timeout := time.Duration(manifestHookTimeoutMs(sessionEndHook)) * time.Millisecond
+	if limit := timeout - precompactDeadlineSlack - settleSessionHeadroom; limit > settleSessionStall {
+		return limit
+	}
+	return settleSessionStall
+}
 
 // counterFlushUnsettled counts flushes whose SessionEnd ran while some of the session's earlier
-// leased deliveries were still unpublished. They are not lost: they stay pending in the WAL, the
-// flush's final drain or a later one replays them, and the flush's recovery marker is cleared only by
-// a replay that completes. What they lose is the session they belonged to, which SessionEnd closed.
+// leased deliveries were still unpublished, or while the committed frontier could not be read to
+// tell. They are not lost: they stay pending in the WAL, the flush's final drain or a later one
+// replays them, and the flush's recovery marker is cleared only by a replay that completes. What they
+// lose is the session they belonged to, which SessionEnd closed.
 const counterFlushUnsettled = "l0_flush_unsettled"
 
-// settleSession runs before the flush's SessionEnd. It waits, bounded, for sess's lane to go quiet.
-// Then, if the committed frontier still lacks any of the session's leased arrivals (a lane parked
-// behind a predecessor only the WAL or a client spool holds), it runs one drain pass, which
-// publishes them in arrival order and, when the pass ends, wakes the lane for whatever the pass had
-// to leave to it; and it waits for the lane to go quiet once more. drain is flushRoute's own: a
-// flush replayed by the drain must not drain again (drainer.mu is not reentrant), so it only waits.
-// The waits are on real time (context deadlines and channels), never on the daemon's clock. A
-// session that does not settle within settleSessionBound is not waited for any longer, and not
-// silently: noteUnsettled counts and announces it before SessionEnd runs.
+// settleSession runs before the flush's SessionEnd. It waits for sess's lane to go quiet: for as long
+// as the lane keeps settling deliveries, up to settleSessionLimit, and no longer than
+// settleSessionStall once it stops. Then, if the committed frontier still lacks any of the session's
+// leased arrivals (a lane parked behind a predecessor only the WAL or a client spool holds), or
+// cannot be read to tell, it runs one drain pass, which publishes them in arrival order and, when the
+// pass ends, wakes the lane for whatever the pass had to leave to it; and it waits for the lane to go
+// quiet once more. drain is flushRoute's own: a flush replayed by the drain must not drain again
+// (drainer.mu is not reentrant), so it only waits. The waits are on real time (context deadlines,
+// timers and channels), never on the daemon's clock. A session that does not settle is not waited
+// for any longer, and not silently: noteUnsettled counts and announces it before SessionEnd runs.
 func (d *daemon) settleSession(ctx context.Context, sess core.SessionID, drain bool) {
-	bound := settleSessionBound
-	if d.ing.settleBound > 0 {
-		bound = d.ing.settleBound
+	stall, limit := settleSessionStall, settleSessionLimit()
+	if d.ing.settleStall > 0 {
+		stall = d.ing.settleStall
 	}
-	sctx, cancel := context.WithTimeout(ctx, bound)
+	if d.ing.settleLimit > 0 {
+		limit = d.ing.settleLimit
+	}
+	sctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 	for drained := false; ; drained = true {
-		if !d.ing.awaitLaneQuiet(sctx, sess) {
-			d.noteUnsettled(sess, "its deliveries were still publishing when the bound expired")
+		if quiet, why := d.ing.awaitLaneQuiet(sctx, sess, stall); !quiet {
+			d.noteUnsettled(sess, why)
 			return
 		}
-		if d.sessionDelivered(sess) {
+		delivered, known := d.sessionDelivered(sess)
+		if known && delivered {
 			return
 		}
 		if !drain || drained {
-			d.noteUnsettled(sess, "some of its leased deliveries are not on the committed frontier")
+			if !known {
+				d.noteUnsettled(sess, "the committed frontier is unreadable, so whether its deliveries are published is unknown")
+			} else {
+				d.noteUnsettled(sess, "some of its leased deliveries are not on the committed frontier")
+			}
 			return
 		}
 		if _, err := d.Drain(sctx); err != nil {
@@ -483,7 +621,7 @@ func (d *daemon) settleSession(ctx context.Context, sess core.SessionID, drain b
 }
 
 // noteUnsettled counts and announces a SessionEnd about to run ahead of some of its session's own
-// earlier deliveries (counterFlushUnsettled).
+// earlier deliveries, or without being able to tell whether it does (counterFlushUnsettled).
 func (d *daemon) noteUnsettled(sess core.SessionID, reason string) {
 	if d.m != nil {
 		d.m.Counter(counterFlushUnsettled).Add(1)
@@ -493,18 +631,25 @@ func (d *daemon) noteUnsettled(sess core.SessionID, reason string) {
 }
 
 // sessionDelivered reports whether every leased arrival of sess is on the committed frontier or
-// retired. An unreadable journal answers true: the drain could not publish a leased line over it
-// either, so there is nothing to settle, and the flush proceeds as it did.
-func (d *daemon) sessionDelivered(sess core.SessionID) bool {
+// retired. known is false when the journal cannot be read — none is held, or it is closing, closed,
+// rotating or faulted — and delivered then means nothing: the ordering gate fails closed on an
+// unreadable frontier, and so does the flush, which never takes one for settled.
+func (d *daemon) sessionDelivered(sess core.SessionID) (delivered, known bool) {
 	j, err := d.deliveryJournal()
 	if err != nil || j == nil {
-		return true
+		return false, false
 	}
 	last, ok := j.lastArrival(sess)
 	if !ok {
-		return true
+		return false, false
 	}
-	return last == 0 || j.predecessorsAcknowledged(sess, last+1)
+	if last == 0 || j.predecessorsAcknowledged(sess, last+1) {
+		return true, true
+	}
+	// predecessorsAcknowledged also answers false for a journal that became unreadable after
+	// lastArrival read it; tell the two apart.
+	_, ok = j.lastArrival(sess)
+	return false, ok
 }
 
 // lastArrival returns sess's highest leased arrival (0 when it has none), read under the discipline
@@ -579,6 +724,42 @@ func (ls *dispatchLanes) claimReady() (sess core.SessionID, ok, more bool) {
 	}
 	ls.ready = nil
 	return "", false, false
+}
+
+// ---------------------------------------------------------------------------
+// Drains the lanes ask for (V6 close-out C1.1, review F2/F8)
+
+// drainOnRequest runs one bounded drain pass for each request the ingest makes (ingest.requestDrain):
+// a lane parked on a head only a drain can now publish, or jobs the lanes or the ring could not
+// hold. Without it those waited for a flush, admin.drain, a restart or DetectAfterSeconds of
+// project-wide idleness. Each pass gets the idle drain's own budget (idleRunBudget), so it holds the
+// drain's mutex no longer than an idle pass would, and the requester then rests as long as the pass
+// took, so requested passes take at most half of its time however often the lanes ask: a session
+// whose head fails on every retry can make it drain again and again, but never back to back. Requests
+// made during a pass or its rest merge into the next one. The pass's release of the sessions it
+// consumed (DrainConfig.Released) is what wakes their parked lanes. Run starts it once the drainer
+// exists and joins it with the rest of runWG; it stops when ctx is done.
+func (d *daemon) drainOnRequest(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-d.ing.drainKick:
+		}
+		began := time.Now()
+		pass, cancel := context.WithTimeout(ctx, idleRunBudget)
+		if _, err := d.Drain(pass); err != nil && ctx.Err() == nil {
+			d.log.Debug("daemon: a drain the lanes asked for ended early", "err", err)
+		}
+		cancel()
+		rest := time.NewTimer(time.Since(began))
+		select {
+		case <-ctx.Done():
+			rest.Stop()
+			return
+		case <-rest.C:
+		}
+	}
 }
 
 // deferredLine is one leased line the drain read but could not yet publish because an earlier arrival
