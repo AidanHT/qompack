@@ -405,12 +405,63 @@ func TestDoctor_ReportsTheThreePluginRootOutcomes(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			name += ".exe"
 		}
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "bin", name), []byte("binary"), 0o600))
+		// 0o700: the host spawns this file directly (exec form), so on linux/darwin it resolves only
+		// with an execute bit. Windows has none to set; the next subtest covers the difference.
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "bin", name), []byte("binary"), 0o700))
 
 		row := doctorFindRow(t, run(t, dir), "version", "version.pluginRoot")
 		require.Equal(t, "ok", row["status"], "row=%v", row)
 		require.Contains(t, row["observed"], "resolves")
 	})
+
+	// C7.5 leaves open whether the host keeps bin/qompack's 0755 when it extracts a release zip on
+	// linux/darwin, and docs/install.md §9 names `chmod +x` as the workaround. A binary that is there
+	// but carries no execute bit fails every hook exactly as a missing one does, so on a POSIX host
+	// the row must say so rather than "resolves". Windows spawns a .exe by its extension and os.Stat
+	// reports no execute bit there at all, so the same file is fine on windows.
+	t.Run("set, present, not executable", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "bin"), 0o700))
+		name := "qompack"
+		if runtime.GOOS == "windows" {
+			name += ".exe"
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "bin", name), []byte("binary"), 0o600))
+
+		row := doctorFindRow(t, run(t, dir), "version", "version.pluginRoot")
+		if runtime.GOOS == "windows" {
+			require.Equal(t, "ok", row["status"], "row=%v", row)
+			return
+		}
+		require.Equal(t, "degraded", row["status"], "row=%v", row)
+		require.Contains(t, row["observed"], "not executable")
+		require.Contains(t, row["detail"], "chmod +x", "the row names the workaround")
+	})
+}
+
+// TestPluginBinaryExecutable pins the rule the "not executable" row applies, for both kinds of host,
+// on whichever one runs the suite: the doctor subtest above can only exercise its own OS's branch.
+func TestPluginBinaryExecutable(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		goos string
+		mode os.FileMode
+		want bool
+	}{
+		{"linux", 0o755, true},
+		{"linux", 0o700, true},
+		{"linux", 0o644, false},
+		{"linux", 0o600, false},
+		{"darwin", 0o755, true},
+		{"darwin", 0o444, false},
+		{"windows", 0o666, true}, // what os.Stat reports for a writable file on windows
+		{"windows", 0o444, true}, // and for a read-only one; neither has an execute bit to read
+	} {
+		require.Equal(t, tc.want, pluginBinaryExecutable(tc.goos, tc.mode), "%s %v", tc.goos, tc.mode)
+	}
 }
 
 // TestDoctor_AnUnreadableSpoolIsItsOwnRow is fix round 2's finding N-4.

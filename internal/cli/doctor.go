@@ -325,6 +325,16 @@ func (s *doctorState) pluginRootRow() doctorRow {
 	}
 	bin := filepath.Join(v, "bin", "qompack"+doctorExeSuffix())
 	if fi, err := os.Stat(paths.Long(bin)); err == nil && fi.Mode().IsRegular() {
+		// A binary with no execute bit fails every hook exactly as a missing one does. It is the
+		// one symptom C7.5 leaves open — whether the host keeps bin/qompack's 0755 when it extracts
+		// a release zip on linux/darwin — so it gets its own answer, with the workaround.
+		if !pluginBinaryExecutable(runtime.GOOS, fi.Mode()) {
+			return doctorRow{
+				ID: "version.pluginRoot", Status: doctorDegraded, Observed: "set but the binary is not executable",
+				Detail: "every hook the host runs is " + bin + ", which has no execute permission; " +
+					"`chmod +x " + bin + "` restores it (docs/install.md §9)",
+			}
+		}
 		return doctorRow{
 			ID: "version.pluginRoot", Status: doctorOK, Observed: "set and resolves",
 			Detail: bin,
@@ -334,6 +344,16 @@ func (s *doctorState) pluginRootRow() doctorRow {
 		ID: "version.pluginRoot", Status: doctorDegraded, Observed: "set but no binary under it",
 		Detail: "every hook the host runs is " + bin + ", which is not there",
 	}
+}
+
+// pluginBinaryExecutable reports whether the host could spawn a regular file of mode m on goos.
+// linux/darwin need an execute bit; windows spawns a .exe by its extension and os.Stat reports no
+// execute bit there at all, so every regular file passes.
+func pluginBinaryExecutable(goos string, m fs.FileMode) bool {
+	if goos == "windows" {
+		return true
+	}
+	return m.Perm()&0o111 != 0
 }
 
 // doctorExeSuffix is the executable extension for this platform.
