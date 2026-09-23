@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -60,28 +62,53 @@ func hexOf(h core.Hash) string { return hex.EncodeToString(h[:]) }
 // compressing reports whether this store compresses objects.
 func (s *FSStore) compressing() bool { return s.cfg.Store.Compression != compressionNone }
 
-// objectDir returns the two-level fanout directory an object with hex name hx lives in.
-func (s *FSStore) objectDir(hx string) string {
-	return filepath.Join(s.l.Objects, hx[:fanoutWidth], hx[fanoutWidth:fanoutWidth*2])
+// compressedObjectPath returns <objects>/<hx[:2]>/<hx[2:4]>/<hx>.zst, the compressed spelling of
+// h's object path.
+//
+// It is filepath.Join(s.l.Objects, hx[:2], hx[2:4], hx+objectSuffix) spelled out, in one
+// allocation where Join takes several. The two are the same string: s.l.Objects comes from
+// paths.Of, whose filepath.Join has already cleaned it (and it ends in "objects", never in a
+// separator), and every appended component is lowercase hex or the suffix, none of which is a
+// separator, "." or "..", so there is nothing left for Join's Clean to change.
+// TestObjectPathFor_IsFilepathJoin pins that equivalence. Every object read and every object write
+// computes this path, which is why it is worth spelling out.
+func (s *FSStore) compressedObjectPath(h core.Hash) string {
+	var hx [2 * len(core.Hash{})]byte
+	hex.Encode(hx[:], h[:])
+	var b strings.Builder
+	b.Grow(len(s.l.Objects) + 3 + 2*fanoutWidth + len(hx) + len(objectSuffix))
+	b.WriteString(s.l.Objects)
+	b.WriteByte(filepath.Separator)
+	b.Write(hx[:fanoutWidth])
+	b.WriteByte(filepath.Separator)
+	b.Write(hx[fanoutWidth : fanoutWidth*2])
+	b.WriteByte(filepath.Separator)
+	b.Write(hx[:])
+	b.WriteString(objectSuffix)
+	return b.String()
+}
+
+// bareObjectPath returns the uncompressed spelling of an object path compressedObjectPath built:
+// the same string without its suffix, so it costs no allocation.
+func bareObjectPath(compressed string) string {
+	return compressed[:len(compressed)-len(objectSuffix)]
 }
 
 // objectPath returns the path this store WRITES h to, honouring store.compression.
 func (s *FSStore) objectPath(h core.Hash) string {
-	hx := hexOf(h)
-	name := hx
-	if s.compressing() {
-		name += objectSuffix
+	p := s.compressedObjectPath(h)
+	if !s.compressing() {
+		return bareObjectPath(p)
 	}
-	return filepath.Join(s.objectDir(hx), name)
+	return p
 }
 
 // objectCandidates returns the paths a reader tries for h, in order: the compressed name first,
 // then the bare one. Trying both is what lets a store keep reading objects written before
 // store.compression changed.
 func (s *FSStore) objectCandidates(h core.Hash) [2]string {
-	hx := hexOf(h)
-	dir := s.objectDir(hx)
-	return [2]string{filepath.Join(dir, hx+objectSuffix), filepath.Join(dir, hx)}
+	p := s.compressedObjectPath(h)
+	return [2]string{p, bareObjectPath(p)}
 }
 
 // objectExists reports whether any candidate file for h is present on disk.
@@ -100,8 +127,12 @@ func (s *FSStore) objectExists(h core.Hash) bool {
 // overwrite its own target, and checking the second candidate name costs an extra stat syscall on
 // every novel chunk. Readers still try both names — that is what makes a store whose
 // store.compression changed mid-life readable — but writers do not need to.
-func (s *FSStore) objectWritten(h core.Hash) bool {
-	_, err := os.Stat(paths.Long(s.objectPath(h)))
+func (s *FSStore) objectWritten(h core.Hash) bool { return objectPresentAt(s.objectPath(h)) }
+
+// objectPresentAt reports whether a file is present at the object path dst. It is objectWritten for
+// a caller that has already computed dst and would otherwise compute it a second time.
+func objectPresentAt(dst string) bool {
+	_, err := os.Stat(paths.Long(dst))
 	return err == nil
 }
 
@@ -115,12 +146,29 @@ func (s *FSStore) objectWritten(h core.Hash) bool {
 var knownDirs sync.Map
 
 // ensureDir creates dir unless this process already created it.
+//
+// dir is a fanout leaf (objects/ab/cd), and a leaf this process has not yet cached is, on a store
+// of fewer objects than the 65 536 leaves, usually one that does not exist yet. So the create is
+// tried FIRST: one mkdir when the first fanout level is already there, and two more when it is not
+// (the leaf's ENOENT, then the level, then the leaf again). MkdirAll alone would have stat'ed the
+// leaf, stat'ed its parent, and only then created — three calls for the common case, five for a
+// new first level. Every other outcome — the leaf already there, a file in the way, a deeper
+// ancestor missing, a refusal — falls through to the same MkdirAll as before, which answers it
+// exactly as it did when it was the only call here, so no failure changes shape.
 func ensureDir(dir string) error {
 	if _, ok := knownDirs.Load(dir); ok {
 		return nil
 	}
-	if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
-		return err
+	err := os.Mkdir(paths.Long(dir), 0o700)
+	if errors.Is(err, fs.ErrNotExist) {
+		if perr := os.Mkdir(paths.Long(filepath.Dir(dir)), 0o700); perr == nil || errors.Is(perr, fs.ErrExist) {
+			err = os.Mkdir(paths.Long(dir), 0o700)
+		}
+	}
+	if err != nil {
+		if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
+			return err
+		}
 	}
 	knownDirs.Store(dir, struct{}{})
 	return nil
@@ -194,7 +242,8 @@ func renameObject(tmp, dst string) error {
 // would be an unreadable lie, and reporting success for it would put an unrecoverable reference
 // into index/roots.jsonl.
 func (s *FSStore) putObject(h core.Hash, plain []byte) (int64, bool, error) {
-	if s.objectWritten(h) {
+	dst := s.objectPath(h)
+	if objectPresentAt(dst) {
 		return 0, false, nil
 	}
 
@@ -207,7 +256,6 @@ func (s *FSStore) putObject(h core.Hash, plain []byte) (int64, bool, error) {
 		payload = enc
 	}
 
-	dst := s.objectPath(h)
 	if err := ensureDir(filepath.Dir(dst)); err != nil {
 		return 0, false, fmt.Errorf("store: creating the fanout directory for %s: %w", h.Short(), err)
 	}
@@ -233,14 +281,15 @@ func (s *FSStore) putObject(h core.Hash, plain []byte) (int64, bool, error) {
 // barrier must cover the object before committing a reference/frontier. Readers verify the
 // bytes they find; Has is an optimistic presence hint, not an integrity or durability witness.
 func (s *FSStore) writeStaged(tmp string, payload []byte) error {
-	f, err := paths.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	const flags = os.O_WRONLY | os.O_CREATE | os.O_EXCL | stagingOpenFlags
+	f, err := paths.OpenFile(tmp, flags, 0o600)
 	if err != nil {
 		// .qompack/tmp is created by EnsureLayout at Open, so the common path needs no MkdirAll at
 		// all. Create it only when it has actually gone missing, and retry once.
 		if mkErr := os.MkdirAll(paths.Long(s.l.Tmp), 0o700); mkErr != nil {
 			return err
 		}
-		if f, err = paths.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600); err != nil {
+		if f, err = paths.OpenFile(tmp, flags, 0o600); err != nil {
 			return err
 		}
 	}
@@ -297,10 +346,19 @@ func (s *FSStore) readObjectFile(h core.Hash) (raw []byte, path string, compress
 
 var errObjectTooLarge = errors.New("store: physical object exceeds size limit")
 
+// errObjectNotRegular and errObjectChanged are readBoundedObject's two leaf refusals: the path names
+// something other than a regular file, or the file opened is not the one the leaf check examined.
+// readObjectFile maps both to ErrDamaged without quarantining, because the bytes were never checked.
+var (
+	errObjectNotRegular = errors.New("store: object is not a regular file")
+	errObjectChanged    = errors.New("store: object changed while opening")
+)
+
 // readBoundedObject rejects nonregular leaf paths and bounds allocation by the size the file's own
-// Stat reports, which is already checked against limit. SameFile detects a replaced leaf between
-// Lstat and Open; the plaintext hash check handles changed bytes. This is not a complete
-// authorization check for ancestor directories.
+// Stat reports, which is already checked against limit. The leaf check is openObjectLeaf's, per
+// platform: it never follows a symbolic link or reparse point at the leaf, and the file it returns
+// is the one it checked (object_open_*.go). The plaintext hash check handles changed bytes. This is
+// not a complete authorization check for ancestor directories.
 //
 // The bytes are read into ONE buffer pre-sized from the Stat'd size (W1: no io.ReadAll geometric
 // regrowth, no transient over-allocation), and the read then requires the file to be exactly that
@@ -309,30 +367,47 @@ var errObjectTooLarge = errors.New("store: physical object exceeds size limit")
 // after its Stat would be accepted on the strength of its valid PREFIX's content hash, since the
 // downstream hash would only ever see the prefix this function returned.
 func readBoundedObject(path string, limit int64) ([]byte, error) {
-	long := paths.Long(path) // W2: computed once; on Windows this allocates the \\?\-prefixed string.
-	before, err := os.Lstat(long)
-	if err != nil {
-		return nil, err
-	}
-	if !before.Mode().IsRegular() {
-		return nil, fmt.Errorf("store: object is not a regular file")
-	}
-	f, err := os.Open(long)
+	f, opened, err := openObjectLeaf(paths.Long(path))
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	opened, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
-		return nil, fmt.Errorf("store: object changed while opening")
-	}
 	if opened.Size() > limit {
 		return nil, errObjectTooLarge
 	}
 	return readExactSize(f, opened.Size())
+}
+
+// openObjectChecked is the path-verified object open: an Lstat refuses a nonregular leaf before
+// anything is opened, and the opened handle's own Stat must be a regular file that os.SameFile
+// matches with that Lstat, which detects a leaf replaced between the two. flags are added to
+// O_RDONLY; object_open_unix.go passes the no-follow flags that close the replacement window
+// instead of only detecting it.
+//
+// It is the whole leaf check where the platform offers nothing cheaper, and on Windows it is the
+// fallback for a leaf that is a reparse point (object_open_windows.go).
+func openObjectChecked(long string, flags int) (*os.File, os.FileInfo, error) {
+	before, err := os.Lstat(long)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !before.Mode().IsRegular() {
+		return nil, nil, errObjectNotRegular
+	}
+	f, err := os.OpenFile(long, os.O_RDONLY|flags, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	opened, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, nil, err
+	}
+	if !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
+		_ = f.Close()
+		return nil, nil, errObjectChanged
+	}
+	return f, opened, nil
 }
 
 // readExactSize reads exactly size bytes from r into a single pre-sized buffer, then requires r to be
