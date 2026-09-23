@@ -240,18 +240,21 @@ host change could lift — as prepared proposals, none of which has been filed.
 ### No bounded delivery history on disk, and no downgrade across a rotation
 
 - **Limit.** The delivery journals never forget an identity, so the delivery state on disk grows with
-  every delivery a project has ever had — about 0.38 GiB per 100,000 deliveries as measured at the
+  every delivery a project has ever had — about 0.18 GiB per 100,000 deliveries as measured at the
   V6 close-out — and nothing prunes it. And once a store's delivery journal has
   rotated (every 65,536 deliveries), a Qompack build that predates segmented rollover cannot use it:
   it refuses the journal and assigns no observation identity to anything it captures.
 - **Why.** A redelivered copy of any past delivery must get its original observation identity back,
   and a session's arrivals must never restart, so every lease, acknowledgement and arrival stays
-  resolvable. Memory and each lookup are bounded by the active window; storage is not. An older build
-  cannot see the later segments, and appending to the original journal would re-mint arrival numbers
-  those segments already assigned, so the first rotation makes it refuse instead.
+  resolvable. The daemon's memory, each lookup and each store GC pass are bounded by the active
+  window (a GC pass also reads the archived leases still waiting for an acknowledgement); storage is
+  not. An older build cannot see the later segments, and appending to the original journal would
+  re-mint arrival numbers those segments already assigned, so the first rotation makes it refuse
+  instead.
 - **What Qompack does instead.** It archives rotated windows compactly (one pack file per generation)
   and keeps the refusal fail-closed: pending input is retained for the current build. A backup taken
-  before the first rotation is the rollback path.
+  before the first rotation is the rollback path, and nothing prompts for one: the daemon rotates on
+  its own when the journal fills ([Backup and restore](backup.md) says when to take it).
 - **Recorded at.** `plans/CARRIED-DEFECTS.tsv` SP20-D4; `plans/V2-WAVE1-carried-defects.md` §SP20-D4.
 
 ### No cost or price guarantee
