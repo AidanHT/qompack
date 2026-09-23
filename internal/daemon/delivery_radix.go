@@ -321,6 +321,12 @@ func (r *deliveryRadix) lookupIn(ctx context.Context, pend map[radixHash]*radixN
 // committed ROOT found through its root pointer. It returns the page's own location (zero for a held
 // page). A committed non-root page reached without a location is unavailable.
 func (r *deliveryRadix) nodeAt(pend map[radixHash]*radixNode, h radixHash, loc radixLoc) (radixNode, radixLoc, error) {
+	return r.nodeAtRA(pend, nil, h, loc)
+}
+
+// nodeAtRA is nodeAt reading committed records through a transaction's read-ahead windows (ra may be
+// nil).
+func (r *deliveryRadix) nodeAtRA(pend map[radixHash]*radixNode, ra *radixReadAhead, h radixHash, loc radixLoc) (radixNode, radixLoc, error) {
 	if pend != nil {
 		if n, ok := pend[h]; ok {
 			return *n, radixLoc{}, nil
@@ -334,7 +340,7 @@ func (r *deliveryRadix) nodeAt(pend map[radixHash]*radixNode, h radixHash, loc r
 		err error
 	)
 	if loc.valid() {
-		n, err = r.readRecord(h, loc)
+		n, err = r.readRecordRA(h, loc, ra)
 	} else {
 		n, loc, err = r.readRoot(h)
 	}
@@ -400,6 +406,8 @@ func (r *deliveryRadix) insert(ctx context.Context, root radixHash, key, value [
 type radixTxn struct {
 	r       *deliveryRadix
 	pending map[radixHash]*radixNode
+	// ra is merge's read-ahead over committed packs, created by the first merge and dropped at commit.
+	ra *radixReadAhead
 }
 
 func (r *deliveryRadix) begin() *radixTxn {
@@ -574,6 +582,309 @@ func (t *radixTxn) insertAt(ctx context.Context, cur radixHash, curLoc radixLoc,
 	}
 }
 
+// radixOp is one key write for radixTxn.merge: the key, its digest under the index's hashKey, and the
+// decision update would make for it.
+type radixOp struct {
+	target radixHash
+	key    []byte
+	decide radixDecide
+}
+
+// errRadixMergeOrder marks merge input that is not strictly ascending by digest: a caller defect, never
+// a statement about the tree.
+var errRadixMergeOrder = errors.New("delivery radix: merge input is not strictly ordered")
+
+// merge applies ops to root inside the transaction and returns the new root. ops must be sorted by
+// target, strictly ascending; two distinct keys with one digest are a collision, as update reports it.
+// The result is exactly what applying each op with update returns, in any order: the tree is canonical
+// for its key set, and each decision sees only what is stored under its own key
+// (TestDeliveryRadix_MergeEqualsSequentialUpdates). What differs is the work. update rewrites every
+// page on its key's path, so n keys cost about n times the depth in page writes and reads; merge
+// descends once for the whole batch, reads each committed page on the union of the paths once, writes
+// each changed page once, and builds the new keys' subtrees bottom-up. Nothing is written to disk
+// until commit.
+func (t *radixTxn) merge(ctx context.Context, root radixHash, ops []radixOp) (radixHash, error) {
+	if err := ctx.Err(); err != nil {
+		return radixHash{}, err
+	}
+	for i := range ops {
+		if len(ops[i].key) == 0 || len(ops[i].key) > radixMaxKeyBytes {
+			return radixHash{}, errRadixTooLarge
+		}
+		if i == 0 {
+			continue
+		}
+		switch c := bytes.Compare(ops[i-1].target[:], ops[i].target[:]); {
+		case c == 0 && !bytes.Equal(ops[i-1].key, ops[i].key):
+			return radixHash{}, errRadixCollision // same digest, different key: refuse, never overwrite
+		case c >= 0:
+			return radixHash{}, errRadixMergeOrder
+		}
+	}
+	if len(ops) == 0 {
+		return root, nil
+	}
+	if root.isZero() {
+		items, err := t.mergeLeaves(ops, nil, radixNode{})
+		if err != nil || len(items) == 0 {
+			return root, err
+		}
+		h, _, err := t.build(0, items)
+		return h, err
+	}
+	h, _, err := t.mergeAt(ctx, root, radixLoc{}, 0, ops)
+	return h, err
+}
+
+// radixItem is one member of a subtree merge builds: a leaf, named by its full key hash, or an existing
+// branch, whose own prefix is bits [0, split) of pat (the rest zero). A branch item keeps its children
+// so build can write it at a depth other than its own (re-based deeper when a new key diverges inside
+// its prefix), and dirty marks one whose children changed, which must be written even where it stands.
+type radixItem struct {
+	pat    radixHash
+	hash   radixHash // the page as it stands: a leaf, or the branch at its own depth
+	loc    radixLoc
+	branch bool
+	split  int // branch: the bit it splits on
+	depth  int // branch: the depth hash was written at
+	dirty  bool
+	c0, c1 radixHash
+	l0, l1 radixLoc
+}
+
+// mergeAt returns the new hash (and, when unchanged, the location) of the subtree rooted at cur, reached
+// at depth, after applying ops, which are sorted and all share the path's bits [0, depth).
+func (t *radixTxn) mergeAt(ctx context.Context, cur radixHash, curLoc radixLoc, depth int, ops []radixOp) (radixHash, radixLoc, error) {
+	if err := ctx.Err(); err != nil {
+		return radixHash{}, radixLoc{}, err
+	}
+	if depth >= radixHashBits {
+		return radixHash{}, radixLoc{}, errRadixUnavailable
+	}
+	if t.ra == nil {
+		t.ra = &radixReadAhead{windows: map[uint64]radixWindow{}}
+	}
+	node, ownLoc, err := t.r.nodeAtRA(t.pending, t.ra, cur, curLoc)
+	if err != nil {
+		return radixHash{}, radixLoc{}, err
+	}
+	switch node.kind {
+	case radixKindLeaf:
+		// The leaf's hash must agree with the bits the path already committed to (update's check).
+		if !bitsEqual(node.keyHash[:], ops[0].target[:], 0, depth) {
+			return radixHash{}, radixLoc{}, errRadixUnavailable
+		}
+		resident := radixItem{pat: node.keyHash, hash: cur, loc: ownLoc}
+		items, err := t.mergeLeaves(ops, &resident, node)
+		if err != nil {
+			return radixHash{}, radixLoc{}, err
+		}
+		if len(items) == 1 && items[0].hash == cur {
+			return cur, ownLoc, nil // every decision kept what is stored: the existing page stands
+		}
+		return t.build(depth, items)
+	case radixKindBranch:
+		splitBit := depth + node.skipLen
+		if splitBit >= radixHashBits {
+			return radixHash{}, radixLoc{}, errRadixUnavailable
+		}
+		// The ops are sorted, so the ones inside this branch's prefix are one run; the ones before it and
+		// after it diverge inside the prefix (with a 0 where the prefix has a 1, or the reverse) and are
+		// new keys beside the branch.
+		side := func(op radixOp) int {
+			d, matched := comparePrefix(op.target, depth, node.skipBits, node.skipLen)
+			switch {
+			case matched:
+				return 0
+			case bitAt(op.target[:], d) == 0:
+				return -1
+			default:
+				return 1
+			}
+		}
+		lo := 0
+		for lo < len(ops) && side(ops[lo]) < 0 {
+			lo++
+		}
+		hi := lo
+		for hi < len(ops) && side(ops[hi]) == 0 {
+			hi++
+		}
+		for _, op := range ops[hi:] {
+			if side(op) != 1 {
+				return radixHash{}, radixLoc{}, errRadixMergeOrder
+			}
+		}
+		inside := ops[lo:hi]
+		mid := sortSearchBit(inside, splitBit)
+		c0, l0, c1, l1 := node.child0, node.loc0, node.child1, node.loc1
+		if len(inside[:mid]) > 0 {
+			if c0.isZero() {
+				return radixHash{}, radixLoc{}, errRadixUnavailable
+			}
+			if c0, l0, err = t.mergeAt(ctx, c0, l0, splitBit+1, inside[:mid]); err != nil {
+				return radixHash{}, radixLoc{}, err
+			}
+		}
+		if len(inside[mid:]) > 0 {
+			if c1.isZero() {
+				return radixHash{}, radixLoc{}, errRadixUnavailable
+			}
+			if c1, l1, err = t.mergeAt(ctx, c1, l1, splitBit+1, inside[mid:]); err != nil {
+				return radixHash{}, radixLoc{}, err
+			}
+		}
+		var pat radixHash
+		for i := 0; i < depth; i++ {
+			if bitAt(ops[0].target[:], i) == 1 {
+				pat[i>>3] |= 1 << (7 - uint(i&7))
+			}
+		}
+		for j := 0; j < node.skipLen; j++ {
+			if bitAt(node.skipBits, j) == 1 {
+				pat[(depth+j)>>3] |= 1 << (7 - uint((depth+j)&7))
+			}
+		}
+		self := radixItem{
+			pat: pat, hash: cur, loc: ownLoc, branch: true, split: splitBit, depth: depth,
+			dirty: c0 != node.child0 || c1 != node.child1, c0: c0, l0: l0, c1: c1, l1: l1,
+		}
+		below, err := t.mergeLeaves(ops[:lo], nil, radixNode{})
+		if err != nil {
+			return radixHash{}, radixLoc{}, err
+		}
+		above, err := t.mergeLeaves(ops[hi:], nil, radixNode{})
+		if err != nil {
+			return radixHash{}, radixLoc{}, err
+		}
+		if !self.dirty && len(below) == 0 && len(above) == 0 {
+			return cur, ownLoc, nil // nothing below changed and no key was added beside it
+		}
+		items := make([]radixItem, 0, len(below)+1+len(above))
+		items = append(append(append(items, below...), self), above...)
+		return t.build(depth, items)
+	default:
+		return radixHash{}, radixLoc{}, errRadixUnavailable
+	}
+}
+
+// sortSearchBit returns the index of the first op whose bit i is 1: ops sharing every bit before i are
+// sorted by it, so the ones with 0 form a prefix.
+func sortSearchBit(ops []radixOp, i int) int {
+	lo, hi := 0, len(ops)
+	for lo < hi {
+		m := int(uint(lo+hi) >> 1)
+		if bitAt(ops[m].target[:], i) == 1 {
+			hi = m
+		} else {
+			lo = m + 1
+		}
+	}
+	return lo
+}
+
+// mergeLeaves decides each op against what is stored under its key — the resident leaf (node) when
+// resident is non-nil and the op names its key, nothing otherwise — and returns the leaves the subtree
+// then holds, sorted: the resident (kept, or replaced by a new value) and every new leaf written.
+func (t *radixTxn) mergeLeaves(ops []radixOp, resident *radixItem, node radixNode) ([]radixItem, error) {
+	var (
+		items  []radixItem
+		placed bool
+	)
+	for _, op := range ops {
+		if resident != nil && !placed && bytes.Compare(resident.pat[:], op.target[:]) < 0 {
+			items = append(items, *resident)
+			placed = true
+		}
+		if resident != nil && op.target == resident.pat {
+			placed = true
+			if !bytes.Equal(node.key, op.key) {
+				return nil, errRadixCollision // same digest, different key: refuse, never overwrite
+			}
+			value, write, err := decideChecked(op.decide, node.value, true)
+			if err != nil {
+				return nil, err
+			}
+			if !write {
+				items = append(items, *resident)
+				continue
+			}
+			t.drop(resident.hash)
+			h, err := t.writeLeaf(op.target, op.key, value) // same key: a new value
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, radixItem{pat: op.target, hash: h})
+			continue
+		}
+		value, write, err := decideChecked(op.decide, nil, false)
+		if err != nil {
+			return nil, err
+		}
+		if !write {
+			continue
+		}
+		h, err := t.writeLeaf(op.target, op.key, value)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, radixItem{pat: op.target, hash: h})
+	}
+	if resident != nil && !placed {
+		items = append(items, *resident)
+	}
+	return items, nil
+}
+
+// build writes the canonical subtree at depth over items, which are sorted and pairwise diverge at or
+// after depth (a branch item's whole prefix is shared by nothing else in the set): a branch at the first
+// bit where the items differ, over the subtrees of the two halves. A lone leaf is itself; a lone branch
+// item is itself at its own depth unless its children changed, and is otherwise re-based with the bits
+// above depth dropped from its prefix, exactly as update re-bases it.
+func (t *radixTxn) build(depth int, items []radixItem) (radixHash, radixLoc, error) {
+	if len(items) == 0 {
+		return radixHash{}, radixLoc{}, errRadixUnavailable
+	}
+	if len(items) == 1 {
+		it := items[0]
+		if !it.branch {
+			return it.hash, it.loc, nil
+		}
+		if !it.dirty && it.depth == depth {
+			return it.hash, it.loc, nil
+		}
+		skipLen := it.split - depth
+		if skipLen < 0 {
+			return radixHash{}, radixLoc{}, errRadixUnavailable
+		}
+		t.drop(it.hash)
+		h, err := t.writeBranch(skipLen, packBits(it.pat[:], depth, skipLen), it.c0, it.l0, it.c1, it.l1)
+		return h, radixLoc{}, err
+	}
+	first := items[0]
+	p := firstDiffBit(first.pat[:], items[len(items)-1].pat[:], depth)
+	if p >= radixHashBits {
+		return radixHash{}, radixLoc{}, errRadixUnavailable
+	}
+	k := 0
+	for k < len(items) && bitAt(items[k].pat[:], p) == 0 {
+		k++
+	}
+	if k == 0 || k == len(items) {
+		return radixHash{}, radixLoc{}, errRadixUnavailable
+	}
+	h0, l0, err := t.build(p+1, items[:k])
+	if err != nil {
+		return radixHash{}, radixLoc{}, err
+	}
+	h1, l1, err := t.build(p+1, items[k:])
+	if err != nil {
+		return radixHash{}, radixLoc{}, err
+	}
+	h, err := t.writeBranch(p-depth, packBits(first.pat[:], depth, p-depth), h0, l0, h1, l1)
+	return h, radixLoc{}, err
+}
+
 // split writes a new branch at depth that separates a new leaf (for target,key,value) from an
 // existing subtree other at bit p. The common bits [depth,p) come from the target (equal to other's on
 // those bits by construction). other is a leaf reused as-is, or a re-based branch.
@@ -653,6 +964,7 @@ func (t *radixTxn) commit(ctx context.Context, root radixHash) error {
 		t.r.remember(c.hash, c.node, c.loc)
 	}
 	t.pending = map[radixHash]*radixNode{}
+	t.ra = nil
 	return nil
 }
 
@@ -954,7 +1266,12 @@ func (r *deliveryRadix) readRootPointer(h radixHash) (radixLoc, error) {
 // readRecord reads the record at loc and decodes it, requiring its page bytes to hash to exactly h. A
 // branch's child locations come from the record's trailer and are themselves checked when followed.
 func (r *deliveryRadix) readRecord(h radixHash, loc radixLoc) (radixNode, error) {
-	raw, trailer, err := r.readRecordBytes(h, loc)
+	return r.readRecordRA(h, loc, nil)
+}
+
+// readRecordRA is readRecord through a transaction's read-ahead windows (ra may be nil).
+func (r *deliveryRadix) readRecordRA(h radixHash, loc radixLoc, ra *radixReadAhead) (radixNode, error) {
+	raw, trailer, err := r.readRecordBytesRA(h, loc, ra)
 	if err != nil {
 		return radixNode{}, err
 	}
@@ -973,6 +1290,76 @@ func (r *deliveryRadix) readRecord(h radixHash, loc radixLoc) (radixNode, error)
 		}
 	}
 	return node, nil
+}
+
+// radixReadAhead holds, for one write transaction, the last window read from each pack. merge reads
+// committed pages in key order, and writePack lays a subtree out left half first, so a pack holds its
+// pages in key order: most of merge's reads land in the window its previous miss fetched from the same
+// pack, and a window-sized positioned read replaces hundreds of record-sized ones. A window is never
+// shared or written to (packs are immutable once published), every record served from one is copied
+// out and checked against the hash its parent names exactly as a direct read is, and a record the
+// window does not hold whole is read directly.
+type radixReadAhead struct {
+	windows map[uint64]radixWindow
+}
+
+type radixWindow struct {
+	off int64
+	buf []byte
+}
+
+const (
+	// radixReadAheadBytes is one read-ahead window.
+	radixReadAheadBytes = 16 << 10
+	// radixReadAheadPacks bounds the windows one transaction holds (one per pack).
+	radixReadAheadPacks = radixMaxOpenPacks
+)
+
+// readRecordBytesRA is readRecordBytes served from ra's window for loc's pack when it holds the whole
+// record, refilling that window from loc on a miss.
+func (r *deliveryRadix) readRecordBytesRA(h radixHash, loc radixLoc, ra *radixReadAhead) ([]byte, []byte, error) {
+	if ra == nil || !loc.valid() || loc.off > math.MaxInt64 {
+		return r.readRecordBytes(h, loc)
+	}
+	off := int64(loc.off)
+	w, ok := ra.windows[loc.pack]
+	if !ok || off < w.off || off-w.off > int64(len(w.buf))-int64(radixRecordHeaderLen) {
+		ph, err := r.acquirePack(loc.pack)
+		if err != nil {
+			return nil, nil, err
+		}
+		if off > ph.size || ph.size-off < int64(radixRecordHeaderLen) {
+			r.releasePack(ph)
+			return nil, nil, errRadixUnavailable
+		}
+		n := min(int64(radixReadAheadBytes), ph.size-off)
+		buf := make([]byte, n)
+		_, rerr := ph.f.ReadAt(buf, off)
+		r.releasePack(ph)
+		if rerr != nil {
+			return nil, nil, errRadixUnavailable
+		}
+		if _, held := ra.windows[loc.pack]; !held && len(ra.windows) >= radixReadAheadPacks {
+			for id := range ra.windows {
+				delete(ra.windows, id)
+				break
+			}
+		}
+		w = radixWindow{off: off, buf: buf}
+		ra.windows[loc.pack] = w
+	}
+	rest := w.buf[off-w.off:]
+	n := int(binary.BigEndian.Uint32(rest[:radixRecordHeaderLen]))
+	want := radixRecordHeaderLen + n + radixTrailerLen
+	if n < 6 || n > radixMaxPageBytes || want > len(rest) {
+		return r.readRecordBytes(h, loc) // not whole in the window (or not a record): read it directly
+	}
+	rec := append([]byte(nil), rest[radixRecordHeaderLen:want]...)
+	raw := rec[:n]
+	if radixDigest(radixPageDomain, raw) != h {
+		return nil, nil, errRadixUnavailable // corrupt or tampered content, or a wrong location
+	}
+	return raw, rec[n:], nil
 }
 
 // readRecordBytes returns the page bytes at loc (verified against h) and up to radixTrailerLen bytes
