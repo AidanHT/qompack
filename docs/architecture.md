@@ -251,9 +251,12 @@ exact, so the ceiling is a guarantee rather than an estimate. It is a host const
 configuration key: nothing raises it, and the token budget below can only bound the payload lower.
 Selection keeps the §8.6 order with whole records — tier 1 (the retrieval line first, then pinned
 invariants and the verbatim original intent), then items 2–6a by their shares — and a record that
-does not fit is left out whole, never cut. Everything left out is named in section 7 with the call
-that restores it (`why(dec_…)`, `re_read(path)`, `expand(tool_use_id=…)`, `Read <rule file>`, or the
-checkpoint file and field); section 7 is a bounded prefix plus a counted tail (`… and N more; call
+does not fit is left out whole, never cut. Every record left out is named in section 7 with the call
+that restores it (`why(dec_…)`, `re_read(path)`, `expand(tool_use_id=…)`, `already_tried` with the
+elimination's own target and approach, `Read` on the rule, `CLAUDE.md` or `SKILL.md` file, or the
+checkpoint file and field); eliminations past `eliminationsTopN` stay one counted line, answered by
+the standing `already_tried` query, and the checkpointer's own drops keep its detail. Section 7 is a
+bounded prefix plus a counted tail (`… and N more; call
 dropped()`), and its smallest form is reserved before anything else is admitted, so the report on
 what is missing always fits. The complete list is persisted for `dropped()` regardless
 ([ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md)).

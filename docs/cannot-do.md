@@ -176,9 +176,9 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **What Qompack does instead.** It fits the cap (owner decision D5). The whole compact
   `additionalContext`, contract probe included, is at most 9,500 host characters. Records are chosen
   in the fixed §8.6 order and admitted whole or not at all; each one left out is named in section 7
-  of the payload with the call that brings it back (`why`, `re_read`, `expand`, or `Read` on the rule
-  or checkpoint file), and the section ends in a counted tail pointing at `dropped()` when it cannot
-  list everything. The hook client still records a Loud line if any field ever overruns the cap
+  of the payload with the call that brings it back (`why`, `re_read`, `expand`, `already_tried` with
+  the elimination's own target and approach, or `Read` on the rule, skill or checkpoint file), and the
+  section ends in a counted tail pointing at `dropped()` when it cannot list everything. The hook client still records a Loud line if any field ever overruns the cap
   (`internal/hookio` `HostCapOverruns`); for the rehydration that is a defence that does not fire.
 - **Recorded at.** `testdata/host/hooks-output-schema.json` (`limits`);
   [ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md);
