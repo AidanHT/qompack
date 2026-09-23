@@ -1,0 +1,19 @@
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/tool_use_id
+    v6_authorization_test.go:102: security v6_escape_tool_use_id: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\Documents\Programming\Projects\qompack-cx-hostperm\plans\sdd\V6-closeout\hostperm\runs\security-windows-fix\v6_escape_tool_use_id.json
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/root_hash
+    v6_authorization_test.go:102: security v6_escape_root_hash: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\Documents\Programming\Projects\qompack-cx-hostperm\plans\sdd\V6-closeout\hostperm\runs\security-windows-fix\v6_escape_root_hash.json
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/chunk_hash
+    v6_authorization_test.go:102: security v6_escape_chunk_hash: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\Documents\Programming\Projects\qompack-cx-hostperm\plans\sdd\V6-closeout\hostperm\runs\security-windows-fix\v6_escape_chunk_hash.json
+--- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization (11.39s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/tool_use_id (0.13s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/root_hash (0.02s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/chunk_hash (0.02s)
+PASS
+ok  	github.com/qompack/qompack/test/security	13.049s

@@ -1,0 +1,40 @@
+round 1 base-7f80138 2026-09-22T20:41:33-04:00
+BenchmarkSnapshotUnchanged-22    	     200	    230852 ns/op	    9408 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	  36159705 ns/op	    8600 B/op	      98 allocs/op
+round 1 head-worktree 2026-09-22T20:41:42-04:00
+BenchmarkSnapshotUnchanged-22    	     200	   1865762 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	 381990043 ns/op	   10756 B/op	     115 allocs/op
+round 2 base-7f80138 2026-09-22T20:43:13-04:00
+BenchmarkSnapshotUnchanged-22    	     200	   1833548 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	  67755364 ns/op	    8600 B/op	      98 allocs/op
+round 2 head-worktree 2026-09-22T20:43:37-04:00
+BenchmarkSnapshotUnchanged-22    	     200	   1656420 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	  62421188 ns/op	   10726 B/op	     114 allocs/op
+round 3 base-7f80138 2026-09-22T20:43:54-04:00
+BenchmarkSnapshotUnchanged-22    	     200	    339858 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	  37224314 ns/op	    8600 B/op	      98 allocs/op
+round 3 head-worktree 2026-09-22T20:44:04-04:00
+BenchmarkSnapshotUnchanged-22    	     200	    399301 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	  32778508 ns/op	   10727 B/op	     114 allocs/op
+round 4 base-7f80138 2026-09-22T20:44:11-04:00
+BenchmarkSnapshotUnchanged-22    	     200	    693917 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	  10254176 ns/op	    8600 B/op	      98 allocs/op
+round 4 head-worktree 2026-09-22T20:44:15-04:00
+BenchmarkSnapshotUnchanged-22    	     200	    380270 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	  14635064 ns/op	   10726 B/op	     114 allocs/op
+round 5 base-7f80138 2026-09-22T20:44:19-04:00
+BenchmarkSnapshotUnchanged-22    	     200	    419594 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	   5565576 ns/op	    8600 B/op	      98 allocs/op
+round 5 head-worktree 2026-09-22T20:44:21-04:00
+BenchmarkSnapshotUnchanged-22    	     200	    335394 ns/op	    9472 B/op	      79 allocs/op
+BenchmarkEvaluate-22             	     200	   7976740 ns/op	   10727 B/op	     114 allocs/op
+rebuild at cap (head) 2026-09-22T20:44:23-04:00
+BenchmarkSnapshotChanged-22              	      10	   5813230 ns/op	   70201 B/op	     874 allocs/op
+BenchmarkEvaluateRuleCount/10-22         	      10	   9476920 ns/op	   13416 B/op	     131 allocs/op
+BenchmarkEvaluateRuleCount/1000-22       	      10	   2338880 ns/op	   13529 B/op	     131 allocs/op
+BenchmarkEvaluateRuleCount/4096-22       	      10	  29440260 ns/op	   13630 B/op	     131 allocs/op
+BenchmarkEvaluateRuleCountAnchored/10-22 	      10	  34345060 ns/op	   14387 B/op	     130 allocs/op
+BenchmarkEvaluateRuleCountAnchored/1000-22         	      10	  26003820 ns/op	   14664 B/op	     131 allocs/op
+BenchmarkEvaluateRuleCountAnchored/4096-22         	      10	  18273780 ns/op	   14760 B/op	     131 allocs/op
+BenchmarkSnapshotChangedAtRuleCap-22               	      10	 181194280 ns/op	14037043 B/op	  171132 allocs/op
+exit=0

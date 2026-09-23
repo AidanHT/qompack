@@ -1,0 +1,25 @@
+HEAD c6a18b4 start 2026-09-22T21:58:49-04:00 cpu=100 tests=8
+--- PASS: TestV4Server_TheMachinesHostRulesDoNotReachARow (2.60s)
+--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (8.53s)
+--- PASS: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (5.73s)
+--- PASS: TestV4_SchedulerFiresBeforeTheSimulatedStockThreshold (5.48s)
+--- PASS: TestV4_O1SpanInstructionFromARealCheckpointFrontier (6.24s)
+        	Error:      	Received unexpected error:
+        	Messages:   	the store must accept the record; authorization is a RETRIEVAL-time gate, not a write gate
+--- FAIL: TestV4_TombstoneToRecallToExpandRoundTrip (3.76s)
+--- PASS: TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction (6.44s)
+--- PASS: TestV4_EphemeralRetrievalResultsRankFirstForEviction (1.83s)
+--- PASS: TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint (7.30s)
+--- PASS: TestV4_WhyAndDroppedAnswerFromRealProducers (6.09s)
+--- PASS: TestV4_LiveSessionWriteSetAppendOnlyAndImmutability (11.95s)
+--- PASS: TestV4_DegradedPassiveWithEverySubsystem (8.15s)
+--- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent (0.00s)
+--- PASS: TestV4_X13NormalizeSeparatesWhatItUsedToConflate (0.00s)
+--- PASS: TestV4_X13WriteSetSeesWhatItUsedToConflate (3.04s)
+--- PASS: TestV4_X13NormalizeIsIdempotent (0.00s)
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (11.46s)
+--- PASS: TestV4_EveryContractAssertionHasARealProducer (2.91s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	92.400s
+FAIL
+exit=1

@@ -1,0 +1,306 @@
+d4bd626
+--- FAIL: TestHooksExitZeroUnderFaults (140.11s)
+    --- FAIL: TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage (1.93s)
+        testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestHooksExitZeroUnderFaultsSessionEndstdin-garbage3470362149\001\.qompack: The directory is not empty.
+    faultinject_test.go:99: TestHooksExitZeroUnderFaults: 6 hooks x 11 sites = 66 combinations run
+--- FAIL: TestE2E_AllSixHooksExitZero (5.01s)
+    --- FAIL: TestE2E_AllSixHooksExitZero/SessionStart (1.91s)
+        hooks_test.go:90: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/hooks_test.go:90
+            	Error:      	Expected value not to be nil.
+            	Test:       	TestE2E_AllSixHooksExitZero/SessionStart
+            	Messages:   	SessionStart answers through hookSpecificOutput
+--- FAIL: TestInstall_HostCLIInstallUpgradeUninstall (85.41s)
+    install_test.go:84: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    --- FAIL: TestInstall_HostCLIInstallUpgradeUninstall/upgrade_to_the_next_version (28.05s)
+        install_test.go:188: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.1-windows-amd64
+            {
+              "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+              "name": "qompack-rehearsal",
+              "owner": {
+                "name": "Qompack"
+              },
+              "plugins": [
+                {
+                  "description": "Cache-aware, retrieval-backed context compaction",
+                  "name": "qompack",
+                  "source": "./qompack-plugin-0.1.1-windows-amd64"
+                }
+              ]
+            }
+        install_test.go:189: install: claude plugin marketplace update qompack-rehearsal -> exit 0
+            Updating marketplace: qompack-rehearsal...Validating local marketplace
+            ✔ Successfully updated marketplace: qompack-rehearsal
+        install_test.go:191: install: claude plugin update qompack -s user -y -> exit 0
+            Checking for updates for plugin "qompack" at user scope…
+            ✔ Plugin "qompack" updated from 0.1.0 to 0.1.1 for scope user. Restart to apply changes.
+        install_test.go:194: install: claude plugin list --json -> exit 0
+            [
+              {
+                "id": "qompack@qompack-rehearsal",
+                "version": "0.1.1",
+                "scope": "user",
+                "enabled": true,
+                "installPath": "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstall3524071548\\001\\claude-home\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.1",
+                "installedAt": "2026-09-23T01:33:14.286Z",
+                "lastUpdated": "2026-09-23T01:33:43.044Z",
+                "mcpServers": {
+                  "qompack": {
+                    "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack",
+                    "args": [
+                      "mcp"
+                    ]
+                  }
+                }
+              }
+            ]
+        install_test.go:222: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/install_test.go:222
+            	Error:      	Not equal: 
+            	            	expected: 0
+            	            	actual  : 1
+            	Test:       	TestInstall_HostCLIInstallUpgradeUninstall/upgrade_to_the_next_version
+            	Messages:   	fsck over data written by the previous version: 
+            	            	  index.tool_use (severity 2, count 1): tool_use toolu_sp17_sess-e2e-sp17-install_1_02 reports turn 0 after turn 1 in session ; turns are monotone
+            	            	  captures (severity 1, count 1): capture publication requirement is unknown
+            	            	  publication (severity 1, count 1): publication audit is incomplete; zero observed gaps cannot certify completeness; capture sidecar with an unrecognized op
+--- FAIL: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (34.94s)
+    install_test.go:537: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:537: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-2548501487 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:537: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:589: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/install_test.go:589
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+        	Messages:   	a newer artifact is a support gap, not a defect: 
+        	            	  index.tool_use (severity 2, count 1): tool_use toolu_sp17_sess-e2e-sp17-unknown-schema_5_00 reports turn 0 after turn 1 in session ; turns are monotone
+        	            	  publication (severity 1, count 1): publication audit is incomplete; zero observed gaps cannot certify completeness; unexpected entry in the capture tree
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- FAIL: TestE2E_ObserverThroughDaemon (155.65s)
+    observer_e2e_test.go:213: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/observer_e2e_test.go:213
+        	Error:      	Condition never satisfied
+        	Test:       	TestE2E_ObserverThroughDaemon
+        	Messages:   	index/tool_use.jsonl never reached 44 lines: index holds 1 lines; undrained client spool [client-11624.ndjson client-20704.ndjson client-21572.ndjson client-24840.ndjson client-25120.ndjson client-27664.ndjson client-3288.ndjson client-34300.ndjson client-36304.ndjson client-36680.ndjson client-36684.ndjson client-41272.ndjson client-42484.ndjson client-42916.ndjson client-47460.ndjson client-47716.ndjson client-48724.ndjson client-49336.ndjson client-49604.ndjson client-49656.ndjson client-49864.ndjson client-51332.ndjson client-51476.ndjson client-51544.ndjson client-51900.ndjson client-52308.ndjson client-53500.ndjson client-54104.ndjson client-54824.ndjson client-55572.ndjson client-55988.ndjson client-56224.ndjson client-56624.ndjson client-57544.ndjson client-58680.ndjson client-58872.ndjson client-59404.ndjson client-60212.ndjson client-62412.ndjson client-8664.ndjson], so at least one event degraded to the spool and this waited on the 30s idle-tick drain
+--- FAIL: TestE2E_ThinSliceDropsControlOnlyEdges (117.04s)
+    observer_e2e_test.go:474: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/observer_e2e_test.go:474
+        	Error:      	Condition never satisfied
+        	Test:       	TestE2E_ThinSliceDropsControlOnlyEdges
+        	Messages:   	the last mixed call was never indexed: index holds 1 lines; undrained client spool [client-11724.ndjson client-19332.ndjson client-20720.ndjson client-23608.ndjson client-24808.ndjson client-29956.ndjson client-32508.ndjson client-32920.ndjson client-41012.ndjson client-41732.ndjson client-43228.ndjson client-46496.ndjson client-52032.ndjson client-57992.ndjson client-59320.ndjson], so at least one event degraded to the spool and this waited on the 30s idle-tick drain
+--- FAIL: TestV1_ConfigPrecedenceReachesHookBehaviour (8.68s)
+    --- FAIL: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it (0.84s)
+        v1_integration_test.go:388: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/v1_integration_test.go:388
+            	Error:      	Should NOT be empty, but was []
+            	Test:       	TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it
+            	Messages:   	a bounded prefix survives as evidence
+--- FAIL: TestV3_LiveSessionWriteSetAndAppendOnly (75.54s)
+    v3_x09_test.go:240: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/v3_x09_test.go:240
+        	Error:      	Condition never satisfied
+        	Test:       	TestV3_LiveSessionWriteSetAndAppendOnly
+        	Messages:   	flush never produced the observer's "observer: gc" log line — store.GC did not run on SessionEnd
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (68.96s)
+    v3_x10_test.go:323: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/v3_x10_test.go:323
+        	Error:      	Condition never satisfied
+        	Test:       	TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+        	Messages:   	the first 30 events were never all indexed
+panic: test timed out after 30m0s
+	running tests:
+		TestV3_HotPathUnchangedWithLedgerResident (5m56s)
+
+goroutine 8159 [running]:
+testing.(*M).startAlarm.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2802 +0x354
+created by time.goFunc
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive, 6 minutes]:
+testing.(*T).Run(0x3ff908d22c00, {0x7ff708f8bb41?, 0x7ff7088d2f0e?}, 0x7ff708fc7c00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2109 +0x4c7
+testing.runTests.func1(0x3ff908d22c00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2585 +0x3e
+testing.tRunner(0x3ff908d22c00, 0x3ff90900fc20)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+testing.runTests({0x7ff708f78d0f, 0x1a}, {0x7ff708f83bfd, 0x23}, 0x3ff908d2af48, {0x7ff7094a2a00, 0x60, 0x60}, {0xc2a4ea6df36bcc6c, 0x1a318eaf65d, ...})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(0x3ff90904c0a0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2443 +0x6ac
+github.com/qompack/qompack/test/e2e.TestMain(0x7ff7094f3740?)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/hooks_test.go:26 +0x13
+main.main()
+	_testmain.go:238 +0xa5
+
+goroutine 1957 [chan receive, 23 minutes]:
+testing.(*T).Parallel(0x3ff90b782400)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/test/e2e.TestStandingInstructionsAgree(0x3ff90b782400)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/mcp_e2e_test.go:508 +0x2a
+testing.tRunner(0x3ff90b782400, 0x7ff708fc7ba0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 54 [syscall, 6 minutes]:
+syscall.syscalln(0x0?, 0x0?, {0x3ff90925df08?, 0x3ff90a93e5b0?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x3e3?, {0x3ff90925df08?, 0x0?, 0x3ff9093c5728?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+github.com/Microsoft/go-winio.getQueuedCompletionStatus(0x244, 0x3ff90925df8c?, 0x3ff90925df90?, 0x3ff90925df98?, 0xffffffff)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/zsyscall_windows.go:327 +0xac
+github.com/Microsoft/go-winio.ioCompletionProcessor(0x244)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:162 +0x85
+created by github.com/Microsoft/go-winio.initIO in goroutine 52
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:58 +0x5d
+
+goroutine 8308 [select]:
+os/exec.(*Cmd).watchCtx(0x3ff90b68fd40, 0x3ff90d870a10)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:797 +0xb1
+created by os/exec.(*Cmd).Start in goroutine 8158
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:783 +0x989
+
+goroutine 8307 [syscall]:
+syscall.syscalln(0x0?, 0x0?, {0x3ff910fd5ac8?, 0x7ff70886a765?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x1?, {0x3ff910fd5ac8?, 0x7ff708818138?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+syscall.readFile(0x96c, {0x3ff90dabc000?, 0x8000, 0x3ff910fd5b98?}, 0x7ff708e750a0?, 0x3ff910fd5b60?)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/zsyscall_windows.go:1030 +0xba
+syscall.ReadFile(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/syscall_windows.go:510
+internal/poll.(*FD).Read.func1(0x7ff70948e040?)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_windows.go:586 +0x4a
+internal/poll.(*FD).execIO(0x3ff90d838540, 0x72, 0x3ff910fd5ce8)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_windows.go:304 +0x2c9
+internal/poll.(*FD).Read(0x3ff90d838540, {0x3ff90dabc000, 0x8000, 0x8000})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_windows.go:585 +0x290
+os.(*File).read(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file_posix.go:30
+os.(*File).Read(0x3ff9090b8638, {0x3ff90dabc000?, 0x7ff708e907a0?, 0x1?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file.go:144 +0x4f
+io.copyBuffer({0x7ff708fd68c0, 0x3ff9189aed60}, {0x7ff708fd67e0, 0x3ff9090b8638}, {0x0, 0x0, 0x0})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/io/io.go:429 +0x190
+io.Copy(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/io/io.go:388
+os.genericWriteTo(0x6c?, {0x7ff708fd68c0?, 0x3ff9189aed60?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file.go:295 +0x35
+os.(*File).WriteTo(0x7ff709485720?, {0x7ff708fd68c0?, 0x3ff9189aed60?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file.go:273 +0x49
+io.copyBuffer({0x7ff708fd68c0, 0x3ff9189aed60}, {0x7ff708fd68e0, 0x3ff9090b8638}, {0x0, 0x0, 0x0})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/io/io.go:411 +0x9d
+io.Copy(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/io/io.go:388
+os/exec.(*Cmd).writerDescriptor.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:602 +0x34
+os/exec.(*Cmd).Start.func2(0x3ff90ad41000?)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:757 +0x2c
+created by os/exec.(*Cmd).Start in goroutine 8158
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:756 +0x9c5
+
+goroutine 8158 [syscall]:
+syscall.syscalln(0x0?, 0x0?, {0x3ff9194deb18?, 0xa?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x6b?, {0x3ff9194deb18?, 0x6b?, 0x3?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+syscall.WaitForSingleObject(0xb90, 0xffffffff)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/zsyscall_windows.go:1159 +0x6a
+os.(*Process).wait(0x3ff90d248740)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec_windows.go:28 +0x89
+os.(*Process).Wait(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec.go:346
+os/exec.(*Cmd).Wait(0x3ff90b68fd40)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:930 +0x45
+os/exec.(*Cmd).Run(0x3ff90b68fd40)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:632 +0x2d
+github.com/qompack/qompack/test/e2e.TestV3_HotPathUnchangedWithLedgerResident(0x3ff90aba0200)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/v3_x11_test.go:481 +0x20b1
+testing.tRunner(0x3ff90aba0200, 0x7ff708fc7c00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 1958 [chan receive, 23 minutes]:
+testing.(*T).Parallel(0x3ff90b782600)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/test/e2e.TestSyncBufferConcurrentWriterReader(0x3ff90b782600)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/mcp_stderr_capture_test.go:25 +0x27
+testing.tRunner(0x3ff90b782600, 0x7ff708fc7bb0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 8306 [syscall]:
+syscall.syscalln(0x0?, 0x0?, {0x3ff90ad13ac8?, 0x3ff90ad13ac0?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x7ff70948d300?, {0x3ff90ad13ac8?, 0x0?, 0x3ff90ad13b00?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+syscall.readFile(0xab8, {0x3ff90da5a000?, 0x8000, 0x2726c8ec9d8?}, 0x7ff708e750a0?, 0x7ff7087d68c7?)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/zsyscall_windows.go:1030 +0xba
+syscall.ReadFile(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/syscall_windows.go:510
+internal/poll.(*FD).Read.func1(0x7ff70948e040?)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_windows.go:586 +0x4a
+internal/poll.(*FD).execIO(0x3ff90d8383c0, 0x72, 0x3ff90ad13ce8)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_windows.go:304 +0x2c9
+internal/poll.(*FD).Read(0x3ff90d8383c0, {0x3ff90da5a000, 0x8000, 0x8000})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_windows.go:585 +0x290
+os.(*File).read(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file_posix.go:30
+os.(*File).Read(0x3ff9090b8620, {0x3ff90da5a000?, 0x300?, 0x3ff90cf5e000?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file.go:144 +0x4f
+io.copyBuffer({0x7ff708fd68c0, 0x3ff9189aed40}, {0x7ff708fd67e0, 0x3ff9090b8620}, {0x0, 0x0, 0x0})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/io/io.go:429 +0x190
+io.Copy(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/io/io.go:388
+os.genericWriteTo(0x0?, {0x7ff708fd68c0?, 0x3ff9189aed40?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file.go:295 +0x35
+os.(*File).WriteTo(0x7ff709485720?, {0x7ff708fd68c0?, 0x3ff9189aed40?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file.go:273 +0x49
+io.copyBuffer({0x7ff708fd68c0, 0x3ff9189aed40}, {0x7ff708fd68e0, 0x3ff9090b8620}, {0x0, 0x0, 0x0})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/io/io.go:411 +0x9d
+io.Copy(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/io/io.go:388
+os/exec.(*Cmd).writerDescriptor.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:602 +0x34
+os/exec.(*Cmd).Start.func2(0x3ff9102f5f00?)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:757 +0x2c
+created by os/exec.(*Cmd).Start in goroutine 8158
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:756 +0x9c5
+FAIL	github.com/qompack/qompack/test/e2e	1800.286s
+FAIL
+exit=1

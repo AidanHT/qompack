@@ -1,0 +1,2 @@
+github.com/qompack/qompack/internal/hostperm
+github.com/qompack/qompack/internal/mcp

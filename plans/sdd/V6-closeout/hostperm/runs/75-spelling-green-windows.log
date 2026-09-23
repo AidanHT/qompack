@@ -1,0 +1,66 @@
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_timestamp
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/absolute_short
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/expand/short_record
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/latest
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_turn
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/recall_withholds_the_short-spelled_hit
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/dropped_withholds_pointers_spelled_short
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/relative_rule,_long_absolute
+--- PASS: TestHostPolicy_AShortNameSpellingIsRefused (4.31s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_timestamp (0.41s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/absolute_short (0.25s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/expand/short_record (0.14s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/latest (0.26s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_turn (0.32s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/recall_withholds_the_short-spelled_hit (0.45s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/dropped_withholds_pointers_spelled_short (0.37s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path (0.46s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/relative_rule,_long_absolute (0.57s)
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env.
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env.
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env.
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env.
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env_
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env_
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env_
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env_
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env...
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env...
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env...
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env...
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env._._
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env._._
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env._._
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env._._
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config./secret.env
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config./secret.env
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config./secret.env
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config./secret.env
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/dropped_withholds_a_pointer_spelled_as_an_alias
+--- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused (6.33s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env. (0.20s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env. (0.18s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env. (0.42s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env. (0.55s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env_ (0.35s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env_ (0.31s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env_ (0.28s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env_ (0.19s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env... (0.24s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env... (0.52s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env... (0.15s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env... (0.25s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env._._ (0.13s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env._._ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env._._ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env._._ (0.15s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config./secret.env (0.30s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config./secret.env (0.27s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config./secret.env (0.26s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config./secret.env (0.32s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/dropped_withholds_a_pointer_spelled_as_an_alias (0.48s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	10.904s

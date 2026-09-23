@@ -1,0 +1,24 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/security": {
+   "result": "fail",
+   "passed": 22,
+   "failed": [
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk",
+    "TestSecurity_ArchivedTextIsDataNeverAnInstruction"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/integration": {
+   "result": "fail",
+   "passed": 67,
+   "failed": [
+    "TestIntegration_GCNeverCollectsALiveRootUnderIngest",
+    "TestIntegration_DegradedPassiveStillWritesToTheRealStore",
+    "TestIntegration_HotPathWarmWithRealResidentState"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

@@ -29,3 +29,48 @@ managed-settings 34887612d23b1657e3daf32b3bf9391c689c3fd27b002213c5efed806887ccc
 server-managed-settings a87aff031ad28c284ce86fa3dd0f2da0b9b27d08428ac724726fd10816efa5e8
 env-vars a6ffb00019004668fdce55e33af7e26be4559a467ed1da57e3ff48c760bd3287
 iam f7cd13d3a488bba04a52cdac53a5e640aac56a7bcf59dba870179ded9589ef17 (now the Authentication page; no rule text)
+
+Fix seat (review resolution), 2026-09-22. Same format. Windows runs are on the shared machine
+under co-load; Linux runs are uid 10001 (qompack-test) in qompack-v6-linux-verification via
+/work/cx-hostperm-fix-inner.sh (a copy of cx-hostperm-inner.sh), GOMAXPROCS=4, --coload.
+Docs re-fetched 2026-09-22: all five sha256 above matched byte for byte.
+
+70-spelling-red-windows.log | go test ./internal/mcp -run 'TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused|TestHostPolicy_AShortNameSpellingIsRefused' -count=1 -v | 7f80138 + those tests | FAIL as intended: every trailing-dot/space/dotted-dir and 8.3 spelling served the denied secret (findings 1 and 4)
+71-hostperm-alias-red-windows.log | go test ./internal/hostperm -run '<4 alias tests>' -count=1 -v | 7f80138 + alias_windows_test.go | FAIL as intended, 4 of 4
+72-rule-cap-red-windows.log | go test ./internal/hostperm -run TestAnUnboundedRuleCountFailsClosed -count=1 -v | 7f80138 + cap test | FAIL as intended: 20000 rules loaded (finding 2)
+73-rule-count-cost-before-windows.log | throwaway Evaluate bench, 10..200000 rules (code not committed) | 7f80138 | 10: 0.79 ms, 1000: 7.3 ms, 10000: 61.7 ms, 200000: 2.73 s per path
+74-rule-count-cost-after-windows.log | go test ./internal/hostperm -run '^$' -bench 'RuleCount|AtRuleCap|BenchmarkEvaluate$' -benchtime=20x | intermediate tree (scratch buffer only) | co-load noise; rebuild at the cap 10.4 s (before the Readlink memo)
+75-spelling-green-windows.log | as 70 | fixed tree | PASS 32 of 32, no skips
+76-match-only-cost-windows.log | go test ./internal/hostperm -run '^$' -bench BenchmarkEvaluateMatchOnly -benchmem -count=3 | intermediate tree | globstar 4096: 26-44 ms per path
+77-match-only-cost-onepass-windows.log | same | one-pass matcher | globstar 4096: 0.82-0.85 ms; 10: 3.4-3.7 us
+78-evaluate-paired-base-vs-fix-windows.log | interleaved x5 BenchmarkEvaluate/SnapshotUnchanged, base 7f80138 archive vs fixed tree; then rebuild benches | both | co-load too high to rank Evaluate; SnapshotChangedAtRuleCap 181 ms
+79-e2e-hermetic-red-windows.log | go test ./test/e2e -run TestV4Server_TheMachinesHostRulesDoNotReachARow -count=1 -v | before the rig fix | FAIL as intended (finding 3)
+80-integration-hermetic-red-windows.log | go test ./test/integration -run TestRigs_TheMachinesHostRulesDoNotReachThem -count=1 -v | before the rig fix | FAIL as intended, x9v4 and x8v5 both denied
+81-security-v6-windows-fix.log | go test ./test/security -run 'TestV6_' -count=1 -v | fixed tree | host case PASS; hash case FAIL "daemon unavailable" (co-load, see 82)
+82-security-hash-rerun-alone-windows.log + security-windows-hash-rerun/ | TestV6_HashAddressesDoNotBypassPathAuthorization alone | fixed tree | PASS (81 was co-load)
+83-security-host-rules-windows-fix.log + security-windows-host-fix/ | TestV6_HostReadRulesGovernArchivedRetrieval alone | fixed tree | PASS, record verified, six alias keys refused
+84-security-host-rules-base-7f80138-coload-daemon-unavailable-windows.log | new security case on a git archive of 7f80138 | 7f80138 | no verdict: co-load "daemon unavailable" at the first control
+85-security-host-rules-base-7f80138-red-windows.log + security-windows-host-base-7f80138/ | same, retried | 7f80138 | FAIL as intended: deny/re_read_trailing_{dot,space}_alias served the archived marker (record failed)
+86-hostperm-mcp-full-windows.log | go test ./internal/hostperm ./internal/mcp -count=1 -timeout=30m | fixed tree (= e6c3428 code) | hostperm PASS; mcp PASS except TestBudgetBF p95 327.68 ms (co-load, see 88)
+87-hostperm-full-aliases-only-state-windows.log | go test ./internal/hostperm -count=1 | 9a1f9c4 tree | PASS
+88-budget-bf-alone-head-vs-base-windows.log | go test ./internal/mcp -run '^TestBudgetBF$' -count=1 -v, head then base archive | fixed tree vs 7f80138 | both breach: head p95 393 ms (cpu 42%), base p95 786 ms (cpu 85%); pre-existing co-load gate
+89-docs-windows.log | go test ./test/docs -count=1 | 692343c | PASS
+90-linux-race-hostperm-mcp-fix.log | inner.sh --coload (race) -- ./internal/hostperm ./internal/mcp | 692343c | PASS: hostperm 111, mcp 387, 0 skip, no race
+91-linux-security-integration-fix.log | inner.sh --coload --no-race -- ./test/security ./test/integration | 692343c | security 22/2 (the two re_read/archived-text failures 51/52 show on cf31e01); integration 67/3 (all three fail on cf31e01, see 100)
+92-linux-e2e-v4-rows-fix.log | inner.sh --coload --no-race --run '^TestV4' -- ./test/e2e | 692343c | 45/2: tombstone round trip fails on cf31e01 (101); x13 hot-path touch set passes alone (102, co-load)
+93-integration-full-windows.log | go test ./test/integration -count=1 -timeout=30m | 692343c | 5 daemon/GC/hot-path failures, none touching MCP; see 98 and 100
+95-daemon-mcpop-machine-rule-demo-windows.log | go test ./internal/daemon -run '^TestDaemonMCPOpDispatchesToolCall$', with and without CLAUDE_CONFIG_DIR at a deny-all rule | 692343c, daemon untouched | control PASS, with the machine rule FAIL: finding 3's out-of-scope remainder
+96-lint-windows.log | go run ./tools/devtool lint | 0071cbb (cap 4096) | nomagic FAIL on the literal 4096 (fixed in d4bd626); bindeps FAIL pre-existing (64)
+97-cost-at-cap-5000-windows.log | go test ./internal/hostperm -run '^$' -bench 'BenchmarkEvaluateMatchOnly|BenchmarkSnapshotChangedAtRuleCap' -benchmem -count=3 | d4bd626 | globstar 5000: 0.87-1.65 ms per path; anchored 5000: 0.07 ms; rebuild 0.17-0.63 s
+99-vet-cross-platform.log | GOOS={windows,linux,darwin} go vet ./internal/hostperm ./internal/mcp ./test/e2e ./test/integration ./test/security | d4bd626 | clean
+100-linux-integration-three-on-base-cf31e01.log | inner.sh --run '<the three Linux integration failures>' -- ./test/integration | cf31e01 | all three FAIL on the base: pre-existing
+101-linux-e2e-two-on-base-cf31e01.log | inner.sh --run '<tombstone|x13>' -- ./test/e2e | cf31e01 | tombstone FAIL identically (append-only violation, same observation hash); x13 PASS
+102-linux-final-head-hostperm-race-and-x13-alone.log | inner.sh race -- ./internal/hostperm; inner.sh --run x13 -- ./test/e2e | d4bd626 | hostperm PASS 111, no race; x13 PASS alone
+94-e2e-full-windows.log | go test ./test/e2e -count=1 -timeout=30m | 692343c | killed at 30m inside TestV3_HotPathUnchangedWithLedgerResident, co-loaded (lint and integration running beside it); the V4 rows were never reached, see 103; the failures listed are hook, install, observer and crash-recovery rows, which with no Read rule in force here run none of this branch's code
+98-integration-five-failures-rerun-alone-windows.log | go test ./test/integration -run '<the five 93 failures>' -count=1 -v -timeout=45m | d4bd626 | SpooledEvents and HotPathDegrades PASS alone (co-load in 93); GCNeverCollects, DegradedPassive and HotPathWarm FAIL again and FAIL on cf31e01 (100): pre-existing
+103-e2e-v4-rows-windows.log | go test ./test/e2e -run '^TestV4' -count=1 -v -timeout=30m | c6a18b4 | 17 top-level PASS, 1 FAIL: TestV4_TombstoneToRecallToExpandRoundTrip, the write-time append-only violation that fails identically on cf31e01 (101)
+linux-cx-hostperm-fix-*/ | identity, summaries, exit codes and gzipped test.jsonl of every fix-seat Linux run above | as named | as summarized in 90-92 and 100-102
+104-lint-final-windows.log | go run ./tools/devtool lint, nothing else of this seat running | c6a18b4 | golangci-lint, nomagic, importgraph, testdeps, sleepcheck, runpatterns, docmarkers, coveragefloors PASS; bindeps FAIL pre-existing (64); stubskips 4 problems, the same four daemon/hookio/store skips as 61, none in a file this branch touches
+Report: the fix seat's harness refuses to write report .md files, so this branch carries no
+report.md; the review resolution and full report were returned to the coordinator in the seat's
+structured output, and every claim there cites a file above.

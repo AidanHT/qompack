@@ -1,0 +1,19 @@
+=== RUN   TestRigs_TheMachinesHostRulesDoNotReachThem
+=== RUN   TestRigs_TheMachinesHostRulesDoNotReachThem/x9v4
+    hostpolicy_test.go:54: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/hostpolicy_test.go:54
+        	Error:      	Should be true
+        	Test:       	TestRigs_TheMachinesHostRulesDoNotReachThem/x9v4
+        	Messages:   	the machine's own Read rules reached the rig: {"found":false,"denied":true,"reason":"authorization denied: the host's current permission rules deny reading the associated path"}
+=== RUN   TestRigs_TheMachinesHostRulesDoNotReachThem/x8v5
+    hostpolicy_test.go:54: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/integration/hostpolicy_test.go:54
+        	Error:      	Should be true
+        	Test:       	TestRigs_TheMachinesHostRulesDoNotReachThem/x8v5
+        	Messages:   	the machine's own Read rules reached the rig: {"found":false,"denied":true,"reason":"authorization denied: the host's current permission rules deny reading the associated path"}
+--- FAIL: TestRigs_TheMachinesHostRulesDoNotReachThem (2.23s)
+    --- FAIL: TestRigs_TheMachinesHostRulesDoNotReachThem/x9v4 (1.07s)
+    --- FAIL: TestRigs_TheMachinesHostRulesDoNotReachThem/x8v5 (1.04s)
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	2.527s
+FAIL

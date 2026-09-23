@@ -1,0 +1,24 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluateMatchOnly/globstar/10-22         	   18733	     66357 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/globstar/10-22         	   18183	     99918 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/globstar/10-22         	   10000	    170069 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/globstar/1000-22       	     100	  16302551 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/globstar/1000-22       	     100	  14315280 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/globstar/1000-22       	     139	  10596728 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/globstar/4096-22       	      56	  43621211 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/globstar/4096-22       	      54	  30763191 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/globstar/4096-22       	      67	  25734867 ns/op	     512 B/op	      10 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/10-22         	  513390	      2739 ns/op	     344 B/op	       4 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/10-22         	  471217	      3725 ns/op	     344 B/op	       4 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/10-22         	 1000000	      4343 ns/op	     344 B/op	       4 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/1000-22       	   28488	     71989 ns/op	     344 B/op	       4 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/1000-22       	   20359	     65039 ns/op	     344 B/op	       4 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/1000-22       	   13768	    154536 ns/op	     344 B/op	       4 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/4096-22       	    5505	    303551 ns/op	     344 B/op	       4 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/4096-22       	    8408	    183111 ns/op	     344 B/op	       4 allocs/op
+BenchmarkEvaluateMatchOnly/anchored/4096-22       	   10000	    147964 ns/op	     344 B/op	       4 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/hostperm	48.131s

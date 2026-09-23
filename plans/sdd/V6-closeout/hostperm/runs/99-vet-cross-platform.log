@@ -1,0 +1,7 @@
+HEAD d4bd626
+== GOOS=windows go vet ./internal/hostperm ./internal/mcp ./test/e2e ./test/integration ./test/security
+exit=0
+== GOOS=linux go vet ./internal/hostperm ./internal/mcp ./test/e2e ./test/integration ./test/security
+exit=0
+== GOOS=darwin go vet ./internal/hostperm ./internal/mcp ./test/e2e ./test/integration ./test/security
+exit=0

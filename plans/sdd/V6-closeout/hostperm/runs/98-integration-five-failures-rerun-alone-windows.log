@@ -1,0 +1,21 @@
+HEAD d4bd626 start 2026-09-22T21:37:32-04:00 cpu=61 tests=25
+=== RUN   TestIntegration_GCNeverCollectsALiveRootUnderIngest
+        	Error:      	Should be true
+        	Messages:   	pass 0: a truncated pass must persist its cursor
+--- FAIL: TestIntegration_GCNeverCollectsALiveRootUnderIngest (424.17s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+        	Error:      	Condition never satisfied
+        	Messages:   	the 20 observe.tool events never all reached the store
+--- FAIL: TestIntegration_DegradedPassiveStillWritesToTheRealStore (36.47s)
+=== RUN   TestIntegration_SpooledEventsSurviveToTheStore
+--- PASS: TestIntegration_SpooledEventsSurviveToTheStore (14.96s)
+=== RUN   TestIntegration_HotPathWarmWithRealResidentState
+        	Error:      	Received unexpected error:
+        	Messages:   	bench-hotpath exited non-zero (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<15ms and B-E's wall row p99<2000ms) breached against the real resident state, or the harness itself failed (its own delivery-integrity guard included)
+--- FAIL: TestIntegration_HotPathWarmWithRealResidentState (400.01s)
+=== RUN   TestIntegration_HotPathDegradesRatherThanBlocks
+--- PASS: TestIntegration_HotPathDegradesRatherThanBlocks (220.99s)
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	1097.017s
+FAIL
+exit=1

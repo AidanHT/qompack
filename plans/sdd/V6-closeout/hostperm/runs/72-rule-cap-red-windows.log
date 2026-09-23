@@ -1,0 +1,10 @@
+=== RUN   TestAnUnboundedRuleCountFailsClosed
+    cap_test.go:31: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/internal/hostperm/cap_test.go:31
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestAnUnboundedRuleCountFailsClosed
+        	Messages:   	20000 Read rules must not be evaluated on every retrieval
+--- FAIL: TestAnUnboundedRuleCountFailsClosed (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/hostperm	1.333s
+FAIL

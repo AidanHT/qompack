@@ -1,0 +1,11 @@
+=== RUN   TestV4Server_TheMachinesHostRulesDoNotReachARow
+    v4_hostpolicy_test.go:45: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-hostperm/test/e2e/v4_hostpolicy_test.go:45
+        	Error:      	Should be true
+        	Test:       	TestV4Server_TheMachinesHostRulesDoNotReachARow
+        	Messages:   	the machine's own Read rules reached an e2e row
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestV4Server_TheMachinesHostRulesDoNotReachARow1320495917\002\project\.qompack\index\files.jsonl: The process cannot access the file because it is being used by another process.
+--- FAIL: TestV4Server_TheMachinesHostRulesDoNotReachARow (6.11s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	6.708s
+FAIL

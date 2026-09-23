@@ -1,0 +1,14 @@
+=== RUN   TestV6_HostReadRulesGovernArchivedRetrieval
+    v6_host_permissions_test.go:62: security: a daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-security-3041336617\proj after 4.764s
+    v6_host_permissions_test.go:187: security v6_host_read_rules_govern_archived_retrieval: failed — archived retrieval did not honour the host's current Read rules: deny/re_read_trailing_dot_alias: served the archived marker; deny/re_read_trailing_space_alias: served the archived marker; owner internal/mcp + internal/hostperm
+          detail:   ask/expand_chunk_hash=denied(found=false); ask/expand_root_hash=denied(found=false); ask/expand_tool_use_id=denied(found=false); ask/re_read_at_hash=denied(found=false); ask/re_read_latest=denied(found=false); ask/re_read_trailing_dot_alias=denied(found=false); ask/re_read_trailing_space_alias=denied(found=false); ask/recall=hits=0,denied=10,host_policy=false; deny/expand_chunk_hash=denied(found=false); deny/expand_root_hash=denied(found=false); deny/expand_tool_use_id=denied(found=false); deny/re_read_at_hash=denied(found=false); deny/re_read_latest=denied(found=false); deny/re_read_trailing_dot_alias=content(67 bytes); deny/re_read_trailing_space_alias=content(67 bytes); deny/recall=hits=0,denied=10,host_policy=false; unreadable/expand_chunk_hash=unavailable; unreadable/expand_root_hash=unavailable; unreadable/expand_tool_use_id=unavailable; unreadable/re_read_at_hash=unavailable; unreadable/re_read_latest=unavailable; unreadable/re_read_trailing_dot_alias=unavailable; unreadable/re_read_trailing_space_alias=unavailable; unreadable/recall=hits=0,denied=10,host_policy=true
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\sec-base\v6_host_read_rules_govern_archived_retrieval.json
+    v6_host_permissions_test.go:188: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/base-7f80138/test/security/v6_host_permissions_test.go:188
+        	Error:      	Should be empty, but was [deny/re_read_trailing_dot_alias: served the archived marker deny/re_read_trailing_space_alias: served the archived marker]
+        	Test:       	TestV6_HostReadRulesGovernArchivedRetrieval
+--- FAIL: TestV6_HostReadRulesGovernArchivedRetrieval (51.09s)
+FAIL
+FAIL	github.com/qompack/qompack/test/security	54.601s
+FAIL
+exit=1
