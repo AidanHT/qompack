@@ -6,7 +6,7 @@ command below) from d9b0069's marketplace.yml and from this fix's. sim.sh runs e
 local bare "origin" - a first run, then a re-run from a fresh clone, which is the state a partial
 failure leaves - with `gh` replaced by the stub in this directory (one pull request per head).
 
-Result (sim.out): old run 2 exits 1, "! [rejected] marketplace/v9.9.9 -> marketplace/v9.9.9
+Result (sim-output.txt): old run 2 exits 1, "! [rejected] marketplace/v9.9.9 -> marketplace/v9.9.9
 (non-fast-forward)". New run 2 exits 0: "+ 797bc0a...f518781 ... (forced update)" under the lease,
 then "pull request #1 already proposes marketplace/v9.9.9; the push above updated it".
 
