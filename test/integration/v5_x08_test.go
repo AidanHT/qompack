@@ -163,7 +163,7 @@ func x8v5Open(t *testing.T) *x8v5Rig {
 	srv := mcp.NewServer(mcp.ServerName, "v5-x08", logging.Nop())
 	require.NoError(t, mcp.RegisterAll(srv, mcp.ToolDeps{
 		Store: s, Cfg: p.Cfg, ProjectRoot: p.Root, DisableWhy: true,
-		Promoter: prom,
+		Promoter: prom, HostPolicy: hermeticHostPolicy(t, p.Root),
 		// mcp fails CLOSED without a retrieval-side redactor; supplying it is the composition
 		// root's job, as x9v4Open does.
 		Redactor: x9v4Redactor{r: redact.New(p.Cfg)},
