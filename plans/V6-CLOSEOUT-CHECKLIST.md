@@ -36,7 +36,6 @@ close-out by the user's later instruction and every record says so.
 | Wave | Run | Workstreams (branch `closeout/<ws>`, worktree `../qompack-cx-<ws>`, base `cf31e01`) |
 |---|---|---|
 | 1 | `wf_16dd5d95-b3a` | `ingest` C1.1 · `e2e` C1.2/C1.3 · `config` C1.8 · `hostperm` C1.9 · `rollover` C1.10 · `perfstore` C2.6/C2.7 · `perfobs` C2.3–C2.5 · `eval` C5.4 · `linux` C3.4 + the six unreported Windows packages. Each: implement → adversarial review (two lenses for ingest/hostperm/rollover) → fix seat |
-
 | 1b | `wf_a704d10a-845` | `packaging` C1.11 + C1.12 + C7.5 prep (implement → two-lens review → fix) |
 | 1c | `wf_e1d0d082-a01` | `rehydrate-cap` C1.14 (D5), branched from `closeout/packaging` `32e1a37` |
 
@@ -70,10 +69,10 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 
 ## Phase 0 — Take over cleanly
 
-- [ ] **C0.1** Finalize `runs/rc1-integrated-whole-tree.json` as *interrupted* with its observed
+- [x] **C0.1** *(cf31e01)* Finalize `runs/rc1-integrated-whole-tree.json` as *interrupted* with its observed
       failures preserved (it still says `running`).
-- [ ] **C0.2** Commit the untracked V6-remediation evidence on `verify/v6` (evidence-only commit).
-- [ ] **C0.3** Record this checklist and the takeover in the V6 ledger.
+- [x] **C0.2** *(cf31e01)* Commit the untracked V6-remediation evidence on `verify/v6` (evidence-only commit).
+- [x] **C0.3** *(cf31e01, fb3a803, 36c3e88, 7a7b4e8)* Record this checklist and the takeover in the V6 ledger.
 
 ## Phase 1 — Fix the product defects that block a working plugin
 
