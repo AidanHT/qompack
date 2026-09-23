@@ -335,7 +335,7 @@ func TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain(t *testin
 
 	const sess core.SessionID = "sess-live-bounded"
 	const capacity, k = 2, 5
-	dd.ing.lanes = newDispatchLanes(capacity)
+	dd.ing.lanes = newDispatchLanes(capacity, capacity)
 	run, open := liveOrderPromptGate(t, dd.runIngested, "p0")
 	liveOrderWorkers(t, dd, 2, run)
 	t.Cleanup(open)
@@ -358,6 +358,8 @@ func TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain(t *testin
 		queued, running := liveOrderLane(dd, sess)
 		return queued == 0 && !running
 	}, liveOrderBound, liveOrderTick)
+	require.Equal(t, int64(1), dd.m.Counter(counterOrderingDrainRequested).Value(),
+		"the lane that ran dry with jobs refused behind it asked for their drain, once")
 	require.Zero(t, liveOrderAcked(dd, leases[capacity:]), "nothing but the drain can publish an overflowed job")
 
 	dd.drain.Store(newDrainer(dd.drainConfig()))
@@ -430,29 +432,34 @@ func TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView(t *testing.T) 
 	mk := func(arrival uint64) job {
 		return job{leased: true, lease: deliveryLease{Session: sess, ArrivalSeq: arrival, Delivery: orderNonce(int(arrival))}}
 	}
-	ls := newDispatchLanes(3)
+	ls := newDispatchLanes(3, 3)
 
-	own, full := ls.join(mk(2))
+	own, full, drain := ls.join(mk(2))
 	require.True(t, own, "the first job of an unowned lane makes its worker the owner")
 	require.False(t, full)
-	own, _ = ls.join(mk(1))
+	require.False(t, drain)
+	own, _, _ = ls.join(mk(1))
 	require.False(t, own, "a job joining an owned lane leaves its worker free")
-	own, _ = ls.join(mk(1))
+	own, _, _ = ls.join(mk(1))
 	require.False(t, own)
 	require.Equal(t, 2, ls.held, "a delivery already queued is not queued twice")
 
-	head, signals, ok := ls.head(sess)
+	head, signals, ok, _ := ls.head(sess)
 	require.True(t, ok)
 	require.Equal(t, uint64(1), head.lease.ArrivalSeq, "the owner dispatches the lowest arrival first")
 
 	// A wake lands while the owner is dispatching a head that turns out pending: the owner goes on.
 	require.False(t, ls.wake(sess), "an owned lane is not listed, only signalled")
-	require.True(t, ls.settle(sess, head, dispatchPending, signals), "a signal during the dispatch keeps the owner going")
+	goOn, drain := ls.settle(sess, head, dispatchPending, signals)
+	require.True(t, goOn, "a signal during the dispatch keeps the owner going")
+	require.False(t, drain)
 
-	// Nothing signals this time: the owner parks.
-	head, signals, ok = ls.head(sess)
+	// Nothing signals this time: the owner parks, and asks for the drain its pending head needs.
+	head, signals, ok, _ = ls.head(sess)
 	require.True(t, ok)
-	require.False(t, ls.settle(sess, head, dispatchPending, signals), "no signal: the lane parks")
+	goOn, drain = ls.settle(sess, head, dispatchPending, signals)
+	require.False(t, goOn, "no signal: the lane parks")
+	require.True(t, drain, "a lane parked on a pending head asks for a drain")
 
 	// A parked lane is listed by a wake and claimed by a worker.
 	require.True(t, ls.wake(sess))
@@ -462,30 +469,34 @@ func TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView(t *testing.T) 
 	require.False(t, more)
 	require.Equal(t, sess, got)
 
-	head, signals, ok = ls.head(sess)
+	head, signals, ok, _ = ls.head(sess)
 	require.True(t, ok)
-	require.True(t, ls.settle(sess, head, dispatchSettled, signals))
-	head, signals, ok = ls.head(sess)
+	goOn, _ = ls.settle(sess, head, dispatchSettled, signals)
+	require.True(t, goOn)
+	head, signals, ok, _ = ls.head(sess)
 	require.True(t, ok)
 	require.Equal(t, uint64(2), head.lease.ArrivalSeq)
-	require.True(t, ls.settle(sess, head, dispatchSettled, signals))
-	_, _, ok = ls.head(sess)
+	goOn, _ = ls.settle(sess, head, dispatchSettled, signals)
+	require.True(t, goOn)
+	_, _, ok, drain = ls.head(sess)
 	require.False(t, ok, "an emptied lane is released")
+	require.False(t, drain, "nothing was refused, so nothing needs a drain")
 	require.Zero(t, ls.held)
 	require.Empty(t, ls.lanes, "and forgotten")
 
 	// Capacity is shared by every lane.
 	for a := uint64(1); a <= 3; a++ {
-		_, full = ls.join(mk(a))
+		_, full, _ = ls.join(mk(a))
 		require.False(t, full)
 	}
-	_, full = ls.join(job{leased: true, lease: deliveryLease{Session: "other", ArrivalSeq: 1, Delivery: orderNonce(9)}})
+	_, full, drain = ls.join(job{leased: true, lease: deliveryLease{Session: "other", ArrivalSeq: 1, Delivery: orderNonce(9)}})
 	require.True(t, full, "a job past the capacity is not held")
+	require.True(t, drain, "no worker owns a lane for it, so its refusal asks for the drain itself")
 	require.Equal(t, 3, ls.held)
 }
 
 // TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass: the drain tells DrainConfig.Released
-// about the sessions whose leased lines it consumed only once its pass is over, once per session.
+// about the sessions whose leased lines it published only once its pass is over, once per session.
 // Releasing a session mid-pass woke its parked live lane while the same pass was still reading that
 // session's later lines: the woken worker took the next queued job, the pass then met that job's
 // line with its seen key held, and "delivery still in progress" aborted the pass (a flush answered
@@ -553,12 +564,14 @@ func liveOrderTool(dd *daemon, root string, sess core.SessionID, i int) ipc.Requ
 	}
 }
 
-// liveOrderSettleBound is the settle bound the two flush-ordering tests below give the flush in
-// place of the product's settleSessionBound. They assert WHAT the flush publishes before SessionEnd,
-// not how fast: a race-instrumented run with GOMAXPROCS=4 on a co-loaded host took more than the
-// product's 5 s to publish four deliveries, and the flush then correctly gave up and said so. What
-// the flush does when its bound expires is the subject of
-// TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing, with its own short bound.
+// liveOrderSettleBound is the overall settle limit the two flush-ordering tests below give the flush
+// in place of the product's settleSessionLimit(). They assert WHAT the flush publishes before
+// SessionEnd, not how fast: a race-instrumented run with GOMAXPROCS=4 on a co-loaded host took more
+// than the product's then-fixed 5 s to publish four deliveries, and the flush then correctly gave up
+// and said so. The product's per-delivery stall bound (settleSessionStall) still applies to them
+// unchanged; only the overall limit, which exists to answer inside the hook client's reply wait, is
+// lifted. What the flush does when a bound expires is the subject of
+// TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing, with its own short bounds.
 const liveOrderSettleBound = liveOrderBound
 
 // liveOrderFlush is the SessionEnd hook's request.
@@ -639,7 +652,7 @@ func TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd(t *testin
 		dd.stopPromptRecordings(grace)
 	})
 	dd.drain.Store(newDrainer(dd.drainConfig()))
-	dd.ing.settleBound = liveOrderSettleBound
+	laneTestSetSettle(dd, settleSessionStall, liveOrderSettleBound)
 
 	const sess core.SessionID = "sess-flush-settles"
 	release := make(chan struct{})
@@ -706,7 +719,7 @@ func TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd(t *testing.T) {
 		dd.stopPromptRecordings(grace)
 	})
 	dd.drain.Store(newDrainer(dd.drainConfig()))
-	dd.ing.settleBound = liveOrderSettleBound
+	laneTestSetSettle(dd, settleSessionStall, liveOrderSettleBound)
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	ctx := context.Background()
 
@@ -753,7 +766,7 @@ func TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing(t *testing.T) 
 		dd.stopPromptRecordings(grace)
 	})
 	dd.drain.Store(newDrainer(dd.drainConfig()))
-	dd.ing.settleBound = liveOrderTick // far shorter than the held delivery below
+	laneTestSetSettle(dd, liveOrderTick, liveOrderTick) // far shorter than the held delivery below
 
 	const sess core.SessionID = "sess-flush-unsettled"
 	release := make(chan struct{})

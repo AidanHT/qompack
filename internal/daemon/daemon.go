@@ -560,6 +560,9 @@ func (d *daemon) Run(ctx context.Context) error {
 	d.goRun(func() { d.hotPathWorker(runCtx) })
 
 	d.drain.Store(newDrainer(d.drainConfig()))
+	// The drains the ingest's lanes ask for (delivery_order.go drainOnRequest, C1.1). Started once the
+	// drainer exists, joined by Stop with the rest of runWG, and stopped by runCtx.
+	d.goRun(func() { d.drainOnRequest(runCtx) })
 
 	// Started here, before ipc.NewServer binds anything, rather than beside the `go server.Serve`
 	// it waits on. It costs nothing — the goroutine's first act is to block on d.firstServed, which
@@ -768,7 +771,8 @@ func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 // HoldsWAL asks that ingest first, so the drainer leaves a segment it holds without forgetting it.
 // SyncedWAL is that ingest's synced size, so the drainer never leases a line of a held segment
 // before the WAL Sync covering the line has returned. Released wakes the ingest's parked
-// same-session lane once the drain consumes one of the session's leased lines (C1.1).
+// same-session lane once a drain pass that published or retired one of the session's leased lines
+// has ended (drain.go releaseSessions, C1.1).
 func (d *daemon) drainConfig() DrainConfig {
 	return DrainConfig{
 		Root:      d.root,

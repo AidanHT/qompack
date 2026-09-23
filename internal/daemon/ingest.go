@@ -165,9 +165,14 @@ type ingest struct {
 	// the ready list itself lives in lanes, so a signal is never lost, only merged.
 	lanes *dispatchLanes
 	wake  chan struct{}
-	// settleBound, when positive, replaces settleSessionBound as how long a flush waits for its
-	// session to settle (daemon.settleSession). Only tests set it, to reach the unsettled path.
-	settleBound time.Duration
+	// drainKick carries the lanes' requests for a drain pass (requestDrain) to the daemon's drain
+	// requester (daemon.drainOnRequest). It has room for one request: requests made while one is
+	// pending merge into it.
+	drainKick chan struct{}
+	// settleStall and settleLimit, when positive, replace settleSessionStall and settleSessionLimit()
+	// as how long a flush waits for its session to settle (daemon.settleSession). Only tests set them.
+	settleStall time.Duration
+	settleLimit time.Duration
 
 	// journal resolves the daemon's held delivery journal. It is a function rather than a field
 	// because the journal belongs to the singleton Lock, which Run acquires after the ingest queue
@@ -192,23 +197,24 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 	}
 
 	return &ingest{
-		root:     root,
-		cfg:      cfg,
-		log:      log,
-		m:        m,
-		clk:      clk,
-		spoolDir: paths.Of(root).Spool,
-		histBB:   histName(obs.BB),
-		histBC:   histName(obs.BC),
-		wals:     map[core.SessionID]*walFile{},
-		synced:   map[string]int64{},
-		walQ:     groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
-		writeWAL: (*os.File).Write,
-		syncWAL:  (*os.File).Sync,
-		ring:     make(chan job, ringCapacity),
-		seen:     newSeenSet(seenCapacity),
-		lanes:    newDispatchLanes(laneCapacity),
-		wake:     make(chan struct{}, 1),
+		root:      root,
+		cfg:       cfg,
+		log:       log,
+		m:         m,
+		clk:       clk,
+		spoolDir:  paths.Of(root).Spool,
+		histBB:    histName(obs.BB),
+		histBC:    histName(obs.BC),
+		wals:      map[core.SessionID]*walFile{},
+		synced:    map[string]int64{},
+		walQ:      groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
+		writeWAL:  (*os.File).Write,
+		syncWAL:   (*os.File).Sync,
+		ring:      make(chan job, ringCapacity),
+		seen:      newSeenSet(seenCapacity),
+		lanes:     newDispatchLanes(laneCapacity, laneSessionCapacity),
+		wake:      make(chan struct{}, 1),
+		drainKick: make(chan struct{}, 1),
 	}
 }
 
@@ -305,6 +311,10 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 		default:
 			if i.m != nil {
 				i.m.Counter(counterL0RingFull).Add(1)
+			}
+			if leased {
+				// Only the WAL holds it now, and its session's later arrivals wait on it (C1.1).
+				i.requestDrain()
 			}
 		}
 		return nil
@@ -664,9 +674,14 @@ func (i *ingest) route(ctx context.Context, run func(context.Context, ipc.Reques
 		i.dispatch(ctx, run, j)
 		return
 	}
-	own, full := i.lanes.join(j)
-	if full && i.m != nil {
-		i.m.Counter(counterOrderingLaneFull).Add(1)
+	own, full, drain := i.lanes.join(j)
+	if full {
+		if i.m != nil {
+			i.m.Counter(counterOrderingLaneFull).Add(1)
+		}
+		if drain {
+			i.requestDrain()
+		}
 	}
 	if own {
 		i.runLane(ctx, run, j.lease.Session)
@@ -675,21 +690,41 @@ func (i *ingest) route(ctx context.Context, run func(context.Context, ipc.Reques
 
 // runLane dispatches sess's queued jobs, lowest arrival first, for as long as this worker owns the
 // lane: until it empties, or its head stays pending with nothing to retry it for (the lane parks,
-// and a later join or wake runs it again). It stops between jobs once ctx is done; the jobs it
-// leaves are durable in the WAL.
+// and a later join or wake runs it again). When the lane parks on a head only a drain can now
+// publish, or runs dry after the lanes refused one of its session's jobs, it asks for that drain. It
+// stops between jobs once ctx is done; the jobs it leaves are durable in the WAL.
 func (i *ingest) runLane(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, sess core.SessionID) {
 	for {
-		j, signals, ok := i.lanes.head(sess)
+		j, signals, ok, drain := i.lanes.head(sess)
 		if !ok {
+			if drain {
+				i.requestDrain()
+			}
 			return
 		}
 		if ctx.Err() != nil {
 			i.lanes.park(sess)
 			return
 		}
-		if !i.lanes.settle(sess, j, i.dispatch(ctx, run, j), signals) {
+		goOn, drain := i.lanes.settle(sess, j, i.dispatch(ctx, run, j), signals)
+		if !goOn {
+			if drain {
+				i.requestDrain()
+			}
 			return
 		}
+	}
+}
+
+// requestDrain asks the daemon's drain requester (daemon.drainOnRequest) for a pass, without ever
+// blocking: a request made while one is pending merges into it.
+func (i *ingest) requestDrain() {
+	if i.m != nil {
+		i.m.Counter(counterOrderingDrainRequested).Add(1)
+	}
+	select {
+	case i.drainKick <- struct{}{}:
+	default:
 	}
 }
 
@@ -705,9 +740,9 @@ func (i *ingest) runWoken(ctx context.Context, run func(context.Context, ipc.Req
 	}
 }
 
-// wakeSession tells sess's lane that one of the session's leased deliveries was consumed outside the
-// worker pool -- the drain acknowledged, retired or absorbed it -- so a live successor parked behind
-// it runs again instead of waiting for the next drain (DrainConfig.Released). It never blocks.
+// wakeSession tells sess's lane that one of the session's leased deliveries was settled outside the
+// worker pool -- a drain pass published it or retired it -- so a live successor parked behind it
+// runs again instead of waiting for the next drain (DrainConfig.Released). It never blocks.
 func (i *ingest) wakeSession(sess core.SessionID) {
 	if i.lanes.wake(sess) {
 		i.signalWake()
@@ -749,7 +784,7 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		return dispatchSettled
 	}
 	if !acquired {
-		return dispatchPending // another handler owns it; the drain wakes the lane when it is done
+		return dispatchBusy // another handler owns it; the drain wakes the lane when its pass ends
 	}
 	acknowledged := false
 	defer func() { i.seen.finish(j.key, acknowledged) }()
@@ -786,8 +821,8 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		// frontier. A blocked predecessor makes this delivery retryable — publish nothing, run
 		// nothing, leave the WAL bytes and any blob intact, and release seen ownership (acknowledged
 		// stays false). It stays queued in its session's lane, which re-dispatches it when the lane is
-		// next joined or woken once the predecessor is acknowledged, and a drain retries it too
-		// (delivery_order.go). It never waits on another worker.
+		// next joined or woken once the predecessor is acknowledged; the parked lane asks for a drain,
+		// which retries it too (delivery_order.go). It never waits on another worker.
 		if !i.leasedPredecessorsReady(j.lease, j.leased) {
 			if i.m != nil {
 				i.m.Counter(counterOrderingDeferred).Add(1)

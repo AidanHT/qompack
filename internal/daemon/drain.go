@@ -207,13 +207,17 @@ type DrainConfig struct {
 	// file as not held.
 	SyncedWAL func(path string) (synced int64, held bool)
 	// Released is told, once per pass and only when the pass is over, every session of which the
-	// pass consumed a leased line — acknowledged by the pass, found already acknowledged or complete,
-	// or retired by a proven denial. The daemon wires the ingest's wakeSession: a live successor the
-	// worker pool parked behind such a delivery (delivery_order.go's lanes) is then run again at once
-	// rather than at the next drain. Not mid-pass: a lane woken then would dispatch the session's
-	// next queued job while this pass was still to read that job's line, and the pass would meet it
-	// in progress and stop. It is called with the drain's mutex held, so it must not block or drain.
-	// A nil Released tells nobody.
+	// pass itself published a leased line or retired one by a proven denial. The daemon wires the
+	// ingest's wakeSession: a live successor the worker pool parked behind such a delivery
+	// (delivery_order.go's lanes) is then run again at once rather than at the next drain. Not
+	// mid-pass: a lane woken then would dispatch the session's next queued job while this pass was
+	// still to read that job's line, and the pass would meet it in progress and stop. Not for a line
+	// the pass merely found already acknowledged, retired or complete: whoever settled it told the
+	// lane then, and a spool file whose offset waits on another session is re-read by every pass, so
+	// releasing its settled lines again would wake a parked lane on every pass — and a parked lane
+	// asks for a drain (ingest.requestDrain), so a session whose head keeps failing would drain
+	// forever. It is called with the drain's mutex held, so it must not block or drain. A nil
+	// Released tells nobody.
 	Released func(sess core.SessionID)
 }
 
@@ -476,30 +480,32 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 
 	// processOne runs one line through the frontier, ordering, seen and dispatch stages. done means
 	// the line was consumed (roll the offset); deferIt means it is blocked on an unacknowledged
-	// predecessor (retryable); dispatched means a real publication happened, so it counts; a hard
-	// error ends the pass. It serves a freshly read line and a deferred re-attempt alike.
-	processOne := func(dl deferredLine) (done, deferIt, dispatched bool, hardErr error) {
+	// predecessor (retryable); dispatched means a real publication happened, so it counts; changed
+	// means this pass published the line or retired it by a proven denial, which is what
+	// DrainConfig.Released reports; a hard error ends the pass. It serves a freshly read line and a
+	// deferred re-attempt alike.
+	processOne := func(dl deferredLine) (done, deferIt, dispatched, changed bool, hardErr error) {
 		if dl.leased {
 			retired, err := terminalForDelivery(dr.cfg.Journal, dl.lease)
 			if err != nil {
-				return false, false, false, err
+				return false, false, false, false, err
 			}
 			if retired {
 				gaps.add(base, DrainGapDenied, "replay retired by policy denial")
 				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 					fs.PendingBlobs = append(fs.PendingBlobs, blob)
 				}
-				return true, false, false, nil
+				return true, false, false, false, nil
 			}
 		}
 		if dl.leased && dr.acknowledgedDelivery(dl.lease, dl.leased) {
 			if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
-			return true, false, false, nil
+			return true, false, false, false, nil
 		}
 		if !dr.leasedPredecessorsReady(dl.lease, dl.leased) {
-			return false, true, false, nil
+			return false, true, false, false, nil
 		}
 		if dr.cfg.Seen != nil {
 			completed, acquired := dr.cfg.Seen.begin(dl.key)
@@ -510,10 +516,10 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 					fs.PendingBlobs = append(fs.PendingBlobs, blob)
 				}
-				return true, false, false, nil
+				return true, false, false, false, nil
 			}
 			if !acquired {
-				return false, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
+				return false, false, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
 			}
 		}
 		blob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased)
@@ -525,16 +531,16 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 			if blob != "" {
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
-			return true, false, false, nil
+			return true, false, false, dl.leased, nil // dispatchPending retired a leased one
 		}
 		if dispatchErr != nil {
 			gaps.add(base, DrainGapUnacknowledged, "publication did not reach the frontier")
-			return false, false, false, dispatchErr
+			return false, false, false, false, dispatchErr
 		}
 		if blob != "" {
 			fs.PendingBlobs = append(fs.PendingBlobs, blob)
 		}
-		return true, false, true, nil
+		return true, false, true, true, nil
 	}
 
 	// reattempt re-runs the deferred lines after a consume may have acknowledged a predecessor, to a
@@ -549,7 +555,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				if err := ctx.Err(); err != nil {
 					return err
 				}
-				done, _, dispatched, err := processOne(deferred[idx])
+				done, _, dispatched, changed, err := processOne(deferred[idx])
 				if err != nil {
 					return err
 				}
@@ -559,7 +565,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				}
 				dl := deferred[idx]
 				consume(dl.start, dl.next)
-				if dl.leased {
+				if changed && dl.leased {
 					dr.released(dl.lease)
 				}
 				if dispatched {
@@ -623,10 +629,13 @@ readLoop:
 		// A previous lease can survive a later policy change. A proven denial
 		// retires it durably before the offset; uncertainty retains the source.
 		var retired deliveryLease
-		retiredHeld := false
+		retiredHere := false
 		if verdict.Denied || verdict.Failed {
 			lease, held, err := dr.existingLease(req)
 			if err == nil && held && verdict.Denied {
+				// Only a retirement this pass makes is news to the session's lane (DrainConfig.Released).
+				already, terr := terminalForDelivery(dr.cfg.Journal, lease)
+				retiredHere = terr != nil || !already
 				err = dr.retireDeniedDelivery(ctx, lease)
 			}
 			if err != nil || (held && verdict.Failed) {
@@ -636,7 +645,7 @@ readLoop:
 				gaps.add(base, DrainGapUnadmitted, "refused replay has unresolved delivery identity or policy")
 				continue
 			}
-			retired, retiredHeld = lease, held
+			retired = lease
 		}
 		switch {
 		case verdict.Denied:
@@ -645,7 +654,7 @@ readLoop:
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
 			consume(lineStart, nextOffset)
-			if retiredHeld {
+			if retiredHere {
 				dr.released(retired)
 			}
 			if err := reattempt(); err != nil {
@@ -689,7 +698,7 @@ readLoop:
 			req: req, lease: lease, leased: leased,
 			key: deliveryIdentityKey(lease, leased, line), start: lineStart, next: nextOffset,
 		}
-		done, deferIt, dispatched, err := processOne(dl)
+		done, deferIt, dispatched, changed, err := processOne(dl)
 		if err != nil {
 			readErr = err
 			break readLoop
@@ -712,7 +721,7 @@ readLoop:
 		}
 		if done {
 			consume(lineStart, nextOffset)
-			if dl.leased {
+			if changed && dl.leased {
 				dr.released(dl.lease)
 			}
 			if dispatched {
@@ -1449,8 +1458,8 @@ func (dr *drainer) leaseDelivery(ctx context.Context, req ipc.Request) (delivery
 	return lease, true
 }
 
-// released records that the pass consumed a line of lease's session, for releaseSessions to report
-// when the pass ends. mu must be held.
+// released records that the pass published or retired a line of lease's session, for
+// releaseSessions to report when the pass ends. mu must be held.
 func (dr *drainer) released(lease deliveryLease) {
 	if dr.cfg.Released == nil {
 		return
