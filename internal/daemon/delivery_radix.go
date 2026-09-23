@@ -120,10 +120,17 @@ const (
 	// two child locations (pack id + offset each).
 	radixRecordHeaderLen = 4
 	radixTrailerLen      = 32
+	// radixRecordReadAhead is how much of a record the first positioned read takes: enough for the
+	// header, a lease-sized leaf or a branch and its trailer. //nomagic:allow read size, not a budget
+	radixRecordReadAhead = 512
 	// radixMaxOpenPacks bounds the pack handles one index keeps open. //nomagic:allow handle-cache bound
 	radixMaxOpenPacks = 64
 	// radixPackWriteBuffer sizes the sequential pack writer. //nomagic:allow I/O buffer size, not a budget
 	radixPackWriteBuffer = 1 << 20
+	// radixNodeCacheMax bounds the decoded committed BRANCH pages one index keeps in memory (a few
+	// hundred bytes each). The upper levels of the tree are on every path, so caching them turns most
+	// of a lookup's positioned reads into map hits. //nomagic:allow in-memory cache bound, not a budget
+	radixNodeCacheMax = 1 << 15
 )
 
 var (
@@ -187,6 +194,19 @@ type deliveryRadix struct {
 	packMu   sync.Mutex
 	packs    map[uint64]*radixPackHandle
 	packTick uint64
+
+	// cacheMu guards cache: decoded COMMITTED branch pages, by content hash, with the location each was
+	// read from or written to. A committed page is immutable and named by its hash, so a cached entry
+	// can never go stale; only pages read and verified from disk, or published by a commit that
+	// succeeded, are ever entered. Bounded by radixNodeCacheMax.
+	cacheMu sync.Mutex
+	cache   map[radixHash]radixCached
+}
+
+// radixCached is one cached committed page and its own location.
+type radixCached struct {
+	node radixNode
+	loc  radixLoc
 }
 
 type radixPackHandle struct {
@@ -306,11 +326,56 @@ func (r *deliveryRadix) nodeAt(pend map[radixHash]*radixNode, h radixHash, loc r
 			return *n, radixLoc{}, nil
 		}
 	}
-	if loc.valid() {
-		n, err := r.readRecord(h, loc)
-		return n, loc, err
+	if c, ok := r.cached(h); ok {
+		return c.node, c.loc, nil
 	}
-	return r.readRoot(h)
+	var (
+		n   radixNode
+		err error
+	)
+	if loc.valid() {
+		n, err = r.readRecord(h, loc)
+	} else {
+		n, loc, err = r.readRoot(h)
+	}
+	if err != nil {
+		return radixNode{}, radixLoc{}, err
+	}
+	r.remember(h, n, loc)
+	return n, loc, nil
+}
+
+// cached returns the cached committed page named h, if any.
+func (r *deliveryRadix) cached(h radixHash) (radixCached, bool) {
+	r.cacheMu.Lock()
+	defer r.cacheMu.Unlock()
+	c, ok := r.cache[h]
+	return c, ok
+}
+
+// remember enters a committed BRANCH page read or published at loc. At the bound it first drops an
+// eighth of the entries (the map's own iteration order picks them), so the cache stays bounded and a
+// dropped page is simply read again when it is next on a path.
+func (r *deliveryRadix) remember(h radixHash, n radixNode, loc radixLoc) {
+	if n.kind != radixKindBranch || !loc.valid() {
+		return
+	}
+	r.cacheMu.Lock()
+	defer r.cacheMu.Unlock()
+	if r.cache == nil {
+		r.cache = map[radixHash]radixCached{}
+	}
+	if len(r.cache) >= radixNodeCacheMax {
+		drop := radixNodeCacheMax / 8
+		for k := range r.cache {
+			if drop == 0 {
+				break
+			}
+			delete(r.cache, k)
+			drop--
+		}
+	}
+	r.cache[h] = radixCached{node: n, loc: loc}
 }
 
 // insert returns the root of the tree that is root with (key → value) added or updated, and makes it
@@ -329,17 +394,22 @@ func (r *deliveryRadix) insert(ctx context.Context, root radixHash, key, value [
 	return next, nil
 }
 
-// radixTxn is one write transaction: the pages its inserts create, held in memory until commit writes
-// the ones the final root reaches. It is used by one goroutine; readers of committed roots never see it.
+// radixTxn is one write transaction: the pages its inserts create, held in memory (decoded; their
+// bytes are re-encoded deterministically when committed) until commit writes the ones the final root
+// reaches. It is used by one goroutine; readers of committed roots never see it.
 type radixTxn struct {
 	r       *deliveryRadix
 	pending map[radixHash]*radixNode
-	raw     map[radixHash][]byte
 }
 
 func (r *deliveryRadix) begin() *radixTxn {
-	return &radixTxn{r: r, pending: map[radixHash]*radixNode{}, raw: map[radixHash][]byte{}}
+	return &radixTxn{r: r, pending: map[radixHash]*radixNode{}}
 }
+
+// radixDecide chooses what an update stores under its key, in the same traversal that finds what is
+// there: given the value already stored (found), it returns the value to store and whether to write
+// at all. An error aborts the update with nothing changed.
+type radixDecide func(old []byte, found bool) (value []byte, write bool, err error)
 
 // lookup is lookup over the committed tree plus this transaction's held pages.
 func (t *radixTxn) lookup(ctx context.Context, root radixHash, key []byte) ([]byte, bool, error) {
@@ -350,26 +420,58 @@ func (t *radixTxn) lookup(ctx context.Context, root radixHash, key []byte) ([]by
 func (t *radixTxn) held() int { return len(t.pending) }
 
 // insert adds (key → value) to root inside the transaction and returns the new root. Nothing is written
-// to disk until commit.
+// to disk until commit. An identical (key, value) leaves the root as it was.
 func (t *radixTxn) insert(ctx context.Context, root radixHash, key, value []byte) (radixHash, error) {
+	if len(value) > radixMaxValueBytes {
+		return radixHash{}, errRadixTooLarge
+	}
+	return t.update(ctx, root, key, func(old []byte, found bool) ([]byte, bool, error) {
+		if found && bytes.Equal(old, value) {
+			return nil, false, nil
+		}
+		return value, true, nil
+	})
+}
+
+// update is insert with the stored value decided by decide from what the one traversal finds under key
+// — the check-then-write a caller would otherwise make as a lookup and a second traversal. Nothing is
+// written to disk until commit; a decide that writes nothing leaves the root as it was.
+func (t *radixTxn) update(ctx context.Context, root radixHash, key []byte, decide radixDecide) (radixHash, error) {
 	if err := ctx.Err(); err != nil {
 		return radixHash{}, err
 	}
-	if len(key) == 0 || len(key) > radixMaxKeyBytes || len(value) > radixMaxValueBytes {
+	if len(key) == 0 || len(key) > radixMaxKeyBytes {
 		return radixHash{}, errRadixTooLarge
 	}
 	target := t.r.hashKey(key)
 	if root.isZero() {
+		value, write, err := decideChecked(decide, nil, false)
+		if err != nil || !write {
+			return root, err
+		}
 		return t.writeLeaf(target, key, value)
 	}
-	h, _, err := t.insertAt(ctx, root, radixLoc{}, 0, target, key, value)
+	h, _, err := t.insertAt(ctx, root, radixLoc{}, 0, target, key, decide)
 	return h, err
 }
 
+// decideChecked runs decide and bounds the value it chose.
+func decideChecked(decide radixDecide, old []byte, found bool) ([]byte, bool, error) {
+	value, write, err := decide(old, found)
+	if err != nil || !write {
+		return nil, false, err
+	}
+	if len(value) > radixMaxValueBytes {
+		return nil, false, errRadixTooLarge
+	}
+	return value, true, nil
+}
+
 // insertAt returns the new hash (and, when unchanged, the location) of the subtree rooted at cur
-// (reached at depth) after adding (target,key,value). Path-copy happens as the recursion unwinds; a page
-// the transaction held and has now replaced is dropped. Depth is bounded by the hash width.
-func (t *radixTxn) insertAt(ctx context.Context, cur radixHash, curLoc radixLoc, depth int, target radixHash, key, value []byte) (radixHash, radixLoc, error) {
+// (reached at depth) after deciding what (target,key) stores. Path-copy happens as the recursion
+// unwinds; a page the transaction held and has now replaced is dropped. Depth is bounded by the hash
+// width.
+func (t *radixTxn) insertAt(ctx context.Context, cur radixHash, curLoc radixLoc, depth int, target radixHash, key []byte, decide radixDecide) (radixHash, radixLoc, error) {
 	if err := ctx.Err(); err != nil {
 		return radixHash{}, radixLoc{}, err
 	}
@@ -389,8 +491,12 @@ func (t *radixTxn) insertAt(ctx context.Context, cur radixHash, curLoc radixLoc,
 			if !bytes.Equal(node.key, key) {
 				return radixHash{}, radixLoc{}, errRadixCollision // same digest, different key: refuse, never overwrite
 			}
-			if bytes.Equal(node.value, value) {
-				return cur, ownLoc, nil // an identical (key,value): the existing page stands
+			value, write, err := decideChecked(decide, node.value, true)
+			if err != nil {
+				return radixHash{}, radixLoc{}, err
+			}
+			if !write {
+				return cur, ownLoc, nil // the decision keeps what is stored: the existing page stands
 			}
 			t.drop(cur)
 			h, err := t.writeLeaf(target, key, value) // same key: a new value
@@ -400,6 +506,13 @@ func (t *radixTxn) insertAt(ctx context.Context, cur radixHash, curLoc radixLoc,
 		p := firstDiffBit(node.keyHash[:], target[:], depth)
 		if p < depth || p >= radixHashBits {
 			return radixHash{}, radixLoc{}, errRadixUnavailable
+		}
+		value, write, err := decideChecked(decide, nil, false)
+		if err != nil {
+			return radixHash{}, radixLoc{}, err
+		}
+		if !write {
+			return cur, ownLoc, nil
 		}
 		h, err := t.split(depth, p, target, key, value, cur, ownLoc) // the resident leaf is reused unchanged
 		return h, radixLoc{}, err
@@ -418,7 +531,7 @@ func (t *radixTxn) insertAt(ctx context.Context, cur radixHash, curLoc radixLoc,
 			if childHash.isZero() {
 				return radixHash{}, radixLoc{}, errRadixUnavailable
 			}
-			newChild, newLoc, err := t.insertAt(ctx, childHash, childLoc, splitBit+1, target, key, value)
+			newChild, newLoc, err := t.insertAt(ctx, childHash, childLoc, splitBit+1, target, key, decide)
 			if err != nil {
 				return radixHash{}, radixLoc{}, err
 			}
@@ -441,6 +554,13 @@ func (t *radixTxn) insertAt(ctx context.Context, cur radixHash, curLoc radixLoc,
 		newSkipLen := splitBit - (p + 1)
 		if newSkipLen < 0 {
 			return radixHash{}, radixLoc{}, errRadixUnavailable
+		}
+		value, write, err := decideChecked(decide, nil, false)
+		if err != nil {
+			return radixHash{}, radixLoc{}, err
+		}
+		if !write {
+			return cur, ownLoc, nil
 		}
 		rebased, err := t.writeBranch(newSkipLen, packBits(node.skipBits, (p+1)-depth, newSkipLen), node.child0, node.loc0, node.child1, node.loc1)
 		if err != nil {
@@ -475,7 +595,6 @@ func (t *radixTxn) split(depth, p int, target radixHash, key, value []byte, othe
 // the replaced page is unreachable from the new root. A committed page is never dropped.
 func (t *radixTxn) drop(h radixHash) {
 	delete(t.pending, h)
-	delete(t.raw, h)
 }
 
 func (t *radixTxn) writeLeaf(keyHash radixHash, key, value []byte) (radixHash, error) {
@@ -504,7 +623,6 @@ func (t *radixTxn) hold(raw []byte, node radixNode) (radixHash, error) {
 	}
 	h := radixDigest(radixPageDomain, raw)
 	t.pending[h] = &node
-	t.raw[h] = raw
 	return h, nil
 }
 
@@ -522,42 +640,55 @@ func (t *radixTxn) commit(ctx context.Context, root radixHash) error {
 	if _, held := t.pending[root]; !held {
 		return nil
 	}
-	rootLoc, err := t.writePack(root)
+	rootLoc, published, err := t.writePack(root)
 	if err != nil {
 		return err
 	}
 	if err := t.r.publishRoot(root, rootLoc); err != nil {
 		return err
 	}
-	t.pending, t.raw = map[radixHash]*radixNode{}, map[radixHash][]byte{}
+	// The pages are durable and the root is published: the branches just written are the newest top
+	// of the tree, the pages the next lookups and the next transaction read first.
+	for _, c := range published {
+		t.r.remember(c.hash, c.node, c.loc)
+	}
+	t.pending = map[radixHash]*radixNode{}
 	return nil
 }
 
+// radixPublished is one page a commit wrote, with the location it was written at.
+type radixPublished struct {
+	hash radixHash
+	node radixNode
+	loc  radixLoc
+}
+
 // writePack streams the held pages root reaches into a staged pack and publishes it. It returns the
-// root record's location.
-func (t *radixTxn) writePack(root radixHash) (radixLoc, error) {
+// root record's location and the branch pages it wrote, with their locations.
+func (t *radixTxn) writePack(root radixHash) (radixLoc, []radixPublished, error) {
 	r := t.r
 	if err := r.ensurePacksDir(); err != nil {
-		return radixLoc{}, err
+		return radixLoc{}, nil, err
 	}
 	id, err := radixPackID()
 	if err != nil {
-		return radixLoc{}, err
+		return radixLoc{}, nil, err
 	}
 	suffix, err := radixTempSuffix()
 	if err != nil {
-		return radixLoc{}, err
+		return radixLoc{}, nil, err
 	}
 	tmp := filepath.Join(radixPacksDir, radixTempPrefix+suffix)
 	f, err := r.root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return radixLoc{}, err
+		return radixLoc{}, nil, err
 	}
-	discard := func(cause error) (radixLoc, error) {
+	discard := func(cause error) (radixLoc, []radixPublished, error) {
 		_ = f.Close()
 		_ = r.root.Remove(tmp)
-		return radixLoc{}, cause
+		return radixLoc{}, nil, cause
 	}
+	var published []radixPublished
 	w := bufio.NewWriterSize(f, radixPackWriteBuffer)
 	if _, err := w.WriteString(radixPackMagic); err != nil {
 		return discard(err)
@@ -565,8 +696,8 @@ func (t *radixTxn) writePack(root radixHash) (radixLoc, error) {
 	offset := uint64(radixPackHeaderLen)
 	var emit func(h radixHash) (radixLoc, error)
 	emit = func(h radixHash) (radixLoc, error) {
-		node, raw := t.pending[h], t.raw[h]
-		if node == nil || raw == nil {
+		node := t.pending[h]
+		if node == nil {
 			return radixLoc{}, errRadixUnavailable // a held page names a child nobody holds or committed
 		}
 		if node.kind == radixKindBranch {
@@ -585,12 +716,21 @@ func (t *radixTxn) writePack(root radixHash) (radixLoc, error) {
 				node.loc1 = loc
 			}
 		}
+		// The page bytes are re-encoded from the held node (the encoding is deterministic) and checked
+		// against the name the tree already gave them, so a page is never written under a wrong name.
+		raw := encodeRadixNode(*node)
+		if radixDigest(radixPageDomain, raw) != h {
+			return radixLoc{}, errRadixUnavailable
+		}
 		rec := encodeRadixRecord(raw, *node)
 		loc := radixLoc{pack: id, off: offset}
 		if _, err := w.Write(rec); err != nil {
 			return radixLoc{}, err
 		}
 		offset += uint64(len(rec))
+		if node.kind == radixKindBranch {
+			published = append(published, radixPublished{hash: h, node: *node, loc: loc})
+		}
 		return loc, nil
 	}
 	rootLoc, err := emit(root)
@@ -605,21 +745,21 @@ func (t *radixTxn) writePack(root radixHash) (radixLoc, error) {
 	}
 	if err := f.Close(); err != nil {
 		_ = r.root.Remove(tmp)
-		return radixLoc{}, err
+		return radixLoc{}, nil, err
 	}
 	name := filepath.Join(radixPacksDir, radixPackName(id))
 	// Link claims an absent name atomically; a pack is never replaced once published.
 	if err := r.root.Link(tmp, name); err != nil {
 		_ = r.root.Remove(tmp)
-		return radixLoc{}, err
+		return radixLoc{}, nil, err
 	}
 	if err := r.root.Remove(tmp); err != nil {
-		return radixLoc{}, err
+		return radixLoc{}, nil, err
 	}
 	if err := paths.SyncDir(filepath.Join(r.dir, radixPacksDir)); err != nil {
-		return radixLoc{}, err
+		return radixLoc{}, nil, err
 	}
-	return rootLoc, nil
+	return rootLoc, published, nil
 }
 
 // encodeRadixRecord is one pack record: a big-endian length, the page bytes, and for a branch the two
@@ -850,23 +990,35 @@ func (r *deliveryRadix) readRecordBytes(h radixHash, loc radixLoc) ([]byte, []by
 	if off > ph.size || ph.size-off < int64(radixRecordHeaderLen) {
 		return nil, nil, errRadixUnavailable
 	}
-	var hdr [radixRecordHeaderLen]byte
-	if _, err := ph.f.ReadAt(hdr[:], off); err != nil {
+	// One positioned read covers the header, the page and a branch's trailer for almost every record
+	// (radixRecordReadAhead); only a larger record needs a second read for the rest.
+	avail := ph.size - off
+	first := int64(radixRecordReadAhead)
+	if first > avail {
+		first = avail
+	}
+	buf := make([]byte, first)
+	if _, err := ph.f.ReadAt(buf, off); err != nil {
 		return nil, nil, errRadixUnavailable
 	}
-	n := int64(binary.BigEndian.Uint32(hdr[:]))
-	avail := ph.size - off - int64(radixRecordHeaderLen)
-	if n < 6 || n > int64(radixMaxPageBytes) || n > avail {
+	n := int64(binary.BigEndian.Uint32(buf[:radixRecordHeaderLen]))
+	body := avail - int64(radixRecordHeaderLen)
+	if n < 6 || n > int64(radixMaxPageBytes) || n > body {
 		return nil, nil, errRadixUnavailable
 	}
-	want := n + int64(radixTrailerLen)
+	want := int64(radixRecordHeaderLen) + n + int64(radixTrailerLen)
 	if want > avail {
 		want = avail
 	}
-	buf := make([]byte, want)
-	if _, err := ph.f.ReadAt(buf, off+int64(radixRecordHeaderLen)); err != nil {
-		return nil, nil, errRadixUnavailable // a truncated pack included
+	if want > first {
+		more := make([]byte, want)
+		copy(more, buf)
+		if _, err := ph.f.ReadAt(more[first:], off+first); err != nil {
+			return nil, nil, errRadixUnavailable // a truncated pack included
+		}
+		buf = more
 	}
+	buf = buf[radixRecordHeaderLen:want]
 	raw := buf[:n]
 	if radixDigest(radixPageDomain, raw) != h {
 		return nil, nil, errRadixUnavailable // corrupt or tampered content, or a wrong location
@@ -984,6 +1136,14 @@ func radixPackID() (uint64, error) {
 }
 
 // ── deterministic, versioned page encoding ───────────────────────────────────────────────────────
+
+// encodeRadixNode re-encodes a decoded page exactly as it was first encoded.
+func encodeRadixNode(n radixNode) []byte {
+	if n.kind == radixKindBranch {
+		return encodeRadixBranch(n.skipLen, n.skipBits, n.child0, n.child1)
+	}
+	return encodeRadixLeaf(n.keyHash, n.key, n.value)
+}
 
 func encodeRadixLeaf(keyHash radixHash, key, value []byte) []byte {
 	buf := make([]byte, 0, 6+radixHashBytes+2*binary.MaxVarintLen64+len(key)+len(value))
