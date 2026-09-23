@@ -121,15 +121,15 @@ const (
 	radixRecordHeaderLen = 4
 	radixTrailerLen      = 32
 	// radixRecordReadAhead is how much of a record the first positioned read takes: enough for the
-	// header, a lease-sized leaf or a branch and its trailer. //nomagic:allow read size, not a budget
+	// header, a lease-sized leaf or a branch and its trailer.
 	radixRecordReadAhead = 512
-	// radixMaxOpenPacks bounds the pack handles one index keeps open. //nomagic:allow handle-cache bound
+	// radixMaxOpenPacks bounds the pack handles one index keeps open.
 	radixMaxOpenPacks = 64
-	// radixPackWriteBuffer sizes the sequential pack writer. //nomagic:allow I/O buffer size, not a budget
+	// radixPackWriteBuffer sizes the sequential pack writer.
 	radixPackWriteBuffer = 1 << 20
 	// radixNodeCacheMax bounds the decoded committed BRANCH pages one index keeps in memory (a few
 	// hundred bytes each). The upper levels of the tree are on every path, so caching them turns most
-	// of a lookup's positioned reads into map hits. //nomagic:allow in-memory cache bound, not a budget
+	// of a lookup's positioned reads into map hits.
 	radixNodeCacheMax = 1 << 15
 )
 
