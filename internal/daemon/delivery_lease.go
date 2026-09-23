@@ -1509,23 +1509,17 @@ func (j *deliveryJournal) reconcileGenerations(ctx context.Context) error {
 		leases = append(leases, l)
 	}
 	sort.Slice(leases, func(a, b int) bool { return leaseBefore(leases[a], leases[b]) })
-	if _, err := j.gen.commit(ctx, leases); err != nil {
-		return err
-	}
 	acks := make([]deliveryAck, 0, len(j.acks))
 	for _, a := range j.acks {
 		acks = append(acks, a)
 	}
 	sortAcks(acks)
-	if err := j.gen.commitAck(ctx, acks); err != nil {
-		return err
-	}
 	terminals := make([]deliveryTerminal, 0, len(j.terminal))
 	for _, tm := range j.terminal {
 		terminals = append(terminals, tm)
 	}
 	sort.Slice(terminals, func(a, b int) bool { return terminals[a].Lease.Delivery < terminals[b].Lease.Delivery })
-	return j.gen.commitTerminal(ctx, terminals)
+	return j.gen.archiveWindow(ctx, leases, acks, terminals)
 }
 
 // switchToSegment drops the outgoing segment's handles (its files remain on disk as retention/evidence),

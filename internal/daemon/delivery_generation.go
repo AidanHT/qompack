@@ -314,23 +314,33 @@ type radixReader interface {
 // exact, valid superset of the one before. //nomagic:allow in-memory page bound, not a budget
 const genTxnMaxHeld = 1 << 15
 
-// genWriter is one commit call's running state: the transaction, the root it has reached, and the
-// generation store it publishes intermediate generations to when the transaction reaches its bound.
+// genWriter is one commit call's running state: the transaction, the root it has reached, the sessions
+// whose settled frontier the batch may have moved, and the generation store it publishes intermediate
+// generations to when the transaction reaches its bound.
 type genWriter struct {
-	g    *deliveryGenerations
-	tx   *radixTxn
-	root radixHash
+	g       *deliveryGenerations
+	tx      *radixTxn
+	root    radixHash
+	settled []core.SessionID // sessions with a new settlement since their frontier was last advanced
+	seen    map[core.SessionID]bool
+	// window, when archiveWindow is the caller, answers the frontier walk for the window's own
+	// arrivals (archiveWindowIndex); nil otherwise.
+	window *archiveWindowIndex
 }
 
 func (g *deliveryGenerations) writer() *genWriter {
-	return &genWriter{g: g, tx: g.radix.begin(), root: g.root}
+	return &genWriter{g: g, tx: g.radix.begin(), root: g.root, seen: map[core.SessionID]bool{}}
 }
 
-// spill publishes the transaction's work so far as a generation when it holds more than the bound.
-// The caller holds g.mu.
+// spill publishes the transaction's work so far as a generation when it holds more than the bound, with
+// every touched session's frontier advanced first so each published generation is consistent. The
+// caller holds g.mu.
 func (w *genWriter) spill(ctx context.Context) error {
 	if w.tx.held() < genTxnMaxHeld {
 		return nil
+	}
+	if err := w.advanceFrontiers(ctx); err != nil {
+		return err
 	}
 	if _, err := w.g.finishCommit(ctx, w.tx, w.root); err != nil {
 		return err
@@ -348,11 +358,45 @@ func (w *genWriter) insert(ctx context.Context, key, value []byte) error {
 	return nil
 }
 
+func (w *genWriter) update(ctx context.Context, key []byte, decide radixDecide) error {
+	next, err := w.tx.update(ctx, w.root, key, decide)
+	if err != nil {
+		return err
+	}
+	w.root = next
+	return nil
+}
+
+// touched records that session gained a settlement whose frontier advance is still owed.
+func (w *genWriter) touched(session core.SessionID) {
+	if !w.seen[session] {
+		w.seen[session] = true
+		w.settled = append(w.settled, session)
+	}
+}
+
+// advanceFrontiers advances every touched session's frontier once. The watermark only moves past
+// contiguous settled arrivals and stops at the first unsettled one, so advancing once after a session's
+// settlements are all recorded reaches exactly the value advancing after each of them would.
+func (w *genWriter) advanceFrontiers(ctx context.Context) error {
+	for _, session := range w.settled {
+		if err := w.advanceFrontier(ctx, session); err != nil {
+			return err
+		}
+	}
+	w.settled, w.seen = nil, map[core.SessionID]bool{}
+	return nil
+}
+
 // commit stages every lease's keys into the radix from the current root and, if that changed the
 // root, commits a new generation. Re-committing already-recorded leases is idempotent (the root does
 // not move, so no generation is appended and the same identities stand). A batch large enough to reach
 // genTxnMaxHeld is published as several generations; a failure after the first leaves the earlier ones
 // committed, each an exact, valid record of leases that were really admitted, never a changed identity.
+//
+// Each key is checked and written in one traversal (radixTxn.update): a nonce already recorded with any
+// other lease, or an arrival already assigned to any other nonce, is a conflict and nothing of the
+// batch after it is published.
 func (g *deliveryGenerations) commit(ctx context.Context, leases []deliveryLease) (radixHash, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -364,38 +408,7 @@ func (g *deliveryGenerations) commit(ctx context.Context, leases []deliveryLease
 	}
 	w := g.writer()
 	for _, l := range leases {
-		if !validDeliveryLease(l) {
-			return radixHash{}, core.ErrContract
-		}
-		prior, exists, err := leaseIn(ctx, w.tx, w.root, l.Delivery)
-		if err != nil {
-			return radixHash{}, err
-		}
-		if exists && prior != l {
-			return radixHash{}, errGenerationConflict
-		}
-		nonce, assigned, err := nonceIn(ctx, w.tx, w.root, l.Session, l.ArrivalSeq)
-		if err != nil {
-			return radixHash{}, err
-		}
-		if assigned && nonce != l.Delivery {
-			return radixHash{}, errGenerationConflict
-		}
-		if err := w.insert(ctx, nonceGenKey(l.Delivery), mustLeaseValue(l)); err != nil {
-			return radixHash{}, err
-		}
-		// The arrival watermark only ADVANCES: re-committing an already-recorded (older) lease must not
-		// regress it, which is what keeps a re-commit idempotent and dormant-session continuity monotonic.
-		cur, has, err := arrivalIn(ctx, w.tx, w.root, l.Session)
-		if err != nil {
-			return radixHash{}, err
-		}
-		if !has || l.ArrivalSeq > cur {
-			if err := w.insert(ctx, arrivalGenKey(l.Session), arrivalValue(l.ArrivalSeq)); err != nil {
-				return radixHash{}, err
-			}
-		}
-		if err := w.insert(ctx, orderGenKey(l.Session, l.ArrivalSeq), []byte(l.Delivery)); err != nil {
+		if err := w.putLease(ctx, l); err != nil {
 			return radixHash{}, err
 		}
 		if err := w.spill(ctx); err != nil {
@@ -403,6 +416,225 @@ func (g *deliveryGenerations) commit(ctx context.Context, leases []deliveryLease
 		}
 	}
 	return g.finishCommit(ctx, w.tx, w.root)
+}
+
+// putLease writes one lease's three keys: the nonce's full lease and the (session, arrival) order entry,
+// both immutable once written (keepOrWrite), and the session's arrival watermark, which only ADVANCES —
+// re-committing an already-recorded (older) lease must not regress it, which is what keeps a re-commit
+// idempotent and dormant-session continuity monotonic.
+func (w *genWriter) putLease(ctx context.Context, l deliveryLease) error {
+	if !validDeliveryLease(l) {
+		return core.ErrContract
+	}
+	if err := w.update(ctx, nonceGenKey(l.Delivery), keepOrWrite(mustLeaseValue(l))); err != nil {
+		return err
+	}
+	if err := w.update(ctx, orderGenKey(l.Session, l.ArrivalSeq), keepOrWrite([]byte(l.Delivery))); err != nil {
+		return err
+	}
+	arrival := l.ArrivalSeq
+	return w.update(ctx, arrivalGenKey(l.Session), func(old []byte, found bool) ([]byte, bool, error) {
+		if !found {
+			return arrivalValue(arrival), true, nil
+		}
+		if len(old) != 8 {
+			return nil, false, errGenerationUnavailable
+		}
+		if arrival <= binary.BigEndian.Uint64(old) {
+			return nil, false, nil
+		}
+		return arrivalValue(arrival), true, nil
+	})
+}
+
+// putAck records one acknowledgement against the lease the store holds for its delivery (the exact
+// join: a missing lease is unavailable, a disagreeing identity is a conflict, neither is recorded).
+func (w *genWriter) putAck(ctx context.Context, a deliveryAck) error {
+	if a.Version != core.EvidenceVersion || !validDeliveryToken(a.Delivery) || a.ObservationID == "" {
+		return core.ErrContract
+	}
+	lease, found, err := leaseIn(ctx, w.tx, w.root, a.Delivery)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errGenerationUnavailable // an ack must name a resolvable lease
+	}
+	return w.putJoinedAck(ctx, lease, a)
+}
+
+// putJoinedAck records an acknowledgement whose delivery's stored lease is lease.
+func (w *genWriter) putJoinedAck(ctx context.Context, lease deliveryLease, a deliveryAck) error {
+	if a.Version != core.EvidenceVersion || a.Delivery != lease.Delivery || a.ObservationID == "" {
+		return core.ErrContract
+	}
+	if lease.ObservationID != a.ObservationID {
+		return errGenerationConflict
+	}
+	if err := w.update(ctx, ackGenKey(a.Delivery), keepOrWrite(mustAckValue(a))); err != nil {
+		return err
+	}
+	w.touched(lease.Session)
+	return nil
+}
+
+// putTerminal records one terminal disposition against the lease the store holds for its delivery,
+// joined exactly as putAck.
+func (w *genWriter) putTerminal(ctx context.Context, tm deliveryTerminal) error {
+	if !validDeliveryLease(tm.Lease) || tm != terminalFor(tm.Lease) {
+		return core.ErrContract
+	}
+	lease, found, err := leaseIn(ctx, w.tx, w.root, tm.Lease.Delivery)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errGenerationUnavailable
+	}
+	return w.putJoinedTerminal(ctx, lease, tm)
+}
+
+// putJoinedTerminal records a terminal disposition whose delivery's stored lease is lease.
+func (w *genWriter) putJoinedTerminal(ctx context.Context, lease deliveryLease, tm deliveryTerminal) error {
+	if tm != terminalFor(tm.Lease) {
+		return core.ErrContract
+	}
+	if lease != tm.Lease {
+		return errGenerationConflict
+	}
+	if err := w.insert(ctx, termGenKey(lease.Delivery), []byte(lease.ObservationID)); err != nil {
+		return err
+	}
+	w.touched(lease.Session)
+	return nil
+}
+
+// archiveWindow archives one journal segment's whole window — its leases (in the caller's order), and
+// its acknowledgements and terminal dispositions — as the rotation's reconcile. It records exactly what
+// commit, commitAck and commitTerminal would record for the same three batches in that order, with the
+// same exact joins, but in one pass: a settlement of a lease of this window is joined against the lease
+// this pass has just written (the value the store holds for that nonce, since writing it either stored
+// it or confirmed an identical one), rather than read back from the pack a spill already wrote. And a
+// frontier walk over this window's arrivals answers "which nonce, and is it settled" from the window it
+// is archiving (archiveWindowIndex) instead of reading each order and settlement key back; an arrival
+// the window does not hold is read from the store as always.
+func (g *deliveryGenerations) archiveWindow(ctx context.Context, leases []deliveryLease, acks []deliveryAck, terminals []deliveryTerminal) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.fault != nil {
+		return g.fault
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	ackBy := make(map[string]deliveryAck, len(acks))
+	for _, a := range acks {
+		ackBy[a.Delivery] = a
+	}
+	termBy := make(map[string]deliveryTerminal, len(terminals))
+	for _, tm := range terminals {
+		termBy[tm.Lease.Delivery] = tm
+	}
+	idx := &archiveWindowIndex{nonces: map[core.SessionID]map[uint64]string{}, settled: map[string]bool{}}
+	w := g.writer()
+	w.window = idx
+	for _, l := range leases {
+		if err := w.putLease(ctx, l); err != nil {
+			return err
+		}
+		idx.add(l)
+		if a, ok := ackBy[l.Delivery]; ok {
+			if err := w.putJoinedAck(ctx, l, a); err != nil {
+				return err
+			}
+			idx.settled[l.Delivery] = true
+			delete(ackBy, l.Delivery)
+		}
+		if tm, ok := termBy[l.Delivery]; ok {
+			if err := w.putJoinedTerminal(ctx, l, tm); err != nil {
+				return err
+			}
+			idx.settled[l.Delivery] = true
+			delete(termBy, l.Delivery)
+		}
+		if err := w.spill(ctx); err != nil {
+			return err
+		}
+	}
+	// Settlements of leases archived before this window (mirrored when they were admitted; recorded
+	// again here, idempotently) join against the store's lease.
+	for _, a := range acks {
+		if _, rest := ackBy[a.Delivery]; !rest {
+			continue
+		}
+		if err := w.putAck(ctx, a); err != nil {
+			return err
+		}
+		if err := w.spill(ctx); err != nil {
+			return err
+		}
+	}
+	for _, tm := range terminals {
+		if _, rest := termBy[tm.Lease.Delivery]; !rest {
+			continue
+		}
+		if err := w.putTerminal(ctx, tm); err != nil {
+			return err
+		}
+		if err := w.spill(ctx); err != nil {
+			return err
+		}
+	}
+	if err := w.advanceFrontiers(ctx); err != nil {
+		return err
+	}
+	_, err := g.finishCommit(ctx, w.tx, w.root)
+	return err
+}
+
+// archiveWindowIndex is what archiveWindow has written so far for its window: each lease's nonce by
+// (session, arrival), and which of those nonces it has recorded a settlement for. A frontier walk reads
+// it in place of the store's order and settlement keys for exactly those arrivals — the store holds the
+// same answers, because the index is filled only after the matching keys are written.
+type archiveWindowIndex struct {
+	nonces  map[core.SessionID]map[uint64]string
+	settled map[string]bool
+}
+
+func (x *archiveWindowIndex) add(l deliveryLease) {
+	m := x.nonces[l.Session]
+	if m == nil {
+		m = map[uint64]string{}
+		x.nonces[l.Session] = m
+	}
+	m[l.ArrivalSeq] = l.Delivery
+}
+
+// at answers (nonce, settled, known) for a session's arrival; known is false for an arrival this window
+// does not hold, which the walk then reads from the store.
+func (x *archiveWindowIndex) at(session core.SessionID, arrival uint64) (string, bool, bool) {
+	if x == nil {
+		return "", false, false
+	}
+	nonce, ok := x.nonces[session][arrival]
+	if !ok {
+		return "", false, false
+	}
+	return nonce, x.settled[nonce], true
+}
+
+// keepOrWrite is the decision for an immutable key: absent, write value; present with exactly value,
+// keep it (idempotent); present with anything else, a conflict.
+func keepOrWrite(value []byte) radixDecide {
+	return func(old []byte, found bool) ([]byte, bool, error) {
+		if !found {
+			return value, true, nil
+		}
+		if !bytes.Equal(old, value) {
+			return nil, false, errGenerationConflict
+		}
+		return nil, false, nil
+	}
 }
 
 // commitAck records durable ACK membership and advances the per-session settled frontier. Each ack is
@@ -419,35 +651,15 @@ func (g *deliveryGenerations) commitAck(ctx context.Context, acks []deliveryAck)
 	}
 	w := g.writer()
 	for _, a := range acks {
-		if a.Version != core.EvidenceVersion || !validDeliveryToken(a.Delivery) || a.ObservationID == "" {
-			return core.ErrContract
-		}
-		lease, found, err := leaseIn(ctx, w.tx, w.root, a.Delivery)
-		if err != nil {
-			return err
-		}
-		if !found {
-			return errGenerationUnavailable // an ack must name a resolvable lease
-		}
-		if lease.ObservationID != a.ObservationID {
-			return errGenerationConflict
-		}
-		prior, exists, err := w.tx.lookup(ctx, w.root, ackGenKey(a.Delivery))
-		if err != nil {
-			return err
-		}
-		if exists && !bytes.Equal(prior, mustAckValue(a)) {
-			return errGenerationConflict
-		}
-		if err := w.insert(ctx, ackGenKey(a.Delivery), mustAckValue(a)); err != nil {
-			return err
-		}
-		if err := w.advanceFrontier(ctx, lease.Session); err != nil {
+		if err := w.putAck(ctx, a); err != nil {
 			return err
 		}
 		if err := w.spill(ctx); err != nil {
 			return err
 		}
+	}
+	if err := w.advanceFrontiers(ctx); err != nil {
+		return err
 	}
 	_, err := g.finishCommit(ctx, w.tx, w.root)
 	return err
@@ -468,28 +680,15 @@ func (g *deliveryGenerations) commitTerminal(ctx context.Context, terminals []de
 	}
 	w := g.writer()
 	for _, tm := range terminals {
-		if !validDeliveryLease(tm.Lease) || tm != terminalFor(tm.Lease) {
-			return core.ErrContract
-		}
-		lease, found, err := leaseIn(ctx, w.tx, w.root, tm.Lease.Delivery)
-		if err != nil {
-			return err
-		}
-		if !found {
-			return errGenerationUnavailable
-		}
-		if lease != tm.Lease {
-			return errGenerationConflict
-		}
-		if err := w.insert(ctx, termGenKey(lease.Delivery), []byte(lease.ObservationID)); err != nil {
-			return err
-		}
-		if err := w.advanceFrontier(ctx, lease.Session); err != nil {
+		if err := w.putTerminal(ctx, tm); err != nil {
 			return err
 		}
 		if err := w.spill(ctx); err != nil {
 			return err
 		}
+	}
+	if err := w.advanceFrontiers(ctx); err != nil {
+		return err
 	}
 	_, err := g.finishCommit(ctx, w.tx, w.root)
 	return err
@@ -530,16 +729,12 @@ func (w *genWriter) advanceFrontier(ctx context.Context, session core.SessionID)
 	}
 	moved := f
 	for moved <= last {
-		nonce, found, err := nonceIn(ctx, w.tx, w.root, session, moved)
+		settled, found, err := w.settledAt(ctx, session, moved)
 		if err != nil {
 			return err
 		}
 		if !found {
 			break // a gap (should not occur for dense arrivals): stop rather than skip
-		}
-		settled, err := isSettledIn(ctx, w.tx, w.root, nonce)
-		if err != nil {
-			return err
 		}
 		if !settled {
 			break
@@ -553,6 +748,20 @@ func (w *genWriter) advanceFrontier(ctx context.Context, session core.SessionID)
 		return nil
 	}
 	return w.insert(ctx, frontierGenKey(session), arrivalValue(moved))
+}
+
+// settledAt reports whether a session's arrival is settled, and whether that arrival has a nonce at all:
+// from the archiving window when it holds the arrival, otherwise from the store.
+func (w *genWriter) settledAt(ctx context.Context, session core.SessionID, arrival uint64) (settled, found bool, err error) {
+	if _, settled, known := w.window.at(session, arrival); known {
+		return settled, true, nil
+	}
+	nonce, found, err := nonceIn(ctx, w.tx, w.root, session, arrival)
+	if err != nil || !found {
+		return false, found, err
+	}
+	settled, err = isSettledIn(ctx, w.tx, w.root, nonce)
+	return settled, true, err
 }
 
 // isSettledIn reports whether a nonce has a durable ack or terminal membership record.
