@@ -205,15 +205,19 @@ type daemon struct {
 	// once it has signalled the stop, takes it before it joins or closes any of that.
 	//
 	// "Stop is only ever reached downstream of the endpoint existing" was the ordering this struct
-	// used to rely on, and it is true of the WALL CLOCK only. admin.shutdown's `go Stop()` is
-	// ordered after Run's startup in the memory model when the request arrives through server.Serve
-	// — Run starts Serve after startup, and a chain of go statements carries the edge — but Stop is
-	// an exported method, and a caller that reached it any other way ran it with no edge at all:
-	// -race reported Stop's runWG.Wait against Run's first runWG.Add (V6 close-out, Linux,
-	// TestRunReturnsOnlyAfterAsyncStopHasFinished every run; TestAdminShutdownStopsTheDaemon about
-	// one run in seventy). A Stop that arrived between stopBegun's check and the first goRun was
-	// worse than a report: its Wait could see zero, return, and let Run start goroutines, bind a
-	// server and write state.bin after the join and the RemoveState that were meant to follow them.
+	// used to rely on. Every in-tree production route into Stop does carry a happens-before edge to
+	// Run's startup: Run's own serve loop runs after it, and admin.shutdown's `go Stop()` is reached
+	// through server.Serve, which Run starts after every goRun, so a chain of go statements carries
+	// the edge (a spooled admin op never gets there: drainDispatch answers it without dispatching).
+	// The shipped binary did not race here. But Stop is an exported method, and a caller with no
+	// such edge ran it unordered against startup. The two tests that call dispatchOp directly after
+	// a dial or a lock-file readiness were such callers: -race reported Stop's runWG.Wait against
+	// Run's first runWG.Add (V6 close-out, Linux, TestRunReturnsOnlyAfterAsyncStopHasFinished every
+	// run; TestAdminShutdownStopsTheDaemon about one run in seventy). An unordered Stop that arrived
+	// between stopBegun's check and the first goRun broke the contract outright: its Wait could see
+	// zero, return, and let Run start goroutines, bind a server and write state.bin after the join
+	// and the RemoveState that were meant to follow them. startupMu makes the ordering hold for
+	// every caller instead of depending on the route.
 	//
 	// Holding the mutex costs Stop nothing it could have used. Stop cancels runCtx BEFORE it waits
 	// here, so the rest of the startup it waits out runs cancelled — the startup drain, the
