@@ -64,7 +64,7 @@ func TestHostPolicy_AShortNameSpellingIsRefused(t *testing.T) {
 	shortFull, shortRoot := shortPath(t, full), shortPath(t, f.Root)
 	rel := filepath.ToSlash(strings.TrimPrefix(shortFull, shortRoot+`\`))
 	if strings.EqualFold(rel, snLong) {
-		t.Skip("precondition: this volume records no 8.3 names, so there is no short spelling to test")
+		t.Skip("platform: this volume records no 8.3 names, so there is no short spelling to test")
 	}
 	f.putAndRecord(t, "Read", snLong, snBody, 4)
 	_, shortID := f.putAndRecord(t, "Read", rel, snBody, 5)
