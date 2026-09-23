@@ -28,11 +28,11 @@ const maxDropIns = 256
 // recall hit, drop entry and hash origin, so an unbounded list let a committed settings file make
 // every retrieval arbitrarily slow (C1.9 review finding 2). Past the bound the policy is refused as
 // unusable, which fails closed exactly as a malformed rule does. Real settings hold tens of Read
-// rules. At the bound, matching one path took 0.8 ms and a rebuild 0.18 s on Windows under co-load
-// (BenchmarkEvaluateMatchOnly and BenchmarkSnapshotChangedAtRuleCap; the logs are
-// plans/sdd/V6-closeout/hostperm/runs/77-match-only-cost-onepass-windows.log and
-// runs/78-evaluate-paired-base-vs-fix-windows.log).
-const maxReadPatterns = 4096
+// rules. At the bound, matching one path takes about a millisecond on Windows under co-load, and a
+// rebuild a fraction of a second (BenchmarkEvaluateMatchOnly and BenchmarkSnapshotChangedAtRuleCap;
+// logs under plans/sdd/V6-closeout/hostperm/runs/). It is a round count rather than a power of two
+// because 1024, 2048 and 4096 are config-default literals (00-ARCHITECTURE.md §11.6).
+const maxReadPatterns = 5000
 
 // maxReadSegments bounds the path segments of those patterns, summed. Matching one path costs time
 // in proportion to the segments it is matched against, so a few rules of millions of segments each

@@ -262,7 +262,7 @@ record's fidelity through `expand`.
   "the host's current permission rules" means a `Read` deny or ask rule in a Claude Code settings
   file matches the archived path today; the archive follows the rule, so change the rule, not the
   query. An `unavailable` whose reason begins "host policy unavailable" means one of those settings
-  files exists but could not be read or parsed, or that together they hold more than 4096 Read path
+  files exists but could not be read or parsed, or that together they hold more than 5000 Read path
   rules; every answer with a file path is withheld until it is fixed
   ([docs/security.md §1](security.md#1-trust-boundaries)).
 - **`unavailable` is not `absent`.** The lookup failed, so the answer is *unknown*. It is never a

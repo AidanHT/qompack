@@ -39,8 +39,8 @@ unavailable") until it is fixed. No refusal echoes the path or the rule. Records
 Every spelling that reaches the served content is judged, and a rule matching any one of them
 refuses: the path as asked for or recorded, the real name whose history is served, the name the
 operating system opens for each (on Windows a trailing dot or space, a `:stream` suffix or an 8.3
-short name opens the same file) and where each resolves through links. More than 4096 Read path
-patterns, or 65 536 path segments across them, in force at once makes the rules unusable, so
+short name opens the same file) and where each resolves through links. More than 5000 Read path
+patterns, or 80 000 path segments across them, in force at once makes the rules unusable, so
 path-bearing content is withheld as for an unreadable file; the bound keeps every check's cost
 bounded.
 
