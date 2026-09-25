@@ -1,0 +1,201 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0, closeout/w2-wintriage @ 69678a9 (clean tree), started 2026-09-25T21:41:27Z, machine co-loaded by other workstreams
+# cmd: QOMPACK_SECURITY_ARTIFACTS=<scratch> go test -count=1 -timeout 30m -v ./test/security
+=== RUN   TestSecurity_MalformedObjectsAreQuarantinedAndBounded
+    bounds_test.go:193: security bounds_damaged_zstd_frame: verified — damaged_zstd_frame was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a zstd frame with its middle overwritten.
+          detail:   read error: qompack: not found: object refused as damaged: object c261659ba42e failed to decode
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_damaged_zstd_frame.json
+    bounds_test.go:193: security bounds_truncated_object: verified — truncated_object was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a zstd frame cut in half.
+          detail:   read error: qompack: not found: object refused as damaged: object 2e2772655b5f failed to decode
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_truncated_object.json
+    bounds_test.go:193: security bounds_physical_size_past_the_read_bound: verified — physical_size_past_the_read_bound was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): an object file larger than encodedObjectLimit().
+          detail:   read error: qompack: not found: object refused as damaged: object 022da21c772a exceeds size limit
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_physical_size_past_the_read_bound.json
+    bounds_test.go:193: security bounds_decompression_bomb: verified — decompression_bomb was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a valid zstd frame expanding past store's 64 MiB maxDecodedSize.
+          detail:   read error: qompack: not found: object refused as damaged: object 36b7bb6c22ac failed to decode
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_decompression_bomb.json
+    bounds_test.go:193: security bounds_content_hash_mismatch: verified — content_hash_mismatch was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a valid frame of the right length whose plaintext hashes to another address.
+          detail:   read error: qompack: not found: object refused as damaged: object d031e75962c4 has the wrong content hash
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_content_hash_mismatch.json
+    bounds_test.go:252: security bounds_retrieval_and_checkpoint_survive_corruption: verified — after five hostile objects the daemon still held its lock, the MCP server still expanded the healthy control object, and the checkpoint hook still exited 0 with a host-parseable document. No corrupt object was ever reported found.
+          detail:   by tool_use_id: content_hash_mismatch=unavailable damaged_zstd_frame=unavailable decompression_bomb=unavailable physical_size_past_the_read_bound=unavailable truncated_object=unavailable
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_retrieval_and_checkpoint_survive_corruption.json
+    bounds_test.go:263: security bounds_corrupt_object_envelope: verified — a quarantined object is reported unavailable through both address forms: the explicit third answer, neither a protocol error nor an absence.
+          detail:   by tool_use_id: content_hash_mismatch=unavailable damaged_zstd_frame=unavailable decompression_bomb=unavailable physical_size_past_the_read_bound=unavailable truncated_object=unavailable; by bare chunk hash: content_hash_mismatch=unavailable damaged_zstd_frame=unavailable decompression_bomb=unavailable physical_size_past_the_read_bound=unavailable truncated_object=unavailable
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_corrupt_object_envelope.json
+--- PASS: TestSecurity_MalformedObjectsAreQuarantinedAndBounded (7.17s)
+=== RUN   TestSecurity_HookCaptureCapBoundsAnOversizePayload
+    bounds_test.go:339: security bounds_hook_capture_cap: verified — a 6 MiB tool_response was refused by the hard capture cap: the hook still exited 0 with a parseable document, and no byte from the 64 KiB mark of the payload reached any file under .qompack/.
+          detail:   swept 32 files under .qompack/
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_hook_capture_cap.json
+--- PASS: TestSecurity_HookCaptureCapBoundsAnOversizePayload (1.80s)
+=== RUN   TestSecurity_ConfigurationCannotRaiseTheCaptureCap
+    bounds_test.go:446: security bounds_config_cannot_raise_the_capture_cap: verified — the configured payload bound was clamped to the supported value, the oversize payload was refused, and the hook contract held.
+          detail:   config print reports runtime.hotPath.maxPayloadBytes=1048576; 1 configuration violation(s) recorded; daemon reachable=true; ordinary capture retained=true
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_config_cannot_raise_the_capture_cap.json
+--- PASS: TestSecurity_ConfigurationCannotRaiseTheCaptureCap (2.47s)
+=== RUN   TestSecurity_MCPResponseStaysWithinItsConfiguredBound
+    bounds_test.go:498: security bounds_mcp_max_response_bytes: verified — with runtime.mcp.maxResponseBytes=4096, a full expand of a 24636-byte object returned 4096 bytes, marked truncated, with a next_span cursor.
+          detail:   
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\bounds_mcp_max_response_bytes.json
+--- PASS: TestSecurity_MCPResponseStaysWithinItsConfiguredBound (1.59s)
+=== RUN   TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject
+=== RUN   TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject/parent_directory_replaced_by_link_outside
+    denied_test.go:230: security archive_trust_parent_directory_replaced_by_link_outside: verified — for parent_directory_replaced_by_link_outside, neither expand-by-id nor re_read-by-path materialized content for the escaping address; no byte of the file outside the project root appeared in any response, no refusal echoed the offending path, and the stored objects were untouched.
+          detail:   escape built with an NTFS directory junction (mklink /J); envelopes: expand=denied(found=false) re_read=denied(found=false) recall=non_json({"hits":[],"count":0,"found":false,"query":{"text":"refresh token rotati…)
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\archive_trust_parent_directory_replaced_by_link_outside.json
+=== RUN   TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject/captured_file_replaced_by_link_outside
+    denied_test.go:201: security archive_trust_captured_file_replaced_by_link_outside: skipped — symlink creation requires SeCreateSymbolicLinkPrivilege or Developer Mode
+          detail:   
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\archive_trust_captured_file_replaced_by_link_outside.json
+    denied_test.go:201: platform: archive_trust_captured_file_replaced_by_link_outside: symlink creation requires SeCreateSymbolicLinkPrivilege or Developer Mode
+=== RUN   TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject/lexical_parent_escape_in_a_stored_record
+    denied_test.go:230: security archive_trust_lexical_parent_escape_in_a_stored_record: verified — for lexical_parent_escape_in_a_stored_record, neither expand-by-id nor re_read-by-path materialized content for the escaping address; no byte of the file outside the project root appeared in any response, no refusal echoed the offending path, and the stored objects were untouched.
+          detail:   escape built with a hand-written tool_use record whose Path is ../outside/leak.txt; envelopes: expand=denied(found=false) re_read=tool_error recall=non_json({"hits":[],"count":0,"found":false,"query":{"text":"neighbouring project…)
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\archive_trust_lexical_parent_escape_in_a_stored_record.json
+--- PASS: TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject (2.77s)
+    --- PASS: TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject/parent_directory_replaced_by_link_outside (0.57s)
+    --- SKIP: TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject/captured_file_replaced_by_link_outside (0.00s)
+    --- PASS: TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject/lexical_parent_escape_in_a_stored_record (0.19s)
+=== RUN   TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    denied_test.go:294: security archive_trust_re_read_never_reads_the_live_disk: verified — re_read served the archived bytes after the working-tree file was replaced, and again after it was deleted; the replacement marker never appeared in either response.
+          detail:   
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\archive_trust_re_read_never_reads_the_live_disk.json
+--- PASS: TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk (1.90s)
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/the_observers_key_on_this_host
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/fold_true
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/fold_false
+--- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey (0.01s)
+    --- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey/the_observers_key_on_this_host (0.01s)
+    --- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey/fold_true (0.00s)
+    --- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey/fold_false (0.00s)
+=== RUN   TestHarness_TempArtifactDirDoesNotOutliveItsTest
+=== RUN   TestHarness_TempArtifactDirDoesNotOutliveItsTest/writes_a_record
+--- PASS: TestHarness_TempArtifactDirDoesNotOutliveItsTest (0.00s)
+    --- PASS: TestHarness_TempArtifactDirDoesNotOutliveItsTest/writes_a_record (0.00s)
+=== RUN   TestSecurity_TelemetryCannotBeTurnedOn
+    posture_test.go:82: security posture_telemetry_is_refused: verified — a project config setting runtime.telemetry.enabled=true was refused: the effective configuration reports false and state/config-violations.json names the key, so the refusal is loud rather than silent (§7.1, §11.3).
+          detail:   1 configuration violation(s) recorded
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\posture_telemetry_is_refused.json
+--- PASS: TestSecurity_TelemetryCannotBeTurnedOn (0.15s)
+=== RUN   TestSecurity_OutOfProjectCaptureIsRefusedBeforePersistence
+    posture_test.go:140: security posture_out_of_project_capture_is_archived: verified — a capture whose tool_input named a file outside the project root persisted nothing: neither its bytes nor its absolute path reached any file under .qompack/, and the hook still exited 0 with a host-parseable document.
+          detail:   swept 29 files under .qompack/
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\posture_out_of_project_capture_is_archived.json
+--- PASS: TestSecurity_OutOfProjectCaptureIsRefusedBeforePersistence (1.63s)
+=== RUN   TestSecurity_AnyConfigurationViolationDisablesCapture
+    posture_test.go:291: security posture_any_config_violation_disables_capture: verified — an invalid configuration key was clamped and reported — `config print` reports the default and state/config-violations.json names the key — and an ordinary capture under the same configuration was still retained.
+          detail:   config print reports runtime.telemetry.enabled=false and the §11.3 list names it afterwards=true; violations recorded by the hook path alone=1; ordinary capture retained=true; daemon reachable within 10s=true
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\posture_any_config_violation_disables_capture.json
+--- PASS: TestSecurity_AnyConfigurationViolationDisablesCapture (2.40s)
+=== RUN   TestSecurity_NoSecretReachesAnyDurableSurface
+    redaction_test.go:172: security privacy_surface_backup: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under backup.
+          detail:   53 files, 155265 bytes swept, 40 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_backup.json
+    redaction_test.go:172: security privacy_surface_checkpoints: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under checkpoints.
+          detail:   2 files, 1051 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_checkpoints.json
+    redaction_test.go:172: security privacy_surface_dag: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under dag.
+          detail:   1 files, 3355 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_dag.json
+    redaction_test.go:172: security privacy_surface_dot_root: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under dot-root.
+          detail:   2 files, 135 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_dot_root.json
+    redaction_test.go:172: security privacy_surface_eval_export: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under eval-export.
+          detail:   1 files, 1361 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_eval_export.json
+    redaction_test.go:172: security privacy_surface_index: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under index.
+          detail:   7 files, 31140 bytes swept, 4 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_index.json
+    redaction_test.go:172: security privacy_surface_logs: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under logs.
+          detail:   1 files, 847 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_logs.json
+    redaction_test.go:172: security privacy_surface_mcp_retrieval: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under mcp-retrieval.
+          detail:   7 files, 10075 bytes swept, 23 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_mcp_retrieval.json
+    redaction_test.go:172: security privacy_surface_metrics: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under metrics.
+          detail:   1 files, 2228 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_metrics.json
+    redaction_test.go:172: security privacy_surface_objects: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under objects.
+          detail:   9 files, 21775 bytes swept, 36 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_objects.json
+    redaction_test.go:172: security privacy_surface_pins: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under pins.
+          detail:   1 files, 3 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_pins.json
+    redaction_test.go:172: security privacy_surface_records: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under records.
+          detail:   4 files, 10268 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_records.json
+    redaction_test.go:172: security privacy_surface_run: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under run.
+          detail:   1 files, 61 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_run.json
+    redaction_test.go:172: security privacy_surface_sketches: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under sketches.
+          detail:   3 files, 68648 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_sketches.json
+    redaction_test.go:172: security privacy_surface_spool: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under spool.
+          detail:   1 files, 116 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_spool.json
+    redaction_test.go:172: security privacy_surface_state: verified — no literal and no >8-byte fragment of any of the 11 planted credential families survives under state.
+          detail:   22 files, 11529 bytes swept, 0 redaction placeholders
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_surface_state.json
+    redaction_test.go:174: security privacy_backup_take: verified — a consistent backup of 52 files was taken through the real store.Migrator.TakeBackup with the legacy-import gate supplied by the test (it ships closed, so no shipped build reaches this code); its tree is swept as its own surface.
+          detail:   manifest consistent=true
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_backup_take.json
+    redaction_test.go:175: security privacy_eval_export: verified — eval.Import wrote 1 session(s) from 1 transcript file(s) with the default redaction and the operator's own runtime.redact.patterns rule, replacing 22 spans; the destination is swept as its own surface.
+          detail:   
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_eval_export.json
+--- PASS: TestSecurity_NoSecretReachesAnyDurableSurface (6.31s)
+=== RUN   TestSecurity_AssignmentRuleCoverageForUnderscoredKeys
+    redaction_test.go:467: security privacy_assignment_rule_underscored_keys: verified — the assignment rule reaches an underscore-prefixed key: an `_authToken=` credential was redacted on every durable surface.
+          detail:   swept 34 files under .qompack/; probe key spelling `_authToken=`
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_assignment_rule_underscored_keys.json
+--- PASS: TestSecurity_AssignmentRuleCoverageForUnderscoredKeys (2.91s)
+=== RUN   TestSecurity_LoudDiagnosticsNeverCarryTheSecret
+    redaction_test.go:551: security privacy_loud_log_carries_no_secret: verified — the daemon quarantined a credential-bearing object and Louded about it; logs/LOUD.log was written, was swept by name, and carries no literal and no >8-byte fragment of any of the 11 planted credentials. The Loud names a 12-character hash prefix and a reason, never a span of the content.
+          detail:   expand envelope unavailable; logs/ held [logs/LOUD.log logs/qompack-20260925.log]
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\privacy_loud_log_carries_no_secret.json
+--- PASS: TestSecurity_LoudDiagnosticsNeverCarryTheSecret (2.70s)
+=== RUN   TestSecurity_ForcedGCPreservesQuarantineAndCaptureEvidence
+    retention_test.go:125: security retention_forced_gc_preserves_evidence: verified — a GC pass with negative retention on both axes — the forcing form — collected objects and left every piece of diagnostic evidence in place: the quarantined object, the .corrupt.<ms> sketch, and every records/captures/** sidecar.
+          detail:   GC deleted 5 object(s); quarantine 1→1, captures 1→1
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\retention_forced_gc_preserves_evidence.json
+--- PASS: TestSecurity_ForcedGCPreservesQuarantineAndCaptureEvidence (2.46s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security archive_trust_stored_text_is_never_executed: verified — prompt-injection-shaped content and a shell command were captured and then retrieved through 3 tools; every response carrying archived text set _meta.qompack.untrusted, the content came back verbatim, and the sentinel file the archived command would have created was never created.
+          detail:   labelled: expand, re_read, recall
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\archive_trust_stored_text_is_never_executed.json
+--- PASS: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.85s)
+=== RUN   TestSecurity_MCPServerNeverImportsOSExec
+    untrusted_test.go:171: security archive_trust_mcp_imports_no_exec: verified — the transitive import set of internal/mcp contains no os/exec: the retrieval layer has no mechanism to execute anything, archived or otherwise. The no-network rule for the same graph is owned by test/guards' TestGuard_NoNetworkImports and is cited, not duplicated, here.
+          detail:   156 transitive packages inspected
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\archive_trust_mcp_imports_no_exec.json
+--- PASS: TestSecurity_MCPServerNeverImportsOSExec (0.38s)
+=== RUN   TestV6_ArchivedReadRetainsItsAuthorizationBoundary
+    v6_authorization_test.go:44: security v6_outside_read_by_id: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\v6_outside_read_by_id.json
+--- PASS: TestV6_ArchivedReadRetainsItsAuthorizationBoundary (0.87s)
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/tool_use_id
+    v6_authorization_test.go:102: security v6_escape_tool_use_id: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\v6_escape_tool_use_id.json
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/root_hash
+    v6_authorization_test.go:102: security v6_escape_root_hash: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\v6_escape_root_hash.json
+=== RUN   TestV6_HashAddressesDoNotBypassPathAuthorization/chunk_hash
+    v6_authorization_test.go:102: security v6_escape_chunk_hash: verified — the packaged MCP server denied the address without materializing forbidden content
+          detail:   envelope=denied(found=false); synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\v6_escape_chunk_hash.json
+--- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization (2.19s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/tool_use_id (0.03s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/root_hash (0.00s)
+    --- PASS: TestV6_HashAddressesDoNotBypassPathAuthorization/chunk_hash (0.00s)
+=== RUN   TestV6_HostReadRulesGovernArchivedRetrieval
+    v6_host_permissions_test.go:187: security v6_host_read_rules_govern_archived_retrieval: verified — every retrieval form of the packaged MCP server refused a path under a current Claude Code deny or ask rule, and withheld path-bearing content while a settings file was unreadable
+          detail:   ask/expand_chunk_hash=denied(found=false); ask/expand_root_hash=denied(found=false); ask/expand_tool_use_id=denied(found=false); ask/re_read_at_hash=denied(found=false); ask/re_read_latest=denied(found=false); ask/re_read_trailing_dot_alias=denied(found=false); ask/re_read_trailing_space_alias=denied(found=false); ask/recall=hits=0,denied=10,host_policy=false; deny/expand_chunk_hash=denied(found=false); deny/expand_root_hash=denied(found=false); deny/expand_tool_use_id=denied(found=false); deny/re_read_at_hash=denied(found=false); deny/re_read_latest=denied(found=false); deny/re_read_trailing_dot_alias=denied(found=false); deny/re_read_trailing_space_alias=denied(found=false); deny/recall=hits=0,denied=8,host_policy=false; unreadable/expand_chunk_hash=unavailable; unreadable/expand_root_hash=unavailable; unreadable/expand_tool_use_id=unavailable; unreadable/re_read_at_hash=unavailable; unreadable/re_read_latest=unavailable; unreadable/re_read_trailing_dot_alias=unavailable; unreadable/re_read_trailing_space_alias=unavailable; unreadable/recall=hits=0,denied=10,host_policy=true
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\security-full-artifacts\v6_host_read_rules_govern_archived_retrieval.json
+--- PASS: TestV6_HostReadRulesGovernArchivedRetrieval (2.89s)
+PASS
+ok  	github.com/qompack/qompack/test/security	46.115s
+# result: exit 0, finished 2026-09-25T21:42:16Z

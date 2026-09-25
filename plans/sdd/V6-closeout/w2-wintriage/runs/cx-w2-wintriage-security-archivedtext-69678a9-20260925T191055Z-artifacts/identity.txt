@@ -1,0 +1,21 @@
+run_id=cx-w2-wintriage-security-archivedtext-69678a9-20260925T191055Z
+commit=69678a9988f5fea2ffd6c39a9b4bcab324590bf1
+tree=d11b02e766359f8046aa3cbec64d4ac3a5ec6bbf
+bundle_sha256=67f6c8a36dc0efda4d65e66a49a365740de5ad9cb997c197ca26ef6bb7cdd06b
+started_utc=2026-09-25T19:11:05Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^(TestSecurity_ArchivedTextIsDataNeverAnInstruction|TestHarness_.*)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-25T19:11:55Z
