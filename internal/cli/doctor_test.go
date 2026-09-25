@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +18,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -534,4 +536,106 @@ func TestDoctor_ReportsTheSegmentsTheProjectHolds(t *testing.T) {
 	require.Contains(t, observed, "3 segment(s)",
 		"doctor reports the segments the log holds, never a confident zero; stderr=%s", errw)
 	require.NotContains(t, observed, "0 segment(s)")
+}
+
+// persistDaemonCounters writes metrics/latency.json the way the daemon's obs.Registry.Persist does,
+// holding exactly these counters.
+func persistDaemonCounters(t *testing.T, root string, counters map[string]int64) {
+	t.Helper()
+	reg := obs.New(testClock())
+	for name, n := range counters {
+		reg.Counter(name).Add(n)
+	}
+	require.NoError(t, reg.Persist(paths.Of(root)))
+}
+
+func writeSegmentHead(t *testing.T, root string, active uint64) {
+	t.Helper()
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(paths.Of(root).State, "delivery-journal.json")),
+		[]byte(fmt.Sprintf(`{"v":1,"format":"qompack.delivery.segments.v1","seq":%d,"active":%d}`, active, active)),
+		0o600))
+}
+
+// TestDoctor_ReportsDeliveryRollover pins the delivery.rollover row owner decision D6 asked for: it
+// says whether the store has rotated (the downgrade boundary), carries the last daemon's rotation
+// counters, and is degraded only by a failed rotation or a GC pass halted on the carry bound — never
+// by the pause D6 accepted.
+func TestDoctor_ReportsDeliveryRollover(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nothing recorded", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		_, doc, errw := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorUnknown, row["status"], "stderr=%s", errw)
+		require.Equal(t, "no segment authority; no persisted daemon counters", row["observed"])
+		require.Contains(t, row["detail"], "unknown rather than zero")
+	})
+
+	t.Run("rotated with pauses only", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		writeSegmentHead(t, p.Root, 3)
+		persistDaemonCounters(t, p.Root, map[string]int64{
+			daemon.CounterDeliveryRotations: 3, daemon.CounterDeliveryRotationPauseMS: 12345,
+		})
+		_, doc, errw := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorOK, row["status"], "a pause is accepted, not degraded; stderr=%s", errw)
+		require.Equal(t, "rotated 3 time(s), segment 3 active; last daemon: 3 rotation(s), 12345 ms paused, "+
+			"0 failed, 0 GC pass(es) halted on the carry bound", row["observed"])
+		require.Contains(t, row["detail"], "docs/backup.md")
+	})
+
+	t.Run("never rotated, first rotation advised", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		writeSegmentHead(t, p.Root, 0)
+		persistDaemonCounters(t, p.Root, map[string]int64{daemon.CounterDeliveryFirstRotationBackupAdvised: 1})
+		_, doc, _ := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorOK, row["status"])
+		observed, _ := row["observed"].(string)
+		require.True(t, strings.HasPrefix(observed, "never rotated; "), observed)
+		require.Contains(t, row["detail"], "first rotation is near")
+	})
+
+	t.Run("failed rotation on the carry bound", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		writeSegmentHead(t, p.Root, 2)
+		persistDaemonCounters(t, p.Root, map[string]int64{
+			daemon.CounterDeliveryRotations: 1, daemon.CounterDeliveryRotationFailures: 1,
+			daemon.CounterDeliveryRotationCarryOverBound: 1,
+		})
+		_, doc, _ := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorDegraded, row["status"])
+		require.Contains(t, row["observed"], "1 failed")
+		require.Contains(t, row["detail"], "64 MiB bound")
+	})
+
+	t.Run("gc halted on the carry bound", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		writeSegmentHead(t, p.Root, 5)
+		persistDaemonCounters(t, p.Root, map[string]int64{store.CounterGCDeliveryCarryOverBound: 2})
+		_, doc, _ := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorDegraded, row["status"])
+		require.Contains(t, row["observed"], "2 GC pass(es) halted on the carry bound")
+	})
+
+	t.Run("unreadable head", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		require.NoError(t, os.WriteFile(paths.Long(filepath.Join(paths.Of(p.Root).State, "delivery-journal.json")),
+			[]byte("{torn"), 0o600))
+		_, doc, _ := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorUnknown, row["status"])
+		require.True(t, strings.HasPrefix(row["observed"].(string), "segment authority head unreadable"))
+		require.Contains(t, row["detail"], "could not be read")
+	})
 }

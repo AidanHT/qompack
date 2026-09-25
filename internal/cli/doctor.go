@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/commands"
@@ -738,6 +739,7 @@ func (s *doctorState) recordingRows() []doctorRow {
 
 	rows = append(rows, s.writableRow())
 	rows = append(rows, s.spoolRow(), s.drainRow(), s.negknowRow(), s.unpublishedCapturesRow())
+	rows = append(rows, s.deliveryRolloverRow())
 	rows = append(rows, s.assertionRows()...)
 	return rows
 }
@@ -940,6 +942,106 @@ func (s *doctorState) unpublishedCapturesRow() doctorRow {
 		Detail: "a sidecar is a gap only for a tool delivery whose outcome is ok and whose bytes " +
 			"are durable with no reference joined; sidecars are evidence and are never swept",
 	}
+}
+
+// deliveryRolloverRow reports segmented rollover (owner decision D6, 2026-09-23). Two things about it
+// matter to an operator. Whether the store has rotated: after its first rotation a build that predates
+// segments refuses the journal, so a backup taken before that rotation is the only way back to one
+// (docs/backup.md). And what the last daemon counted: its rotations and the time every lease and
+// acknowledgement waited for them, rotations that failed (the journal then refuses every delivery until
+// a restart), and store GC passes halted because the carried leases passed their harvest bound (nothing
+// is collected while they are). A failure or a halt makes the row degraded; the pause alone does not,
+// because D6 accepted it.
+//
+// The active segment is the authority head's own claim, read the way fsck's delivery row reads it (the
+// authority's full validation is `qompack fsck --seal-check`'s). The counters are the last daemon
+// run's, as it persisted them to metrics/latency.json, so a restart resets them; LOUD.log keeps a line
+// for every rotation, failure and first halt.
+func (s *doctorState) deliveryRolloverRow() doctorRow {
+	const id = "delivery.rollover"
+	active, headErr := readDeliveryActiveSegment(s.l)
+	var observed []string
+	status := doctorOK
+	switch {
+	case errors.Is(headErr, fs.ErrNotExist):
+		status = doctorUnknown
+		observed = append(observed, "no segment authority")
+	case headErr != nil:
+		status = doctorUnknown
+		observed = append(observed, "segment authority head unreadable")
+	case active == 0:
+		observed = append(observed, "never rotated")
+	default:
+		observed = append(observed, fmt.Sprintf("rotated %d time(s), segment %d active", active, active))
+	}
+
+	detail := "a store that has never rotated rotates by itself at 65,536 deliveries; after that a build " +
+		"older than segmented rollover refuses the journal, and a backup taken before the first rotation " +
+		"is the only way back to one (docs/backup.md); `qompack fsck --seal-check` validates the authority"
+	if headErr != nil && !errors.Is(headErr, fs.ErrNotExist) {
+		detail = "state/delivery-journal.json could not be read (" + headErr.Error() + "); " + detail
+	}
+	snap, err := readPersistedMetrics(s.l)
+	if err != nil {
+		observed = append(observed, "no persisted daemon counters")
+		return doctorRow{
+			ID: id, Status: status, Observed: strings.Join(observed, "; "),
+			Detail: detail + "; no daemon has persisted metrics/latency.json here, so the last run's " +
+				"rotations, pauses, failures and GC halts are unknown rather than zero (LOUD.log has them)",
+		}
+	}
+	c := snap.Counters
+	failed := c[daemon.CounterDeliveryRotationFailures]
+	halted := c[store.CounterGCDeliveryCarryOverBound]
+	observed = append(observed, fmt.Sprintf("last daemon: %d rotation(s), %d ms paused, %d failed, "+
+		"%d GC pass(es) halted on the carry bound", c[daemon.CounterDeliveryRotations],
+		c[daemon.CounterDeliveryRotationPauseMS], failed, halted))
+	if failed > 0 || halted > 0 {
+		status = doctorDegraded
+	}
+	if c[daemon.CounterDeliveryRotationCarryOverBound] > 0 {
+		detail = "a rotation was refused because the archived leases still waiting for an acknowledgement " +
+			"passed the carried-lease file's 64 MiB bound: the journal refuses every delivery " +
+			"(docs/troubleshooting.md); " + detail
+	}
+	if c[daemon.CounterDeliveryFirstRotationBackupAdvised] > 0 && active == 0 && headErr == nil {
+		detail = "the last daemon warned that this store's first rotation is near; " + detail
+	}
+	return doctorRow{
+		ID: id, Status: status, Observed: strings.Join(observed, "; "),
+		Detail: detail + "; counters are the last daemon run's, from metrics/latency.json " +
+			"(" + doctorMetricsAge(snap.TS, s.clk) + "), and LOUD.log keeps every occurrence",
+	}
+}
+
+// readDeliveryActiveSegment reads the active segment the delivery segment authority's head names
+// (state/delivery-journal.json). An absent head is fs.ErrNotExist; a head that does not read or names
+// no segment is another error. It is a classification aid for the read-only rows (fsck's delivery row,
+// doctor's delivery.rollover); the authority's full validation is --seal-check's.
+func readDeliveryActiveSegment(l paths.Layout) (uint64, error) {
+	raw, err := paths.ReadFileShared(filepath.Join(l.State, "delivery-journal.json"))
+	if err != nil {
+		return 0, err
+	}
+	var head struct {
+		Active *uint64 `json:"active"`
+	}
+	if err := json.Unmarshal(raw, &head); err != nil {
+		return 0, err
+	}
+	if head.Active == nil {
+		return 0, errors.New("the head names no active segment")
+	}
+	return *head.Active, nil
+}
+
+// doctorMetricsAge says how old a persisted metrics snapshot is.
+func doctorMetricsAge(ts core.UnixMilli, clk core.Clock) string {
+	age := clk.Now().Sub(ts.Time())
+	if ts == 0 || age < 0 {
+		return "age unknown"
+	}
+	return "persisted " + age.Round(time.Second).String() + " ago"
 }
 
 // assertionRows report the contract assertions the last session failed. history.Last is the
