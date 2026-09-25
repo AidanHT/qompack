@@ -63,8 +63,9 @@ const deliveryRotateAttempts = 64
 // 64 MiB per journal file — so rotation replaces the ErrBudget refusal exactly where it used to begin,
 // and every segment's files stay within the bounds every reader (this loader, the offline tool, store
 // GC, fsck) already enforces. A focused test sets them low to force rotation across the capacity seam
-// without writing 65,536 leases; they are package vars for that seam only and no configuration key
-// exposes them.
+// without writing 65,536 leases, either here or, to run beside other tests, on the one Lock it opens a
+// journal through (Lock.rolloverEntries); they are package vars for that seam only and no configuration
+// key exposes them. A journal reads them once, when it is made (newDeliveryJournal).
 var (
 	deliveryRolloverEntries = deliveryLeaseMaxEntries
 	deliveryRolloverBytes   = int64(deliveryLeaseMaxBytes)
@@ -146,6 +147,11 @@ type deliveryJournal struct {
 	// rotation is what the running rotation's doRotate recorded about its window, for the report that
 	// follows it (delivery_diagnostics.go). It is written and read only with the barrier held.
 	rotation rotationStats
+	// rolloverEntries and rolloverBytes are the thresholds this journal rotates at, fixed when it is
+	// made (Lock.deliveryRollover): the package's deliveryRolloverEntries and deliveryRolloverBytes in
+	// production.
+	rolloverEntries int
+	rolloverBytes   int64
 	// firstRotationAdvised is set once this journal has warned that the store's first rotation is
 	// near (delivery_diagnostics.go), so it warns at most once. Guarded by st.
 	firstRotationAdvised bool
@@ -602,6 +608,7 @@ func newDeliveryJournal(l *Lock, p string) *deliveryJournal {
 	if l != nil {
 		j.sealFormat = l.deliverySealFormat()
 	}
+	j.rolloverEntries, j.rolloverBytes = l.deliveryRollover()
 	j.sealLease = j.savePosition
 	j.sealAck = j.saveAckPosition
 	return j
@@ -741,7 +748,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 	// Rollover trigger: at the (seam-configurable) threshold, signal that the active segment must roll
 	// rather than refusing. lease() drains, rotates to a fresh segment, and retries; earlier mints in
 	// this batch still commit. Below the boundary this never fires and behaviour is exactly as before.
-	if j.rolloverArmed() && b.count >= deliveryRolloverEntries {
+	if j.rolloverArmed() && b.count >= j.rolloverEntries {
 		return leasePending{err: j.signalRotate()}
 	}
 	if b.count >= deliveryLeaseMaxEntries || prev == math.MaxUint64 {
@@ -763,7 +770,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 	if len(line) > deliveryLeaseMaxLine {
 		return leasePending{err: core.ErrBudget}
 	}
-	if j.rolloverArmed() && b.size+int64(len(line)) > deliveryRolloverBytes && b.count > 0 {
+	if j.rolloverArmed() && b.size+int64(len(line)) > j.rolloverBytes && b.count > 0 {
 		return leasePending{err: j.signalRotate()} // roll before the byte limit; a lone oversize line still refuses
 	}
 	if b.size+int64(len(line)) > deliveryLeaseMaxBytes {
@@ -1992,7 +1999,7 @@ func (b *ackBatch) decide(j *deliveryJournal, r *ackReq) ackPending {
 	// Rollover trigger, as in the lease batch: the acknowledgement journal of a segment can fill before
 	// its lease journal (it also settles leases archived before the segment opened), so it rolls at its
 	// own threshold rather than refusing.
-	if j.rolloverArmed() && b.count >= deliveryRolloverEntries {
+	if j.rolloverArmed() && b.count >= j.rolloverEntries {
 		return ackPending{err: j.signalRotate()}
 	}
 	if b.count >= deliveryLeaseMaxEntries {
@@ -2004,7 +2011,7 @@ func (b *ackBatch) decide(j *deliveryJournal, r *ackReq) ackPending {
 		return ackPending{err: core.ErrContract}
 	}
 	line = append(line, '\n')
-	if j.rolloverArmed() && b.size+int64(len(line)) > deliveryRolloverBytes && b.count > 0 {
+	if j.rolloverArmed() && b.size+int64(len(line)) > j.rolloverBytes && b.count > 0 {
 		return ackPending{err: j.signalRotate()}
 	}
 	if len(line) > deliveryLeaseMaxLine || b.size+int64(len(line)) > deliveryLeaseMaxBytes {
