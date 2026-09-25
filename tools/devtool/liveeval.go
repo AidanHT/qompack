@@ -377,10 +377,12 @@ type liveTrialRun struct {
 }
 
 // run executes one trial and returns its record. The error is non-nil only when the guard over the
-// operator's configuration failed, which stops the whole run.
-func (lt liveTrialRun) run(ctx context.Context) (eval.LiveTrial, error) {
+// operator's configuration failed, which stops the whole run. Whatever path the trial leaves by, a
+// harness failure is scored as a failure on every outcome before the record is returned or written
+// (preregistration §8): a trial stopped before grading must still count in every denominator.
+func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr error) {
 	o, env, task := lt.opts, lt.env, lt.task
-	rec := eval.LiveTrial{
+	rec = eval.LiveTrial{
 		Schema: eval.LiveTrialSchema, RunID: lt.runID, TaskID: task.ID, Arm: lt.arm, Trial: lt.trial,
 		Category: task.Category, Variant: task.Variant, HeldOut: task.HeldOut, Model: o.model,
 		Install: "none", StartedAt: env.now().UTC().Format(time.RFC3339),
@@ -390,9 +392,13 @@ func (lt liveTrialRun) run(ctx context.Context) (eval.LiveTrial, error) {
 	trialDir := filepath.Join(o.out, "trials", task.ID, lt.arm, fmt.Sprintf("%02d", lt.trial))
 	if err := os.MkdirAll(trialDir, liveDirPerm); err != nil {
 		rec.HarnessError = err.Error()
+		rec.ApplyHarnessFailure(task)
 		return rec, nil
 	}
-	defer func() { _ = writeJSONFile(filepath.Join(trialDir, "trial.json"), rec) }()
+	defer func() {
+		rec.ApplyHarnessFailure(task)
+		_ = writeJSONFile(filepath.Join(trialDir, "trial.json"), rec)
+	}()
 
 	// A filesystem timestamp can trail the wall clock by its resolution; the margin keeps a directory
 	// the host creates in the trial's first instant from reading as older than the trial.
@@ -482,7 +488,6 @@ func (lt liveTrialRun) run(ctx context.Context) (eval.LiveTrial, error) {
 	guard.Leftovers = append(guard.Leftovers, env.removeCreatedPluginData(before, trialStart)...)
 
 	after, err := env.guardSnapshot()
-	var guardErr error
 	if err != nil {
 		guardErr = fmt.Errorf("live-eval: the configuration guard could not re-read the operator's files: %w", err)
 	} else {

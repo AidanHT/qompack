@@ -89,3 +89,68 @@ func TestSummarizeLive_FailuresAreCountedAndNamed(t *testing.T) {
 	require.Contains(t, notes, "1 of 4 qompack trial(s) ran with a hook failure")
 	require.Contains(t, notes, "not the pre-registered model")
 }
+
+// TestSummarizeLive_HarnessFailureFailsEveryOutcome is preregistration §8: a trial the harness could
+// not run as designed is scored as a failure on every outcome — never a task success, never
+// constraint-clean, never dropped from the recovery denominator — whatever state it left behind.
+func TestSummarizeLive_HarnessFailureFailsEveryOutcome(t *testing.T) {
+	task := eval.LiveTask{Checks: []eval.LiveCheck{
+		{ID: "t", Outcome: eval.OutcomeTask, Kind: eval.CheckFileExists, Path: "a"},
+		{ID: "r", Outcome: eval.OutcomeRecovery, Kind: eval.CheckFileExists, Path: "b"},
+	}}
+	// A trial stopped before any session ran: nothing was graded.
+	early := eval.LiveTrial{
+		TaskID: "t", Arm: eval.ArmStock, Trial: 1, PreregisteredModel: true,
+		HarnessError: "preparing the project: git init: exit status 128",
+	}
+	early.ApplyHarnessFailure(task)
+	require.NotNil(t, early.Recovered, "a task with recovery checks counts the failed trial in the recovery denominator")
+	require.False(t, *early.Recovered)
+	require.False(t, early.TaskSuccess)
+
+	// A trial the host finished but the harness could not close as designed: its graded state passed.
+	yes := true
+	graded := eval.LiveTrial{
+		TaskID: "t", Arm: eval.ArmStock, Trial: 2, PreregisteredModel: true, Completed: true,
+		TaskSuccess: true, Recovered: &yes,
+		HarnessError: "the host did not exit within 1m30s of its input closing",
+	}
+	graded.ApplyHarnessFailure(task)
+	require.False(t, graded.TaskSuccess)
+	require.False(t, graded.Completed)
+	require.False(t, *graded.Recovered)
+	require.True(t, yes, "the caller's value is not written through")
+
+	// A task that declares no recovery check keeps a nil recovery verdict: it is outside that
+	// denominator for every trial, failed or not.
+	noRec := eval.LiveTrial{TaskID: "u", Arm: eval.ArmStock, Trial: 1, HarnessError: "x"}
+	noRec.ApplyHarnessFailure(eval.LiveTask{Checks: task.Checks[:1]})
+	require.Nil(t, noRec.Recovered)
+
+	// A trial with no harness error is left exactly as graded.
+	fine := eval.LiveTrial{TaskID: "t", Arm: eval.ArmStock, Trial: 4, Completed: true, TaskSuccess: true, Recovered: &yes}
+	before := fine
+	fine.ApplyHarnessFailure(task)
+	require.Equal(t, before, fine)
+
+	sum := eval.SummarizeLive("r", liveAnalysis(), []eval.LiveTrial{early, graded})
+	st := sum.Arms[eval.ArmStock]
+	require.Equal(t, [2]int{0, 2}, [2]int{st.TaskSuccess.K, st.TaskSuccess.N})
+	require.Equal(t, [2]int{0, 2}, [2]int{st.ConstraintClean.K, st.ConstraintClean.N}, "a harness failure is not constraint-clean")
+	require.Equal(t, [2]int{0, 2}, [2]int{st.Recovery.K, st.Recovery.N})
+}
+
+// TestSummarizeLive_HarnessFailureIsNeverASuccess: the summarizer holds preregistration §8's rule on
+// its own, for a record no one normalized — a harness failure that happened to leave a passing
+// state behind is still not a success, not constraint-clean and not recovered.
+func TestSummarizeLive_HarnessFailureIsNeverASuccess(t *testing.T) {
+	yes := true
+	raw := eval.LiveTrial{
+		TaskID: "t", Arm: eval.ArmStock, Trial: 3, PreregisteredModel: true, Completed: true,
+		TaskSuccess: true, Recovered: &yes, HarnessError: "parsing the stream: line 9 is not JSON",
+	}
+	st := eval.SummarizeLive("r", liveAnalysis(), []eval.LiveTrial{raw}).Arms[eval.ArmStock]
+	require.Equal(t, [2]int{0, 1}, [2]int{st.TaskSuccess.K, st.TaskSuccess.N})
+	require.Equal(t, [2]int{0, 1}, [2]int{st.ConstraintClean.K, st.ConstraintClean.N})
+	require.Equal(t, [2]int{0, 1}, [2]int{st.Recovery.K, st.Recovery.N})
+}

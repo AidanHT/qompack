@@ -281,6 +281,27 @@ func (t *LiveTrial) ApplyGrades(results []LiveCheckResult) {
 	}
 }
 
+// ApplyHarnessFailure scores a trial the harness could not run as designed — HarnessError is set —
+// as a failure on every pre-registered outcome (preregistration §8, intention to treat): not a task
+// success, not complete, and, when the task declares recovery checks, not recovered, so the trial
+// stays in the recovery denominator even when nothing was graded. It does nothing to a trial with no
+// harness error. SummarizeLive applies the same rule to task success and constraint-cleanness on its
+// own; this is what puts a never-graded trial into the recovery denominator.
+func (t *LiveTrial) ApplyHarnessFailure(task LiveTask) {
+	if t.HarnessError == "" {
+		return
+	}
+	t.TaskSuccess = false
+	t.Completed = false
+	for _, c := range task.Checks {
+		if c.Outcome == OutcomeRecovery {
+			failed := false
+			t.Recovered = &failed
+			break
+		}
+	}
+}
+
 // ── summary ─────────────────────────────────────────────────────────────────────────────────────
 
 // Proportion is k successes of n with a Wilson score interval.
@@ -472,6 +493,10 @@ func DecideLive(a LiveAnalysis, s LiveSummary) LiveDecision {
 	}
 }
 
+// summarizeArm aggregates one arm's trials. A trial the harness could not run as designed is a
+// failure on every outcome (preregistration §8): it never counts as a task success or as
+// constraint-clean, and it counts as not recovered wherever it carries a recovery verdict, whatever
+// state it left behind.
 func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 	out := ArmSummary{Arm: arm, Trials: len(ts)}
 	var taskK, cleanK, recK, recN int
@@ -488,16 +513,17 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		if t.PluginExpected != t.PluginLoaded {
 			out.PluginMismatch++
 		}
-		if t.TaskSuccess {
+		harness := t.HarnessError != ""
+		if t.TaskSuccess && !harness {
 			taskK++
 		}
-		if t.ConstraintViolations == 0 {
+		if t.ConstraintViolations == 0 && !harness {
 			cleanK++
 		}
 		out.ConstraintViolations += t.ConstraintViolations
 		if t.Recovered != nil {
 			recN++
-			if *t.Recovered {
+			if *t.Recovered && !harness {
 				recK++
 			}
 		}
