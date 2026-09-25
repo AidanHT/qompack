@@ -39,7 +39,12 @@ type LiveEvalReport struct {
 	FixtureTreeSHA256 string                   `json:"fixture_tree_sha256,omitempty"`
 	Install           string                   `json:"install"`
 	Plugin            *eval.LivePluginIdentity `json:"plugin,omitempty"`
-	HeldOutIncluded   bool                     `json:"held_out_included"`
+	// KnownDefects is the operator's statement of which known defects the bundle still carries,
+	// verbatim from the plan, and DefectPrecondition says what it establishes: preregistration
+	// section 9's precondition rests on that statement, which nothing here can check.
+	KnownDefects       *eval.LiveDefectAttestation `json:"known_defects,omitempty"`
+	DefectPrecondition string                      `json:"defect_precondition,omitempty"`
+	HeldOutIncluded    bool                        `json:"held_out_included"`
 	// Confirmatory reports that the run was the whole pre-registered design; NotConfirmatory says
 	// why not. Only a confirmatory run's outcomes are judged.
 	Confirmatory    bool     `json:"confirmatory"`
@@ -82,6 +87,7 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 		Model: p.Model, PreregModel: p.PreregisteredModel,
 		TaskSet: p.TaskSet, TaskSetSHA256: p.TaskSetSHA256, FixtureTreeSHA256: p.FixtureTreeSHA256,
 		Install: p.Install, Plugin: p.Plugin, HeldOutIncluded: p.HeldOutIncluded,
+		KnownDefects: p.KnownDefects, DefectPrecondition: defectPrecondition(p),
 		TrialsPerArm: p.TrialsPerArm, Confidence: a.Confidence, Margin: a.NonInferiorityMargin, MarginKnown: marginKnown,
 		TaskSuccessDiff: s.TaskSuccessDiff, ConstraintCleanDiff: s.ConstraintCleanDiff, RecoveryDiff: s.RecoveryDiff,
 		Decision: s.Decision, Regression: s.ConstraintRegression, Failed: s.Failed,
@@ -112,11 +118,17 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 }
 
 // notConfirmatory lists every way the run departs from a confirmatory run of its pre-registered
-// design (preregistration sections 3, 7 and 9). Failed trials are not among them: under intention
-// to treat they are failures the analysis counts, not a reason to set the run aside.
+// design: its frozen materials and install path (sections 2 and 3, amendment A1), its model (section
+// 3), both arms identical but for the plugin (section 3), every task and every planned trial
+// (sections 4 and 7), a clean bundle and the candidate's known-defect precondition (section 9,
+// amendment A5). Failed trials are not among them: under intention to treat they are failures the
+// analysis counts, not a reason to set the run aside.
 func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []string {
 	var out []string
 	out = append(out, notPreregisteredMaterials(p)...)
+	if pre, ok := eval.LivePreregistrations[p.TaskSet]; ok {
+		out = append(out, openDefectReasons(p, pre)...)
+	}
 	if p.PreregisteredModel == "" || p.Model != p.PreregisteredModel {
 		out = append(out, fmt.Sprintf("it ran on %s, not the pre-registered model %s",
 			orUnknown(p.Model), orUnknown(p.PreregisteredModel)))
@@ -183,6 +195,42 @@ func notPreregisteredMaterials(p eval.LivePlan) []string {
 			orUnknown(p.Install), pre.Install))
 	}
 	return out
+}
+
+// openDefectReasons applies preregistration section 9: "The confirmatory run must be on a candidate
+// where C1.12 and C1.1 are fixed; a run on a candidate with a known open defect is labelled with that
+// defect and is not the confirmatory run" (amendment A5 reads "a known open defect" as any). Nothing
+// in a bundle proves which defects it fixes, so the plan carries the operator's statement, and a
+// plan without one cannot be told apart from a run on a candidate that still carries C1.12.
+func openDefectReasons(p eval.LivePlan, pre eval.LivePreregistration) []string {
+	switch {
+	case p.KnownDefects == nil:
+		return []string{fmt.Sprintf("its plan does not attest which known defects its bundle carries, and "+
+			"preregistration section 9 counts only a run on a candidate where %s are fixed and no known defect "+
+			"is open as the confirmatory run", strings.Join(pre.RequiredFixed, " and "))}
+	case len(p.KnownDefects.Open) > 0:
+		return []string{fmt.Sprintf("its bundle carries the known open defect(s) %s, as its plan attests, and "+
+			"preregistration section 9 labels such a run with them and does not count it as the confirmatory run",
+			strings.Join(p.KnownDefects.Open, ", "))}
+	}
+	return nil
+}
+
+// defectPrecondition says what the plan establishes about section 9's known-defect precondition,
+// and on whose word. A run with no plugin bundle has no candidate, and nothing to say.
+func defectPrecondition(p eval.LivePlan) string {
+	switch {
+	case p.KnownDefects == nil && p.Plugin == nil:
+		return ""
+	case p.KnownDefects == nil:
+		return "not attested: the plan carries no statement of the bundle's known open defects"
+	case len(p.KnownDefects.Open) == 0:
+		return "none open, on the operator's word when the run was planned; a bundle cannot prove which " +
+			"defects it fixes, so this precondition is not machine-checked"
+	default:
+		return fmt.Sprintf("open: %s, on the operator's word when the run was planned",
+			strings.Join(p.KnownDefects.Open, ", "))
+	}
 }
 
 // liveGates are the live run's gates. Only a confirmatory run's are judged, and then only as the
@@ -252,10 +300,14 @@ func renderLive(rw *errWriter, r *LiveEvalReport) {
 		rw.printf("  bundle %s at commit %s (dirty=%t)\n", orUnknown(r.Plugin.Version), orUnknown(r.Plugin.Commit),
 			r.Plugin.Dirty)
 	}
+	if r.DefectPrecondition != "" {
+		rw.printf("  known open defects (preregistration section 9): %s\n", r.DefectPrecondition)
+	}
 	rw.printf("  task set %s (sha256 %s, fixture tree %s)\n", orUnknown(r.TaskSet), shortHash(r.TaskSetSHA256),
 		shortHash(r.FixtureTreeSHA256))
 	if r.Confirmatory {
-		rw.printf("  confirmatory: yes\n")
+		rw.printf("  confirmatory: yes — its section 9 known-defect precondition rests on the operator's " +
+			"attestation, not on a machine check\n")
 	} else {
 		rw.printf("  confirmatory: no — %s\n", strings.Join(r.NotConfirmatory, "; "))
 	}

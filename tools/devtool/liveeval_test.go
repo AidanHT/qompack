@@ -37,10 +37,79 @@ func TestParseLiveFlags(t *testing.T) {
 		{"--trials", "-1"},
 		{"stray"},
 		{"--daemon-idle-exit", "0"},
+		{"--known-open-defects", "none,C1.12"},
+		{"--known-open-defects", " , "},
+		{"--known-open-defects", "C1.12;rm"},
 	} {
 		_, err := parseLiveFlags(bad)
 		require.Error(t, err, "%v", bad)
 	}
+}
+
+// TestParseLiveFlags_KnownOpenDefects: preregistration section 9 counts a run as confirmatory only
+// on a candidate with no known open defect, and a bundle cannot prove which defects it fixes, so the
+// operator states it: "none", or every known defect the bundle still carries. Not saying is
+// distinguishable from saying "none".
+func TestParseLiveFlags_KnownOpenDefects(t *testing.T) {
+	o, err := parseLiveFlags(nil)
+	require.NoError(t, err)
+	require.False(t, o.defectsAttested, "no flag is no attestation")
+
+	o, err = parseLiveFlags([]string{"--known-open-defects", "none"})
+	require.NoError(t, err)
+	require.True(t, o.defectsAttested)
+	require.Empty(t, o.openDefects)
+
+	o, err = parseLiveFlags([]string{"--known-open-defects", "C1.12, C1.1"})
+	require.NoError(t, err)
+	require.True(t, o.defectsAttested)
+	require.Equal(t, []string{"C1.12", "C1.1"}, o.openDefects)
+}
+
+// TestRunLiveEval_TheQompackArmNeedsADefectAttestation: a run with the qompack arm refuses to plan —
+// dry run included, since a dry run exists to validate the real run's command — until the operator
+// has said which known defects its bundle carries, and plan.json records the statement as the
+// operator's, beside the bundle it is about. A stock-only run has no candidate and needs none.
+func TestRunLiveEval_TheQompackArmNeedsADefectAttestation(t *testing.T) {
+	env := fakeLiveEnv(t, nil)
+	var out bytes.Buffer
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock", "qompack"}, out: t.TempDir(),
+		install: liveInstallPluginDir, bundle: fakeBundle(t), dryRun: true,
+	}
+	err := runLiveEval(context.Background(), o, env, &out)
+	require.ErrorContains(t, err, "--known-open-defects")
+	require.ErrorContains(t, err, "section 9")
+
+	o.defectsAttested, o.openDefects = true, []string{"C1.11"}
+	out.Reset()
+	require.NoError(t, runLiveEval(context.Background(), o, env, &out))
+	require.Contains(t, out.String(), "known open defects: C1.11")
+
+	o.arms, o.defectsAttested, o.openDefects = []string{"stock"}, false, nil
+	require.NoError(t, runLiveEval(context.Background(), o, env, &out), "a stock-only run carries no candidate")
+
+	home := t.TempDir()
+	env.home = home
+	env.run = scriptedPilotHost(t, home)
+	t.Setenv(liveEvalGateEnv, "1")
+	o = liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack"}, out: t.TempDir(),
+		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1, trials: 1, defectsAttested: true,
+	}
+	require.NoError(t, runLiveEval(context.Background(), o, env, &out), out.String())
+	var plan eval.LivePlan
+	readJSON(t, filepath.Join(o.out, "plan.json"), &plan)
+	require.NotNil(t, plan.KnownDefects)
+	require.NotNil(t, plan.KnownDefects.Open, "none is recorded as an empty list, not as no statement")
+	require.Empty(t, plan.KnownDefects.Open)
+	require.Contains(t, plan.KnownDefects.Source, "--known-open-defects")
+	raw, err := os.ReadFile(filepath.Join(o.out, "plan.json"))
+	require.NoError(t, err)
+	require.Contains(t, string(raw), `"open": []`)
+	md, err := os.ReadFile(filepath.Join(o.out, "summary.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(md), "known open defects: none")
 }
 
 // TestPlanLiveTrials_AlternatesArmOrder: across tasks and trials each arm goes first half the time.
@@ -152,7 +221,7 @@ func TestRunLiveEval_OfflineTrialsBothArms(t *testing.T) {
 
 	o := liveOptions{
 		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock", "qompack"}, out: out,
-		install: liveInstallMarketplace, bundle: bundle, idleExit: 1, trials: 1,
+		install: liveInstallMarketplace, bundle: bundle, idleExit: 1, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
 	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
@@ -224,7 +293,7 @@ func TestRunLiveEval_GuardFailsClosed(t *testing.T) {
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
 		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack", "stock"}, out: out,
-		install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1,
+		install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
 	err := runLiveEval(context.Background(), o, env, &log)
@@ -698,7 +767,7 @@ func TestRunLiveEval_PluginMustComeFromTheArmsInstall(t *testing.T) {
 		t.Setenv(liveEvalGateEnv, "1")
 		o := liveOptions{
 			tasksFile: liveTestPilot, rates: liveTestRates, arms: arms, out: out,
-			install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1,
+			install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1, defectsAttested: true,
 		}
 		var log bytes.Buffer
 		require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
@@ -757,7 +826,7 @@ func TestRunLiveEval_RelativeBundleReachesTheHostWhole(t *testing.T) {
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
 		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack"}, out: t.TempDir(),
-		install: liveInstallPluginDir, bundle: rel, idleExit: 1, trials: 1,
+		install: liveInstallPluginDir, bundle: rel, idleExit: 1, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
 	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
@@ -839,7 +908,7 @@ func TestRunLiveEval_InstallFailureIsAHarnessFailureNotAMismatch(t *testing.T) {
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
 		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack", "stock"}, out: out,
-		install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1,
+		install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
 	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
@@ -879,7 +948,7 @@ func TestRunLiveEval_StoppedRunReachesNoVerdict(t *testing.T) {
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
 		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack", "stock"}, out: out,
-		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1, trials: 2,
+		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1, trials: 2, defectsAttested: true,
 	}
 	var log bytes.Buffer
 	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &log), "configuration changed")
@@ -932,7 +1001,7 @@ func TestRunLiveEval_SessionsRunAtThePluginsDefaults(t *testing.T) {
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
 		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack"}, out: out,
-		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 7, trials: 1,
+		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 7, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
 	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())

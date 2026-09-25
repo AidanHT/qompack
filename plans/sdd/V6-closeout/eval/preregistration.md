@@ -249,3 +249,30 @@ verdict over the rest is not the pre-registered analysis.
 naming how many of the planned trials ran; its per-arm intervals are still reported as a description
 (`eval.LiveSummary.StopEarly`, `TestRunLiveEval_StoppedRunReachesNoVerdict`). `qompack eval` already
 calls such a run not confirmatory.
+
+**A5 — 2026-09-25, by the C5.4 fix seat (an Opus 5.5 workflow subagent, branch `closeout/w2-eval2`),
+before any confirmatory trial.** No task, fixture, hidden test, rate or analysis parameter changes;
+how §9's known-defect precondition is recorded and read is made precise.
+
+*Reason.* §9 makes the candidate's defect state part of what the confirmatory run is, and nothing
+recorded it: a bundle's identity carries its commit and dirty flag, not which defects it fixes, and
+`qompack eval` called a run confirmatory without asking, so a 40-trial run on a bundle with C1.12
+still open would have been judged. §9 names C1.12 and C1.1 as the defects that must be fixed, then
+sets aside "a run on a candidate with a known open defect"; the second clause is read in its plain
+sense, as any known open defect, which also covers the first.
+
+*Amendment.* `devtool live-eval` refuses to plan a run with the qompack arm, dry run included,
+unless `--known-open-defects` states which known defects the bundle still carries: `none`, or their
+checklist IDs. `plan.json` records the statement as the operator's (`known_defects`). A run is the
+confirmatory run only if its plan attests that the bundle carries no known open defect — C1.12 and
+C1.1 fixed and no other open; a plan with no statement, or one that names an open defect, is
+labelled with it and is not the confirmatory run (`eval.LivePreregistration.RequiredFixed`,
+`TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation`). The statement is the operator's
+and cannot be machine-checked; `qompack eval` and `summary.md` say so beside every run that carries
+one. §9's command gains the flag:
+
+```
+QOMPACK_LIVE_EVAL=1 go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks.json \
+  --include-held-out --arms stock,qompack --install plugin-dir --known-open-defects none \
+  --bundle dist/live-bundle/qompack-plugin-<v>-windows-amd64 --max-sessions 40
+```
