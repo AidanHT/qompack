@@ -465,6 +465,11 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		respOut := hookio.Empty()
 		if resp.Output != nil {
 			respOut = *resp.Output
+		} else if compactUnanswered(spec, ev, degraded, st, cfg, resp) {
+			// C1.16: the daemon never answered a compact SessionStart (it did not reply within the
+			// deadline, or could not be reached), so no rehydration is coming. Say so, rather than
+			// answer {} and leave the model with a compacted context and no word of what it lost.
+			respOut = hookio.SessionStartOutput(daemon.CompactDeferredNote(ev.SessionID, daemon.DeferredNoAnswer))
 		}
 		// The daemon's reply is an internal protocol; the host's schema is not. One field the host
 		// does not accept for this event makes it reject the whole response, and for PreCompact it
@@ -484,6 +489,38 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		return hookio.WriteOutput(out, conformed)
 	}
 }
+
+// compactUnanswered reports whether a session-start invocation is a compact SessionStart that got
+// no answer from the daemon at all — Send spooled it (a missed reply deadline, a failed dial) or
+// dropped it — in a project where the daemon would have been allowed to rehydrate: the daemon is
+// enabled, the mode this client read may act (§12.1: degraded-passive and off inject nothing, a
+// note included), and the reinjection kill switch (SP-19) is on. Only then is the deferred note
+// honest: in every other case {} is the designed answer, not a lost one.
+func compactUnanswered(spec hookSpec, ev hookio.Event, degraded bool, st ipc.State, cfg config.Config, resp ipc.Response) bool {
+	switch {
+	case spec.op != ipc.OpSessionStart, degraded, ev.Source != compactSource:
+		return false
+	case resp.OK || resp.Output != nil:
+		return false // the daemon answered; what it said is the answer
+	case !st.DaemonEnabled, !st.Mode.MayAct():
+		return false
+	case cfg.Runtime.Mode == configModeOff || cfg.Runtime.Mode == configModePassive:
+		return false
+	case !cfg.Runtime.Migration.Reinjection.SessionStartCompact:
+		return false
+	}
+	return true
+}
+
+// compactSource is the SessionStart source a host sends after compacting a conversation.
+const compactSource = "compact"
+
+// configModeOff and configModePassive are the runtime.mode values under which Qompack acts on
+// nothing (contract.Monitor.RunAll forces the mode from them).
+const (
+	configModeOff     = "off"
+	configModePassive = "passive"
+)
 
 // hookEvent is the host event a hook invocation answers: the event internal/pluginmanifest
 // registers that subcommand for. `observe stop` serves two events, told apart by the --subagent

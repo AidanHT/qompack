@@ -1,0 +1,39 @@
+# C1.16 cli rows on the fix, run alone: go test ./internal/cli/ -run TestSessionStartCompact_ -count=1 -v
+    sessionstart_compact_load_test.go:328: round 0: 187.6731ms rehydration
+    sessionstart_compact_load_test.go:328: round 1: 124.4272ms rehydration
+    sessionstart_compact_load_test.go:328: round 2: 176.552ms rehydration
+    sessionstart_compact_load_test.go:335: compact SessionStart wall (n=3): p50=176.552ms p95=187.6731ms p99=187.6731ms max=187.6731ms answers=map[rehydration:3]
+    sessionstart_compact_load_test.go:335:   checkpoint.precompact              n=3     p50=106.496ms  p95=114.688ms  p99=114.688ms  max=107.202ms
+    sessionstart_compact_load_test.go:335:   checkpoint_finalize                n=3     p50=114.688ms  p95=122.88ms   p99=122.88ms   max=116.198ms
+    sessionstart_compact_load_test.go:335:   l0_ingest                          n=11    p50=18.432ms   p95=196.608ms  p99=196.608ms  max=183.671ms
+    sessionstart_compact_load_test.go:335:   l0_process                         n=7     p50=212.992ms  p95=294.912ms  p99=294.912ms  max=283.821ms
+    sessionstart_compact_load_test.go:335:   negknow.rebuild                    n=1     p50=9.216ms    p95=9.216ms    p99=9.216ms    max=8.918ms
+    sessionstart_compact_load_test.go:335:   negknow.refresh                    n=1     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   observer.prompt                    n=2     p50=2µs        p95=122.88ms   p99=122.88ms   max=122.148ms
+    sessionstart_compact_load_test.go:335:   observer.session_start             n=4     p50=576µs      p95=106.496ms  p99=106.496ms  max=99.497ms
+    sessionstart_compact_load_test.go:335:   observer.stop                      n=11    p50=147.456ms  p95=262.144ms  p99=262.144ms  max=257.211ms
+    sessionstart_compact_load_test.go:335:   rehydrate.build                    n=3     p50=1.152ms    p95=2.304ms    p99=2.304ms    max=2.277ms
+    sessionstart_compact_load_test.go:335:   rehydrate.deps                     n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   rehydrate.latest                   n=3     p50=768µs      p95=960µs      p99=960µs      max=939µs
+    sessionstart_compact_load_test.go:335:   rehydrate.record                   n=3     p50=18.432ms   p95=30.72ms    p99=30.72ms    max=30.435ms
+    sessionstart_compact_load_test.go:335:   rehydrate.selection                n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   session_start.compact_wait         n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   session_start.contract             n=4     p50=90.112ms   p95=147.456ms  p99=147.456ms  max=141.061ms
+    sessionstart_compact_load_test.go:335:   session_start.finish               n=4     p50=36.864ms   p95=65.536ms   p99=65.536ms   max=63.611ms
+    sessionstart_compact_load_test.go:335:   session_start.route                n=4     p50=114.688ms  p95=196.608ms  p99=196.608ms  max=182.213ms
+    sessionstart_compact_load_test.go:335:   session_start.seam                 n=4     p50=2µs        p95=1.664ms    p99=1.664ms    max=1.635ms
+--- PASS: TestSessionStartCompact_UnderSameSessionIngest (2.77s)
+--- PASS: TestSessionStartCompact_UnansweredIsTheDeferredNote (0.12s)
+--- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue (1.21s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=startup (0.14s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=resume (0.12s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=clear (0.18s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source= (0.10s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/daemon_disabled (0.18s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/degraded_passive (0.13s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=passive (0.14s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=off (0.09s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/reinjection_switched_off (0.13s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	4.374s
+exit=0
