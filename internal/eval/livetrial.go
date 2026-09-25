@@ -23,6 +23,10 @@ const (
 	ArmQompack = "qompack"
 )
 
+// LiveQompackToolPrefix begins the name the host gives every tool of the Qompack plugin's own MCP
+// server ("mcp__plugin_qompack_qompack__recall", say).
+const LiveQompackToolPrefix = "mcp__plugin_qompack_qompack__"
+
 // LiveTrial is one trial's record.
 type LiveTrial struct {
 	Schema   int    `json:"schema"`
@@ -154,6 +158,12 @@ type LiveHomeGuard struct {
 // ToolUsesAfterSteps maps every compaction step of task that the session reached to every tool
 // call made in the turns after it, subagents' included: a fact re-derived by a subagent was not
 // recovered either. A compaction step the stream never produced a result for is absent.
+//
+// Calls to the Qompack plugin's own MCP tools (LiveQompackToolPrefix) are left out. They look up
+// what the plugin archived before the compaction — they run no program and read no file from disk —
+// so a lookup is the recovery a tool_not_used_after check asks for, not the re-derivation it
+// forbids, and only the qompack arm has such tools to be penalised for (preregistration amendment
+// A3). Every other tool, a Bash run of the same command included, still counts.
 func ToolUsesAfterSteps(task LiveTask, s HostStream) map[string][]HostToolUse {
 	out := map[string][]HostToolUse{}
 	for i, step := range task.Steps {
@@ -163,7 +173,11 @@ func ToolUsesAfterSteps(task LiveTask, s HostStream) map[string][]HostToolUse {
 		uses := []HostToolUse{}
 		for _, t := range s.Turns[i+1:] {
 			for _, r := range t.Requests {
-				uses = append(uses, r.ToolUses...)
+				for _, u := range r.ToolUses {
+					if !strings.HasPrefix(u.Name, LiveQompackToolPrefix) {
+						uses = append(uses, u)
+					}
+				}
 			}
 		}
 		out[step.ID] = uses

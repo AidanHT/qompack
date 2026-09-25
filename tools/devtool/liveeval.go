@@ -59,7 +59,7 @@ const (
 )
 
 // liveMCPToolPrefix is the prefix the host gives the plugin's MCP tools.
-const liveMCPToolPrefix = "mcp__plugin_qompack_qompack__"
+const liveMCPToolPrefix = eval.LiveQompackToolPrefix
 
 // liveMCPServerName is the name the host lists the plugin's MCP server under.
 const liveMCPServerName = "plugin:qompack:qompack"
