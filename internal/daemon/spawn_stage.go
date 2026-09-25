@@ -247,6 +247,24 @@ func daemonProgram(self, home, pluginRoot string, stage bool) (string, error) {
 	return staged, nil
 }
 
+// daemonWorkingDir is the working directory SpawnDetached gives a daemon it starts from program for
+// a hook running self. A process's working directory cannot be removed on Windows either, and the
+// daemon outlives the hook, so a staged copy runs in its own directory: the running executable
+// already holds that directory, so the working directory pins nothing more, whichever directory
+// the hook ran in — the plugin's own included. A daemon started from self inherits the hook's
+// working directory, as it always has ("").
+//
+// It is never the project root. CreateProcess takes the working directory without the \\?\
+// prefix that lifts MAX_PATH, so a project root past MAX_PATH cannot be a Windows process's
+// working directory, and the spawn would fail outright (test/platform
+// TestPlatform_ProjectRootShapes/long).
+func daemonWorkingDir(self, program string) string {
+	if program == self {
+		return ""
+	}
+	return filepath.Dir(program)
+}
+
 // runningFromPluginRoot reports whether exe lies inside pluginRoot (CLAUDE_PLUGIN_ROOT, which the
 // daemon inherits from the hook that spawned it) where that pins the plugin directory — stage is
 // stagingEnabled: staging was expected and did not happen, and the plugin cannot be removed or

@@ -214,14 +214,22 @@ func TestDaemonProgram_StagesOnlyWhereEnabled(t *testing.T) {
 	require.Equal(t, self, got, "and the plugin binary is started instead")
 }
 
-// TestBuildSpawnCommand_RunsFromTheProjectRoot: the daemon's working directory is the project root,
-// never the directory the spawning hook happened to run in — on Windows a process's working
-// directory cannot be removed either, and the hook may run in the plugin's own directory.
-func TestBuildSpawnCommand_RunsFromTheProjectRoot(t *testing.T) {
+// TestDaemonWorkingDir: a daemon started from a staged copy runs in the copy's own directory, never
+// the directory the spawning hook ran in — on Windows a process's working directory cannot be
+// removed either, and the hook may run inside the plugin's own directory. A daemon started from
+// the hook's own binary inherits the hook's working directory. Neither is ever the project root,
+// which can be past MAX_PATH, where Windows cannot start a process in it at all (test/platform
+// TestPlatform_ProjectRootShapes/long failed that way while this was the project root).
+func TestDaemonWorkingDir(t *testing.T) {
 	t.Parallel()
-	cmd := buildSpawnCommand("/staged/qompack", "/proj", nil)
-	require.Equal(t, "/proj", cmd.Dir)
-	require.Equal(t, "/staged/qompack", cmd.Args[0])
+	self := filepath.Join("plugin", "bin", "qompack.exe")
+	staged := filepath.Join("home", ".qompack", "bin", "abc", "qompack.exe")
+	require.Equal(t, filepath.Dir(staged), daemonWorkingDir(self, staged))
+	require.Empty(t, daemonWorkingDir(self, self), "an unstaged daemon inherits the hook's working directory")
+
+	cmd := buildSpawnCommand(staged, "/proj", nil)
+	require.Empty(t, cmd.Dir, "buildSpawnCommand leaves the working directory to spawnDetached")
+	require.Equal(t, staged, cmd.Args[0])
 }
 
 // TestRunningFromPluginRoot: the daemon's self-check (Run) fires only for an executable inside
@@ -238,6 +246,7 @@ func TestRunningFromPluginRoot(t *testing.T) {
 	require.False(t, runningFromPluginRoot(sibling, root, true), "a sibling directory sharing the prefix is not inside")
 	require.False(t, runningFromPluginRoot(inside, "", true), "no plugin root, nothing to pin")
 	require.False(t, runningFromPluginRoot(inside, root, false), "nothing is pinned where the kernel allows the unlink")
+
 }
 
 // TestRun_ReportsRunningFromThePluginDirectory: a daemon that finds itself running from inside

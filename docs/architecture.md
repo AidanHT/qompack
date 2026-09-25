@@ -75,8 +75,10 @@ when it does not verify (`internal/daemon/spawn_stage.go`). Copies of other vers
 is running are pruned when a new one is made. On Linux and macOS the kernel lets a running
 executable and its directory be unlinked or replaced, so the daemon runs from the plugin binary and
 nothing is copied; a binary run from outside any plugin directory (a build tree, a test's temporary
-directory) pins nothing a host removes and is not copied either. On every platform its working directory is the project root, never the directory
-the spawning hook ran in. If the copy cannot be made the daemon is started from the plugin binary
+directory) pins nothing a host removes and is not copied either. A daemon started from a copy runs
+in the copy's own directory, never the directory the spawning hook ran in; one started from the
+hook's own binary inherits the hook's working directory. Neither is the project root, which can be
+longer than a Windows process's working directory may be (MAX_PATH). If the copy cannot be made the daemon is started from the plugin binary
 after all, `session-start` logs why, and the daemon itself reports it Loud when it starts. A daemon started
 before a plugin update keeps running its own version until its idle exit; the next spawn runs the
 new one.
