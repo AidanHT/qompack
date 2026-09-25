@@ -84,12 +84,16 @@ type EvalReport struct {
 	// Cost is reported beside the outcomes, never folded into them.
 	Cost EvalCost `json:"cost"`
 	// Historical are the §11.1 metrics, retained as labelled diagnostics.
-	Historical []EvalGate  `json:"historical"`
-	Trials     TrialCounts `json:"trials"`
-	Policy     string      `json:"policy"`
-	Baseline   string      `json:"baseline"`
-	Sessions   int         `json:"sessions"`
-	Notes      []string    `json:"notes,omitempty"`
+	Historical []EvalGate `json:"historical"`
+	// Trials counts the deterministic replay's sessions; a live run carries its own in Live.
+	Trials   TrialCounts `json:"trials"`
+	Policy   string      `json:"policy"`
+	Baseline string      `json:"baseline"`
+	Sessions int         `json:"sessions"`
+	Notes    []string    `json:"notes,omitempty"`
+	// Live is the newest real-host evaluation run read, or nil when none was. Its gates are in Task
+	// and Recovery beside the replay's, prefixed LIVE-.
+	Live *LiveEvalReport `json:"live,omitempty"`
 }
 
 // EvalInput is the artifact set the eval command renders.
@@ -104,6 +108,8 @@ type EvalInput struct {
 	Ledger *eval.RequestLedger
 	// Notes carries anything the producer needs the reader to know.
 	Notes []string
+	// Live is a real-host evaluation run, or nil when none was read.
+	Live *LiveEvalInput
 }
 
 // EvalArtifacts supplies a completed evaluation's artifacts.
@@ -140,25 +146,43 @@ func evalBody(ctx context.Context, inv Invocation) (json.RawMessage, error) {
 // errEvalFailed is the sentinel a failing evaluation returns, so a caller can branch on it.
 var errEvalFailed = fmt.Errorf("the evaluation did not pass its task and recovery gates")
 
-// buildEvalReport groups a run's metrics into outcomes, recovery and cost.
+// buildEvalReport groups a run's metrics into outcomes, recovery and cost. The deterministic replay
+// and a real-host live run are reported side by side when both were read; either alone is enough.
 func buildEvalReport(in EvalInput) EvalReport {
 	rep := EvalReport{
 		Schema:   EvalSchema,
 		Baseline: in.Report.Baseline,
 		Sessions: in.Report.Sessions,
 		Trials:   in.Trials,
-		Notes:    in.Notes,
+		Notes:    append([]string(nil), in.Notes...),
 		Cost:     costOf(in.Ledger),
 	}
 
 	name, score, ok := primaryPolicy(in.Report)
 	rep.Policy = name
-	if !ok {
+	if !ok && in.Live == nil {
 		rep.Verdict = VerdictInconclusive
 		rep.Notes = append(rep.Notes, "no policy scores were reported, so nothing was evaluated")
 		return rep
 	}
+	if ok {
+		addReplayGates(&rep, score)
+	} else {
+		rep.Notes = append(rep.Notes, "no deterministic replay report was read; only the live run is reported")
+	}
+	if in.Live != nil {
+		rep.Live = buildLiveReport(*in.Live)
+		task, recovery := liveGates(rep.Live)
+		rep.Task = append(rep.Task, task...)
+		rep.Recovery = append(rep.Recovery, recovery...)
+	}
 
+	rep.Verdict = verdictOf(rep, ok)
+	return rep
+}
+
+// addReplayGates adds the deterministic replay's gates for the primary policy's score.
+func addReplayGates(rep *EvalReport, score eval.Score) {
 	d := score.Divergence
 	rep.Task = []EvalGate{
 		boolGate("TASK-01", "final decision preserved", d.SameDecision),
@@ -175,9 +199,6 @@ func buildEvalReport(in EvalInput) EvalReport {
 		historical("HIST-02", "file-set Jaccard (retained diagnostic)", d.FileSetJaccard),
 		historical("HIST-03", "tool edit distance (retained diagnostic)", float64(d.ToolEditDistance)),
 	}
-
-	rep.Verdict = verdictOf(rep)
-	return rep
 }
 
 // verdictOf decides the run's outcome from the task and recovery gates alone.
@@ -185,8 +206,9 @@ func buildEvalReport(in EvalInput) EvalReport {
 // Cost is not consulted. That is the SP14-M7-03 rule in its operational form: a run that was cheap
 // and got the wrong answer must not pass, so the cheapness cannot enter the decision at any
 // weight. Trials that were skipped or failed cannot produce a pass either, because a gate that
-// passes on an evaluation which did not run is not a gate.
-func verdictOf(rep EvalReport) EvalVerdict {
+// passes on an evaluation which did not run is not a gate — the replay's (when one was read) and
+// the live run's alike.
+func verdictOf(rep EvalReport, replayed bool) EvalVerdict {
 	var decided int
 	for _, g := range append(append([]EvalGate{}, rep.Task...), rep.Recovery...) {
 		if g.Passed == nil {
@@ -198,7 +220,9 @@ func verdictOf(rep EvalReport) EvalVerdict {
 		}
 	}
 	switch {
-	case rep.Trials.Failed > 0, rep.Trials.Skipped > 0, rep.Trials.Ran == 0:
+	case replayed && (rep.Trials.Failed > 0 || rep.Trials.Skipped > 0 || rep.Trials.Ran == 0):
+		return VerdictInconclusive
+	case rep.Live != nil && (rep.Live.Trials.Failed > 0 || rep.Live.Trials.Skipped > 0 || rep.Live.Trials.Ran == 0):
 		return VerdictInconclusive
 	case decided == 0:
 		return VerdictInconclusive
@@ -310,10 +334,16 @@ func renderEval(inv Invocation, rep EvalReport) {
 	rw := &errWriter{w: inv.Out}
 
 	rw.printf("eval: %s\n", strings.ToUpper(string(rep.Verdict)))
-	rw.printf("policy: %s   baseline: %s   sessions: %d\n",
-		orUnknown(rep.Policy), orUnknown(rep.Baseline), rep.Sessions)
-	rw.printf("trials: %d planned, %d ran, %d skipped, %d failed\n\n",
-		rep.Trials.Planned, rep.Trials.Ran, rep.Trials.Skipped, rep.Trials.Failed)
+	if rep.Live != nil && rep.Policy == "" {
+		// Only a live run was read: the replay's header would print zeroes for a replay that is not
+		// there, which reads as a replay that ran nothing.
+		rw.printf("replay: none read; the live run below is the whole evaluation\n\n")
+	} else {
+		rw.printf("policy: %s   baseline: %s   sessions: %d\n",
+			orUnknown(rep.Policy), orUnknown(rep.Baseline), rep.Sessions)
+		rw.printf("trials: %d planned, %d ran, %d skipped, %d failed\n\n",
+			rep.Trials.Planned, rep.Trials.Ran, rep.Trials.Skipped, rep.Trials.Failed)
+	}
 
 	renderGates(rw, "task outcomes", rep.Task)
 	renderGates(rw, "evidence recovery", rep.Recovery)
@@ -322,6 +352,10 @@ func renderEval(inv Invocation, rep EvalReport) {
 	renderCost(rw, rep.Cost)
 
 	renderGates(rw, "historical diagnostics — retained, not decisive", rep.Historical)
+
+	if rep.Live != nil {
+		renderLive(rw, rep.Live)
+	}
 
 	for _, n := range rep.Notes {
 		rw.printf("note: %s\n", n)

@@ -215,7 +215,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	plan := eval.LivePlan{
 		RunID: runID, CreatedAt: env.now().UTC().Format(time.RFC3339), TaskSet: ts.ID,
 		TaskSetFile: filepath.ToSlash(o.tasksFile), TaskSetSHA256: sha256Hex(raw),
-		FixtureTreeSHA256: tree, FixtureTreeDirs: treeDirs,
+		TaskSetTasks: len(ts.Tasks), FixtureTreeSHA256: tree, FixtureTreeDirs: treeDirs,
 		Model: o.model, PreregisteredModel: ts.Analysis.Model, Arms: o.arms, TrialsPerArm: o.trials,
 		Install: o.install, RateTableDate: rates.Date, RateTableSource: rates.Source,
 		HeldOutIncluded: o.includeHeldOut, Host: runtime.GOOS + "/" + runtime.GOARCH,

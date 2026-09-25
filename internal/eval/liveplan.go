@@ -22,6 +22,10 @@ type LivePlan struct {
 	TaskSet       string `json:"task_set"`
 	TaskSetFile   string `json:"task_set_file"`
 	TaskSetSHA256 string `json:"task_set_sha256"`
+	// TaskSetTasks is how many tasks the task set declares, held-out ones included, so a reader can
+	// tell a run of the whole set from one --only or the held-out rule narrowed. Zero in a plan
+	// written before it was recorded, which is read as unknown.
+	TaskSetTasks int `json:"task_set_tasks,omitempty"`
 	// FixtureTreeSHA256 is TreeManifestSHA256 over FixtureTreeDirs, the top-level directories
 	// (beside the task file) the task set's fixtures and hidden tests live in: the identity of every
 	// byte a trial starts from or is graded against, which the task-set hash alone does not cover.
