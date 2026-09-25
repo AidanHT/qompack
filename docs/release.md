@@ -110,7 +110,7 @@ A status is raised only by a record with an `outcome` (for `release-check.json`,
 | SP17-M7-06 | verified | switches + install records | — |
 | SP17-M7-07 | verified | release-check.json | — |
 | SP17-M7-08 | verified | release-check.json + install records | — |
-| SP17-M7-07 / live-task layer | excluded | — | no live model runs are executed by this repository's tests; eval.LiveRunner is nil in every shipped build and is deliberately left unwired (ruling R7-2) |
+| SP17-M7-07 / live-task layer | excluded | — | no live model runs are executed by this repository's tests or its shipped build, which installs no eval.LiveRunner; real-host trials run only through `devtool live-eval` (QOMPACK_LIVE_EVAL=1, agent-executed under owner decision D3), and no live run is attached here as a record |
 
 `verified` = a record says so. `unverified` = no record says so, which is not a claim
 that it is broken. `excluded` = deliberately out of scope, with the reason stated.

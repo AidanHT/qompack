@@ -80,6 +80,11 @@ func TestReleaseScope_EmptyEvidenceIsUnknown(t *testing.T) {
 			if r.Status != scopeExcluded {
 				t.Errorf("the live-task layer must be excluded, not %s (ruling R7-2)", r.Status)
 			}
+			// C5.4 built the live harness: the note must say where live runs come from now, not
+			// that the runner is "deliberately left unwired", which stopped being true.
+			if strings.Contains(r.Note, "left unwired") || !strings.Contains(r.Note, "devtool live-eval") {
+				t.Errorf("the live-task layer's note is stale: %q", r.Note)
+			}
 			continue
 		}
 		if r.Status != scopeUnverified {
