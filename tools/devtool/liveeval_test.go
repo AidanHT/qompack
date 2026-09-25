@@ -602,7 +602,7 @@ func TestRenderLiveSummary_ShowsEveryPreregisteredReport(t *testing.T) {
 	ts[1].Account = eval.SessionAccount{Problems: []string{"turn 1: model x running input total decreased"}}
 	sum := eval.SummarizeLive("r", a, ts)
 	require.NotEmpty(t, sum.ConstraintRegression)
-	md := renderLiveSummary(livePlan{RunID: "r", TaskSet: "s", TaskSetSHA256: "abc", Model: "m", PreregisteredModel: "m"}, sum)
+	md := renderLiveSummary(eval.LivePlan{RunID: "r", TaskSet: "s", TaskSetSHA256: "abc", Model: "m", PreregisteredModel: "m"}, sum)
 	for _, want := range []string{
 		"**Regression (H2):**",
 		"Constraint-clean difference (qompack − stock):",
@@ -636,7 +636,7 @@ func TestRunLiveEval_PlanRecordsTheFixtureTree(t *testing.T) {
 	o.dryRun, o.trials, o.idleExit = false, 1, 1
 	t.Setenv(liveEvalGateEnv, "1")
 	require.NoError(t, runLiveEval(context.Background(), o, env, &out), out.String())
-	var plan livePlan
+	var plan eval.LivePlan
 	readJSON(t, filepath.Join(o.out, "plan.json"), &plan)
 	require.Equal(t, want, plan.FixtureTreeSHA256)
 	require.Equal(t, []string{"fixtures", "hidden"}, plan.FixtureTreeDirs)
