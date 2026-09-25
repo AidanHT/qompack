@@ -30,7 +30,7 @@ type Monitor interface {
 	// failure calls Degrade, and the second consecutive clean run while degraded calls Restore.
 	RunAll(ctx context.Context, e Env) ([]Result, Mode)
 	// Mode returns the mode currently in force, which is what every caller that decides whether
-	// to ACT (inject additionalContext, emit customInstructions, schedule a checkpoint) reads.
+	// to ACT (inject additionalContext, schedule a checkpoint) reads.
 	Mode() Mode
 	// Degrade logs LOUD, writes .qompack/logs/LOUD.log, sets mode, and persists the reason so
 	// /qompack:status and the next SessionStart both surface it. NEVER silent.
