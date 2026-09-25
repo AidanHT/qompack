@@ -521,9 +521,18 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 	// SessionEnd last, completing §7.3's hook set. Its route ends the session and drains; the
 	// store must come out of that with the same 20 tool-use records — no record lost, none
 	// invented — and, like every other hook this session, no hookSpecificOutput.
+	//
+	// Since C1.15 the hook answers once the flush is durable and the daemon ends the session, drain
+	// included, on its own, so the claim is read once that end has finished (awaitSessionEnded).
+	// The PreCompact above wrote the terminal-hook marker for this same session, and the daemon runs
+	// on p.Clock: time passes before the flush, as it does between every hook here, so the end's own
+	// marker is told apart from PreCompact's by its time.
+	p.Clock.Advance(time.Millisecond)
+	markerBefore, _ := os.ReadFile(paths.Long(contract.MarkerPath(p.Root)))
 	hookOutputs["SessionEnd"] = p.RunHook(t, "SessionEnd", hookio.Event{
 		HookEventName: "SessionEnd", SessionID: degradedSession, CWD: p.Root, TranscriptPath: transcript,
 	})
+	awaitSessionEnded(t, p.Root, degradedSession, markerBefore)
 	st, err = s.Stats(ctx)
 	require.NoError(t, err)
 	require.Equal(t, degradedEventCount, st.ToolUses,
@@ -546,4 +555,33 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 	// §12.1 requires two consecutive clean runs.
 	require.Equal(t, contract.ModeDegradedPassive.String(), statusMode(t, ctx, p),
 		"one clean contract run must not restore ModeFull")
+}
+
+// awaitSessionEnded waits for the daemon to finish ending sess after its SessionEnd flush hook
+// returned. Since C1.15 that hook answers as soon as the flush is durable — Claude Code gives a
+// plugin's SessionEnd hooks one shared 1.5 s budget — and the daemon ends the session on a goroutine
+// of its own (internal/daemon/session_end.go). Two of the end's own records say it has finished: the
+// terminal-hook marker naming sess, written right after SessionEnd (compared against markerBefore, so
+// an earlier terminal hook's marker is not taken for it), and the session's recovery record, set
+// before the flush was answered and cleared only once the end's drain has run.
+func awaitSessionEnded(t *testing.T, root string, sess core.SessionID, markerBefore []byte) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		b, err := os.ReadFile(paths.Long(contract.MarkerPath(root)))
+		if err != nil || string(b) == string(markerBefore) {
+			return false
+		}
+		var m struct {
+			Session core.SessionID `json:"session"`
+		}
+		if json.Unmarshal(b, &m) != nil || m.Session != sess {
+			return false
+		}
+		sr, err := daemon.LoadSessionRecovery(root)
+		if err != nil {
+			return false
+		}
+		_, pending := sr.Sessions[sess]
+		return !pending
+	}, storeSettleWait, storeSettleTick, "the daemon never finished ending session %s after its flush hook", sess)
 }
