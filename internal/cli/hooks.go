@@ -36,7 +36,9 @@ func hookCmds() []Cmd {
 		{
 			Name: "flush", Hook: true,
 			Summary: "SessionEnd — flush, compact, write the session index (thin ipc client)",
-			Run:     doHook(hookSpec{op: ipc.OpFlush, reply: true, deadline: flushReplyDeadline}),
+			// Fire-and-forget (C1.15): the daemon ACKs once the flush is durable and ends the session
+			// on its own; the host cancels a plugin SessionEnd hook after a shared 1.5 s budget.
+			Run: doHook(hookSpec{op: ipc.OpFlush, reply: false}),
 		},
 	}
 }
