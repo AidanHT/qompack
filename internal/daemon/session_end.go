@@ -19,10 +19,12 @@ import (
 //
 // The flush is now answered as soon as it is DURABLE, which is exactly what an observe event's ACK
 // promises: its line is appended to the session's WAL and synced, and it is leased (acceptSessionEnd,
-// ingest.acceptDurable). The session is then ended on a goroutine of its own (startSessionEnd), which
-// runs the same work the route always ran (endSession), still ordered after every earlier arrival of
-// the session (settleSession, now bounded by the flush's own arrival), and which acknowledges the
-// flush on the committed frontier once SessionEnd has run.
+// ingest.acceptDurable). The session is also on record as needing recovery by then: the marker the
+// end clears once it has finished, which a caller holding the answer can wait on. The session is then
+// ended on a goroutine of its own (startSessionEnd), which runs the same work the route always ran
+// (endSession), still ordered after every earlier arrival of the session (settleSession, now bounded
+// by the flush's own arrival), and which acknowledges the flush on the committed frontier once
+// SessionEnd has run.
 //
 // Nothing is lost by answering first, and nothing depends on the hook for correctness (Qompack.md
 // §8.2): a hook the host cancels after its answer changes nothing, because the daemon's work never ran
@@ -141,12 +143,13 @@ func (d *daemon) acceptSessionEnd(req ipc.Request) (own job, durable bool, err e
 // answer arrives on; it is buffered, so nobody has to read it. own is the flush's accepted delivery,
 // when there is one.
 //
-// It takes own's in-process ownership (the seen set) BEFORE the flush is answered. That makes the end
-// exactly-once within this daemon: a drain that meets the flush's own line while the end runs leaves
-// it for a later pass (drain.go processOne), and a copy of the same delivery — the hook's own spooled
-// fallback, or the same line accepted twice — finds it owned or complete and starts nothing. Once
-// Stop has begun joining the ends, none is started: a durable flush is then Stop's own drain's to
-// replay, or the next daemon's.
+// It takes own's in-process ownership (the seen set) and records the session as needing recovery
+// (markRecoveryNeeded) BEFORE the flush is answered. The ownership makes the end exactly-once within
+// this daemon: a drain that meets the flush's own line while the end runs leaves it for a later pass
+// (drain.go processOne), and a copy of the same delivery — the hook's own spooled fallback, or the
+// same line accepted twice — finds it owned or complete and starts nothing. Once Stop has begun
+// joining the ends, none is started: a durable flush is then Stop's own drain's to replay, or the
+// next daemon's.
 func (d *daemon) startSessionEnd(ctx context.Context, req ipc.Request, own job, durable bool) <-chan ipc.Response {
 	done := make(chan ipc.Response, 1)
 	var ownp *job
@@ -162,7 +165,17 @@ func (d *daemon) startSessionEnd(ctx context.Context, req ipc.Request, own job, 
 	}
 
 	e := d.ends
-	if !e.begin() {
+	started := e.begin()
+	if started || durable {
+		// From here until an end finishes it, the flush is acknowledged work not yet done, so the
+		// session is on record as needing recovery BEFORE the answer goes out — as it was when the
+		// route did the whole end before answering. A daemon that dies before the end has run leaves
+		// the marker beside the WAL line its next drain replays, and a caller that has the answer in
+		// hand can wait for the marker to clear, which is the end's own completion record. A flush with
+		// no durable line and no end is not marked: nothing would ever clear it.
+		d.markRecoveryNeeded(resolveEvent(req).SessionID, recoveryStageBegin, d.DrainGaps().PendingBytes)
+	}
+	if !started {
 		if ownp != nil {
 			d.ing.seen.finish(own.key, false)
 		}
