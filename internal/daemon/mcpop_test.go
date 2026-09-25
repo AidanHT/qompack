@@ -141,6 +141,7 @@ func newMCPOpFixture(t *testing.T) *mcpOpFixture {
 		Rehydrator:  drops,
 		Cfg:         cfg,
 		ProjectRoot: root,
+		HostPolicy:  mcpOpHostPolicy(t, root),
 		Clock:       clk,
 		Log:         log,
 		Metrics:     reg,
@@ -243,7 +244,9 @@ func TestInstallMCPOpRegistersOp(t *testing.T) {
 	t.Parallel()
 
 	o := NewOptions(t.TempDir(), testConfig())
-	require.NoError(t, InstallMCPOp(&o, mcp.ToolDeps{Cfg: o.Cfg, ProjectRoot: o.ProjectRoot}))
+	require.NoError(t, InstallMCPOp(&o, mcp.ToolDeps{
+		Cfg: o.Cfg, ProjectRoot: o.ProjectRoot, HostPolicy: mcpOpHostPolicy(t, o.ProjectRoot),
+	}))
 
 	h, ok := o.Handler(ipc.OpMCP)
 	require.True(t, ok, "the %q op must be registered", ipc.OpMCP)
