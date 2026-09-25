@@ -525,3 +525,32 @@ func TestRemoveOrphanedMarketplaceCache(t *testing.T) {
 	require.Empty(t, env.removeOrphanedMarketplaceCache(liveGuardSnap{"plugins/cache/" + liveMarketplaceName: "present"}, sum))
 	require.DirExists(t, dir, "a cache that existed before the trial is never touched")
 }
+
+// TestRunLiveEval_HarnessFailureIsScoredAsFailingEveryOutcome: a trial the harness could not even
+// prepare (here, git refuses to initialise the project) never reaches grading, and its record must
+// still say it failed on every pre-registered outcome — recovery included — so the summary keeps it
+// in every denominator (preregistration §8, intention to treat).
+func TestRunLiveEval_HarnessFailureIsScoredAsFailingEveryOutcome(t *testing.T) {
+	env := fakeLiveEnv(t, nil)
+	env.git = func(context.Context, string, ...string) error { return fmt.Errorf("git init: exit status 128") }
+	out := t.TempDir()
+	t.Setenv(liveEvalGateEnv, "1")
+	o := liveOptions{tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock"}, out: out, idleExit: 1, trials: 1}
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "stock", "01", "trial.json"), &rec)
+	require.Contains(t, rec.HarnessError, "preparing the project")
+	require.False(t, rec.Completed)
+	require.False(t, rec.TaskSuccess)
+	require.NotNil(t, rec.Recovered, "the pilot task declares recovery checks, so the failed trial is in that denominator")
+	require.False(t, *rec.Recovered)
+
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(out, "summary.json"), &sum)
+	st := sum.Arms[eval.ArmStock]
+	require.Equal(t, [2]int{0, 1}, [2]int{st.Recovery.K, st.Recovery.N})
+	require.Equal(t, [2]int{0, 1}, [2]int{st.ConstraintClean.K, st.ConstraintClean.N})
+	require.Len(t, sum.Failed, 1)
+}
