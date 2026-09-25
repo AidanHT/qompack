@@ -1,0 +1,73 @@
+# Review finding 5: what staging costs a spawn on Windows. Windows 11, 22 logical CPUs, co-loaded by the
+# other wave-2 lanes (numbers are an upper bound for an idle machine). Fix seat, 2026-09-25, at 2f93634.
+#
+# (1) stageBinary alone, the test binary (18,118,656 B) standing in for qompack.exe (13,451,776 B):
+# go test ./internal/daemon/ -run '^$' -bench '^BenchmarkStageBinary$' -benchtime=40x -count=3 -v
+    spawn_stage_test.go:344: staging C:\Users\Quant\AppData\Local\Temp\go-build2822531371\b001\daemon.test.exe (18118656 bytes)
+BenchmarkStageBinary/cold-22         	      40	 192799012 ns/op	       192.2 p50-ms	       220.7 p99-ms
+BenchmarkStageBinary/cold-22         	      40	 180829920 ns/op	       180.3 p50-ms	       210.9 p99-ms
+BenchmarkStageBinary/cold-22         	      40	 181519038 ns/op	       177.0 p50-ms	       211.7 p99-ms
+BenchmarkStageBinary/warm-22         	      40	  29044430 ns/op	        28.91 p50-ms	        31.04 p99-ms
+BenchmarkStageBinary/warm-22         	      40	  35614690 ns/op	        35.11 p50-ms	        39.58 p99-ms
+BenchmarkStageBinary/warm-22         	      40	  30135890 ns/op	        30.28 p50-ms	        33.47 p99-ms
+ok  	github.com/qompack/qompack/internal/daemon	28.413s
+exit=0
+#   cold = hash self + copy + fsync + verify (a version's first spawn in a home): p50 177-192 ms, p99 211-221 ms
+#   warm = hash self + verify the existing copy (every later spawn):              p50 29-35 ms,   p99 31-40 ms
+#   (An earlier -count=3 run under heavier co-load: cold p50 189-200 / p99 249-353 ms, warm p50 38-44 / p99 44-49 ms.)
+#
+# (2) End to end, the real binary: a cold 'qompack session-start' (no daemon running) per fresh project,
+# 10 runs per mode: bash plans/sdd/V6-closeout/w2-lifetime/runs/34-c117-stage-cost.sh <repo> <scratch> 10
+# (unstaged = bare binary, no plugin layout, the pre-C1.17 path; staged-cold = plugin layout +
+# CLAUDE_PLUGIN_ROOT, fresh home each run; staged-warm = one home already holding the copy).
+#   unstaged     n=10 min=443 p50=570  max=2419 ms
+#   staged-cold  n=10 min=891 p50=1540 max=3053 ms
+#   staged-warm  n=10 min=381 p50=466  max=706 ms
+# No run spooled its own session.start: in every mode the daemon was reachable before EnsureRunning's
+# 1.5 s poll ended. Every staged daemon ran from <home>\.qompack\bin\<sha256>\qompack.exe; every
+# unstaged one from the bare binary. The script stopped each daemon by the pid in its own lock file.
+#
+# Reading: the copy itself is ~0.2 s; most of staged-cold's extra ~1 s is the first execution of a
+# just-written executable (the unstaged mode's first two runs, of a just-built binary, show the same
+# 1.8-2.4 s). That happens once per version per user; warm spawns cost no more than unstaged ones.
+# Budget fit: staging runs in session-start's preSend (EnsureRunning), before the client dials, so it is
+# outside both the client's 10 s reply deadline (which starts at awaitReply) and the route's 5 s compact
+# budget (which starts at the request's arrival). What bounds it is the host's 15 s SessionStart
+# timeout: process start + stageBinary (cold p99 ~0.35 s) + EnsureRunning's 1.5 s poll (which caps a
+# slow first execution: past it Send spools and the compact client writes the deferred note) + the 10 s
+# reply deadline leaves >2.5 s of margin. No change made; staging ahead of time would only move the
+# same one-off cost.
+#
+# Rows (paths under the scratch directory shortened to <w>):
+# binary: 13451776 bytes, sha256 a20f0fb3e44e047e...
+unstaged     unstaged-1           1796 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-2           2419 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-3            577 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-4            563 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-5            905 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-6            538 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-7            551 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-8            650 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-9            548 ms  spooled=no  daemon=<w>\bare\qompack.exe
+unstaged     unstaged-10           443 ms  spooled=no  daemon=<w>\bare\qompack.exe
+staged-cold  cold-1               1097 ms  spooled=no  daemon=<w>\h\cold-1\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-2                891 ms  spooled=no  daemon=<w>\h\cold-2\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-3               1024 ms  spooled=no  daemon=<w>\h\cold-3\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-4               1041 ms  spooled=no  daemon=<w>\h\cold-4\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-5               1155 ms  spooled=no  daemon=<w>\h\cold-5\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-6               1924 ms  spooled=no  daemon=<w>\h\cold-6\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-7               2633 ms  spooled=no  daemon=<w>\h\cold-7\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-8               2364 ms  spooled=no  daemon=<w>\h\cold-8\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-9               3053 ms  spooled=no  daemon=<w>\h\cold-9\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-cold  cold-10              2177 ms  spooled=no  daemon=<w>\h\cold-10\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-0-primes-the-copy   1149 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-1                523 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-2                579 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-3                706 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-4                433 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-5                453 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-6                418 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-7                381 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-8                479 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-9                487 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
+staged-warm  warm-10               407 ms  spooled=no  daemon=<w>\h\warm\.qompack\bin\a20f0fb3e44e047e246468a33b0dd15ebac55c6abe4d6f1c3e36031a3cabd99b\qompack.exe
