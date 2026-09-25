@@ -365,8 +365,13 @@ type ArmSummary struct {
 	Categories map[UsageCategory]CategorySum `json:"categories,omitempty"`
 }
 
+// LiveSummarySchema is the summary document's format version. A summary written before the field
+// existed decodes as 0 and is read as version 1, whose shape it has.
+const LiveSummarySchema = 1
+
 // LiveSummary is the whole run's report.
 type LiveSummary struct {
+	Schema     int                     `json:"schema"`
 	RunID      string                  `json:"run_id"`
 	Confidence float64                 `json:"confidence"`
 	Arms       map[string]ArmSummary   `json:"arms"`
@@ -410,6 +415,7 @@ type LiveDecision struct {
 func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary {
 	z := normalQuantile(1 - (1-a.Confidence)/2)
 	sum := LiveSummary{
+		Schema:     LiveSummarySchema,
 		RunID:      runID,
 		Confidence: a.Confidence,
 		Analysis:   a,
