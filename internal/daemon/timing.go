@@ -23,11 +23,19 @@ const (
 	// built from.
 	DrainLineDeadline = drainLineDeadline
 
-	// IdleTickMax is the upper bound on Run's idle-tick cadence, and so on the FALLBACK drain: the
-	// interval a spool entry waits out when nothing more prompt picks it up. It is exported to be
-	// named in failure messages, so a test that times out says which mechanism it was really
-	// waiting for.
+	// IdleTickMax is the upper bound on Run's idle-tick cadence. The tick runs its drain only once
+	// the whole project has been idle for DetectAfterSeconds (120 s by default), so it is NOT how long
+	// a spooled delivery waits while its session is active: that is the client-spool watcher's
+	// (ClientSpoolWatchInterval, C1.13). It is exported to be named in failure messages, so a test
+	// that times out says which mechanism it was really waiting for.
 	IdleTickMax = idleTickMax
+
+	// ClientSpoolWatchInterval is the client-spool watcher's check interval (spool_watch.go, C1.13).
+	// While requests keep arriving — and for one interval after the last — a hook's client spool that
+	// has stood unchanged for an interval gets a drain pass, and one that pass could not publish is
+	// passed again after 2, 4, 8 ... intervals. A delivery that reached only its hook's client spool
+	// during an active session is therefore published about two intervals after it was spooled.
+	ClientSpoolWatchInterval = spoolCheckInterval
 
 	// StopDrainBound is Stop's bound on draining the in-flight ring — the longest single step of a
 	// clean shutdown, and therefore the basis for any bound on a daemon going away.
@@ -47,6 +55,7 @@ var (
 	_ time.Duration = SpawnPollBound
 	_ time.Duration = DrainLineDeadline
 	_ time.Duration = IdleTickMax
+	_ time.Duration = ClientSpoolWatchInterval
 	_ time.Duration = StopDrainBound
 	_ time.Duration = StopCleanupBound
 )

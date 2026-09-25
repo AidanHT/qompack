@@ -35,9 +35,16 @@ const drainReadBufferBytes = 64 << 10 // 64 KiB
 // The two filename families Drain (via ipc.SpoolFiles) distinguishes. (The blob-descriptor field
 // name and shape live in blob.go, shared with ingest.go's dispatch path.)
 const (
-	drainWalPrefix = "wal-"
-	drainFileExt   = ".ndjson"
+	drainWalPrefix    = "wal-"
+	drainClientPrefix = "client-"
+	drainFileExt      = ".ndjson"
 )
+
+// isClientSpoolName reports whether base names a hook's client spool (ipc's client-<pid>.ndjson), as
+// opposed to one of the ingest's WAL segments or anything else in the spool directory.
+func isClientSpoolName(base string) bool {
+	return strings.HasPrefix(base, drainClientPrefix) && strings.HasSuffix(base, drainFileExt)
+}
 
 // drainDeferral says why the drain left a line it read for a later attempt instead of consuming it.
 type drainDeferral int
@@ -50,6 +57,10 @@ const (
 	deferOrdering
 	// deferSessionEnd: the line is a flush whose session end is running right now (session_end.go).
 	deferSessionEnd
+	// deferInFlight: the line is a hook's client-spool copy of a delivery the daemon is publishing
+	// right now — the hook spooled it because its ACK came too late, and the live copy is still with
+	// its worker. The next pass finds it acknowledged and absorbs it (spool_watch.go, C1.13).
+	deferInFlight
 )
 
 // drainStateFile is state/drain.json's filename.
@@ -295,6 +306,23 @@ func newDrainer(cfg DrainConfig) *drainer {
 // persists its progress and returns (n, ctx.Err()), so the next call picks up exactly where it
 // stopped. Per-file errors are logged, counted, and never abort the rest of the drain.
 func (dr *drainer) Drain(ctx context.Context) (int, error) {
+	return dr.pass(ctx, false)
+}
+
+// DrainClientSpools is one pass over the hooks' client spools alone (client-<pid>.ndjson), the pass
+// the client-spool watcher runs while sessions are active (spool_watch.go, C1.13). Every line it reads
+// goes through exactly what Drain does with it: admission, lease, the ordering gate, publication and
+// the committed frontier, under the same mutex. It reads no WAL segment: those are the worker pool's,
+// publishing them right now, and a pass that met one of their lines in flight would stop that file
+// with "delivery still in progress". Nor does it publish the drain's gap state (DrainGaps): a pass
+// that looked at part of the spool cannot say the whole of it is complete, so the state the last full
+// pass published stands until the next one.
+func (dr *drainer) DrainClientSpools(ctx context.Context) (int, error) {
+	return dr.pass(ctx, true)
+}
+
+// pass is Drain's body; clientOnly restricts it to the client spools (DrainClientSpools).
+func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
 	defer dr.releaseSessions() // however the pass ends, and before mu is released
@@ -337,6 +365,9 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 	}
 
 	for _, path := range files {
+		if clientOnly && !isClientSpoolName(filepath.Base(path)) {
+			continue
+		}
 		if ctx.Err() != nil {
 			stopErr = errors.Join(stopErr, ctx.Err())
 			break
@@ -377,7 +408,9 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 			gaps.add(base, DrainGapPending, "spool bytes not yet replayed")
 		}
 	}
-	dr.publishGaps(gaps.state(dr.cfg.Clock, pending+gaps.unsynced))
+	if !clientOnly {
+		dr.publishGaps(gaps.state(dr.cfg.Clock, pending+gaps.unsynced))
+	}
 	return total, stopErr
 }
 
@@ -537,6 +570,13 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 					// was acknowledged until the end has finished (session_end.go), which takes
 					// seconds by design: meeting it is not a failure, only a line for a later pass.
 					return false, deferSessionEnd, false, false, nil
+				}
+				if isClientSpoolName(base) {
+					// A hook spools its delivery when the ACK comes too late, so a client spool can
+					// hold a copy of a delivery a worker is publishing right now. That is the normal
+					// shape of a late ACK, not a failure of this file: leave the copy for the pass
+					// that finds it acknowledged (C1.13; spool_watch.go passes such a spool again).
+					return false, deferInFlight, false, false, nil
 				}
 				return false, deferNot, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
 			}
