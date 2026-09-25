@@ -141,3 +141,16 @@ drain requests recorded in the decision's 2026-09-23 addendum. That round added 
   were still unpublished, or while the committed frontier could not be read to tell.
 
 Record: `plans/sdd/V6-closeout/ingest/report.md`.
+
+## Close-out addendum (2026-09-25, C1.15 and C1.13)
+
+The flush became a leased arrival that is answered once it is durable, and the session's end runs
+asynchronously. Client spools are replayed while their session is active. Both are recorded in the
+decision's 2026-09-25 addendum. That round added these counters:
+
+- `l0_session_end_refused`: flushes acknowledged while Stop was already joining the session ends,
+  so no end was started for them in that process. Each one's line stays durable in its session's WAL
+  and its session stays marked as needing recovery.
+- `l0_spool_watch_passes`: client-spool passes the watcher ran.
+
+Record: the `w2-sessionend` report, committed by the coordinator under `plans/sdd/V6-closeout/`.
