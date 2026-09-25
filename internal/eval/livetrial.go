@@ -347,6 +347,10 @@ type ArmSummary struct {
 	HookP95MS          float64 `json:"hook_p95_ms,omitempty"`
 	// HookProblemTrials counts trials whose host reported at least one hook failure.
 	HookProblemTrials int `json:"hook_problem_trials"`
+	// AccountInconsistent counts trials whose usage account broke one of its own rules
+	// (SessionAccount.Consistent false, with the problems named): their outcomes count, but their
+	// category sums and estimate are not reliable.
+	AccountInconsistent int `json:"account_inconsistent"`
 	// Categories sums every trial's per-category usage, evidence counts included.
 	Categories map[UsageCategory]CategorySum `json:"categories,omitempty"`
 }
@@ -367,7 +371,22 @@ type LiveSummary struct {
 	Failed []string `json:"failed"`
 	// Notes carries what a reader must know before reading the verdict.
 	Notes []string `json:"notes,omitempty"`
+	// Analysis is the pre-registered rule the summary was decided under, so a summary read on its own
+	// says which confidence level and margin its verdict used.
+	Analysis LiveAnalysis `json:"analysis"`
+	// ConstraintRegression is set when the constraint-clean difference's interval lies wholly below
+	// -margin: preregistration section 8 reports that as a regression whatever the primary verdict is.
+	ConstraintRegression string `json:"constraint_regression,omitempty"`
+	// ByVariant is each arm's outcomes per task variant ("base", "changing-requirement") and over the
+	// held-out tasks (VariantHeldOut); reported, not decided (preregistration section 8).
+	ByVariant map[string][]ArmSummary `json:"by_variant,omitempty"`
+	// TaskSigns is, for each task both arms ran, the sign of qompack's task-success rate minus
+	// stock's: 1, 0 or -1. Reported, not decided.
+	TaskSigns map[string]int `json:"task_signs,omitempty"`
 }
+
+// VariantHeldOut is the ByVariant key that groups the held-out tasks, whatever their variant.
+const VariantHeldOut = "held-out"
 
 // LiveDecision is the pre-registered rule's verdict on the primary outcome.
 type LiveDecision struct {
@@ -383,17 +402,28 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 	sum := LiveSummary{
 		RunID:      runID,
 		Confidence: a.Confidence,
+		Analysis:   a,
 		Arms:       map[string]ArmSummary{},
 		ByTask:     map[string][]ArmSummary{},
 	}
 	byArm := map[string][]LiveTrial{}
 	byTaskArm := map[string]map[string][]LiveTrial{}
+	byVariantArm := map[string]map[string][]LiveTrial{}
+	group := func(g map[string]map[string][]LiveTrial, key string, t LiveTrial) {
+		if g[key] == nil {
+			g[key] = map[string][]LiveTrial{}
+		}
+		g[key][t.Arm] = append(g[key][t.Arm], t)
+	}
 	for _, t := range trials {
 		byArm[t.Arm] = append(byArm[t.Arm], t)
-		if byTaskArm[t.TaskID] == nil {
-			byTaskArm[t.TaskID] = map[string][]LiveTrial{}
+		group(byTaskArm, t.TaskID, t)
+		if t.Variant != "" {
+			group(byVariantArm, t.Variant, t)
 		}
-		byTaskArm[t.TaskID][t.Arm] = append(byTaskArm[t.TaskID][t.Arm], t)
+		if t.HeldOut {
+			group(byVariantArm, VariantHeldOut, t)
+		}
 		if !t.Completed || t.PluginExpected != t.PluginLoaded || t.HarnessError != "" {
 			sum.Failed = append(sum.Failed, fmt.Sprintf("%s/%s/%d: completed=%t plugin_expected=%t "+
 				"plugin_loaded=%t harness_error=%q", t.TaskID, t.Arm, t.Trial, t.Completed,
@@ -403,19 +433,16 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 	for arm, ts := range byArm {
 		sum.Arms[arm] = summarizeArm(arm, ts, z)
 	}
-	tasks := make([]string, 0, len(byTaskArm))
-	for id := range byTaskArm {
-		tasks = append(tasks, id)
+	sum.ByTask = summarizeGroups(byTaskArm, z)
+	if len(byVariantArm) > 0 {
+		sum.ByVariant = summarizeGroups(byVariantArm, z)
 	}
-	sort.Strings(tasks)
-	for _, id := range tasks {
-		arms := make([]string, 0, len(byTaskArm[id]))
-		for arm := range byTaskArm[id] {
-			arms = append(arms, arm)
-		}
-		sort.Strings(arms)
-		for _, arm := range arms {
-			sum.ByTask[id] = append(sum.ByTask[id], summarizeArm(arm, byTaskArm[id][arm], z))
+	for id, arms := range sum.ByTask {
+		if sign, ok := taskSign(arms); ok {
+			if sum.TaskSigns == nil {
+				sum.TaskSigns = map[string]int{}
+			}
+			sum.TaskSigns[id] = sign
 		}
 	}
 	sort.Strings(sum.Failed)
@@ -428,11 +455,31 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 		sum.ConstraintCleanDiff = newcombe(q.ConstraintClean, s.ConstraintClean)
 	}
 	sum.Decision = DecideLive(a, sum)
+	if d := sum.ConstraintCleanDiff; d != nil && d.High < -a.NonInferiorityMargin {
+		sum.ConstraintRegression = fmt.Sprintf("constraint-clean difference %.3f, interval [%.3f, %.3f], lies "+
+			"wholly below -%.3f: a regression, whatever the primary verdict", d.Estimate, d.Low, d.High,
+			a.NonInferiorityMargin)
+		sum.Notes = append(sum.Notes, "REGRESSION (preregistration section 8, H2): "+sum.ConstraintRegression)
+	}
+	if sum.TaskSuccessDiff != nil {
+		sum.Notes = append(sum.Notes, "trials are clustered within tasks; the pooled intervals treat them as "+
+			"independent, which overstates their precision (preregistration section 8)")
+	}
 	for _, arm := range []string{ArmQompack, ArmStock} {
-		if as, ok := sum.Arms[arm]; ok && as.HookProblemTrials > 0 {
+		as, ok := sum.Arms[arm]
+		if !ok {
+			continue
+		}
+		if as.HookProblemTrials > 0 {
 			sum.Notes = append(sum.Notes, fmt.Sprintf(
 				"%d of %d %s trial(s) ran with a hook failure the host reported; they are counted, "+
 					"not dropped, and each trial record names the failure", as.HookProblemTrials, as.Trials, arm))
+		}
+		if as.AccountInconsistent > 0 {
+			sum.Notes = append(sum.Notes, fmt.Sprintf(
+				"%d of %d %s trial(s) have an inconsistent usage account; their outcomes count, but their "+
+					"per-category token sums and cost estimate are not reliable (each trial record's account "+
+					"names the problem)", as.AccountInconsistent, as.Trials, arm))
 		}
 	}
 	for _, t := range trials {
@@ -493,6 +540,48 @@ func DecideLive(a LiveAnalysis, s LiveSummary) LiveDecision {
 	}
 }
 
+// summarizeGroups summarizes each group's arms, arms in name order.
+func summarizeGroups(g map[string]map[string][]LiveTrial, z float64) map[string][]ArmSummary {
+	out := make(map[string][]ArmSummary, len(g))
+	for key, byArm := range g {
+		arms := make([]string, 0, len(byArm))
+		for arm := range byArm {
+			arms = append(arms, arm)
+		}
+		sort.Strings(arms)
+		for _, arm := range arms {
+			out[key] = append(out[key], summarizeArm(arm, byArm[arm], z))
+		}
+	}
+	return out
+}
+
+// taskSign is the sign of qompack's task-success rate minus stock's, compared as exact fractions,
+// when both arms ran the task.
+func taskSign(arms []ArmSummary) (int, bool) {
+	var q, s *Proportion
+	for i := range arms {
+		switch arms[i].Arm {
+		case ArmQompack:
+			q = &arms[i].TaskSuccess
+		case ArmStock:
+			s = &arms[i].TaskSuccess
+		}
+	}
+	if q == nil || s == nil || q.N == 0 || s.N == 0 {
+		return 0, false
+	}
+	l, r := q.K*s.N, s.K*q.N
+	switch {
+	case l > r:
+		return 1, true
+	case l < r:
+		return -1, true
+	default:
+		return 0, true
+	}
+}
+
 // summarizeArm aggregates one arm's trials. A trial the harness could not run as designed is a
 // failure on every outcome (preregistration §8): it never counts as a task success or as
 // constraint-clean, and it counts as not recovered wherever it carries a recovery verdict, whatever
@@ -540,6 +629,11 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		wall += t.WallMS
 		if len(t.HookProblems) > 0 {
 			out.HookProblemTrials++
+		}
+		// A trial that never produced a stream has a zero account with no problems: it has no usage
+		// to be wrong about, and is not counted here.
+		if !t.Account.Consistent && len(t.Account.Problems) > 0 {
+			out.AccountInconsistent++
 		}
 		for c, cs := range t.Categories {
 			if out.Categories == nil {

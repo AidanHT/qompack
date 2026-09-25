@@ -154,3 +154,79 @@ func TestSummarizeLive_HarnessFailureIsNeverASuccess(t *testing.T) {
 	require.Equal(t, [2]int{0, 1}, [2]int{st.ConstraintClean.K, st.ConstraintClean.N})
 	require.Equal(t, [2]int{0, 1}, [2]int{st.Recovery.K, st.Recovery.N})
 }
+
+// TestSummarizeLive_NewcombeMatchesThePublishedExample pins the difference interval to Newcombe
+// (1998), "Interval estimation for the difference between independent proportions", Statistics in
+// Medicine 17:873-890, Table II example (a): 56/70 − 48/80 = 0.2000 with method 10 (the hybrid
+// score interval without continuity correction) giving 0.0524 to 0.3339.
+func TestSummarizeLive_NewcombeMatchesThePublishedExample(t *testing.T) {
+	sum := eval.SummarizeLive("r", liveAnalysis(), append(trials(eval.ArmQompack, 70, 56), trials(eval.ArmStock, 80, 48)...))
+	d := sum.TaskSuccessDiff
+	require.NotNil(t, d)
+	require.InDelta(t, 0.2, d.Estimate, 1e-12)
+	require.InDelta(t, 0.0524, d.Low, 5e-5)
+	require.InDelta(t, 0.3339, d.High, 5e-5)
+}
+
+// TestSummarizeLive_ConstraintRegressionIsReported is preregistration §8's H2 rule: a
+// constraint-clean difference whose upper bound lies below −margin is reported as a regression
+// whatever the primary verdict is.
+func TestSummarizeLive_ConstraintRegressionIsReported(t *testing.T) {
+	s := trials(eval.ArmStock, 20, 18)
+	q := trials(eval.ArmQompack, 20, 18)
+	for i := range q[:15] {
+		q[i].ConstraintViolations = 1
+	}
+	sum := eval.SummarizeLive("r", liveAnalysis(), append(s, q...))
+	require.NotNil(t, sum.ConstraintCleanDiff)
+	require.Less(t, sum.ConstraintCleanDiff.High, -0.2)
+	require.NotEmpty(t, sum.ConstraintRegression)
+	require.Contains(t, strings.Join(sum.Notes, "\n"), "regression")
+	require.Equal(t, liveAnalysis(), sum.Analysis, "the summary carries the rule it was decided under")
+
+	clean := eval.SummarizeLive("r", liveAnalysis(), append(trials(eval.ArmStock, 20, 18), trials(eval.ArmQompack, 20, 18)...))
+	require.Empty(t, clean.ConstraintRegression)
+}
+
+// TestSummarizeLive_ReportsByVariantAndPerTaskSign is the rest of preregistration §8's analysis:
+// results per variant (base, changing-requirement, held-out), the per-task sign of qompack − stock,
+// and the clustering limitation stated beside the pooled interval.
+func TestSummarizeLive_ReportsByVariantAndPerTaskSign(t *testing.T) {
+	mk := func(task, arm, variant string, held, ok bool) eval.LiveTrial {
+		return eval.LiveTrial{
+			TaskID: task, Arm: arm, Trial: 1, Variant: variant, HeldOut: held, Completed: true, TaskSuccess: ok,
+			PluginExpected: arm == eval.ArmQompack, PluginLoaded: arm == eval.ArmQompack, PreregisteredModel: true,
+		}
+	}
+	ts := []eval.LiveTrial{
+		mk("a", eval.ArmStock, "base", false, true), mk("a", eval.ArmQompack, "base", false, false),
+		mk("b", eval.ArmStock, "changing-requirement", true, false), mk("b", eval.ArmQompack, "changing-requirement", true, true),
+		mk("c", eval.ArmStock, "base", false, true), mk("c", eval.ArmQompack, "base", false, true),
+	}
+	sum := eval.SummarizeLive("r", liveAnalysis(), ts)
+	require.Equal(t, map[string]int{"a": -1, "b": 1, "c": 0}, sum.TaskSigns)
+	require.Len(t, sum.ByVariant["base"], 2)
+	require.Len(t, sum.ByVariant["changing-requirement"], 2)
+	require.Len(t, sum.ByVariant[eval.VariantHeldOut], 2)
+	for _, as := range sum.ByVariant[eval.VariantHeldOut] {
+		require.Equal(t, 1, as.Trials)
+	}
+	require.Contains(t, strings.Join(sum.Notes, "\n"), "clustered within tasks")
+}
+
+// TestSummarizeLive_InconsistentAccountsAreNamed: a trial whose usage account broke one of its own
+// rules (a running total that reset, a main loop that could not be attributed) still counts in
+// every outcome, but its per-category sums and estimate are not reliable, and the summary says how
+// many such trials each arm has instead of averaging them in silently.
+func TestSummarizeLive_InconsistentAccountsAreNamed(t *testing.T) {
+	q := trials(eval.ArmQompack, 3, 3)
+	q[0].Account = eval.SessionAccount{Consistent: true}
+	q[1].Account = eval.SessionAccount{Consistent: false, Problems: []string{"turn 2: running total decreased"}}
+	// q[2] and every stock trial carry the zero account of a trial that produced no stream: no
+	// usage, nothing to be inconsistent about.
+	s := trials(eval.ArmStock, 3, 3)
+	sum := eval.SummarizeLive("r", liveAnalysis(), append(s, q...))
+	require.Equal(t, 1, sum.Arms[eval.ArmQompack].AccountInconsistent)
+	require.Zero(t, sum.Arms[eval.ArmStock].AccountInconsistent)
+	require.Contains(t, strings.Join(sum.Notes, "\n"), "1 of 3 qompack trial(s) have an inconsistent usage account")
+}
