@@ -1,0 +1,3 @@
+# 2026-09-25T23:32:30Z at b22a075: go test ./internal/commands -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/commands	1.513s
+exit=0
