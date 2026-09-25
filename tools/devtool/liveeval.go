@@ -296,7 +296,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if err := writeJSONFile(filepath.Join(o.out, "summary.json"), sum); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(o.out, "summary.md"), []byte(renderLiveSummary(plan, sum)), liveFilePerm); err != nil {
+	if err := writeFileAtomic(filepath.Join(o.out, "summary.md"), []byte(renderLiveSummary(plan, sum))); err != nil {
 		return fmt.Errorf("live-eval: writing summary.md: %w", err)
 	}
 	fmt.Fprintf(w, "live-eval: decision %s — %s\nlive-eval: records under %s\n", sum.Decision.Verdict, sum.Decision.Reason, o.out)
@@ -831,14 +831,54 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, raw, liveFilePerm)
 }
 
+// writeJSONFile writes v as indented JSON through writeFileAtomic: `qompack eval` reads a run's
+// plan.json and summary.json, and may do so while the run is finishing or after it crashed.
 func writeJSONFile(path string, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return fmt.Errorf("live-eval: encoding %s: %w", filepath.Base(path), err)
 	}
-	if err := os.WriteFile(path, append(b, '\n'), liveFilePerm); err != nil {
+	if err := writeFileAtomic(path, append(b, '\n')); err != nil {
 		return fmt.Errorf("live-eval: writing %s: %w", path, err)
 	}
+	return nil
+}
+
+// writeFileAtomic writes b to a staging file beside path and renames it over path, so a reader sees
+// the old file or the whole new one and never a prefix: os.WriteFile truncates and rewrites in
+// place, which a concurrent reader sees half-written and a crash leaves half-written for good. The
+// staging file is in path's own directory, so the rename never crosses a volume.
+func writeFileAtomic(path string, b []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	renamed := false
+	defer func() {
+		if !renamed {
+			_ = os.Remove(tmp)
+		}
+	}()
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	// os.CreateTemp creates 0o600; the run's records are read by other tools and by the operator.
+	if err := os.Chmod(tmp, liveFilePerm); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	renamed = true
 	return nil
 }
 
