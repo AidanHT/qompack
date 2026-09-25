@@ -430,3 +430,37 @@ func TestFileEvalArtifacts_NamesANewerRunThatNeverFinished(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, text, unfinished.Plan.RunID)
 }
+
+// TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable: the provider reports the newest run, so an
+// older run's summary — truncated by a crash mid-write, say — is none of its business and must not
+// make every default `qompack eval` fail. The newest run's own summary still must be readable: a
+// broken newest run is an error, never silently replaced by an older one.
+func TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable(t *testing.T) {
+	root := t.TempDir()
+	older := confirmatoryRun(20, 4)
+	older.Plan.RunID, older.Plan.CreatedAt = "20260929T120000Z-aaaaaa", "2026-09-29T12:00:00Z"
+	olderDir := filepath.Join(root, "dist", "live-eval", older.Plan.RunID)
+	writeLiveRun(t, olderDir, older)
+	newer := confirmatoryRun(19, 20)
+	newer.Plan.RunID, newer.Plan.CreatedAt = "20260930T120000Z-bbbbbb", "2026-09-30T12:00:00Z"
+	newerDir := filepath.Join(root, "dist", "live-eval", newer.Plan.RunID)
+	writeLiveRun(t, newerDir, newer)
+
+	truncate := func(p string) {
+		raw, err := os.ReadFile(p)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(p, raw[:len(raw)/2], 0o600))
+	}
+	truncate(filepath.Join(olderDir, "summary.json"))
+
+	in, err := commands.FileEvalArtifacts(root)(context.Background(), "")
+	require.NoError(t, err, "an older run's broken summary does not stop the newest being reported")
+	require.NotNil(t, in.Live)
+	require.Equal(t, newer.Plan.RunID, in.Live.Plan.RunID)
+
+	truncate(filepath.Join(newerDir, "summary.json"))
+	_, err = commands.FileEvalArtifacts(root)(context.Background(), "")
+	require.Error(t, err, "the newest run is unreadable: fail closed")
+	require.False(t, errors.Is(err, commands.ErrUnavailable), "a broken artifact is a failure, not an absence")
+	require.Contains(t, err.Error(), newer.Plan.RunID)
+}
