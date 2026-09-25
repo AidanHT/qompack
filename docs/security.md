@@ -72,6 +72,18 @@ execute anything: `internal/mcp`'s transitive import set contains no `os/exec` a
 A capture whose arguments were a shell command that would create a sentinel file was retrieved
 through four tools and the sentinel was never created.
 
+**The daemon's executable on Windows is a verified copy, not the plugin's file (C1.17).** Because the
+daemon outlives the session and Windows will not remove a running executable's directory, the hook
+that starts it runs `<home>/.qompack/bin/<sha256>/qompack.exe` rather than the plugin's
+`bin/qompack.exe` (`internal/daemon/spawn_stage.go`). The copy lives under the user's own profile —
+the one place outside a project Qompack writes (§3.3) — sealed read-only, and it is checked before
+every spawn: a regular file, not a link, junction or other reparse point, whose SHA-256 matches both
+its directory name and the spawning hook's own executable. A file that fails any of that is removed
+and replaced, never run, and a source that changes while it is being copied is never filed. The
+boundary is the same one the plugin directory already has: a process running as the same user
+could replace either file; another user cannot write either. On Linux and macOS nothing is copied
+and the daemon runs from the plugin binary.
+
 ## 2. Redaction: what it covers, and what it does not
 
 Redaction runs **once, on the way in**, at a single choke point (`internal/redact`: ten built-in
