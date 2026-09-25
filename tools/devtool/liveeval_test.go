@@ -956,3 +956,32 @@ func TestRunLiveEval_SessionsRunAtThePluginsDefaults(t *testing.T) {
 	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "qompack", "01", "trial.json"), &rec)
 	require.Contains(t, strings.Join(rec.Notes, "\n"), "QOMPACK_RUNTIME__MODE")
 }
+
+// TestWriteJSONFile_ReplacesTheFileNeverRewritesIt: `qompack eval` may read a run's plan.json and
+// summary.json while the run is finishing, or after it crashed mid-write. A file rewritten in place
+// is visible half-written for as long as the write takes, and forever after a crash; one written
+// beside it and renamed over it is seen whole or not at all. The hard link shows which happened: a
+// rewrite in place changes the bytes behind the old name too, a rename leaves them.
+func TestWriteJSONFile_ReplacesTheFileNeverRewritesIt(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "summary.json")
+	require.NoError(t, os.WriteFile(p, []byte("old\n"), 0o600))
+	alias := filepath.Join(dir, "alias")
+	require.NoError(t, os.Link(p, alias))
+
+	require.NoError(t, writeJSONFile(p, map[string]int{"a": 1}))
+
+	old, err := os.ReadFile(alias)
+	require.NoError(t, err)
+	require.Equal(t, "old\n", string(old), "the file was rewritten in place, so a reader could see a prefix of it")
+	var got map[string]int
+	readJSON(t, p, &got)
+	require.Equal(t, map[string]int{"a": 1}, got)
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	require.ElementsMatch(t, []string{"alias", "summary.json"}, names, "no staging file is left behind")
+}
