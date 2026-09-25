@@ -370,8 +370,8 @@ func TestE2ELazySpawn(t *testing.T) {
 		}
 		return true
 	}, e2eSpoolDrainBound, e2eSpoolDrainTick,
-		"the spool the first call left behind was not drained within %s of a served request; only the %s idle-tick fallback would still take it",
-		e2eSpoolDrainBound, daemon.IdleTickMax)
+		"the spool the first call left behind was not drained within %s of a served request; only the client-spool watcher (a %s check interval) or the idle drain would still take it",
+		e2eSpoolDrainBound, daemon.ClientSpoolWatchInterval)
 }
 
 // TestE2EIdleExit is task-6-spec.md's e2e table row: with a fast idle-exit configured, the daemon
