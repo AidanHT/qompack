@@ -148,12 +148,16 @@ func TestFlush_AnswersOnceDurableNotAfterSessionEnd(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, held, "the flush is leased before it is acknowledged, as an observe event is")
 	require.False(t, j.acknowledged(lease.Delivery), "nothing is published before the session has ended")
+	sr, err := LoadSessionRecovery(root)
+	require.NoError(t, err)
+	require.Contains(t, sr.Sessions, sess,
+		"an acknowledged flush whose end has not finished is recorded as needing recovery before the answer")
 
 	hold.open()
 	flushAsyncAwait(t, dd)
 	require.Equal(t, int32(1), hold.calls.Load(), "the session is ended exactly once")
 	require.True(t, j.acknowledged(lease.Delivery), "the ended flush reaches the committed frontier")
-	sr, err := LoadSessionRecovery(root)
+	sr, err = LoadSessionRecovery(root)
 	require.NoError(t, err)
 	require.NotContains(t, sr.Sessions, sess, "a finished session end leaves no recovery marker")
 }
@@ -330,4 +334,28 @@ func TestSessionRecovery_ConcurrentEndsLoseNoMarker(t *testing.T) {
 	}
 	require.ElementsMatch(t, want, got,
 		"exactly the sessions whose ends did not finish are marked: no cleared one resurrected, no marker lost")
+}
+
+// TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery: a flush that arrives once Stop has
+// begun joining the session ends is still made durable and acknowledged, but no end is started for it
+// in this process — Stop's own drain or the next daemon's replays its line. Until that happens the
+// session must be on record as needing recovery, as it is for every acknowledged flush whose end has
+// not finished: the marker is written before the answer, not by the end.
+func TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery(t *testing.T) {
+	dd, hold, root := flushAsyncDaemon(t)
+	hold.open()
+	dd.ends.close() // Stop has begun joining the session ends
+	const sess core.SessionID = "sess-flush-at-stop"
+	req := flushAsyncRequest(dd, root, sess, orderNonce(47))
+
+	resp := dd.dispatchOp(context.Background(), req)
+	require.True(t, resp.OK, "the flush is durable, so it is acknowledged: %q", resp.Err)
+	require.True(t, flushAsyncWALHasFlush(t, root, sess, req.Nonce), "its line is in the WAL for the next drain")
+	require.Zero(t, hold.calls.Load(), "no session end is started once Stop is joining them")
+	require.Equal(t, int64(1), dd.m.Counter(counterSessionEndRefused).Value())
+	sr, err := LoadSessionRecovery(root)
+	require.NoError(t, err)
+	require.Contains(t, sr.Sessions, sess,
+		"an acknowledged flush whose end has not run is on record as needing recovery")
+	require.Equal(t, recoveryStageBegin, sr.Sessions[sess].Stage)
 }
