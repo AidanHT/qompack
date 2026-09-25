@@ -20,7 +20,7 @@ var releaseTargets = []struct{ GOOS, GOARCH string }{
 
 // allowedBinDep reports whether importPath is permitted to reach the shipped qompack binary
 // (00-ARCHITECTURE.md §2.5): the standard library, this module's own packages, klauspost/compress,
-// Microsoft/go-winio, and golang.org/x/sys/windows.
+// Microsoft/go-winio, golang.org/x/sys/windows and golang.org/x/sys/unix.
 //
 // golang.org/x/sys/windows was added in SP-05's task 6: it is go-winio's own transitive
 // dependency (`go mod why -m golang.org/x/sys` on a windows target resolves
@@ -35,6 +35,27 @@ var releaseTargets = []struct{ GOOS, GOARCH string }{
 // golang.org/x/sys/windows itself is actually reached (verified via `go list -deps`); a prefix
 // match would additionally admit .../windows/registry, .../windows/svc, and every other
 // subpackage go-winio does not use, widening the allow-list beyond what is justified.
+//
+// golang.org/x/sys/unix was added in V6 (closeout item C1.19, with the 00-ARCHITECTURE.md §2.5
+// amendment that records it). internal/paths' RenameDirectoryNoReplace, the primitive the
+// maintenance restore publishes its staged .qompack through (3ab1523), must refuse an existing
+// destination atomically, including an empty directory, which a plain rename replaces. On linux
+// that is renameat2(RENAME_NOREPLACE), and on darwin renamex_np(RENAME_EXCL). Neither is in the
+// standard library:
+//   - syscall has no renameat2 wrapper, and no SYS_RENAMEAT2 number on linux/amd64 (Go's own
+//     internal/syscall/unix calls renameat2 only on loong64 and riscv64, without flags, and cannot
+//     be imported).
+//   - On darwin, renamex_np is a libSystem function. Without cgo it is reachable only through
+//     x/sys/unix's //go:cgo_import_dynamic trampolines. syscall.Syscall there is a raw kernel
+//     trap, which Apple does not keep stable and which Go itself stopped using in Go 1.12.
+//
+// So the entry has no stdlib equivalent to fall back to. It adds no new module, version or licence:
+// golang.org/x/sys v0.33.0 is already a direct requirement and already ships in the Windows binary,
+// and THIRD_PARTY_NOTICES.md already carries its BSD-3-Clause text. govulncheck of ./cmd/qompack
+// on linux and darwin reports no vulnerable x/sys/unix symbol. Where the standard library does
+// suffice, it stays preferred (internal/paths/syncdata_linux.go takes syscall.Fdatasync). The
+// entry is the exact path, like the windows one, so x/sys/unix's subdirectories and every other
+// x/sys package stay out.
 func allowedBinDep(importPath string) bool {
 	if isStdlib(importPath) {
 		return true
@@ -46,7 +67,7 @@ func allowedBinDep(importPath string) bool {
 		return true
 	case importPath == "github.com/Microsoft/go-winio", strings.HasPrefix(importPath, "github.com/Microsoft/go-winio/"):
 		return true
-	case importPath == "golang.org/x/sys/windows":
+	case importPath == "golang.org/x/sys/windows", importPath == "golang.org/x/sys/unix":
 		return true
 	}
 	return false
