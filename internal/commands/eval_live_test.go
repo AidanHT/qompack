@@ -39,9 +39,10 @@ func liveTrials(arm string, n, k int) []eval.LiveTrial {
 func confirmatoryRun(stockK, qompackK int) commands.LiveEvalInput {
 	const n = 20
 	trials := append(liveTrials(eval.ArmStock, n, stockK), liveTrials(eval.ArmQompack, n, qompackK)...)
+	pre := eval.LivePreregistrations["qompack-live-v1"]
 	plan := eval.LivePlan{
 		RunID: "20260930T120000Z-abcdef", CreatedAt: "2026-09-30T12:00:00Z", TaskSet: "qompack-live-v1",
-		TaskSetSHA256: strings.Repeat("a", 64), FixtureTreeSHA256: strings.Repeat("b", 64),
+		TaskSetSHA256: pre.TaskSetSHA256, FixtureTreeSHA256: pre.FixtureTreeSHA256,
 		TaskSetTasks: n / 2, Model: "claude-sonnet-5", PreregisteredModel: "claude-sonnet-5",
 		Arms: []string{eval.ArmStock, eval.ArmQompack}, TrialsPerArm: 2, Install: "plugin-dir",
 		Plugin:           &eval.LivePluginIdentity{Install: "plugin-dir", Version: "0.3.0", Commit: "c0ffee"},
@@ -369,4 +370,31 @@ func TestFileEvalArtifacts_ReadsTheCommittedPilotRun(t *testing.T) {
 	require.Contains(t, strings.Join(rep.Live.NotConfirmatory, "\n"), "both arms")
 	require.Contains(t, rep.Live.Qualification, "agent-executed")
 	require.Equal(t, commands.TrialCounts{Planned: 1, Ran: 1}, rep.Live.Trials)
+}
+
+// TestEval_LiveNotConfirmatoryUnlessItRanThePreregisteredMaterials: a run is the pre-registered
+// study only when its plan names the frozen materials — the task set's recorded file hash and the
+// fixture tree's manifest hash — and the install path the pre-registration fixes (--plugin-dir). A
+// task set with no pre-registration at all is never confirmatory, whatever else it did.
+func TestEval_LiveNotConfirmatoryUnlessItRanThePreregisteredMaterials(t *testing.T) {
+	for name, c := range map[string]struct {
+		mutate func(*commands.LiveEvalInput)
+		want   string
+	}{
+		"edited task set": {func(l *commands.LiveEvalInput) { l.Plan.TaskSetSHA256 = strings.Repeat("a", 64) }, "task set file"},
+		"edited fixtures": {func(l *commands.LiveEvalInput) { l.Plan.FixtureTreeSHA256 = strings.Repeat("b", 64) }, "fixture tree"},
+		"unrecorded tree": {func(l *commands.LiveEvalInput) { l.Plan.FixtureTreeSHA256 = "" }, "fixture tree"},
+		"marketplace":     {func(l *commands.LiveEvalInput) { l.Plan.Install = "marketplace" }, "--plugin-dir"},
+		"unregistered":    {func(l *commands.LiveEvalInput) { l.Plan.TaskSet = "qompack-live-pilot-v1" }, "no pre-registration"},
+	} {
+		run := confirmatoryRun(19, 20)
+		c.mutate(&run)
+		out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+		require.NoError(t, err, name)
+		rep := decodeEval(t, out)
+		require.False(t, rep.Live.Confirmatory, name)
+		require.Contains(t, strings.Join(rep.Live.NotConfirmatory, "\n"), c.want, name)
+		require.Nil(t, liveGate(t, rep.Task, "LIVE-T01").Passed, name)
+		require.NotEqual(t, commands.VerdictPass, rep.Verdict, name)
+	}
 }

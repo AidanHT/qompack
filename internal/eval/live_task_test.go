@@ -311,3 +311,41 @@ func TestGradeLiveTrial_FileLinesCountsEveryLine(t *testing.T) {
 	require.True(t, res[0].Passed, "four non-empty lines: %s", res[0].Detail)
 	require.False(t, res[1].Passed, "a count cut short at the long line must not pass: %s", res[1].Detail)
 }
+
+// TestLivePreregistrations_MatchTheDocumentAndTheMaterials: the code's record of what the
+// qompack-live-v1 pre-registration froze — the task set's file hash, the fixture tree's manifest
+// hash and the install path of the qompack arm — is what the document records (section 2's task-set
+// row, amendment A1's tree value, section 3's --plugin-dir) and what the committed materials hash to
+// now. It is the record `qompack eval` checks a run's plan against before calling it confirmatory,
+// so a run of an edited task set under the same id cannot be judged as the pre-registered study.
+func TestLivePreregistrations_MatchTheDocumentAndTheMaterials(t *testing.T) {
+	raw, err := os.ReadFile(preregistrationFile)
+	require.NoError(t, err)
+	doc := strings.ReplaceAll(string(raw), "\r\n", "\n")
+
+	ts, taskBytes, err := eval.LoadLiveTaskSet(liveTaskFile("tasks.json"))
+	require.NoError(t, err)
+	pre, ok := eval.LivePreregistrations[ts.ID]
+	require.True(t, ok, "the frozen task set %s is pre-registered", ts.ID)
+
+	sum := sha256.Sum256(taskBytes)
+	require.Equal(t, hex.EncodeToString(sum[:]), pre.TaskSetSHA256, "the recorded task-set hash is the committed file's")
+	row := regexp.MustCompile(`(?m)^\|[^|\n]*\|\s*` + "`" + `testdata/eval/live/tasks\.json` + "`" + `\s*\|\s*` + "`" +
+		`([0-9a-f]{64})` + "`" + `\s*\|`)
+	m := row.FindStringSubmatch(doc)
+	require.NotNil(t, m)
+	require.Equal(t, m[1], pre.TaskSetSHA256, "the recorded task-set hash is section 2's")
+
+	tree, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile("tasks.json")), "fixtures", "hidden")
+	require.NoError(t, err)
+	require.Equal(t, tree, pre.FixtureTreeSHA256, "the recorded fixture tree is the committed tree")
+	require.Regexp(t, "(?s)### Amendments.*A1.*`"+pre.FixtureTreeSHA256+"`", doc, "and amendment A1's value")
+
+	require.Equal(t, "plugin-dir", pre.Install)
+	require.Contains(t, doc, "loaded from one frozen bundle with `--plugin-dir`", "section 3 names the install path")
+	require.Equal(t, filepath.ToSlash(filepath.Clean(strings.TrimPrefix(filepath.ToSlash(preregistrationFile), "../../"))),
+		pre.Document)
+
+	_, pilot := eval.LivePreregistrations["qompack-live-pilot-v1"]
+	require.False(t, pilot, "the pilot set is harness validation, never pre-registered")
+}

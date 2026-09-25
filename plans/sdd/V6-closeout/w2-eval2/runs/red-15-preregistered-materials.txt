@@ -1,0 +1,16 @@
+# github.com/qompack/qompack/internal/eval_test [github.com/qompack/qompack/internal/eval.test]
+internal\eval\live_task_test.go:328:18: undefined: eval.LivePreregistrations
+internal\eval\live_task_test.go:349:19: undefined: eval.LivePreregistrations
+FAIL	github.com/qompack/qompack/internal/eval [build failed]
+FAIL
+exit=1
+--- FAIL: TestEval_LiveNotConfirmatoryUnlessItRanThePreregisteredMaterials (0.00s)
+    eval_live_test.go:394: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/commands/eval_live_test.go:394
+        	Error:      	Should be false
+        	Test:       	TestEval_LiveNotConfirmatoryUnlessItRanThePreregisteredMaterials
+        	Messages:   	edited task set
+FAIL
+FAIL	github.com/qompack/qompack/internal/commands	0.827s
+FAIL
+exit=1

@@ -8,6 +8,32 @@ package eval
 // trials. It lives here, beside LiveSummary, so the tool that writes it and the command that reads
 // it share one shape.
 
+// LivePreregistration is what a pre-registration froze about one task set: the exact bytes a
+// confirmatory run must use and the one way the qompack arm may reach the host.
+type LivePreregistration struct {
+	// Document is the pre-registration, relative to the repository root.
+	Document string
+	// TaskSetSHA256 is the task-set file's SHA-256 (the document's section 2).
+	TaskSetSHA256 string
+	// FixtureTreeSHA256 is TreeManifestSHA256 over the fixtures and hidden tests (amendment A1).
+	FixtureTreeSHA256 string
+	// Install is how the qompack arm loads the plugin: "plugin-dir" (section 3).
+	Install string
+}
+
+// LivePreregistrations maps each pre-registered task set's id to what its pre-registration froze.
+// `qompack eval` calls a run confirmatory only when its plan matches the entry for its task set; a
+// task set absent from here (the pilot set among them) was never pre-registered. Each entry is
+// pinned to its document and to the committed materials by a test.
+var LivePreregistrations = map[string]LivePreregistration{
+	"qompack-live-v1": {
+		Document:          "plans/sdd/V6-closeout/eval/preregistration.md",
+		TaskSetSHA256:     "14e9ee33ccfff573c00db0a108824853e08d916c3099842c232b624ac5eafff0",
+		FixtureTreeSHA256: "30cf769d243776645506eb43b7e0b336d2fed9a6e2ea29b4fb70a1f2b4054276",
+		Install:           "plugin-dir",
+	},
+}
+
 // LivePlannedTrial is one planned trial.
 type LivePlannedTrial struct {
 	Task  string `json:"task"`
