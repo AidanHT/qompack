@@ -36,8 +36,11 @@ import (
 // overlap — and it runs the observer's SessionStart bookkeeping beside it, marked so that the
 // observer's compact branch does not build a second rehydration. The route waits for the
 // rehydration alone: the observer's bookkeeping (frontier adoption, the segment it ensures) finishes
-// whenever the session's lock frees, on a goroutine Stop joins. The rehydration hands its answer
-// over BEFORE it writes its drop report, so that write is off the answer's path too.
+// whenever the session's lock frees, on a goroutine Stop joins. It is still ordered before the
+// session's next event, as it was when the answer waited for it: every observer seam that works on
+// the session's state waits for the session's pending bookkeeping first (compactGates), and no
+// other session's does. The rehydration hands its answer over BEFORE it writes its drop report, so
+// that write is off the answer's path too.
 //
 // And the wait is bounded. A rehydration that is not ready within compactAnswerBudget of the
 // request's arrival is answered with an explicit deferred note — never {} — that tells the model
@@ -251,8 +254,16 @@ func (d *daemon) startCompactAnswer(ctx context.Context, ev hookio.Event, arrive
 		return a
 	}
 
+	// Whichever goroutine runs the observer's SessionStart holds the session's gate until it is
+	// done, so the session's next event finds the bookkeeping finished (compactGates). The gate is
+	// taken here, before the route can answer, and released even if the work never starts.
 	ticket := a.ticket
+	answerDone := func() {}
+	if rehydrate == nil {
+		answerDone = d.compactGates.begin(ev.SessionID)
+	}
 	a.started = d.startReplyWork(withCompactTicket(ctx, ticket), "the compact rehydration", func(c context.Context) {
+		defer answerDone()
 		out, err := answer(c)
 		if err != nil {
 			d.log.Warn("daemon: SessionStart failed", "err", err)
@@ -260,17 +271,124 @@ func (d *daemon) startCompactAnswer(ctx context.Context, ev hookio.Event, arrive
 		}
 		ticket.offer(out)
 	}, func() { ticket.fail(DeferredFailed) })
+	if !a.started {
+		answerDone()
+	}
 
 	if rehydrate != nil && sessionStart != nil {
 		// The bookkeeping half. Its output is the empty output by construction (routeRehydrates),
 		// so only a failure is worth reporting.
-		d.startReplyWork(withRouteRehydrates(ctx), "the compact SessionStart bookkeeping", func(c context.Context) {
+		kept := d.compactGates.begin(ev.SessionID)
+		started := d.startReplyWork(withRouteRehydrates(ctx), "the compact SessionStart bookkeeping", func(c context.Context) {
+			defer kept()
 			if _, err := sessionStart(c, ev); err != nil {
 				d.log.Warn("daemon: SessionStart failed", "err", err)
 			}
 		}, nil)
+		if !started {
+			kept()
+		}
 	}
 	return a
+}
+
+// compactGates orders a session's observer work after the compact SessionStart bookkeeping the
+// session.start route no longer waits for (startCompactAnswer). The bookkeeping adopts the durable
+// turn frontier and ensures the session's open segment; before C1.16 it finished before the answer,
+// so the host's next hook for the session — a tool result, a Stop, a prompt, a SessionEnd — always
+// found it done. Now it runs detached, behind the session's observer lock, and without this gate
+// whichever of it and that next event took the lock first would win: a tool result recorded at an
+// un-adopted turn, or a SessionEnd closing the session before the bookkeeping opens a segment for
+// it again.
+//
+// A session's gate is held from before the route answers until the bookkeeping has finished; the
+// observer seams wait on it (orderAfterCompactBookkeeping). The wait costs nothing on the answer's
+// path, and nothing for any other session: an ingest lane serializes one session's jobs, so only
+// that session's lane waits. It never waits past its caller's context — Stop cancels the workers',
+// and Stop also cancels and joins the bookkeeping, which releases the gate as it ends.
+type compactGates struct {
+	mu      sync.Mutex
+	pending map[core.SessionID]*compactGate
+}
+
+// compactGate is one session's pending bookkeeping: how many runs hold it, and a channel closed
+// when the last one releases it.
+type compactGate struct {
+	holders int
+	done    chan struct{}
+}
+
+// begin holds sess's gate for one bookkeeping run and returns the release, which is idempotent.
+func (g *compactGates) begin(sess core.SessionID) func() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.pending == nil {
+		g.pending = map[core.SessionID]*compactGate{}
+	}
+	gate := g.pending[sess]
+	if gate == nil {
+		gate = &compactGate{done: make(chan struct{})}
+		g.pending[sess] = gate
+	}
+	gate.holders++
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			g.mu.Lock()
+			defer g.mu.Unlock()
+			gate.holders--
+			if gate.holders == 0 {
+				close(gate.done)
+				delete(g.pending, sess)
+			}
+		})
+	}
+}
+
+// wait returns once sess has no pending compact bookkeeping, or once ctx ends.
+func (g *compactGates) wait(ctx context.Context, sess core.SessionID) {
+	g.mu.Lock()
+	gate := g.pending[sess]
+	g.mu.Unlock()
+	if gate == nil {
+		return
+	}
+	select {
+	case <-gate.done:
+	case <-ctx.Done():
+	}
+}
+
+// orderAfterCompactBookkeeping wraps the observer seams that work on one session's state — every
+// one the ingest workers, the drain replay and the flush route call — so each first waits for that
+// session's pending compact bookkeeping (compactGates). An unbound seam stays nil. New calls it
+// once, after every bind has run.
+func (d *daemon) orderAfterCompactBookkeeping() {
+	s, g := d.svc, &d.compactGates
+	if f := s.ObserveTool; f != nil {
+		s.ObserveTool = func(ctx context.Context, e hookio.Event) error {
+			g.wait(ctx, e.SessionID)
+			return f(ctx, e)
+		}
+	}
+	if f := s.ObserveStop; f != nil {
+		s.ObserveStop = func(ctx context.Context, e hookio.Event, subagent bool) error {
+			g.wait(ctx, e.SessionID)
+			return f(ctx, e, subagent)
+		}
+	}
+	if f := s.ObservePrompt; f != nil {
+		s.ObservePrompt = func(ctx context.Context, e hookio.Event) (hookio.Output, error) {
+			g.wait(ctx, e.SessionID)
+			return f(ctx, e)
+		}
+	}
+	if f := s.SessionEnd; f != nil {
+		s.SessionEnd = func(ctx context.Context, e hookio.Event) error {
+			g.wait(ctx, e.SessionID)
+			return f(ctx, e)
+		}
+	}
 }
 
 // awaitCompactAnswer waits for a's rehydration until a.due and returns what the route answers with:

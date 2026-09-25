@@ -341,7 +341,9 @@ contract run has said the mode may act, so it overlaps the route's own durable w
 longer waits behind the observer's per-session lock, which a worker writing one of the same
 session's tool results holds across every store write: the observer's `SessionStart` bookkeeping
 runs beside the rehydration and finishes on its own (`internal/daemon/session_start_compact.go`).
-The rehydration's drop report is written after its answer is handed over. The wait is bounded at a
+It is still ordered before the session's next event, as it was when the answer waited for it: the
+observer seams for that session (tool results, Stops, prompt captures, `SessionEnd`) wait for its
+pending bookkeeping first, and no other session's do (`compactGates`). The rehydration's drop report is written after its answer is handed over. The wait is bounded at a
 third of the `SessionStart` manifest timeout (5 s) from the request's arrival; a rehydration not
 ready by then, one that fails outright, or one a stopping daemon cannot start is answered with an
 explicit note instead — it says the rehydration did not arrive and why, and names the MCP calls that

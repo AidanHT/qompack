@@ -1,0 +1,20 @@
+# Fix seat, review finding 3 (compact bookkeeping no longer ordered before the session's next event).
+# Windows 11, co-loaded. New rows against 39dd2fd (no gate):
+# go test ./internal/daemon/ -run '^TestSessionStartCompact_(SessionsNextEventWaitsForTheBookkeeping|BookkeepingGateHonoursCancellation)$' -count=1 -v
+=== RUN   TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping
+    session_start_bookkeeping_test.go:155: tool sess-kept reached the observer before the session's compact bookkeeping finished
+    session_start_bookkeeping_test.go:155: end sess-kept reached the observer before the session's compact bookkeeping finished
+    session_start_bookkeeping_test.go:155: stop sess-kept reached the observer before the session's compact bookkeeping finished
+    session_start_bookkeeping_test.go:155: prompt sess-kept reached the observer before the session's compact bookkeeping finished
+    session_start_bookkeeping_test.go:167: 
+        	Error Trace:	.../internal/daemon/session_start_bookkeeping_test.go:167
+        	Error:      	Should be true
+        	Test:       	TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping
+        	Messages:   	tool reached the observer before the session's compact bookkeeping finished
+--- FAIL: TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping (0.33s)
+=== RUN   TestSessionStartCompact_BookkeepingGateHonoursCancellation
+--- PASS: TestSessionStartCompact_BookkeepingGateHonoursCancellation (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.627s
+# (The cancellation row passes vacuously without a gate; it guards the fix against waiting past a
+# cancelled context.)
