@@ -1,0 +1,45 @@
+# run: 06-gate-contention-after-windows
+# commit: db1caf56d8f6f5ff7feb74cf6833d664612142ad + the working tree's delivery_rollover_archive_bench_test.go (contention phase added)
+# platform: windows/amd64 go version go1.26.6 windows/amd64; co-loaded shared host (other workstreams' tests running)
+# command: go test ./internal/daemon -run '^$' -bench '^BenchmarkDeliveryRolloverDispatchGate$' -benchtime 1x -timeout 60m
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkDeliveryRolloverDispatchGate-22    	       1	53254712100 ns/op
+--- BENCH: BenchmarkDeliveryRolloverDispatchGate-22
+    delivery_rollover_archive_bench_test.go:127: gate, empty generation store: 20000 calls, mean 82.048µs per call; per-call mean of each 100-call batch: p50 78.328µs, p90 111.12µs, p99 129.064µs, max 147.238µs
+    delivery_rollover_archive_bench_test.go:127: gate, 5 archived windows, first calls: 20000 calls, mean 233.134µs per call; per-call mean of each 100-call batch: p50 229.175µs, p90 302.017µs, p99 409.99µs, max 505.945µs
+    delivery_rollover_archive_bench_test.go:127: gate, 5 archived windows, warm: 20000 calls, mean 199.474µs per call; per-call mean of each 100-call batch: p50 199.715µs, p90 286.124µs, p99 362.523µs, max 438.442µs
+    delivery_rollover_archive_bench_test.go:139: admission under gate traffic: 4 goroutines x 20000 gate calls took 14.4264356s; st taken 65936833 times, mean cycle 218ns
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	53.835s
+# exit: 0
+# round 2: 2026-09-25T22:54:54Z
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkDeliveryRolloverDispatchGate-22    	       1	43912160700 ns/op
+--- BENCH: BenchmarkDeliveryRolloverDispatchGate-22
+    delivery_rollover_archive_bench_test.go:127: gate, empty generation store: 20000 calls, mean 151.935µs per call; per-call mean of each 100-call batch: p50 122.648µs, p90 212.582µs, p99 343.846µs, max 2.834675ms
+    delivery_rollover_archive_bench_test.go:127: gate, 5 archived windows, first calls: 20000 calls, mean 83.358µs per call; per-call mean of each 100-call batch: p50 78.647µs, p90 101.131µs, p99 139.393µs, max 194.036µs
+    delivery_rollover_archive_bench_test.go:127: gate, 5 archived windows, warm: 20000 calls, mean 84.54µs per call; per-call mean of each 100-call batch: p50 82.289µs, p90 100.319µs, p99 147.484µs, max 164.342µs
+    delivery_rollover_archive_bench_test.go:139: admission under gate traffic: 4 goroutines x 20000 gate calls took 13.1821021s; st taken 63625018 times, mean cycle 207ns
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	44.636s
+# exit: 0
+# round 3: 2026-09-25T22:56:33Z
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkDeliveryRolloverDispatchGate-22    	       1	43362298700 ns/op
+--- BENCH: BenchmarkDeliveryRolloverDispatchGate-22
+    delivery_rollover_archive_bench_test.go:127: gate, empty generation store: 20000 calls, mean 61.435µs per call; per-call mean of each 100-call batch: p50 59.86µs, p90 77.464µs, p99 89.543µs, max 113.245µs
+    delivery_rollover_archive_bench_test.go:127: gate, 5 archived windows, first calls: 20000 calls, mean 129.697µs per call; per-call mean of each 100-call batch: p50 121.801µs, p90 174.666µs, p99 246.848µs, max 327.834µs
+    delivery_rollover_archive_bench_test.go:127: gate, 5 archived windows, warm: 20000 calls, mean 100.203µs per call; per-call mean of each 100-call batch: p50 98.193µs, p90 131.694µs, p99 163.775µs, max 185.583µs
+    delivery_rollover_archive_bench_test.go:139: admission under gate traffic: 4 goroutines x 20000 gate calls took 14.1620884s; st taken 66104913 times, mean cycle 214ns
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	43.819s
+# exit: 0
