@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
@@ -125,7 +126,12 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		return hookio.Empty(), nil
 	}
 
-	cp, ref, degraded := s.latest(ctx, e.SessionID)
+	var (
+		cp       checkpoint.Checkpoint
+		ref      checkpoint.Ref
+		degraded error
+	)
+	s.phase(histRehydrateLatest, func() { cp, ref, degraded = s.latest(ctx, e.SessionID) })
 	if degraded == errFatalCheckpoint {
 		return hookio.Empty(), nil
 	}
@@ -144,13 +150,14 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 	var res rehydrate.Result
 	var stats []rehydrate.ItemStat
 	var buildErr error
-	deps := s.deps()
+	var deps rehydrate.Deps
+	s.phase(histRehydrateDeps, func() { deps = s.deps() })
 
 	// SP-15's representation selection, run HERE rather than inside Build. rehydrate may not
 	// import analyzer (§3.2) and Build is a pure function of (Request, Deps), so the composition
 	// root runs the selector and passes the outcome in as request data. A nil outcome — selection
 	// disabled, no candidates, or any error — is the shipped pre-SP-15 path exactly.
-	req.Selection = s.selectionFor(ctx, cp, budget, deps.Ledger)
+	s.phase(histRehydrateSelection, func() { req.Selection = s.selectionFor(ctx, cp, budget, deps.Ledger) })
 
 	s.timed(func() { res, stats, buildErr = rehydrate.BuildWithStats(ctx, req, deps) })
 	if buildErr != nil {
@@ -161,7 +168,7 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		res.Degraded = true
 	}
 
-	s.record(ctx, e.SessionID, res, stats, budget)
+	s.phase(histRehydrateRecord, func() { s.record(ctx, e.SessionID, res, stats, budget) })
 	s.gauges(res)
 
 	if res.Text == "" {
@@ -278,6 +285,28 @@ func (s *rehydrateService) record(ctx context.Context, sess core.SessionID, res 
 	if err := s.o.Reporter.Record(ctx, sess, st); err != nil {
 		s.o.Log.Warn("rehydrate: could not record state", "session", string(sess), "err", err.Error())
 	}
+}
+
+// The per-phase histograms of one compact rehydration, beside rehydrate.build (the Build call
+// itself). Together with the session.start route's own phases (handlers.go) they say where a slow
+// SessionStart(source=compact) spent its time: C1.16's 10.3 s answer could not be attributed from
+// the evidence the daemon kept, because only the whole Build was timed.
+const (
+	histRehydrateLatest    = "rehydrate.latest"
+	histRehydrateDeps      = "rehydrate.deps"
+	histRehydrateSelection = "rehydrate.selection"
+	histRehydrateRecord    = "rehydrate.record"
+)
+
+// phase runs f and records its wall time under name when metrics are wired.
+func (s *rehydrateService) phase(name string, f func()) {
+	if s.o.Metrics == nil {
+		f()
+		return
+	}
+	start := time.Now()
+	f()
+	s.o.Metrics.Hist(name).Observe(time.Since(start))
 }
 
 // timed runs f under the rehydrate.build histogram when metrics are wired.
