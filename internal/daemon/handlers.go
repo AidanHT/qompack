@@ -888,27 +888,28 @@ func degradeBanner(results []contract.Result) string {
 		if !r.OK && r.Severity == contract.SevCritical {
 			return fmt.Sprintf("Qompack: degraded to passive recording — %s expected %s, observed %s. See /qompack:status.",
 				boundedPrefix(string(r.ID), degradeBannerIDMaxChars),
-				boundedQuote(r.Expected, degradeBannerValueMaxChars),
-				boundedQuote(r.Observed, degradeBannerValueMaxChars))
+				boundedQuote(r.Expected),
+				boundedQuote(r.Observed))
 		}
 	}
 	return "Qompack: degraded to passive recording. See /qompack:status."
 }
 
-// boundedQuote is strconv.Quote(s) — what %q renders — when that fits in maxChars host characters.
-// Otherwise it quotes the longest whole-rune prefix of s that fits together with bannerCutMarker.
+// boundedQuote is strconv.Quote(s) — what %q renders — when that fits in degradeBannerValueMaxChars
+// host characters. Otherwise it quotes the longest whole-rune prefix of s that fits together with
+// bannerCutMarker.
 //
 // It measures the QUOTED form, not s, because quoting is what makes a value long: %q spells a
 // control rune as a ten-character \U escape and doubles every quote and backslash. Quoting is
 // per rune and context-free, so the quoted form of a prefix is the concatenation of each rune's
 // own quoted form, which is what lets this walk s once. An invalid UTF-8 byte is walked as the
 // one-byte unit strconv.Quote escapes it as, so the cut never splits a rune or an escape.
-func boundedQuote(s string, maxChars int) string {
-	if q := strconv.Quote(s); hookio.HostChars(q) <= maxChars {
+func boundedQuote(s string) string {
+	if q := strconv.Quote(s); hookio.HostChars(q) <= degradeBannerValueMaxChars {
 		return q
 	}
 	// Room for the two quotes and the marker.
-	budget := maxChars - 2 - hookio.HostChars(bannerCutMarker)
+	budget := degradeBannerValueMaxChars - 2 - hookio.HostChars(bannerCutMarker)
 	used, end := 0, 0
 	for end < len(s) {
 		_, size := utf8.DecodeRuneInString(s[end:])

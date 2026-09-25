@@ -78,12 +78,12 @@ func TestDegradeBanner_ShortValuesAreQuotedWhole(t *testing.T) {
 // fits is exactly strconv.Quote; one that does not keeps the longest whole-rune prefix whose quoted
 // form, with the cut marker, fits the budget — and the marker is always there when anything was cut.
 func TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo(t *testing.T) {
-	require.Equal(t, strconv.Quote("startup"), boundedQuote("startup", degradeBannerValueMaxChars))
-	require.Equal(t, strconv.Quote(""), boundedQuote("", degradeBannerValueMaxChars))
+	require.Equal(t, strconv.Quote("startup"), boundedQuote("startup"))
+	require.Equal(t, strconv.Quote(""), boundedQuote(""))
 
 	for name, v := range bannerPathologicalValues() {
 		t.Run(name, func(t *testing.T) {
-			q := boundedQuote(v, degradeBannerValueMaxChars)
+			q := boundedQuote(v)
 			require.LessOrEqual(t, hookio.HostChars(q), degradeBannerValueMaxChars)
 			body, err := strconv.Unquote(q)
 			require.NoError(t, err, "the bounded value must still be one valid Go-quoted string: %s", q)
@@ -97,9 +97,9 @@ func TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo(t *testing.T) {
 	// The boundary itself: a value whose quoted form is exactly the budget is kept whole, and one
 	// character more is cut.
 	exact := strings.Repeat("a", degradeBannerValueMaxChars-2)
-	require.Equal(t, strconv.Quote(exact), boundedQuote(exact, degradeBannerValueMaxChars))
+	require.Equal(t, strconv.Quote(exact), boundedQuote(exact))
 	over := exact + "a"
-	require.NotEqual(t, strconv.Quote(over), boundedQuote(over, degradeBannerValueMaxChars))
+	require.NotEqual(t, strconv.Quote(over), boundedQuote(over))
 }
 
 // TestSessionStart_DegradeBannerFromAHostSuppliedSourceIsBounded drives the real route: a PreCompact
