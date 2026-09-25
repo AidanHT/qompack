@@ -271,6 +271,10 @@ type daemon struct {
 	// clearRecoveryNeeded): the session ends run concurrently, so an unserialized rewrite lost the
 	// entry another end had just written (C1.15).
 	recoveryMu sync.Mutex
+
+	// spool is the client-spool watcher's configuration and kick (C1.13, spool_watch.go): every served
+	// request kicks it (noteServed). New creates it; nil on a daemon value that never went through New.
+	spool *spoolWatcher
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -346,6 +350,9 @@ func New(o Options) (Daemon, error) {
 	d.idle.Register(idleTaskDrain, idlePrioDrain, d.idleDrain)
 	d.idle.Register(idleTaskSketches, idlePrioSketches, d.idleSaveSketches)
 	d.idle.Register(idleTaskMetrics, idlePrioMetrics, d.idleWriteMetrics)
+	// The client-spool watcher retries a spool it cannot yet consume only up to the idle drain's own
+	// horizon, which covers it after that (spool_watch.go).
+	d.spool = newSpoolWatcher(d.idle.detectAfter())
 
 	need := o.Cfg.Runtime.HotPath.BreachWindows
 	limit := time.Duration(o.Cfg.Runtime.HotPath.BudgetMs) * time.Millisecond
@@ -612,6 +619,11 @@ func (d *daemon) Run(ctx context.Context) error {
 	// The drains the ingest's lanes ask for (delivery_order.go drainOnRequest, C1.1). Started once the
 	// drainer exists, joined by Stop with the rest of runWG, and stopped by runCtx.
 	d.goRun(func() { d.drainOnRequest(runCtx) })
+	// The client-spool watcher (spool_watch.go, C1.13): a delivery that reached only a hook's client
+	// spool while its session is active is published about two check intervals after it was spooled,
+	// not at the session's end or after DetectAfterSeconds of project-wide idleness. Kicked by every
+	// served request, idle otherwise; started once the drainer exists and joined by Stop with runWG.
+	d.goRun(func() { d.watchClientSpools(runCtx) })
 
 	// Started here, before ipc.NewServer binds anything, rather than beside the `go server.Serve`
 	// it waits on. It costs nothing — the goroutine's first act is to block on d.firstServed, which
@@ -773,6 +785,7 @@ func (d *daemon) idleExitDue(now core.UnixMilli, zeroLiveSince *time.Time) bool 
 // the filesystem, so it is safe to leave on the B-A/B-B path.
 func (d *daemon) noteServed() {
 	d.firstServedOnce.Do(func() { close(d.firstServed) })
+	d.kickSpoolWatch()
 }
 
 // redrainOnceServing replays the spool a second time, once the daemon is provably serving.

@@ -1,0 +1,242 @@
+package daemon
+
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// Client spools drained while sessions are active (V6 close-out C1.13, the remainder C1.1 left open).
+//
+// A hook that cannot hand its delivery to the daemon — its dial failed, the daemon told the hot path
+// to spool (HotSpool), or its ACK came too late — appends the delivery to its own client spool
+// (client-<pid>.ndjson), which only a drain reads. The daemon's drains ran at startup, on its first
+// served request, on a flush, on admin.drain, at Stop, when the ingest's lanes ask for one (a parked
+// lane or a refused job, delivery_order.go), and on an idle tick once the whole project has been idle
+// for DetectAfterSeconds (120 s by default). None of those is triggered by a client spool appearing,
+// and a delivery that never reached the daemon holds no lease, so no lane ever parks behind it: it
+// waited for its session's end or two quiet minutes, while everything the session sent after it
+// published ahead of it.
+//
+// The watcher closes that without polling an idle daemon. Every request the daemon serves kicks it
+// (noteServed). A kicked watcher looks at the spool directory once per spoolCheckInterval for as long
+// as kicks keep coming, and once more an interval after they stop, so a spool file written just after
+// the last hook (a late ACK spools after the request was served) is still seen. A client spool that
+// has stood unchanged across a whole interval — its hook has finished writing it, and a live copy of
+// the same delivery, when there is one, has had an interval to publish — gets a client-spool drain
+// pass (drainer.DrainClientSpools): bounded by idleRunBudget, run on the watcher's own goroutine, never
+// on a worker, under the drain's own mutex, ordering gate and frontier. The pass reads no WAL segment,
+// which is the worker pool's.
+//
+// A spool a pass could not consume — its line waits on an earlier arrival of its session that is
+// still publishing, which is the usual reason, or on one nothing will ever publish — is passed over
+// again after twice the previous wait (spoolRetryAfter): 2, 4, 8, ... intervals. The retries end once
+// the spool has been waiting for its first pass for longer than the idle drain's own horizon
+// (DetectAfterSeconds): past it the idle drain, a drain the lanes ask for (the pass leased the line,
+// so its session's next arrival parks behind it and asks), the session's flush or a restart takes
+// it, exactly as before. So a spool that can never publish costs a handful of passes, not one every
+// interval, and a watcher with no kick and no retry due does nothing at all.
+
+// spoolCheckInterval is how often, at most, the watcher looks at the spool while requests keep
+// arriving, and how long a client spool must stand unchanged before it gets a pass. It is the pass's
+// own budget (idleRunBudget): the drains the ingest's lanes ask for get the same budget and then rest
+// as long as they took, so looking more often than once per budget could not start a pass sooner.
+// A delivery that reaches only its client spool during an active session is therefore published about
+// two intervals after it was spooled, instead of at the session's end or after two idle minutes.
+const spoolCheckInterval = idleRunBudget
+
+// counterSpoolWatchPasses counts the client-spool drain passes the watcher ran.
+const counterSpoolWatchPasses = "l0_spool_watch_passes"
+
+// spoolWatcher is the watcher's configuration and its kick. New creates it; only the watcher's own
+// goroutine (watchClientSpools) reads the durations after that, and only tests change them, before
+// the watcher starts.
+type spoolWatcher struct {
+	// kick is signalled by every served request (kickSpoolWatch). Capacity one: kicks merge.
+	kick chan struct{}
+	// every is spoolCheckInterval.
+	every time.Duration
+	// horizon is how long a spool its passes cannot consume keeps being retried: the idle drain's
+	// own DetectAfterSeconds, after which that drain covers it.
+	horizon time.Duration
+}
+
+func newSpoolWatcher(horizon time.Duration) *spoolWatcher {
+	return &spoolWatcher{kick: make(chan struct{}, 1), every: spoolCheckInterval, horizon: horizon}
+}
+
+// detectAfter is the idle horizon the controller was built with (DetectAfterSeconds).
+func (c *idleController) detectAfter() time.Duration {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return time.Duration(c.afterSeconds) * time.Second
+}
+
+// kickSpoolWatch tells the watcher the daemon just served a request. It never blocks: a kick while
+// one is pending merges into it. A daemon value that never went through New has no watcher.
+func (d *daemon) kickSpoolWatch() {
+	if d.spool == nil {
+		return
+	}
+	select {
+	case d.spool.kick <- struct{}{}:
+	default:
+	}
+}
+
+// spoolWatchEntry is what the watcher remembers about one client spool between two looks.
+type spoolWatchEntry struct {
+	// size is the file's size at the last look.
+	size int64
+	// settled is set once the file has stood at size across one whole interval.
+	settled bool
+	// passes counts the passes run while the file stood at size; first is when the first of them ran,
+	// and next is the earliest time for another.
+	passes int
+	first  time.Time
+	next   time.Time
+}
+
+// retryDue reports whether e, a settled spool, is due a pass at now, and whether it is still waiting
+// for one — due now or later — at all.
+func (e *spoolWatchEntry) retryDue(now time.Time, horizon time.Duration) (due, waiting bool) {
+	if !e.settled {
+		return false, false
+	}
+	if e.passes == 0 {
+		return true, true
+	}
+	if now.Sub(e.first) >= horizon {
+		return false, false // the idle drain's horizon: it is that drain's, and the others', now
+	}
+	return !now.Before(e.next), true
+}
+
+// spoolRetryAfter is the wait after a spool's passes-th pass that did not consume it: twice the wait
+// before, starting at two intervals.
+func spoolRetryAfter(every time.Duration, passes int) time.Duration {
+	return every << min(passes, spoolRetryDoublings)
+}
+
+// spoolRetryDoublings caps the shift in spoolRetryAfter so the wait cannot overflow; the horizon ends
+// the retries long before a wait that long (2 s << 16 is about 36 hours).
+const spoolRetryDoublings = 16
+
+// watchClientSpools is the watcher's loop. Run starts it once the drainer exists and joins it with
+// the rest of runWG; it stops when ctx is done. It waits for a kick, then looks at the spool until
+// nothing is left to look for, resting between looks.
+func (d *daemon) watchClientSpools(ctx context.Context) {
+	w := d.spool
+	entries := map[string]*spoolWatchEntry{}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-w.kick:
+		}
+		kicked := true
+		for {
+			rest, more := d.lookAtClientSpools(ctx, entries, kicked, time.Now())
+			if !more {
+				break
+			}
+			t := time.NewTimer(rest)
+			select {
+			case <-ctx.Done():
+				t.Stop()
+				return
+			case <-t.C:
+			}
+			select {
+			case <-w.kick:
+				kicked = true
+			default:
+				kicked = false
+			}
+		}
+	}
+}
+
+// lookAtClientSpools lists the client spools, runs one pass if any of them is due one, and reports
+// whether another look is wanted and after how long. Another look is wanted after one interval when
+// this look followed a kick (the trailing look: a late ACK spools after its request was served) or
+// found a spool that is new or still changing, and otherwise at the earliest retry still due within
+// its horizon. With none of those, the watcher goes back to waiting for a kick.
+func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spoolWatchEntry, kicked bool,
+	now time.Time,
+) (rest time.Duration, more bool) {
+	w := d.spool
+	listed, err := os.ReadDir(paths.Long(paths.Of(d.root).Spool))
+	if err != nil {
+		listed = nil // no spool directory: nothing was spooled
+	}
+	present := make(map[string]bool, len(listed))
+	unsettled := false
+	var due []*spoolWatchEntry
+	for _, de := range listed {
+		if !de.Type().IsRegular() || !isClientSpoolName(de.Name()) {
+			continue
+		}
+		info, ierr := de.Info()
+		if ierr != nil {
+			continue // gone between the listing and the stat: the next look sees what replaced it
+		}
+		base := de.Name()
+		present[base] = true
+		e, seen := entries[base]
+		if !seen || e.size != info.Size() {
+			// New, or written since the last look (a reused pid's hook appended to it): it starts over.
+			entries[base] = &spoolWatchEntry{size: info.Size()}
+			unsettled = true
+			continue
+		}
+		e.settled = true
+		if ok, _ := e.retryDue(now, w.horizon); ok {
+			due = append(due, e)
+		}
+	}
+	for base := range entries {
+		if !present[base] {
+			delete(entries, base) // consumed and released, or removed by another drain
+		}
+	}
+
+	if len(due) > 0 {
+		if d.m != nil {
+			d.m.Counter(counterSpoolWatchPasses).Add(1)
+		}
+		pass, cancel := context.WithTimeout(ctx, idleRunBudget)
+		if dr := d.drain.Load(); dr != nil {
+			if _, perr := dr.DrainClientSpools(pass); perr != nil && ctx.Err() == nil {
+				d.log.Debug("daemon: a client-spool pass ended early", "err", perr)
+			}
+		}
+		cancel()
+		for _, e := range due {
+			if e.passes == 0 {
+				e.first = now
+			}
+			e.passes++
+			e.next = now.Add(spoolRetryAfter(w.every, e.passes))
+		}
+	}
+
+	if kicked || unsettled {
+		return w.every, true
+	}
+	// Every entry is settled here (a new or changed one returned above) and has had its first pass
+	// (a settled one without it was due, and the pass above counted it), so each still waiting has a
+	// next time.
+	var earliest time.Time
+	for _, e := range entries {
+		if _, waiting := e.retryDue(now, w.horizon); waiting && (earliest.IsZero() || e.next.Before(earliest)) {
+			earliest = e.next
+		}
+	}
+	if earliest.IsZero() {
+		return 0, false
+	}
+	return max(earliest.Sub(now), w.every), true
+}
