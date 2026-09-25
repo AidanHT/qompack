@@ -169,3 +169,32 @@ func TestParseHookFailures_StderrForm(t *testing.T) {
 	require.Equal(t, eval.HookProblemFailed, got[0].Kind)
 	require.Equal(t, "Hook cancelled", got[0].Detail)
 }
+
+// TestHostStream_PluginFromAndForeignPlugins: a qompack trial's plugin counts only when the host
+// loaded it from the arm's own install — the inline --plugin-dir source, or the disposable
+// marketplace — and every non-builtin plugin other than the arm's own is named, so a session that
+// picked up an operator plugin (or a Qompack copy from somewhere else) is visible in its record.
+func TestHostStream_PluginFromAndForeignPlugins(t *testing.T) {
+	s := eval.HostStream{Init: &eval.HostInit{Plugins: []eval.HostPlugin{
+		{Name: "qompack", Path: `C:\b\qompack-plugin`, Source: "qompack@inline", Version: "1"},
+		{Name: "agents-md", Path: "builtin", Source: "agents-md@builtin"},
+		{Name: "telemetry", Path: "builtin", Source: "telemetry@builtin"},
+		{Name: "superpowers", Path: `C:\cache\superpowers`, Source: "superpowers@claude-plugins-official"},
+	}}}
+	pl, ok := s.PluginFrom("qompack", "qompack@inline")
+	require.True(t, ok)
+	require.Equal(t, `C:\b\qompack-plugin`, pl.Path)
+	_, ok = s.PluginFrom("qompack", "qompack@qompack-live-eval")
+	require.False(t, ok, "loaded, but not from the marketplace the arm installed through")
+	_, ok = s.PluginFrom("qompack", "")
+	require.True(t, ok, "an empty source accepts any")
+
+	require.Equal(t, []string{"superpowers@claude-plugins-official"}, s.ForeignPlugins("qompack@inline"))
+	require.Equal(t, []string{"qompack@inline", "superpowers@claude-plugins-official"}, s.ForeignPlugins(""),
+		"on the stock arm every non-builtin plugin is foreign, Qompack included")
+
+	var none eval.HostStream
+	_, ok = none.PluginFrom("qompack", "")
+	require.False(t, ok)
+	require.Empty(t, none.ForeignPlugins(""))
+}

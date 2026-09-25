@@ -388,9 +388,24 @@ func fakeBundle(t *testing.T) string {
 	return dir
 }
 
+// pilotHostOpts varies what the scripted host reports about its plugins.
+type pilotHostOpts struct {
+	// source, when set, replaces the source the host reports for an installed Qompack plugin.
+	source string
+	// extra are further plugin objects (JSON) the host lists as loaded.
+	extra []string
+}
+
 // scriptedPilotHost plays the pilot task the way a real host would: it prints a stream shaped like
-// Claude Code 2.1.280's, writes CODE.txt into the project, and leaves a transcript under home.
+// Claude Code 2.1.280's, writes CODE.txt into the project, and leaves a transcript under home. The
+// plugin source it reports is the one 2.1.280 reported for each install path in the pilots:
+// "qompack@inline" for --plugin-dir and "qompack@<marketplace>" for the marketplace flow.
 func scriptedPilotHost(t *testing.T, home string) func(context.Context, liveProcSpec) liveProcResult {
+	t.Helper()
+	return scriptedPilotHostWith(t, home, pilotHostOpts{})
+}
+
+func scriptedPilotHostWith(t *testing.T, home string, opts pilotHostOpts) func(context.Context, liveProcSpec) liveProcResult {
 	t.Helper()
 	return func(_ context.Context, spec liveProcSpec) liveProcResult {
 		sid := ""
@@ -411,6 +426,19 @@ func scriptedPilotHost(t *testing.T, home string) func(context.Context, liveProc
 			marketplace = strings.Contains(string(raw), liveMarketplaceName)
 		}
 		loaded := plugin || marketplace
+		var plugins []string
+		if loaded {
+			source := livePluginName + "@" + liveInlineSource
+			if marketplace {
+				source = livePluginName + "@" + liveMarketplaceName
+			}
+			if opts.source != "" {
+				source = opts.source
+			}
+			plugins = append(plugins, fmt.Sprintf(`{"name":"qompack","path":"x","source":%q,"version":"9.9.9-test"}`, source))
+		}
+		plugins = append(plugins, `{"name":"agents-md","path":"builtin","source":"agents-md@builtin"}`)
+		plugins = append(plugins, opts.extra...)
 		require.NoError(t, os.WriteFile(filepath.Join(spec.Dir, "CODE.txt"), []byte(pilotCodeWord+"\n"), 0o600))
 
 		transcript, err := os.ReadFile("../../internal/eval/testdata/live/smoke2-plugin.transcript.redacted.jsonl")
@@ -429,7 +457,7 @@ func scriptedPilotHost(t *testing.T, home string) func(context.Context, liveProc
 		require.NoError(t, os.MkdirAll(tdir, 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(tdir, sid+".jsonl"), transcript, 0o600))
 
-		stream := pilotStream(sid, loaded)
+		stream := pilotStream(sid, loaded, plugins)
 		recv := make([]int64, 0)
 		for i := range strings.Count(stream, "\n") {
 			recv = append(recv, int64(100*(i+1)))
@@ -441,11 +469,10 @@ func scriptedPilotHost(t *testing.T, home string) func(context.Context, liveProc
 	}
 }
 
-func pilotStream(sid string, plugin bool) string {
-	plugins := `[]`
+func pilotStream(sid string, plugin bool, pluginList []string) string {
+	plugins := "[" + strings.Join(pluginList, ",") + "]"
 	mcp := `[]`
 	if plugin {
-		plugins = `[{"name":"qompack","path":"x","source":"qompack@inline","version":"9.9.9-test"}]`
 		mcp = `[{"name":"plugin:qompack:qompack","status":"connected","source":"plugin"}]`
 	}
 	usage := func(in, out, cr, cw int) string {
@@ -652,4 +679,49 @@ func TestGuardSnapshot_CoversEveryQompackPluginDirectory(t *testing.T) {
 		require.NotContains(t, l, "claude-plugins-official")
 		require.NotContains(t, l, "rust-analyzer")
 	}
+}
+
+// TestRunLiveEval_PluginMustComeFromTheArmsInstall: a qompack trial counts as having its plugin only
+// when the host loaded it from the arm's own install. A marketplace-flow trial whose host reports
+// Qompack from another source (an inline --plugin-dir copy, an operator install) ran some Qompack,
+// not the bundle this arm installed, so its plugin state contradicts the arm; a stock trial whose
+// host loaded any non-builtin plugin names it.
+func TestRunLiveEval_PluginMustComeFromTheArmsInstall(t *testing.T) {
+	run := func(t *testing.T, arms []string, opts pilotHostOpts) (eval.LiveTrial, eval.LiveSummary) {
+		t.Helper()
+		home := t.TempDir()
+		env := fakeLiveEnv(t, nil)
+		env.home = home
+		env.run = scriptedPilotHostWith(t, home, opts)
+		out := t.TempDir()
+		t.Setenv(liveEvalGateEnv, "1")
+		o := liveOptions{
+			tasksFile: liveTestPilot, rates: liveTestRates, arms: arms, out: out,
+			install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1,
+		}
+		var log bytes.Buffer
+		require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+		var rec eval.LiveTrial
+		readJSON(t, filepath.Join(out, "trials", "pilot-codeword", arms[0], "01", "trial.json"), &rec)
+		var sum eval.LiveSummary
+		readJSON(t, filepath.Join(out, "summary.json"), &sum)
+		return rec, sum
+	}
+
+	rec, _ := run(t, []string{"qompack"}, pilotHostOpts{})
+	require.True(t, rec.PluginLoaded, "loaded from the disposable marketplace: the arm's own install")
+	require.Equal(t, "qompack@"+liveMarketplaceName, rec.Plugin.HostSource)
+	require.Empty(t, rec.ForeignPlugins)
+
+	rec, sum := run(t, []string{"qompack"}, pilotHostOpts{source: "qompack@inline"})
+	require.False(t, rec.PluginLoaded, "Qompack from another source is not this arm's plugin")
+	require.Contains(t, strings.Join(rec.Notes, "\n"), "qompack@inline")
+	require.Equal(t, "not-applicable", sum.Decision.Verdict)
+
+	rec, sum = run(t, []string{"stock"}, pilotHostOpts{extra: []string{
+		`{"name":"superpowers","path":"p","source":"superpowers@claude-plugins-official"}`,
+	}})
+	require.False(t, rec.PluginLoaded)
+	require.Equal(t, []string{"superpowers@claude-plugins-official"}, rec.ForeignPlugins)
+	require.Contains(t, strings.Join(sum.Notes, "\n"), "loaded a plugin other than the arm's own")
 }
