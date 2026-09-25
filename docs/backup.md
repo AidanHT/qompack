@@ -59,11 +59,17 @@ observation identities (its degraded mode for an unavailable journal), so those 
 redelivery protection; the current build does not revisit them, and resumes each session at the
 arrival it left next. Roll back past a rotation only by restoring a backup taken before it.
 
-Nothing stops the daemon or asks for a backup before the first rotation: it happens on its own when
-the active journal reaches 65,536 entries. If you may want to run an older build on a project again,
-take a backup before then. `qompack fsck --seal-check` (or `qompack admin delivery-seal --check` on
-a stopped project) reports how many entries the active lease journal holds, and a store that has
-already rotated has a `.qompack/state/delivery-segments/` directory. Do not delete, rename or
+Nothing stops the daemon before the first rotation: it happens on its own when the active journal
+reaches 65,536 entries. If you may want to run an older build on a project again, take a backup
+before then. The daemon warns once per run when a project that has never rotated reaches three
+quarters of the way (49,152 entries or 48 MiB): the daemon log says `this project's delivery journal
+will rotate for the first time soon`, the `delivery_first_rotation_backup_advised` counter counts it,
+and `qompack doctor`'s `delivery.rollover` row says whether the store has rotated and whether the
+last daemon warned. That Warn is the prompt to stop the daemon and run `qompack backup create`; a
+backup taken after the rotation cannot take the project back to an older build.
+`qompack fsck --seal-check` (or `qompack admin delivery-seal --check` on a stopped project) reports
+how many entries the active lease journal holds, and a store that has already rotated has a
+`.qompack/state/delivery-segments/` directory. Do not delete, rename or
 rewrite journals, seals or segments: manual deletion can recycle observation identities and is not a
 recovery procedure. The delivery state grows with the project's delivery history and is never
 pruned: about 0.18 GiB per 100,000 deliveries in the V6 close-out's measurements, most of it the
