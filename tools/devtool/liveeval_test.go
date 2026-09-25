@@ -617,3 +617,39 @@ func TestRunLiveEval_PlanRecordsTheFixtureTree(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(md), want)
 }
+
+// TestGuardSnapshot_CoversEveryQompackPluginDirectory: the guard records the presence of every
+// plugins/{cache,marketplaces,data}/qompack* directory, not only the disposable marketplace's own
+// name, so a trial that leaves a Qompack plugin copy anywhere in the operator's plugin store — a
+// cache or marketplace entry under another name included — changes the snapshot and stops the run.
+// Other plugins' directories are none of the guard's business.
+func TestGuardSnapshot_CoversEveryQompackPluginDirectory(t *testing.T) {
+	home := t.TempDir()
+	env := &liveEnv{home: home}
+	for _, rel := range []string{
+		"plugins/cache/superpowers-marketplace", "plugins/marketplaces/claude-plugins-official", "plugins/data/rust-analyzer",
+	} {
+		require.NoError(t, os.MkdirAll(filepath.Join(home, filepath.FromSlash(rel)), 0o755))
+	}
+	before, err := env.guardSnapshot()
+	require.NoError(t, err)
+
+	for _, rel := range []string{
+		"plugins/cache/qompack", "plugins/marketplaces/qompack-marketplace", "plugins/data/qompack-inline",
+	} {
+		require.NoError(t, os.MkdirAll(filepath.Join(home, filepath.FromSlash(rel)), 0o755))
+		after, err := env.guardSnapshot()
+		require.NoError(t, err)
+		require.False(t, before.equal(after), "%s appeared and the guard did not see it", rel)
+		require.Contains(t, after.lines(), rel+" present")
+		require.NoError(t, os.Remove(filepath.Join(home, filepath.FromSlash(rel))))
+	}
+	after, err := env.guardSnapshot()
+	require.NoError(t, err)
+	require.True(t, before.equal(after))
+	for _, l := range after.lines() {
+		require.NotContains(t, l, "superpowers")
+		require.NotContains(t, l, "claude-plugins-official")
+		require.NotContains(t, l, "rust-analyzer")
+	}
+}

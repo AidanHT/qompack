@@ -1,0 +1,10 @@
+--- FAIL: TestGuardSnapshot_CoversEveryQompackPluginDirectory (0.01s)
+    liveeval_test.go:643: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/tools/devtool/liveeval_test.go:643
+        	Error:      	Should be false
+        	Test:       	TestGuardSnapshot_CoversEveryQompackPluginDirectory
+        	Messages:   	plugins/cache/qompack appeared and the guard did not see it
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	2.290s
+FAIL
+exit=1

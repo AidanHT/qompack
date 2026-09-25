@@ -461,7 +461,8 @@ func (e *liveEnv) readTranscript(requested, reported string) (string, eval.HostT
 
 // liveGuardSnap fingerprints the operator's Claude Code configuration files a trial could touch:
 // user settings, the installed-plugin and known-marketplace registries (hashed), and the presence
-// of every plugin data, cache or marketplace directory a Qompack trial could create. Host
+// of every plugins/{cache,marketplaces,data}/qompack* directory, whichever name a Qompack trial's
+// copy would be filed under. Host
 // bookkeeping every session rewrites — ~/.claude.json, projects/, the plugin catalog cache and the
 // .in_use markers — is deliberately not guarded: any Claude Code session changes those, including
 // the other sessions sharing this machine, and guarding them would fail every run for a change
@@ -496,15 +497,20 @@ var liveGuardedFiles = []string{
 	"plugins/known_marketplaces.json",
 }
 
+// liveGuardedStores are the three plugin stores under <home>/plugins in which a trial could leave a
+// Qompack directory behind: the installed-plugin cache, the marketplace clones and the per-plugin
+// data directories. Every entry of each whose name starts with livePluginName is guarded, the
+// disposable marketplace's own name (liveMarketplaceName) included.
+var liveGuardedStores = []string{"cache", "marketplaces", "data"}
+
 func (e *liveEnv) liveGuardedDirs() []string {
-	dirs := []string{
-		"plugins/cache/" + liveMarketplaceName,
-		"plugins/marketplaces/" + liveMarketplaceName,
-	}
-	entries, _ := os.ReadDir(filepath.Join(e.home, "plugins", "data"))
-	for _, d := range entries {
-		if strings.HasPrefix(d.Name(), livePluginName) {
-			dirs = append(dirs, "plugins/data/"+d.Name())
+	var dirs []string
+	for _, store := range liveGuardedStores {
+		entries, _ := os.ReadDir(filepath.Join(e.home, "plugins", store))
+		for _, d := range entries {
+			if strings.HasPrefix(d.Name(), livePluginName) {
+				dirs = append(dirs, "plugins/"+store+"/"+d.Name())
+			}
 		}
 	}
 	return dirs
