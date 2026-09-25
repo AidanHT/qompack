@@ -121,9 +121,10 @@ func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock)
 // exit without leaving a zombie behind — the spawning client never waits for the daemon it just
 // started.
 //
-// On Windows the program it starts is a verified copy of self under the per-user data directory,
-// not self (spawn_stage.go, C1.17): a daemon running from the plugin's own binary would keep the
-// plugin directory from being removed or updated for as long as it lives.
+// On Windows, when self lies inside CLAUDE_PLUGIN_ROOT, the program it starts is a verified copy of
+// self under the per-user data directory, not self (spawn_stage.go, C1.17): a daemon running from
+// the plugin's own binary would keep the plugin directory from being removed or updated for as
+// long as it lives.
 func SpawnDetached(projectRoot, self string) error {
 	return spawnDetached(projectRoot, self, userHomeDir(), nil)
 }
@@ -132,7 +133,7 @@ func SpawnDetached(projectRoot, self string) error {
 // for a staging failure — which is reported and never stops the spawn: the daemon is started from
 // self instead, as it was before staging existed, and reports that itself (Run).
 func spawnDetached(projectRoot, self, home string, log logging.Logger) error {
-	program, stageErr := daemonProgram(self, home, stagingEnabled)
+	program, stageErr := daemonProgram(self, home, os.Getenv(pluginRootEnv), stagingEnabled)
 	if stageErr != nil && log != nil {
 		log.Warn("daemon: could not stage the daemon binary; starting it from the plugin binary",
 			"err", stageErr)

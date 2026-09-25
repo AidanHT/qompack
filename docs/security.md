@@ -73,9 +73,9 @@ A capture whose arguments were a shell command that would create a sentinel file
 through four tools and the sentinel was never created.
 
 **The daemon's executable on Windows is a verified copy, not the plugin's file (C1.17).** Because the
-daemon outlives the session and Windows will not remove a running executable's directory, the hook
-that starts it runs `<home>/.qompack/bin/<sha256>/qompack.exe` rather than the plugin's
-`bin/qompack.exe` (`internal/daemon/spawn_stage.go`). The copy lives under the user's own profile —
+daemon outlives the session and Windows will not remove a running executable's directory, a hook
+running from inside `CLAUDE_PLUGIN_ROOT` starts it from `<home>/.qompack/bin/<sha256>/qompack.exe`
+rather than the plugin's `bin/qompack.exe` (`internal/daemon/spawn_stage.go`). The copy lives under the user's own profile —
 the one place outside a project Qompack writes (§3.3) — sealed read-only, and it is checked before
 every spawn: a regular file, not a link, junction or other reparse point, whose SHA-256 matches both
 its directory name and the spawning hook's own executable. A file that fails any of that is removed
