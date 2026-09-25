@@ -47,3 +47,14 @@ It is assigned to wave-2b workstream `w2-wintriage`, together with the two slow 
 
 The whole-tree Windows gate must be re-run on the final candidate, on a quiet and awake host
 (C3.2).
+
+## Deterministic gates: `gates1/` (2026-09-25, Windows, same tree)
+
+All exit 0: `gen-config-docs --check`, `gen-mcp-docs --check`, `gen-command-docs --check`,
+`licenses --check`, `build-all`, `plugin-validate`, `replay --ci`. Two independent
+`bundle --version 0.3.0-int1 --archive` builds (`g1-bundleA`, `g1-bundleB`) are byte-identical
+over all 85 files: six target trees, six zips and `checksums.txt` (`bundleA.sha`, `bundleB.sha`,
+empty `bundle-diff.txt`). `claude plugin validate` (Claude Code 2.1.280) passes all six target trees
+(`g1-claude-plugin-validate.txt`). These gates are not yet `release-check`, which also needs lint,
+the whole tree, cover, govulncheck, guards and the rollback rehearsal, and which runs on the frozen
+candidate.

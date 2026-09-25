@@ -1,0 +1,21 @@
+{
+  "id": "g1-pluginvalidate",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "plugin-validate"
+  ],
+  "source_head": "6b3db3251728f62b8cfb810b01e7b99d0b045525",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-25T15:00:35-04:00",
+  "ended_at": "2026-09-25T15:00:36-04:00",
+  "exit_code": 0,
+  "log": "g1-pluginvalidate.log",
+  "log_sha256": "420b5abd17aeb660815460250658ed8c5b75cf544be0721c150dc011111446c4"
+}

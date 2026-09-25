@@ -1,0 +1,22 @@
+{
+  "id": "g1-licenses_check",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "licenses",
+    "--check"
+  ],
+  "source_head": "6b3db3251728f62b8cfb810b01e7b99d0b045525",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-25T15:00:01-04:00",
+  "ended_at": "2026-09-25T15:00:06-04:00",
+  "exit_code": 0,
+  "log": "g1-licenses_check.log",
+  "log_sha256": "7855428f95cb18cc069418785dbc4e2839d4472648ba47f3ac46f9a723275088"
+}
