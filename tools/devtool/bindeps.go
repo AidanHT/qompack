@@ -45,9 +45,17 @@ var releaseTargets = []struct{ GOOS, GOARCH string }{
 //   - syscall has no renameat2 wrapper, and no SYS_RENAMEAT2 number on linux/amd64 (Go's own
 //     internal/syscall/unix calls renameat2 only on loong64 and riscv64, without flags, and cannot
 //     be imported).
-//   - On darwin, renamex_np is a libSystem function. Without cgo it is reachable only through
-//     x/sys/unix's //go:cgo_import_dynamic trampolines. syscall.Syscall there is a raw kernel
-//     trap, which Apple does not keep stable and which Go itself stopped using in Go 1.12.
+//   - On darwin, renamex_np is a libSystem function, and syscall has neither a wrapper nor a
+//     SYS_RENAMEATX_NP number. Without cgo a libSystem function is reached through a
+//     //go:cgo_import_dynamic assembly trampoline, the code x/sys/unix generates; writing one here
+//     would copy that code, under the same licence, without its upkeep. syscall.Syscall there is
+//     a raw kernel trap, which Apple does not keep stable and which Go itself stopped using in
+//     Go 1.12.
+//
+// darwin alone therefore needs the entry, so a stdlib rewrite of the linux file (a hand-kept
+// syscall number for amd64) would add upkeep without removing it. A mkdir claim followed by a plain
+// rename is not equivalent either: it replaces an empty directory a racer puts back between the two
+// calls, and a crash between them strands an empty destination that the next restore then refuses.
 //
 // So the entry has no stdlib equivalent to fall back to. It adds no new module, version or licence:
 // golang.org/x/sys v0.33.0 is already a direct requirement and already ships in the Windows binary,

@@ -30,7 +30,7 @@ func TestAllowedBinDep(t *testing.T) {
 		// linux and darwin RenameDirectoryNoReplace in internal/paths, which the maintenance
 		// restore publishes through, needs renameat2(RENAME_NOREPLACE) and
 		// renamex_np(RENAME_EXCL). The standard library wraps neither, and on darwin a libSystem
-		// call is reachable without cgo only through x/sys/unix's trampolines. It is the same
+		// call needs a cgo_import_dynamic trampoline, the code x/sys/unix generates. It is the same
 		// module, version and licence that already ships in the Windows binary. The entry is
 		// the exact path, like the windows one: its subdirectories and every other x/sys
 		// package stay out.
