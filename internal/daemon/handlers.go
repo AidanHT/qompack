@@ -710,9 +710,10 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event) {
 }
 
 // The session.start route's phase histograms (C1.16). route is the whole handler; contract is
-// phase 1 including the wait for historyMu; seam is phase 2, the observer's SessionStart and, for
-// source=compact, the whole rehydration; finish is phase 3. A slow answer is attributable from
-// metrics/latency.json alone, without a debugger on the host that saw it.
+// phase 1 including the wait for historyMu; seam is phase 2 — the observer's SessionStart, or for
+// source=compact the wait for the rehydration phase 1 started (session_start.compact_wait times
+// that wait alone); finish is phase 3. A slow answer is attributable from metrics/latency.json
+// alone, without a debugger on the host that saw it.
 const (
 	histSessionStartRoute    = "session_start.route"
 	histSessionStartContract = "session_start.contract"
@@ -769,6 +770,13 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 		History:     h,
 	}
 	results, mode := d.monitor.RunAll(ctx, env)
+	// A compact SessionStart's rehydration starts here, as soon as the contract run has said the
+	// mode may act and before this phase's own durable writes, so the two overlap; the route
+	// collects it where the seam call would be (session_start_compact.go, C1.16).
+	var compact *compactAnswer
+	if ev.Source == sessionSourceCompact && mode.MayAct() {
+		compact = d.startCompactAnswer(ctx, *ev, routeStart)
+	}
 	justDegraded := d.recordContractObservability(results, mode)
 	_ = ipc.WriteState(d.root, d.currentState())
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
@@ -784,9 +792,15 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	// historyMu — every other history-touching route (checkpoint, the observe.prompt sentinel
 	// scan) would otherwise queue behind one slow or misbehaving seam, and a re-entrant call would
 	// self-deadlock on a non-reentrant mutex (fix round 1, I-5).
+	//
+	// A compact SessionStart does not call the seam here: its rehydration and the observer's
+	// bookkeeping were started in phase 1, and only the rehydration is waited for, within
+	// compactAnswerBudget of the request's arrival (session_start_compact.go).
 	seamStart := time.Now()
 	var out hookio.Output
-	if mode.MayAct() && d.svc.SessionStart != nil {
+	if compact != nil {
+		out = d.awaitCompactAnswer(ctx, compact)
+	} else if mode.MayAct() && d.svc.SessionStart != nil {
 		if o, err := d.svc.SessionStart(ctx, *ev); err == nil {
 			out = o
 		} else {

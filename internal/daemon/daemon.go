@@ -262,7 +262,17 @@ type daemon struct {
 	// it, before abandoning a callee that ignores cancellation. New sets it to promptReplyDeadline
 	// and nothing in production changes it; it is a field only so a test can hold a cancelled
 	// capture open for as long as it needs to prove that Stop really joins it.
+	//
+	// The same group, gate and lifetime carry the SessionStart(source=compact) work the session.start
+	// route stops waiting for — the rehydration past its answer budget, and the observer's
+	// bookkeeping it never waits for (session_start_compact.go, startReplyWork) — so Stop joins those
+	// through stopPromptRecordings too, before it closes what they write into.
 	promptAbandonAfter time.Duration
+
+	// compactBudget is how long the session.start route waits for a compact rehydration, from the
+	// request's arrival, before answering with the deferred note (compactAnswerBudget). New sets it;
+	// it is a field only so a test can make the bound short.
+	compactBudget time.Duration
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -329,6 +339,7 @@ func New(o Options) (Daemon, error) {
 	// and only Stop may end it (stopPromptRecordings).
 	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
 	d.promptAbandonAfter = promptReplyDeadline
+	d.compactBudget = compactAnswerBudget()
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
@@ -1006,7 +1017,9 @@ func (d *daemon) Stop(ctx context.Context) error {
 		// The verbatim prompt captures the reply path stopped waiting for are joined here: after the
 		// ingest workers, which hold the observer session locks a capture may be queued on, and
 		// before anything below saves or closes what a capture writes into. They share the drain's
-		// bounded window rather than adding one of their own (stopPromptRecordings).
+		// bounded window rather than adding one of their own (stopPromptRecordings). The compact
+		// SessionStart work the session.start route started (startReplyWork) is in the same group
+		// and is joined by the same call.
 		d.stopPromptRecordings(drainCtx)
 		cancel()
 		if err := d.ing.Close(); err != nil {
