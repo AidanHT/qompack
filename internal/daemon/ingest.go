@@ -286,25 +286,9 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 	// the SessionEnd flush drain.
 	line = bytes.TrimSuffix(line, []byte{'\n'})
 	work := func() error {
-		if err := i.appendWAL(req.Session, line); err != nil {
+		j, err := i.makeDurable(req, line)
+		if err != nil {
 			return err
-		}
-		// Identity is assigned here, before the job is queued and therefore before anything can
-		// process it. A redelivery of the same nonce — the client's spool fallback, a drained WAL
-		// line after restart — takes the same lease back unchanged and reuses this identity.
-		lease, leased := i.leaseDelivery(context.Background(), req)
-		if req.Nonce != "" && i.journal != nil && !leased {
-			// The WAL is durable but publication has no identity. Preserve it
-			// for retry; do not ACK or run an unleased substitute observation.
-			i.log.Loud("daemon: delivery identity unavailable; durable WAL retained for recovery")
-			return core.ErrDegraded
-		}
-		j := job{
-			req:    req,
-			recv:   core.NowMilli(i.clk),
-			key:    deliveryIdentityKey(lease, leased, line),
-			lease:  lease,
-			leased: leased,
 		}
 		select {
 		case i.ring <- j:
@@ -312,7 +296,7 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 			if i.m != nil {
 				i.m.Counter(counterL0RingFull).Add(1)
 			}
-			if leased {
+			if j.leased {
 				// Only the WAL holds it now, and its session's later arrivals wait on it (C1.1).
 				i.requestDrain()
 			}
@@ -330,6 +314,46 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 		return fmt.Errorf("daemon: ingest: accept: %w", err)
 	}
 	return nil
+}
+
+// makeDurable is Accept's durable half: line — already trimmed of its terminator — appended to the
+// session's WAL and synced, then the delivery's lease, and the job that carries both. It queues
+// nothing.
+func (i *ingest) makeDurable(req ipc.Request, line []byte) (job, error) {
+	if err := i.appendWAL(req.Session, line); err != nil {
+		return job{}, err
+	}
+	// Identity is assigned here, before the job is queued and therefore before anything can
+	// process it. A redelivery of the same nonce — the client's spool fallback, a drained WAL
+	// line after restart — takes the same lease back unchanged and reuses this identity.
+	lease, leased := i.leaseDelivery(context.Background(), req)
+	if req.Nonce != "" && i.journal != nil && !leased {
+		// The WAL is durable but publication has no identity. Preserve it
+		// for retry; do not ACK or run an unleased substitute observation.
+		i.log.Loud("daemon: delivery identity unavailable; durable WAL retained for recovery")
+		return job{}, core.ErrDegraded
+	}
+	return job{
+		req:    req,
+		recv:   core.NowMilli(i.clk),
+		key:    deliveryIdentityKey(lease, leased, line),
+		lease:  lease,
+		leased: leased,
+	}, nil
+}
+
+// acceptDurable makes a CONTROL delivery — a SessionEnd flush — durable exactly as Accept makes an
+// observe event durable (makeDurable: the WAL line synced, then the lease), and returns its job
+// without queueing it: the worker pool publishes observations, and the caller runs the flush itself
+// (session_end.go). It is not timed into B-B, whose budget is the observe hot path's. Its answer is
+// Accept's: an error means the delivery must not be acknowledged, and one with a nonce that could not
+// be leased is retained in the WAL for recovery and refused with core.ErrDegraded.
+func (i *ingest) acceptDurable(req ipc.Request, line []byte) (job, error) {
+	j, err := i.makeDurable(req, bytes.TrimSuffix(line, []byte{'\n'}))
+	if err != nil {
+		return job{}, fmt.Errorf("daemon: ingest: accept: %w", err)
+	}
+	return j, nil
 }
 
 // walItem is one WAL append's request in walQ (design §2.4).

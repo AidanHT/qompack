@@ -39,6 +39,19 @@ const (
 	drainFileExt   = ".ndjson"
 )
 
+// drainDeferral says why the drain left a line it read for a later attempt instead of consuming it.
+type drainDeferral int
+
+const (
+	// deferNot: the line was consumed, or the pass ended on it.
+	deferNot drainDeferral = iota
+	// deferOrdering: an earlier leased arrival of its session is not yet on the committed frontier
+	// (delivery-order-decision.md). Counted in l0_drain_ordering_deferred.
+	deferOrdering
+	// deferSessionEnd: the line is a flush whose session end is running right now (session_end.go).
+	deferSessionEnd
+)
+
 // drainStateFile is state/drain.json's filename.
 const drainStateFile = "drain.json"
 
@@ -479,33 +492,33 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	}
 
 	// processOne runs one line through the frontier, ordering, seen and dispatch stages. done means
-	// the line was consumed (roll the offset); deferIt means it is blocked on an unacknowledged
-	// predecessor (retryable); dispatched means a real publication happened, so it counts; changed
-	// means this pass published the line or retired it by a proven denial, which is what
-	// DrainConfig.Released reports; a hard error ends the pass. It serves a freshly read line and a
-	// deferred re-attempt alike.
-	processOne := func(dl deferredLine) (done, deferIt, dispatched, changed bool, hardErr error) {
+	// the line was consumed (roll the offset); deferIt says why a line is left for later instead —
+	// blocked on an unacknowledged predecessor, or a flush whose session end is running now (both
+	// retryable); dispatched means a real publication happened, so it counts; changed means this pass
+	// published the line or retired it by a proven denial, which is what DrainConfig.Released reports;
+	// a hard error ends the pass. It serves a freshly read line and a deferred re-attempt alike.
+	processOne := func(dl deferredLine) (done bool, deferIt drainDeferral, dispatched, changed bool, hardErr error) {
 		if dl.leased {
 			retired, err := terminalForDelivery(dr.cfg.Journal, dl.lease)
 			if err != nil {
-				return false, false, false, false, err
+				return false, deferNot, false, false, err
 			}
 			if retired {
 				gaps.add(base, DrainGapDenied, "replay retired by policy denial")
 				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 					fs.PendingBlobs = append(fs.PendingBlobs, blob)
 				}
-				return true, false, false, false, nil
+				return true, deferNot, false, false, nil
 			}
 		}
 		if dl.leased && dr.acknowledgedDelivery(dl.lease, dl.leased) {
 			if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
-			return true, false, false, false, nil
+			return true, deferNot, false, false, nil
 		}
 		if !dr.leasedPredecessorsReady(dl.lease, dl.leased) {
-			return false, true, false, false, nil
+			return false, deferOrdering, false, false, nil
 		}
 		if dr.cfg.Seen != nil {
 			completed, acquired := dr.cfg.Seen.begin(dl.key)
@@ -516,10 +529,16 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 					fs.PendingBlobs = append(fs.PendingBlobs, blob)
 				}
-				return true, false, false, false, nil
+				return true, deferNot, false, false, nil
 			}
 			if !acquired {
-				return false, false, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
+				if !dl.req.Op.HotPath() {
+					// A flush whose session end is running right now owns its line from the moment it
+					// was acknowledged until the end has finished (session_end.go), which takes
+					// seconds by design: meeting it is not a failure, only a line for a later pass.
+					return false, deferSessionEnd, false, false, nil
+				}
+				return false, deferNot, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
 			}
 		}
 		blob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased)
@@ -531,16 +550,16 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 			if blob != "" {
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
-			return true, false, false, dl.leased, nil // dispatchPending retired a leased one
+			return true, deferNot, false, dl.leased, nil // dispatchPending retired a leased one
 		}
 		if dispatchErr != nil {
 			gaps.add(base, DrainGapUnacknowledged, "publication did not reach the frontier")
-			return false, false, false, false, dispatchErr
+			return false, deferNot, false, false, dispatchErr
 		}
 		if blob != "" {
 			fs.PendingBlobs = append(fs.PendingBlobs, blob)
 		}
-		return true, false, true, true, nil
+		return true, deferNot, true, true, nil
 	}
 
 	// reattempt re-runs the deferred lines after a consume may have acknowledged a predecessor, to a
@@ -703,8 +722,8 @@ readLoop:
 			readErr = err
 			break readLoop
 		}
-		if deferIt {
-			if dr.cfg.Metrics != nil {
+		if deferIt != deferNot {
+			if deferIt == deferOrdering && dr.cfg.Metrics != nil {
 				dr.cfg.Metrics.Counter(counterDrainOrderingDeferred).Add(1)
 			}
 			// Item 3: do NOT stop at the buffer bound — stopping re-reads the same prefix every pass
@@ -1197,6 +1216,10 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 	}
 	dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
 	defer cancel()
+	if leased {
+		// A replayed flush settles only the arrivals before its own (sessionEndArrival).
+		dctx = withReplayedDelivery(dctx, lease)
+	}
 	resp := dr.cfg.Dispatch(observer.WithObservation(dctx, lease.ObservationID), resolved)
 	if !resp.OK || resp.Err != "" {
 		if dctx.Err() != nil {
