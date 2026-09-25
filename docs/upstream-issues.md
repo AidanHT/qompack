@@ -77,15 +77,16 @@ capability it cannot verify.
   hookSpecificOutput.hookEventName: expected one of "PreToolUse" | "UserPromptSubmit" | …", and it
   appended the whole rejection, instruction text included, to the post-compaction transcript
   ([evidence](../plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt)). Qompack now
-  answers PreCompact with the empty object. `precompact.has_time_to_write` ("measured PreCompact
+  answers PreCompact with the empty object and has retired the instruction (C1.18). `precompact.has_time_to_write` ("measured PreCompact
   wall time vs. the manifest timeout") still has no installed-host observation recorded (B01).
 - **Proposal.** Give PreCompact a `hookSpecificOutput` that appends plugin-supplied focus text to
   the summarization request (the way the user's own `/compact <instructions>` does), and state the
   PreCompact timeout as a contract.
 - **What Qompack would do with it.** Deliver the checkpoint's span paragraph ("the checkpoint
-  covers the session through turn N; summarize only what came after"), which the daemon already
-  renders and today has to discard, and size its PreCompact work against a stated budget instead of
-  a conservative guess. It would still not be a summarizer setter.
+  covers the session through turn N; summarize only what came after"), which `internal/checkpoint`
+  can still compose but the daemon, since C1.18, no longer returns or records, and size its
+  PreCompact work against a stated budget instead of a conservative guess. It would still not be a
+  summarizer setter.
 - **Status: not filed.**
 
 ## 3. A post-compaction signal that does not have to be inferred
