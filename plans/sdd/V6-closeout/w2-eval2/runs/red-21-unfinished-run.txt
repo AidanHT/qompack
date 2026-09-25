@@ -1,0 +1,10 @@
+--- FAIL: TestFileEvalArtifacts_NamesANewerRunThatNeverFinished (0.05s)
+    eval_live_test.go:426: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/commands/eval_live_test.go:426
+        	Error:      	"trials are clustered within tasks; the pooled intervals treat them as independent, which overstates their precision (preregistration section 8)" does not contain "20260930T120000Z-bbbbbb"
+        	Test:       	TestFileEvalArtifacts_NamesANewerRunThatNeverFinished
+        	Messages:   	the newer run with no summary is named
+FAIL
+FAIL	github.com/qompack/qompack/internal/commands	1.283s
+FAIL
+exit=1

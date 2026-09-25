@@ -398,3 +398,35 @@ func TestEval_LiveNotConfirmatoryUnlessItRanThePreregisteredMaterials(t *testing
 		require.NotEqual(t, commands.VerdictPass, rep.Verdict, name)
 	}
 }
+
+// TestFileEvalArtifacts_NamesANewerRunThatNeverFinished: a live-eval run writes plan.json before its
+// first session and summary.json after its last, so a run that crashed or is still going has a plan
+// and no summary. "The newest run" read without that caveat would present an older run as the
+// latest evidence. The provider still reports the newest finished run, and says that a newer run
+// exists without a summary.
+func TestFileEvalArtifacts_NamesANewerRunThatNeverFinished(t *testing.T) {
+	root := t.TempDir()
+	done := confirmatoryRun(19, 20)
+	done.Plan.RunID, done.Plan.CreatedAt = "20260929T120000Z-aaaaaa", "2026-09-29T12:00:00Z"
+	writeLiveRun(t, filepath.Join(root, "dist", "live-eval", done.Plan.RunID), done)
+	unfinished := confirmatoryRun(19, 20)
+	unfinished.Plan.RunID, unfinished.Plan.CreatedAt = "20260930T120000Z-bbbbbb", "2026-09-30T12:00:00Z"
+	dir := filepath.Join(root, "dist", "live-eval", unfinished.Plan.RunID)
+	writeLiveRun(t, dir, unfinished)
+	require.NoError(t, os.Remove(filepath.Join(dir, "summary.json")))
+
+	in, err := commands.FileEvalArtifacts(root)(context.Background(), "")
+	require.NoError(t, err)
+	require.NotNil(t, in.Live)
+	require.Equal(t, done.Plan.RunID, in.Live.Plan.RunID, "the newest finished run is what can be reported")
+
+	out, err := runWith(t, evalDeps(in, nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.Contains(t, strings.Join(rep.Live.Notes, "\n"), unfinished.Plan.RunID,
+		"the newer run with no summary is named")
+
+	text, err := runWith(t, evalDeps(in, nil), "eval")
+	require.NoError(t, err)
+	require.Contains(t, text, unfinished.Plan.RunID)
+}

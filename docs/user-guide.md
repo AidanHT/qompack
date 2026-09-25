@@ -152,8 +152,9 @@ Reports the latest replay and live evaluation results: `[--corpus <path>]`
 It reads what the two evaluation producers left on disk and never runs either of them
 (`internal/commands/evalartifacts.go`):
 
-- the newest real-host run `devtool live-eval` wrote under `dist/live-eval/<run-id>/` — its
-  `plan.json` and `summary.json`, the newest by the plan's creation time;
+- the newest finished real-host run `devtool live-eval` wrote under `dist/live-eval/<run-id>/` —
+  its `plan.json` and `summary.json`, the newest by the plan's creation time; a newer run that has
+  a plan and no summary yet (still running, or stopped before writing one) is named in a note;
 - the deterministic replay report the replay driver writes to `testdata/bench-replay.json`.
 
 Both paths are relative to the project root and are build outputs of a Qompack source checkout.
