@@ -120,7 +120,8 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 		r.Notes = append(r.Notes, fmt.Sprintf("the run used the pre-registered contingency alias %s in place of %s, "+
 			"which the hosts resolved to %s; preregistration section 3 permits it only after the host rejected %s in "+
 			"the first confirmatory session and the change was appended to section 9 before the restart, and those "+
-			"preconditions are not machine-checked", p.Model, p.PreregisteredModel, strings.Join(s.HostModels, ", "), p.PreregisteredModel))
+			"preconditions are not machine-checked", p.Model, p.PreregisteredModel, strings.Join(s.HostModels, ", "),
+			p.PreregisteredModel))
 	}
 	return r
 }
