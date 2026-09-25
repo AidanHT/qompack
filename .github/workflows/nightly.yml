@@ -161,8 +161,11 @@ jobs:
 
   # Deterministic replay over the RECORDED corpus (§6.3 tier 2). The corpus is what makes this run
   # different from ci.yml's replay-gate — not the mode. Live mode (§6.3 tier 3) is run by no
-  # workflow at all: eval.LiveRunner is nil in every shipped build and wiring it is SP-17's
-  # deliverable, so the old `replay-live` name described something that has never existed here.
+  # workflow at all, because no workflow may call a model: the real-host harness V6 C5.4 built
+  # (`devtool live-eval`, gated by QOMPACK_LIVE_EVAL=1, and eval.HostForkRunner behind replay's live
+  # mode, gated by QOMPACK_EVAL_LIVE=1) runs only on a developer's machine, and no shipped build
+  # installs an eval.LiveRunner, so the old `replay-live` name described something that has never
+  # existed here.
   replay-recorded:
     runs-on: ubuntu-latest
     steps:
