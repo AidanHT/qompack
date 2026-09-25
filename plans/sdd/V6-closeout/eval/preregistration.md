@@ -172,4 +172,32 @@ A change to a task after any of its outcomes exists requires a new task-set id.
 
 ### Amendments
 
-None.
+**A1 — 2026-09-25, by the C5.4 independent-review seat (an Opus 5.5 workflow subagent, branch
+`closeout/w2-eval2`), before any confirmatory trial.** No task, fixture, hidden test, rate or
+analysis parameter changes; only the recipe that names the fixture tree does.
+
+*Reason.* The §2 row "Fixtures + hidden tests" records `071d9d1d…` as computed with Git Bash on
+Windows, where `sha256sum` writes its binary-mode ` *` marker and `sort` ordered the paths by the
+`en_US` locale's collation (`fixtures/svc/README.md` sorts after the lowercase names). The same
+37 files hash differently under GNU coreutils in text mode or under a byte-order sort, so the
+recorded value cannot be reproduced on Linux, by a program, or by anyone who does not know the
+recipe's accidents. The bytes are unchanged: the tree still gives `071d9d1d…` under that exact
+Windows recipe, and `tasks.json`, `rates.json` and `pilot.json` still match their §2 hashes.
+
+*Amendment.* The fixture tree's identity for every run of this pre-registration is the
+locale- and platform-independent manifest hash
+
+`30cf769d243776645506eb43b7e0b336d2fed9a6e2ea29b4fb70a1f2b4054276`
+
+— `find fixtures hidden -type f | LC_ALL=C sort | xargs sha256sum | sha256sum` run in
+`testdata/eval/live` with GNU coreutils (one `<sha256>  <path>` line per file, paths in byte
+order), implemented as `eval.TreeManifestSHA256`. `devtool live-eval` records it in every run's
+`plan.json` as `fixture_tree_sha256` (with `fixture_tree_dirs`) and prints it in `summary.md`; a run
+whose value differs is not a run of this pre-registration. `TestLiveTaskSet_FrozenMaterialsMatchThePreregistration`
+(internal/eval) reads the §2 hashes and this value out of this document and fails if any frozen
+material stops matching, or if the §4 task table stops naming exactly the task set.
+
+The same review brought the harness into line with §8 as written — a harness failure now fails
+every outcome (recovery included, so it stays in that denominator), and the H2 regression, the
+per-variant results, the per-task signs and the clustering limitation are now reported. Those are
+corrections of the code to this document, not changes to it.

@@ -187,11 +187,16 @@ type livePlanned struct {
 
 // livePlan is the run's plan document, written before the first session starts.
 type livePlan struct {
-	RunID              string                   `json:"run_id"`
-	CreatedAt          string                   `json:"created_at"`
-	TaskSet            string                   `json:"task_set"`
-	TaskSetFile        string                   `json:"task_set_file"`
-	TaskSetSHA256      string                   `json:"task_set_sha256"`
+	RunID         string `json:"run_id"`
+	CreatedAt     string `json:"created_at"`
+	TaskSet       string `json:"task_set"`
+	TaskSetFile   string `json:"task_set_file"`
+	TaskSetSHA256 string `json:"task_set_sha256"`
+	// FixtureTreeSHA256 is eval.TreeManifestSHA256 over FixtureTreeDirs, the top-level directories
+	// (beside the task file) the task set's fixtures and hidden tests live in: the identity of every
+	// byte a trial starts from or is graded against, which the task-set hash alone does not cover.
+	FixtureTreeSHA256  string                   `json:"fixture_tree_sha256"`
+	FixtureTreeDirs    []string                 `json:"fixture_tree_dirs"`
 	Model              string                   `json:"model"`
 	PreregisteredModel string                   `json:"preregistered_model"`
 	Arms               []string                 `json:"arms"`
@@ -228,6 +233,11 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if err != nil {
 		return err
 	}
+	treeDirs := liveFixtureTreeDirs(ts)
+	tree, err := eval.TreeManifestSHA256(filepath.Dir(o.tasksFile), treeDirs...)
+	if err != nil {
+		return fmt.Errorf("live-eval: hashing the fixture tree: %w", err)
+	}
 	runID := liveRunID(env.now())
 	if o.out == "" {
 		o.out = filepath.Join(liveDefaultOut, runID)
@@ -236,6 +246,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	plan := livePlan{
 		RunID: runID, CreatedAt: env.now().UTC().Format(time.RFC3339), TaskSet: ts.ID,
 		TaskSetFile: filepath.ToSlash(o.tasksFile), TaskSetSHA256: sha256Hex(raw),
+		FixtureTreeSHA256: tree, FixtureTreeDirs: treeDirs,
 		Model: o.model, PreregisteredModel: ts.Analysis.Model, Arms: o.arms, TrialsPerArm: o.trials,
 		Install: o.install, RateTableDate: rates.Date, RateTableSource: rates.Source,
 		HeldOutIncluded: o.includeHeldOut, Host: runtime.GOOS + "/" + runtime.GOARCH,
@@ -257,8 +268,9 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		return fmt.Errorf("live-eval: the plan starts %d session(s), above --max-sessions %d", len(plan.Trials), o.maxSessions)
 	}
 
-	fmt.Fprintf(w, "live-eval: run %s: %d trial(s) of task set %s (%s) on %s, arms %s, install %s\n",
-		runID, len(plan.Trials), ts.ID, plan.TaskSetSHA256[:12], o.model, strings.Join(o.arms, ","), o.install)
+	fmt.Fprintf(w, "live-eval: run %s: %d trial(s) of task set %s (%s, fixture tree %s) on %s, arms %s, install %s\n",
+		runID, len(plan.Trials), ts.ID, plan.TaskSetSHA256[:12], plan.FixtureTreeSHA256[:12], o.model,
+		strings.Join(o.arms, ","), o.install)
 	if o.dryRun {
 		for _, p := range plan.Trials {
 			fmt.Fprintf(w, "  plan: %s/%s/%d\n", p.Task, p.Arm, p.Trial)
@@ -313,6 +325,23 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	}
 	fmt.Fprintf(w, "live-eval: decision %s — %s\nlive-eval: records under %s\n", sum.Decision.Verdict, sum.Decision.Reason, o.out)
 	return abort
+}
+
+// liveFixtureTreeDirs is the sorted set of top-level directories, relative to the task file, that
+// the task set's fixtures and hidden fixtures live under. For qompack-live-v1 it is fixtures and
+// hidden: exactly the tree the pre-registration's amendment A1 hashes.
+func liveFixtureTreeDirs(ts eval.LiveTaskSet) []string {
+	seen := map[string]bool{}
+	for _, t := range ts.Tasks {
+		for _, dir := range []string{t.Fixture, t.HiddenFixture} {
+			if dir == "" {
+				continue
+			}
+			top, _, _ := strings.Cut(dir, "/")
+			seen[top] = true
+		}
+	}
+	return liveSortedKeys(seen)
 }
 
 // selectLiveTasks applies --only and the held-out rule.
@@ -813,8 +842,9 @@ func joinErr(a, b string) string {
 func renderLiveSummary(p livePlan, s eval.LiveSummary) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Live evaluation %s\n\n", p.RunID)
-	fmt.Fprintf(&b, "Task set `%s` (sha256 `%s`), model `%s` (pre-registered `%s`), arms %s, install `%s`, "+
-		"Claude Code %s. %s.\n\n", p.TaskSet, p.TaskSetSHA256, p.Model, p.PreregisteredModel,
+	fmt.Fprintf(&b, "Task set `%s` (sha256 `%s`; fixture tree %v manifest sha256 `%s`), model `%s` "+
+		"(pre-registered `%s`), arms %s, install `%s`, Claude Code %s. %s.\n\n", p.TaskSet, p.TaskSetSHA256,
+		p.FixtureTreeDirs, p.FixtureTreeSHA256, p.Model, p.PreregisteredModel,
 		strings.Join(p.Arms, ", "), p.Install, p.ClaudeCLIVersion, p.Agent)
 	fmt.Fprintf(&b, "Every cost figure is a list-price-equivalent ESTIMATE from the %s rate table; the sessions ran on a "+
 		"subscription, which has no per-token cash charge.\n\n", p.RateTableDate)
