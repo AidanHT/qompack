@@ -831,8 +831,10 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		}
 		// Publication order, stage 1: the durable object. A capture that cannot be made durable
 		// blocks the reference and the frontier behind it; the delivery stays retryable and the
-		// host's own result is untouched either way (invariant 4).
-		if j.leased {
+		// host's own result is untouched either way (invariant 4). Only an observation has one: the
+		// worker pool is handed nothing else today, and a control line must never publish a
+		// sidecar (drain.go dispatchPending says why).
+		if j.leased && j.req.Op.HotPath() {
 			if err := publishCapture(i.root, req, j.lease); err != nil {
 				if i.m != nil {
 					i.m.Counter(counterSidecarFailed).Add(1)

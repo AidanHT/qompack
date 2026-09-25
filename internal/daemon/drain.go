@@ -1183,7 +1183,14 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 		return "", core.ErrDegraded
 	}
 	resolved = verdict.Request
-	if leased {
+	// Only an observation has a capture to publish. A control line — a session start, checkpoint or
+	// SessionEnd flush whose hook fell back to its client spool, or a flush the daemon accepted into
+	// its WAL — is leased like any delivery (the hook client mints a nonce for every hook) and reaches
+	// the committed frontier below, but it is not an observation and nothing ever references a
+	// sidecar for it. Publishing one left a sidecar the publication audit and fsck could only call
+	// "unrecognized" for the life of the project (store.IsControlCaptureOp keeps the ones already on
+	// disk as the legacy evidence they are).
+	if leased && resolved.Op.HotPath() {
 		if err := publishCapture(dr.cfg.Root, resolved, lease); err != nil {
 			return "", fmt.Errorf("daemon: drain: capture not durable: %w", err)
 		}
