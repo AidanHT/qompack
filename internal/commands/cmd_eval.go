@@ -159,9 +159,12 @@ func buildEvalReport(in EvalInput) EvalReport {
 		Cost:     costOf(in.Ledger),
 	}
 
-	name, score, ok := primaryPolicy(in.Report)
-	rep.Policy = name
-	rep.Notes = append(rep.Notes, replayPolicyNotes(in.Report, name, ok)...)
+	policies := qompackPolicies(in.Report)
+	ok := len(policies) > 0
+	if ok {
+		rep.Policy = policies[0]
+	}
+	rep.Notes = append(rep.Notes, replayPolicyNotes(in.Report, policies)...)
 	if !ok && in.Live == nil {
 		rep.Verdict = VerdictInconclusive
 		if len(in.Report.Policies) == 0 {
@@ -170,7 +173,13 @@ func buildEvalReport(in EvalInput) EvalReport {
 		return rep
 	}
 	if ok {
-		addReplayGates(&rep, score)
+		for i, name := range policies {
+			suffix := ""
+			if i > 0 {
+				suffix = "@" + name
+			}
+			addReplayGates(&rep, in.Report.Policies[name], suffix)
+		}
 	} else {
 		rep.Notes = append(rep.Notes, "no Qompack replay score was read; only the live run is reported")
 	}
@@ -185,24 +194,31 @@ func buildEvalReport(in EvalInput) EvalReport {
 	return rep
 }
 
-// addReplayGates adds the deterministic replay's gates for the primary policy's score.
-func addReplayGates(rep *EvalReport, score eval.Score) {
+// addReplayGates adds the deterministic replay's gates for one Qompack policy's score. The leading
+// policy's gates carry the plain IDs (suffix ""); every further policy's carry "@<policy>".
+func addReplayGates(rep *EvalReport, score eval.Score, suffix string) {
 	d := score.Divergence
-	rep.Task = []EvalGate{
+	withSuffix := func(gates ...EvalGate) []EvalGate {
+		for i := range gates {
+			gates[i].ID += suffix
+		}
+		return gates
+	}
+	rep.Task = append(rep.Task, withSuffix(
 		boolGate("TASK-01", "final decision preserved", d.SameDecision),
 		unjudged("TASK-02", "decision preservation", d.DecisionPreservation),
 		unjudged("TASK-03", "turns to first divergence", float64(d.FirstDivergenceTurn)),
-	}
-	rep.Recovery = []EvalGate{
+	)...)
+	rep.Recovery = append(rep.Recovery, withSuffix(
 		unjudged("REC-01", "retrieval hit rate", score.RetrievalHitRate),
 		reAttemptGate(d.ReAttempts),
 		unjudged("REC-03", "redundant reads", float64(d.RedundantReads)),
-	}
-	rep.Historical = []EvalGate{
+	)...)
+	rep.Historical = append(rep.Historical, withSuffix(
 		historical("HIST-01", "fraction of OPT (§11.1, retained diagnostic)", score.FractionOfOPT),
 		historical("HIST-02", "file-set Jaccard (retained diagnostic)", d.FileSetJaccard),
 		historical("HIST-03", "tool edit distance (retained diagnostic)", float64(d.ToolEditDistance)),
-	}
+	)...)
 }
 
 // verdictOf decides the run's outcome from the task and recovery gates alone.
@@ -241,53 +257,63 @@ func verdictOf(rep EvalReport, replayed bool) EvalVerdict {
 // Belady ceiling — and is never the policy this command reports.
 const qompackPolicyPrefix = "qompack"
 
-// primaryPolicy picks the scored policy to report: Qompack's own, the alphabetically first when a
-// replay scored more than one. A replay that scored none has nothing of Qompack's to report, and no
-// reference policy is promoted in its place — null re-attempts every eliminated approach by
-// construction, so judging it would fail an evaluation on a policy no user runs.
-func primaryPolicy(r eval.Report) (string, eval.Score, bool) {
-	best := ""
+// defaultReplayPolicy is the Qompack policy test/replay scores by default (its defaultPolicies) and
+// the phase-3 gate grades: the product's rehydrator. When a replay scored it, it leads the report.
+const defaultReplayPolicy = "qompack-rehydrate"
+
+// qompackPolicies lists every Qompack policy a replay scored, in report order: the driver's default
+// product policy first when it was scored, then the rest by name. Every one of them is judged — a
+// replay run with `--policies qompack-rehydrate,qompack-l3` is an evaluation of both, and judging
+// only one would let the other fail unseen. A replay that scored none has nothing of Qompack's to
+// report, and no reference policy is promoted in its place — null re-attempts every eliminated
+// approach by construction, so judging it would fail an evaluation on a policy no user runs.
+func qompackPolicies(r eval.Report) []string {
+	var out []string
 	for n := range r.Policies {
-		if strings.HasPrefix(n, qompackPolicyPrefix) && (best == "" || n < best) {
-			best = n
+		if strings.HasPrefix(n, qompackPolicyPrefix) && n != defaultReplayPolicy {
+			out = append(out, n)
 		}
 	}
-	if best == "" {
-		return "", eval.Score{}, false
+	sort.Strings(out)
+	if _, ok := r.Policies[defaultReplayPolicy]; ok {
+		out = append([]string{defaultReplayPolicy}, out...)
 	}
-	return best, r.Policies[best], true
+	return out
 }
 
-// replayPolicyNotes says which of a replay's scored policies the gates are, and what else it scored:
-// the reference policies, which bound the metric and are never judged, and any further Qompack
-// policy, which is scored but not the one reported.
-func replayPolicyNotes(r eval.Report, reported string, ok bool) []string {
-	var refs, others []string
+// replayPolicyNotes says which of a replay's scored policies the gates are — every Qompack policy,
+// the first with the plain gate IDs — and what else it scored: the reference policies, which bound
+// the metric and are never judged.
+func replayPolicyNotes(r eval.Report, judged []string) []string {
+	var refs []string
 	for n := range r.Policies {
-		switch {
-		case n == reported:
-		case strings.HasPrefix(n, qompackPolicyPrefix):
-			others = append(others, n)
-		default:
+		if !strings.HasPrefix(n, qompackPolicyPrefix) {
 			refs = append(refs, n)
 		}
 	}
 	sort.Strings(refs)
-	sort.Strings(others)
 	var out []string
 	switch {
-	case ok && len(refs) > 0:
-		out = append(out, fmt.Sprintf("replay: the gates are %s's; the report also scores the reference "+
-			"policies %s, which bound the metric and are not judged", reported, strings.Join(refs, ", ")))
-	case !ok && len(refs) > 0:
+	case len(judged) > 0 && len(refs) > 0:
+		out = append(out, fmt.Sprintf("replay: the gates are %s; the report also scores the reference "+
+			"policies %s, which bound the metric and are not judged", judgedPolicies(judged), strings.Join(refs, ", ")))
+	case len(judged) == 0 && len(refs) > 0:
 		out = append(out, fmt.Sprintf("replay: the report scores only the reference policies %s and no Qompack "+
 			"policy (%s*), so it has nothing of Qompack's to judge", strings.Join(refs, ", "), qompackPolicyPrefix))
 	}
-	if len(others) > 0 {
-		out = append(out, fmt.Sprintf("replay: the Qompack policies %s are also scored and not reported here",
-			strings.Join(others, ", ")))
+	if len(judged) > 1 && len(refs) == 0 {
+		out = append(out, "replay: the gates are "+judgedPolicies(judged))
 	}
 	return out
+}
+
+// judgedPolicies names the judged Qompack policies and how their gates are told apart.
+func judgedPolicies(judged []string) string {
+	if len(judged) == 1 {
+		return judged[0] + "'s"
+	}
+	return fmt.Sprintf("every Qompack policy the report scored: %s's with the plain IDs, and %s's with "+
+		"the policy's name after @", judged[0], strings.Join(judged[1:], "'s, "))
 }
 
 // boolGate is a gate the artifact decides outright.
