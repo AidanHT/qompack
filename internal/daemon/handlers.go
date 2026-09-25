@@ -1588,8 +1588,11 @@ func (d *daemon) writeSessionRecovery(sr SessionRecovery) error {
 }
 
 // markRecoveryNeeded records that sess entered stage. Every call rewrites the whole file, which is
-// what makes the marker's presence the fact and its stage merely the detail.
+// what makes the marker's presence the fact and its stage merely the detail. recoveryMu makes each
+// rewrite see the one before it: session ends run concurrently since C1.15.
 func (d *daemon) markRecoveryNeeded(sess core.SessionID, stage string, unacknowledged int64) {
+	d.recoveryMu.Lock()
+	defer d.recoveryMu.Unlock()
 	sr, err := LoadSessionRecovery(d.root)
 	if err != nil {
 		// Unreadable recovery state is itself a recovery-needed condition; replace it rather than
@@ -1606,6 +1609,8 @@ func (d *daemon) markRecoveryNeeded(sess core.SessionID, stage string, unacknowl
 // clearRecoveryNeeded removes sess's marker. It runs only after every flush step has returned, so a
 // marker that survives is a genuine interruption and not a slow step.
 func (d *daemon) clearRecoveryNeeded(sess core.SessionID) {
+	d.recoveryMu.Lock()
+	defer d.recoveryMu.Unlock()
 	sr, err := LoadSessionRecovery(d.root)
 	if err != nil {
 		return

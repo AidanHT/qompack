@@ -3,6 +3,7 @@ package daemon
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -291,4 +292,42 @@ func TestStop_FinishesAnAcceptedSessionEndBeforeItReturns(t *testing.T) {
 	sr, err := LoadSessionRecovery(root)
 	require.NoError(t, err)
 	require.NotContains(t, sr.Sessions, sess, "the session end finished before Stop returned")
+}
+
+// TestSessionRecovery_ConcurrentEndsLoseNoMarker: the recovery-needed set is one file every session
+// end rewrites whole (markRecoveryNeeded, clearRecoveryNeeded: read, change one entry, write). Since
+// C1.15 the ends run on goroutines of their own, beside the flush route that marks the next one, so
+// two sessions' ends overlap as a matter of course. Each rewrite must see the one before it: a lost
+// update either resurrects a cleared session — a finished end reported as needing recovery for good —
+// or drops a marker for an end still running.
+func TestSessionRecovery_ConcurrentEndsLoseNoMarker(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	const sessions = 24
+	var wg sync.WaitGroup
+	for i := range sessions {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sess := core.SessionID(fmt.Sprintf("sess-recovery-%02d", i))
+			dd.markRecoveryNeeded(sess, recoveryStageBegin, 0)
+			dd.markRecoveryNeeded(sess, recoveryStageSessionEnd, 0)
+			if i%2 == 0 {
+				dd.clearRecoveryNeeded(sess)
+			}
+		}()
+	}
+	wg.Wait()
+
+	sr, err := LoadSessionRecovery(root)
+	require.NoError(t, err)
+	var want []core.SessionID
+	for i := 1; i < sessions; i += 2 {
+		want = append(want, core.SessionID(fmt.Sprintf("sess-recovery-%02d", i)))
+	}
+	got := make([]core.SessionID, 0, len(sr.Sessions))
+	for s := range sr.Sessions {
+		got = append(got, s)
+	}
+	require.ElementsMatch(t, want, got,
+		"exactly the sessions whose ends did not finish are marked: no cleared one resurrected, no marker lost")
 }
