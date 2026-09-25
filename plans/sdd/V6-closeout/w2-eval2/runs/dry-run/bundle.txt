@@ -1,0 +1,4 @@
+# 2026-09-25T22:57:33Z at 109d675 (clean tree): go run ./tools/devtool bundle --target windows/amd64 --version 0.3.0-eval2.dryrun --out dist/live-bundle
+bundle: qompack-plugin-0.3.0-eval2.dryrun-windows-amd64 (11 file(s), version 0.3.0-eval2.dryrun)
+exit=0
+72f82de4fc665422f721615fb0f30fda57e2adef2585c0c29003aca36c1d16bd dist/live-bundle/qompack-plugin-0.3.0-eval2.dryrun-windows-amd64/BUNDLE.json

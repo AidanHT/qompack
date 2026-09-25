@@ -1,0 +1,47 @@
+# 2026-09-25T22:57:44Z at 109d675, QOMPACK_LIVE_EVAL unset:
+# go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks.json --include-held-out --arms stock,qompack --install plugin-dir --bundle dist/live-bundle/qompack-plugin-0.3.0-eval2.dryrun-windows-amd64 --max-sessions 40 --dry-run
+live-eval: run 20260925T225745Z-4ce0a6: 40 trial(s) of task set qompack-live-v1 (14e9ee33ccff, fixture tree 30cf769d2437) on claude-sonnet-5, arms stock,qompack, install plugin-dir
+  plan: constraint-verbatim/stock/1
+  plan: constraint-verbatim/qompack/1
+  plan: recall-user-fact/qompack/1
+  plan: recall-user-fact/stock/1
+  plan: eliminated-approach/stock/1
+  plan: eliminated-approach/qompack/1
+  plan: changing-requirement-format/qompack/1
+  plan: changing-requirement-format/stock/1
+  plan: tool-output-recall/stock/1
+  plan: tool-output-recall/qompack/1
+  plan: decision-rationale/qompack/1
+  plan: decision-rationale/stock/1
+  plan: regression-guard/stock/1
+  plan: regression-guard/qompack/1
+  plan: constraint-naming/qompack/1
+  plan: constraint-naming/stock/1
+  plan: changing-requirement-slug/stock/1
+  plan: changing-requirement-slug/qompack/1
+  plan: seed-recall/qompack/1
+  plan: seed-recall/stock/1
+  plan: constraint-verbatim/qompack/2
+  plan: constraint-verbatim/stock/2
+  plan: recall-user-fact/stock/2
+  plan: recall-user-fact/qompack/2
+  plan: eliminated-approach/qompack/2
+  plan: eliminated-approach/stock/2
+  plan: changing-requirement-format/stock/2
+  plan: changing-requirement-format/qompack/2
+  plan: tool-output-recall/qompack/2
+  plan: tool-output-recall/stock/2
+  plan: decision-rationale/stock/2
+  plan: decision-rationale/qompack/2
+  plan: regression-guard/qompack/2
+  plan: regression-guard/stock/2
+  plan: constraint-naming/stock/2
+  plan: constraint-naming/qompack/2
+  plan: changing-requirement-slug/qompack/2
+  plan: changing-requirement-slug/stock/2
+  plan: seed-recall/stock/2
+  plan: seed-recall/qompack/2
+  host (stock, task constraint-verbatim): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model claude-sonnet-5 --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack
+  host (qompack, task constraint-verbatim): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model claude-sonnet-5 --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack --plugin-dir C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w2-eval2\dist\live-bundle\qompack-plugin-0.3.0-eval2.dryrun-windows-amd64
+live-eval: --dry-run: no session started
+exit=0

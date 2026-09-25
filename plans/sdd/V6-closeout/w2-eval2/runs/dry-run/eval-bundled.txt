@@ -1,0 +1,65 @@
+# bundled binary (/c/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/dist/live-bundle/qompack-plugin-0.3.0-eval2.dryrun-windows-amd64/bin/qompack.exe) at 109d675
+## qompack eval in a project with no evaluation artifacts
+qompack eval: eval: qompack: unavailable: no evaluation artifacts: no live-eval run under <scratch>\emptyproj\dist\live-eval and no replay report at <scratch>\emptyproj\testdata\bench-replay.json. An evaluation is produced in a Qompack source checkout by `go run ./tools/devtool live-eval` (real-host trials) or `go run ./tools/devtool replay` (deterministic replay); pass --corpus <path> to read one from elsewhere
+exit=1
+
+## qompack eval --corpus <the committed pilot1 run> (text)
+eval: INCONCLUSIVE
+replay: none read; the live run below is the whole evaluation
+
+task outcomes
+  LIVE-T01 task success after compaction, qompack − stock (margin not recorded in this summary) not measured  not judged
+  LIVE-T02 constraint-clean trials, qompack − stock (regression rule) not measured  not judged
+
+evidence recovery
+  LIVE-R01 pre-compaction facts recovered, qompack − stock not measured  not judged
+
+cost — reported separately; it does not decide the verdict
+  unavailable: no request ledger was recorded for this run
+
+historical diagnostics — retained, not decisive
+  (none reported)
+
+live evaluation — agent-executed on the real installed host (owner decision D3); not human UAT
+  run 20260922T224730Z-9849a5 (created 2026-09-22T22:47:30Z), read from C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w2-eval2\plans\sdd\V6-closeout\eval\runs\pilot1-plugin-dir
+  model claude-haiku-4-5-20251001 (pre-registered claude-haiku-4-5-20251001), Claude Code 2.1.280 on windows/amd64, plugin install plugin-dir
+  bundle 0.3.0-live.pilot at commit 251ec8b1386ac384f0100149df193095d8857abd (dirty=false)
+  task set qompack-live-pilot-v1 (sha256 4da30ddf165a…, fixture tree unknown)
+  confirmatory: no — its task set qompack-live-pilot-v1 has no pre-registration; it did not run both arms (arms: qompack); it excluded the held-out tasks; its plan does not record the task set's size, so a narrowed run cannot be ruled out
+  sample: 1 task(s) × 1 trial(s) per arm; 1 planned, 1 ran, 0 skipped, 0 failed
+  arm      trials  task success (95% CI)        constraint-clean (95% CI)    recovery (95% CI)           
+  qompack       1  1/1 = 1.00 [0.21, 1.00]      1/1 = 1.00 [0.21, 1.00]      1/1 = 1.00 [0.21, 1.00]     
+  decision (pre-registered rule): not-applicable — both arms are needed for a comparison
+  cost — list-price-equivalent ESTIMATE from the 2026-09-22 rate table, beside the host's own total_cost_usd; the sessions ran on a subscription, which has no per-token charge
+    qompack  mean estimate 45181 micros (1 of 1 trial(s) a lower bound), mean host-reported 0.0454 USD, mean wall 72895 ms
+  note: 1 of 1 qompack trial(s) ran with a hook failure the host reported; they are counted, not dropped, and each trial record names the failure
+
+note: no Qompack replay score was read; only the live run is reported
+exit=0
+
+## qompack eval --corpus <a real replay report from go run ./test/replay> (text)
+eval: PASS
+policy: qompack-rehydrate   baseline: stock   sessions: 24
+trials: 24 planned, 24 ran, 0 skipped, 0 failed
+
+task outcomes
+  TASK-01  final decision preserved                         1.0000  pass
+  TASK-02  decision preservation                            1.0000  not judged
+  TASK-03  turns to first divergence                        2.0000  not judged
+
+evidence recovery
+  REC-01   retrieval hit rate                               0.0000  not judged
+  REC-02   re-attempts of eliminated approaches             0.0000  pass
+  REC-03   redundant reads                                 38.0000  not judged
+
+cost — reported separately; it does not decide the verdict
+  unavailable: no request ledger was recorded for this run
+
+historical diagnostics — retained, not decisive
+  HIST-01  fraction of OPT (§11.1, retained diagnostic)     0.8500  not judged
+  HIST-02  file-set Jaccard (retained diagnostic)           0.9968  not judged
+  HIST-03  tool edit distance (retained diagnostic)        38.0000  not judged
+
+note: replay: test/replay/1 from <scratch>\bench-replay.json — corpus testdata/sessions/synthetic (tier synthetic, sha256 ebaf30d212c0…), latency modelled; deterministic and model-free: it estimates what a keep-set is worth, not what a model did
+note: replay: the gates are qompack-rehydrate's; the report also scores the reference policies null, oracle, stock, which bound the metric and are not judged
+exit=0
