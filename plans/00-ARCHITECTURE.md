@@ -336,7 +336,7 @@ to it requires an amendment to this section.
 | `github.com/klauspost/compress/zstd` | object compression (§7.4 "zstd-compressed") | no stdlib zstd; pure Go, no cgo |
 | `github.com/Microsoft/go-winio` | Windows named pipes (build-tagged `windows`) | no stdlib named-pipe support |
 | `golang.org/x/sys/windows` | go-winio's own dependency for the named pipe above; also imported directly by `internal/paths` for its POSIX-semantics file replace (build-tagged `windows`) | stdlib keeps `SetFileInformationByHandle` unexported (`syscall.setFileInformationByHandle`) |
-| `golang.org/x/sys/unix` | `internal/paths.RenameDirectoryNoReplace` on linux (`renameat2(RENAME_NOREPLACE)`) and darwin (`renamex_np(RENAME_EXCL)`), the atomic no-replace publish of a restored `.qompack` (build-tagged `linux`/`darwin` by file name) | `syscall` has no `renameat2` wrapper and no `SYS_RENAMEAT2` on linux/amd64; on darwin `renamex_np` is a libSystem call reachable without cgo only through x/sys/unix's trampolines |
+| `golang.org/x/sys/unix` | `internal/paths.RenameDirectoryNoReplace` on linux (`renameat2(RENAME_NOREPLACE)`) and darwin (`renamex_np(RENAME_EXCL)`), the atomic no-replace publish of a restored `.qompack` (build-tagged `linux`/`darwin` by file name) | `syscall` has no `renameat2` wrapper and no `SYS_RENAMEAT2` on linux/amd64; on darwin `renamex_np` is a libSystem call, reached without cgo through a `//go:cgo_import_dynamic` trampoline, the code x/sys/unix generates |
 
 `golang.org/x/sys/windows` is listed rather than added: it has shipped in the Windows binary
 since SP-05 task 6 as go-winio's transitive dependency, and `tools/devtool/bindeps.go`'s
@@ -358,12 +358,20 @@ first, and it has no equivalent:
 - `syscall` has no `renameat2` wrapper, and on linux/amd64 not even the syscall number. Go's own
   `internal/syscall/unix` uses `renameat2` only on loong64 and riscv64, without flags, and cannot
   be imported.
-- On darwin, `renamex_np` is a libSystem function. `syscall.Syscall` there is a raw kernel trap,
-  which Apple does not keep stable and which Go itself stopped using in Go 1.12.
+- On darwin, `renamex_np` is a libSystem function, and `syscall` has neither a wrapper nor a
+  `SYS_RENAMEATX_NP` number. Without cgo a libSystem function is reached through a
+  `//go:cgo_import_dynamic` assembly trampoline, which is the code x/sys/unix generates; writing
+  one here would copy that code, under the same licence, without its upkeep. `syscall.Syscall`
+  there is a raw kernel trap, which Apple does not keep stable and which Go itself stopped using in
+  Go 1.12.
 
 The alternatives were a hand-kept table of linux syscall numbers plus a raw darwin trap, or a
 restore that fails closed on both platforms. Both are worse on the portability surface this section
-exists to protect. The addition brings in no new module, version, licence or supplier.
+exists to protect. darwin alone needs the entry, so rewriting only the linux file on `syscall` would
+add a hand-kept number without removing it. A `mkdir` claim followed by a plain `rename` is not
+equivalent either: it replaces an empty directory a racer puts back between the two calls, and a
+crash between them strands an empty destination that the next restore refuses. The addition brings
+in no new module, version, licence or supplier.
 `golang.org/x/sys v0.33.0` is already a direct `go.mod` requirement and ships in the Windows binary,
 and `THIRD_PARTY_NOTICES.md` already reproduces its BSD-3-Clause licence, which
 `devtool licenses --check` confirms. `govulncheck ./cmd/qompack` on linux and darwin reports no
