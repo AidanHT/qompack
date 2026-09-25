@@ -63,6 +63,37 @@ func TestFsck_NewerCaptureSchemaIsASupportGapNotADefect(t *testing.T) {
 	require.Equal(t, before, snapshotQompack(t, p.Layot), "fsck writes nothing")
 }
 
+// TestFsck_LegacyControlCaptureIsNotADefect: builds before the V6 close-out published a capture
+// sidecar for a drained control line (a session start, checkpoint or SessionEnd flush that had fallen
+// back to its client spool). Such a file is evidence of a delivery, not an observation, and nothing
+// ever references it. fsck must classify it as that known legacy artifact — in the captures row and
+// in the publication row — rather than report "capture publication requirement is unknown" and an
+// incomplete audit for the life of the project; and it must leave the file exactly where it is.
+func TestFsck_LegacyControlCaptureIsNotADefect(t *testing.T) {
+	p := seedFsckProject(t)
+	for _, op := range []string{"flush", "checkpoint", "session.start"} {
+		require.NoError(t, store.WriteCaptureSidecar(p.Root, store.CaptureSidecar{
+			ObservationID: core.ObservationID(core.HashBytes("fsck.test.obs", []byte(op)).String()),
+			Session:       "s-fsck",
+			Op:            op,
+			Outcome:       core.OutcomeOK,
+			Bytes:         []byte(`{"hook_event_name":"SessionEnd"}`),
+		}))
+	}
+	before := snapshotQompack(t, p.Layot)
+
+	code, doc, _ := fsckJSON(t, p.Root)
+	require.Equal(t, ExitOK, code, "a legacy control-line sidecar is not a defect: %v", doc)
+	captures := fsckRequireRow(t, doc, "captures")
+	require.Equal(t, true, captures["ok"], "detail=%s", fsckDetail(captures))
+	require.NotContains(t, fsckDetail(captures), "requirement is unknown")
+	require.Contains(t, fsckDetail(captures), "3 capture sidecar(s) record control lines")
+	row := fsckRequireRow(t, doc, "publication")
+	require.Equal(t, true, row["ok"], "detail=%s", fsckDetail(row))
+	require.Contains(t, fsckDetail(row), "3 capture sidecar(s) record control lines")
+	require.Equal(t, before, snapshotQompack(t, p.Layot), "fsck keeps the evidence and writes nothing")
+}
+
 // TestFsck_NewerCaptureSchemaDoesNotExcuseOtherIncompleteness: the support gap excuses exactly itself.
 // Beside any other cause of an incomplete audit the row stays a defect.
 func TestFsck_NewerCaptureSchemaDoesNotExcuseOtherIncompleteness(t *testing.T) {
