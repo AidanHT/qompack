@@ -688,13 +688,23 @@ func TestBindCheckpointSealsOnTheFirstPreCompact(t *testing.T) {
 		HookEventName: "PreCompact", SessionID: cpSession, Trigger: "auto", CWD: f.root,
 	})
 	require.NoError(t, err, "the FIRST PreCompact of a daemon's life must seal")
-	require.NotNil(t, out.HookSpecificOutput, "a null hookSpecificOutput is the defect's own signature")
-	require.NotEmpty(t, out.HookSpecificOutput.CustomInstructions)
+	// Criterion change (C1.18): this row used to read a non-nil hookSpecificOutput carrying
+	// customInstructions as its seal signal, because the seam returned the focus instruction only
+	// after a successful seal. That instruction is retired — no host accepts one — so the seam
+	// answers the empty object, and the seal is proven from the artifact itself below: present,
+	// parseable, and this session's first checkpoint.
+	require.Equal(t, hookio.Empty(), out, "the seam renders no instruction for any hop to carry (C1.18)")
 	require.Equal(t, 1, opens, "the compaction that needed the ledger is what opened it — exactly once, here")
 
 	entries, readErr := os.ReadDir(paths.Long(f.l.Checkpoints))
 	require.NoError(t, readErr)
 	require.NotEmpty(t, entries, "an artifact must exist on disk after the first PreCompact")
+	raw, readErr := os.ReadFile(paths.Long(paths.CheckpointPath(f.l, core.CheckpointSeq(1))))
+	require.NoError(t, readErr, "the first seal is checkpoint 0001")
+	sealed, parseErr := checkpoint.Unmarshal(raw)
+	require.NoError(t, parseErr, "the sealed artifact must be a valid checkpoint")
+	require.Equal(t, cpSession, sealed.Session)
+	require.Equal(t, core.CheckpointSeq(1), sealed.Seq)
 }
 
 // TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened is the other side of the same seam: a
@@ -736,7 +746,11 @@ func TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened(t *testing.T) {
 	require.Error(t, err, "a ledger that cannot be opened is reported, not sealed around")
 	require.ErrorContains(t, err, "SourceSet.Ledger is nil",
 		"and it is reported BY NAME, from the top of Begin, rather than as a nil dereference deeper in")
-	require.Nil(t, out.HookSpecificOutput, "nothing was sealed, so there is nothing to instruct with")
+	// The seam answers the empty object on every path since C1.18, so the reply no longer tells a
+	// seal from a refusal; the checkpoints directory does.
+	require.Equal(t, hookio.Empty(), out)
+	_, statErr := os.Stat(paths.Long(paths.CheckpointPath(f.l, core.CheckpointSeq(1))))
+	require.True(t, os.IsNotExist(statErr), "nothing may be sealed around a ledger that could not be opened")
 	require.Equal(t, 1, opens)
 }
 
@@ -777,7 +791,12 @@ func TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve(t *testing.T) {
 		HookEventName: "PreCompact", SessionID: cpSession, Trigger: "auto", CWD: f.root,
 	})
 	require.NoError(t, err, "a fully-wired caller must still seal")
-	require.NotNil(t, out.HookSpecificOutput)
+	// Criterion change (C1.18): a non-nil hookSpecificOutput — the retired focus instruction — was
+	// this row's seal signal. The seam now answers the empty object, so the seal is read from the
+	// artifact it wrote.
+	require.Equal(t, hookio.Empty(), out)
+	_, statErr := os.Stat(paths.Long(paths.CheckpointPath(f.l, core.CheckpointSeq(1))))
+	require.NoError(t, statErr, "a fully-wired caller's PreCompact must have sealed checkpoint 0001")
 	require.Zero(t, opens,
 		"the sources already carry a ledger, so the lazy open is not needed and must not be paid for: "+
 			"a second negknow.Open on one project root is two appenders on one eliminations.jsonl")

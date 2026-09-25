@@ -1,0 +1,22 @@
+=== RUN   TestCheckpointRoute_SealsWithoutRenderingOrRecordingAnInstruction
+--- PASS: TestCheckpointRoute_SealsWithoutRenderingOrRecordingAnInstruction (0.22s)
+=== RUN   TestCheckpointRoute_AnswersEmptyWhateverTheSeamReturns
+--- PASS: TestCheckpointRoute_AnswersEmptyWhateverTheSeamReturns (0.08s)
+=== RUN   TestDegradedPassiveSuppressesActingPaths
+=== PAUSE TestDegradedPassiveSuppressesActingPaths
+=== RUN   TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== PAUSE TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== RUN   TestSessionStartRecordsCapabilityObservations
+--- PASS: TestSessionStartRecordsCapabilityObservations (0.15s)
+=== RUN   TestDeclaredProducerSetMatchesArchitecture
+--- PASS: TestDeclaredProducerSetMatchesArchitecture (0.00s)
+=== RUN   TestBindCheckpointSealsOnTheFirstPreCompact
+--- PASS: TestBindCheckpointSealsOnTheFirstPreCompact (0.24s)
+=== RUN   TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened
+--- PASS: TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened (0.11s)
+=== CONT  TestDegradedPassiveSuppressesActingPaths
+=== CONT  TestMarkerIsWrittenByFlushAndCheckpointOnly
+--- PASS: TestDegradedPassiveSuppressesActingPaths (0.15s)
+--- PASS: TestMarkerIsWrittenByFlushAndCheckpointOnly (0.20s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.359s

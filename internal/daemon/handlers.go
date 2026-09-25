@@ -946,7 +946,9 @@ func boundedPrefix(s string, maxChars int) string {
 
 // handleCheckpoint is the checkpoint route: records the PreCompact observation into History,
 // writes the terminal-hook marker, then — when svc.PreCompact is bound and the mode MayAct() —
-// calls it timed into the B-E histogram, and captures any returned CustomInstructions.
+// calls it timed into the B-E histogram and records the route's wall time. It records no
+// instruction: the PreCompact focus instruction is retired (C1.18, wire_checkpoint.go), and the
+// hook client answers the host with the empty object whatever this route replies.
 func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
@@ -975,8 +977,10 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 
 	// Phase 2 (unlocked): the wave-3 seam call, timed into B-E — its own budget is 2s, which must
 	// never be spent holding historyMu (fix round 1, I-5): every other history-touching route
-	// would queue behind it for the duration.
-	out := hookio.Empty()
+	// would queue behind it for the duration. The seam is called for the seal it makes; whatever
+	// Output it returns is discarded, because nothing a PreCompact reply could carry survives the
+	// host's PreCompact contract (C1.12) and the focus instruction it used to carry is retired
+	// (C1.18). The route therefore answers the empty object whichever seam is bound.
 	if d.svc.PreCompact != nil && mode.MayAct() {
 		var callErr error
 		// d.m is dereferenced unguarded here and in handleStatus (M-12): New always seeds it
@@ -985,12 +989,8 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 		// exist because those types are also constructible directly by tests without going
 		// through New.
 		_ = obs.Timed(d.m.Hist(histName(obs.BE)), func() error {
-			o, err := d.svc.PreCompact(ctx, *ev)
-			callErr = err
-			if err == nil {
-				out = o
-			}
-			return err
+			_, callErr = d.svc.PreCompact(ctx, *ev)
+			return callErr
 		})
 		if callErr != nil {
 			d.log.Warn("daemon: PreCompact failed", "err", callErr)
@@ -1003,15 +1003,13 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 	defer d.historyMu.Unlock()
 	h = contract.LoadHistory(contract.HistoryPath(d.root))
 
-	if out.HookSpecificOutput != nil && out.HookSpecificOutput.CustomInstructions != "" {
-		h.SetPrecompactInstr(out.HookSpecificOutput.CustomInstructions)
-	}
 	h.AddPrecompactWallSample(d.clk.Now().Sub(routeStart).Milliseconds())
 
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history", "err", err)
 	}
 
+	out := hookio.Empty()
 	return ipc.Response{OK: true, Output: &out}
 }
 

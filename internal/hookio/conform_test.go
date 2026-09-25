@@ -111,10 +111,14 @@ func TestConformOutput_Exact(t *testing.T) {
 	}
 }
 
-// TestConformOutput_PreCompactOutputNeverReachesTheHost is C1.12 at the unit level: the reply the
-// daemon's checkpoint seam builds conforms to the empty object.
+// TestConformOutput_PreCompactOutputNeverReachesTheHost is C1.12 at the unit level: the reply a
+// daemon's checkpoint seam built before C1.18 retired it — still what a resident older daemon
+// sends — conforms to the empty object.
 func TestConformOutput_PreCompactOutputNeverReachesTheHost(t *testing.T) {
-	got := hookio.ConformOutput(hookio.EventPreCompact, hookio.PreCompactOutput("Encode what a competent engineer ..."))
+	older := hookio.Output{HookSpecificOutput: &hookio.HSO{
+		HookEventName: hookio.EventPreCompact, CustomInstructions: "Encode what a competent engineer ...",
+	}}
+	got := hookio.ConformOutput(hookio.EventPreCompact, older)
 	require.Equal(t, "{}\n", writeOutput(t, got))
 }
 

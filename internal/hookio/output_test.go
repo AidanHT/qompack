@@ -2,6 +2,7 @@ package hookio_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,16 +39,19 @@ func TestSessionStartOutput_EmptyContextOmitsField(t *testing.T) {
 	require.Equal(t, `{"hookSpecificOutput":{"hookEventName":"SessionStart"}}`+"\n", got)
 }
 
-func TestPreCompactOutput_Shape(t *testing.T) {
-	got := writeOutput(t, hookio.PreCompactOutput("narrow the summary to turns 40-52"))
-	require.Equal(t,
-		`{"hookSpecificOutput":{"hookEventName":"PreCompact","customInstructions":"narrow the summary to turns 40-52"}}`+"\n",
-		got)
-}
-
-func TestPreCompactOutput_EmptyInstructionOmitsField(t *testing.T) {
-	got := writeOutput(t, hookio.PreCompactOutput(""))
-	require.Equal(t, `{"hookSpecificOutput":{"hookEventName":"PreCompact"}}`+"\n", got)
+// TestOlderDaemonPreCompactReply_DecodesAndNeverReachesTheHost replaces the two PreCompactOutput
+// shape tests C1.18 retired with the constructor. What still matters about that shape is the
+// upgrade path: a daemon from before C1.18 can still be resident and answer the checkpoint route
+// with exactly these bytes. They must go on decoding — a reply that fails to decode is spooled and
+// answered with nothing, which would hide the case — and ConformOutput must reduce them to the
+// empty object the host accepts.
+func TestOlderDaemonPreCompactReply_DecodesAndNeverReachesTheHost(t *testing.T) {
+	older := `{"hookSpecificOutput":{"hookEventName":"PreCompact","customInstructions":"narrow the summary to turns 40-52"}}`
+	var o hookio.Output
+	require.NoError(t, json.Unmarshal([]byte(older), &o))
+	require.NotNil(t, o.HookSpecificOutput)
+	require.Equal(t, "narrow the summary to turns 40-52", o.HookSpecificOutput.CustomInstructions)
+	require.Equal(t, "{}\n", writeOutput(t, hookio.ConformOutput(hookio.EventPreCompact, o)))
 }
 
 func TestWriteOutput_FullShape(t *testing.T) {
