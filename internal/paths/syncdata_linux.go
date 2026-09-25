@@ -12,9 +12,10 @@ import (
 // closed and its descriptor reused under the call, and it is retried on EINTR, as os.File.Sync
 // retries its fsync (GOROOT/src/internal/poll's ignoringEINTR).
 //
-// It calls the standard library's syscall.Fdatasync, not golang.org/x/sys/unix's:
-// tools/devtool/bindeps.go admits golang.org/x/sys/windows alone into the shipped binary, and only
-// as go-winio's own dependency.
+// It calls the standard library's syscall.Fdatasync, not golang.org/x/sys/unix's: where the
+// standard library suffices it is preferred. tools/devtool/bindeps.go admits golang.org/x/sys/unix
+// into the shipped binary only because RenameDirectoryNoReplace has no stdlib equivalent
+// (00-ARCHITECTURE.md §2.5).
 func syncData(f *os.File) error {
 	if f == nil {
 		return os.ErrInvalid
