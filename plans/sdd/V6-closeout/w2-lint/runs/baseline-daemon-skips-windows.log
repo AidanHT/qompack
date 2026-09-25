@@ -1,0 +1,9 @@
+=== RUN   TestDeliveryPath_V6_RefusesAliasedSegmentParent
+    delivery_path_v6_test.go:81: platform cannot create this symlink fixture: symlink C:\Users\Quant\AppData\Local\Temp\TestDeliveryPath_V6_RefusesAliasedSegmentParent1205677080\002 C:\Users\Quant\AppData\Local\Temp\TestDeliveryPath_V6_RefusesAliasedSegmentParent1205677080\001\delivery-segments: A required privilege is not held by the client.
+--- SKIP: TestDeliveryPath_V6_RefusesAliasedSegmentParent (0.00s)
+=== RUN   TestDeliveryTerminal_DrainAfterPhysicalScopeChanges
+    delivery_terminal_integration_test.go:45: directory symlink unavailable: symlink C:\Users\Quant\AppData\Local\Temp\TestDeliveryTerminal_DrainAfterPhysicalScopeChanges1803890645\002 C:\Users\Quant\AppData\Local\Temp\TestDeliveryTerminal_DrainAfterPhysicalScopeChanges1803890645\001\allowed: A required privilege is not held by the client.
+--- SKIP: TestDeliveryTerminal_DrainAfterPhysicalScopeChanges (0.28s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.521s
+exit=0

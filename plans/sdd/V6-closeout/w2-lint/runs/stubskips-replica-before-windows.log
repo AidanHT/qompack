@@ -1,0 +1,10 @@
+SKIP  github.com/qompack/qompack/internal/daemon TestDeliveryPath_V6_RefusesAliasedSegmentParent
+SKIP  github.com/qompack/qompack/internal/daemon TestDeliveryTerminal_DrainAfterPhysicalScopeChanges
+SKIP  github.com/qompack/qompack/internal/hookio TestCaptureScope_JunctionSwapDefeatsLexicalContainment
+SKIP  github.com/qompack/qompack/internal/store TestMaintenance_SymlinkComponentInBackupTreeRefused
+  PROBLEM: github.com/qompack/qompack/internal/daemon (TestDeliveryPath_V6_RefusesAliasedSegmentParent): skip reason matches none of the permitted messages
+  PROBLEM: github.com/qompack/qompack/internal/daemon (TestDeliveryTerminal_DrainAfterPhysicalScopeChanges): skip reason matches none of the permitted messages
+  PROBLEM: github.com/qompack/qompack/internal/store (TestMaintenance_SymlinkComponentInBackupTreeRefused): skip reason matches none of the permitted messages
+  PROBLEM: github.com/qompack/qompack/internal/hookio (TestCaptureScope_JunctionSwapDefeatsLexicalContainment): skip reason matches none of the permitted messages
+classify: 4 problem(s), 0 notice(s)
+exit=1

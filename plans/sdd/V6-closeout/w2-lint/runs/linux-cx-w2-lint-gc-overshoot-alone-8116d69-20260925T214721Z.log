@@ -1,0 +1,29 @@
+== linux-nonroot-gate.sh run cx-w2-lint-gc-overshoot-alone-8116d69-20260925T214721Z (non-root uid 10001, -race, container qompack-v6-linux-verification)
+run_id=cx-w2-lint-gc-overshoot-alone-8116d69-20260925T214721Z
+commit=8116d6973b5c8a38c624773cbcd87077b59aec4f
+tree=eb5b14b55e6c3a255ef687e50ecdd4e8a24c6a45
+started_utc=2026-09-25T21:47:30Z
+run=^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$
+-- summary.txt
+FAIL      github.com/qompack/qompack/internal/store  (pass=0 fail=1 skip=0)
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+-- exit.txt
+go_test_exit=1
+exit=1
+-- race logs: 0
+-- skip classification (scratch replica of stubskips.classifySkips)
+FAIL  github.com/qompack/qompack/internal/store TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+tests passed=0 failed=1 skipped=0 problems=0
+-- failure output
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval\n
+    gc_test.go:1485: \n
+        \tError Trace:\t/work/cx-w2-lint-gc-overshoot-alone-8116d69-20260925T214721Z/internal/store/gc_test.go:1485\n
+        \tError:      \tShould be true\n
+        \tTest:       \tTestGC_DeadlineOvershootIsBoundedByTheCheckInterval\n
+        \tMessages:   \tno attempt placed the deadline inside the sweep, so this host could not be measured — a finding about the HOST, not about the deadline, and the two are not the same. Calibration: whole pass 514.279656ms…706.94436ms (fastest of 4), a 1.37x spread; reaching the sweep's first check 59.706564ms, measured 59.706564ms; so the window is 8.61x wide and one attempt tolerates being 2.93x off in either direction. Every attempt re-priced from the previous attempt's own timing, so defeating all 5 takes a sweep cost that moves further than that between ADJACENT passes, every time:\n
+        \t            \t\tattempt 1: budget 175.230908ms → 292.75246ms elapsed, 255/3072 objects, truncated true\n
+        \t            \t\tattempt 2: budget 859.189945ms → 560.644617ms elapsed, 3072/3072 objects, truncated false\n
+        \t            \t\tattempt 3: budget 191.028876ms → 265.859603ms elapsed, 255/3072 objects, truncated true\n
+        \t            \t\tattempt 4: budget 780.262951ms → 489.228476ms elapsed, 3072/3072 objects, truncated false\n
+        \t            \t\tattempt 5: budget 166.695199ms → 294.537134ms elapsed, 255/3072 objects, truncated true\n
+--- FAIL: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (87.05s)\n
