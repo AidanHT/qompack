@@ -214,6 +214,40 @@ func TestDaemonProgram_StagesOnlyWhereEnabled(t *testing.T) {
 	require.Equal(t, self, got, "and the plugin binary is started instead")
 }
 
+// markPluginRoot gives the directory above self's bin/ the manifest a host plugin directory has.
+func markPluginRoot(t *testing.T, self string) string {
+	t.Helper()
+	root := filepath.Dir(filepath.Dir(self))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".claude-plugin"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(root, pluginManifestRel), []byte(`{"name":"qompack"}`), 0o600))
+	return root
+}
+
+// TestDaemonProgram_StagesAPluginLayoutWithoutTheVariable: not every process that can start the
+// daemon carries CLAUDE_PLUGIN_ROOT — `qompack mcp`, launched from .mcp.json, spawns it lazily, and
+// so does a slash command's `qompack` — so a binary laid out as a plugin's, bin/qompack[.exe] with
+// .claude-plugin/plugin.json beside bin/, is staged with the variable unset too. A bin/ without the
+// manifest is not a plugin's.
+func TestDaemonProgram_StagesAPluginLayoutWithoutTheVariable(t *testing.T) {
+	t.Parallel()
+	self, home := fakeSelf(t), t.TempDir()
+
+	got, err := daemonProgram(self, home, "", true)
+	require.NoError(t, err)
+	require.Equal(t, self, got, "a bin/ with no plugin manifest beside it is not a plugin directory")
+	require.NoDirExists(t, filepath.Join(paths.Global(home), stagedBinDir))
+
+	markPluginRoot(t, self)
+	got, err = daemonProgram(self, home, "", true)
+	require.NoError(t, err)
+	require.NotEqual(t, self, got, "a plugin's binary is staged whether or not CLAUDE_PLUGIN_ROOT is set")
+	requireSameBytes(t, self, got)
+
+	got, err = daemonProgram(self, home, "", false)
+	require.NoError(t, err)
+	require.Equal(t, self, got, "and never where the platform does not stage")
+}
+
 // TestDaemonWorkingDir: a daemon started from a staged copy runs in the copy's own directory, never
 // the directory the spawning hook ran in — on Windows a process's working directory cannot be
 // removed either, and the hook may run inside the plugin's own directory. A daemon started from
@@ -247,6 +281,11 @@ func TestRunningFromPluginRoot(t *testing.T) {
 	require.False(t, runningFromPluginRoot(inside, "", true), "no plugin root, nothing to pin")
 	require.False(t, runningFromPluginRoot(inside, root, false), "nothing is pinned where the kernel allows the unlink")
 
+	// A plugin's layout is recognised without the variable, as daemonProgram recognises it.
+	require.NoError(t, os.MkdirAll(filepath.Dir(inside), 0o700))
+	markPluginRoot(t, inside)
+	require.True(t, runningFromPluginRoot(inside, "", true), "a plugin's layout pins its directory, variable or not")
+	require.False(t, runningFromPluginRoot(outside, "", true), "a staged copy is not a plugin's layout")
 }
 
 // TestRun_ReportsRunningFromThePluginDirectory: a daemon that finds itself running from inside

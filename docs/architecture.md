@@ -67,21 +67,26 @@ A process that outlives the session must not hold the plugin's own files. On Win
 executable cannot be deleted and neither can its directory, so a daemon started from the plugin's
 `bin/qompack.exe` kept the plugin directory from being removed — the V6 close-out's live session 2
 found a `--plugin-dir` extraction the host could only half delete (C1.17), and a plugin update or
-uninstall removes the old version's directory the same way. There, a hook running from inside
-`CLAUDE_PLUGIN_ROOT` — as every plugin hook does — starts the daemon from a copy instead: `<home>/.qompack/bin/<sha256>/qompack.exe`, named by the binary's own
-SHA-256, made once per version and verified on every spawn — a regular file, not a link or reparse
-point, whose bytes hash to its name and to the hook's own executable — and replaced rather than run
-when it does not verify (`internal/daemon/spawn_stage.go`). Copies of other versions that no daemon
-is running are pruned when a new one is made. On Linux and macOS the kernel lets a running
-executable and its directory be unlinked or replaced, so the daemon runs from the plugin binary and
-nothing is copied; a binary run from outside any plugin directory (a build tree, a test's temporary
-directory) pins nothing a host removes and is not copied either. A daemon started from a copy runs
-in the copy's own directory, never the directory the spawning hook ran in; one started from the
-hook's own binary inherits the hook's working directory. Neither is the project root, which can be
-longer than a Windows process's working directory may be (MAX_PATH). If the copy cannot be made the daemon is started from the plugin binary
-after all, `session-start` logs why, and the daemon itself reports it Loud when it starts. A daemon started
-before a plugin update keeps running its own version until its idle exit; the next spawn runs the
-new one.
+uninstall removes the old version's directory the same way. There, a process running the plugin's
+own binary starts the daemon from a copy instead: `<home>/.qompack/bin/<sha256>/qompack.exe`,
+named by the binary's own SHA-256, made once per version and verified on every spawn — a regular
+file, not a link or reparse point, whose bytes hash to its name and to the spawning process's own
+executable — and replaced rather than run when it does not verify
+(`internal/daemon/spawn_stage.go`). The plugin's binary is recognised either inside
+`CLAUDE_PLUGIN_ROOT`, which the host sets for every plugin hook, or by the plugin's layout —
+`bin/qompack.exe` with `.claude-plugin/plugin.json` beside `bin/` — because the daemon is also
+started lazily by `qompack mcp`, which the host launches from `.mcp.json` and which is not
+guaranteed that variable. Copies of other versions that no daemon is running are pruned when a new
+one is made. On Linux and macOS the kernel lets a running executable and its directory be unlinked
+or replaced, so the daemon runs from the plugin binary and nothing is copied; a binary run from
+outside any plugin directory (a build tree, a test's temporary directory) pins nothing a host
+removes and is not copied either. A daemon started from a copy runs in the copy's own directory,
+never the directory the spawning hook ran in; one started from the hook's own binary inherits the
+hook's working directory. Neither is the project root, which can be longer than a Windows process's
+working directory may be (MAX_PATH). If the copy cannot be made the daemon is started from the
+plugin binary after all, `session-start` logs why, and the daemon itself reports it Loud when it
+starts. A daemon started before a plugin update keeps running its own version until its idle exit;
+the next spawn runs the new one.
 
 **What runs where.** The hook process parses its event, connects, writes and waits for an ACK. The
 daemon does the work: it is the single writer of the store, and — per `internal/mcp`'s package

@@ -33,13 +33,7 @@ func TestE2E_DaemonLeavesThePluginDirectoryRemovable(t *testing.T) {
 	bin := Build(t)
 	p := testutil.NewProject(t)
 	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
-
-	pluginRoot := filepath.Join(t.TempDir(), "qompack-plugin")
-	pluginBin := filepath.Join(pluginRoot, "bin", filepath.Base(bin))
-	require.NoError(t, os.MkdirAll(filepath.Dir(pluginBin), 0o700))
-	copyExecutable(t, bin, pluginBin)
-	require.NoError(t, os.MkdirAll(filepath.Join(pluginRoot, ".claude-plugin"), 0o700))
-	require.NoError(t, os.WriteFile(filepath.Join(pluginRoot, ".claude-plugin", "plugin.json"), []byte(`{"name":"qompack"}`), 0o600))
+	pluginRoot, pluginBin := installPluginLayout(t, bin)
 
 	env := e2eEnv(p)
 	env["CLAUDE_PLUGIN_ROOT"] = pluginRoot
@@ -48,7 +42,64 @@ func TestE2E_DaemonLeavesThePluginDirectoryRemovable(t *testing.T) {
 	requireParsesAsOutput(t, stdout)
 	e2eWaitDaemonUp(t, p.Root)
 
-	staged := filepath.Join(paths.Global(p.Home()), "bin", sha256Hex(t, pluginBin), filepath.Base(bin))
+	requirePluginDirRemovableWhileServing(t, p, pluginRoot, pluginBin)
+}
+
+// TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable is the same row for the other road a daemon
+// is started by: `qompack mcp`, which the host launches from .mcp.json's
+// ${CLAUDE_PLUGIN_ROOT}/bin/qompack and which spawns the daemon lazily when nothing is listening
+// (internal/cli cmd_mcp.go newMCPClient). Nothing guarantees that process carries CLAUDE_PLUGIN_ROOT
+// in its environment — the manifest substitutes the placeholder into the command, not into an
+// environment variable — so the variable is unset here, and the plugin is recognised by its layout
+// alone (bin/qompack[.exe] with .claude-plugin/plugin.json beside bin/). The MCP server then exits,
+// as it does when its session ends, and the plugin directory must be removable while the daemon it
+// started keeps serving.
+func TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable(t *testing.T) {
+	bin := Build(t)
+	p := testutil.NewProject(t)
+	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
+	pluginRoot, pluginBin := installPluginLayout(t, bin)
+
+	env := e2eEnv(p)
+	env["CLAUDE_PLUGIN_ROOT"] = "" // the last assignment wins: unset for the child, whatever the shell exported
+	child := mcpE2EStartWithEnv(t, pluginBin, env)
+	child.send(t, mcpE2ERequest(t, 1, "initialize", map[string]any{
+		"protocolVersion": "2025-06-18",
+		"clientInfo":      map[string]string{"name": "qompack-e2e", "version": "1.0"},
+	}))
+	child.await(t, 1)
+	child.send(t, `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
+	// A forwarded tool call waits out the lazy spawn through the proxy's own retry loop, so once it
+	// is answered the daemon the MCP process started is serving.
+	child.send(t, mcpE2ERequest(t, 2, "tools/call", map[string]any{
+		"name": "dropped", "arguments": map[string]any{},
+	}))
+	child.await(t, 2)
+	e2eWaitDaemonUp(t, p.Root)
+	child.finish(t)
+
+	requirePluginDirRemovableWhileServing(t, p, pluginRoot, pluginBin)
+}
+
+// installPluginLayout copies bin into a fresh plugin directory laid out as the host lays one out —
+// bin/<binary> and .claude-plugin/plugin.json — and returns the directory and the installed binary.
+func installPluginLayout(t *testing.T, bin string) (pluginRoot, pluginBin string) {
+	t.Helper()
+	pluginRoot = filepath.Join(t.TempDir(), "qompack-plugin")
+	pluginBin = filepath.Join(pluginRoot, "bin", filepath.Base(bin))
+	require.NoError(t, os.MkdirAll(filepath.Dir(pluginBin), 0o700))
+	copyExecutable(t, bin, pluginBin)
+	require.NoError(t, os.MkdirAll(filepath.Join(pluginRoot, ".claude-plugin"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(pluginRoot, ".claude-plugin", "plugin.json"), []byte(`{"name":"qompack"}`), 0o600))
+	return pluginRoot, pluginBin
+}
+
+// requirePluginDirRemovableWhileServing removes the whole plugin directory while p's daemon is
+// running, and asserts that succeeded, that on Windows the daemon runs from its staged copy under
+// the user's .qompack/bin, and that the daemon still answers a real round trip afterwards.
+func requirePluginDirRemovableWhileServing(t *testing.T, p *testutil.Project, pluginRoot, pluginBin string) {
+	t.Helper()
+	staged := filepath.Join(paths.Global(p.Home()), "bin", sha256Hex(t, pluginBin), filepath.Base(pluginBin))
 
 	require.NoError(t, os.RemoveAll(pluginRoot),
 		"the plugin directory must be removable while the daemon it started is running")

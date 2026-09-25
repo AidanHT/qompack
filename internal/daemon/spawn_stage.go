@@ -25,27 +25,41 @@ import (
 // half way (plugin.json and .mcp.json gone, bin/ and everything after it left behind), and the same
 // lock would break a plugin update or uninstall, which removes the old version's directory.
 //
-// So on Windows a hook running from inside the plugin directory (CLAUDE_PLUGIN_ROOT, which the host
-// sets for every plugin hook) starts the daemon from a copy of the binary under the per-user data
-// directory instead, one of
-// the two places Qompack writes (<home>/.qompack, §3.3): <home>/.qompack/bin/<sha256>/qompack.exe,
-// content-addressed by the binary's own SHA-256. The copy is made once per version and verified on
-// every spawn — a regular file, not a link or reparse point, whose bytes hash to the name it is
-// filed under and to the running hook's own executable — before anything executes it; a copy that
-// fails verification is replaced, never run. The plugin directory is then held only by short-lived
-// hook processes and the session's own MCP server, both of which end with the session.
+// So on Windows a process running the plugin's own binary starts the daemon from a copy of the
+// binary under the per-user data directory instead, one of the two places Qompack writes
+// (<home>/.qompack, §3.3): <home>/.qompack/bin/<sha256>/qompack.exe, content-addressed by the
+// binary's own SHA-256. The plugin's binary is recognised two ways (pluginDirOf): inside
+// CLAUDE_PLUGIN_ROOT, which the host sets for every plugin hook, or by the plugin's layout —
+// bin/qompack.exe with .claude-plugin/plugin.json beside bin/ — because not every process that can
+// start the daemon is a hook: `qompack mcp`, which the host launches from .mcp.json, spawns it
+// lazily, and nothing guarantees that process the variable (the manifest substitutes the
+// placeholder into the command line, not into an environment variable). The copy is made once per
+// version and verified on every spawn — a regular file, not a link or reparse point, whose bytes
+// hash to the name it is filed under and to the spawning process's own executable — before
+// anything executes it; a copy that fails verification is replaced, never run. The plugin
+// directory is then held only by short-lived hook processes and the session's own MCP server, both
+// of which end with the session.
 //
 // Elsewhere the kernel lets a running executable's file and directory be unlinked or replaced, so
 // removing or updating the plugin never waits on the daemon, and the daemon runs from the plugin
 // binary as it always has. A binary run from anywhere but a plugin directory — a build tree, a
 // test's temporary directory, an operator's own copy — pins nothing a host will remove and is run
-// as it is, which also keeps a test that never names a plugin root from writing into the real
-// user's home. Staging failure is not fatal anywhere: the daemon is started from the
-// plugin binary instead, and it reports that itself when it starts (runningFromPluginRoot).
+// as it is, which also keeps a test that runs a bare build from writing into the real user's home.
+// Staging failure is not fatal anywhere: the daemon is started from the plugin binary instead, and
+// it reports that itself when it starts (runningFromPluginRoot).
 
 // pluginRootEnv is the variable Claude Code sets to the plugin's installed directory for every
 // process it starts from the plugin; a daemon inherits it from the hook that spawned it.
 const pluginRootEnv = "CLAUDE_PLUGIN_ROOT"
+
+// pluginBinDirName is the directory under a plugin's root its executables live in: the manifests
+// name ${CLAUDE_PLUGIN_ROOT}/bin/qompack (internal/pluginmanifest).
+const pluginBinDirName = "bin"
+
+// pluginManifestRel is where a Claude Code plugin keeps its manifest, relative to the plugin's
+// root. A bundle always carries it (tools/devtool bundle), and it is what makes a directory a
+// plugin to the host.
+var pluginManifestRel = filepath.Join(".claude-plugin", "plugin.json")
 
 // stagedBinDir is the directory under <home>/.qompack the staged copies live in.
 const stagedBinDir = "bin"
@@ -231,13 +245,13 @@ func fileSHA256(p string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// daemonProgram is the executable SpawnDetached starts for a hook running self: a staged copy when
-// stage is set (stagingEnabled) and self lies inside pluginRoot (CLAUDE_PLUGIN_ROOT) — the one case
-// in which the daemon would otherwise pin a plugin directory — and staging succeeds; self
-// otherwise. The error is the staging failure, for a caller with a logger to report; it never
-// prevents the spawn.
-func daemonProgram(self, home, pluginRoot string, stage bool) (string, error) {
-	if !stage || !insideDir(self, pluginRoot) {
+// daemonProgram is the executable SpawnDetached starts for a process running self: a staged copy
+// when stage is set (stagingEnabled) and self is a plugin's binary (pluginDirOf, with envRoot the
+// CLAUDE_PLUGIN_ROOT it sees) — the one case in which the daemon would otherwise pin a plugin
+// directory — and staging succeeds; self otherwise. The error is the staging failure, for a caller
+// with a logger to report; it never prevents the spawn.
+func daemonProgram(self, home, envRoot string, stage bool) (string, error) {
+	if !stage || pluginDirOf(self, envRoot) == "" {
 		return self, nil
 	}
 	staged, err := stageBinary(self, home)
@@ -265,12 +279,36 @@ func daemonWorkingDir(self, program string) string {
 	return filepath.Dir(program)
 }
 
-// runningFromPluginRoot reports whether exe lies inside pluginRoot (CLAUDE_PLUGIN_ROOT, which the
-// daemon inherits from the hook that spawned it) where that pins the plugin directory — stage is
-// stagingEnabled: staging was expected and did not happen, and the plugin cannot be removed or
-// updated while this daemon runs. Run reports it Loud.
-func runningFromPluginRoot(exe, pluginRoot string, stage bool) bool {
-	return stage && insideDir(exe, pluginRoot)
+// runningFromPluginRoot reports whether exe is a plugin's binary (pluginDirOf, with envRoot the
+// CLAUDE_PLUGIN_ROOT the daemon inherited from whatever spawned it) where that pins the plugin
+// directory — stage is stagingEnabled: staging was expected and did not happen, and the plugin
+// cannot be removed or updated while this daemon runs. Run reports it Loud.
+func runningFromPluginRoot(exe, envRoot string, stage bool) bool {
+	return stage && pluginDirOf(exe, envRoot) != ""
+}
+
+// pluginDirOf returns the plugin directory exe is running from, or "" when it runs from none:
+// envRoot (CLAUDE_PLUGIN_ROOT) when exe lies inside it, and otherwise the directory above exe's own
+// when that is laid out as a plugin — exe in bin/, .claude-plugin/plugin.json beside bin/. The
+// second test covers a process that does not carry the variable (spawn_stage.go's header); a bin/
+// with no manifest beside it, such as a build tree's, is not a plugin's.
+func pluginDirOf(exe, envRoot string) string {
+	if insideDir(exe, envRoot) {
+		return envRoot
+	}
+	if exe == "" {
+		return ""
+	}
+	bin := filepath.Dir(filepath.Clean(exe))
+	if !strings.EqualFold(filepath.Base(bin), pluginBinDirName) {
+		return ""
+	}
+	root := filepath.Dir(bin)
+	fi, err := os.Stat(paths.Long(filepath.Join(root, pluginManifestRel)))
+	if err != nil || !fi.Mode().IsRegular() {
+		return ""
+	}
+	return root
 }
 
 // insideDir reports whether p lies inside dir: by the cleaned paths as spelled, or failing that by
