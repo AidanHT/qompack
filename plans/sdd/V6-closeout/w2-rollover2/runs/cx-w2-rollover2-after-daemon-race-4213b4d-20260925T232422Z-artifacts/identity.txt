@@ -1,0 +1,21 @@
+run_id=cx-w2-rollover2-after-daemon-race-4213b4d-20260925T232422Z
+commit=4213b4d1f771ad5010447b99957992bf110b9d34
+tree=fb17173ed6548bacbb11c160e1ce16d7ff681dfd
+bundle_sha256=df6366215a8af9b0080d1095068ef01b18969830dd2f8d6afb0770310c2363ee
+started_utc=2026-09-25T23:24:29Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=120m gomaxprocs=4 coload=1
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-25T23:34:12Z
