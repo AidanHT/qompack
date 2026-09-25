@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -322,4 +324,51 @@ func TestRun_ReportsRunningFromThePluginDirectory(t *testing.T) {
 	}
 	require.Equal(t, stagingEnabled, reported,
 		"the plugin-directory Loud fires exactly where staging was due (stagingEnabled=%v)", stagingEnabled)
+}
+
+// BenchmarkStageBinary measures what staging costs the process that spawns the daemon on Windows
+// (C1.17): "cold" is a version's first spawn in a home (hash self, copy, fsync, verify the copy),
+// "warm" every later one (hash self, verify the existing copy). Both run synchronously inside
+// session-start's EnsureRunning and a hook's lazy spawn, before the daemon is even started. The test
+// binary stands in for qompack.exe and is larger than it, so the hashing and copying measured here
+// are an upper bound. Beside the mean it reports the per-op p50 and p99.
+func BenchmarkStageBinary(b *testing.B) {
+	self, err := os.Executable()
+	if err != nil {
+		b.Fatal(err)
+	}
+	fi, err := os.Stat(self)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Logf("staging %s (%d bytes)", self, fi.Size())
+
+	run := func(b *testing.B, home func(i int) string) {
+		took := make([]time.Duration, 0, b.N)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			h := home(i)
+			start := time.Now()
+			if _, err := stageBinary(self, h); err != nil {
+				b.Fatal(err)
+			}
+			took = append(took, time.Since(start))
+		}
+		b.StopTimer()
+		slices.Sort(took)
+		pct := func(p int) float64 { return benchMillis(took[(len(took)-1)*p/100]) }
+		b.ReportMetric(pct(50), "p50-ms")
+		b.ReportMetric(pct(99), "p99-ms")
+	}
+	b.Run("cold", func(b *testing.B) {
+		base := b.TempDir()
+		run(b, func(i int) string { return filepath.Join(base, strconv.Itoa(i)) })
+	})
+	b.Run("warm", func(b *testing.B) {
+		home := b.TempDir()
+		if _, err := stageBinary(self, home); err != nil {
+			b.Fatal(err)
+		}
+		run(b, func(int) string { return home })
+	})
 }
