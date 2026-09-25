@@ -204,9 +204,13 @@ func TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation(t *testing.T) {
 	requireKV(t, louds[0], "carried_leases", 2)
 	requireKV(t, louds[0], "carry_bound_bytes", carryBytes(t, 1, window)-1)
 
-	// A restart refuses the same rotation again, and says so: the window was archived before the carry
-	// was built, so the open finishes the rotation and meets the same bound (docs/troubleshooting.md).
+	// Nothing is half-written: the offline check (what fsck --seal-check runs) passes over the refused
+	// rotation. And a restart refuses the same rotation again, and says so: the window was archived
+	// before the carry was built, so the open finishes the rotation and meets the same bound
+	// (docs/troubleshooting.md).
 	require.NoError(t, j.owner.Release())
+	out, err := checkSeal(t, root)
+	require.NoError(t, err, "the offline check passes over the refused rotation: %s", out)
 	lock, err := acquireTestDeliveryLock(root)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = lock.Release() })
