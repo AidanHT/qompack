@@ -390,8 +390,11 @@ type ArmSummary struct {
 	// (SessionAccount.Consistent false, with the problems named): their outcomes count, but their
 	// category sums and estimate are not reliable.
 	AccountInconsistent int `json:"account_inconsistent"`
-	// ForeignPluginTrials counts trials whose host loaded a plugin other than the arm's own.
-	ForeignPluginTrials int `json:"foreign_plugin_trials"`
+	// ForeignPluginTrials counts trials whose host loaded a plugin other than the arm's own, and
+	// ForeignPlugins names them (sorted): preregistration section 3 makes the arms identical except
+	// for the plugin, so a run with any is not the pre-registered comparison.
+	ForeignPluginTrials int      `json:"foreign_plugin_trials"`
+	ForeignPlugins      []string `json:"foreign_plugins,omitempty"`
 	// Categories sums every trial's per-category usage, evidence counts included.
 	Categories map[UsageCategory]CategorySum `json:"categories,omitempty"`
 }
@@ -784,6 +787,9 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 	}
 	if storeN > 0 {
 		out.MeanStoreBytes = store / int64(storeN)
+	}
+	if out.ForeignPluginTrials > 0 {
+		out.ForeignPlugins = foreignPlugins(ts, arm)
 	}
 	if len(hooks) > 0 {
 		sort.Float64s(hooks)
