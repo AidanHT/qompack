@@ -334,27 +334,29 @@ it. The shipped defaults are `runtime.rehydrate.minTokens` `8000` and `runtime.r
 2,400 tokens of prose, so the token keys now matter only when set below that.
 
 **The answer is bounded, and never silently empty (C1.16).** The host gives `qompack session-start`
-a 10 s reply deadline, after which the hook client answers `{}`; in the V6 close-out's live session 2
-a compact `SessionStart` under load took 10.3 s and lost its rehydration that way. The
+a 10 s reply deadline, after which the hook client answers `{}`; in the V6 close-out's live session
+2 a compact `SessionStart` under load took 10.3 s and lost its rehydration that way. The
 `session.start` route now starts the rehydration itself (`Services.Rehydrate`) as soon as the
 contract run has said the mode may act, so it overlaps the route's own durable writes, and it no
 longer waits behind the observer's per-session lock, which a worker writing one of the same
 session's tool results holds across every store write: the observer's `SessionStart` bookkeeping
-runs beside the rehydration and finishes on its own (`internal/daemon/session_start_compact.go`).
-It is still ordered before the session's next event, as it was when the answer waited for it: the
+runs beside the rehydration and finishes on its own (`internal/daemon/session_start_compact.go`). It
+is still ordered before the session's next event, as it was when the answer waited for it: the
 observer seams for that session (tool results, Stops, prompt captures, `SessionEnd`) wait for its
-pending bookkeeping first, and no other session's do (`compactGates`). The rehydration's drop report is written after its answer is handed over. The wait is bounded at a
-third of the `SessionStart` manifest timeout (5 s) from the request's arrival; a rehydration not
-ready by then, one that fails outright, or one a stopping daemon cannot start is answered with an
-explicit note instead — it says the rehydration did not arrive and why, and names the MCP calls that
-recover the pre-compaction material (`expand` of the session's first prompt, `recall`, `dropped()`)
-and where the checkpoints are. A rehydration that finishes after its answer went out records its
-drop report as undelivered, so `dropped()` says so first. The hook client writes the same note when
-no answer arrives at all (a missed deadline, an unreachable daemon), wherever a rehydration was due;
-under degraded-passive or `runtime.mode` off or passive, with the daemon disabled, or with the
-reinjection switch below off, `{}` stays the answer, because nothing was due. Measured with
-`internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` under concurrent same-session
-ingest and an fsync co-load, the compact answer's p99 went from 1.85 s to 0.66 s
+pending bookkeeping first, and no other session's do (`compactGates`). The rehydration's drop report
+is written after its answer is handed over. The wait is bounded at a third of the `SessionStart`
+manifest timeout (5 s) from the request's arrival; a rehydration not ready by then, one that fails
+outright, or one a stopping daemon cannot start is answered with an explicit note instead — it says
+the rehydration did not arrive and why, and names the MCP calls that recover the pre-compaction
+material (`expand` of the session's first prompt, `recall`, `dropped()`) and where the checkpoints
+are. A rehydration that finishes after its answer went out records its drop report as undelivered,
+so `dropped()` says so first; so does one built when the daemon replays a compact `SessionStart`
+from a hook client's spool, since the hook had already answered without it. The hook client writes
+the same note when no answer arrives at all (a missed deadline, an unreachable daemon), wherever a
+rehydration was due; under degraded-passive or `runtime.mode` off or passive, with the daemon
+disabled, or with the reinjection switch below off, `{}` stays the answer, because nothing was due.
+Measured with `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` under concurrent
+same-session ingest and an fsync co-load, the compact answer's p99 went from 1.85 s to 0.66 s
 (`plans/sdd/V6-closeout/w2-lifetime/runs/`); the route's phases are in `metrics/latency.json` as
 `session_start.*` and `rehydrate.*`.
 

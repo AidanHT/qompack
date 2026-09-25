@@ -1,0 +1,17 @@
+# Fix seat, review finding 2 (a replayed compact SessionStart records its rehydration as delivered).
+# Windows 11, co-loaded. New row against c1efe8b, with only the assertions the existing API allows
+# (the offer outcome; the reason accessor did not exist yet):
+# go test ./internal/daemon/ -run '^TestSessionStartCompact_(ReplayedRequestRecordsItsRehydrationUndelivered|LiveRequestIsNotAReplay)$' -count=1 -v
+=== RUN   TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered
+    session_start_replay_test.go:66: 
+        	Error Trace:	.../internal/daemon/session_start_replay_test.go:66
+        	Error:      	"<!-- qompack:injected seq=1 ver=1 -->replayed<!-- /qompack:injected -->\n<!-- qompack-contract-probe qompack-contract-2ac3f54df56b -->" should not contain "replayed<!--"
+        	Test:       	TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered
+        	Messages:   	the replay's answer never carries the rehydration: ...
+--- FAIL: TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered (0.08s)
+=== RUN   TestSessionStartCompact_LiveRequestIsNotAReplay
+--- PASS: TestSessionStartCompact_LiveRequestIsNotAReplay (0.07s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.378s
+# The replay offered the rehydration and it was "delivered" to nobody: the rehydration service
+# then writes the ordinary (delivered) drop report, overwriting any earlier one.

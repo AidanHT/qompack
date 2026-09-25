@@ -16,9 +16,20 @@ const UndeliveredDropKind = undeliveredDropKind
 // abandoned: the route answered with the deferred note before the rehydration was ready.
 func AbandonedCompactContext(ctx context.Context) context.Context {
 	t := newCompactTicket()
-	t.abandon()
+	t.abandon(undeliveredLate)
 	return withCompactTicket(ctx, t)
 }
+
+// ReplayedCompactContext is ctx carrying the abandoned ticket a compact SessionStart replayed from
+// a hook's spool starts its rehydration with.
+func ReplayedCompactContext(ctx context.Context) context.Context {
+	t := newCompactTicket()
+	t.abandon(undeliveredReplayed)
+	return withCompactTicket(ctx, t)
+}
+
+// UndeliveredReplayed is undeliveredReplayed.
+const UndeliveredReplayed = undeliveredReplayed
 
 // PendingCompactContext is ctx carrying a compact ticket the route is still waiting on, and a
 // function reporting what, if anything, was offered through it.

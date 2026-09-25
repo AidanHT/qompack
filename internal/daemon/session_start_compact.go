@@ -47,6 +47,15 @@ import (
 // the rehydration did not arrive and how to recover it through the qompack MCP tools. The work
 // goes on: a rehydration that finishes later records its drop report as undelivered, so dropped()
 // says so rather than describing a payload the model never saw.
+//
+// A compact SessionStart can also reach the route a second time, replayed from a hook client's
+// spool by the drain (drainDispatch): the client spools a request no answer reached in time — the
+// daemon unreachable, or its reply past the client's deadline — after the hook has already answered
+// without it, with the client's own deferred note (DeferredNoAnswer) or {}. Whatever the replay
+// builds therefore never reaches the model. The replay still runs the route's side effects and the
+// rehydration, but abandons the rehydration's ticket before it starts, so the drop report is
+// recorded as undelivered, and says why (undeliveredReplayed). That also replaces the report a late
+// live answer left behind, which described as delivered a rehydration the client had given up on.
 
 // compactAnswerBudget is how long, measured from the request's arrival at the route, the session.start
 // route waits for a compact rehydration before it answers with the deferred note instead.
@@ -116,8 +125,8 @@ func CompactDeferredNote(sess core.SessionID, reason string) string {
 		"Qompack could not deliver this compaction's rehydration (" + reason + "), so none of it is in " +
 		"this context. What Qompack captured before the compaction can still be retrieved with its MCP " +
 		"tools: " + expand + "recall(query) searches the captured tool results and prompts, and dropped() " +
-		"lists what the last rehydration left out. Checkpoints are kept in .qompack/checkpoints/ (the " +
-		"highest-numbered file is the newest)."
+		"reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are " +
+		"kept in .qompack/checkpoints/ (the highest-numbered file is the newest)."
 }
 
 // compactDeferredOutput is CompactDeferredNote as a SessionStart hook output.
@@ -136,8 +145,22 @@ type compactTicket struct {
 	// failed, when non-empty, is why the work produced no answer at all (fail): the route answers
 	// with the deferred note for that reason instead of out.
 	failed string
-	ready  chan struct{}
+	// undelivered, once the ticket is abandoned, is why the model never received what the
+	// rehydration built: the detail its drop report gives (rehydrateService.recordUndelivered).
+	undelivered string
+	ready       chan struct{}
 }
+
+// Why an abandoned rehydration never reached the model, as its drop report's first entry says.
+const (
+	// undeliveredLate is the route's own: it answered with the deferred note at compactAnswerBudget.
+	undeliveredLate = "not delivered: the SessionStart answer was due before this rehydration was ready, " +
+		"so the model received a deferred note instead"
+	// undeliveredReplayed is a replay's (drainDispatch): the hook had answered without the daemon.
+	undeliveredReplayed = "not delivered: no answer from the daemon reached the SessionStart hook in time, " +
+		"so the hook answered without it (the model received a deferred note, or nothing); this report " +
+		"was recorded when the daemon replayed that request from the hook's spool"
+)
 
 type compactTicketState int
 
@@ -173,16 +196,38 @@ func (t *compactTicket) settle(out hookio.Output, failed string) bool {
 	}
 }
 
-// abandon records that the route answered without this rehydration, and reports false if an offer
-// won first — in which case result holds the answer and the route uses it after all.
-func (t *compactTicket) abandon() bool {
+// abandon records that the route answered without this rehydration, and why (undeliveredLate,
+// undeliveredReplayed), and reports false if an offer won first — in which case result holds the
+// answer and the route uses it after all.
+func (t *compactTicket) abandon(why string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.state != ticketPending {
 		return false
 	}
-	t.state = ticketAbandoned
+	t.state, t.undelivered = ticketAbandoned, why
 	return true
+}
+
+// undeliveredReason is why an abandoned ticket's rehydration never reached the model, and "" for
+// a ticket that was not abandoned.
+func (t *compactTicket) undeliveredReason() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.undelivered
+}
+
+// spoolReplayKey marks a request the drain is replaying from a hook client's spool
+// (drainDispatch): the hook that sent it has already answered without the daemon.
+type spoolReplayKey struct{}
+
+func withSpoolReplay(ctx context.Context) context.Context {
+	return context.WithValue(ctx, spoolReplayKey{}, true)
+}
+
+func spoolReplay(ctx context.Context) bool {
+	v, _ := ctx.Value(spoolReplayKey{}).(bool)
+	return v
 }
 
 // result is the offered answer, and the failure reason when the work failed instead. It is only
@@ -226,6 +271,9 @@ type compactAnswer struct {
 	ticket  *compactTicket
 	due     time.Time
 	started bool
+	// replayed is a request the drain replayed from a hook client's spool: its ticket is abandoned
+	// before the rehydration starts, and nothing waits for it (see the header).
+	replayed bool
 }
 
 // startCompactAnswer starts a compact SessionStart's work and returns the answer to wait for. It is
@@ -240,6 +288,9 @@ type compactAnswer struct {
 // values, lose its cancellation, and Stop joins them.
 func (d *daemon) startCompactAnswer(ctx context.Context, ev hookio.Event, arrived time.Time) *compactAnswer {
 	a := &compactAnswer{sess: ev.SessionID, ticket: newCompactTicket(), due: arrived.Add(d.compactBudget)}
+	if spoolReplay(ctx) {
+		a.replayed = a.ticket.abandon(undeliveredReplayed)
+	}
 
 	rehydrate, sessionStart := d.svc.Rehydrate, d.svc.SessionStart
 	var answer func(context.Context) (hookio.Output, error)
@@ -401,6 +452,11 @@ func (d *daemon) awaitCompactAnswer(ctx context.Context, a *compactAnswer) hooki
 	start := time.Now()
 	defer d.observePhase(histSessionStartCompactWait, start)
 
+	if a.replayed {
+		// Nobody waits for a replay's answer, and the hook it came from already answered: this is
+		// what that hook's client said, not a deferral the daemon made, so it is not counted.
+		return compactDeferredOutput(a.sess, DeferredNoAnswer)
+	}
 	if !a.started {
 		return d.deferCompactAnswer(a, DeferredStopping)
 	}
@@ -409,12 +465,12 @@ func (d *daemon) awaitCompactAnswer(ctx context.Context, a *compactAnswer) hooki
 	select {
 	case <-a.ticket.ready:
 	case <-t.C:
-		if a.ticket.abandon() {
+		if a.ticket.abandon(undeliveredLate) {
 			return d.deferCompactAnswer(a, DeferredNotReady)
 		}
 		// An offer won the race with the timer: the answer is here after all.
 	case <-ctx.Done():
-		if a.ticket.abandon() {
+		if a.ticket.abandon(undeliveredLate) {
 			return d.deferCompactAnswer(a, DeferredNotReady)
 		}
 	}
