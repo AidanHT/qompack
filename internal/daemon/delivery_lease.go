@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
@@ -142,6 +143,9 @@ type deliveryJournal struct {
 	// blocked enters and closeLocked when a rotation ends. Guarded by st.
 	rotating   bool
 	rotateDone sync.Cond
+	// rotation is what the running rotation's doRotate recorded about its window, for the report that
+	// follows it (delivery_diagnostics.go). It is written and read only with the barrier held.
+	rotation rotationStats
 
 	// st guards fault, closed, closing and inflight, and every write of the admitted state: bytes,
 	// chain, leases and arrivals, and ackBytes, ackChain and acks. It is taken below Lock.mu and
@@ -460,7 +464,7 @@ func (j *deliveryJournal) recoverGenerations(ctx context.Context) error {
 			return err
 		}
 		if found {
-			return j.doRotate(ctx)
+			return j.rotateAtOpen(ctx)
 		}
 	}
 	var archived []deliveryAck
@@ -1477,6 +1481,9 @@ func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 		return deliveryJournalError()
 	}
 	j.rotating = true
+	// The pause every lease and acknowledgement sees starts here, when new work begins to wait, and
+	// includes the drain of the work already in flight (delivery_diagnostics.go reports it).
+	started := time.Now()
 	for j.inflight > 0 {
 		j.idle.Wait()
 	}
@@ -1489,6 +1496,7 @@ func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 		err = j.doRotate(ctx)
 	}
 	j.st.Lock()
+	to, stats := j.segment, j.rotation // read before the barrier lifts; doRotate wrote them under it
 	j.rotating = false
 	if err != nil && j.fault == nil {
 		j.fault = deliveryJournalError()
@@ -1496,6 +1504,9 @@ func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 	j.rotateDone.Broadcast()
 	j.idle.Broadcast()
 	j.st.Unlock()
+	if !down {
+		j.reportRotation(from, to, time.Since(started), stats, false, err)
+	}
 	return err
 }
 
@@ -1504,6 +1515,7 @@ func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 // durable state it leaves is always consistent for the next open (the transition is atomic and the
 // outgoing window is archived before it).
 func (j *deliveryJournal) doRotate(ctx context.Context) error {
+	j.rotation = rotationStats{leases: len(j.leases), acks: len(j.acks), terminals: len(j.terminal), carried: -1, carryBytes: -1}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -1536,6 +1548,7 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	j.rotation.carried, j.rotation.carryBytes = len(carried), len(carry)
 	if err := createFreshSegment(j.stateDir, next, carry); err != nil {
 		return err
 	}

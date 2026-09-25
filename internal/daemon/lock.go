@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/qompack/qompack/internal/core"
@@ -68,6 +69,12 @@ type Lock struct {
 	// exercise both formats, and it lives on the lock rather than in a package variable so that
 	// tests running beside each other cannot see one another's choice.
 	sealFormat int
+	// deliveryDiag is where the journal this lock opens reports its rollover diagnostics
+	// (delivery_diagnostics.go). The daemon attaches its logger and metrics before its first
+	// journal open; nil — the offline tools, and tests that build a bare lock — reports nothing.
+	// It is atomic because the journal reads it at the moment it reports, from whichever goroutine
+	// that is, with or without Lock.mu held.
+	deliveryDiag atomic.Pointer[deliveryDiagnostics]
 }
 
 // deliverySealFormat is the seal format the journal this lock opens writes: the build's constant,
