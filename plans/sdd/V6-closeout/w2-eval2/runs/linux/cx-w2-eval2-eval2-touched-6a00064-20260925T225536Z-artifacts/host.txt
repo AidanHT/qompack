@@ -1,0 +1,10 @@
+run_id=cx-w2-eval2-eval2-touched-6a00064-20260925T225536Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2
+rev=HEAD
+commit=6a00064071b4d04eaf3baa587057523ab7e17f30
+bundle_sha256=e971628cab8b4d008f688d3195507b474851116e1dcd1cb141d43924b70120d9
+host_started_utc=2026-09-25T22:55:41Z
+inner_args=-- ./internal/eval ./internal/commands ./internal/cli ./internal/pluginmanifest ./tools/devtool ./test/docs
+host_finished_utc=2026-09-25T22:56:50Z
+container_exit=0

@@ -1,0 +1,40 @@
+run_id=cx-w2-eval2-eval2-touched-6a00064-20260925T225536Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2
+rev=HEAD
+commit=6a00064071b4d04eaf3baa587057523ab7e17f30
+bundle_sha256=e971628cab8b4d008f688d3195507b474851116e1dcd1cb141d43924b70120d9
+host_started_utc=2026-09-25T22:55:41Z
+inner_args=-- ./internal/eval ./internal/commands ./internal/cli ./internal/pluginmanifest ./tools/devtool ./test/docs
+/work/cx-w2-eval2-eval2-touched-6a00064-20260925T225536Z.bundle: OK
+run_id=cx-w2-eval2-eval2-touched-6a00064-20260925T225536Z
+commit=6a00064071b4d04eaf3baa587057523ab7e17f30
+tree=f1d290f1274b446b951a5b19d83f0f4c7dbbed49
+bundle_sha256=e971628cab8b4d008f688d3195507b474851116e1dcd1cb141d43924b70120d9
+started_utc=2026-09-25T22:55:45Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+go: writing stat cache: open /go/pkg/mod/cache/download/github.com/qompack/qompack/@v/v0.0.0-20260925225041-6a00064071b4.info508738144.tmp: permission denied
+PASS      github.com/qompack/qompack/internal/eval  (pass=402 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/commands  (pass=108 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=349 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/pluginmanifest  (pass=29 fail=0 skip=0)
+PASS      github.com/qompack/qompack/tools/devtool  (pass=295 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/plans/sdd/V6-closeout/w2-eval2/runs/linux/cx-w2-eval2-eval2-touched-6a00064-20260925T225536Z-artifacts
+exit=0
