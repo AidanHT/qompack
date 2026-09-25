@@ -112,6 +112,7 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 // to treat they are failures the analysis counts, not a reason to set the run aside.
 func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []string {
 	var out []string
+	out = append(out, notPreregisteredMaterials(p)...)
 	if p.PreregisteredModel == "" || p.Model != p.PreregisteredModel {
 		out = append(out, fmt.Sprintf("it ran on %s, not the pre-registered model %s",
 			orUnknown(p.Model), orUnknown(p.PreregisteredModel)))
@@ -140,6 +141,30 @@ func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []s
 		out = append(out, "its plan names no plugin bundle")
 	case p.Plugin.Dirty:
 		out = append(out, "its bundle was assembled from a worktree with uncommitted changes, not a frozen candidate")
+	}
+	return out
+}
+
+// notPreregisteredMaterials lists how the run's plan departs from what its task set's
+// pre-registration froze: the task-set file, the fixture and hidden-test tree, and the install path
+// of the qompack arm. A task set with no pre-registration is never the pre-registered study.
+func notPreregisteredMaterials(p eval.LivePlan) []string {
+	pre, ok := eval.LivePreregistrations[p.TaskSet]
+	if !ok {
+		return []string{fmt.Sprintf("its task set %s has no pre-registration", orUnknown(p.TaskSet))}
+	}
+	var out []string
+	if p.TaskSetSHA256 != pre.TaskSetSHA256 {
+		out = append(out, fmt.Sprintf("its task set file hashes to %s, not the pre-registered %s (%s)",
+			shortHash(p.TaskSetSHA256), shortHash(pre.TaskSetSHA256), pre.Document))
+	}
+	if p.FixtureTreeSHA256 != pre.FixtureTreeSHA256 {
+		out = append(out, fmt.Sprintf("its fixture tree hashes to %s, not the pre-registered %s (%s)",
+			shortHash(p.FixtureTreeSHA256), shortHash(pre.FixtureTreeSHA256), pre.Document))
+	}
+	if p.Install != pre.Install {
+		out = append(out, fmt.Sprintf("its qompack arm was installed by %s, not the pre-registered --%s",
+			orUnknown(p.Install), pre.Install))
 	}
 	return out
 }

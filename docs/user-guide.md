@@ -181,9 +181,11 @@ their confidence intervals, and cost is a list-price-equivalent **estimate** bes
 figure. Its gates are `LIVE-T01` (task success, qompack − stock, under the pre-registered
 non-inferiority rule), `LIVE-T02` (constraint-clean trials, failed only as a regression) and
 `LIVE-R01` (recovery, reported and never judged). They are judged **only for a confirmatory run** —
-both arms, the pre-registered model, every task including the held-out ones, every planned trial,
-a bundle built from a clean tree; any other run prints why it is not confirmatory and its gates read
-`not judged` (`internal/commands/cmd_eval_live.go`).
+a pre-registered task set whose file and fixture tree hash to the values its pre-registration froze
+(`eval.LivePreregistrations`), the plugin loaded by `--plugin-dir`, both arms, the pre-registered
+model, every task including the held-out ones, every planned trial, a bundle built from a clean
+tree; any other run prints why it is not confirmatory and its gates read `not judged`
+(`internal/commands/cmd_eval_live.go`).
 
 What it can report: a verdict of `pass`, `fail`, or `inconclusive` — a distinct outcome for a run
 whose trials were skipped or failed, "because a gate that passes on an evaluation which did not run
