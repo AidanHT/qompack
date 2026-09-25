@@ -1,0 +1,13 @@
+{
+  "name": "host_inventory",
+  "capability": "observation",
+  "scope": "installed_cli",
+  "outcome": "skipped",
+  "reason": "no `claude` executable on PATH; the host provider and version are unknown, so no canary in this run may be attributed to a target",
+  "target": {
+    "provider": "unknown",
+    "platform": "linux/amd64",
+    "date": "2026-09-23T17:12:32Z"
+  },
+  "recorded_at": "2026-09-23T17:12:32Z"
+}

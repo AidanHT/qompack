@@ -1,0 +1,20 @@
+{
+  "name": "checkpoint_manifest_digest_mismatch",
+  "phase": "publication",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "boundary": "MANIFEST digest mismatch (flip one bit)",
+  "seed_method": "one byte of the sealed artifact is flipped so it no longer re-hashes to its manifest line (§12.3 \"checkpoint MANIFEST mismatch\"); a real PreCompact through the installed binary sealed 1 artifact(s)",
+  "outcome": "explicit_incomplete",
+  "reason": "1 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[1]: qompack-20260925.log: ts=2026-09-25T18:55:10.4166959Z level=loud msg=\"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused\" artifact=0001.json seq=1 expected=sha256:8490d1a271599757f26be7b41685d21be470da0485fcf8…; loud[1]: ts=2026-09-25T18:55:10.4166959Z level=loud msg=\"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused\" artifact=0001.json seq=1 expected=sha256:8490d1a271599757f26be7b41685d21be470da0485fcf8aaba6cfd19d587d640 obs…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)",
+  "detail": "cut: flipped one bit at offset 924 of 0001.json\neverything the surfaces gained: daylog[2]: qompack-20260925.log: ts=2026-09-25T18:55:10.4166959Z level=loud msg=\"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused\" artifact=0001.json seq=1 expected=sha256:8490d1a271599757f26be7b41685d21be470da0485fcf8…; loud[1]: ts=2026-09-25T18:55:10.4166959Z level=loud msg=\"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused\" artifact=0001.json seq=1 expected=sha256:8490d1a271599757f26be7b41685d21be470da0485fcf8aaba6cfd19d587d640 obs…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)\nof which naming this cut (checkpoint, manifest, mismatch, digest): daylog[1]: qompack-20260925.log: ts=2026-09-25T18:55:10.4166959Z level=loud msg=\"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused\" artifact=0001.json seq=1 expected=sha256:8490d1a271599757f26be7b41685d21be470da0485fcf8…; loud[1]: ts=2026-09-25T18:55:10.4166959Z level=loud msg=\"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused\" artifact=0001.json seq=1 expected=sha256:8490d1a271599757f26be7b41685d21be470da0485fcf8aaba6cfd19d587d640 obs…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:1 dangling:0 reported:0}\naudit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:1 reported:0}\ndegradation (new since the cut): daylog[1]: qompack-20260925.log: ts=2026-09-25T18:55:10.4166959Z level=loud msg=\"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused\" artifact=0001.json seq=1 expected=sha256:8490d1a271599757f26be7b41685d21be470da0485fcf8…; loud[1]: ts=2026-09-25T18:55:10.4166959Z level=loud msg=\"checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused\" artifact=0001.json seq=1 expected=sha256:8490d1a271599757f26be7b41685d21be470da0485fcf8aaba6cfd19d587d640 obs…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)\nnewly dangling: manifest_artifact(0001): checkpoints/MANIFEST.jsonl records this seq and its artifact is missing or does not re-hash to the recorded digest\nnewly reported: none\nremaining dangling after recovery: manifest_artifact(0001): checkpoints/MANIFEST.jsonl records this seq and its artifact is missing or does not re-hash to the recorded digest",
+  "dangling_before": 0,
+  "dangling_after": 1
+}

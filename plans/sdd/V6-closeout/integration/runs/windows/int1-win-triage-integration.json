@@ -1,0 +1,27 @@
+{
+  "id": "int1-win-triage-integration",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout",
+    "30m",
+    "-run",
+    "TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites$",
+    "-v",
+    "./test/integration"
+  ],
+  "source_head": "b070bbec1b2050a560e28e4444e8ca91679b93a4",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go",
+    "QOMPACK_FAULT_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/fault-triage"
+  },
+  "started_at": "2026-09-25T14:54:46-04:00",
+  "ended_at": "2026-09-25T14:54:58-04:00",
+  "exit_code": 0,
+  "log": "int1-win-triage-integration.log",
+  "log_sha256": "8c78d10310d102d140637ac5139f80148555539911cda326ecac9c767ccea7f5"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "privacy_surface_backup",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "outcome": "verified",
+  "reason": "no literal and no \u003e8-byte fragment of any of the 11 planted credential families survives under backup.",
+  "detail": "53 files, 155656 bytes swept, 42 redaction placeholders",
+  "artifact": "privacy-surface-sweep.json"
+}

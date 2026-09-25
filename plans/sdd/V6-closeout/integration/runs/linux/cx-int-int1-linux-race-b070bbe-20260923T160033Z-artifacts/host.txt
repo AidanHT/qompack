@@ -1,0 +1,10 @@
+run_id=cx-int-int1-linux-race-b070bbe-20260923T160033Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int
+rev=b070bbe
+commit=b070bbec1b2050a560e28e4444e8ca91679b93a4
+bundle_sha256=42288a7bffd20ebf49f4ba02fabfaa98a1dbea191938dfd1d713303956c0eb19
+host_started_utc=2026-09-23T16:00:40Z
+inner_args=--coload --timeout 60m -- ALL-NON-E2E
+host_finished_utc=2026-09-23T17:28:34Z
+container_exit=1

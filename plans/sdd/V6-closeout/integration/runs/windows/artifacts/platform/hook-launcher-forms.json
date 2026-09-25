@@ -1,0 +1,16 @@
+{
+  "name": "hook-launcher-forms",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.280"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "outcome": "verified",
+  "reason": "the hook launcher matrix ran (10 launches); the shipped exec form passed every one it asserts",
+  "detail": "10 launches against \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-3617589720\\\\plugplain\" and \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-3617589720\\\\plug in ünï\""
+}

@@ -1,0 +1,8 @@
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (7.02s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (1.50s)
+=== RUN   TestDeliveryRadix_ManyGenerationsOldRootsUsable
+--- PASS: TestDeliveryRadix_ManyGenerationsOldRootsUsable (2.81s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	11.683s

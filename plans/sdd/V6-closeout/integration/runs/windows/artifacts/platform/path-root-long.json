@@ -1,0 +1,16 @@
+{
+  "name": "path-root-long",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.280"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "outcome": "verified",
+  "reason": "a project root whose absolute path exceeds MAX_PATH",
+  "detail": "root=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1676291329\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\\\\ddddddddddddddddddddddddd\" (373 chars); six hooks exit 0 with parseable hookio.Output; C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1676291329\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\.qompack exists; daemon reachable at \\\\.\\pipe\\qompack.b0a1ee41fedd; admin.ping answered (mode=full hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1676291329\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\.qompack\\ C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1676291329\\home\\.qompack\\]"
+}

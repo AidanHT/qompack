@@ -1,0 +1,28 @@
+{
+  "id": "int1-win-triage-security",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout",
+    "30m",
+    "-run",
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk|TestSecurity_ArchivedTextIsDataNeverAnInstruction|TestV6_ArchivedReadRetainsItsAuthorizationBoundary|TestV6_HashAddressesDoNotBypassPathAuthorization|TestV6_HostReadRulesGovernArchivedRetrieval",
+    "-v",
+    "./test/security"
+  ],
+  "source_head": "b070bbec1b2050a560e28e4444e8ca91679b93a4",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go",
+    "QOMPACK_FAULT_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/fault-triage",
+    "QOMPACK_SECURITY_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/security-triage"
+  },
+  "started_at": "2026-09-25T14:53:08-04:00",
+  "ended_at": "2026-09-25T14:54:27-04:00",
+  "exit_code": 1,
+  "log": "int1-win-triage-security.log",
+  "log_sha256": "038ac4b3230fe08c92684ffaa3a74004390734ee141980139760d3e2a8904c79"
+}

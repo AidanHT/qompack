@@ -1,0 +1,604 @@
+?   	github.com/qompack/qompack/cmd/qompack	[no test files]
+ok  	github.com/qompack/qompack/internal/admission	2.897s
+ok  	github.com/qompack/qompack/internal/analyzer	27.815s
+ok  	github.com/qompack/qompack/internal/analyzer/analyzertest	2.144s
+ok  	github.com/qompack/qompack/internal/canon	15.009s
+ok  	github.com/qompack/qompack/internal/canon/canontest	2.549s
+ok  	github.com/qompack/qompack/internal/checkpoint	241.649s
+ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	1.858s
+ok  	github.com/qompack/qompack/internal/chunk	8.146s
+ok  	github.com/qompack/qompack/internal/chunk/chunktest	1.760s
+ok  	github.com/qompack/qompack/internal/cli	102.367s
+ok  	github.com/qompack/qompack/internal/commands	2.960s
+ok  	github.com/qompack/qompack/internal/config	40.224s
+ok  	github.com/qompack/qompack/internal/contract	23.321s
+ok  	github.com/qompack/qompack/internal/contract/contracttest	8.678s
+ok  	github.com/qompack/qompack/internal/core	2.780s
+--- FAIL: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (30.40s)
+    delivery_order_lanes_test.go:259: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/delivery_order_lanes_test.go:259
+        	Error:      	Should be true
+        	Test:       	TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+        	Messages:   	the flush finishes once the session's backlog has: "daemon: drain: delivery still in progress"
+--- FAIL: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (18.90s)
+    delivery_order_live_test.go:697: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/delivery_order_live_test.go:697
+        	Error:      	Should be true
+        	Test:       	TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+        	Messages:   	the flush finishes once the session's earlier deliveries have: "daemon: drain: delivery still in progress"
+panic: test timed out after 30m0s
+	running tests:
+		TestDeliveryRadix_ManyGenerationsOldRootsUsable (57m58s)
+
+goroutine 6481 [running]:
+testing.(*M).startAlarm.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2802 +0x354
+created by time.goFunc
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive, 57 minutes]:
+testing.(*T).Run(0x1305a0e4e000, {0x7ff619603e04?, 0x7ff618d5618e?}, 0x7ff61963a038)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2109 +0x4c7
+testing.runTests.func1(0x1305a0e4e000)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2585 +0x3e
+testing.tRunner(0x1305a0e4e000, 0x1305a0c1fc58)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+testing.runTests({0x7ff6195e2573, 0x1a}, {0x7ff6195fbaec, 0x2a}, 0x1305a0e0e228, {0x7ff619ca1e20, 0x286, 0x286}, {0xc2a51d919f1d31d8, 0x1a3217a38dd, ...})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(0x1305a0e22460)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2443 +0x6ac
+main.main()
+	_testmain.go:1370 +0x9b
+
+goroutine 66 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0e4e200)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestResolveBlob_NilEventLeavesBlobFileUntouched(0x1305a0e4e200)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/blob_test.go:21 +0x2a
+testing.tRunner(0x1305a0e4e200, 0x7ff61963aa50)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 67 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0e4e400)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestResolveBlob_NonBlobRawIsUntouched(0x1305a0e4e400)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/blob_test.go:42 +0x2a
+testing.tRunner(0x1305a0e4e400, 0x7ff61963aa58)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 68 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0e4e600)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestResolveBlob_RefusesPathTraversal(0x1305a0e4e600)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/blob_test.go:55 +0x2a
+testing.tRunner(0x1305a0e4e600, 0x7ff61963aa60)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 69 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0e4ea00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestResolveBlob_RestoresAndDeletes(0x1305a0e4ea00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/blob_test.go:96 +0x2a
+testing.tRunner(0x1305a0e4ea00, 0x7ff61963aa68)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 101 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0af4000)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestBreachDetectorTransitionsAfterThreeWindows(0x1305a0af4000)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/budget_test.go:24 +0x1c
+testing.tRunner(0x1305a0af4000, 0x7ff619639bb0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 469 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a09fa800)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestUnknownOpIsRefusedNotPanicked(0x1305a09fa800)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:1360 +0x2a
+testing.tRunner(0x1305a09fa800, 0x7ff61963acc8)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 470 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a09faa00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestHandlerPanicIsRecovered(0x1305a09faa00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:1379 +0x32
+testing.tRunner(0x1305a09faa00, 0x7ff61963a710)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 494 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a09fb000)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestObserveStopSeamSeesTheRestoredAgentName(0x1305a09fb000)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:1508 +0x32
+testing.tRunner(0x1305a09fb000, 0x7ff61963a980)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 30 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0af5000)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestNew_SucceedsWithNoServices(0x1305a0af5000)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:46 +0x2a
+testing.tRunner(0x1305a0af5000, 0x7ff61963a918)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 431 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a09fa200)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestRecordHotPathSampleRejectsInvalidTS(0x1305a09fa200)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:1272 +0x2a
+testing.tRunner(0x1305a09fa200, 0x7ff61963a9f0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 72 [syscall, 68 minutes]:
+syscall.syscalln(0x0?, 0x0?, {0x1305a0f7df08?, 0x1305a09ed570?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x3e3?, {0x1305a0f7df08?, 0x0?, 0x1305a0a0aa78?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+github.com/Microsoft/go-winio.getQueuedCompletionStatus(0x2ac, 0x0?, 0x0?, 0x0?, 0xffffffff)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/zsyscall_windows.go:327 +0xac
+github.com/Microsoft/go-winio.ioCompletionProcessor(0x2ac)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:162 +0x85
+created by github.com/Microsoft/go-winio.initIO in goroutine 97
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:58 +0x5d
+
+goroutine 102 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0af4400)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestBreachDetectorResetsOnCleanWindow(0x1305a0af4400)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/budget_test.go:35 +0x1c
+testing.tRunner(0x1305a0af4400, 0x7ff619639ba0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 103 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0af4600)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestBreachDetectorRevertsAfterThreeCleanWindows(0x1305a0af4600)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/budget_test.go:47 +0x1c
+testing.tRunner(0x1305a0af4600, 0x7ff619639ba8)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 104 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0af4800)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestBreachDetectorPartialWindowNeverCloses(0x1305a0af4800)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/budget_test.go:58 +0x1c
+testing.tRunner(0x1305a0af4800, 0x7ff619639b90)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 105 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0af4a00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestBreachDetectorReset(0x1305a0af4a00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/budget_test.go:66 +0x1c
+testing.tRunner(0x1305a0af4a00, 0x7ff619639b98)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 106 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0af4c00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestBreachDetectorObserveReportsClosedOnlyOnTheWindowBoundary(0x1305a0af4c00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/budget_test.go:84 +0x1f
+testing.tRunner(0x1305a0af4c00, 0x7ff619639b88)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 107 [chan receive, 69 minutes]:
+testing.(*T).Parallel(0x1305a0af4e00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestPercentileDurationP99(0x1305a0af4e00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/budget_test.go:99 +0x32
+testing.tRunner(0x1305a0af4e00, 0x7ff61963a998)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 31 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0af5200)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestSketchSet_CarriesAllFourStructures(0x1305a0af5200)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:58 +0x2a
+testing.tRunner(0x1305a0af5200, 0x7ff61963ac58)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 32 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0af5400)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestServicesAllNil(0x1305a0af5400)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:87 +0x2a
+testing.tRunner(0x1305a0af5400, 0x7ff61963abe0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 33 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0af5600)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestObservePromptRepliesWithinDeadline(0x1305a0af5600)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:130 +0x32
+testing.tRunner(0x1305a0af5600, 0x7ff61963a928)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 114 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0af5800)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestObservePromptBlockingVariantTimesOut(0x1305a0af5800)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:157 +0x32
+testing.tRunner(0x1305a0af5800, 0x7ff61963a920)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 115 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0af5a00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestObservePromptWALFailureIsObservable(0x1305a0af5a00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:191 +0x2a
+testing.tRunner(0x1305a0af5a00, 0x7ff61963a930)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 116 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0af5c00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestDegradedPassiveSuppressesActingPaths(0x1305a0af5c00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:221 +0x32
+testing.tRunner(0x1305a0af5c00, 0x7ff619639c88)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 117 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0e4ee00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestDegradedPassiveStillRecords(0x1305a0e4ee00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:278 +0x45
+testing.tRunner(0x1305a0e4ee00, 0x7ff619639c80)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 118 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0e4f000)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestModeOffSkipsIngest(0x1305a0e4f000)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:326 +0x32
+testing.tRunner(0x1305a0e4f000, 0x7ff61963a8d8)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 119 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0e4f200)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestNAKDuplicateIsDedupedOnDrain(0x1305a0e4f200)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:361 +0x32
+testing.tRunner(0x1305a0e4f200, 0x7ff61963a8e0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 120 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0e4f400)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1803 +0x225
+github.com/qompack/qompack/internal/daemon.TestDrainOfSpooledFlushLineDoesNotDeadlock(0x1305a0e4f400)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/internal/daemon/daemon_test.go:424 +0x2a
+testing.tRunner(0x1305a0e4f400, 0x7ff61963a4b8)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 262 [chan receive, 68 minutes]:
+testing.(*T).Parallel(0x1305a0e4ec00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go*** Test killed: ran too long (33m0s).
+
+FAIL	github.com/qompack/qompack/internal/daemon	4143.975s
+ok  	github.com/qompack/qompack/internal/dag	54.792s
+ok  	github.com/qompack/qompack/internal/dag/dagtest	13.367s
+ok  	github.com/qompack/qompack/internal/eval	18.977s
+ok  	github.com/qompack/qompack/internal/eval/evaltest	2.759s
+ok  	github.com/qompack/qompack/internal/grammar	5.098s
+ok  	github.com/qompack/qompack/internal/grammar/grammartest	1.954s
+ok  	github.com/qompack/qompack/internal/hookio	10.556s
+ok  	github.com/qompack/qompack/internal/hostperm	31.574s
+ok  	github.com/qompack/qompack/internal/ipc	67.437s
+ok  	github.com/qompack/qompack/internal/ipc/ipctest	13.170s
+ok  	github.com/qompack/qompack/internal/logging	6.233s
+*** Test killed: ran too long (33m0s).
+exit status 1
+FAIL	github.com/qompack/qompack/internal/mcp	4142.366s
+ok  	github.com/qompack/qompack/internal/mcp/mcptest	1.635s
+ok  	github.com/qompack/qompack/internal/negknow	72.467s
+ok  	github.com/qompack/qompack/internal/negknow/negknowtest	7.349s
+ok  	github.com/qompack/qompack/internal/obs	1.890s
+ok  	github.com/qompack/qompack/internal/observer	656.371s
+ok  	github.com/qompack/qompack/internal/observer/observertest	15.157s
+ok  	github.com/qompack/qompack/internal/paths	55.893s
+ok  	github.com/qompack/qompack/internal/pins	18.487s
+ok  	github.com/qompack/qompack/internal/pins/pinstest	1.618s
+ok  	github.com/qompack/qompack/internal/pluginmanifest	4.489s
+ok  	github.com/qompack/qompack/internal/redact	3.094s
+ok  	github.com/qompack/qompack/internal/redact/redacttest	1.286s
+ok  	github.com/qompack/qompack/internal/rehydrate	6.592s
+ok  	github.com/qompack/qompack/internal/rehydrate/rehydratetest	9.003s
+ok  	github.com/qompack/qompack/internal/rules	4.059s
+ok  	github.com/qompack/qompack/internal/rules/rulestest	2.527s
+ok  	github.com/qompack/qompack/internal/scheduler	6.265s
+ok  	github.com/qompack/qompack/internal/scheduler/schedulertest	1.461s
+ok  	github.com/qompack/qompack/internal/sketch	14.257s
+ok  	github.com/qompack/qompack/internal/sketch/sketchtest	2.182s
+ok  	github.com/qompack/qompack/internal/skills	5.335s
+ok  	github.com/qompack/qompack/internal/skills/skillstest	3.747s
+ok  	github.com/qompack/qompack/internal/state	1.458s
+*** Test killed: ran too long (33m0s).
+exit status 1
+FAIL	github.com/qompack/qompack/internal/store	4096.009s
+ok  	github.com/qompack/qompack/internal/store/storetest	7.123s
+ok  	github.com/qompack/qompack/internal/symbols	2.566s
+ok  	github.com/qompack/qompack/internal/symbols/symbolstest	1.289s
+ok  	github.com/qompack/qompack/internal/testutil	8.256s
+ok  	github.com/qompack/qompack/internal/tokens	10.850s
+ok  	github.com/qompack/qompack/internal/tokens/tokenstest	1.309s
+ok  	github.com/qompack/qompack/test/bench/hotpath	2.608s
+ok  	github.com/qompack/qompack/test/canary	17.980s
+ok  	github.com/qompack/qompack/test/dedup	3.213s
+ok  	github.com/qompack/qompack/test/docs	15.817s
+--- FAIL: TestE2EHookRoundTrip (197.62s)
+    daemon_e2e_test.go:257: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/e2e/daemon_e2e_test.go:257
+        	Error:      	Condition never satisfied
+        	Test:       	TestE2EHookRoundTrip
+        	Messages:   	wal-sess-e2e-daemon.ndjson never reached 50 lines (last seen 0) at C:\Users\Quant\AppData\Local\Temp\TestE2EHookRoundTrip158046702\001\project\.qompack\spool\wal-sess-e2e-daemon.ndjson
+*** Test killed: ran too long (33m0s).
+FAIL	github.com/qompack/qompack/test/e2e	4061.861s
+panic: test timed out after 30m0s
+	running tests:
+		TestFault_PublicationBoundaries (59m24s)
+		TestFault_PublicationBoundaries/checkpoint_manifest_artifact_missing (45m48s)
+
+goroutine 397 [running]:
+testing.(*M).startAlarm.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2802 +0x354
+created by time.goFunc
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive, 59 minutes]:
+testing.(*T).Run(0x29945e648e00, {0x7ff62176ff2f?, 0x7ff6214c436e?}, 0x7ff62178cb58)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2109 +0x4c7
+testing.runTests.func1(0x29945e648e00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2585 +0x3e
+testing.tRunner(0x29945e648e00, 0x29945e59fc28)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+testing.runTests({0x7ff62176cab6, 0x1a}, {0x7ff6217738b0, 0x25}, 0x29945e5ce1e0, {0x7ff621a62ea0, 0x14, 0x14}, {0xc2a51da87a87b6dc, 0x1a319babdc5, ...})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(0x29945e6ae460)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2443 +0x6ac
+github.com/qompack/qompack/test/fault.TestMain(0x29945e6ae460)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/fault/main_test.go:21 +0x25
+main.main()
+	_testmain.go:86 +0xa5
+
+goroutine 519 [chan receive]:
+testing.(*T).Run(0x29945e6dae00, {0x7ff621773063?, 0x7ff6214c436d?}, 0x29945e662050)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2109 +0x4c7
+github.com/qompack/qompack/test/fault.TestFault_PublicationBoundaries(0x29945e6dae00)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/fault/publication_test.go:71 +0xfc
+testing.tRunner(0x29945e6dae00, 0x7ff62178cb58)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 20 [syscall, 45 minutes]:
+syscall.syscalln(0x0?, 0x0?, {0x29945e6e3f08?, 0x29945e5f22a0?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x7ff621a547c0?, {0x29945e6e3f08?, 0x29945e4081e0?, 0x29945e6d8538?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+github.com/Microsoft/go-winio.getQueuedCompletionStatus(0x20c, 0x29945e6e3f8c?, 0x29945e6e3f90?, 0x29945e6e3f98?, 0xffffffff)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/zsyscall_windows.go:327 +0xac
+github.com/Microsoft/go-winio.ioCompletionProcessor(0x20c)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:162 +0x85
+created by github.com/Microsoft/go-winio.initIO in goroutine 18
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:58 +0x5d
+
+goroutine 544 [syscall]:
+syscall.syscalln(0x0?, 0x0?, {0x29945e30f050?, 0x2?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x7ff6213fb230?, {0x29945e30f050?, 0x81?, 0x3?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+syscall.WaitForSingleObject(0x3c0, 0xffffffff)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/zsyscall_windows.go:1159 +0x6a
+os.(*Process).wait(0x29945f424700)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec_windows.go:28 +0x89
+os.(*Process).Wait(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec.go:346
+os/exec.(*Cmd).Wait(0x29945e694b60)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:930 +0x45
+os/exec.(*Cmd).Run(0x29945e694b60)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:632 +0x2d
+github.com/qompack/qompack/test/fault.run(0x29945e649000, {0x29945e2e2600, 0x81}, {0x29945e7e1100, 0x3f}, {0x29945e42aaa0, 0x1, 0x1}, {0x29945e59a750, 0xc3, ...}, ...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/fault/fault.go:331 +0x329
+github.com/qompack/qompack/test/fault.runHookWithEnv(0x29945e649000, {0x29945e2e2600, 0x81}, {{0x29945e7e1100, 0x3f}, {0x29945e7e1140, 0x3f}, 0x29945f7e08a0}, {0x29945e42aaa0, 0x1, ...}, ...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/fault/fault.go:456 +0x21b
+github.com/qompack/qompack/test/fault.runHook(0x29945e649000, {0x29945e2e2600, 0x81}, {{0x29945e7e1100, 0x3f}, {0x29945e7e1140, 0x3f}, 0x29945f7e08a0}, {0x29945e42aaa0, 0x1, ...}, ...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/fault/fault.go:449 +0xee
+github.com/qompack/qompack/test/fault.seedSession(0x29945e649000, {{0x29945e2f4100, 0x71}, {0x29945e2e2600, 0x81}, {0x29945e4de018, 0x13}, {0x29945e578080, 0x40}}, {{0x29945e7e1100, ...}, ...}, ...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/fault/fault.go:1067 +0x299
+github.com/qompack/qompack/test/fault.runBoundary(0x29945e649000, {{0x29945e2f4100, 0x71}, {0x29945e2e2600, 0x81}, {0x29945e4de018, 0x13}, {0x29945e578080, 0x40}}, {{0x7ff621773063, ...}, ...})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/fault/publication_test.go:100 +0x2f4
+github.com/qompack/qompack/test/fault.TestFault_PublicationBoundaries.func1(0x29945e649000?)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/fault/publication_test.go:71 +0xad
+testing.tRunner(0x29945e649000, 0x29945e662050)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 519
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 545 [select]:
+os/exec.(*Cmd).watchCtx(0x29945e694b60, 0x29945e6d9260)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:797 +0xb1
+created by os/exec.(*Cmd).Start in goroutine 544
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/exec/exec.go:783 +0x989
+FAIL	github.com/qompack/qompack/test/fault	4052.378s
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (1.70s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP06-D2 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+            	Messages:   	SP06-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  the PutBytes cold and warm budgets (3 ms / 400 us) are 5.2x and 14.1x over on Windows at V5 (15.74 / 5.65 ms, cold allocations up 28 % since the wave-3 baseline) and have never been measured on the reference platform
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D1 (0.01s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+            	Messages:   	SP08-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  OnToolUse over a 256 KB tool result breaches budget B-C (l0_process, p99 < 50 ms): 53-115 ms on Qompack.md 8.1's own one-changed-line case and 262-655 ms when every chunk is novel, dominated by store.PutBytes's per-novel-chunk object-write path
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP10-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+            	Messages:   	SP10-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  Finalize measures 42.8-43.8 ms/op at 170-208 % processor performance but 64-73 ms/op at 128 % and at base clock on Windows against exit criterion 1570's 50 ms after perf(checkpoint) 72f3226 removed the paths.Norm share (264-284 ms before), and the reference platform has never been measured
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-10-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP09-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+            	Messages:   	SP09-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  negknow Open measures 258-273 ms CPU/op at 120 % processor performance but 586-633 ms at 55 % on Windows against its 300 ms budget, so the budget holds on this host only at turbo clocks, and the reference platform has never been measured
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP20-D2 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+            	Messages:   	SP20-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  verify-on-read (16ecc77) adds an Lstat, an fstat and a content hash of the plaintext to every object read, so GetChunk measures 85-88 us/op (26 allocs) against the 60 us budget where the wave-3 baseline read 45 us (18 allocs), and Search_1000Roots, which reads every candidate chunk through the same path, 82 ms against 25 ms where the baseline read 45-52 ms; OpenSpan_4KB_of_4MB (19 -> 27 allocs) stays inside its 150 us at turbo but reads 316-333 us at base clock
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D3 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+            	Messages:   	SP08-D3 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  V6 worker capture restores spooled prompts and original publication intents, preserves distinct equal-text deliveries, and orders leased same-session replay; focused recovery and instrumented Linux crash-replay cases pass on identified snapshots, while final candidate packaged recovery and acceptance remain outstanding
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	433.400s
+--- FAIL: TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites (206.63s)
+    appendonly_test.go:600: phase A: 2 idle ticks completed concurrently with the writers
+    appendonly_test.go:605: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/integration/appendonly_test.go:605
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites
+        	Messages:   	not every event reached the ObserveTool binding (see the drain path, §2.4)
+    appendonly_test.go:618: after 1m0s: 1370 of 1600 events observed (1370 binding calls); Send errors: []; last drain gaps: {Observed:true Complete:false PendingBytes:449780 Gaps:[{File:wal-sess-0.ndjson Kind:unleased Count:84 Reason:delivery has no durable identity} {File:wal-sess-1.ndjson Kind:pending Count:1 Reason:spool bytes not yet replayed} {File:wal-sess-1.ndjson Kind:unleased Count:134 Reason:delivery has no durable identity} {File:wal-sess-2.ndjson Kind:pending Count:1 Reason:spool bytes not yet replayed} {File:wal-sess-2.ndjson Kind:unleased Count:2 Reason:delivery has no durable identity}] UpdatedAt:1767225600000}
+    appendonly_test.go:524: daemon.Run did not return within 10s of cancellation
+*** Test killed: ran too long (33m0s).
+FAIL	github.com/qompack/qompack/test/integration	4047.384s
+ok  	github.com/qompack/qompack/test/platform	139.595s
+ok  	github.com/qompack/qompack/test/release	46.530s
+ok  	github.com/qompack/qompack/test/replay	40.434s
+ok  	github.com/qompack/qompack/test/replay/l3policy	4.419s
+--- FAIL: TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk (46.87s)
+    denied_test.go:263: security: a daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-security-3688528751\proj after 8.142s
+    denied_test.go:266: security: toolu_security_denied_inside_01 was indexed after 18.286s
+    denied_test.go:285: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/security/denied_test.go:285
+        	Error:      	Should be false
+        	Test:       	TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+        	Messages:   	a deleted file must still be answerable from the archive: qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running
+--- FAIL: TestSecurity_ArchivedTextIsDataNeverAnInstruction (49.54s)
+    untrusted_test.go:75: security: the observer never recorded a file version of docs/NOTES.md into C:\Users\Quant\AppData\Local\Temp\qompack-security-3962147071\proj\.qompack\index\files.jsonl within 30s (daemon lock pid 27092 held=true)
+--- FAIL: TestV6_ArchivedReadRetainsItsAuthorizationBoundary (2.94s)
+    v6_authorization_test.go:44: security v6_outside_read_by_id: failed — the archived address did not retain its path authorization boundary; owner internal/mcp + internal/observer
+          detail:   envelope=tool_error; synthetic forbidden marker exposed=false
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\int-evidence\artifacts\security\v6_outside_read_by_id.json
+    v6_authorization_test.go:44: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/security/v6_authorization_test.go:125
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/security/v6_authorization_test.go:44
+        	Error:      	Not equal: 
+        	            	expected: "denied(found=false)"
+        	            	actual  : "tool_error"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-denied(found=false)
+        	            	+tool_error
+        	Test:       	TestV6_ArchivedReadRetainsItsAuthorizationBoundary
+        	Messages:   	v6_outside_read_by_id must distinguish refusal from absence
+--- FAIL: TestV6_HashAddressesDoNotBypassPathAuthorization (28.42s)
+    v6_authorization_test.go:66: security: a daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-security-1301149074\proj after 3.481s
+    v6_authorization_test.go:84: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/security/v6_authorization_test.go:84
+        	Error:      	"qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running" does not contain "V6-CAPTURED-PATH-CONTENT-541dc897"
+        	Test:       	TestV6_HashAddressesDoNotBypassPathAuthorization
+        	Messages:   	the original authorized address must resolve before the path changes
+--- FAIL: TestV6_HostReadRulesGovernArchivedRetrieval (58.16s)
+    v6_host_permissions_test.go:62: security: a daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-security-4058183691\proj after 14.539s
+    v6_host_permissions_test.go:63: security: qompack.exe [observe tool] took 5.52s
+    v6_host_permissions_test.go:64: security: toolu_v6_host_read_rule was indexed after 13.588s
+    v6_host_permissions_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/test/security/v6_host_permissions_test.go:97
+        	Error:      	"qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running" does not contain "V6-HOST-1-PACKAGED-ARCHIVE-5b18e2d4"
+        	Test:       	TestV6_HostReadRulesGovernArchivedRetrieval
+        	Messages:   	control: expand_tool_use_id must serve before any rule exists
+FAIL
+FAIL	github.com/qompack/qompack/test/security	342.718s
+ok  	github.com/qompack/qompack/tools/devtool	185.517s
+ok  	github.com/qompack/qompack/tools/lint/nomagic	5.800s
+FAIL
+devtool: test: exit status 1
+exit status 1

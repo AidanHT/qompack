@@ -1,0 +1,27 @@
+{
+  "id": "int1-windows-whole-tree",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "test"
+  ],
+  "source_head": "b070bbec1b2050a560e28e4444e8ca91679b93a4",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go",
+    "QOMPACK_CANARY_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/canary",
+    "QOMPACK_FAULT_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/fault",
+    "QOMPACK_INSTALL_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/install",
+    "QOMPACK_PLATFORM_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/platform",
+    "QOMPACK_RELEASE_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/release",
+    "QOMPACK_SECURITY_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/security"
+  },
+  "started_at": "2026-09-23T12:00:30-04:00",
+  "ended_at": "2026-09-23T13:12:09-04:00",
+  "exit_code": 1,
+  "log": "int1-windows-whole-tree.log",
+  "log_sha256": "8ec11c769e6cf6f2db4cd58f276efc6f05703119daf9c22f95a29d0fa955468e"
+}

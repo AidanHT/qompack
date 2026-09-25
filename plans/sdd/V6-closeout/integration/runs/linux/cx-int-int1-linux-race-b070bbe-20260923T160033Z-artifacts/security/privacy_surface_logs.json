@@ -1,0 +1,18 @@
+{
+  "name": "privacy_surface_logs",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "130331b6dd03f626d33828a7d2e79ccb4da5935cbbecf988d30c6d04f7441baf"
+  },
+  "outcome": "verified",
+  "reason": "no literal and no \u003e8-byte fragment of any of the 11 planted credential families survives under logs.",
+  "detail": "1 files, 857 bytes swept, 0 redaction placeholders",
+  "artifact": "privacy-surface-sweep.json"
+}

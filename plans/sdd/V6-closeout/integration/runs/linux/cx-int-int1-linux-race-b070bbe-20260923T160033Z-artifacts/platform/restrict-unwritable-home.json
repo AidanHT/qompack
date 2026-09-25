@@ -1,0 +1,16 @@
+{
+  "name": "restrict-unwritable-home",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "130331b6dd03f626d33828a7d2e79ccb4da5935cbbecf988d30c6d04f7441baf"
+  },
+  "outcome": "verified",
+  "reason": "all six hooks exit 0 with an unwritable HOME",
+  "detail": "deny applied to \"/tmp/qompack-platform-249359060/home\" (HOME and USERPROFILE both point there); the project tier stayed writable; hook stderr was 0 bytes; daemon suppressed through QOMPACK_RUNTIME__DAEMON__ENABLED=false"
+}

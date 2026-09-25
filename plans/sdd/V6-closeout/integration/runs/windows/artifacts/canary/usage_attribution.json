@@ -1,0 +1,14 @@
+{
+  "name": "usage_attribution",
+  "capability": "usage_attribution",
+  "scope": "installed_session",
+  "outcome": "skipped",
+  "reason": "no disposable target supplied (QOMPACK_CANARY_TARGET) and the host's usage telemetry cannot be read from this process; coverage stays UNKNOWN. Missing categories remain missing — they are never zero-filled into a cost ledger, and no invoice claim follows from an estimate. Fallback in force: unknown stays unknown; cost is not claimed from an unattributed request",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.280",
+    "platform": "windows/amd64",
+    "date": "2026-09-23T16:02:15Z"
+  },
+  "recorded_at": "2026-09-23T16:02:15Z"
+}
