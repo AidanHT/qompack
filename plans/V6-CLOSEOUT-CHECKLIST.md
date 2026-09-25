@@ -42,7 +42,15 @@ close-out by the user's later instruction and every record says so.
 | 1b | `wf_a704d10a-845` | `packaging` C1.11 + C1.12 + C7.5 prep (implement → two-lens review → fix) |
 | 1c | `wf_e1d0d082-a01` | `rehydrate-cap` C1.14 (D5), branched from `closeout/packaging` `32e1a37` |
 | int | — | All ten wave-1/1b/1c branches merged `--no-ff` into `closeout/integration` (`../qompack-cx-int`) at `b070bbe`, with no textual conflicts; `go build ./...` and `go vet ./...` are clean. The rollover merge's `git merge` hung for about 2 h after creating its commit (no child process; the likely cause is a Windows file lock over thousands of new evidence files). The coordinator stopped its own process and ran `git merge --quit`, and the merge commit `ecaa08a` stands. Integrated gates `int1-windows-whole-tree` and `int1-linux-race` (non-root, ALL-NON-E2E) started together, with co-load declared |
-| 2 | `wf_0d8775ab-04e` | off `b070bbe`: `w2-sessionend` C1.15 + C1.13 remainder + drained control-line sidecars · `w2-lifetime` C1.16 + C1.17 + admin.shutdown reply loss + hermetic mcpop tests · `w2-hookout` C1.18 + C1.20 + two unclassified e2e reds · `w2-rollover2` D6 diagnostics, gcrun memory claim, lock-held lookups, race-suite duration · `w2-lint` C1.19 · `w2-eval2` first independent review of the eval harness + `qompack eval` wiring |
+| 2 | `wf_0d8775ab-04e` | **Produced nothing.** Every implementer hit the account's weekly usage limit ("resets Sep 25, 7am America/Toronto") after stalling and retrying; results `[null ×6]`, no commits. Planned: off `b070bbe`: `w2-sessionend` C1.15 + C1.13 remainder + drained control-line sidecars · `w2-lifetime` C1.16 + C1.17 + admin.shutdown reply loss + hermetic mcpop tests · `w2-hookout` C1.18 + C1.20 + two unclassified e2e reds · `w2-rollover2` D6 diagnostics, gcrun memory claim, lock-held lookups, race-suite duration · `w2-lint` C1.19 · `w2-eval2` first independent review of the eval harness + `qompack eval` wiring |
+| 2b | `wf_b2b236ea-ef1` | 2026-09-25 re-run of wave 2 in the same worktrees, off `b070bbe`. Each agent was told to inspect the first attempt's leftovers (uncommitted SessionStart/rehydrate phase histograms in `w2-lifetime`; repro logs in `w2-hookout`/`w2-rollover2`) and adopt or discard them deliberately. Plus a new `w2-wintriage` for the one Windows red that reproduces alone (`TestSecurity_ArchivedTextIsDataNeverAnInstruction`) and two slow fault subcases |
+
+Integrated gates run 1 (`b070bbe`; evidence `plans/sdd/V6-closeout/integration/runs/` on
+`closeout/integration` `6b3db32`). Linux non-root `-race`, every non-e2e package: green except
+the carried-defect guard (expected until Phase 2) and the co-load hot-path row. The Windows whole
+tree is **invalid**: the host slept mid-run, and the 30-minute alarms fired at 58 minutes. Its reds,
+re-run alone on 2026-09-25, all pass except `TestSecurity_ArchivedTextIsDataNeverAnInstruction`,
+which is Windows-only and assigned to `w2-wintriage`.
 
 Incident: at 17:31 a coordinator `SendMessage` to two running workflow agents (ingest, eval)
 resumed a second copy of each in the same worktree. The ingest copy stood down after writing
@@ -84,10 +92,10 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 - [x] **C1.1** *(fixed on `closeout/ingest`, merged in integration; integrated gates pending)* Root-cause and fix the live-ingest regression (events stranded behind the ordering
       gate and not recovered by the drain). Failing regression test first; fixes the observer,
       thin-slice and X10 e2e cases and the six `test/fault` cases, or each gets its own diagnosis.
-- [ ] **C1.2** `TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting`: fsck reports a
+- [x] **C1.2** *(four causes, fixed on `closeout/e2e` (3893fac, 8da4435, 9d795a0+3c369c4, 43051d5); the turn defect by C1.1 on `closeout/ingest`; merged; `w2-sessionend` re-verifies the test)* `TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting`: fsck reports a
       non-monotone turn (`turn 0 after turn 1`) and "unexpected entry in the capture tree".
       Diagnose: downstream of C1.1, or a real publication-audit/turn-assignment defect.
-- [ ] **C1.3** `TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery…`
+- [x] **C1.3** *(stale criterion after 00e0c98, corrected in 555e289; green on Windows and Linux)* `TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery…`
       (no bounded prefix survives). Diagnose against `00e0c98` capture refusal.
 - [ ] **C1.4** Confirm `3dab390`'s two daemon fixture corrections on the new candidate.
 - [ ] **C1.5** V6-AUTH-1/2 (`1.13.4`, `1.17.12`, historical FAIL): re-run the real-capture
