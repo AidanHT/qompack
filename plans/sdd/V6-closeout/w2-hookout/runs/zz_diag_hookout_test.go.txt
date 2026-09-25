@@ -1,0 +1,192 @@
+package e2e
+
+// TEMPORARY DIAGNOSTIC for the w2-hookout lane (C1.18/C1.20 wave 2, part 3). Never committed as a
+// test: a copy is kept under plans/sdd/V6-closeout/w2-hookout/runs/ as .go.txt evidence.
+//
+// It instruments the two unclassified reds without changing what they exercise:
+//
+//   - TestZZDiag_SessionStartUnderLoad replays TestE2E_AllSixHooksExitZero's exact sequence in
+//     fresh projects and, whenever SessionStart answers with no hookSpecificOutput, records how long
+//     the hook took, whether its request was spooled, and when the project's daemon took its lock.
+//   - TestZZDiag_FaultRowCleanup replays TestHooksExitZeroUnderFaults' rows and, AFTER
+//     e2eShutdownIfReachable returns, keeps watching the project for a daemon that arrives later.
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/testutil"
+)
+
+func zzEnvInt(name string, def int) int {
+	var n int
+	if _, err := fmt.Sscanf(os.Getenv(name), "%d", &n); err != nil || n <= 0 {
+		return def
+	}
+	return n
+}
+
+// zzLockBirth reports daemon.lock's modification time if present.
+func zzLockBirth(root string) (time.Time, bool) {
+	fi, err := os.Stat(paths.Long(daemon.LockPath(root)))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return fi.ModTime(), true
+}
+
+func zzSpoolOps(root string) []string {
+	var ops []string
+	_ = filepath.Walk(paths.Of(root).Spool, func(p string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		b, rerr := os.ReadFile(p)
+		if rerr != nil {
+			return nil
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			var m map[string]any
+			if json.Unmarshal([]byte(line), &m) == nil {
+				ops = append(ops, fmt.Sprint(m["op"]))
+			}
+		}
+		return nil
+	})
+	return ops
+}
+
+func TestZZDiag_SessionStartUnderLoad(t *testing.T) {
+	bin := Build(t)
+	iters := zzEnvInt("ZZ_ITERS", 10)
+	nilHSO := 0
+	for i := 0; i < iters; i++ {
+		t.Run(fmt.Sprintf("iter%02d", i), func(t *testing.T) {
+			p := testutil.NewProject(t)
+			t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
+			env := map[string]string{"QOMPACK_PROJECT_ROOT": p.Root, "HOME": p.Home(), "USERPROFILE": p.Home()}
+			var ptuDur time.Duration
+			for _, hook := range hookSubcommands {
+				start := time.Now()
+				stdout, _, code := Run(t, bin, hook.argv, payloadFor(t, hook.event, p.Root), env)
+				dur := time.Since(start)
+				if hook.event == "PostToolUse" {
+					ptuDur = dur
+				}
+				if hook.event != "SessionStart" {
+					continue
+				}
+				var out hookio.Output
+				_ = json.Unmarshal(stdout, &out)
+				lockAt, locked := zzLockBirth(p.Root)
+				rel := "absent"
+				if locked {
+					rel = lockAt.Sub(start).Round(time.Millisecond).String()
+				}
+				t.Logf("iter=%d code=%d PostToolUse=%s SessionStart=%s hso=%v lock(rel to SessionStart start)=%s spool=%v stdout=%s",
+					i, code, ptuDur.Round(time.Millisecond), dur.Round(time.Millisecond), out.HookSpecificOutput != nil, rel,
+					zzSpoolOps(p.Root), strings.TrimSpace(string(stdout)))
+				if out.HookSpecificOutput == nil {
+					nilHSO++
+				}
+			}
+		})
+	}
+	t.Logf("SUMMARY: %d of %d SessionStart replies carried no hookSpecificOutput", nilHSO, iters)
+}
+
+func TestZZDiag_FaultRowCleanup(t *testing.T) {
+	bin := Build(t)
+	rounds := zzEnvInt("ZZ_ROUNDS", 1)
+	late := 0
+	total := 0
+	for r := 0; r < rounds; r++ {
+		for _, hook := range hookSubcommands {
+			for _, site := range e2eFaultSites {
+				total++
+				name := fmt.Sprintf("r%d/%s/%s", r, hook.event, site)
+				t.Run(name, func(t *testing.T) {
+					dir := e2eFaultProject(t)
+					env := map[string]string{"QOMPACK_PROJECT_ROOT": dir, "HOME": t.TempDir(), qompackFaultEnvKey: site}
+					for k, v := range e2eIdleExitFastEnv {
+						env[k] = v
+					}
+					hookStart := time.Now()
+					_, _, _ = Run(t, bin, hook.argv, payloadFor(t, hook.event, dir), env)
+					hookDone := time.Now()
+					e2eShutdownIfReachable(t, dir)
+					helperDone := time.Now()
+					_, lockedAtReturn := e2eDaemonHoldingLock(dir)
+					spawnLock := filepath.Join(paths.Of(dir).Run, "spawn.lock")
+					_, spawnErr := os.Stat(paths.Long(spawnLock))
+
+					// Keep watching: does a daemon take this project's lock AFTER the helper said
+					// there was nothing (left) to shut down?
+					var appeared time.Time
+					deadline := time.Now().Add(15 * time.Second)
+					tick := time.NewTicker(25 * time.Millisecond)
+					for time.Now().Before(deadline) {
+						if _, held := e2eDaemonHoldingLock(dir); held {
+							appeared = time.Now()
+							break
+						}
+						<-tick.C
+					}
+					tick.Stop()
+					if !appeared.IsZero() {
+						late++
+						t.Logf("LATE DAEMON: %s hook=%s helper=%s lock appeared %s after the helper returned "+
+							"(heldAtReturn=%v spawnLockAtReturn=%v)",
+							name, hookDone.Sub(hookStart).Round(time.Millisecond), helperDone.Sub(hookDone).Round(time.Millisecond),
+							appeared.Sub(helperDone).Round(time.Millisecond), lockedAtReturn, spawnErr == nil)
+						// Shut the late daemon down so this diagnostic leaves nothing behind.
+						e2eShutdownIfReachable(t, dir)
+					}
+				})
+			}
+		}
+	}
+	t.Logf("SUMMARY: %d of %d rows had a daemon take the project's lock after e2eShutdownIfReachable returned", late, total)
+}
+
+// TestZZDiag_SpooledSessionStartMintsAnUndeliveredProbe stages the aftermath of the AllSix red
+// deterministically: a SessionStart whose reply the host never got because the client could not
+// reach the daemon in time (here via the daemon-down fault: the client spools session.start and
+// answers {}), then a daemon that drains that spooled session.start. Does the drained replay mint
+// a §12.1 probe nobody delivered, and does the contract then blame the host for it?
+func TestZZDiag_SpooledSessionStartMintsAnUndeliveredProbe(t *testing.T) {
+	bin := Build(t)
+	p := v4Project(t)
+	transcript := x14v5Transcript(t, p.Root)
+	const sess = "sess-zz-spooled-start"
+
+	env := e2eEnv(p)
+	env[qompackFaultEnvKey] = "daemon-down"
+	stdout, _, code := Run(t, bin, []string{"session-start"}, x14v5StartPayload(t, p.Root, sess, "startup", transcript), env)
+	t.Logf("spooled session-start: code=%d stdout=%s spool=%v", code, strings.TrimSpace(string(stdout)), zzSpoolOps(p.Root))
+
+	r := v4StartRig(t, p) // its Run drains the spool before it serves
+	h := contract.LoadHistory(contract.HistoryPath(p.Root))
+	t.Logf("after the startup drain: sentinel=%+v sessions=%d", h.Sentinel, h.SessionCount)
+
+	envOK := e2eEnv(p)
+	for i := 1; i <= x14v5SentinelChances; i++ {
+		obsRunHook(t, r.Bin, []string{"observe", "prompt"},
+			x14v5PromptPayload(t, p.Root, sess, transcript, fmt.Sprintf("prompt %d", i)), envOK)
+		want := i
+		x14v5WaitSentinel(t, r, fmt.Sprintf("chance %d", i),
+			func(s contract.SentinelState) bool { return s.Observed || s.Chances >= want })
+	}
+	out := x14v5Start(t, r, x14v5StartPayload(t, p.Root, sess, "resume", transcript))
+	snap := e2eStatus(t, p.Root)
+	t.Logf("next session-start: systemMessage=%q mode=%s", out.SystemMessage, snap.Mode)
+}
