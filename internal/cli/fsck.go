@@ -1688,17 +1688,8 @@ func (s *fsckScan) checkDelivery() fsckCheck {
 // (state/delivery-journal.json), and reports false when there is no head or it does not read. It is a
 // classification aid for the read-only row only; the authority's full validation is --seal-check's.
 func (s *fsckScan) deliveryActiveSegment() (uint64, bool) {
-	raw, err := paths.ReadFileShared(filepath.Join(s.l.State, "delivery-journal.json"))
-	if err != nil {
-		return 0, false
-	}
-	var head struct {
-		Active *uint64 `json:"active"`
-	}
-	if json.Unmarshal(raw, &head) != nil || head.Active == nil {
-		return 0, false
-	}
-	return *head.Active, true
+	active, err := readDeliveryActiveSegment(s.l)
+	return active, err == nil
 }
 
 // checkDeliveryPositions classifies each position seal and, when the project is quiet, runs the
