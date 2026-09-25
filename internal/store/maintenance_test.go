@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -255,14 +256,54 @@ func TestMaintenance_SymlinkComponentInBackupTreeRefused(t *testing.T) {
 	external := filepath.Join(t.TempDir(), "external-secret")
 	require.NoError(t, os.WriteFile(paths.Long(external), []byte("outside the backup"), 0o600))
 	require.NoError(t, os.Remove(paths.Long(victim)))
+	// A file leaf has no unprivileged Windows equivalent (a junction aliases directories only), so
+	// on such a host this case is skipped; TestMaintenance_DirectoryLinkComponentInBackupTreeRefused
+	// covers the directory-component case there.
 	if err := os.Symlink(external, victim); err != nil {
-		t.Skipf("symlink not permitted on this host: %v", err)
+		t.Skip("platform: this host will not create a file symlink: " + err.Error())
 	}
 
 	_, err = x.VerifyBackup("sym")
 	require.ErrorIs(t, err, ErrBackupManifest, "a symlink component must be refused, not followed")
 	dest := filepath.Join(t.TempDir(), "restored")
 	_, err = x.Restore(ctx, "sym", dest)
+	require.ErrorIs(t, err, ErrBackupManifest)
+	require.NoDirExists(t, paths.Long(filepath.Join(dest, ".qompack")))
+}
+
+// A directory component of the backup tree replaced by an alias to a byte-identical copy outside the
+// tree. Every hash would still match if the alias were followed, so ErrBackupManifest (not success,
+// and not ErrBackupCorrupt) can only come from the no-follow check. The alias is a symlink where the
+// host allows one and an NTFS junction otherwise, which maintNoFollow refuses as os.ModeIrregular.
+func TestMaintenance_DirectoryLinkComponentInBackupTreeRefused(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	seedRoot(t, tp, "src/a.ts", "a\n")
+	x := newMaint(t, tp, leaseOK)
+	man, err := x.TakeBackup(ctx, "dirlink")
+	require.NoError(t, err)
+
+	var component string
+	for _, f := range man.Files {
+		if first, _, nested := strings.Cut(f.Name, "/"); nested {
+			component = first
+			break
+		}
+	}
+	require.NotEmpty(t, component, "the backup must hold a file below a directory for this fixture")
+
+	aliased := filepath.Join(x.m.backupDir("dirlink"), backupTreeDir, component)
+	external := filepath.Join(t.TempDir(), "external-"+component)
+	require.NoError(t, os.Rename(paths.Long(aliased), paths.Long(external)))
+	if err := makeDirLink(aliased, external); err != nil {
+		t.Skip("platform: this host will create neither a directory symlink nor a junction: " + err.Error())
+	}
+	t.Cleanup(func() { _ = os.Remove(paths.Long(aliased)) })
+
+	_, err = x.VerifyBackup("dirlink")
+	require.ErrorIs(t, err, ErrBackupManifest, "a linked directory component must be refused, not followed")
+	dest := filepath.Join(t.TempDir(), "restored")
+	_, err = x.Restore(ctx, "dirlink", dest)
 	require.ErrorIs(t, err, ErrBackupManifest)
 	require.NoDirExists(t, paths.Long(filepath.Join(dest, ".qompack")))
 }
