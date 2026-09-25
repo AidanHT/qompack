@@ -66,7 +66,7 @@ func compactAnswerBudget() time.Duration {
 
 // defaultCompactAnswerBudget is compactAnswerBudget when the manifest names no SessionStart timeout,
 // which only a malformed build can produce: one third of the 15 s the manifest has always carried.
-const defaultCompactAnswerBudget = 5 * time.Second //nomagic:allow one third of the SessionStart manifest timeout, see compactAnswerBudget
+const defaultCompactAnswerBudget = 5 * time.Second
 
 // counterCompactDeferred counts compact SessionStarts answered with the deferred note because the
 // rehydration was not ready in time (or could not be started, the daemon stopping).
