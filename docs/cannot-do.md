@@ -289,16 +289,43 @@ host change could lift — as prepared proposals, none of which has been filed.
   it refuses the journal and assigns no observation identity to anything it captures.
 - **Why.** A redelivered copy of any past delivery must get its original observation identity back,
   and a session's arrivals must never restart, so every lease, acknowledgement and arrival stays
-  resolvable. The daemon's memory, each lookup and each store GC pass are bounded by the active
-  window (a GC pass also reads the archived leases still waiting for an acknowledgement); storage is
-  not. An older build cannot see the later segments, and appending to the original journal would
-  re-mint arrival numbers those segments already assigned, so the first rotation makes it refuse
-  instead.
+  resolvable. What is bounded is memory, not storage: between rotations the daemon holds the active
+  window, a lookup reads one path of the archive whose depth grows with the logarithm of the history,
+  and a store GC pass holds at most the active window and 65,536 carried leases (the next entry); a
+  rotation briefly also holds the outgoing window's archive plan and the carried leases, at most
+  64 MiB of them. An older build cannot see the later segments, and appending to the original
+  journal would re-mint arrival numbers those segments already assigned, so the first rotation makes
+  it refuse instead.
 - **What Qompack does instead.** It archives rotated windows compactly (one pack file per generation)
   and keeps the refusal fail-closed: pending input is retained for the current build. A backup taken
-  before the first rotation is the rollback path, and nothing prompts for one: the daemon rotates on
-  its own when the journal fills ([Backup and restore](backup.md) says when to take it).
+  before the first rotation is the rollback path. The daemon rotates on its own when the journal
+  fills, and warns once per run beforehand, when a project that has never rotated reaches 49,152
+  deliveries ([Backup and restore](backup.md) says when to take it).
 - **Recorded at.** `plans/CARRIED-DEFECTS.tsv` SP20-D4; `plans/V2-WAVE1-carried-defects.md` §SP20-D4.
+
+### A rotation pauses capture, and the carried leases have two hard bounds
+
+- **Limit.** Every 65,536 deliveries (or 64 MiB of journal) leases and acknowledgements stop while
+  the rotation archives the outgoing window: 2.3 to 6.8 s per full window in the V6 close-out's
+  measurements on loaded Windows and Linux hosts. And the archived leases that have no
+  acknowledgement are carried from segment to segment with two bounds: past 65,536 of them every
+  store GC pass halts and collects nothing, so disk use grows; past 64 MiB of them (about 200,000)
+  the next rotation refuses, the journal stops leasing, and capture stops. This build has no repair
+  for either. A delivery retired by a policy denial is never acknowledged, and neither is a leased
+  delivery that is never published, so both count toward the bounds for the life of the project.
+- **Why.** A rotation archives the window under a barrier that excludes both journal pipelines, so
+  no identity is assigned while the history it must stay consistent with is moving. The carry is how
+  store GC knows what old leases still retain without reading every old segment; a pass holds it in
+  memory, so it is bounded, and a carry past its file's own bound could not be read back by the next
+  rotation, the offline check or `fsck`, so the rotation refuses to write one.
+- **What Qompack does instead.** Hooks spool during the pause and the drain leases their deliveries
+  afterwards under the same nonce, so the pause loses nothing. A refused rotation stages nothing and
+  keeps every later delivery in durable input. Every rotation, halted GC pass and refused rotation is
+  a Loud line and a counter, shown by `qompack status` and summarised in `qompack doctor`'s
+  `delivery.rollover` row ([Troubleshooting](troubleshooting.md#7-daemon-problems)). Owner decision
+  D6 accepted both as documented residuals, and deferred moving the archive off the pause past this
+  release.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D6; `plans/V2-WAVE1-carried-defects.md` §SP20-D4.
 
 ### No cost or price guarantee
 
