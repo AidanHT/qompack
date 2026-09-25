@@ -202,6 +202,17 @@ func (h *harness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptio
 			}
 		}
 
+		// The two modes cover different windows, and the difference is known, not an accident of
+		// this code. Demands' window is the open interval (at, at+K): turns at+1 … at+K-1, K-1 of
+		// them. The divergence horizon every Run is scored over (horizonActions) and the live
+		// fork's window (spliceForks) are (at, at+K]: K turns. So in deterministic mode a demand at
+		// turn at+K is never repaired, and divergence scores that turn's logged action as if the
+		// demand had been met; in live mode the model's own action at at+K is scored. The live
+		// window follows the scoring horizon deliberately (TestSpliceForks_WindowIsTheDivergence-
+		// Horizon). The demand window predates C5.4 and is left as it is: FractionOfOPT, OPT's
+		// keep-sets and the committed phase-0 baseline (testdata/baseline/phase0-recall.json) are
+		// all computed over this demand set, and widening it by one turn would move every recorded
+		// replay number — a baseline re-derivation for the owner to rule on, not a live-mode fix.
 		to := at + core.TurnIndex(o.K)
 		if int(to) > len(s.Turns) {
 			to = core.TurnIndex(len(s.Turns))
