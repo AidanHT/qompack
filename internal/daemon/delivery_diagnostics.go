@@ -153,8 +153,8 @@ func (j *deliveryJournal) firstRotationAdviceDueLocked() bool {
 	if j.firstRotationAdvised || j.segment != 0 || !j.rolloverArmed() || j.diagnostics() == nil {
 		return false
 	}
-	if int64(len(j.leases)) < firstRotationAdviceAt(int64(deliveryRolloverEntries)) &&
-		j.bytes < firstRotationAdviceAt(deliveryRolloverBytes) {
+	if int64(len(j.leases)) < firstRotationAdviceAt(int64(j.rolloverEntries)) &&
+		j.bytes < firstRotationAdviceAt(j.rolloverBytes) {
 		return false
 	}
 	j.firstRotationAdvised = true
@@ -184,6 +184,6 @@ func (j *deliveryJournal) adviseFirstRotation(windowLeases int) {
 		"a Qompack build older than segmented rollover refuses the journal, and a backup taken before the "+
 		"rotation is the only way back to one: stop the daemon and run `qompack backup create` "+
 		"(docs/backup.md)",
-		"window_leases", windowLeases, "rotates_at_entries", deliveryRolloverEntries,
-		"rotates_at_bytes", deliveryRolloverBytes, "state", j.stateDir)
+		"window_leases", windowLeases, "rotates_at_entries", j.rolloverEntries,
+		"rotates_at_bytes", j.rolloverBytes, "state", j.stateDir)
 }
