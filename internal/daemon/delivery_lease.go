@@ -1549,6 +1549,13 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 		return err
 	}
 	j.rotation.carried, j.rotation.carryBytes = len(carried), len(carry)
+	// A carry past deliveryCarryMaxBytes would be refused by every reader of it — the next rotation,
+	// the offline check and fsck — so it is refused here instead, before anything is staged: the
+	// rotation fails closed (the journal refuses every lease and acknowledgement, and hooks keep their
+	// deliveries in the durable spool) rather than commit a segment its own readers cannot open.
+	if int64(len(carry)) > deliveryCarryMaxBytes {
+		return errCarryOverBound
+	}
 	if err := createFreshSegment(j.stateDir, next, carry); err != nil {
 		return err
 	}

@@ -144,9 +144,11 @@ func TestDeliveryDiagnostics_FailedRotationIsLoudAndCounted(t *testing.T) {
 	leaseN(t, j, "failed", 3, 1)
 	_, err = j.lease(context.Background(), genNonce(4), "failed", testDeliveryRequest(genNonce(4)))
 	require.Error(t, err)
+	require.NotErrorIs(t, err, errCarryOverBound)
 
 	require.Equal(t, int64(1), m.Counter(counterDeliveryRotations).Value(), "only the first rotation completed")
 	require.Equal(t, int64(1), m.Counter(counterDeliveryRotationFailures).Value())
+	require.Zero(t, m.Counter(counterDeliveryRotationCarryOverBound).Value())
 	louds := log.entries(logLoud)
 	require.Len(t, louds, 2)
 	require.Contains(t, louds[1].Msg, "rotation failed")
@@ -155,6 +157,87 @@ func TestDeliveryDiagnostics_FailedRotationIsLoudAndCounted(t *testing.T) {
 	_, err = j.lease(context.Background(), genNonce(5), "failed", testDeliveryRequest(genNonce(5)))
 	require.Error(t, err, "the journal fails closed after a failed rotation")
 	require.Equal(t, int64(1), m.Counter(counterDeliveryRotationFailures).Value(), "a refused lease is not a second rotation")
+}
+
+// carryBytes is the size of the carry a rotation would stage for leases into segment.
+func carryBytes(t *testing.T, segment uint64, leases []deliveryLease) int64 {
+	t.Helper()
+	raw, err := encodeDeliveryCarry(segment, leases)
+	require.NoError(t, err)
+	return int64(len(raw))
+}
+
+func setCarryBound(t *testing.T, n int64) {
+	t.Helper()
+	prev := deliveryCarryMaxBytes
+	deliveryCarryMaxBytes = n
+	t.Cleanup(func() { deliveryCarryMaxBytes = prev })
+}
+
+// TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation: a rotation whose carried leases would pass
+// deliveryCarryMaxBytes refuses before it stages anything — it used to write the carry and commit the
+// transition, leaving a segment whose carry the next rotation, the offline check and fsck all refuse
+// — and the refusal fails the journal closed with the carry-bound diagnostic.
+func TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation(t *testing.T) {
+	setRollover(t, 2)
+	root := t.TempDir()
+	j, log, m := diagnosedJournal(t, root)
+	window := leaseN(t, j, "bound", 0, 2)
+	setCarryBound(t, carryBytes(t, 1, window)-1) // the two unacknowledged leases no longer fit
+
+	_, err := j.lease(context.Background(), genNonce(2), "bound", testDeliveryRequest(genNonce(2)))
+	require.ErrorIs(t, err, errCarryOverBound, "the rotation refuses rather than write a carry past its bound")
+	require.Equal(t, uint64(0), j.segment, "no transition committed")
+	_, statErr := os.Stat(paths.Long(segmentDir(j.stateDir, 1)))
+	require.True(t, os.IsNotExist(statErr), "nothing is staged for a carry that cannot be read back")
+	_, err = j.lease(context.Background(), genNonce(3), "bound", testDeliveryRequest(genNonce(3)))
+	require.Error(t, err, "the journal fails closed")
+
+	require.Equal(t, int64(1), m.Counter(counterDeliveryRotationFailures).Value())
+	require.Equal(t, int64(1), m.Counter(counterDeliveryRotationCarryOverBound).Value())
+	require.Zero(t, m.Counter(counterDeliveryRotations).Value())
+	louds := log.entries(logLoud)
+	require.Len(t, louds, 1)
+	require.Contains(t, louds[0].Msg, "carried-lease file's bound")
+	requireKV(t, louds[0], "carried_leases", 2)
+	requireKV(t, louds[0], "carry_bound_bytes", carryBytes(t, 1, window)-1)
+
+	// A restart refuses the same rotation again, and says so: the window was archived before the carry
+	// was built, so the open finishes the rotation and meets the same bound (docs/troubleshooting.md).
+	require.NoError(t, j.owner.Release())
+	lock, err := acquireTestDeliveryLock(root)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lock.Release() })
+	reopenLog, reopenM := attachRecordingDiagnostics(lock)
+	_, err = lock.openDeliveryJournal()
+	require.ErrorIs(t, err, errCarryOverBound, "the open meets the same bound")
+	require.Equal(t, int64(1), reopenM.Counter(counterDeliveryRotationCarryOverBound).Value())
+	reopened := reopenLog.entries(logLoud)
+	require.Len(t, reopened, 1)
+	require.Contains(t, reopened[0].Msg, "carried-lease file's bound")
+	requireKV(t, reopened[0], "at_open", true)
+	_, statErr = os.Stat(paths.Long(segmentDir(j.stateDir, 1)))
+	require.True(t, os.IsNotExist(statErr), "and still stages nothing")
+}
+
+// TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch: a committed carry that is past the bound
+// (written by a build without the refusal above) stops the next rotation with the carry-bound error,
+// so its diagnostic names the bound rather than an anonymous unavailable segment.
+func TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch(t *testing.T) {
+	setRollover(t, 2)
+	j, log, m := diagnosedJournal(t, t.TempDir())
+	leaseN(t, j, "bound-read", 0, 3) // segment 1 carries two leases
+	require.Equal(t, uint64(1), j.segment)
+	carried := readCarry(t, j.stateDir, 1)
+	require.Len(t, carried, 2)
+	setCarryBound(t, carryBytes(t, 1, carried)-1)
+
+	leaseN(t, j, "bound-read", 3, 1)
+	_, err := j.lease(context.Background(), genNonce(4), "bound-read", testDeliveryRequest(genNonce(4)))
+	require.ErrorIs(t, err, errCarryOverBound)
+	require.ErrorIs(t, err, errSegmentUnavailable, "it is still an unavailable segment to every other caller")
+	require.Equal(t, int64(1), m.Counter(counterDeliveryRotationCarryOverBound).Value())
+	require.Contains(t, log.entries(logLoud)[1].Msg, "carried-lease file's bound")
 }
 
 // TestDeliveryDiagnostics_StatusShowsTheRotationCounters: the daemon attaches its own logger and

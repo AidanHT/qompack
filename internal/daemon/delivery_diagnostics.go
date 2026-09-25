@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/qompack/qompack/internal/logging"
@@ -13,9 +14,10 @@ import (
 // D6 accepted two rollover residuals as documented behaviour rather than defects to fix before the
 // release: a rotation pauses leases and acknowledgements while it archives the outgoing window (2.3 to
 // 6.8 s per full window on the close-out's loaded hosts, once every 65,536 deliveries), and the leases
-// a rotation carries have bounds. An accepted residual must still show itself when it happens, so each
-// occurrence here is one Loud line (LOUD.log and the status page's recent loud lines) and a counter
-// (the status page's counters, and metrics/latency.json for doctor).
+// a rotation carries have bounds — a store GC pass halts once they pass 65,536, and a rotation refuses
+// once their file would pass 64 MiB. An accepted residual must still show itself when it happens, so
+// each occurrence here is one Loud line (LOUD.log and the status page's recent loud lines) and a
+// counter (the status page's counters, and metrics/latency.json for doctor).
 //
 // The journal has no logger or registry of its own. The daemon attaches both to the Lock that owns the
 // journal (daemon.deliveryJournal); a journal opened without them — the offline tools, and tests that
@@ -30,6 +32,9 @@ const (
 	// counterDeliveryRotationFailures counts rotations that began and did not complete. Each one leaves
 	// the journal refusing every lease and acknowledgement until the daemon restarts.
 	counterDeliveryRotationFailures = "delivery_rotation_failures"
+	// counterDeliveryRotationCarryOverBound counts the failures whose cause was the carry bound: the
+	// archived leases without an acknowledgement would not fit deliveryCarryMaxBytes.
+	counterDeliveryRotationCarryOverBound = "delivery_rotation_carry_over_bound"
 	// histDeliveryRotationPause is the same pause as a distribution, persisted with the other
 	// histograms in metrics/latency.json.
 	histDeliveryRotationPause = "delivery_rotation_pause"
@@ -38,9 +43,10 @@ const (
 // The counter names above, exported for the doctor row that reads them back from the metrics the
 // last daemon persisted (internal/cli). The store's own GC counter is store.CounterGCDeliveryCarryOverBound.
 const (
-	CounterDeliveryRotations        = counterDeliveryRotations
-	CounterDeliveryRotationPauseMS  = counterDeliveryRotationPauseMS
-	CounterDeliveryRotationFailures = counterDeliveryRotationFailures
+	CounterDeliveryRotations              = counterDeliveryRotations
+	CounterDeliveryRotationPauseMS        = counterDeliveryRotationPauseMS
+	CounterDeliveryRotationFailures       = counterDeliveryRotationFailures
+	CounterDeliveryRotationCarryOverBound = counterDeliveryRotationCarryOverBound
 )
 
 // deliveryDiagnostics is where a delivery journal reports. Both members are always set.
@@ -98,6 +104,16 @@ func (j *deliveryJournal) reportRotation(from, to uint64, pause time.Duration, s
 		kv := []any{
 			"from_segment", from, "pause_ms", ms, "at_open", atOpen, "window_leases", st.leases,
 			"carried_leases", st.carried, "carry_bytes", st.carryBytes, "err", err.Error(),
+		}
+		if errors.Is(err, errCarryOverBound) {
+			d.m.Counter(counterDeliveryRotationCarryOverBound).Add(1)
+			d.log.Loud("daemon: delivery journal rotation refused: the archived leases without an "+
+				"acknowledgement would pass the carried-lease file's bound, so the journal refuses every "+
+				"lease and acknowledgement, and a restart refuses the same rotation again; deliveries are "+
+				"kept in durable input (the ingest WAL or the hook spool) and nothing new is captured "+
+				"(docs/troubleshooting.md)",
+				append(kv, "carry_bound_bytes", deliveryCarryMaxBytes)...)
+			return
 		}
 		d.log.Loud("daemon: delivery journal rotation failed; the journal refuses every lease and "+
 			"acknowledgement until the daemon restarts, which finishes or retries the rotation, and "+
