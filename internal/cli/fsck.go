@@ -1105,6 +1105,7 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	row := newFsckRow("captures", contract.SevWarn)
 	dir := filepath.Join(s.l.Records, "captures")
 	seen := 0
+	control := 0 // legacy sidecars of drained control lines (store.IsControlCaptureOp)
 
 	err := filepath.WalkDir(paths.Long(dir), func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -1135,6 +1136,12 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 			row.defect("capture sidecar %s declares version %d, which this build does not read",
 				d.Name(), sc.Version)
 		}
+		if !sc.Published && store.IsControlCaptureOp(sc.Op) {
+			// A drained control line's sidecar, left by a build before the V6 close-out: evidence of a
+			// delivery that is not an observation, which nothing references. Kept, counted, not a gap.
+			control++
+			return nil
+		}
 		if !sc.Published {
 			required, known := store.CaptureRequiresReference(sc.Op, sc.Bytes)
 			if !known && sc.Outcome == string(core.OutcomeOK) && sc.BytesHash != "" && !fsckIsZeroHash(sc.BytesHash) {
@@ -1158,8 +1165,19 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		row.defect("records/captures could not be walked: %v", err)
 	}
+	if control > 0 {
+		row.note("%s", fsckLegacyControlCapturesNote(control))
+	}
 	row.scan(seen)
 	return row.build()
+}
+
+// fsckLegacyControlCapturesNote is the one sentence the captures and publication rows both use for
+// the sidecars builds before the V6 close-out published for drained control lines.
+func fsckLegacyControlCapturesNote(n int) string {
+	return fmt.Sprintf("%d capture sidecar(s) record control lines (a session start, checkpoint or flush a "+
+		"drain replayed under a build before the V6 close-out): legacy evidence, kept as written, which "+
+		"needs no reference and is not a gap", n)
 }
 
 // fsckFirstNonEmpty returns the first non-empty string, for identifying a record by whichever of
