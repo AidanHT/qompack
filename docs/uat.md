@@ -162,7 +162,10 @@ build does not support is disabled, and can be seen to be disabled.
   run on this tree, `hook.additional_context_delivered`, `precompact.has_time_to_write`,
   `precompact.custom_instructions_accepted` and `mcp.server_registered` all read
   `not-yet-implemented`; against an installed host their values are what this scenario exists to
-  find out, and are **to be confirmed at execution**.
+  find out, and are **to be confirmed at execution** — except
+  `precompact.custom_instructions_accepted`, which reads `retired` wherever its producer is
+  declared: no host accepts a PreCompact instruction, so Qompack emits none (C1.18), and an `ok`
+  there is no evidence of anything.
 
 **Evidence to record**
 
