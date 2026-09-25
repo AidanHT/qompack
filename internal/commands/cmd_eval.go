@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/qompack/qompack/internal/eval"
@@ -160,15 +161,18 @@ func buildEvalReport(in EvalInput) EvalReport {
 
 	name, score, ok := primaryPolicy(in.Report)
 	rep.Policy = name
+	rep.Notes = append(rep.Notes, replayPolicyNotes(in.Report, name, ok)...)
 	if !ok && in.Live == nil {
 		rep.Verdict = VerdictInconclusive
-		rep.Notes = append(rep.Notes, "no policy scores were reported, so nothing was evaluated")
+		if len(in.Report.Policies) == 0 {
+			rep.Notes = append(rep.Notes, "no policy scores were reported, so nothing was evaluated")
+		}
 		return rep
 	}
 	if ok {
 		addReplayGates(&rep, score)
 	} else {
-		rep.Notes = append(rep.Notes, "no deterministic replay report was read; only the live run is reported")
+		rep.Notes = append(rep.Notes, "no Qompack replay score was read; only the live run is reported")
 	}
 	if in.Live != nil {
 		rep.Live = buildLiveReport(*in.Live)
@@ -231,33 +235,59 @@ func verdictOf(rep EvalReport, replayed bool) EvalVerdict {
 	}
 }
 
-// primaryPolicy picks the scored policy to report, preferring one that is not the baseline.
+// qompackPolicyPrefix begins the name of every replay policy that is Qompack's own
+// (test/replay registers qompack-rehydrate and qompack-l3). Every other policy a replay scores is a
+// reference that bounds the metric — stock is the baseline, null keeps nothing, oracle is the
+// Belady ceiling — and is never the policy this command reports.
+const qompackPolicyPrefix = "qompack"
+
+// primaryPolicy picks the scored policy to report: Qompack's own, the alphabetically first when a
+// replay scored more than one. A replay that scored none has nothing of Qompack's to report, and no
+// reference policy is promoted in its place — null re-attempts every eliminated approach by
+// construction, so judging it would fail an evaluation on a policy no user runs.
 func primaryPolicy(r eval.Report) (string, eval.Score, bool) {
-	if len(r.Policies) == 0 {
-		return "", eval.Score{}, false
-	}
-	names := make([]string, 0, len(r.Policies))
-	for n := range r.Policies {
-		names = append(names, n)
-	}
-	// Deterministic: the alphabetically first non-baseline policy, else the alphabetically first.
 	best := ""
-	for _, n := range names {
-		if n == r.Baseline {
-			continue
-		}
-		if best == "" || n < best {
+	for n := range r.Policies {
+		if strings.HasPrefix(n, qompackPolicyPrefix) && (best == "" || n < best) {
 			best = n
 		}
 	}
 	if best == "" {
-		for _, n := range names {
-			if best == "" || n < best {
-				best = n
-			}
-		}
+		return "", eval.Score{}, false
 	}
 	return best, r.Policies[best], true
+}
+
+// replayPolicyNotes says which of a replay's scored policies the gates are, and what else it scored:
+// the reference policies, which bound the metric and are never judged, and any further Qompack
+// policy, which is scored but not the one reported.
+func replayPolicyNotes(r eval.Report, reported string, ok bool) []string {
+	var refs, others []string
+	for n := range r.Policies {
+		switch {
+		case n == reported:
+		case strings.HasPrefix(n, qompackPolicyPrefix):
+			others = append(others, n)
+		default:
+			refs = append(refs, n)
+		}
+	}
+	sort.Strings(refs)
+	sort.Strings(others)
+	var out []string
+	switch {
+	case ok && len(refs) > 0:
+		out = append(out, fmt.Sprintf("replay: the gates are %s's; the report also scores the reference "+
+			"policies %s, which bound the metric and are not judged", reported, strings.Join(refs, ", ")))
+	case !ok && len(refs) > 0:
+		out = append(out, fmt.Sprintf("replay: the report scores only the reference policies %s and no Qompack "+
+			"policy (%s*), so it has nothing of Qompack's to judge", strings.Join(refs, ", "), qompackPolicyPrefix))
+	}
+	if len(others) > 0 {
+		out = append(out, fmt.Sprintf("replay: the Qompack policies %s are also scored and not reported here",
+			strings.Join(others, ", ")))
+	}
+	return out
 }
 
 // boolGate is a gate the artifact decides outright.
@@ -334,7 +364,7 @@ func renderEval(inv Invocation, rep EvalReport) {
 	rw := &errWriter{w: inv.Out}
 
 	rw.printf("eval: %s\n", strings.ToUpper(string(rep.Verdict)))
-	if rep.Live != nil && rep.Policy == "" {
+	if rep.Live != nil && rep.Policy == "" && rep.Sessions == 0 {
 		// Only a live run was read: the replay's header would print zeroes for a replay that is not
 		// there, which reads as a replay that ran nothing.
 		rw.printf("replay: none read; the live run below is the whole evaluation\n\n")

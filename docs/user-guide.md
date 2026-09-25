@@ -163,9 +163,13 @@ unavailable and exits `1`; an artifact that is there but unreadable is an error,
 result.
 
 The **baseline** is a named policy in the replay artifact — `eval.Report.Baseline`, "the Policy
-every Regression is measured against" (`internal/eval/types.go`). The command reports the primary
-policy's score beside it; it does not itself re-run the corpus, because running the harness is
-`test/replay`'s job and a second driver would bring its own corpus selection
+every Regression is measured against" (`internal/eval/types.go`). The command's replay gates are
+Qompack's own policy's — the one whose name begins `qompack` (`qompack-rehydrate` in the driver's
+default run; the alphabetically first if a report scored several). The other policies a replay
+scores are references that bound the metric — `stock` is the baseline, `null` keeps nothing,
+`oracle` is the Belady ceiling — and are named in a note, never judged; a report that scored no
+Qompack policy is inconclusive. The command does not itself re-run the corpus, because running the
+harness is `test/replay`'s job and a second driver would bring its own corpus selection
 (`internal/commands/cmd_eval.go`). A replay is deterministic and model-free: it estimates what a
 keep-set is worth, not what a model did.
 
