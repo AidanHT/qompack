@@ -154,7 +154,9 @@ It reads what the two evaluation producers left on disk and never runs either of
 
 - the newest finished real-host run `devtool live-eval` wrote under `dist/live-eval/<run-id>/` —
   its `plan.json` and `summary.json`, the newest by the plan's creation time; a newer run that has
-  a plan and no summary yet (still running, or stopped before writing one) is named in a note;
+  a plan and no summary yet (still running, or stopped before writing one) is named in a note. Only
+  the newest run's summary is read, so an older run's unreadable summary does not stop the report,
+  while the newest run's own must be readable (`live-eval` writes both files whole, by a rename);
 - the deterministic replay report the replay driver writes to `testdata/bench-replay.json`.
 
 Both paths are relative to the project root and are build outputs of a Qompack source checkout.
@@ -165,10 +167,12 @@ result.
 
 The **baseline** is a named policy in the replay artifact — `eval.Report.Baseline`, "the Policy
 every Regression is measured against" (`internal/eval/types.go`). The command's replay gates are
-Qompack's own policy's — the one whose name begins `qompack` (`qompack-rehydrate` in the driver's
-default run; the alphabetically first if a report scored several). The other policies a replay
-scores are references that bound the metric — `stock` is the baseline, `null` keeps nothing,
-`oracle` is the Belady ceiling — and are named in a note, never judged; a report that scored no
+Qompack's own policies' — every scored policy whose name begins `qompack`, each judged:
+`qompack-rehydrate`, the driver's default, leads with the plain gate IDs (`TASK-01`, `REC-02`, …),
+and each further one (`qompack-l3`, when `--policies` asks for it) carries its name after `@`
+(`TASK-01@qompack-l3`), so no Qompack policy the report scored can fail unseen. The other policies
+a replay scores are references that bound the metric — `stock` is the baseline, `null` keeps
+nothing, `oracle` is the Belady ceiling — and are named in a note, never judged; a report that scored no
 Qompack policy is inconclusive. The command does not itself re-run the corpus, because running the
 harness is `test/replay`'s job and a second driver would bring its own corpus selection
 (`internal/commands/cmd_eval.go`). A replay is deterministic and model-free: it estimates what a
@@ -183,9 +187,14 @@ figure. Its gates are `LIVE-T01` (task success, qompack − stock, under the pre
 non-inferiority rule), `LIVE-T02` (constraint-clean trials, failed only as a regression) and
 `LIVE-R01` (recovery, reported and never judged). They are judged **only for a confirmatory run** —
 a pre-registered task set whose file and fixture tree hash to the values its pre-registration froze
-(`eval.LivePreregistrations`), the plugin loaded by `--plugin-dir`, both arms, the pre-registered
-model, every task including the held-out ones, every planned trial, a bundle built from a clean
-tree; any other run prints why it is not confirmatory and its gates read `not judged`
+(`eval.LivePreregistrations`), the plugin loaded by `--plugin-dir`, both arms with no other plugin
+loaded on either, the pre-registered model (or the pre-registration's one contingency alias with the
+single model the hosts resolved it to recorded), every task including the held-out ones, every
+planned trial, a bundle built from a clean tree, and a plan that attests the bundle carries no known
+open defect (`devtool live-eval --known-open-defects none`, the pre-registration's section 9). That
+attestation is the operator's word — a bundle cannot prove which defects it fixes — and the report
+says so beside every run that carries one, so `confirmatory: yes` is never printed unqualified. Any
+other run prints why it is not confirmatory and its gates read `not judged`
 (`internal/commands/cmd_eval_live.go`).
 
 What it can report: a verdict of `pass`, `fail`, or `inconclusive` — a distinct outcome for a run
