@@ -1,0 +1,9 @@
+--- FAIL: TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve (0.20s)
+    wire_checkpoint_test.go:790: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/daemon/wire_checkpoint_test.go:790
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	620.045s
+FAIL
+exit=1

@@ -1,0 +1,37 @@
+=== RUN   TestV4_TombstoneToRecallToExpandRoundTrip
+    v4_x05_test.go:180: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v4_x05_test.go:180
+        	Error:      	Received unexpected error:
+        	            	qompack: append-only violation: observation sha256:e0e30336ccfd6f319ddd78fe60896ccf0d963cc2dcffa3d7d3dfb0a84a7a40e7 already reserved for a different intent
+        	Test:       	TestV4_TombstoneToRecallToExpandRoundTrip
+        	Messages:   	the store must accept the record; authorization is a RETRIEVAL-time gate, not a write gate
+--- FAIL: TestV4_TombstoneToRecallToExpandRoundTrip (4.19s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:537: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v5_x02_test.go:537
+        	Error:      	Not equal: 
+        	            	expected: "sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9"
+        	            	actual  : "sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+        	            	+sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	an unpinned re_read is the newest capture
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (2.93s)
+=== RUN   TestV5_EveryContractAssertionHasARealProducer
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence/self_test_reads_the_same_ids_and_writes_no_evidence
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set
+--- PASS: TestV5_EveryContractAssertionHasARealProducer (6.43s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence (2.64s)
+        --- PASS: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence/self_test_reads_the_same_ids_and_writes_no_evidence (0.05s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud (2.08s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set (1.70s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	13.768s
+FAIL

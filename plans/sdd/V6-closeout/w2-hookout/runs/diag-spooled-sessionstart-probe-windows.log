@@ -1,0 +1,7 @@
+=== RUN   TestZZDiag_SpooledSessionStartMintsAnUndeliveredProbe
+    zz_diag_hookout_test.go:175: spooled session-start: code=0 stdout={} spool=[session.start]
+    zz_diag_hookout_test.go:179: after the startup drain: sentinel={Token:qompack-contract-ec5f0638aa4a Session:sess-zz-spooled-start MintedAt:1790374749286 Observed:false Chances:0} sessions=1
+    zz_diag_hookout_test.go:191: next session-start: systemMessage="Qompack: degraded to passive recording — hook.additional_context_delivered expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\". See /qompack:status." mode=degraded-passive
+--- PASS: TestZZDiag_SpooledSessionStartMintsAnUndeliveredProbe (4.73s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	5.015s

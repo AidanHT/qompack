@@ -1,0 +1,1092 @@
+aec178a fix(e2e): wait for an in-flight lazy spawn before shutdown
+=== RUN   TestE2E_SessionStartCompactFitsTheHostCap
+    c114_hostcap_test.go:59: compact additionalContext: 7378 host characters (ceiling 9500, host cap 10000); restorable rules offered: 15750
+--- PASS: TestE2E_SessionStartCompactFitsTheHostCap (2.43s)
+=== RUN   TestE2E_CheckpointDegradedPassiveSealsNothing
+--- PASS: TestE2E_CheckpointDegradedPassiveSealsNothing (6.53s)
+=== RUN   TestE2E_CheckpointHookWritesImmutableArtifact
+--- PASS: TestE2E_CheckpointHookWritesImmutableArtifact (15.83s)
+=== RUN   TestE2EHookRoundTrip
+--- PASS: TestE2EHookRoundTrip (8.68s)
+=== RUN   TestE2ELazySpawn
+--- PASS: TestE2ELazySpawn (1.44s)
+=== RUN   TestE2EIdleExit
+--- PASS: TestE2EIdleExit (3.42s)
+=== RUN   TestE2ESelfTestExitsZeroOnHealthy
+--- PASS: TestE2ESelfTestExitsZeroOnHealthy (0.65s)
+=== RUN   TestE2ESelfTestExitsNonZeroOnCritical
+--- PASS: TestE2ESelfTestExitsNonZeroOnCritical (1.13s)
+=== RUN   TestE2ESpoolSubmodeEndToEnd
+--- PASS: TestE2ESpoolSubmodeEndToEnd (1.57s)
+=== RUN   TestHooksExitZeroUnderFaults
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/oversize
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/oversize
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/Stop/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/Stop/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/Stop/oversize
+=== RUN   TestHooksExitZeroUnderFaults/Stop/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/Stop/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/Stop/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/Stop/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/Stop/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/Stop/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/Stop/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/Stop/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/oversize
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/oversize
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/oversize
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/panic:client
+=== NAME  TestHooksExitZeroUnderFaults
+    faultinject_test.go:101: TestHooksExitZeroUnderFaults: 6 hooks x 11 sites = 66 combinations run
+--- PASS: TestHooksExitZeroUnderFaults (126.61s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/stdin-eof (1.49s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/stdin-garbage (1.10s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/oversize (1.29s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/daemon-down (10.10s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/spool-readonly (0.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/spool-full:0 (0.83s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/disk-full (0.67s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/state-corrupt (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/config-corrupt (1.62s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/panic:hook (1.59s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/panic:client (1.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-eof (1.16s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-garbage (0.95s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/oversize (1.27s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/daemon-down (10.10s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-readonly (0.40s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-full:0 (0.52s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/disk-full (0.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/state-corrupt (1.32s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/config-corrupt (1.61s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:hook (1.63s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:client (1.64s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/stdin-eof (1.17s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/stdin-garbage (1.05s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/oversize (1.11s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/daemon-down (10.11s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/spool-readonly (0.45s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/spool-full:0 (0.51s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/disk-full (0.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/state-corrupt (1.20s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/config-corrupt (1.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/panic:hook (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/panic:client (1.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/stdin-eof (0.68s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/stdin-garbage (0.84s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/oversize (1.03s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/daemon-down (10.18s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/spool-readonly (0.61s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/spool-full:0 (0.68s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/disk-full (0.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/state-corrupt (0.52s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/config-corrupt (1.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/panic:hook (1.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/panic:client (0.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/stdin-eof (1.44s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/stdin-garbage (1.02s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/oversize (1.17s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/daemon-down (10.10s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/spool-readonly (0.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/spool-full:0 (0.76s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/disk-full (0.52s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/state-corrupt (1.22s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/config-corrupt (1.59s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/panic:hook (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/panic:client (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/stdin-eof (1.12s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage (1.10s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/oversize (1.24s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/daemon-down (10.10s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/spool-readonly (0.53s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/spool-full:0 (0.61s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/disk-full (0.82s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/state-corrupt (1.38s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/config-corrupt (1.62s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/panic:hook (1.61s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/panic:client (1.62s)
+=== RUN   TestFaultSitesInertWhenUnset
+--- PASS: TestFaultSitesInertWhenUnset (8.31s)
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/observe_tool
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/observe_prompt
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/observe_stop
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/session-start
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/checkpoint
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/flush
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/version
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/config_print_--json
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/config_schema
+=== RUN   TestSelfTestIsTheOnlyNonZeroExit/self-test_--json
+--- PASS: TestSelfTestIsTheOnlyNonZeroExit (4.64s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/observe_tool (0.09s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/observe_prompt (0.08s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/observe_stop (0.06s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/session-start (0.06s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/checkpoint (0.07s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/flush (0.07s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/version (0.06s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/config_print_--json (0.06s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/config_schema (0.06s)
+    --- PASS: TestSelfTestIsTheOnlyNonZeroExit/self-test_--json (0.12s)
+=== RUN   TestE2E_AllSixHooksExitZero
+=== RUN   TestE2E_AllSixHooksExitZero/PostToolUse
+=== RUN   TestE2E_AllSixHooksExitZero/UserPromptSubmit
+=== RUN   TestE2E_AllSixHooksExitZero/Stop
+=== RUN   TestE2E_AllSixHooksExitZero/SessionStart
+=== RUN   TestE2E_AllSixHooksExitZero/PreCompact
+=== RUN   TestE2E_AllSixHooksExitZero/SessionEnd
+--- PASS: TestE2E_AllSixHooksExitZero (3.05s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PostToolUse (0.15s)
+    --- PASS: TestE2E_AllSixHooksExitZero/UserPromptSubmit (0.10s)
+    --- PASS: TestE2E_AllSixHooksExitZero/Stop (0.07s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionStart (1.36s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PreCompact (0.35s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionEnd (0.68s)
+=== RUN   TestE2E_ConfigPrintFromRealBinary
+--- PASS: TestE2E_ConfigPrintFromRealBinary (0.16s)
+=== RUN   TestE2E_RunHookRealBinaryMode
+--- PASS: TestE2E_RunHookRealBinaryMode (3.24s)
+=== RUN   TestE2E_UnknownCommandExitsTwo
+--- PASS: TestE2E_UnknownCommandExitsTwo (0.06s)
+=== RUN   TestInstall_HostCLIInstallUpgradeUninstall
+    install_test.go:84: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+=== RUN   TestInstall_HostCLIInstallUpgradeUninstall/validate_the_bundle_strictly
+    install_test.go:95: install: claude plugin validate C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-1166447668\qompack-plugin-0.1.0-windows-amd64 --strict --json -> exit 0
+        {
+          "success": true,
+          "strict": true,
+          "target": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-install-bundle-1166447668\\qompack-plugin-0.1.0-windows-amd64\\.claude-plugin\\plugin.json",
+          "manifest": {
+            "file": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-install-bundle-1166447668\\qompack-plugin-0.1.0-windows-amd64\\.claude-plugin\\plugin.json",
+            "type": "plugin",
+            "errors": [],
+            "warnings": [],
+            "notes": []
+          },
+          "contents": []
+        }
+    install_test.go:112: install install_validate_bundle_strict: verified — claude plugin validate --strict --json: exit 0, success true, zero errors and zero warnings
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestInstall_HostCLIInstallUpgradeUninstallvalidate_the_bundle_s3640002814\001\install_validate_bundle_strict.json
+=== RUN   TestInstall_HostCLIInstallUpgradeUninstall/install_into_the_user_scope
+    install_test.go:117: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-1166447668 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:120: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:138: install: claude plugin list --json -> exit 0
+        [
+          {
+            "id": "qompack@qompack-rehearsal",
+            "version": "0.1.0",
+            "scope": "user",
+            "enabled": true,
+            "installPath": "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstall154061801\\001\\claude-home\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.0",
+            "installedAt": "2026-09-25T22:46:00.137Z",
+            "lastUpdated": "2026-09-25T22:46:00.137Z",
+            "mcpServers": {
+              "qompack": {
+                "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe",
+                "args": [
+                  "mcp"
+                ]
+              }
+            }
+          }
+        ]
+    install_test.go:145: install install_marketplace_user_scope: verified — claude plugin marketplace add + install qompack@qompack-rehearsal -s user: enabledPlugins names it, the cache holds the bundle with 11 checksums.txt lines verifying, and plugin list --json reports it enabled at user scope
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestInstall_HostCLIInstallUpgradeUninstallinstall_into_the_user183359423\001\install_marketplace_user_scope.json
+=== RUN   TestInstall_HostCLIInstallUpgradeUninstall/the_launcher_resolves_in_the_installed_location
+    install_test.go:174: install install_launcher_resolves_in_cache: verified — the installed C:\Users\Quant\AppData\Local\Temp\TestInstall_HostCLIInstallUpgradeUninstall154061801\001\claude-home\plugins\cache\qompack-rehearsal\qompack\0.1.0\bin\qompack.exe runs, reports version 0.1.0 and hashes to the bundle's binary_sha256; shell resolution is commit2-evidence.md's
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestInstall_HostCLIInstallUpgradeUninstallthe_launcher_resolves1472861164\001\install_launcher_resolves_in_cache.json
+=== RUN   TestInstall_HostCLIInstallUpgradeUninstall/upgrade_to_the_next_version
+    install_test.go:188: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.1-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.1-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:189: install: claude plugin marketplace update qompack-rehearsal -> exit 0
+        Updating marketplace: qompack-rehearsal...Validating local marketplace
+        ✔ Successfully updated marketplace: qompack-rehearsal
+    install_test.go:191: install: claude plugin update qompack -s user -y -> exit 0
+        Checking for updates for plugin "qompack" at user scope…
+        ✔ Plugin "qompack" updated from 0.1.0 to 0.1.1 for scope user. Restart to apply changes.
+    install_test.go:194: install: claude plugin list --json -> exit 0
+        [
+          {
+            "id": "qompack@qompack-rehearsal",
+            "version": "0.1.1",
+            "scope": "user",
+            "enabled": true,
+            "installPath": "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstall154061801\\001\\claude-home\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.1",
+            "installedAt": "2026-09-25T22:46:00.137Z",
+            "lastUpdated": "2026-09-25T22:46:13.325Z",
+            "mcpServers": {
+              "qompack": {
+                "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe",
+                "args": [
+                  "mcp"
+                ]
+              }
+            }
+          }
+        ]
+    install_test.go:228: install upgrade_marketplace_republish: verified — claude plugin marketplace update + plugin update qompack -s user: 0.1.0 -> 0.1.1 enabled, the old cache directory was RETAINED by the host (docs: about fourteen days), .qompack/ byte-identical across the upgrade, fsck exit 0 and recall answered 9 hit(s) through the new launcher
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestInstall_HostCLIInstallUpgradeUninstallupgrade_to_the_next_v1338248678\001\upgrade_marketplace_republish.json
+=== RUN   TestInstall_HostCLIInstallUpgradeUninstall/uninstall_keeping_the_data
+    install_test.go:236: install: claude plugin uninstall qompack -s user --keep-data -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+    install_test.go:245: install: claude plugin list --json -> exit 0
+        []
+    install_test.go:251: install uninstall_keep_data: verified — claude plugin uninstall qompack -s user --keep-data: exit 0, enabledPlugins entry gone, plugin list empty; payload cache retained=true, plugins/data present=false (this host never created a data directory: the plugin was installed, never run in a live session)
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestInstall_HostCLIInstallUpgradeUninstalluninstall_keeping_the77280488\001\uninstall_keep_data.json
+=== RUN   TestInstall_HostCLIInstallUpgradeUninstall/uninstall_by_default_and_then_delete_the_data_by_hand
+    install_test.go:263: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-1166447668 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:265: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:267: install: claude plugin list --json -> exit 0
+        [
+          {
+            "id": "qompack@qompack-rehearsal",
+            "version": "0.1.1",
+            "scope": "user",
+            "enabled": true,
+            "installPath": "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstalluninstall_by_default_2172838507\\001\\claude-home-default\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.1",
+            "installedAt": "2026-09-25T22:46:21.882Z",
+            "lastUpdated": "2026-09-25T22:46:21.882Z",
+            "mcpServers": {
+              "qompack": {
+                "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe",
+                "args": [
+                  "mcp"
+                ]
+              }
+            }
+          }
+        ]
+    install_test.go:269: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+    install_test.go:277: install: claude plugin list --json -> exit 0
+        []
+    install_test.go:299: install uninstall_default: verified — claude plugin uninstall qompack -s user (no --keep-data): exit 0, enabledPlugins entry gone, plugin list empty; payload cache retained=true; the project tree outside .qompack/ and .git/ is byte-identical to the pre-install snapshot, .qompack/ survives with its objects, and the documented manual deletion then restores the tree to its pre-install state exactly
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestInstall_HostCLIInstallUpgradeUninstalluninstall_by_default_2172838507\002\uninstall_default.json
+--- PASS: TestInstall_HostCLIInstallUpgradeUninstall (57.62s)
+    --- PASS: TestInstall_HostCLIInstallUpgradeUninstall/validate_the_bundle_strictly (1.31s)
+    --- PASS: TestInstall_HostCLIInstallUpgradeUninstall/install_into_the_user_scope (4.22s)
+    --- PASS: TestInstall_HostCLIInstallUpgradeUninstall/the_launcher_resolves_in_the_installed_location (3.16s)
+    --- PASS: TestInstall_HostCLIInstallUpgradeUninstall/upgrade_to_the_next_version (12.39s)
+    --- PASS: TestInstall_HostCLIInstallUpgradeUninstall/uninstall_keeping_the_data (2.07s)
+    --- PASS: TestInstall_HostCLIInstallUpgradeUninstall/uninstall_by_default_and_then_delete_the_data_by_hand (6.75s)
+=== RUN   TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite
+    install_test.go:325: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:325: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-1166447668 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:325: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:364: install rollback_sealed_checkpoint_restore: verified — RehearseRollback over a project that sealed a checkpoint: OK, backup verified, reader proved, writers stopped, automatic_downgrade false, evidence retained; the restored root holds the checkpoint artifact byte-for-byte. Fixed in commit 6 (ada54d1, commit6-evidence.md row 19) and its round 2: RestoreBackup writes protected artifacts through paths.CreateNew and the append-only logs through paths.RestoreLog, so the restored root can seal again (internal/store/backup.go RestoreBackup).
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite392446923\004\rollback_sealed_checkpoint_restore.json
+    install_test.go:458: install rollback_before_first_new_write: verified — RehearseRollback(before-first-new-format-write) on a project recorded by the real launcher: refused as a RESULT beside a live daemon ("the incompatible writers could not be stopped: the qompack daemon (pid 57364) still holds C:\\Users\\Quant\\AppData\\Local\\Temp\\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite392446923\\005\\project\\.qompack\\run\\daemon.lock"), then OK with the daemon stopped — backup verified, reader proved, writers stopped, 3 legacy ids retained, automatic_downgrade false, evidence retained
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite392446923\004\rollback_before_first_new_write.json
+    install_test.go:463: install rollback_after_first_new_write: verified — RehearseRollback(after-first-new-format-write) against the actual new artifact: OK, 1 write enumerated in unreadable_by_old_reader (fdefaf25d11a), legacy ids still 3, automatic_downgrade false
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite392446923\004\rollback_after_first_new_write.json
+    install_test.go:504: install rollback_restored_root_reads_through_the_launcher: verified — the restored root opened by the installed launcher: status --json parses, fsck exit 0 with no defect row, and MCP recall answered 10 hit(s) of which 10 carry a root identity the live project holds
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite392446923\004\rollback_restored_root_reads_through_the_launcher.json
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- PASS: TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite (28.69s)
+=== RUN   TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+    install_test.go:537: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:537: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-1166447668 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:537: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:694: install unknown_schema_config_settings_version: verified — runtime.migration.settingsVersion 2 with experiments.enabled true (gated; Validate restores false on any build) and reinjection.sessionStartCompact false (ungated, default true; build reads settingsVersion 1): LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); state/config-violations.json names the reset; the effective block is defaults (sessionStartCompact true); hooks exit 0; a daemon comes up; config print --provenance still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting1145780730\003\unknown_schema_config_settings_version.json
+    install_test.go:703: install unknown_schema_checkpoint_artifact: verified — a checkpoints/ artifact declaring schema version 2 (build reads 1): a whole session still records, fsck's checkpoints row stays ok and names it "written by a newer plugin", and the artifact's bytes are unchanged
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting1145780730\003\unknown_schema_checkpoint_artifact.json
+    install_test.go:708: install unknown_schema_capture_sidecar: verified — a records/captures sidecar at v2 (build reads v1): readable and degraded — fsck's captures row stays ok and names it, and the sidecar is never repaired or swept
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting1145780730\003\unknown_schema_capture_sidecar.json
+    install_test.go:712: install unknown_schema_delivery_seal_v2: verified — a v2 delivery position seal: fsck's delivery row classifies it by its declared version and leaves the bytes alone; an OLDER binary's refusal of a v2 seal is internal/daemon's own rollback row (delivery_seal_format2_test.go), cited here rather than duplicated
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting1145780730\003\unknown_schema_delivery_seal_v2.json
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- PASS: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (16.14s)
+=== RUN   TestStdioServerEndToEnd
+--- PASS: TestStdioServerEndToEnd (2.93s)
+=== RUN   TestStandingInstructionsAgree
+=== PAUSE TestStandingInstructionsAgree
+=== RUN   TestSyncBufferConcurrentWriterReader
+=== PAUSE TestSyncBufferConcurrentWriterReader
+=== RUN   TestE2E_EliminationLifecycle
+--- PASS: TestE2E_EliminationLifecycle (0.31s)
+=== RUN   TestE2E_BloomCorruptionRecovery
+--- PASS: TestE2E_BloomCorruptionRecovery (0.44s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (11.18s)
+=== RUN   TestE2E_HooksExitZeroUnderFaultInjection
+--- PASS: TestE2E_HooksExitZeroUnderFaultInjection (4.91s)
+=== RUN   TestE2E_SupersessionVisibleAfterRestart
+--- PASS: TestE2E_SupersessionVisibleAfterRestart (4.12s)
+=== RUN   TestE2E_VerbatimPromptSurvivesRestart
+--- PASS: TestE2E_VerbatimPromptSurvivesRestart (3.16s)
+=== RUN   TestE2E_SubagentNameReachesTheDaemon
+--- PASS: TestE2E_SubagentNameReachesTheDaemon (3.14s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (11.38s)
+=== RUN   TestPhase1_DedupRatioReadHeavy
+    phase1_exit_test.go:576: read-heavy canon: raw=14204141 stored=75055 objects=129 ratio=189.2498
+--- PASS: TestPhase1_DedupRatioReadHeavy (8.15s)
+=== RUN   TestPhase1_CanonicalizationGapOnTestOutput
+    phase1_exit_test.go:596: test-heavy canon on:  raw=7577505 stored=72438 ratio=104.6068
+    phase1_exit_test.go:597: test-heavy canon off: raw=7577505 stored=290156 ratio=26.1153
+    phase1_exit_test.go:598: gap=4.0056 (floor 1.25); report written to C:\Users\Quant\AppData\Local\Temp\TestPhase1_CanonicalizationGapOnTestOutput3466063802\004\phase1-dedup.json
+    phase1_exit_test.go:599: phase1 report JSON: {
+          "read_heavy_ratio_canon": 189.2497635067617,
+          "read_heavy_ratio_raw": 178.4327743232209,
+          "test_heavy_ratio_canon": 104.60676716640437,
+          "test_heavy_ratio_raw": 26.11527936696122,
+          "raw_bytes": 14204141,
+          "store_bytes": 75055,
+          "objects": 129,
+          "tool_uses": 400
+        }
+--- PASS: TestPhase1_CanonicalizationGapOnTestOutput (24.25s)
+=== RUN   TestPhase1_PathsReachTheObserver
+    phase1_exit_test.go:612: files=87 superseded=155 hll=86 fileVersioned=true
+--- PASS: TestPhase1_PathsReachTheObserver (0.00s)
+=== RUN   TestPhase1_ResponseBytesAreReal
+    phase1_exit_test.go:626: raw=14204141 toolCalls=336 bytes/call=42274
+--- PASS: TestPhase1_ResponseBytesAreReal (0.00s)
+=== RUN   TestPhase1_ReportArtifact
+--- PASS: TestPhase1_ReportArtifact (0.00s)
+=== RUN   TestPhase1_StoreGrowthSublinear
+    phase1_exit_test.go:653: firstHalf=74164 secondHalf=891
+--- PASS: TestPhase1_StoreGrowthSublinear (0.00s)
+=== RUN   TestPhase1_CorpusSweep
+    phase1_exit_test.go:676: dependency-change-1141   turns= 220 toolCalls= 185 raw=  6029544 stored=   65356 ratio=92.2569
+    phase1_exit_test.go:676: dependency-change-1142   turns= 220 toolCalls= 185 raw=  6219520 stored=   65427 ratio=95.0604
+    phase1_exit_test.go:676: dependency-change-1143   turns= 220 toolCalls= 185 raw=  6361921 stored=   65306 ratio=97.4171
+    phase1_exit_test.go:676: long-idle-gap-1131       turns= 160 toolCalls= 133 raw=  5108697 stored=   68483 ratio=74.5980
+    phase1_exit_test.go:676: long-idle-gap-1132       turns= 160 toolCalls= 133 raw=  4671733 stored=   71758 ratio=65.1040
+    phase1_exit_test.go:676: long-idle-gap-1133       turns= 160 toolCalls= 133 raw=  4813238 stored=   71756 ratio=67.0778
+    phase1_exit_test.go:676: multi-compaction-1171    turns= 320 toolCalls= 268 raw=  9413879 stored=   86241 ratio=109.1578
+    phase1_exit_test.go:676: multi-compaction-1172    turns= 320 toolCalls= 268 raw=  9088122 stored=   84864 ratio=107.0904
+    phase1_exit_test.go:676: multi-compaction-1173    turns= 320 toolCalls= 268 raw=  8922051 stored=   87748 ratio=101.6781
+    phase1_exit_test.go:676: read-heavy-1101          turns= 180 toolCalls= 152 raw=  5919870 stored=   68515 ratio=86.4025
+    phase1_exit_test.go:676: read-heavy-1102          turns= 180 toolCalls= 152 raw=  5264384 stored=   70102 ratio=75.0961
+    phase1_exit_test.go:676: read-heavy-1103          turns= 180 toolCalls= 152 raw=  5780595 stored=   71788 ratio=80.5231
+    phase1_exit_test.go:676: refactor-across-files-1121 turns= 240 toolCalls= 203 raw=  8173914 stored=   82624 ratio=98.9291
+    phase1_exit_test.go:676: refactor-across-files-1122 turns= 240 toolCalls= 203 raw=  8996036 stored=   83239 ratio=108.0748
+    phase1_exit_test.go:676: refactor-across-files-1123 turns= 240 toolCalls= 203 raw=  8563651 stored=   80173 ratio=106.8147
+    phase1_exit_test.go:676: subagent-heavy-1151      turns= 190 toolCalls= 162 raw=  4851215 stored=   51357 ratio=94.4606
+    phase1_exit_test.go:676: subagent-heavy-1152      turns= 190 toolCalls= 162 raw=  4709348 stored=   51356 ratio=91.7001
+    phase1_exit_test.go:676: subagent-heavy-1153      turns= 190 toolCalls= 162 raw=  5334713 stored=   51354 ratio=103.8812
+    phase1_exit_test.go:676: test-output-heavy-1111   turns= 200 toolCalls= 169 raw=  3517810 stored=   65538 ratio=53.6759
+    phase1_exit_test.go:676: test-output-heavy-1112   turns= 200 toolCalls= 169 raw=  3303527 stored=   65374 ratio=50.5327
+    phase1_exit_test.go:676: test-output-heavy-1113   turns= 200 toolCalls= 169 raw=  3285944 stored=   63864 ratio=51.4522
+    phase1_exit_test.go:676: thrash-loop-1161         turns= 210 toolCalls= 175 raw=  5273207 stored=   65427 ratio=80.5968
+    phase1_exit_test.go:676: thrash-loop-1162         turns= 210 toolCalls= 175 raw=  5392097 stored=   60497 ratio=89.1300
+    phase1_exit_test.go:676: thrash-loop-1163         turns= 210 toolCalls= 175 raw=  5318130 stored=   62145 ratio=85.5762
+--- PASS: TestPhase1_CorpusSweep (98.04s)
+=== RUN   TestPhase1_HotPathBudgetDocumented
+    phase1_exit_test.go:703: ADR marks one or more CI platform figures as pending — acceptable until CI has run on this branch
+--- PASS: TestPhase1_HotPathBudgetDocumented (0.02s)
+=== RUN   TestE2E_RequiredProductChildRaceInstrumentation
+    race_instrumentation_test.go:18: platform: product-child race mode not requested; run with GOFLAGS=-race, CGO_ENABLED=1 and QOMPACK_REQUIRE_CHILD_RACE=1
+--- SKIP: TestE2E_RequiredProductChildRaceInstrumentation (0.00s)
+=== RUN   TestDaemonIdleRunsSchedulerWork
+--- PASS: TestDaemonIdleRunsSchedulerWork (8.17s)
+=== RUN   TestE2E_SessionStartCompact
+--- PASS: TestE2E_SessionStartCompact (0.70s)
+=== RUN   TestE2E_SessionStartCompactRestoresCheckpointItems
+--- PASS: TestE2E_SessionStartCompactRestoresCheckpointItems (0.74s)
+=== RUN   TestE2E_ContractSentinelIsAppendedByTheDaemon
+--- PASS: TestE2E_ContractSentinelIsAppendedByTheDaemon (0.58s)
+=== RUN   TestE2E_AdditionalContextProducerIsDeclared
+--- PASS: TestE2E_AdditionalContextProducerIsDeclared (0.11s)
+=== RUN   TestE2E_SessionStartCompactUnderBudget
+--- PASS: TestE2E_SessionStartCompactUnderBudget (0.76s)
+=== RUN   TestE2E_SessionStartClear
+--- PASS: TestE2E_SessionStartClear (0.92s)
+=== RUN   TestE2E_SessionStartCompactNoStore
+--- PASS: TestE2E_SessionStartCompactNoStore (1.14s)
+=== RUN   TestE2E_SessionStartCompactAfterFailedSummary
+--- PASS: TestE2E_SessionStartCompactAfterFailedSummary (0.78s)
+=== RUN   TestE2E_DropReporterSatisfiesMCP
+--- PASS: TestE2E_DropReporterSatisfiesMCP (0.03s)
+=== RUN   TestUserIntent_FirstPromptIDMatchesObserver
+--- PASS: TestUserIntent_FirstPromptIDMatchesObserver (0.00s)
+=== RUN   TestE2E_SessionStartLatency
+--- PASS: TestE2E_SessionStartLatency (5.92s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.21s)
+=== RUN   TestE2E_StoreSurvivesProcessRestart
+--- PASS: TestE2E_StoreSurvivesProcessRestart (9.15s)
+=== RUN   TestE2E_SecretNeverLandsInObjects
+    store_test.go:259: walked 11 objects, 2744 bytes decompressed, 20 redactions reported across 10 families
+--- PASS: TestE2E_SecretNeverLandsInObjects (0.70s)
+=== RUN   TestV1_HookLifecycleThroughRealBinary
+--- PASS: TestV1_HookLifecycleThroughRealBinary (2.56s)
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/project_file_wins_over_user_file
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/env_beats_both_files
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/flag_beats_everything
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_spools_a_payload_just_under_the_default_read_limit
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_rejects_a_payload_just_over_the_default_read_limit
+=== RUN   TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_never_hangs_or_crashes_on_a_grossly_oversized_payload
+--- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour (8.95s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/project_file_wins_over_user_file (1.60s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/env_beats_both_files (1.66s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/flag_beats_everything (1.56s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_spools_a_payload_just_under_the_default_read_limit (0.75s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_records_an_over_budget_delivery_instead_of_dropping_it (0.82s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_rejects_a_payload_just_over_the_default_read_limit (1.59s)
+    --- PASS: TestV1_ConfigPrecedenceReachesHookBehaviour/bare_hook_never_hangs_or_crashes_on_a_grossly_oversized_payload (0.95s)
+=== RUN   TestV1_PluginManifestCommandsExecuteAgainstRealBinary
+=== RUN   TestV1_PluginManifestCommandsExecuteAgainstRealBinary/PostToolUse
+    v1_integration_test.go:568: B-D PostToolUse: 445ms wall against a 5s manifest timeout (8.89% used)
+=== RUN   TestV1_PluginManifestCommandsExecuteAgainstRealBinary/PreCompact
+    v1_integration_test.go:568: B-D PreCompact: 36ms wall against a 20s manifest timeout (0.18% used)
+=== RUN   TestV1_PluginManifestCommandsExecuteAgainstRealBinary/SessionEnd
+    v1_integration_test.go:568: B-D SessionEnd: 30ms wall against a 20s manifest timeout (0.15% used)
+=== RUN   TestV1_PluginManifestCommandsExecuteAgainstRealBinary/SessionStart
+    v1_integration_test.go:568: B-D SessionStart: 1.488s wall against a 15s manifest timeout (9.92% used)
+=== RUN   TestV1_PluginManifestCommandsExecuteAgainstRealBinary/Stop
+    v1_integration_test.go:568: B-D Stop: 62ms wall against a 5s manifest timeout (1.24% used)
+=== RUN   TestV1_PluginManifestCommandsExecuteAgainstRealBinary/SubagentStop
+    v1_integration_test.go:568: B-D SubagentStop: 54ms wall against a 10s manifest timeout (0.54% used)
+=== RUN   TestV1_PluginManifestCommandsExecuteAgainstRealBinary/UserPromptSubmit
+    v1_integration_test.go:568: B-D UserPromptSubmit: 189ms wall against a 5s manifest timeout (3.79% used)
+--- PASS: TestV1_PluginManifestCommandsExecuteAgainstRealBinary (2.84s)
+    --- PASS: TestV1_PluginManifestCommandsExecuteAgainstRealBinary/PostToolUse (0.45s)
+    --- PASS: TestV1_PluginManifestCommandsExecuteAgainstRealBinary/PreCompact (0.04s)
+    --- PASS: TestV1_PluginManifestCommandsExecuteAgainstRealBinary/SessionEnd (0.03s)
+    --- PASS: TestV1_PluginManifestCommandsExecuteAgainstRealBinary/SessionStart (1.49s)
+    --- PASS: TestV1_PluginManifestCommandsExecuteAgainstRealBinary/Stop (0.06s)
+    --- PASS: TestV1_PluginManifestCommandsExecuteAgainstRealBinary/SubagentStop (0.05s)
+    --- PASS: TestV1_PluginManifestCommandsExecuteAgainstRealBinary/UserPromptSubmit (0.19s)
+=== RUN   TestV3_HookEventToTombstoneToRetrievalRoundTrip
+--- PASS: TestV3_HookEventToTombstoneToRetrievalRoundTrip (3.47s)
+=== RUN   TestV3_ObserverFileVersionsDriveEliminationStaleness
+--- PASS: TestV3_ObserverFileVersionsDriveEliminationStaleness (0.38s)
+=== RUN   TestV3_ObserverDagDrivesHeuristicEliminationDetector
+=== RUN   TestV3_ObserverDagDrivesHeuristicEliminationDetector/passing_test_breaks_the_pattern
+--- PASS: TestV3_ObserverDagDrivesHeuristicEliminationDetector (0.91s)
+    --- PASS: TestV3_ObserverDagDrivesHeuristicEliminationDetector/passing_test_breaks_the_pattern (0.41s)
+=== RUN   TestV3_VerbatimPromptBecomesEliminationEvidence
+--- PASS: TestV3_VerbatimPromptBecomesEliminationEvidence (0.22s)
+=== RUN   TestV3_ReplayGateConsumesRealSketchHealth
+    v3_x05_test.go:262: healthy ledger: records=3000 active=3000 fill=0.3541 estFP=0.000698 needsResize=false
+    v3_x05_test.go:290: fixture estFP=0.002912 fill=0.4343 vs real estFP=0.000698 fill=0.3541
+    v3_x05_test.go:317: pinned ledger: records=30000 fill=0.9872 estFP=0.913982 needsResize=true
+--- PASS: TestV3_ReplayGateConsumesRealSketchHealth (5.29s)
+=== RUN   TestV3_ReplayGrowthGuardrailUsesRealStore
+    v3_x06_test.go:241: X6 growth exponent α = 0.0399 over 8 samples spanning 14.84x raw bytes
+--- PASS: TestV3_ReplayGrowthGuardrailUsesRealStore (14.56s)
+=== RUN   TestV3_ObserverSegmentsRespectDPIGuard
+--- PASS: TestV3_ObserverSegmentsRespectDPIGuard (1.90s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (11.95s)
+=== RUN   TestV3_LiveSessionWriteSetAndAppendOnly
+    v3_x09_test.go:382: x9: 09/1b/091bb2759ec84d071b3856f1807cbb96edd418da931fae1ac0b6e15d819a7cf4.zst appeared during flush; published by index/roots.jsonl line (root=sha256:2e008f5634f080239d5e2f10c4b439c87cb4a7c15a167bbd82dbaa52b3992ab1 eph=false)
+    v3_x09_test.go:382: x9: 10/19/1019afcf28f3d219ca0bd2e529378cb49bc6905f016f1695d1506730589fe1bc.zst appeared during flush; published by index/roots.jsonl line (root=sha256:57fe953f086dbbc03ce378d9d9005ad1ab42297c85141f9157cdb8fa740c716f eph=true)
+    v3_x09_test.go:382: x9: 10/c9/10c9961e240ac272f5717b7b0ef252a807219293eee59fe5e712c5233cc1a4e7.zst appeared during flush; published by index/roots.jsonl line (root=sha256:30ac5132428545f4179650a1d2fbeba365fef08706ed90781d6963d69a2f2346 eph=true)
+    v3_x09_test.go:382: x9: 17/f5/17f53289fffb5fc504ad2d2f8abc5a3f0a0faa51b5d6228cf4940e01b6427371.zst appeared during flush; published by index/roots.jsonl line (root=sha256:e8996b4919330a3f3f178453b9561aa66c0ad07069b5f292e84e3e35c9cf183f eph=false)
+    v3_x09_test.go:382: x9: 25/74/257452ee0c83698679c07f077f6bfca00015cd1a50ab8efbde9fcc63cf3192f5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:42634d5457006995f45bfe30dc3aed2992ccf69bcbf6d82acc0bb94b21b68559 eph=true)
+    v3_x09_test.go:382: x9: 33/3a/333a16a57508b1fc0f59379e9a2c8250bd75ce7a0bb323fefbc4c0978df607bf.zst appeared during flush; published by index/roots.jsonl line (root=sha256:d744f135ee6bca51d80371f553b5baa21d260d92f86ba91368b475107ce0e64d eph=false)
+    v3_x09_test.go:382: x9: 47/6f/476fac1915db0c06b98097781b444f4e4b20204e974770ff4272a520ddfd002e.zst appeared during flush; published by index/roots.jsonl line (root=sha256:b4e39ffeaad50c7af19d07c69c22be492061ec4eb283f32e37265253951c1abb eph=true)
+    v3_x09_test.go:382: x9: 49/f9/49f936ad488eba482bdca295835ce089630e407a46c2354a553c9481d969a0b8.zst appeared during flush; published by index/roots.jsonl line (root=sha256:5371a166b72a681a0dc9d390ef3dcc1ff3cbaa3c8e181d7e86c372d567fa1401 eph=true)
+    v3_x09_test.go:382: x9: 52/ab/52ab9298aa63fb3951ebacc7310def31808f65b2d52bbf5ccd040f60ca8bf2f5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:456be57fc4a65436b9441ce1f1487cfb2fb87ab6590d8a07fbc106d391c42f37 eph=false)
+    v3_x09_test.go:382: x9: 5c/9f/5c9fbf76a961608b2c2d150d7f1a9e877e8c47df04ceb4b704a304996e4c7fa7.zst appeared during flush; published by index/roots.jsonl line (root=sha256:35df1243ba0c5397008c91263ac27f05f12c6e4d0017edf3b71ec1bdb8f35036 eph=false)
+    v3_x09_test.go:382: x9: 65/6c/656c342ad7628e501588f75120b925ee31a770614205425e6adb5bdef67cb3c0.zst appeared during flush; published by index/roots.jsonl line (root=sha256:f88a647d5c8f90ade4549eb66ac60a9f0fd3f3919b9e0978bbeea688156150e4 eph=false)
+    v3_x09_test.go:382: x9: 68/f5/68f508fe12a945b948de9db35f49a9364332b2b865386bb594147ccb9bf5aacc.zst appeared during flush; published by index/roots.jsonl line (root=sha256:b3fae3949f008585bbe2c13a61ec9597172295d0063ac0c50702939c74c78cb8 eph=false)
+    v3_x09_test.go:382: x9: 70/16/7016de58e0694b2ab76ec1551beff223f961cab88bcfe3e904ca0157c1c51bfb.zst appeared during flush; published by index/roots.jsonl line (root=sha256:c222e2995706299bc6d1e5d5bed201d7ea358c72be4ed5afdb6b8ab033600ec0 eph=true)
+    v3_x09_test.go:382: x9: 73/1c/731ccde03581a48a82117dafcd74e95eee6c088839ee3c23d59c01a8ada82432.zst appeared during flush; published by index/roots.jsonl line (root=sha256:737a312003554c38a5993e37d982d1c52223dc9f4b300d410803e4cc8711ef5a eph=false)
+    v3_x09_test.go:382: x9: 7d/36/7d36701baea7915e2d6e91aca06f4d70f95f18dbec47eb2008c628368d260a81.zst appeared during flush; published by index/roots.jsonl line (root=sha256:334d209973f5548a270508a025e8a9ee63eb9fe85dbba41a68b0486e8112adc0 eph=true)
+    v3_x09_test.go:382: x9: 85/11/8511287a6f992787f6a698da8f78ff9d5f830c1a50010da1818361a7b9b90110.zst appeared during flush; published by index/roots.jsonl line (root=sha256:68035e7c6da15141fba7b5c612816a7f58577c289c3cbc9941e980140bd50171 eph=true)
+    v3_x09_test.go:382: x9: 87/d4/87d49836cc5cbce1188321b21fae43472cc33665cb57f88654295e60d02cf5ad.zst appeared during flush; published by index/roots.jsonl line (root=sha256:61744640ded1027e31e46346d323817504d6102c5a02bb2f8be0ca6d8a0f7d83 eph=true)
+    v3_x09_test.go:382: x9: 89/64/8964a0b8535abb494ad668fee223ee2e2433ca20eceb596e2d339f2add83ddc5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:237f5293c93624f20683ac4420f2be9ec5d5a85cfcc22712d4e66b83faf68652 eph=false)
+    v3_x09_test.go:382: x9: 8c/46/8c463572270df39eb6eef17b57cdf113c2ed2e4b41a9b175a216196ca8c8a019.zst appeared during flush; published by index/roots.jsonl line (root=sha256:9e73fa1eb17364ae951ba7af251f43b0f68e8bee3aa9056e6a3eeee5a82370bb eph=false)
+    v3_x09_test.go:382: x9: 8e/1d/8e1d6e5405b3ce74f2d004076adc3cddf50075c2a3be31c9a554d56892df5a95.zst appeared during flush; published by index/roots.jsonl line (root=sha256:78ba1cddb2278a2d195ce733265306ef293ca155c944bfcb073cd60fbd43d8c8 eph=true)
+    v3_x09_test.go:382: x9: 92/29/9229466816f78d82b9b3ce2eef3414d76f1e736c483b069a0d035f6d7c91c29c.zst appeared during flush; published by index/roots.jsonl line (root=sha256:94d4661dc6b155dc66d1405f04dbb64862e85ab13e43a0427adb55510e838c99 eph=false)
+    v3_x09_test.go:382: x9: 99/e1/99e1b8623330e0bcb522ca45fa8fa699f30ec41d1a297ea00b4e10a87a0232f4.zst appeared during flush; published by index/roots.jsonl line (root=sha256:a81efb90bbbcfaab86780ee1bb66f182d88bf1d886bf27590c4450e5dcc6b63f eph=false)
+    v3_x09_test.go:382: x9: a2/1f/a21f8c7cb2ec48039083e996472a14876371b79e4ce2293b472104965c81151b.zst appeared during flush; published by index/roots.jsonl line (root=sha256:7693cc58694bf0b57e0dc419a828a316ff0f85d82e3715b15a847272add6404c eph=false)
+    v3_x09_test.go:382: x9: a8/37/a837a6928e709fc5541d78da77c84bfd3551cebd2301d35343732adc226dc46c.zst appeared during flush; published by index/roots.jsonl line (root=sha256:c0567c7084e479281aaf850afed9a3ffe67c2e0fc3f1e84c4973cde09f561aa6 eph=false)
+    v3_x09_test.go:382: x9: b1/8b/b18b8cccd6544269657b170716c2f9683234590d5b41797d8100d70bcfc08376.zst appeared during flush; published by index/roots.jsonl line (root=sha256:849bf9c8e92b9db8d8649288bb7537df91aae80dfc646ea41f83f11288a8cc4e eph=true)
+    v3_x09_test.go:382: x9: b2/e3/b2e3d31a9be084a9ece08d1ea8e748d0e8776942cb054d910a8b5de8f4da76f5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:1a7badf79a7f2ad5062a341c49740d63582536a6ef3d3703c163eff080e2b211 eph=true)
+    v3_x09_test.go:382: x9: d0/a6/d0a601be43b09b444ad6873320e0efdb1ae4600f1f9478755a8437601dba6894.zst appeared during flush; published by index/roots.jsonl line (root=sha256:f011f48073c6c94b1e41cea65a94b06b67784801d2cccf18380aff39696cc48d eph=true)
+    v3_x09_test.go:382: x9: d1/a8/d1a8d0c27259e60d2fb0ad5a548691a3736ed2143ece72a5a01581376c18bf31.zst appeared during flush; published by index/roots.jsonl line (root=sha256:a1083e766f68c878e9fb80aeed12ba55119d6f56c16addaa7da871f409358348 eph=true)
+    v3_x09_test.go:382: x9: d3/e8/d3e82af5faec4729a42bff2bd4e56b9e057afaf40267212aff4214c5b5d7825f.zst appeared during flush; published by index/roots.jsonl line (root=sha256:9db01df0e53faa0d2320cb5321294e94628cc3b78d7287cf9dc57b838287c201 eph=false)
+    v3_x09_test.go:382: x9: e1/94/e1948c52934243dbf8ca46972299c85e0a2211e9b1581000f5d0102c2098c0c3.zst appeared during flush; published by index/roots.jsonl line (root=sha256:8e1a8ea21602a71ed4faef4c3be8b92cd4fd59c7abcce8b14246cde88dc4e95e eph=true)
+    v3_x09_test.go:382: x9: e6/41/e641339872fd77787254195a47edac2dd329a1eff165ff26c4970afea48346c8.zst appeared during flush; published by index/roots.jsonl line (root=sha256:97293f05a5a2a30e62995f58bc8dde834408b85d752918e1c685c7f4c1372783 eph=true)
+    v3_x09_test.go:382: x9: ef/d2/efd2176dbd1202132d1214051485188dc111998ef874c0e8e00af32f3d56a3df.zst appeared during flush; published by index/roots.jsonl line (root=sha256:00b27eb3ab7bb8667e6fede28dd885ea6d8fcfbe3db5302b800c460481fa2932 eph=true)
+    v3_x09_test.go:382: x9: f2/07/f2073b26f38ca38584efed10e239c383b845f5eb4a709a3d251568e10400fac9.zst appeared during flush; published by index/roots.jsonl line (root=sha256:ce58217fe231f2874c97d924d106e584f4e89f43fe0fcdad3e33dbd2fe79eb3d eph=true)
+    v3_x09_test.go:382: x9: f4/72/f472a13564760311083e3b87ab95fbe84f1ba3bbeae23de1d8e7015c790ced7e.zst appeared during flush; published by index/roots.jsonl line (root=sha256:e33fe7d9140ded45fee0043715653de75dee6769e583a78e2de97697bae31e61 eph=false)
+    v3_x09_test.go:382: x9: fc/70/fc70887949bac5f76760fea634813b47491e0b21a473b9fbe353e18956dc9584.zst appeared during flush; published by index/roots.jsonl line (root=sha256:25f0eeaaf5fa503a61271c10c0ac4affae87ac4cf36be183c0fb474b0d5c8faa eph=true)
+    v3_x09_test.go:382: x9: fd/e1/fde17080b83014f9b702c20637240c7e48ae707efdb627ea22b0e231b424d63a.zst appeared during flush; published by index/roots.jsonl line (root=sha256:e037737d3ee05041e2244a8e4244b8e3c4e6cf811d86e271ec8cbd0424a5ad1e eph=true)
+--- PASS: TestV3_LiveSessionWriteSetAndAppendOnly (48.23s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:369: x10Restart: attempt 1/3: no daemon became reachable at \\.\pipe\qompack.34e829ca6fe0
+    v3_x10_test.go:369: x10Restart: attempt 2/3: no daemon became reachable at \\.\pipe\qompack.34e829ca6fe0
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (31.14s)
+=== RUN   TestV3_HotPathUnchangedWithLedgerResident
+    v3_x11_test.go:434: X11 resident state: ToolUses=2000 RawBytes=43120000 (41.1 MB) StoredBytes=3682837 DedupRatio=11.71; DAG Nodes=9041 Edges=17920; ledger Active=5000 Stale=0 FillRatio=0.306 tried.bloom=24056B
+    v3_x11_test.go:483: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-2058495748\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-59280-e7e1804173d17a7a)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+        hotpath: measuring B-E (50 x qompack checkpoint)...
+        hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+        
+        hotpath bench summary (windows/amd64, n=2000)
+          spawn floor: p50=31.494ms p99=43.191ms (n=200)
+          b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+        
+          B-A                 n=1536  p50=  30.720ms p95=  40.960ms p99=  65.536ms p999= 180.224ms max=  191.000ms limit=15.000ms   [FAIL]
+          B-B                 n=1536  p50=  20.480ms p95=  26.624ms p99=  49.152ms p999= 163.840ms max=  178.395ms limit=50.000ms   [FAIL]
+          B-D                 n=2000  p50=  53.270ms p95=  74.231ms p99=  99.922ms p999= 152.344ms max=  187.664ms limit=n/a        [reported]
+          B-E                 n=50    p50= 184.507ms p95= 233.102ms p99= 294.282ms p999= 294.282ms max=  294.282ms limit=2000.000ms [PASS]
+          B-E_cpu             n=50    p50=  15.625ms p95=  46.875ms p99=  78.125ms p999=  78.125ms max=   78.125ms limit=2000.000ms [PASS]
+          B-A_spawn_estimate  n=2000  p50=  21.776ms p95=  42.736ms p99=  68.428ms p999= 120.850ms max=  156.169ms limit=n/a        [reported]
+          hook_ack_rtt        n=64    p50=   0.000ms p95=   0.000ms p99=   0.555ms p999=   0.555ms max=    0.555ms limit=n/a        [reported]
+        
+          note: B-C not measured in wave 1: the processing seams are stubs
+          note: delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped
+          note: B-A's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+          note: B-B's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+          note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=14.336ms n=1536 — informational cross-check against the gated B-A row above, which adds the tail allowance
+          note: B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+          note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+        
+    v3_x11_test.go:485: bench artifact C:\Users\Quant\AppData\Local\Temp\TestV3_HotPathUnchangedWithLedgerResident118724398\003\v3-hotpath.json:
+        {
+          "platform": "windows/amd64",
+          "n": 2000,
+          "b_a_method": "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)",
+          "spawn_floor_ms": {
+            "n": 200,
+            "p50": 31.494,
+            "p99": 43.191
+          },
+          "notes": [
+            "B-C not measured in wave 1: the processing seams are stubs",
+            "delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped",
+            "B-A's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+            "B-B's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+            "hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=14.336ms n=1536 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+            "B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
+            "B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)"
+          ],
+          "budgets": [
+            {
+              "budget_id": "B-A",
+              "n": 1536,
+              "p50": 30.72,
+              "p95": 40.96,
+              "p99": 65.536,
+              "p999": 180.224,
+              "max": 191,
+              "limit_ms": 15,
+              "pass": false
+            },
+            {
+              "budget_id": "B-B",
+              "n": 1536,
+              "p50": 20.48,
+              "p95": 26.624,
+              "p99": 49.152,
+              "p999": 163.84,
+              "max": 178.395,
+              "limit_ms": 50,
+              "pass": false
+            },
+            {
+              "budget_id": "B-D",
+              "n": 2000,
+              "p50": 53.27,
+              "p95": 74.231,
+              "p99": 99.922,
+              "p999": 152.344,
+              "max": 187.664,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-E",
+              "n": 50,
+              "p50": 184.507,
+              "p95": 233.102,
+              "p99": 294.282,
+              "p999": 294.282,
+              "max": 294.282,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-E_cpu",
+              "n": 50,
+              "p50": 15.625,
+              "p95": 46.875,
+              "p99": 78.125,
+              "p999": 78.125,
+              "max": 78.125,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-A_spawn_estimate",
+              "n": 2000,
+              "p50": 21.776,
+              "p95": 42.736,
+              "p99": 68.428,
+              "p999": 120.85,
+              "max": 156.169,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "hook_ack_rtt",
+              "n": 64,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.555,
+              "p999": 0.555,
+              "max": 0.555,
+              "limit_ms": null,
+              "pass": null
+            }
+          ]
+        }
+    v3_x11_test.go:487: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v3_x11_test.go:487
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestV3_HotPathUnchangedWithLedgerResident
+        	Messages:   	bench-hotpath exited non-zero with the observer and the 5 000-elimination ledger resident (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<15ms and B-E's wall row p99<2000ms) breached, or the harness itself failed
+        	            	stderr:
+        	            	hotpath: a gated budget breached its limit — see the summary above
+--- FAIL: TestV3_HotPathUnchangedWithLedgerResident (386.90s)
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/dependency-change-1141
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/dependency-change-1142
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/dependency-change-1143
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/long-idle-gap-1131
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/long-idle-gap-1132
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/long-idle-gap-1133
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/multi-compaction-1171
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/multi-compaction-1172
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/multi-compaction-1173
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/read-heavy-1101
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/read-heavy-1102
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/read-heavy-1103
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/refactor-across-files-1121
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/refactor-across-files-1122
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/refactor-across-files-1123
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/subagent-heavy-1151
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/subagent-heavy-1152
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/subagent-heavy-1153
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/test-output-heavy-1111
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/test-output-heavy-1112
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/test-output-heavy-1113
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/thrash-loop-1161
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/thrash-loop-1162
+=== RUN   TestV3_FullCorpusIngestThroughObserverAndLedger/thrash-loop-1163
+=== NAME  TestV3_FullCorpusIngestThroughObserverAndLedger
+    v3_x12_test.go:363: dependency-change-1141       calls= 185 elims= 5 ratio=91.6272 objects=   113 dag{nodes=   508 edges=   653} ledger{records= 5 active= 0 stale= 5 fill=0.0007} flipped=5
+    v3_x12_test.go:363: dependency-change-1142       calls= 185 elims= 5 ratio=94.4121 objects=   113 dag{nodes=   514 edges=   647} ledger{records= 5 active= 0 stale= 5 fill=0.0007} flipped=5
+    v3_x12_test.go:363: dependency-change-1143       calls= 185 elims= 5 ratio=96.7513 objects=   112 dag{nodes=   508 edges=   647} ledger{records= 5 active= 0 stale= 5 fill=0.0007} flipped=5
+    v3_x12_test.go:363: long-idle-gap-1131           calls= 133 elims= 2 ratio=74.2784 objects=    90 dag{nodes=   362 edges=   464} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:363: long-idle-gap-1132           calls= 133 elims= 2 ratio=64.8382 objects=    93 dag{nodes=   374 edges=   452} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:363: long-idle-gap-1133           calls= 133 elims= 2 ratio=66.8038 objects=    93 dag{nodes=   371 edges=   453} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:363: multi-compaction-1171        calls= 268 elims= 5 ratio=108.5876 objects=   145 dag{nodes=   713 edges=   961} ledger{records= 4 active= 0 stale= 4 fill=0.0006} flipped=4
+    v3_x12_test.go:363: multi-compaction-1172        calls= 268 elims= 5 ratio=106.5221 objects=   144 dag{nodes=   719 edges=   963} ledger{records= 5 active= 0 stale= 5 fill=0.0007} flipped=5
+    v3_x12_test.go:363: multi-compaction-1173        calls= 268 elims= 5 ratio=101.1564 objects=   147 dag{nodes=   713 edges=   969} ledger{records= 5 active= 0 stale= 5 fill=0.0007} flipped=5
+    v3_x12_test.go:363: read-heavy-1101              calls= 152 elims= 2 ratio=86.0418 objects=    91 dag{nodes=   416 edges=   561} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:371: read-heavy ratio: read-heavy-1101 = 86.0418
+    v3_x12_test.go:363: read-heavy-1102              calls= 152 elims= 2 ratio=74.7901 objects=    94 dag{nodes=   415 edges=   552} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:371: read-heavy ratio: read-heavy-1102 = 74.7901
+    v3_x12_test.go:363: read-heavy-1103              calls= 152 elims= 2 ratio=80.2025 objects=    94 dag{nodes=   409 edges=   560} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:371: read-heavy ratio: read-heavy-1103 = 80.2025
+    v3_x12_test.go:363: refactor-across-files-1121   calls= 203 elims= 3 ratio=98.5867 objects=   124 dag{nodes=   568 edges=   725} ledger{records= 3 active= 3 stale= 0 fill=0.0004} flipped=0
+    v3_x12_test.go:363: refactor-across-files-1122   calls= 203 elims= 3 ratio=107.7032 objects=   125 dag{nodes=   569 edges=   722} ledger{records= 3 active= 3 stale= 0 fill=0.0004} flipped=0
+    v3_x12_test.go:363: refactor-across-files-1123   calls= 203 elims= 3 ratio=106.4334 objects=   123 dag{nodes=   563 edges=   728} ledger{records= 3 active= 3 stale= 0 fill=0.0004} flipped=0
+    v3_x12_test.go:363: subagent-heavy-1151          calls= 162 elims= 2 ratio=93.9223 objects=    79 dag{nodes=   446 edges=   515} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:363: subagent-heavy-1152          calls= 162 elims= 2 ratio=91.1775 objects=    79 dag{nodes=   440 edges=   515} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:363: subagent-heavy-1153          calls= 162 elims= 2 ratio=103.2886 objects=    79 dag{nodes=   434 edges=   523} ledger{records= 2 active= 2 stale= 0 fill=0.0003} flipped=0
+    v3_x12_test.go:363: test-output-heavy-1111       calls= 169 elims= 3 ratio=53.3816 objects=   110 dag{nodes=   444 edges=   507} ledger{records= 3 active= 3 stale= 0 fill=0.0004} flipped=0
+    v3_x12_test.go:363: test-output-heavy-1112       calls= 169 elims= 3 ratio=50.2552 objects=   110 dag{nodes=   444 edges=   509} ledger{records= 3 active= 3 stale= 0 fill=0.0004} flipped=0
+    v3_x12_test.go:363: test-output-heavy-1113       calls= 169 elims= 3 ratio=51.1629 objects=   106 dag{nodes=   445 edges=   508} ledger{records= 3 active= 3 stale= 0 fill=0.0004} flipped=0
+    v3_x12_test.go:363: thrash-loop-1161             calls= 175 elims= 4 ratio=80.2372 objects=   111 dag{nodes=   451 edges=   681} ledger{records= 4 active= 4 stale= 0 fill=0.0006} flipped=0
+    v3_x12_test.go:363: thrash-loop-1162             calls= 175 elims= 4 ratio=88.6994 objects=   105 dag{nodes=   451 edges=   677} ledger{records= 3 active= 3 stale= 0 fill=0.0004} flipped=0
+    v3_x12_test.go:363: thrash-loop-1163             calls= 175 elims= 4 ratio=85.1738 objects=   109 dag{nodes=   448 edges=   668} ledger{records= 3 active= 3 stale= 0 fill=0.0004} flipped=0
+    v3_x12_test.go:380: sessions with dedup ratio >= 4.0: 24 / 24
+--- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger (84.88s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/dependency-change-1141 (4.94s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/dependency-change-1142 (4.04s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/dependency-change-1143 (3.84s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/long-idle-gap-1131 (3.30s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/long-idle-gap-1132 (2.91s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/long-idle-gap-1133 (2.40s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/multi-compaction-1171 (4.27s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/multi-compaction-1172 (4.50s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/multi-compaction-1173 (4.47s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/read-heavy-1101 (2.68s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/read-heavy-1102 (2.85s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/read-heavy-1103 (2.93s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/refactor-across-files-1121 (3.67s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/refactor-across-files-1122 (3.92s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/refactor-across-files-1123 (4.32s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/subagent-heavy-1151 (3.50s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/subagent-heavy-1152 (3.13s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/subagent-heavy-1153 (3.04s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/test-output-heavy-1111 (2.86s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/test-output-heavy-1112 (2.95s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/test-output-heavy-1113 (2.99s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/thrash-loop-1161 (3.86s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/thrash-loop-1162 (3.65s)
+    --- PASS: TestV3_FullCorpusIngestThroughObserverAndLedger/thrash-loop-1163 (3.81s)
+=== RUN   TestV4Server_TheMachinesHostRulesDoNotReachARow
+--- PASS: TestV4Server_TheMachinesHostRulesDoNotReachARow (1.65s)
+=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio
+--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (2.05s)
+=== RUN   TestV4_PreCompactToCheckpointToRehydrateRoundTrip
+--- PASS: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (3.69s)
+=== RUN   TestV4_SchedulerFiresBeforeTheSimulatedStockThreshold
+--- PASS: TestV4_SchedulerFiresBeforeTheSimulatedStockThreshold (4.29s)
+=== RUN   TestV4_O1SpanInstructionFromARealCheckpointFrontier
+--- PASS: TestV4_O1SpanInstructionFromARealCheckpointFrontier (3.28s)
+=== RUN   TestV4_TombstoneToRecallToExpandRoundTrip
+    v4_x05_test.go:180: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v4_x05_test.go:180
+        	Error:      	Received unexpected error:
+        	            	qompack: append-only violation: observation sha256:e0e30336ccfd6f319ddd78fe60896ccf0d963cc2dcffa3d7d3dfb0a84a7a40e7 already reserved for a different intent
+        	Test:       	TestV4_TombstoneToRecallToExpandRoundTrip
+        	Messages:   	the store must accept the record; authorization is a RETRIEVAL-time gate, not a write gate
+--- FAIL: TestV4_TombstoneToRecallToExpandRoundTrip (3.34s)
+=== RUN   TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction
+--- PASS: TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction (5.04s)
+=== RUN   TestV4_EphemeralRetrievalResultsRankFirstForEviction
+--- PASS: TestV4_EphemeralRetrievalResultsRankFirstForEviction (1.74s)
+=== RUN   TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint
+--- PASS: TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint (6.15s)
+=== RUN   TestV4_WhyAndDroppedAnswerFromRealProducers
+--- PASS: TestV4_WhyAndDroppedAnswerFromRealProducers (3.79s)
+=== RUN   TestV4_LiveSessionWriteSetAppendOnlyAndImmutability
+--- PASS: TestV4_LiveSessionWriteSetAppendOnlyAndImmutability (8.20s)
+=== RUN   TestV4_DegradedPassiveWithEverySubsystem
+--- PASS: TestV4_DegradedPassiveWithEverySubsystem (6.23s)
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/object
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/capture_sidecar
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/LOUD_is_verbatim
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/day_log
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/rotated_day_log
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/hook-quiet_record
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/live_draft
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/set-aside_draft
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/rehydrate_drops
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/drain_state_is_fixed
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/retention_roots_are_fixed
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/a_bare_draft-_prefix_is_not_folded
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/WAL_segment
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/rotated_WAL_segment
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/client_fallback_spool
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/client_blob
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/staging_file
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/index_is_fixed
+=== RUN   TestV4_X13NormalizeFoldsOnlyThePerRunComponent/run_state_is_fixed
+--- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/object (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/capture_sidecar (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/LOUD_is_verbatim (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/day_log (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/rotated_day_log (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/hook-quiet_record (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/live_draft (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/set-aside_draft (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/rehydrate_drops (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/drain_state_is_fixed (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/retention_roots_are_fixed (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/a_bare_draft-_prefix_is_not_folded (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/WAL_segment (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/rotated_WAL_segment (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/client_fallback_spool (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/client_blob (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/staging_file (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/index_is_fixed (0.00s)
+    --- PASS: TestV4_X13NormalizeFoldsOnlyThePerRunComponent/run_state_is_fixed (0.00s)
+=== RUN   TestV4_X13NormalizeSeparatesWhatItUsedToConflate
+=== RUN   TestV4_X13NormalizeSeparatesWhatItUsedToConflate/the_hook's_fallback_spool_beside_the_daemon's_WAL
+=== RUN   TestV4_X13NormalizeSeparatesWhatItUsedToConflate/a_client-externalized_blob_beside_the_daemon's_WAL
+=== RUN   TestV4_X13NormalizeSeparatesWhatItUsedToConflate/a_LOUD_line_beside_the_day_log
+=== RUN   TestV4_X13NormalizeSeparatesWhatItUsedToConflate/a_quiet_hook_failure_beside_the_day_log
+=== RUN   TestV4_X13NormalizeSeparatesWhatItUsedToConflate/a_set-aside_draft_beside_the_live_one
+--- PASS: TestV4_X13NormalizeSeparatesWhatItUsedToConflate (0.00s)
+    --- PASS: TestV4_X13NormalizeSeparatesWhatItUsedToConflate/the_hook's_fallback_spool_beside_the_daemon's_WAL (0.00s)
+    --- PASS: TestV4_X13NormalizeSeparatesWhatItUsedToConflate/a_client-externalized_blob_beside_the_daemon's_WAL (0.00s)
+    --- PASS: TestV4_X13NormalizeSeparatesWhatItUsedToConflate/a_LOUD_line_beside_the_day_log (0.00s)
+    --- PASS: TestV4_X13NormalizeSeparatesWhatItUsedToConflate/a_quiet_hook_failure_beside_the_day_log (0.00s)
+    --- PASS: TestV4_X13NormalizeSeparatesWhatItUsedToConflate/a_set-aside_draft_beside_the_live_one (0.00s)
+=== RUN   TestV4_X13WriteSetSeesWhatItUsedToConflate
+=== RUN   TestV4_X13WriteSetSeesWhatItUsedToConflate/the_hook's_fallback_spool_beside_the_daemon's_WAL
+=== RUN   TestV4_X13WriteSetSeesWhatItUsedToConflate/a_client-externalized_blob_beside_the_daemon's_WAL
+=== RUN   TestV4_X13WriteSetSeesWhatItUsedToConflate/a_LOUD_line_beside_the_day_log
+=== RUN   TestV4_X13WriteSetSeesWhatItUsedToConflate/a_quiet_hook_failure_beside_the_day_log
+=== RUN   TestV4_X13WriteSetSeesWhatItUsedToConflate/a_set-aside_draft_beside_the_live_one
+--- PASS: TestV4_X13WriteSetSeesWhatItUsedToConflate (2.50s)
+    --- PASS: TestV4_X13WriteSetSeesWhatItUsedToConflate/the_hook's_fallback_spool_beside_the_daemon's_WAL (0.47s)
+    --- PASS: TestV4_X13WriteSetSeesWhatItUsedToConflate/a_client-externalized_blob_beside_the_daemon's_WAL (0.54s)
+    --- PASS: TestV4_X13WriteSetSeesWhatItUsedToConflate/a_LOUD_line_beside_the_day_log (0.52s)
+    --- PASS: TestV4_X13WriteSetSeesWhatItUsedToConflate/a_quiet_hook_failure_beside_the_day_log (0.52s)
+    --- PASS: TestV4_X13WriteSetSeesWhatItUsedToConflate/a_set-aside_draft_beside_the_live_one (0.46s)
+=== RUN   TestV4_X13NormalizeIsIdempotent
+--- PASS: TestV4_X13NormalizeIsIdempotent (0.00s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:532: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet621104138\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:534: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet621104138\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (9.01s)
+=== RUN   TestV4_EveryContractAssertionHasARealProducer
+    v4_x14_test.go:134: v4 §4.14: 9 assertions registered, 8 with a declared producer, 1 reporting not-yet-implemented
+--- PASS: TestV4_EveryContractAssertionHasARealProducer (2.43s)
+=== RUN   TestV5_ObserveToStatusRoundTrip
+=== RUN   TestV5_ObserveToStatusRoundTrip/live
+    v5_x01_test.go:542: V5 4.1 live: index_tool_uses=65 hook_controlled.N=65 l0_ingest.N=65 B-A p99=196608us (estimated) B-B p99=163840us (observed)
+=== RUN   TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot
+=== RUN   TestV5_ObserveToStatusRoundTrip/nothing_observed_is_reported_as_unknown
+--- PASS: TestV5_ObserveToStatusRoundTrip (23.39s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/live (0.00s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot (0.07s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/nothing_observed_is_reported_as_unknown (0.33s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:537: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v5_x02_test.go:537
+        	Error:      	Not equal: 
+        	            	expected: "sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9"
+        	            	actual  : "sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+        	            	+sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	an unpinned re_read is the newest capture
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (16.25s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (13.23s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.96s)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops
+    v5_x04_test.go:526: bounded arm: tokens=572 budget=600 degraded=false dropped=41 item7_rendered=true
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (33.31s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (12.64s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (16.70s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (3.96s)
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/uncertain_under_stale_response_drop
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/negative_control_blind_ledger_is_unavailable_not_absent
+    v5_x05_test.go:625: blind-ledger digest carries the MCP record's line: true; the stale tag: false
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/old_caller_adapter_agrees_with_the_wire
+--- PASS: TestV5_EliminationThroughEveryFourSurfaces (14.82s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces (3.21s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface (1.30s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/uncertain_under_stale_response_drop (3.14s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/negative_control_blind_ledger_is_unavailable_not_absent (4.02s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/old_caller_adapter_agrees_with_the_wire (1.54s)
+=== RUN   TestV5_SelectorGatedByRealScheduler
+=== RUN   TestV5_SelectorGatedByRealScheduler/refuses_before_any_runtime
+=== NAME  TestV5_SelectorGatedByRealScheduler
+    v5_x06_test.go:270: p=72 chosen from 4 real candidates; 5 real blocks after p; budget 80 of 100 tokens
+=== RUN   TestV5_SelectorGatedByRealScheduler/real_runtime_opens_the_gate_and_the_selector_selects
+    v5_x06_test.go:290: kept 4, dropped 1, 80 tokens, value 0.815, 9 iters
+=== RUN   TestV5_SelectorGatedByRealScheduler/closing_the_runtime_closes_the_gate
+=== RUN   TestV5_SelectorGatedByRealScheduler/a_new_runtime_recovers_the_gate
+--- PASS: TestV5_SelectorGatedByRealScheduler (4.49s)
+    --- PASS: TestV5_SelectorGatedByRealScheduler/refuses_before_any_runtime (0.00s)
+    --- PASS: TestV5_SelectorGatedByRealScheduler/real_runtime_opens_the_gate_and_the_selector_selects (0.00s)
+    --- PASS: TestV5_SelectorGatedByRealScheduler/closing_the_runtime_closes_the_gate (0.05s)
+    --- PASS: TestV5_SelectorGatedByRealScheduler/a_new_runtime_recovers_the_gate (0.09s)
+=== RUN   TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint
+=== RUN   TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/selected_complete_records_reach_item3
+=== RUN   TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/explicit_overflow_reaches_item7
+=== RUN   TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/negative_control_operator_switch_off
+=== RUN   TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/negative_control_gate_closed
+--- PASS: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint (21.57s)
+    --- PASS: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/selected_complete_records_reach_item3 (3.79s)
+    --- PASS: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/explicit_overflow_reaches_item7 (3.52s)
+    --- PASS: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/negative_control_operator_switch_off (7.63s)
+    --- PASS: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/negative_control_gate_closed (6.62s)
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/degraded_passive_records_the_loop_and_says_nothing_until_restored
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself
+--- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (91.60s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule (50.22s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/degraded_passive_records_the_loop_and_says_nothing_until_restored (40.89s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself (0.50s)
+=== RUN   TestV5_EveryContractAssertionHasARealProducer
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence
+    v5_x14_test.go:313: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v5_x14_test.go:139
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v5_x14_test.go:313
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence
+        	Messages:   	a full-mode SessionStart must emit hookSpecificOutput
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set
+--- FAIL: TestV5_EveryContractAssertionHasARealProducer (16.58s)
+    --- FAIL: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence (10.65s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud (3.90s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set (2.03s)
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/full_reference
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/degraded
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/daemon_disabled
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/admission_switch_refused
+    v5_x15_test.go:612: testutil: configuration warning: key="runtime.migration.replacement.newResult" invalid value, using default: true not in false (C:\Users\Quant\AppData\Local\Temp\TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresentad1980233931\002\project\.qompack\config.json:1)
+    v5_x15_test.go:649: v5 §4.15: runtime.migration.replacement.newResult refused by gate "M4 admission (T21 pipeline, pass-through and recovery)" (SP-21)
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/config_corrupt_refuses_capture
+--- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent (11.89s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/full_reference (0.72s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/degraded (5.07s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/daemon_disabled (4.39s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/admission_switch_refused (0.14s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/config_corrupt_refuses_capture (1.58s)
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack/ComposedDaemon
+    v5_x16_test.go:381: project write set (73 files): [checkpoints/0001.json checkpoints/MANIFEST.jsonl dag/deps.jsonl index/files.json index/files.jsonl index/observations.jsonl index/roots.jsonl index/segments.jsonl index/sessions.jsonl index/tool_use.jsonl logs/qompack-20260925.log metrics/latency.json objects/0e/65/0e659b6ff136d06105a2b8f5e50b41b7251c222473f9b4a300314cf42940a2dd.zst objects/13/2a/132ab0b5a01ebba7aa16912a99f006b2a7352fc0d5637a602d55ff0656932ddd.zst objects/20/57/205730fd119fa52c4f6124c7928d9536e2c572aa8290c8b521b7d47ba6aa5a10.zst objects/33/cd/33cd0d373e50ae53af66689d1f6299c73d919c1b2e7546ad143af580ddf883b0.zst objects/3d/59/3d59f796c2ff970c0a0407f5a0b46bac488dd27f780ae8f09107f5e791bae857.zst objects/43/ff/43ff2aa6787d563906206ce15abcb5df93f008942903066026ea6c2433ca6c61.zst objects/52/61/5261c733dd4045787292e1dd3cc056c7eda434e1daed8a1027d37e5094692322.zst objects/55/ac/55aca6ca9b140b081cf1da4fdac8749012e8da783e94831de51c79e11a444782.zst objects/6b/6c/6b6cad45c9ccd57d8cd28ada270ae1d067dd56c42cc3db80517c2f56d9eb9085.zst objects/98/b8/98b8d0eeec4b714e60044d44915801c36ab4de7ef635120a88e14e8876f3af4d.zst objects/ba/00/ba008ca1ee92d85c63b21e608df4610db6fb28bf1e0087db480209e5df05b3a7.zst objects/ce/28/ce28c4b691cebcf76fdc1277f467d6ab0481fa423ee90d3d12ec4000b89e8534.zst objects/ea/91/ea912e6bb9b2e5e67a8f9827f8bbcad901ff25005e14503ad68cbaa141642592.zst objects/ee/b8/eeb8a678866fabd35ae2b5a84b5ef41d96626c66f025d081a7e8b99a729a9fd4.zst objects/f1/24/f124033e2a5b8073349335838751712b4a19dcf165c24925149c96753ddc33f7.zst objects/f8/86/f8860d9ce906ec11e9db55c55f80d90c2708aa8c4c00ed38f9ff92bc8f4c9f99.zst objects/fd/14/fd144d2935afc11ae97207ccc1371348888d98e5dcbc44726463f1d3323d68af.zst pins/invariants.json pins/invariants.jsonl records/captures/03/032d06b85c2c1bd2f6c6fc9c0dcda501640923918ac4733a694f0c096bb9becf.json records/captures/14/14eec4702ca31ca2173a82b4f6dcb0749f1ef4bcd12264b3490b62c6e447a58b.json records/captures/1b/1b1dd5860da93447eab497c0cc6d5e0ba9f2bc5ea78aaaf83069433b65622e08.json records/captures/44/446e8ec99123ce3268bc390ded015fba002e75aeac2578ec6d760add299f3498.json records/captures/46/4650ed14e17c519ae657a188adbf7a619e4b4f01f2ee5fa12bbab3eec5e0d4c8.json records/captures/48/48eff3f71b3615956260f0b6d6b9971c0997d5c02802893a20f462450ac69344.json records/captures/5e/5e07b63e1320bfa6f9f7c6e8a996f23d9005eedf9c7166966b257f54dbdb13d7.json records/captures/88/88a0872d8ce3963bfa8b69afbad21b14b3191a57ad441f203ac4b2c1f2a3a326.json records/captures/8f/8f28fe874d8939d75a8061370beb8b4d145f188a53ba7a26e7856dc2b8726c8a.json records/captures/90/907ec54d5122e5e93f7b059e1636afd63463a68f86218f2229eaa6b0339f30a2.json records/captures/99/997ecc5d214c68f83445d62eb57f2e1c0de45e0caedf437db11642edf7fd4537.json records/captures/cd/cd4496a9569a47000a239b29c1e16b077f65b276d781df4ff03e827436120679.json records/captures/ce/ce75665099f2da4266d403875433654d2974fa5fa7f2f2987478e85f9706c91e.json records/captures/d8/d8e5dfa9db70abb9e84f963499396e72e7a73752f826fb1f791ed2ee482e78fd.json records/captures/e7/e7cf6d5d344a455591363eb0bd15379fb7f880789d06b4499c89a78819f78213.json records/captures/ef/ef2e147faf0ed7c40f7e43522aadb6f8642866aff352e0ff40d0dc7c724b91ff.json records/captures/fe/fedc1ff6b6db6a4327a0d70b9182c54ce181489f9d82ef2ed4f73d665cf73300.json records/eliminations.jsonl run/marker.json sketches/explore.hll sketches/touch.cms sketches/tried.bloom spool/client-52768.ndjson state/chunktokens.bin state/delivery-ack-position.json state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal-log.jsonl state/delivery-journal.json state/delivery-lease-position.json state/delivery-leases.jsonl state/draft-sess-e2e-v5-x16.json state/drain.json state/gc-live.bin state/history.json state/observations.json state/observer.json state/precompact.json state/rehydrate-sess-e2e-v5-x16.json state/retention-roots.jsonl state/session-recovery.json state/store.json]
+    v5_x16_test.go:381: HOME write set (0 files): []
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack/ShippedDaemon
+    v5_x16_test.go:432: project write set (53 files): [dag/deps.jsonl index/files.json index/files.jsonl index/observations.jsonl index/roots.jsonl index/segments.jsonl index/sessions.jsonl index/tool_use.jsonl logs/qompack-20260925.log metrics/latency.json objects/01/24/0124c9b792410603358bde288bb7a22e287078df23a04fc337b9f1a4f7c80059.zst objects/0a/76/0a76387e376d644e1f346157c5d0a49b553aa07c16e2d6e39ffe836fccccd09c.zst objects/0b/b0/0bb0968f0c2a5f8834cf43c5166d94d82c7e0d7aa92ace7399e6b2c91557634a.zst objects/47/7e/477eaa8c1436b871daaf9769d8efd12fbd78a8cdaeece654e9eb5937fe974737.zst objects/a4/5c/a45c19fbb17de7b6602f66b6974ed6510c95c4c4b913243d9893707d4e838cd1.zst objects/b1/3c/b13c2cf7a96d6580df51cac77b7e29227c40e1ad213712dcfe9ac95ae5baac8a.zst objects/c2/c4/c2c4a5d851dff9bda982e604f7d42ae31243b157a82d3e3fecd4cc226c862ce1.zst objects/ca/4d/ca4ddd021a89e4d5272f47412f7a783c24ce6f33cced2b529729e83726df6b29.zst objects/cb/8c/cb8ce5978106dfaa391fadc0af79f6a241d94e0535c594866334436b8d9aac58.zst objects/d0/fd/d0fd83cfa69856bc646c9334e34443b0d2ece97a84fad87a9d2c011804b075dd.zst objects/fb/50/fb501cc4c86056aa5c47febdf6f67132f54b5cfdc4caa19bae443fc0871d0d50.zst records/captures/0a/0a036d4a1480d0c3d18362c63ed92341112ea31f2f547be4515feecd9a639f78.json records/captures/0c/0c481740928f670a4ea93827a879fff37507459369ae98c560c9158475644730.json records/captures/5a/5ae71745229bdb877901f178f3ca6e3e98502e815e3579ef3e00f1bcc02c1fcc.json records/captures/75/757bbd7a8a9cbcd96f310d26e5fc1c828b382b3d6c4ee50a7e08e161f2695bb8.json records/captures/89/89b7f3e6feb68823cf1df73d9ceaaad3443a6aebe4c5aad8e2677866655f4973.json records/captures/94/94c3a828cd3f35951c9b9ecea2faec722b7a82c1dbb21874803eb5c43239ebab.json records/captures/b9/b9cdfacdbd304f8c2b7d20f935f2d2274737d3f7631186fee81d2b577c9e191d.json records/captures/d5/d5079e9450794a82feeaf96e2082d8738c02f9ec68517abb10f3c30b9ef2af6e.json records/captures/e4/e4108697882aa3ab70d844164e83b6464cc80c34dfa7840edae5b1569c939fa3.json records/captures/f9/f9b397b9ec6b689005a188327c949f403dbfc1d186964b6a549fcab2f8827574.json run/marker.json sketches/explore.hll sketches/touch.cms spool/client-52768.ndjson state/bocd.json state/chunktokens.bin state/delivery-ack-position.json state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal-log.jsonl state/delivery-journal.json state/delivery-lease-position.json state/delivery-leases.jsonl state/drain.json state/gc-live.bin state/history.json state/observations.json state/observer.json state/retention-roots.jsonl state/scheduler.json state/session-recovery.json state/store.json]
+    v5_x16_test.go:432: HOME write set (0 files): []
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_DirectedImportIsOutsideAndSeen
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_SeveredWritersStayConfined
+    v5_x16_test.go:520: project write set (3 files): [logs/LOUD.log logs/qompack-20260925.log run/spawn.lock]
+    v5_x16_test.go:520: HOME write set (0 files): []
+--- PASS: TestV5_NoPackageWritesOutsideDotQompack (12.45s)
+    --- PASS: TestV5_NoPackageWritesOutsideDotQompack/ComposedDaemon (7.67s)
+    --- PASS: TestV5_NoPackageWritesOutsideDotQompack/ShippedDaemon (4.44s)
+    --- PASS: TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_DirectedImportIsOutsideAndSeen (0.21s)
+    --- PASS: TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_SeveredWritersStayConfined (0.14s)
+=== CONT  TestStandingInstructionsAgree
+=== CONT  TestSyncBufferConcurrentWriterReader
+--- PASS: TestStandingInstructionsAgree (0.00s)
+--- PASS: TestSyncBufferConcurrentWriterReader (0.09s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	1422.706s
+FAIL
+exit=1

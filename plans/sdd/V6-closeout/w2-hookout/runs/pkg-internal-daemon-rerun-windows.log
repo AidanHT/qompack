@@ -1,0 +1,3 @@
+aec178a fix(e2e): wait for an in-flight lazy spawn before shutdown
+ok  	github.com/qompack/qompack/internal/daemon	289.794s
+exit=0

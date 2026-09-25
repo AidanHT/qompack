@@ -1,0 +1,8 @@
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/internal/observer
+github.com/qompack/qompack/internal/contract
+github.com/qompack/qompack/internal/hookio
+github.com/qompack/qompack/internal/config
+github.com/qompack/qompack/internal/cli
+github.com/qompack/qompack/test/integration
+github.com/qompack/qompack/test/guards

@@ -1,0 +1,65 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1401,
+   "failed": [],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/internal/observer": {
+   "result": "pass",
+   "passed": 454,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/contract": {
+   "result": "pass",
+   "passed": 158,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/hookio": {
+   "result": "pass",
+   "passed": 112,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/config": {
+   "result": "pass",
+   "passed": 311,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 348,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/integration": {
+   "result": "fail",
+   "passed": 69,
+   "failed": [
+    "TestIntegration_HotPathWarmWithRealResidentState"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "fail",
+   "passed": 162,
+   "failed": [
+    "TestCarriedDefects_WaveReportRequiresResolution/SP06-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP10-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP09-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D3",
+    "TestCarriedDefects_WaveReportRequiresResolution"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

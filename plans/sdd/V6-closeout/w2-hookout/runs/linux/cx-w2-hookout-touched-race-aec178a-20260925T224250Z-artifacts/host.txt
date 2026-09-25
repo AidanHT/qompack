@@ -1,0 +1,10 @@
+run_id=cx-w2-hookout-touched-race-aec178a-20260925T224250Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout
+rev=aec178a
+commit=aec178aa1ade7f89b2520bdee21eac6b598c72a1
+bundle_sha256=b5fdfcde32e2672d4f761fbdb9defe67458d1c4bb93c7840229486aa1f5bf687
+host_started_utc=2026-09-25T22:42:56Z
+inner_args=--timeout 45m -- ./internal/daemon ./internal/observer ./internal/contract ./internal/hookio ./internal/config ./internal/cli ./test/integration ./test/guards
+host_finished_utc=2026-09-25T23:05:59Z
+container_exit=1
