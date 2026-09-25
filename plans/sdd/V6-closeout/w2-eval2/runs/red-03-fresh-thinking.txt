@@ -1,0 +1,10 @@
+--- FAIL: TestAccountHostStream_FreshSessionKnowsItsThinking (0.00s)
+    live_account_test.go:196: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_account_test.go:196
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestAccountHostStream_FreshSessionKnowsItsThinking
+        	Messages:   	the first turn's thinking is its running total minus zero
+FAIL
+FAIL	github.com/qompack/qompack/internal/eval	0.200s
+FAIL
+exit=1

@@ -185,3 +185,17 @@ func loadRates(t *testing.T) eval.LiveRateTable {
 func stripped(u eval.UsageTotals) eval.UsageTotals {
 	return eval.UsageTotals{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite}
 }
+
+// TestAccountHostStream_FreshSessionKnowsItsThinking: a model absent from a fresh (zero) baseline
+// had spent nothing yet, thinking included, so the first turn's thinking delta and the session's
+// thinking total are known numbers rather than unknown ones.
+func TestAccountHostStream_FreshSessionKnowsItsThinking(t *testing.T) {
+	a := eval.AccountHostStream(parseLiveFixture(t, smoke1Stream), eval.AccountBaseline{})
+	require.True(t, a.Consistent, "problems: %v", a.Problems)
+	d0 := a.Turns[0].Delta[haiku]
+	require.NotNil(t, d0.Thinking, "the first turn's thinking is its running total minus zero")
+	require.Equal(t, int64(181), *d0.Thinking)
+	total := a.Total[haiku]
+	require.NotNil(t, total.Thinking, "the session's thinking total is the final running total minus zero")
+	require.Equal(t, int64(777), *total.Thinking)
+}
