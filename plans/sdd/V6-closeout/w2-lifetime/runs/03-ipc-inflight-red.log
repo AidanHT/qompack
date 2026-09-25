@@ -1,0 +1,29 @@
+=== RUN   TestServerCloseLetsAnInFlightReplyFinish
+    server_inflight_test.go:86: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/internal/ipc/server_inflight_test.go:86
+        	Error:      	Received unexpected error:
+        	            	EOF
+        	Test:       	TestServerCloseLetsAnInFlightReplyFinish
+        	Messages:   	the reply of a request in flight when Close began was lost
+--- FAIL: TestServerCloseLetsAnInFlightReplyFinish (0.02s)
+=== RUN   TestServerCloseLetsAnInFlightACKFinish
+    server_inflight_test.go:114: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/internal/ipc/server_inflight_test.go:114
+        	Error:      	Received unexpected error:
+        	            	EOF
+        	Test:       	TestServerCloseLetsAnInFlightACKFinish
+        	Messages:   	the ACK of a request in flight when Close began was lost
+--- FAIL: TestServerCloseLetsAnInFlightACKFinish (0.01s)
+=== RUN   TestServerCloseStillClosesIdleConnections
+    server_inflight_test.go:135: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/internal/ipc/server_inflight_test.go:135
+        	Error:      	Received unexpected error:
+        	            	EOF
+        	Test:       	TestServerCloseStillClosesIdleConnections
+--- FAIL: TestServerCloseStillClosesIdleConnections (0.02s)
+=== RUN   TestServerCloseBoundsAReplyNobodyReads
+--- PASS: TestServerCloseBoundsAReplyNobodyReads (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	1.429s
+FAIL
+exit=1
