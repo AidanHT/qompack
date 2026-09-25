@@ -29,11 +29,13 @@ type LiveEvalReport struct {
 	CreatedAt string `json:"created_at"`
 	// Qualification is the run's own statement of how it was executed (agent-executed on the real
 	// installed host, never human UAT), verbatim from its plan.
-	Qualification     string                   `json:"qualification"`
-	Host              string                   `json:"host"`
-	ClaudeCodeVersion string                   `json:"claude_code_version"`
-	Model             string                   `json:"model"`
-	PreregModel       string                   `json:"preregistered_model"`
+	Qualification     string `json:"qualification"`
+	Host              string `json:"host"`
+	ClaudeCodeVersion string `json:"claude_code_version"`
+	Model             string `json:"model"`
+	PreregModel       string `json:"preregistered_model"`
+	// HostModels is every model the trials' hosts reported at start-up: what Model resolved to.
+	HostModels        []string                 `json:"host_models,omitempty"`
 	TaskSet           string                   `json:"task_set"`
 	TaskSetSHA256     string                   `json:"task_set_sha256"`
 	FixtureTreeSHA256 string                   `json:"fixture_tree_sha256,omitempty"`
@@ -84,7 +86,7 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 	r := &LiveEvalReport{
 		Source: in.Source, RunID: p.RunID, CreatedAt: p.CreatedAt,
 		Qualification: p.Agent, Host: p.Host, ClaudeCodeVersion: p.ClaudeCLIVersion,
-		Model: p.Model, PreregModel: p.PreregisteredModel,
+		Model: p.Model, PreregModel: p.PreregisteredModel, HostModels: s.HostModels,
 		TaskSet: p.TaskSet, TaskSetSHA256: p.TaskSetSHA256, FixtureTreeSHA256: p.FixtureTreeSHA256,
 		Install: p.Install, Plugin: p.Plugin, HeldOutIncluded: p.HeldOutIncluded,
 		KnownDefects: p.KnownDefects, DefectPrecondition: defectPrecondition(p),
@@ -114,6 +116,12 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 	r.Trials.Failed = len(s.Failed)
 	r.NotConfirmatory = notConfirmatory(p, s, r)
 	r.Confirmatory = len(r.NotConfirmatory) == 0
+	if contingencyRun(p) && len(s.HostModels) > 0 {
+		r.Notes = append(r.Notes, fmt.Sprintf("the run used the pre-registered contingency alias %s in place of %s, "+
+			"which the hosts resolved to %s; preregistration section 3 permits it only after the host rejected %s in "+
+			"the first confirmatory session and the change was appended to section 9 before the restart, and those "+
+			"preconditions are not machine-checked", p.Model, p.PreregisteredModel, strings.Join(s.HostModels, ", "), p.PreregisteredModel))
+	}
 	return r
 }
 
@@ -129,10 +137,7 @@ func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []s
 	if pre, ok := eval.LivePreregistrations[p.TaskSet]; ok {
 		out = append(out, openDefectReasons(p, pre)...)
 	}
-	if p.PreregisteredModel == "" || p.Model != p.PreregisteredModel {
-		out = append(out, fmt.Sprintf("it ran on %s, not the pre-registered model %s",
-			orUnknown(p.Model), orUnknown(p.PreregisteredModel)))
-	}
+	out = append(out, modelDepartures(p, s)...)
 	if !(containsString(p.Arms, eval.ArmStock) && containsString(p.Arms, eval.ArmQompack)) {
 		out = append(out, fmt.Sprintf("it did not run both arms (arms: %s)", orUnknown(strings.Join(p.Arms, ", "))))
 	}
@@ -171,6 +176,34 @@ func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []s
 		out = append(out, "its bundle was assembled from a worktree with uncommitted changes, not a frozen candidate")
 	}
 	return out
+}
+
+// contingencyRun reports that the run used the one alias its task set's pre-registration permits in
+// place of the pre-registered model (section 3's contingency).
+func contingencyRun(p eval.LivePlan) bool {
+	pre, ok := eval.LivePreregistrations[p.TaskSet]
+	return ok && p.Model != p.PreregisteredModel && pre.RunsPreregisteredModel(p.PreregisteredModel, p.Model)
+}
+
+// modelDepartures lists how the run's model departs from section 3: the pre-registered model, or
+// the contingency alias with the model the host resolved it to recorded (amendment A6). A resolution
+// that was not recorded, or that differed between trials, leaves the run's model unknown or the
+// arms not identical.
+func modelDepartures(p eval.LivePlan, s eval.LiveSummary) []string {
+	switch {
+	case p.PreregisteredModel != "" && p.Model == p.PreregisteredModel:
+		return nil
+	case !contingencyRun(p):
+		return []string{fmt.Sprintf("it ran on %s, not the pre-registered model %s",
+			orUnknown(p.Model), orUnknown(p.PreregisteredModel))}
+	case len(s.HostModels) == 0:
+		return []string{fmt.Sprintf("it ran on the contingency alias %s, and its summary does not record the model "+
+			"the host resolved it to, which preregistration section 3 requires", p.Model)}
+	case len(s.HostModels) > 1:
+		return []string{fmt.Sprintf("it ran on the contingency alias %s, which the hosts resolved to more than one "+
+			"model (%s), so its trials did not all run on one model", p.Model, strings.Join(s.HostModels, ", "))}
+	}
+	return nil
 }
 
 // notPreregisteredMaterials lists how the run's plan departs from what its task set's
@@ -293,8 +326,12 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 func renderLive(rw *errWriter, r *LiveEvalReport) {
 	rw.printf("live evaluation — %s\n", r.Qualification)
 	rw.printf("  run %s (created %s), read from %s\n", orUnknown(r.RunID), orUnknown(r.CreatedAt), orUnknown(r.Source))
-	rw.printf("  model %s (pre-registered %s), Claude Code %s on %s, plugin install %s\n",
-		orUnknown(r.Model), orUnknown(r.PreregModel), orUnknown(r.ClaudeCodeVersion), orUnknown(r.Host),
+	hostModels := "not recorded"
+	if len(r.HostModels) > 0 {
+		hostModels = strings.Join(r.HostModels, ", ")
+	}
+	rw.printf("  model %s (pre-registered %s), host reported %s, Claude Code %s on %s, plugin install %s\n",
+		orUnknown(r.Model), orUnknown(r.PreregModel), hostModels, orUnknown(r.ClaudeCodeVersion), orUnknown(r.Host),
 		orUnknown(r.Install))
 	if r.Plugin != nil {
 		rw.printf("  bundle %s at commit %s (dirty=%t)\n", orUnknown(r.Plugin.Version), orUnknown(r.Plugin.Commit),

@@ -276,3 +276,24 @@ QOMPACK_LIVE_EVAL=1 go run ./tools/devtool live-eval --tasks testdata/eval/live/
   --include-held-out --arms stock,qompack --install plugin-dir --known-open-defects none \
   --bundle dist/live-bundle/qompack-plugin-<v>-windows-amd64 --max-sessions 40
 ```
+
+**A6 — 2026-09-25, by the same seat, before any confirmatory trial.** No task, fixture, hidden test,
+rate or analysis parameter changes; how a run on §3's model contingency is recognised is made
+precise.
+
+*Reason.* §3 lets the run restart on the host alias `sonnet` if the host rejects `claude-sonnet-5`,
+with the resolved model recorded. The code knew no such path: every trial of that run was recorded
+as off the pre-registered model and `qompack eval` called the run not confirmatory, so the one model
+change §3 permits could never produce the confirmatory run. Nor did anything record what the alias
+resolved to.
+
+*Amendment.* The pre-registration's model and its one contingency alias `sonnet` are recorded in code
+(`eval.LivePreregistration.Model`, `.ModelContingency`, pinned to §3 by
+`TestLivePreregistrations_MatchTheDocumentAndTheMaterials`). Each trial records the model its host
+reported at start-up (`host_model`), and the summary the distinct set (`host_models`). A run on the
+alias `sonnet` is on the pre-registered model only when every trial's host reported one and the same
+resolved model; `qompack eval` names it and states that §3's own preconditions — the host rejected
+`claude-sonnet-5` in the first confirmatory session before any turn completed, and the change was
+appended to §9 before the restart — are not machine-checked. A run on the alias with no resolved
+model recorded, or with more than one, and a run on any other model, is not the confirmatory run
+(`TestEval_LiveTheSection3ModelContingencyCanBeConfirmatory`).

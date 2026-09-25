@@ -98,9 +98,12 @@ type LiveTrial struct {
 	// ForeignPlugins names every non-builtin plugin the host loaded beyond the arm's own (on the
 	// stock arm, every non-builtin plugin). Both arms are meant to run with nothing else.
 	ForeignPlugins []string `json:"foreign_plugins,omitempty"`
-	// PreregisteredModel reports whether Model is the task set's pre-registered model.
-	PreregisteredModel bool     `json:"preregistered_model"`
-	Notes              []string `json:"notes,omitempty"`
+	// PreregisteredModel reports whether Model is the task set's pre-registered model, or the one
+	// alias its pre-registration permits in that model's place (section 3's contingency).
+	PreregisteredModel bool `json:"preregistered_model"`
+	// HostModel is the model the host reported at start-up (its init line): what Model resolved to.
+	HostModel string   `json:"host_model,omitempty"`
+	Notes     []string `json:"notes,omitempty"`
 }
 
 // LiveQompackEvidence is what a qompack-arm trial shows the plugin did.
@@ -441,6 +444,9 @@ type LiveSummary struct {
 	// TaskSigns is, for each task both arms ran, the sign of qompack's task-success rate minus
 	// stock's: 1, 0 or -1. Reported, not decided.
 	TaskSigns map[string]int `json:"task_signs,omitempty"`
+	// HostModels is every distinct model the trials' hosts reported at start-up, sorted: what the run
+	// actually ran on, which an alias leaves to the host (preregistration section 3's contingency).
+	HostModels []string `json:"host_models,omitempty"`
 }
 
 // VariantHeldOut is the ByVariant key that groups the held-out tasks, whatever their variant.
@@ -552,6 +558,22 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 			sum.Notes = append(sum.Notes, fmt.Sprintf(
 				"trial %s/%s/%d ran on %s, which is not the pre-registered model %s: this run is not "+
 					"a confirmatory run", t.TaskID, t.Arm, t.Trial, t.Model, a.Model))
+			break
+		}
+	}
+	seen := map[string]bool{}
+	for _, t := range trials {
+		if t.HostModel != "" && !seen[t.HostModel] {
+			seen[t.HostModel] = true
+			sum.HostModels = append(sum.HostModels, t.HostModel)
+		}
+	}
+	sort.Strings(sum.HostModels)
+	for _, t := range trials {
+		if t.PreregisteredModel && t.Model != "" && t.Model != a.Model {
+			sum.Notes = append(sum.Notes, fmt.Sprintf(
+				"the trials ran on %s, the pre-registration's contingency alias for %s, which the hosts resolved "+
+					"to %s (preregistration section 3)", t.Model, a.Model, orNone(sum.HostModels)))
 			break
 		}
 	}
@@ -896,4 +918,12 @@ func normalQuantile(p float64) float64 {
 		return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r + a[5]) * q /
 			(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r + 1)
 	}
+}
+
+// orNone joins the models the hosts reported, or says that none was recorded.
+func orNone(models []string) string {
+	if len(models) == 0 {
+		return "a model no trial recorded"
+	}
+	return strings.Join(models, ", ")
 }
