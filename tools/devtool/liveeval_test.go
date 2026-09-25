@@ -854,3 +854,43 @@ func TestRunLiveEval_InstallFailureIsAHarnessFailureNotAMismatch(t *testing.T) {
 	require.NotEqual(t, "not-applicable", sum.Decision.Verdict, sum.Decision.Reason)
 	require.Len(t, sum.Failed, 1)
 }
+
+// TestRunLiveEval_StoppedRunReachesNoVerdict: when the guard stops a run part-way, the trials that
+// ran are summarized and named, but the pre-registered rule is applied to all planned trials
+// (intention to treat), and those that never ran cannot be analysed. The summary therefore carries
+// no verdict — not-applicable, saying how many of the planned trials ran — however the partial
+// numbers look.
+func TestRunLiveEval_StoppedRunReachesNoVerdict(t *testing.T) {
+	home := t.TempDir()
+	env := fakeLiveEnv(t, nil)
+	env.home = home
+	scripted := scriptedPilotHost(t, home)
+	sessions := 0
+	env.run = func(ctx context.Context, spec liveProcSpec) liveProcResult {
+		sessions++
+		if sessions == 3 {
+			// Something changes the operator's plugin registry during the third trial.
+			require.NoError(t, os.MkdirAll(filepath.Join(home, "plugins"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(home, "plugins", "installed_plugins.json"), []byte(`{}`), 0o600))
+		}
+		return scripted(ctx, spec)
+	}
+	out := t.TempDir()
+	t.Setenv(liveEvalGateEnv, "1")
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack", "stock"}, out: out,
+		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1, trials: 2,
+	}
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &log), "configuration changed")
+
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(out, "summary.json"), &sum)
+	require.Contains(t, sum.Arms, eval.ArmStock)
+	require.Contains(t, sum.Arms, eval.ArmQompack, "both arms ran before the stop")
+	require.Equal(t, "not-applicable", sum.Decision.Verdict, sum.Decision.Reason)
+	require.Contains(t, sum.Decision.Reason, "3 of the 4 planned trials")
+	md, err := os.ReadFile(filepath.Join(out, "summary.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(md), "not-applicable")
+}

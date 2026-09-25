@@ -291,7 +291,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 
 	sum := eval.SummarizeLive(runID, ts.Analysis, trials)
 	if abort != nil {
-		sum.Notes = append(sum.Notes, "the run was stopped early: "+abort.Error())
+		sum.StopEarly(len(trials), len(plan.Trials), abort.Error())
 	}
 	if err := writeJSONFile(filepath.Join(o.out, "summary.json"), sum); err != nil {
 		return err
