@@ -236,3 +236,16 @@ plugin, in H2.
 program and read no file from disk. Every other tool call still counts, a Bash or PowerShell run of
 the same command and a `Read` or `Grep` of the program's source included
 (`eval.ToolUsesAfterSteps`, `TestToolUsesAfterSteps_TheArchiveIsRecoveryNotRederivation`).
+
+**A4 — 2026-09-25, by the same seat, before any confirmatory trial.** No task, fixture, hidden test,
+rate or analysis parameter changes; a second not-applicable case is made explicit.
+
+*Reason.* `devtool live-eval` stops a run when its guard finds the operator's Claude Code
+configuration changed, and still wrote a verdict computed from the trials that had run, with only a
+note that the run stopped. §8 analyses every planned trial; trials that never ran cannot be, so a
+verdict over the rest is not the pre-registered analysis.
+
+*Amendment.* A run that stopped before every planned trial ran is **not-applicable**, with the reason
+naming how many of the planned trials ran; its per-arm intervals are still reported as a description
+(`eval.LiveSummary.StopEarly`, `TestRunLiveEval_StoppedRunReachesNoVerdict`). `qompack eval` already
+calls such a run not confirmatory.

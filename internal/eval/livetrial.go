@@ -540,6 +540,19 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 	return sum
 }
 
+// StopEarly records that the run stopped after ran of its planned trials, and why. The
+// pre-registered rule analyses every planned trial (intention to treat); the ones that never ran
+// cannot be analysed, so a stopped run reaches no verdict whatever its partial numbers say
+// (preregistration amendment A4). Its intervals stay in the summary, as a description.
+func (s *LiveSummary) StopEarly(ran, planned int, why string) {
+	s.Decision = LiveDecision{
+		Verdict: "not-applicable",
+		Reason: fmt.Sprintf("the run stopped after %d of the %d planned trials; the pre-registered rule analyses "+
+			"every planned trial", ran, planned),
+	}
+	s.Notes = append(s.Notes, "the run was stopped early: "+why)
+}
+
 // DecideLive applies the pre-registered decision rule to the primary outcome, task success after
 // compaction:
 //
