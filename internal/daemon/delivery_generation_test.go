@@ -47,6 +47,7 @@ func mkGenLease(t *testing.T, delivery string, session core.SessionID, arrival u
 // checks every nonce resolves to its exact lease in the latest generation, and that re-committing an
 // existing lease is idempotent (identity unchanged, no new generation).
 func TestDeliveryGeneration_ManyGenerationsAndReplayIdentity(t *testing.T) {
+	t.Parallel()
 	g := newTestGenerations(t)
 	ctx := context.Background()
 	const n = 75
@@ -78,6 +79,7 @@ func TestDeliveryGeneration_ManyGenerationsAndReplayIdentity(t *testing.T) {
 // TestDeliveryGeneration_DormantSessionArrivalContinuity: a session dormant across many generations
 // still returns its last arrival, so its next arrival is dense and never restarts at zero.
 func TestDeliveryGeneration_DormantSessionArrivalContinuity(t *testing.T) {
+	t.Parallel()
 	g := newTestGenerations(t)
 	ctx := context.Background()
 	i := 0
@@ -180,6 +182,7 @@ func TestDeliveryGeneration_OrderedByArrivalFrontier(t *testing.T) {
 // archived out of the active map still resolves through the store, so the terminal loader need not
 // fail merely because the lease left RAM.
 func TestDeliveryGeneration_TerminalArchivedLeaseResolves(t *testing.T) {
+	t.Parallel()
 	g := newTestGenerations(t)
 	ctx := context.Background()
 	first := mkGenLease(t, genNonce(0), "sess-A", 1)

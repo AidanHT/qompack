@@ -50,9 +50,9 @@ func (p *lockProbe) install(t *testing.T, j *deliveryJournal) {
 // exactly as before for an archived predecessor and an archived nonce, and their store reads run with
 // Lock.mu and st both free.
 func TestDeliveryOrder_ArchiveReadsHoldNeitherJournalLock(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	first, err := j.lease(ctx, genNonce(0), "gate", testDeliveryRequest(genNonce(0)))
 	require.NoError(t, err)
 	_, err = j.lease(ctx, genNonce(1), "gate", testDeliveryRequest(genNonce(1)))
@@ -81,9 +81,9 @@ func TestDeliveryOrder_ArchiveReadsHoldNeitherJournalLock(t *testing.T) {
 // TestDeliveryOrder_ArchiveReadsFailClosed: a journal that is closing, closed, faulted or rotating
 // answers false (and leaseHeld an error), with or without the store read.
 func TestDeliveryOrder_ArchiveReadsFailClosed(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	first, err := j.lease(ctx, genNonce(0), "closed", testDeliveryRequest(genNonce(0)))
 	require.NoError(t, err)
 	_, err = j.lease(ctx, genNonce(1), "closed", testDeliveryRequest(genNonce(1)))
@@ -118,9 +118,9 @@ func TestDeliveryOrder_ArchiveReadsFailClosed(t *testing.T) {
 // may publish, the acknowledgement of every earlier arrival must already have begun. Run it under -race
 // too: the store read now shares the journal with admission and rotation without either lock.
 func TestDeliveryOrder_ArchiveReadsNeverRunAheadOfASettlement(t *testing.T) {
-	setRollover(t, 2)
+	roll := parallelRollover(t, 2)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	const n = 24
 	var leased, ackStarted atomic.Int64
 	var wg sync.WaitGroup

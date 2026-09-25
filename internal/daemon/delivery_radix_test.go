@@ -57,6 +57,7 @@ func TestDeliveryRadix_EmptyTreeAbsence(t *testing.T) {
 // intermediate root, and proves each generation still answers its own keys exactly and reports a
 // later key as absent (not unavailable).
 func TestDeliveryRadix_ManyGenerationsOldRootsUsable(t *testing.T) {
+	t.Parallel()
 	r := newTestRadix(t)
 	const n = 80
 	key := func(i int) []byte { return []byte(fmt.Sprintf("key-%03d", i)) }

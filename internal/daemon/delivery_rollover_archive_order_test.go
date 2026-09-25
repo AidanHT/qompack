@@ -74,6 +74,7 @@ func newArchiveFixture(t *testing.T, windowSize, sessions int) archiveFixture {
 // that both paths publish intermediate generations (genTxnMaxHeld), and the outgoing window settles
 // leases the prior window archived unsettled, so the joins against the store are exercised too.
 func TestDeliveryRollover_ArchiveRecordsExactlyWhatTheBatchCommitsRecord(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	fx := newArchiveFixture(t, 12_000, 6)
 
@@ -117,6 +118,7 @@ func TestDeliveryRollover_ArchiveRecordsExactlyWhatTheBatchCommitsRecord(t *test
 // TestDeliveryRollover_ArchiveIsIdempotentAfterAnInterruptedAttempt: re-archiving a window the store
 // already holds (an open finishing an interrupted rotation) moves nothing.
 func TestDeliveryRollover_ArchiveIsIdempotentAfterAnInterruptedAttempt(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	fx := newArchiveFixture(t, 6_000, 3)
 	g := newTestGenerations(t)
@@ -131,6 +133,7 @@ func TestDeliveryRollover_ArchiveIsIdempotentAfterAnInterruptedAttempt(t *testin
 // TestDeliveryRollover_ArchiveRefusesAConflictingLease: a window lease whose nonce the store already
 // holds under a different identity is a conflict, whatever position it takes in the archive.
 func TestDeliveryRollover_ArchiveRefusesAConflictingLease(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	fx := newArchiveFixture(t, 3_000, 3)
 	g := newTestGenerations(t)

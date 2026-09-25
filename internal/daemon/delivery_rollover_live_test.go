@@ -20,7 +20,8 @@ import (
 // whole-manifest reread.
 
 // setRollover turns the seam on and lowers the entry threshold so rotation happens after `entries`
-// leases in a segment, restoring both on cleanup.
+// leases in a segment, restoring both on cleanup. It writes package variables, so a test that calls it
+// cannot run beside others; parallelRollover is the per-lock form for one that can.
 func setRollover(t *testing.T, entries int) {
 	t.Helper()
 	prevEnable, prevEntries, prevBytes := enableDeliveryGenerations, deliveryRolloverEntries, deliveryRolloverBytes
@@ -43,12 +44,48 @@ func openRolloverJournal(t *testing.T, root string) *deliveryJournal {
 	return j
 }
 
+// rolloverAt is a rotation threshold a test keeps on each Lock it opens a journal through
+// (Lock.rolloverEntries) instead of in the package variables setRollover writes, so the test can run
+// beside other tests.
+type rolloverAt int
+
+// parallelRollover marks t parallel and returns its rotation threshold: every journal the test opens
+// through the result rotates after `entries` leases in a segment. Rollover itself is on by default and
+// only tests that run alone turn it off, so a parallel test reads enableDeliveryGenerations but never
+// writes it. A test that sets deliveryRotateHook, deliveryCarryMaxBytes or another package variable
+// uses setRollover and does not run in parallel.
+func parallelRollover(t *testing.T, entries int) rolloverAt {
+	t.Helper()
+	t.Parallel()
+	require.True(t, enableDeliveryGenerations, "segmented rollover is on by default")
+	return rolloverAt(entries)
+}
+
+// lock acquires root's lock with this threshold on it, released on cleanup (Release is idempotent, so
+// a test may also release it itself).
+func (r rolloverAt) lock(t *testing.T, root string) *Lock {
+	t.Helper()
+	lock, err := acquireTestDeliveryLock(root)
+	require.NoError(t, err)
+	lock.rolloverEntries = int(r)
+	t.Cleanup(func() { _ = lock.Release() })
+	return lock
+}
+
+// open is openRolloverJournal at this threshold.
+func (r rolloverAt) open(t *testing.T, root string) *deliveryJournal {
+	t.Helper()
+	j, err := r.lock(t, root).openDeliveryJournal()
+	require.NoError(t, err)
+	return j
+}
+
 // TestDeliveryRollover_CrossesCapacitySeamAndAdvancesSegment: the lease that would exceed the threshold
 // rotates to a new segment and is admitted there, with its arrival dense across the boundary.
 func TestDeliveryRollover_CrossesCapacitySeamAndAdvancesSegment(t *testing.T) {
-	setRollover(t, 3)
+	roll := parallelRollover(t, 3)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	require.Equal(t, uint64(0), j.segment, "starts on the legacy segment")
 
 	const sess core.SessionID = "s"
@@ -69,7 +106,7 @@ func TestDeliveryRollover_CrossesCapacitySeamAndAdvancesSegment(t *testing.T) {
 // every archived nonce, proving each resolves to its ORIGINAL lease (never re-minted) and arrivals never
 // restarted.
 func TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity(t *testing.T) {
-	setRollover(t, 1) // every lease after the first in a segment rolls
+	roll := parallelRollover(t, 1) // every lease after the first in a segment rolls
 	ctx := context.Background()
 	project := t.TempDir()
 	s, err := store.Open(project, config.Defaults(), store.Deps{})
@@ -77,7 +114,7 @@ func TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	put, err := s.PutBytes(ctx, []byte("the oldest pending delivery retains this content across seventy rotations\n"), store.PutOptions{})
 	require.NoError(t, err)
-	j := openRolloverJournal(t, project)
+	j := roll.open(t, project)
 	request := func(i int) core.Hash {
 		if i == 0 {
 			return put.Root.Hash
@@ -110,12 +147,11 @@ func TestDeliveryRollover_SeventyLiveRotationsPreserveIdentity(t *testing.T) {
 // TestDeliveryRollover_RestartAcrossRotation: the active segment and dense arrivals survive a full
 // close/reopen after several rotations, and archived nonces still resolve.
 func TestDeliveryRollover_RestartAcrossRotation(t *testing.T) {
-	setRollover(t, 2)
+	roll := parallelRollover(t, 2)
 	ctx := context.Background()
 	root := t.TempDir()
 
-	lock, err := acquireTestDeliveryLock(root)
-	require.NoError(t, err)
+	lock := roll.lock(t, root)
 	j := openJournalFromLock(t, lock)
 	const sess core.SessionID = "s"
 	for i := 0; i < 6; i++ {
@@ -126,7 +162,7 @@ func TestDeliveryRollover_RestartAcrossRotation(t *testing.T) {
 	require.GreaterOrEqual(t, seg, uint64(2))
 	require.NoError(t, lock.Release())
 
-	j2 := openRolloverJournal(t, root)
+	j2 := roll.open(t, root)
 	require.Equal(t, seg, j2.segment, "the active segment survives a restart")
 	// an archived nonce resolves to its original lease
 	got, err := j2.lease(ctx, genNonce(0), sess, testDeliveryRequest(genNonce(0)))
@@ -148,9 +184,9 @@ func openJournalFromLock(t *testing.T, lock *Lock) *deliveryJournal {
 // TestDeliveryRollover_DormantSessionContinuesArrivals: a session that leased once and then went dormant
 // across many rotations still continues its arrivals densely when it returns.
 func TestDeliveryRollover_DormantSessionContinuesArrivals(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 
 	const dormant core.SessionID = "dormant"
 	const busy core.SessionID = "busy"
@@ -173,9 +209,9 @@ func TestDeliveryRollover_DormantSessionContinuesArrivals(t *testing.T) {
 // rotations resolves and compares its original binding, and the generation store's per-session settled
 // frontier retains the oldest unsettled lease across the transitions.
 func TestDeliveryRollover_ArchivedAckExactJoinAndFrontierRetained(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 
 	const sess core.SessionID = "s"
 	const n = 72

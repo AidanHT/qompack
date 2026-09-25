@@ -23,11 +23,11 @@ import (
 // seal left by an unclean stop, so its seal has two valid slots, the newest of which a test can tear.
 func segmentedToolProject(t *testing.T) (root string, leases []deliveryLease) {
 	t.Helper()
-	setRollover(t, 2)
 	root = t.TempDir()
 	lock, err := acquireTestDeliveryLock(root)
 	require.NoError(t, err)
 	lock.sealFormat = 2
+	lock.rolloverEntries = 2 // on the lock, not the package, so the caller may run in parallel
 	j, err := lock.openDeliveryJournal()
 	require.NoError(t, err)
 	for i := 0; i < 4; i++ { // two fill segment 0, the third rotates, the fourth seals seq 2 in segment 1
@@ -60,6 +60,7 @@ func tearActiveSegmentSlot(t *testing.T, root string, seg uint64) string {
 }
 
 func TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal(t *testing.T) {
+	t.Parallel()
 	root, leases := segmentedToolProject(t)
 	seal := tearActiveSegmentSlot(t, root, 1)
 	torn, err := os.ReadFile(paths.Long(seal))
@@ -94,7 +95,7 @@ func TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal(t *testing.T) {
 	report, err = toolTestRun(t, root, DeliverySealOptions{ToV1: true, AcceptTornSlot: true, Confirm: true})
 	require.NoError(t, err)
 	require.Contains(t, report, "segment 1 lease seal")
-	j := openRolloverJournal(t, root)
+	j := rolloverAt(2).open(t, root)
 	for _, l := range leases {
 		got, err := j.lease(context.Background(), l.Delivery, l.Session, l.RequestHash)
 		require.NoError(t, err)
@@ -107,12 +108,13 @@ func TestDeliverySealSegment_RuleRRepairsATornActiveSegmentSeal(t *testing.T) {
 }
 
 func TestDeliverySealSegment_RuleRNeverReachesAnArchivedSegment(t *testing.T) {
+	t.Parallel()
 	root, _ := segmentedToolProject(t)
 	// Rotate once more so segment 1 is archived, with its v2 seal left as its last write sealed it.
-	setRollover(t, 2)
 	lock, err := acquireTestDeliveryLock(root)
 	require.NoError(t, err)
 	lock.sealFormat = 2
+	lock.rolloverEntries = 2
 	j, err := lock.openDeliveryJournal()
 	require.NoError(t, err)
 	_, err = j.lease(context.Background(), genNonce(10), "ruler", testDeliveryRequest(genNonce(10)))
@@ -138,6 +140,7 @@ func TestDeliverySealSegment_RuleRNeverReachesAnArchivedSegment(t *testing.T) {
 // TestDeliverySealSegment_ConversionWithoutATornSlotIsStillRefused: --to v1 on a segmented store is a
 // rollback no old writer could use; it stays refused unless it is Rule R's repair of the active segment.
 func TestDeliverySealSegment_ConversionWithoutATornSlotIsStillRefused(t *testing.T) {
+	t.Parallel()
 	root, _ := segmentedToolProject(t)
 	before := digestState(t, root)
 	for _, o := range []DeliverySealOptions{
