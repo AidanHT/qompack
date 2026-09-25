@@ -218,3 +218,21 @@ line, recorded as `host_reported_plugins`). Only a trial whose host reported one
 arm. A trial whose host reported none is a harness failure and is scored under §8's intention-to-treat
 rule, as a failure on every outcome and listed by name (`eval.SummarizeLive`,
 `TestSummarizeLive_NoPluginStateIsAHarnessFailureNotAMismatch`).
+
+**A3 — 2026-09-25, by the same seat, before any confirmatory trial.** No task, fixture, hidden test,
+rate or analysis parameter changes; what a `tool_not_used_after` check counts is made precise.
+
+*Reason.* §4's "no tool call after the compaction matched" checks (`no-rerun` in
+`tool-output-recall` and `seed-recall`) exist to catch a fact that was re-derived instead of
+recovered: the program run again, its source read, the hash recomputed. The code matched the
+pattern against every tool call, the Qompack plugin's own MCP tools included, so a qompack-arm
+model that looked the earlier output up in the plugin's archive with a query naming the command
+(`recall` for "go run ./cmd/probe") failed the constraint for doing exactly the recovery the plugin
+exists to provide. The stock arm has no such tools, so the error could only ever count against the
+plugin, in H2.
+
+*Amendment.* A `tool_not_used_after` check ignores calls to the Qompack plugin's own MCP tools
+(names beginning `mcp__plugin_qompack_qompack__`): they look up what the plugin archived and run no
+program and read no file from disk. Every other tool call still counts, a Bash or PowerShell run of
+the same command and a `Read` or `Grep` of the program's source included
+(`eval.ToolUsesAfterSteps`, `TestToolUsesAfterSteps_TheArchiveIsRecoveryNotRederivation`).

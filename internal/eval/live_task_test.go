@@ -349,3 +349,51 @@ func TestLivePreregistrations_MatchTheDocumentAndTheMaterials(t *testing.T) {
 	_, pilot := eval.LivePreregistrations["qompack-live-pilot-v1"]
 	require.False(t, pilot, "the pilot set is harness validation, never pre-registered")
 }
+
+// TestToolUsesAfterSteps_TheArchiveIsRecoveryNotRederivation: tool-output-recall's no-rerun check
+// asks whether the probe's token was re-derived after the compaction — the probe run again, its
+// source read, the hash recomputed. Looking the earlier output up in Qompack's own archive through
+// its MCP tools is not re-deriving it: it is the recovery the qompack arm exists to provide, and a
+// stock host has no such tools to be penalised for. A retrieval query that happens to name the
+// command ("go run ./cmd/probe") must not fail the constraint; running the command still must.
+func TestToolUsesAfterSteps_TheArchiveIsRecoveryNotRederivation(t *testing.T) {
+	ts, _, err := eval.LoadLiveTaskSet(liveTaskFile("tasks.json"))
+	require.NoError(t, err)
+	var task eval.LiveTask
+	for _, tk := range ts.Tasks {
+		if tk.ID == "tool-output-recall" {
+			task = tk
+		}
+	}
+	require.Len(t, task.Steps, 4)
+	var noRerun eval.LiveCheck
+	for _, c := range task.Checks {
+		if c.ID == "no-rerun" {
+			noRerun = c
+		}
+	}
+	require.Equal(t, eval.CheckToolNotUsedAfter, noRerun.Kind)
+
+	turn := func(uses ...eval.HostToolUse) eval.HostTurn {
+		return eval.HostTurn{
+			Requests: []eval.HostRequest{{MessageID: "m", ToolUses: uses}},
+			Result:   &eval.HostResult{Subtype: "success"},
+		}
+	}
+	recall := eval.HostToolUse{
+		Name:  eval.LiveQompackToolPrefix + "recall",
+		Input: json.RawMessage(`{"query":"build token printed by go run ./cmd/probe"}`),
+	}
+	write := eval.HostToolUse{Name: "Write", Input: json.RawMessage(`{"file_path":"TOKEN","content":"975408daf9b5\n"}`)}
+	grade := func(after ...eval.HostToolUse) eval.LiveCheckResult {
+		s := eval.HostStream{Turns: []eval.HostTurn{turn(), turn(), {Result: &eval.HostResult{LocalCommand: "compact"}}, turn(after...)}}
+		res := eval.GradeLiveTrial(eval.LiveTask{Checks: []eval.LiveCheck{noRerun}}, t.TempDir(),
+			eval.LiveEvidence{ToolUsesAfter: eval.ToolUsesAfterSteps(task, s)})
+		return res[0]
+	}
+
+	got := grade(recall, write)
+	require.True(t, got.Passed, "a lookup in Qompack's archive is recovery: %s", got.Detail)
+	got = grade(recall, eval.HostToolUse{Name: "Bash", Input: json.RawMessage(`{"command":"go run ./cmd/probe"}`)}, write)
+	require.False(t, got.Passed, "running the probe again is still re-deriving it: %s", got.Detail)
+}
