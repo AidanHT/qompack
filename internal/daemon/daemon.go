@@ -983,7 +983,10 @@ func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Respons
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
 		return ipc.Response{OK: true}
 	default:
-		return d.dispatchOp(ctx, req)
+		// Marked as a replay: the hook that spooled it has already answered without the daemon, so
+		// a compact SessionStart's rehydration built here can only be recorded as undelivered
+		// (session_start_compact.go).
+		return d.dispatchOp(withSpoolReplay(ctx), req)
 	}
 }
 

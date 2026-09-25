@@ -198,7 +198,8 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 	// route has already answered without it, what was built never reached the model, and the drop
 	// report must say so rather than describe it as delivered.
 	if t := compactTicketFrom(ctx); t != nil && !t.offer(out) && res.Text != "" {
-		s.phase(histRehydrateRecord, func() { s.recordUndelivered(ctx, e.SessionID, res, budget, ref) })
+		why := t.undeliveredReason()
+		s.phase(histRehydrateRecord, func() { s.recordUndelivered(ctx, e.SessionID, res, budget, ref, why) })
 		return out, nil
 	}
 
@@ -316,18 +317,24 @@ func (s *rehydrateService) record(ctx context.Context, sess core.SessionID, res 
 // delivered (recordUndelivered).
 const undeliveredDropKind = "rehydration"
 
-// recordUndelivered is record for a rehydration the session.start route answered without
-// (session_start_compact.go): the model received the deferred note, not this payload. The drop
-// report therefore leads with one entry for the whole rehydration, pointing at where its content
-// can still be read, followed by what the payload would have left out anyway; it lists no emitted
-// items and no tokens, because nothing was emitted, and it is marked degraded. dropped() then tells
-// the truth about the compaction instead of describing a payload as if the model had it.
-func (s *rehydrateService) recordUndelivered(ctx context.Context, sess core.SessionID, res rehydrate.Result, budget core.Tokens, ref checkpoint.Ref) {
+// recordUndelivered is record for a rehydration that never reached the model
+// (session_start_compact.go): the session.start route answered without it, or it was built for a
+// request replayed from a hook's spool after the hook had answered. why says which (undeliveredLate,
+// undeliveredReplayed). The drop report therefore leads with one entry for the whole rehydration,
+// pointing at where its content can still be read, followed by what the payload would have left out
+// anyway; it lists no emitted items and no tokens, because nothing was emitted, and it is marked
+// degraded. dropped() then tells the truth about the compaction instead of describing a payload as
+// if the model had it.
+func (s *rehydrateService) recordUndelivered(ctx context.Context, sess core.SessionID, res rehydrate.Result,
+	budget core.Tokens, ref checkpoint.Ref, why string,
+) {
 	if s.o.Reporter == nil {
 		return
 	}
-	detail := "not delivered: the SessionStart answer was due before this rehydration was ready, " +
-		"so the model received a deferred note instead"
+	detail := why
+	if detail == "" {
+		detail = undeliveredLate
+	}
 	id := "no-checkpoint"
 	if ref.Seq > 0 {
 		id = fmt.Sprintf("checkpoint-%04d", int(ref.Seq))

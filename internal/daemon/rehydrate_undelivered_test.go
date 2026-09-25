@@ -77,3 +77,23 @@ func TestService_RouteRehydratesMarkBuildsNothing(t *testing.T) {
 	require.Zero(t, f.tok.count(), "no build")
 	require.NoFileExists(t, paths.Long(rsStatePath(f.proj.Root)))
 }
+
+// TestService_ReplayedRehydrationRecordsWhyItWasNotDelivered: a compact SessionStart replayed from a
+// hook's spool builds a rehydration the model never received — the hook had already answered
+// without the daemon — so its drop report leads with the undelivered entry and names the replay,
+// which also replaces a report a late live answer left describing it as delivered.
+func TestService_ReplayedRehydrationRecordsWhyItWasNotDelivered(t *testing.T) {
+	f := rsNewFixture(t)
+
+	_, err := f.svc.OnCompact(daemon.ReplayedCompactContext(context.Background()), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+
+	st := rsReadState(t, f.proj.Root)
+	require.True(t, st.Degraded)
+	require.Empty(t, st.Items, "nothing was emitted")
+	require.NotEmpty(t, st.Dropped)
+	first := st.Dropped[0]
+	require.Equal(t, daemon.UndeliveredDropKind, first.Kind)
+	require.Contains(t, first.Detail, daemon.UndeliveredReplayed, "the report says the hook answered without the daemon")
+	require.Contains(t, first.Detail, "restore: Read .qompack/checkpoints/0001.json")
+}

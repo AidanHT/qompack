@@ -567,8 +567,19 @@ status`) and at the disk load at that moment.
 
 **Meaning.** The rehydration is bounded (C1.16): the daemon waits for a compact rehydration for at
 most a third of the hook's 15 s timeout, counted from the request's arrival, and a rehydration that
-is not ready by then is answered with this note rather than with nothing. It finishes anyway, and its drop report is recorded as undelivered, so
-`dropped()` says first that the whole rehydration never reached the model.
+is not ready by then is answered with this note rather than with nothing. It finishes anyway, and
+its drop report is recorded as undelivered, so `dropped()` says first that the whole rehydration
+never reached the model.
+
+`dropped()` reports on the most recently *recorded* rehydration, which for a while can be an
+earlier one, as the note itself says. A rehydration still being built has recorded nothing yet, and
+one that failed outright or that a stopping daemon never started records nothing at all. When the
+hook client wrote the note ("did not answer in time"), the daemon may still have answered, too
+late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
+and when the daemon replays it — at its next idle drain, within 30 s, or its next start — it
+records the rehydration as undelivered and says the hook answered without it. If the spool itself
+could not be written, that correction never comes: `.qompack/logs/LOUD.log` then has an `ipc: spool`
+line for the dropped request.
 
 **Action.** Recover in the session: the note lists the calls — `expand` of the session's first
 prompt, `recall` for anything captured, `dropped()` — and `.qompack/checkpoints/` holds the
