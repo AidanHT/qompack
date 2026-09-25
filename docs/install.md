@@ -190,8 +190,9 @@ separate `claude plugin marketplace remove <name>` (host-output observation).
 | the bundle's binaries and manifest under the host's cache | **retained** on both paths |
 | host-side plugin data under `~/.claude/plugins/data/<id>/` | not created by an install; `--keep-data` has nothing to keep |
 | **`<project>/.qompack/` and `~/.qompack/` — your recorded sessions** | **retained. Always.** |
+| `~/.qompack/bin/<sha256>/qompack.exe` — Windows only: the copy of the binary the daemon runs from ([architecture §1](architecture.md#1-process-model)) | retained; a copy is pruned only when a newer version is staged, which never happens after an uninstall |
 
-The last row is deliberate and it is not an oversight. `.qompack/` is your data: the captures, the
+The recorded-sessions row is deliberate and it is not an oversight. `.qompack/` is your data: the captures, the
 index, the checkpoints and the diagnostic evidence from your own sessions. Uninstalling a tool is
 not the same decision as deleting what it recorded, so uninstall never makes the second decision for
 you.
@@ -200,7 +201,16 @@ To delete it, delete it yourself:
 
 ```sh
 rm -rf /path/to/project/.qompack        # one project's store
-rm -rf ~/.qompack                       # user-level configuration and logs
+rm -rf ~/.qompack                       # user-level configuration, logs and, on Windows, bin/
+```
+
+On Windows, stop the daemon first (it exits on its own after `runtime.daemon.idleExitSeconds` with
+no live session, or end the process whose `pid` is in `.qompack\run\daemon.lock`): a running
+executable cannot be deleted. The staged copies are sealed read-only, so PowerShell needs `-Force`:
+
+```powershell
+Remove-Item -Recurse -Force $HOME\.qompack\bin     # only the daemon's staged executables
+Remove-Item -Recurse -Force $HOME\.qompack          # everything user-level
 ```
 
 **No secure-erasure promise.** Those commands unlink files. They say nothing about backups you made,
