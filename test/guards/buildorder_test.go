@@ -89,9 +89,12 @@ const expectedMaxResidualTokens = 20000 //nomagic:allow guard asserts the shippe
 
 // TestGuard_O1FlagDefaults is closing note 4: the incremental-span instruction is on by default.
 //
-// O1 is the cheapest large win in the design — narrowing the summarizer to the span after the
-// checkpoint frontier — and it is only a win if it is on. Shipping it defaulted off "for safety"
-// would silently reduce the plugin to the behaviour it was built to improve on.
+// O1 was meant to be the cheapest large win in the design — narrowing the summarizer to the span
+// after the checkpoint frontier — and it could only be a win if it was on. Since C1.18 Qompack emits
+// no PreCompact instruction at all (no host accepts one), so checkpoint.incrementalSpanInstruction
+// is a retired-meaning key and its default changes nothing Claude Code receives. The guard stays:
+// the key is still read for compatibility, and a default flipped without review is still a change
+// nobody decided on. The frontier defaults below it are Qompack's own and fully live.
 func TestGuard_O1FlagDefaults(t *testing.T) {
 	t.Parallel()
 
