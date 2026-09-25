@@ -1,0 +1,10 @@
+=== RUN   TestPromptReply_ThrashWarningStaysUnderTheHostCap
+    thrash_bound_red_test.go:28: additionalContext HostChars = 894999 (cap 10000), lines = 500
+    thrash_bound_red_test.go:29: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/observer/thrash_bound_red_test.go:29
+        	Error:      	Should be empty, but was [{hookSpecificOutput.additionalContext 894999}]
+        	Test:       	TestPromptReply_ThrashWarningStaysUnderTheHostCap
+--- FAIL: TestPromptReply_ThrashWarningStaysUnderTheHostCap (0.20s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	0.658s
+FAIL
