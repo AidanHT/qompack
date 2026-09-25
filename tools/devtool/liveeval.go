@@ -493,6 +493,11 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 			StepTimeout:    o.stepTimeout,
 			SessionTimeout: o.sessionTimeout,
 		}
+		spec.Unset = liveUnsetNames(os.Environ(), spec.Env)
+		if len(spec.Unset) > 0 {
+			rec.Notes = append(rec.Notes, "inherited environment variables removed from the session: "+
+				strings.Join(spec.Unset, ", "))
+		}
 		_ = writeJSONFile(filepath.Join(trialDir, "invocation.json"), spec)
 		proc = env.run(ctx, spec)
 		rec.WallMS = proc.EndedAt.Sub(proc.StartedAt).Milliseconds()

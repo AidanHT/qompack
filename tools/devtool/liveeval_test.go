@@ -908,3 +908,51 @@ func TestRenderLiveSummary_ShowsTheHostsHookLatency(t *testing.T) {
 	require.Contains(t, md, "## Hook latency, as the host measured it")
 	require.Contains(t, md, "| qompack | SessionStart:compact | 2 | 300 | 1200 | 1200 |")
 }
+
+// TestRunLiveEval_SessionsRunAtThePluginsDefaults: the host, and through it every Qompack hook and
+// the trial daemon, inherits the driver's environment. A QOMPACK_* variable the operator happened
+// to have set (a kill switch, a runtime mode, a state path) would silently change the plugin under
+// test on the qompack arm only, so the arms would differ by more than the plugin. Inherited
+// QOMPACK_* variables are removed from every session, the driver's own settings are kept, and the
+// trial records which names were removed — never their values.
+func TestRunLiveEval_SessionsRunAtThePluginsDefaults(t *testing.T) {
+	t.Setenv("QOMPACK_RUNTIME__MODE", "off")
+	t.Setenv("QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS", "999999")
+
+	home := t.TempDir()
+	env := fakeLiveEnv(t, nil)
+	env.home = home
+	scripted := scriptedPilotHost(t, home)
+	var spec liveProcSpec
+	env.run = func(ctx context.Context, s liveProcSpec) liveProcResult {
+		spec = s
+		return scripted(ctx, s)
+	}
+	out := t.TempDir()
+	t.Setenv(liveEvalGateEnv, "1")
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack"}, out: out,
+		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 7, trials: 1,
+	}
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+
+	got := liveProcessEnv(os.Environ(), spec)
+	var qompack []string
+	for _, kv := range got {
+		if strings.HasPrefix(strings.ToUpper(kv), "QOMPACK_") {
+			qompack = append(qompack, kv)
+		}
+	}
+	require.Equal(t, []string{"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=7"}, qompack,
+		"only the driver's own setting reaches the session")
+	require.Contains(t, spec.Unset, "QOMPACK_RUNTIME__MODE")
+
+	raw, err := os.ReadFile(filepath.Join(out, "trials", "pilot-codeword", "qompack", "01", "invocation.json"))
+	require.NoError(t, err)
+	require.Contains(t, string(raw), "QOMPACK_RUNTIME__MODE")
+	require.NotContains(t, string(raw), "999999", "a removed variable's value is never recorded")
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "qompack", "01", "trial.json"), &rec)
+	require.Contains(t, strings.Join(rec.Notes, "\n"), "QOMPACK_RUNTIME__MODE")
+}
