@@ -67,8 +67,8 @@ func TestSpecs_PinInstalledSurface(t *testing.T) {
 			Summary: "Report what the last compaction dropped and how to get it back",
 		},
 		{
-			Name: "eval", Subcommand: "eval", ArgumentHint: "[--corpus <dir>]",
-			Summary: "Run the replay harness and report the score against the baseline",
+			Name: "eval", Subcommand: "eval", ArgumentHint: "[--corpus <path>]",
+			Summary: "Report the latest replay and live evaluation results",
 		},
 	}
 

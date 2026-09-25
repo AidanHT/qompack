@@ -217,8 +217,8 @@ var commandSpecs = []CommandDoc{
 	},
 	{
 		Name:         "eval",
-		Description:  "Run the replay harness and report the score against the baseline",
-		ArgumentHint: "[--corpus <dir>]",
+		Description:  "Report the latest replay and live evaluation results",
+		ArgumentHint: "[--corpus <path>]",
 		Subcommand:   "eval",
 	},
 }

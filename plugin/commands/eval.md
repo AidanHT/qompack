@@ -1,6 +1,6 @@
 ---
-description: Run the replay harness and report the score against the baseline
-argument-hint: "[--corpus <dir>]"
+description: Report the latest replay and live evaluation results
+argument-hint: "[--corpus <path>]"
 allowed-tools: Bash(qompack eval:*)
 ---
 

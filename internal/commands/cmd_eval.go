@@ -115,10 +115,10 @@ type EvalInput struct {
 // EvalArtifacts supplies a completed evaluation's artifacts.
 type EvalArtifacts func(ctx context.Context, corpus string) (EvalInput, error)
 
-// evalBody implements `/qompack:eval [--corpus <dir>]`.
+// evalBody implements `/qompack:eval [--corpus <path>]`.
 func evalBody(ctx context.Context, inv Invocation) (json.RawMessage, error) {
 	if len(inv.Args) > 0 {
-		return nil, UsageErrorf("qompack eval: takes no positional arguments; use --corpus <dir>")
+		return nil, UsageErrorf("qompack eval: takes no positional arguments; use --corpus <path>")
 	}
 	if inv.Deps.EvalArtifacts == nil {
 		return nil, fmt.Errorf("%w: no evaluation artifacts are readable in this build", ErrUnavailable)
