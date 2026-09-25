@@ -15,6 +15,9 @@ type LiveEvalInput struct {
 	Source  string
 	Plan    eval.LivePlan
 	Summary eval.LiveSummary
+	// Notes is what the reader of the run's artifacts found beside it, such as a newer run that has
+	// a plan and no summary.
+	Notes []string
 }
 
 // LiveEvalReport is the live half of the eval report: the run's outcomes under its pre-registered
@@ -81,7 +84,8 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 		Install: p.Install, Plugin: p.Plugin, HeldOutIncluded: p.HeldOutIncluded,
 		TrialsPerArm: p.TrialsPerArm, Confidence: a.Confidence, Margin: a.NonInferiorityMargin, MarginKnown: marginKnown,
 		TaskSuccessDiff: s.TaskSuccessDiff, ConstraintCleanDiff: s.ConstraintCleanDiff, RecoveryDiff: s.RecoveryDiff,
-		Decision: s.Decision, Regression: s.ConstraintRegression, Failed: s.Failed, Notes: s.Notes,
+		Decision: s.Decision, Regression: s.ConstraintRegression, Failed: s.Failed,
+		Notes:         append(append([]string(nil), in.Notes...), s.Notes...),
 		RateTableDate: p.RateTableDate, Analysis: a, ByVariant: s.ByVariant, TaskSigns: s.TaskSigns,
 	}
 	if r.Qualification == "" {

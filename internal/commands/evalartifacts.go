@@ -154,11 +154,19 @@ func newestLiveRun(dir string) (*LiveEvalInput, error) {
 		return nil, fmt.Errorf("listing live-eval runs in %s: %w", dir, err)
 	}
 	var runs []*LiveEvalInput
+	var unfinished []unfinishedRun
 	for _, e := range entries {
-		if !e.IsDir() || !isLiveRunDir(filepath.Join(dir, e.Name())) {
+		if !e.IsDir() {
 			continue
 		}
-		run, err := readLiveRun(filepath.Join(dir, e.Name()))
+		sub := filepath.Join(dir, e.Name())
+		if !isLiveRunDir(sub) {
+			if u, ok := readUnfinishedRun(sub); ok {
+				unfinished = append(unfinished, u)
+			}
+			continue
+		}
+		run, err := readLiveRun(sub)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +181,35 @@ func newestLiveRun(dir string) (*LiveEvalInput, error) {
 		}
 		return runs[i].Source < runs[j].Source
 	})
-	return runs[len(runs)-1], nil
+	newest := runs[len(runs)-1]
+	for _, u := range unfinished {
+		if u.createdAt == "" || u.createdAt > newest.Plan.CreatedAt {
+			newest.Notes = append(newest.Notes, fmt.Sprintf("a newer live-eval run, %s (created %s), has a plan "+
+				"and no summary: it is still running or it stopped without writing one, so the run reported here "+
+				"is the newest finished one, not the newest", u.dir, orUnknown(u.createdAt)))
+		}
+	}
+	return newest, nil
+}
+
+// unfinishedRun is a run directory with a plan and no summary.
+type unfinishedRun struct {
+	dir, createdAt string
+}
+
+// readUnfinishedRun reports a run directory that holds plan.json but no summary.json: a run that is
+// still going, or one that stopped before writing its summary. An unreadable plan still names the
+// directory, with its creation time unknown.
+func readUnfinishedRun(dir string) (unfinishedRun, bool) {
+	if info, err := os.Stat(filepath.Join(dir, livePlanFile)); err != nil || !info.Mode().IsRegular() {
+		return unfinishedRun{}, false
+	}
+	u := unfinishedRun{dir: dir}
+	var plan eval.LivePlan
+	if readEvalJSON(filepath.Join(dir, livePlanFile), &plan) == nil {
+		u.createdAt = plan.CreatedAt
+	}
+	return u, true
 }
 
 // readLiveRun reads one run directory's plan and summary. Both are required: a summary without its
