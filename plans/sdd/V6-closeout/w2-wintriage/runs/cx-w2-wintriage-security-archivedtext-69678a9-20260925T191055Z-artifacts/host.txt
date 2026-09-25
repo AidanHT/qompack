@@ -1,0 +1,10 @@
+run_id=cx-w2-wintriage-security-archivedtext-69678a9-20260925T191055Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-wintriage
+rev=69678a9
+commit=69678a9988f5fea2ffd6c39a9b4bcab324590bf1
+bundle_sha256=67f6c8a36dc0efda4d65e66a49a365740de5ad9cb997c197ca26ef6bb7cdd06b
+host_started_utc=2026-09-25T19:11:02Z
+inner_args=--run ^(TestSecurity_ArchivedTextIsDataNeverAnInstruction|TestHarness_.*)$ --count 5 -- ./test/security
+host_finished_utc=2026-09-25T19:11:55Z
+container_exit=0

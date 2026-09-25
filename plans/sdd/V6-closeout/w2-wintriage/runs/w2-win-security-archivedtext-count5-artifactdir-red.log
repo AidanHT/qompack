@@ -1,0 +1,24 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0; key-form fix applied, artifact-dir fix NOT yet applied, QOMPACK_SECURITY_ARTIFACTS unset
+# cmd: go test -count=5 -timeout 30m -run 'TestSecurity_ArchivedTextIsDataNeverAnInstruction$' -v ./test/security
+# result: exit 1; run 1 PASS, runs 2-5 fail in writeRecord on the first run's removed t.TempDir (second harness defect)
+
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security archive_trust_stored_text_is_never_executed: verified — prompt-injection-shaped content and a shell command were captured and then retrieved through 3 tools; every response carrying archived text set _meta.qompack.untrusted, the content came back verbatim, and the sentinel file the archived command would have created was never created.
+          detail:   labelled: expand, re_read, recall
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json
+--- PASS: TestSecurity_ArchivedTextIsDataNeverAnInstruction (8.79s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security: writing C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json: open C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json: The system cannot find the path specified.
+--- FAIL: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.12s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security: writing C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json: open C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json: The system cannot find the path specified.
+--- FAIL: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.13s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security: writing C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json: open C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json: The system cannot find the path specified.
+--- FAIL: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.77s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security: writing C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json: open C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction114710098\001\archive_trust_stored_text_is_never_executed.json: The system cannot find the path specified.
+--- FAIL: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.09s)
+FAIL
+FAIL	github.com/qompack/qompack/test/security	15.249s
+FAIL

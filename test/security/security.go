@@ -202,7 +202,15 @@ func artifactDir(t *testing.T) string {
 		return d
 	}
 	d := t.TempDir()
-	tempArtifactDirs[t.Name()] = d
+	name := t.Name()
+	tempArtifactDirs[name] = d
+	// The directory dies with this test, so the entry must too: under `go test -count=N` the next
+	// run of the same name would otherwise be handed a directory that no longer exists.
+	t.Cleanup(func() {
+		tempArtifactMu.Lock()
+		defer tempArtifactMu.Unlock()
+		delete(tempArtifactDirs, name)
+	})
 	return d
 }
 
@@ -1117,6 +1125,11 @@ func requireIndexed(t *testing.T, root, id string) {
 // requireFileVersion waits until index/files.jsonl records a version of rel (a project-relative,
 // slash-separated path), so a re_read that follows asks about a version that has been captured.
 //
+// The log names the path by its STORE KEY, not by rel: the observer appends under
+// hookio.CaptureScope's PrimaryKey, which is paths.Key and so case-folded on Windows and macOS
+// (§4). Comparing against rel itself made a case whose path has an upper-case letter
+// (docs/NOTES.md) wait out indexBound on Windows for a version that had landed with its record.
+//
 // requireIndexed cannot stand in for it. The observer publishes the tool_use record first and
 // appends the §8.2 file version afterwards (internal/observer/tooluse.go, step 7), behind the
 // publication syncs and the capture-reference link of steps 6a-6b. In that window the record is
@@ -1144,19 +1157,28 @@ func requireFileVersion(t *testing.T, root, rel string) {
 		case <-ticker.C:
 		case <-deadline.C:
 			pid, held := daemonHoldingLock(root)
-			t.Fatalf("security: the observer never recorded a file version of %s into %s within %s "+
-				"(daemon lock pid %d held=%v)", rel, path, indexBound, pid, held)
+			t.Fatalf("security: the observer never recorded a file version of %s (store key %q) "+
+				"into %s within %s (daemon lock pid %d held=%v)",
+				rel, paths.Key(rel), path, indexBound, pid, held)
 		}
 	}
 }
 
-// fileVersionNames reports whether any complete line of a files.jsonl image records rel.
+// fileVersionNames reports whether any complete line of a files.jsonl image records rel, under the
+// key this platform's store gives it.
 func fileVersionNames(b []byte, rel string) bool {
+	return fileVersionNamesFold(b, rel, paths.DefaultFold())
+}
+
+// fileVersionNamesFold is fileVersionNames with the case fold pinned, so the predicate can be proven
+// for a folding store on a host whose own store does not fold (paths.KeyFold's reason to exist).
+func fileVersionNamesFold(b []byte, rel string, fold bool) bool {
+	key := paths.KeyFold(rel, fold)
 	for _, line := range bytes.Split(b, []byte("\n")) {
 		var rec struct {
 			Path string `json:"path"`
 		}
-		if json.Unmarshal(line, &rec) == nil && rec.Path == rel {
+		if json.Unmarshal(line, &rec) == nil && rec.Path == key {
 			return true
 		}
 	}

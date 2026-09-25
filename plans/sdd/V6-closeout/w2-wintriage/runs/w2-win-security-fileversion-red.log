@@ -1,0 +1,26 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0; new TestHarness_FileVersionPredicateReadsTheObserversKey against the PRE-FIX predicate
+# (fileVersionNamesFold shimmed to the old unfolded compare)
+# cmd: go test -count=1 -run 'TestHarness_FileVersionPredicateReadsTheObserversKey' -v ./test/security
+# result: exit 1 (red as designed)
+
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/the_observers_key_on_this_host
+    harness_test.go:53: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-wintriage/test/security/harness_test.go:53
+        	Error:      	Should be true
+        	Test:       	TestHarness_FileVersionPredicateReadsTheObserversKey/the_observers_key_on_this_host
+        	Messages:   	a version the observer recorded under "docs/notes.md" must satisfy the wait for "docs/NOTES.md"
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/fold_true
+    harness_test.go:63: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-wintriage/test/security/harness_test.go:63
+        	Error:      	Should be true
+        	Test:       	TestHarness_FileVersionPredicateReadsTheObserversKey/fold_true
+        	Messages:   	the key "docs/notes.md" must satisfy the wait for "docs/NOTES.md"
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/fold_false
+--- FAIL: TestHarness_FileVersionPredicateReadsTheObserversKey (0.00s)
+    --- FAIL: TestHarness_FileVersionPredicateReadsTheObserversKey/the_observers_key_on_this_host (0.00s)
+    --- FAIL: TestHarness_FileVersionPredicateReadsTheObserversKey/fold_true (0.00s)
+    --- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey/fold_false (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/security	1.723s
+FAIL

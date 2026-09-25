@@ -1,0 +1,4 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0, closeout/w2-wintriage @ 69678a9, started 2026-09-25T21:42:50Z; touched by bab2f4a (comment-only edit to importrules.go)
+# cmd: go test -count=1 -timeout 30m ./tools/devtool
+ok  	github.com/qompack/qompack/tools/devtool	46.510s
+# result: exit 0, finished 2026-09-25T21:43:40Z

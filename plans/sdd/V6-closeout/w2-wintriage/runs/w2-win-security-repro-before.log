@@ -1,0 +1,10 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0, closeout/w2-wintriage @ b070bbe (unmodified), 2026-09-25
+# cmd: go test -count=1 -timeout 30m -run 'TestSecurity_ArchivedTextIsDataNeverAnInstruction' -v ./test/security
+# result: exit 1 (deterministic repro alone)
+
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:75: security: the observer never recorded a file version of docs/NOTES.md into C:\Users\Quant\AppData\Local\Temp\qompack-security-2639461023\proj\.qompack\index\files.jsonl within 30s (daemon lock pid 29992 held=true)
+--- FAIL: TestSecurity_ArchivedTextIsDataNeverAnInstruction (38.56s)
+FAIL
+FAIL	github.com/qompack/qompack/test/security	40.362s
+FAIL

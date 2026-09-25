@@ -1,0 +1,128 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0, closeout/w2-wintriage @ 69678a9 PLUS the UNCOMMITTED diagnostic patch
+#   w2-win-fault-slow-rows-diag.patch (slowChildNotice=0 so every spawned invocation logs its duration; phase
+#   timestamps in runBoundary; durations of recoverSession's two waits). Reverted after the run.
+#   Machine co-loaded (other workstreams, and this workstream's own accidental whole-tree lint run).
+# cmd: QOMPACK_FAULT_ARTIFACTS=<scratch> go test -count=1 -timeout 30m -run 'TestFault_PublicationBoundaries/(config_json_corrupt|delivery_seal_torn_slot|roots_last_line_truncated)$' -v ./test/fault
+# result: exit 0. Every hook answered in <= 1.052 s (the slowest is a seed session-start cold spawn).
+#   delivery_seal_torn_slot: recover waitIndexed=false took 30s (indexBound); observe tool 95ms, flush 523ms
+#   config_json_corrupt:     recover waitDaemonUp=false took 1m0.003s (daemonUpBound); session-start 48ms,
+#                            observe tool 62ms, flush 42ms (refused at admission, no daemon bootstrap)
+#   roots_last_line_truncated (control): waitDaemonUp 0s, waitIndexed 210ms, row 5.40s
+
+=== RUN   TestFault_PublicationBoundaries
+=== RUN   TestFault_PublicationBoundaries/roots_last_line_truncated
+    publication_test.go:72: DIAG phase: start at 17:34:52.062
+    publication_test.go:72: fault: qompack.exe [session-start] took 1.052s
+    publication_test.go:72: fault: qompack.exe [observe prompt] took 232ms
+    publication_test.go:72: fault: qompack.exe [observe tool] took 75ms
+    publication_test.go:72: fault: qompack.exe [observe tool] took 55ms
+    publication_test.go:72: fault: qompack.exe [flush] took 542ms
+    publication_test.go:72: fault: qompack.exe [status --json] took 35ms
+    publication_test.go:72: fault: qompack.exe [self-test --json] took 76ms
+    publication_test.go:72: DIAG phase: pre-cut done at 17:34:55.160
+    publication_test.go:72: DIAG phase: cut done at 17:34:55.160
+    publication_test.go:72: fault: qompack.exe [session-start] took 488ms
+    publication_test.go:72: DIAG recover: waitDaemonUp=true took 0s
+    publication_test.go:72: fault: qompack.exe [observe tool] took 126ms
+    publication_test.go:72: DIAG recover: indexed=true took 210ms
+    publication_test.go:72: fault: qompack.exe [flush] took 696ms
+    publication_test.go:72: DIAG phase: recover done at 17:34:56.754
+    publication_test.go:72: fault: qompack.exe [status --json] took 38ms
+    publication_test.go:72: fault: qompack.exe [self-test --json] took 82ms
+    publication_test.go:72: DIAG phase: snapshot done at 17:34:56.932
+    publication_test.go:72: DIAG phase: shutdown done at 17:34:57.133
+    publication_test.go:72: DIAG phase: audit done at 17:34:57.258
+    publication_test.go:72: fault roots_last_line_truncated: explicit_incomplete — 3 reference(s) the cut introduced still do not resolve, and the product reports the degradation on status --json+day log (warn): daylog[1]: qompack-20260925.log: ts=2026-09-25T21:34:55.2980769Z level=warn msg="store: skipped malformed index lines" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+          boundary: roots.jsonl last line truncated mid-record
+          seed:     index/roots.jsonl is truncated inside its final record, the torn-write shape store/fsstore's loadRoots counts as store.index.badline
+          dangling: 0→3
+          detail:   cut: truncated roots.jsonl from 3705 to 3680 bytes, inside its final record
+        everything the surfaces gained: daylog[3]: qompack-20260925.log: ts=2026-09-25T21:34:55.2980769Z level=warn msg="store: skipped malformed index lines" file=roots.jsonl lines=1; loud[1]: ts=2026-09-25T21:34:55.4474995Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false…; status[2]: counter store.index.badline=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (roots.jsonl, badline, malformed index): daylog[1]: qompack-20260925.log: ts=2026-09-25T21:34:55.2980769Z level=warn msg="store: skipped malformed index lines" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:3 sidecars:4 checkpoints:0 dangling:3 reported:0}
+        degradation (new since the cut): daylog[1]: qompack-20260925.log: ts=2026-09-25T21:34:55.2980769Z level=warn msg="store: skipped malformed index lines" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+        newly dangling: index_bad_line(roots.jsonl:3): line does not parse as a roots record: unexpected end of JSON input; tool_use_root(toolu_fault_roots_last_line_truncated_02): tool_use toolu_fault_roots_last_line_truncated_02 points at root 8152211d8f49, which cannot be materialized; capture_bytes_absent(toolu_fault_roots_last_line_truncated_02): published capture sidecar names root 8152211d8f49, which does not resolve
+        newly reported: none
+        remaining dangling after recovery: index_bad_line(roots.jsonl:3): line does not parse as a roots record: unexpected end of JSON input; tool_use_root(toolu_fault_roots_last_line_truncated_02): tool_use toolu_fault_roots_last_line_truncated_02 points at root 8152211d8f49, which cannot be materialized; capture_bytes_absent(toolu_fault_roots_last_line_truncated_02): published capture sidecar names root 8152211d8f49, which does not resolve
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\fault-diag\roots_last_line_truncated.json
+=== RUN   TestFault_PublicationBoundaries/delivery_seal_torn_slot
+    publication_test.go:72: DIAG phase: start at 17:34:57.462
+    publication_test.go:72: fault: qompack.exe [session-start] took 503ms
+    publication_test.go:72: fault: qompack.exe [observe prompt] took 218ms
+    publication_test.go:72: fault: qompack.exe [observe tool] took 69ms
+    publication_test.go:72: fault: qompack.exe [observe tool] took 58ms
+    publication_test.go:72: fault: qompack.exe [flush] took 719ms
+    publication_test.go:72: fault: qompack.exe [status --json] took 52ms
+    publication_test.go:72: fault: qompack.exe [self-test --json] took 101ms
+    publication_test.go:72: DIAG phase: pre-cut done at 17:35:00.377
+    publication_test.go:72: DIAG phase: cut done at 17:35:00.379
+    publication_test.go:72: fault: qompack.exe [session-start] took 513ms
+    publication_test.go:72: DIAG recover: waitDaemonUp=true took 1ms
+    publication_test.go:72: fault: qompack.exe [observe tool] took 95ms
+    publication_test.go:72: DIAG recover: indexed=false took 30s
+    publication_test.go:72: fault: qompack.exe [flush] took 523ms
+    publication_test.go:72: DIAG phase: recover done at 17:35:31.592
+    publication_test.go:72: fault: qompack.exe [status --json] took 26ms
+    publication_test.go:72: fault: qompack.exe [self-test --json] took 60ms
+    publication_test.go:72: DIAG phase: snapshot done at 17:35:31.729
+    publication_test.go:72: DIAG phase: shutdown done at 17:35:32.030
+    publication_test.go:72: DIAG phase: audit done at 17:35:32.091
+    publication_test.go:72: fault delivery_seal_torn_slot: explicit_incomplete — the cut introduced no silently dangling reference; what it did leave, the audit can name as reported: drain_gap(client-52848.ndjson): pending: 9745 spool bytes not yet replayed; drain_gap(wal-sess-fault-delivery-seal-torn-slot-r.ndjson): pending: 9745 spool bytes not yet replayed
+          boundary: delivery seal with one torn slot, and a half-present seal pair
+          seed:     the delivery position files are torn the way daemon/delivery_seal_test.go's crash-reachable images are, then one side of the pair is removed entirely (delivery_seal_tool.go calls a half-present pair "a recovery decision, not a repair")
+          dangling: 0→0
+          detail:   cut: tore delivery-lease-position.json from 111 to 87 bytes; removed delivery-ack-position.json, leaving a half-present pair
+        everything the surfaces gained: daylog[13]: qompack-20260925.log: ts=2026-09-25T21:35:01.0291747Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[6]: ts=2026-09-25T21:35:01.0291747Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[7]: counter l0_delivery_unleased=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (delivery, seal, delivery-lease-position, delivery-ack-position, unleased, unacknowledged): daylog[8]: qompack-20260925.log: ts=2026-09-25T21:35:01.0291747Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[5]: ts=2026-09-25T21:35:01.0291747Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[5]: counter l0_delivery_unleased=1; surfaces LOUD.log+status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:2}
+        degradation (new since the cut): daylog[8]: qompack-20260925.log: ts=2026-09-25T21:35:01.0291747Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[5]: ts=2026-09-25T21:35:01.0291747Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[5]: counter l0_delivery_unleased=1; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: none
+        newly reported: drain_gap(client-52848.ndjson): pending: 9745 spool bytes not yet replayed; drain_gap(wal-sess-fault-delivery-seal-torn-slot-r.ndjson): pending: 9745 spool bytes not yet replayed
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\fault-diag\delivery_seal_torn_slot.json
+=== RUN   TestFault_PublicationBoundaries/config_json_corrupt
+    publication_test.go:72: DIAG phase: start at 17:35:32.278
+    publication_test.go:72: fault: qompack.exe [session-start] took 257ms
+    publication_test.go:72: fault: qompack.exe [observe prompt] took 217ms
+    publication_test.go:72: fault: qompack.exe [observe tool] took 56ms
+    publication_test.go:72: fault: qompack.exe [observe tool] took 58ms
+    publication_test.go:72: fault: qompack.exe [flush] took 578ms
+    publication_test.go:72: fault: qompack.exe [status --json] took 34ms
+    publication_test.go:72: fault: qompack.exe [self-test --json] took 95ms
+    publication_test.go:72: DIAG phase: pre-cut done at 17:35:34.685
+    publication_test.go:72: fault: qompack.exe [observe prompt] took 49ms
+    publication_test.go:72: DIAG phase: cut done at 17:35:34.750
+    publication_test.go:72: fault: qompack.exe [session-start] took 48ms
+    publication_test.go:72: fault: no daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\proj within 1m0s (lock pid 0, held=false)
+    publication_test.go:72: DIAG recover: waitDaemonUp=false took 1m0.003s
+    publication_test.go:72: fault: qompack.exe [observe tool] took 62ms
+    publication_test.go:72: DIAG recover: indexed=false took 0s
+    publication_test.go:72: fault: qompack.exe [flush] took 42ms
+    publication_test.go:72: DIAG phase: recover done at 17:36:34.997
+    publication_test.go:72: fault: qompack.exe [status --json] took 64ms
+    publication_test.go:72: fault: qompack.exe [self-test --json] took 180ms
+    publication_test.go:72: DIAG phase: snapshot done at 17:36:35.296
+    publication_test.go:72: DIAG phase: shutdown done at 17:36:35.397
+    publication_test.go:72: DIAG phase: audit done at 17:36:35.438
+    publication_test.go:72: fault config_json_corrupt: explicit_incomplete — the cut introduced no dangling reference; recording did not resume within the bound and the product says so on LOUD.log+self-test --json+day log (warn): daylog[2]: qompack-20260925.log: ts=2026-09-25T21:36:35.0225832Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\pro…; loud[2]: ts=2026-09-25T21:36:35.0225832Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+          boundary: config.json corrupt
+          seed:     the `config-corrupt` QOMPACK_FAULT site, which writes truncated JSON into .qompack/config.json from a real hook process (internal/cli/fault.go)
+          dangling: 0→0
+          detail:   cut: .qompack/config.json holds 25 bytes of unparseable JSON
+        everything the surfaces gained: daylog[2]: qompack-20260925.log: ts=2026-09-25T21:36:35.0225832Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\pro…; loud[2]: ts=2026-09-25T21:36:35.0225832Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+        of which naming this cut (config): daylog[2]: qompack-20260925.log: ts=2026-09-25T21:36:35.0225832Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\pro…; loud[2]: ts=2026-09-25T21:36:35.0225832Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        degradation (new since the cut): daylog[2]: qompack-20260925.log: ts=2026-09-25T21:36:35.0225832Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\pro…; loud[2]: ts=2026-09-25T21:36:35.0225832Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2172516834\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+        newly dangling: none
+        newly reported: none
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w2-wintriage\fault-diag\config_json_corrupt.json
+--- PASS: TestFault_PublicationBoundaries (106.90s)
+    --- PASS: TestFault_PublicationBoundaries/roots_last_line_truncated (5.40s)
+    --- PASS: TestFault_PublicationBoundaries/delivery_seal_torn_slot (34.81s)
+    --- PASS: TestFault_PublicationBoundaries/config_json_corrupt (63.30s)
+PASS
+ok  	github.com/qompack/qompack/test/fault	108.028s

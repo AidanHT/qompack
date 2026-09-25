@@ -69,9 +69,9 @@ var compositionRoots = map[string]bool{
 	// bundle through `devtool bundle`, drives that bundle's binary and its `qompack mcp` server
 	// against denied and escaping addresses, sweeps every durable surface for planted credentials,
 	// and seeds malformed objects straight into the store. It therefore reaches store, mcp, eval,
-	// config, sketch, daemon, ipc, paths, core and testutil directly and cli through the binary it
-	// spawns, which no internal allow-set permits — the same reason test/e2e, test/canary and
-	// test/platform are roots. Nothing imports it back.
+	// config, sketch, daemon, ipc, hookio, paths, core and testutil directly and cli through the
+	// binary it spawns, which no internal allow-set permits — the same reason test/e2e, test/canary
+	// and test/platform are roots. Nothing imports it back.
 	"test/security": true,
 	// test/fault (SP-17 Task 4) is the fault-and-recovery matrix: it assembles a real plugin bundle
 	// through `devtool bundle`, cuts a real detached daemon and the files it wrote at every
