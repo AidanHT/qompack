@@ -145,6 +145,12 @@ func isLiveRunDir(dir string) bool {
 // newestLiveRun reads the newest run directly under dir, or returns nil when dir does not exist or
 // holds none. Runs are ordered by their plan's creation time, then by directory name, because a run
 // directory may be renamed (the committed pilots are) while its plan keeps the time it was made.
+//
+// Only the newest run's summary is read. An older run's summary is not what the command reports, so
+// one that a crash left unreadable must not fail every later `qompack eval`; the newest run's own
+// must be readable, and is an error when it is not. Every finished run's plan is read, because its
+// creation time is what decides which run is the newest: a plan that cannot be read leaves that
+// undecidable, and is an error too.
 func newestLiveRun(dir string) (*LiveEvalInput, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -153,7 +159,10 @@ func newestLiveRun(dir string) (*LiveEvalInput, error) {
 		}
 		return nil, fmt.Errorf("listing live-eval runs in %s: %w", dir, err)
 	}
-	var runs []*LiveEvalInput
+	type finishedRun struct {
+		dir, createdAt string
+	}
+	var runs []finishedRun
 	var unfinished []unfinishedRun
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -166,22 +175,25 @@ func newestLiveRun(dir string) (*LiveEvalInput, error) {
 			}
 			continue
 		}
-		run, err := readLiveRun(sub)
-		if err != nil {
+		var plan eval.LivePlan
+		if err := readEvalJSON(filepath.Join(sub, livePlanFile), &plan); err != nil {
 			return nil, err
 		}
-		runs = append(runs, run)
+		runs = append(runs, finishedRun{dir: sub, createdAt: plan.CreatedAt})
 	}
 	if len(runs) == 0 {
 		return nil, nil
 	}
 	sort.Slice(runs, func(i, j int) bool {
-		if runs[i].Plan.CreatedAt != runs[j].Plan.CreatedAt {
-			return runs[i].Plan.CreatedAt < runs[j].Plan.CreatedAt
+		if runs[i].createdAt != runs[j].createdAt {
+			return runs[i].createdAt < runs[j].createdAt
 		}
-		return runs[i].Source < runs[j].Source
+		return runs[i].dir < runs[j].dir
 	})
-	newest := runs[len(runs)-1]
+	newest, err := readLiveRun(runs[len(runs)-1].dir)
+	if err != nil {
+		return nil, err
+	}
 	for _, u := range unfinished {
 		if u.createdAt == "" || u.createdAt > newest.Plan.CreatedAt {
 			newest.Notes = append(newest.Notes, fmt.Sprintf("a newer live-eval run, %s (created %s), has a plan "+
