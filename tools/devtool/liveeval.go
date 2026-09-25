@@ -443,7 +443,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 	guard := &eval.LiveHomeGuard{Checked: true, Before: before.lines()}
 	rec.HomeGuard = guard
 
-	work, err := os.MkdirTemp("", "qompack-live-")
+	work, err := os.MkdirTemp(env.workRoot, "qompack-live-")
 	if err != nil {
 		rec.HarnessError = err.Error()
 		return rec, nil
