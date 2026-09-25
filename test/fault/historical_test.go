@@ -184,7 +184,7 @@ func TestFault_CheckpointDropsAnUnresolvablePointer(t *testing.T) {
 		readToolPayload(t, p.Root, sess, recoveryID, "src/gamma.ts", seedContent("gamma", 40)))
 	recording := up && waitIndexed(t, p.Root, recoveryID, indexBound)
 
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	all := degradationSince(baseline, snapshotDegradation(t, b, p))
 	shutdownIfReachable(t, p.Root)
 

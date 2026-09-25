@@ -86,6 +86,7 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
@@ -460,6 +461,47 @@ func runHookWithEnv(t *testing.T, bin string, p project, argv []string, payload 
 	}
 	if !emptyOrParseableJSON(stdout) {
 		t.Errorf("fault: %v wrote stdout a host cannot parse:\n%s", argv, stdout)
+	}
+}
+
+// runFlush drives the SessionEnd flush hook for sess and waits for the daemon to end the session.
+//
+// Since C1.15 the hook answers as soon as the flush is durable — Claude Code gives a plugin's
+// SessionEnd hooks one shared 1.5 s budget and cancels a hook still running when it runs out — and the
+// daemon ends the session on a goroutine of its own (internal/daemon/session_end.go). The hook's exit
+// therefore no longer says the session's deliveries have all published or that SessionEnd has run,
+// which is what every row that audits the store right after its flush relied on. The end writes the
+// terminal-hook marker (contract.MarkerPath) right after SessionEnd, which it runs only once the
+// session's earlier deliveries are on the committed frontier (settleSession); so a marker naming sess,
+// and not the one that stood before the hook ran, is the daemon's own record of both.
+//
+// It reports rather than fatals, like waitIndexed: a row whose daemon never ends the session is a
+// finding its record must still carry.
+func runFlush(t *testing.T, b bundle, p project, sess core.SessionID) {
+	t.Helper()
+	before, _ := os.ReadFile(paths.Long(contract.MarkerPath(p.Root)))
+	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+
+	ticker := time.NewTicker(daemonPollTick)
+	defer ticker.Stop()
+	deadline := time.NewTimer(indexBound)
+	defer deadline.Stop()
+	for {
+		if raw, err := os.ReadFile(paths.Long(contract.MarkerPath(p.Root))); err == nil && !bytes.Equal(raw, before) {
+			var m struct {
+				Session core.SessionID `json:"session"`
+			}
+			if json.Unmarshal(raw, &m) == nil && m.Session == sess {
+				return
+			}
+		}
+		select {
+		case <-ticker.C:
+		case <-deadline.C:
+			t.Errorf("fault: the daemon did not end session %s within %s of its flush hook "+
+				"(no terminal-hook marker naming it)", sess, indexBound)
+			return
+		}
 	}
 }
 

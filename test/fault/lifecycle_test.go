@@ -216,7 +216,7 @@ func driveStartup(t *testing.T, b bundle, p project, name string) string {
 	sess := sessionID(name)
 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "startup"))
 	id := oneTurn(t, b, p, sess, name, 1)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return "SessionStart(startup) + one turn (" + id + ") + SessionEnd"
 }
 
@@ -229,7 +229,7 @@ func driveResume(t *testing.T, b bundle, p project, name string) string {
 	// conversation back up. observer/session.go names `resume` in its own source set.
 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "resume"))
 	id := oneTurn(t, b, p, sess, name, 2)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return "SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (" + id + ")"
 }
 
@@ -243,7 +243,7 @@ func driveFork(t *testing.T, b bundle, p project, name string) string {
 	sess := sessionID(name)
 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "fork"))
 	id := oneTurn(t, b, p, sess, name, 1)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	indexed := indexHolds(p.Root, id)
 	return fmt.Sprintf("SessionStart(source:fork) + one turn; the hook exited 0 and the turn was "+
 		"%s — `fork` is not one of the four sources internal/observer names, so the source is "+
@@ -257,7 +257,7 @@ func driveClear(t *testing.T, b bundle, p project, name string) string {
 	oneTurn(t, b, p, sess, name, 1)
 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "clear"))
 	id := oneTurn(t, b, p, sess, name, 2)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return "SessionStart(startup) + turn, SessionStart(clear) + turn (" + id + ")"
 }
 
@@ -281,7 +281,7 @@ func driveCompaction(t *testing.T, b bundle, p project, name, trigger string) st
 	runHook(t, b.Bin, p, []string{"checkpoint"}, preCompactPayload(t, p.Root, sess, trigger))
 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "compact"))
 	id := oneTurn(t, b, p, sess, name, 2)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return fmt.Sprintf("turn, PreCompact(trigger:%s), SessionStart(compact), turn (%s)", trigger, id)
 }
 
@@ -296,7 +296,7 @@ func driveFailedCompaction(t *testing.T, b bundle, p project, name string) strin
 	runHook(t, b.Bin, p, []string{"checkpoint"}, preCompactPayload(t, p.Root, sess, "auto"))
 	// No SessionStart(compact). The session simply goes on.
 	id := oneTurn(t, b, p, sess, name, 2)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return "turn, PreCompact(auto), NO SessionStart(compact), turn (" + id + ")"
 }
 
@@ -312,8 +312,8 @@ func driveCrossedCompaction(t *testing.T, b bundle, p project, name string) stri
 	runHook(t, b.Bin, p, []string{"checkpoint"}, preCompactPayload(t, p.Root, sess, "auto"))
 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, other, "compact"))
 	id := oneTurn(t, b, p, other, name, 2)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, other))
+	runFlush(t, b, p, sess)
+	runFlush(t, b, p, other)
 	return "PreCompact on " + string(sess) + ", SessionStart(compact) on " + string(other) + ", turn (" + id + ")"
 }
 
@@ -334,7 +334,7 @@ func driveDuplicateToolUse(t *testing.T, b bundle, p project, name string) strin
 		t.Logf("fault: %s was not indexed before the duplicate was delivered", id)
 	}
 	runHook(t, b.Bin, p, []string{"observe", "tool"}, payload)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return "the identical PostToolUse payload for " + id + " delivered twice"
 }
 
@@ -346,7 +346,7 @@ func driveDuplicatePreCompact(t *testing.T, b bundle, p project, name string) st
 	payload := preCompactPayload(t, p.Root, sess, "auto")
 	runHook(t, b.Bin, p, []string{"checkpoint"}, payload)
 	runHook(t, b.Bin, p, []string{"checkpoint"}, payload)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return "the identical PreCompact payload delivered twice"
 }
 
@@ -365,7 +365,7 @@ func driveMissingTurn(t *testing.T, b bundle, p project, name string) string {
 	first := oneTurn(t, b, p, sess, name, 1)
 	// Turn 2 is the one the host never delivered.
 	third := oneTurn(t, b, p, sess, name, 3)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return "turn " + first + " and turn " + third + " delivered; the turn between them never was. " +
 		"An undelivered turn leaves no trace for the product to detect, so the row measures that " +
 		"the turns either side of the hole are intact rather than that the hole was noticed"
@@ -379,7 +379,7 @@ func drivePreCompactFirst(t *testing.T, b bundle, p project, name string) string
 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "startup"))
 	runHook(t, b.Bin, p, []string{"checkpoint"}, preCompactPayload(t, p.Root, sess, "auto"))
 	id := oneTurn(t, b, p, sess, name, 1)
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	return "PreCompact before any tool event, then the turn (" + id + ") it would have summarised"
 }
 
@@ -393,7 +393,7 @@ func driveSessionEndBeforeStop(t *testing.T, b bundle, p project, name string) s
 	writeProjectFile(t, p, rel, body)
 	id := toolUseID(name, 1)
 	runHook(t, b.Bin, p, []string{"observe", "tool"}, readToolPayload(t, p.Root, sess, id, rel, body))
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	runFlush(t, b, p, sess)
 	runHook(t, b.Bin, p, []string{"observe", "stop"}, stopPayload(t, p.Root, sess))
 	return "tool event " + id + ", SessionEnd, then the Stop that should have come first"
 }
