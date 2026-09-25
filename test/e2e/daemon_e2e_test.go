@@ -48,7 +48,7 @@ const (
 
 	// e2eRoundTripDeadline is the Send deadline for this file's admin/status round trips against a
 	// daemon already known to be reachable. Basis: internal/cli's own reply budgets for real hooks
-	// span promptReplyDeadline (250ms) to flushReplyDeadline (15s); this sits between them, three
+	// span promptReplyDeadline (250ms) to checkpointReplyDeadline (15s); this sits between them, three
 	// orders of magnitude above the sub-millisecond cost of a local round trip.
 	e2eRoundTripDeadline = 5 * time.Second
 
