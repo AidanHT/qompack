@@ -554,3 +554,37 @@ func TestRunLiveEval_HarnessFailureIsScoredAsFailingEveryOutcome(t *testing.T) {
 	require.Equal(t, [2]int{0, 1}, [2]int{st.ConstraintClean.K, st.ConstraintClean.N})
 	require.Len(t, sum.Failed, 1)
 }
+
+// TestRenderLiveSummary_ShowsEveryPreregisteredReport: summary.md carries everything section 8
+// reports beside the decision — the H2 regression, the secondary differences, the per-variant
+// table, the per-task signs and the count of trials whose usage account is unreliable.
+func TestRenderLiveSummary_ShowsEveryPreregisteredReport(t *testing.T) {
+	a := eval.LiveAnalysis{Model: "m", Confidence: 0.95, NonInferiorityMargin: 0.2, TrialsPerArm: 1}
+	mk := func(task, arm, variant string, held, ok bool, violations int) eval.LiveTrial {
+		return eval.LiveTrial{
+			TaskID: task, Arm: arm, Trial: 1, Variant: variant, HeldOut: held, Completed: true, TaskSuccess: ok,
+			ConstraintViolations: violations, PluginExpected: arm == eval.ArmQompack,
+			PluginLoaded: arm == eval.ArmQompack, PreregisteredModel: true,
+		}
+	}
+	var ts []eval.LiveTrial
+	for i := range 12 {
+		id := fmt.Sprintf("t%02d", i)
+		ts = append(ts, mk(id, eval.ArmStock, "base", i == 0, true, 0), mk(id, eval.ArmQompack, "base", i == 0, i != 1, 1))
+	}
+	ts[1].Account = eval.SessionAccount{Problems: []string{"turn 1: model x running input total decreased"}}
+	sum := eval.SummarizeLive("r", a, ts)
+	require.NotEmpty(t, sum.ConstraintRegression)
+	md := renderLiveSummary(livePlan{RunID: "r", TaskSet: "s", TaskSetSHA256: "abc", Model: "m", PreregisteredModel: "m"}, sum)
+	for _, want := range []string{
+		"**Regression (H2):**",
+		"Constraint-clean difference (qompack − stock):",
+		"## By variant",
+		"| held-out | qompack | 1 |",
+		"## Per-task sign",
+		"t01: −1",
+		"| inconsistent accounts |",
+	} {
+		require.Contains(t, md, want)
+	}
+}

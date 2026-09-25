@@ -819,21 +819,38 @@ func renderLiveSummary(p livePlan, s eval.LiveSummary) string {
 	fmt.Fprintf(&b, "Every cost figure is a list-price-equivalent ESTIMATE from the %s rate table; the sessions ran on a "+
 		"subscription, which has no per-token cash charge.\n\n", p.RateTableDate)
 	fmt.Fprintf(&b, "**Decision (pre-registered rule, primary outcome):** %s — %s\n\n", s.Decision.Verdict, s.Decision.Reason)
-	b.WriteString("| arm | trials | completed | task success (95% CI) | constraint-clean (95% CI) | violations | recovery (95% CI) | mean host cost USD | hook-problem trials |\n")
-	b.WriteString("|---|---|---|---|---|---|---|---|---|\n")
-	arms := make([]string, 0, len(s.Arms))
-	for a := range s.Arms {
-		arms = append(arms, a)
+	if s.ConstraintRegression != "" {
+		fmt.Fprintf(&b, "**Regression (H2):** %s\n\n", s.ConstraintRegression)
 	}
-	sort.Strings(arms)
-	for _, a := range arms {
-		as := s.Arms[a]
-		fmt.Fprintf(&b, "| %s | %d | %d | %s | %s | %d | %s | %.4f | %d |\n", a, as.Trials, as.Completed,
-			fmtProportion(as.TaskSuccess), fmtProportion(as.ConstraintClean), as.ConstraintViolations,
-			fmtProportion(as.Recovery), as.MeanHostCost, as.HookProblemTrials)
+	renderArmTable(&b, s.Arms)
+	for _, d := range []struct {
+		name string
+		diff *eval.Difference
+	}{
+		{"Task-success", s.TaskSuccessDiff},
+		{"Constraint-clean", s.ConstraintCleanDiff},
+		{"Recovery", s.RecoveryDiff},
+	} {
+		if d.diff != nil {
+			fmt.Fprintf(&b, "\n%s difference (qompack − stock): %.3f [%.3f, %.3f]\n", d.name, d.diff.Estimate, d.diff.Low, d.diff.High)
+		}
 	}
-	if d := s.TaskSuccessDiff; d != nil {
-		fmt.Fprintf(&b, "\nTask-success difference (qompack − stock): %.3f [%.3f, %.3f]\n", d.Estimate, d.Low, d.High)
+	if len(s.ByVariant) > 0 {
+		b.WriteString("\n## By variant\n\nReported, not decided (preregistration section 8).\n\n")
+		b.WriteString("| variant | arm | trials | task success (95% CI) | constraint-clean (95% CI) | recovery (95% CI) |\n")
+		b.WriteString("|---|---|---|---|---|---|\n")
+		for _, v := range liveSortedKeys(s.ByVariant) {
+			for _, as := range s.ByVariant[v] {
+				fmt.Fprintf(&b, "| %s | %s | %d | %s | %s | %s |\n", v, as.Arm, as.Trials,
+					fmtProportion(as.TaskSuccess), fmtProportion(as.ConstraintClean), fmtProportion(as.Recovery))
+			}
+		}
+	}
+	if len(s.TaskSigns) > 0 {
+		b.WriteString("\n## Per-task sign (qompack − stock task success)\n\nReported, not decided.\n\n")
+		for _, id := range liveSortedKeys(s.TaskSigns) {
+			fmt.Fprintf(&b, "- %s: %s\n", id, signWord(s.TaskSigns[id]))
+		}
 	}
 	if len(s.Failed) > 0 {
 		b.WriteString("\n## Failed or incomplete trials\n\n")
@@ -848,6 +865,41 @@ func renderLiveSummary(p livePlan, s eval.LiveSummary) string {
 		}
 	}
 	return b.String()
+}
+
+// renderArmTable writes the per-arm outcome table.
+func renderArmTable(b *strings.Builder, arms map[string]eval.ArmSummary) {
+	b.WriteString("| arm | trials | completed | task success (95% CI) | constraint-clean (95% CI) | violations | " +
+		"recovery (95% CI) | mean host cost USD | hook-problem trials | inconsistent accounts |\n")
+	b.WriteString("|---|---|---|---|---|---|---|---|---|---|\n")
+	for _, a := range liveSortedKeys(arms) {
+		as := arms[a]
+		fmt.Fprintf(b, "| %s | %d | %d | %s | %s | %d | %s | %.4f | %d | %d |\n", a, as.Trials, as.Completed,
+			fmtProportion(as.TaskSuccess), fmtProportion(as.ConstraintClean), as.ConstraintViolations,
+			fmtProportion(as.Recovery), as.MeanHostCost, as.HookProblemTrials, as.AccountInconsistent)
+	}
+}
+
+// liveSortedKeys is a map's keys in order.
+func liveSortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// signWord renders a task sign.
+func signWord(sign int) string {
+	switch {
+	case sign > 0:
+		return "+1"
+	case sign < 0:
+		return "−1"
+	default:
+		return "0"
+	}
 }
 
 func fmtProportion(p eval.Proportion) string {
