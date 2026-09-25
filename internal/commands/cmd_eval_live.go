@@ -140,6 +140,18 @@ func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []s
 	if r.Trials.Skipped > 0 {
 		out = append(out, fmt.Sprintf("%d planned trial(s) did not run", r.Trials.Skipped))
 	}
+	for _, arm := range liveArmOrder(s.Arms) {
+		as := s.Arms[arm]
+		if as.ForeignPluginTrials == 0 {
+			continue
+		}
+		names := "which ones this summary does not name"
+		if len(as.ForeignPlugins) > 0 {
+			names = strings.Join(as.ForeignPlugins, ", ")
+		}
+		out = append(out, fmt.Sprintf("%d of %d %s trial(s) loaded a plugin other than the arm's own (%s), so the "+
+			"arms differed by more than Qompack (preregistration section 3)", as.ForeignPluginTrials, as.Trials, arm, names))
+	}
 	switch {
 	case p.Plugin == nil:
 		out = append(out, "its plan names no plugin bundle")

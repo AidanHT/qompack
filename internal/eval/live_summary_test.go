@@ -240,6 +240,9 @@ func TestSummarizeLive_ForeignPluginsAreNamed(t *testing.T) {
 	s[1].ForeignPlugins = []string{"superpowers@claude-plugins-official"}
 	sum := eval.SummarizeLive("r", liveAnalysis(), append(s, trials(eval.ArmQompack, 2, 2)...))
 	require.Equal(t, 1, sum.Arms[eval.ArmStock].ForeignPluginTrials)
+	require.Equal(t, []string{"superpowers@claude-plugins-official"}, sum.Arms[eval.ArmStock].ForeignPlugins,
+		"the arm's summary names them, so a reader of summary.json alone can say what else loaded")
+	require.Empty(t, sum.Arms[eval.ArmQompack].ForeignPlugins)
 	require.Contains(t, strings.Join(sum.Notes, "\n"),
 		"1 of 2 stock trial(s) loaded a plugin other than the arm's own: superpowers@claude-plugins-official")
 }

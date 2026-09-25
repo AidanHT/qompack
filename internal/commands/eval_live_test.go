@@ -431,6 +431,27 @@ func TestFileEvalArtifacts_NamesANewerRunThatNeverFinished(t *testing.T) {
 	require.Contains(t, text, unfinished.Plan.RunID)
 }
 
+// TestEval_LiveNotConfirmatoryWhenAForeignPluginLoaded: preregistration section 3 makes the two arms
+// identical except for the plugin. A trial whose host loaded some other plugin — on either arm —
+// breaks that, so the comparison is not the pre-registered one; the report names the arm and the
+// plugin rather than judging the run.
+func TestEval_LiveNotConfirmatoryWhenAForeignPluginLoaded(t *testing.T) {
+	run := confirmatoryRun(19, 20)
+	trials := append(liveTrials(eval.ArmStock, 20, 19), liveTrials(eval.ArmQompack, 20, 20)...)
+	trials[0].ForeignPlugins = []string{"superpowers@claude-plugins-official"}
+	run.Summary = eval.SummarizeLive(run.Plan.RunID, liveAnalysis(), trials)
+	require.Equal(t, 1, run.Summary.Arms[eval.ArmStock].ForeignPluginTrials)
+
+	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.False(t, rep.Live.Confirmatory)
+	reasons := strings.Join(rep.Live.NotConfirmatory, "\n")
+	require.Contains(t, reasons, "superpowers@claude-plugins-official")
+	require.Contains(t, reasons, "stock")
+	require.Nil(t, liveGate(t, rep.Task, "LIVE-T01").Passed)
+}
+
 // TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable: the provider reports the newest run, so an
 // older run's summary — truncated by a crash mid-write, say — is none of its business and must not
 // make every default `qompack eval` fail. The newest run's own summary still must be readable: a
