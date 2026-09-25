@@ -65,7 +65,10 @@ func (r liveCLIResult) combined() string {
 type liveEnv struct {
 	claudeBin string
 	// home is the Claude Code configuration directory: CLAUDE_CONFIG_DIR, else ~/.claude.
-	home       string
+	home string
+	// workRoot is where each trial's disposable work directory (its project, and the marketplace
+	// copy of the bundle) is made: "" for the system temporary directory.
+	workRoot   string
 	now        func() time.Time
 	run        func(ctx context.Context, spec liveProcSpec) liveProcResult
 	cli        func(ctx context.Context, dir string, args ...string) liveCLIResult

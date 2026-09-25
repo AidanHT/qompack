@@ -345,6 +345,7 @@ func fakeLiveEnv(t *testing.T, cliCalls *[]string) *liveEnv {
 	return &liveEnv{
 		claudeBin: "claude-fake",
 		home:      t.TempDir(),
+		workRoot:  t.TempDir(),
 		now:       func() time.Time { return time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC) },
 		run: func(context.Context, liveProcSpec) liveProcResult {
 			t.Fatal("no session may start in this test")
@@ -789,4 +790,33 @@ func TestLookClaude_RelativePathIsMadeAbsolute(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(wd, "bin", "claude"), got)
+}
+
+// TestRunLiveEval_TrialProjectsLiveUnderTheWorkRoot: each trial's disposable project is made under
+// the environment's work root, so the offline tests leave nothing behind in the machine's shared
+// temporary directory (they used to leave one qompack-live-* project per trial there).
+func TestRunLiveEval_TrialProjectsLiveUnderTheWorkRoot(t *testing.T) {
+	home := t.TempDir()
+	env := fakeLiveEnv(t, nil)
+	env.home = home
+	env.run = scriptedPilotHost(t, home)
+	root := t.TempDir()
+	env.workRoot = root
+	t.Setenv(liveEvalGateEnv, "1")
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock"}, out: t.TempDir(), idleExit: 1, trials: 1,
+	}
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(o.out, "trials", "pilot-codeword", "stock", "01", "trial.json"), &rec)
+	var project string
+	for _, n := range rec.Notes {
+		if p, ok := strings.CutPrefix(n, "project: "); ok {
+			project = p
+		}
+	}
+	rel, err := filepath.Rel(root, project)
+	require.NoError(t, err)
+	require.False(t, strings.HasPrefix(rel, ".."), "the trial project %s is outside the work root %s", project, root)
 }
