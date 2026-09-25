@@ -34,7 +34,7 @@
         },
         "incrementalSpanInstruction": {
           "default": true,
-          "description": "emit the O1 focus instruction narrowing the summarizer to the span after the checkpoint frontier",
+          "description": "retired (C1.18): no host accepts a PreCompact instruction, so none is emitted; read for compatibility only (docs/cannot-do.md)",
           "type": "boolean",
           "x-qompack-section": "§8.5"
         },
