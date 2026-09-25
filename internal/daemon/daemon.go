@@ -273,6 +273,10 @@ type daemon struct {
 	// request's arrival, before answering with the deferred note (compactAnswerBudget). New sets it;
 	// it is a field only so a test can make the bound short.
 	compactBudget time.Duration
+
+	// compactGates holds each session's next observer work until the compact SessionStart
+	// bookkeeping the route did not wait for has finished (session_start_compact.go).
+	compactGates compactGates
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -340,6 +344,7 @@ func New(o Options) (Daemon, error) {
 	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
 	d.promptAbandonAfter = promptReplyDeadline
 	d.compactBudget = compactAnswerBudget()
+	d.orderAfterCompactBookkeeping()
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
