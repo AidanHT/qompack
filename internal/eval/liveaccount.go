@@ -68,6 +68,17 @@ func usageOfModel(m HostModelUsage) UsageTotals {
 	}
 }
 
+// runningTotal is one model's running total in a modelUsage map. A model the map does not name had
+// spent nothing yet, so its total is a KNOWN zero, thinking included; only an entry the host printed
+// without a thinking count leaves thinking unknown.
+func runningTotal(m map[string]HostModelUsage, model string) UsageTotals {
+	if e, ok := m[model]; ok {
+		return usageOfModel(e)
+	}
+	zero := int64(0)
+	return UsageTotals{Thinking: &zero}
+}
+
 // sub returns u − o per volume. A split is kept only when both sides carry it.
 func (u UsageTotals) sub(o UsageTotals) UsageTotals {
 	out := UsageTotals{
@@ -223,8 +234,7 @@ func AccountHostStream(s HostStream, base AccountBaseline) SessionAccount {
 			problem("turn %d: total_cost_usd decreased from %.6f to %.6f", t.Index, prevCost, t.Result.TotalCostUSD)
 		}
 		for _, model := range sortedModels(t.Result.ModelUsage, prev) {
-			cur := usageOfModel(t.Result.ModelUsage[model])
-			d := cur.sub(usageOfModel(prev[model]))
+			d := runningTotal(t.Result.ModelUsage, model).sub(runningTotal(prev, model))
 			if n := d.negative(); n != "" {
 				problem("turn %d: model %s running %s total decreased; the host reset its totals", t.Index, model, n)
 			}
@@ -242,8 +252,8 @@ func AccountHostStream(s HostStream, base AccountBaseline) SessionAccount {
 		prevCost = t.Result.TotalCostUSD
 	}
 
-	for model, cur := range prev {
-		d := usageOfModel(cur).sub(usageOfModel(base.ModelUsage[model]))
+	for model := range prev {
+		d := runningTotal(prev, model).sub(runningTotal(base.ModelUsage, model))
 		if !d.IsZero() {
 			acc.Total[model] = d
 		}
