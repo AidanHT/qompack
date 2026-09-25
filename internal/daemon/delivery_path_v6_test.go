@@ -75,11 +75,16 @@ func TestDeliveryPath_V6_TransitionLimitRefusesBeforeAppend(t *testing.T) {
 	require.Equal(t, before, after, "the writer must stop before exceeding its reader's limit")
 }
 
+// The alias is a symlink where the host allows one and an NTFS junction otherwise: an unprivileged
+// Windows process cannot create a symlink, but it can create a junction, and pinDeliveryChild
+// refuses both (os.ModeSymlink, os.ModeIrregular).
 func TestDeliveryPath_V6_RefusesAliasedSegmentParent(t *testing.T) {
 	state, outside := t.TempDir(), t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(state, deliverySegmentsDir)); err != nil {
-		t.Skipf("platform cannot create this symlink fixture: %v", err)
+	alias := filepath.Join(state, deliverySegmentsDir)
+	if err := makeDirLink(alias, outside); err != nil {
+		t.Skip("platform: this host will create neither a directory symlink nor a junction: " + err.Error())
 	}
+	t.Cleanup(func() { _ = os.Remove(alias) })
 	require.Error(t, createFreshSegment(state, 1, emptyCarry(t, 1)))
 	entries, err := os.ReadDir(outside)
 	require.NoError(t, err)
