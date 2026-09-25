@@ -62,9 +62,9 @@ var releasesWithNoSealResidual = []struct {
 			"can only ever answer nil there",
 	},
 	{
-		file: "internal/daemon/spawn.go", fn: "SpawnDetached",
+		file: "internal/daemon/spawn.go", fn: "spawnDetached",
 		why: "os.Process.Release, which detaches the spawned child from this process — the same " +
-			"method name on an unrelated type",
+			"method name on an unrelated type (SpawnDetached's body since C1.17 staged the binary)",
 	},
 }
 
