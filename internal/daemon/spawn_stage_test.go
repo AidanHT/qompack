@@ -184,22 +184,32 @@ func TestStageBinary_ConcurrentSpawnersAgree(t *testing.T) {
 }
 
 // TestDaemonProgram_StagesOnlyWhereEnabled: the program SpawnDetached starts is the staged copy
-// where staging is enabled (Windows), the plugin binary elsewhere, and the plugin binary — with
-// the failure reported — when staging fails.
+// where staging is enabled (Windows) and the hook runs from inside CLAUDE_PLUGIN_ROOT; the binary
+// itself elsewhere, and when it is not a plugin's (a build tree, a test's temporary directory, which
+// then writes nothing into the home); and the plugin binary — with the failure reported — when
+// staging fails.
 func TestDaemonProgram_StagesOnlyWhereEnabled(t *testing.T) {
 	t.Parallel()
 	self, home := fakeSelf(t), t.TempDir()
+	pluginRoot := filepath.Dir(filepath.Dir(self))
 
-	got, err := daemonProgram(self, home, false)
+	got, err := daemonProgram(self, home, pluginRoot, false)
 	require.NoError(t, err)
 	require.Equal(t, self, got)
 
-	got, err = daemonProgram(self, home, true)
+	for _, notAPlugin := range []string{"", t.TempDir()} {
+		got, err = daemonProgram(self, home, notAPlugin, true)
+		require.NoError(t, err)
+		require.Equal(t, self, got, "a binary outside CLAUDE_PLUGIN_ROOT (%q) pins no plugin directory", notAPlugin)
+	}
+	require.NoDirExists(t, filepath.Join(paths.Global(home), stagedBinDir), "and nothing is written into the home")
+
+	got, err = daemonProgram(self, home, pluginRoot, true)
 	require.NoError(t, err)
 	require.NotEqual(t, self, got)
 	requireSameBytes(t, self, got)
 
-	got, err = daemonProgram(self, "", true)
+	got, err = daemonProgram(self, "", pluginRoot, true)
 	require.Error(t, err, "a staging failure is reported")
 	require.Equal(t, self, got, "and the plugin binary is started instead")
 }

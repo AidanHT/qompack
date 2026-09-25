@@ -25,7 +25,9 @@ import (
 // half way (plugin.json and .mcp.json gone, bin/ and everything after it left behind), and the same
 // lock would break a plugin update or uninstall, which removes the old version's directory.
 //
-// So on Windows the daemon runs from a copy of the binary under the per-user data directory, one of
+// So on Windows a hook running from inside the plugin directory (CLAUDE_PLUGIN_ROOT, which the host
+// sets for every plugin hook) starts the daemon from a copy of the binary under the per-user data
+// directory instead, one of
 // the two places Qompack writes (<home>/.qompack, §3.3): <home>/.qompack/bin/<sha256>/qompack.exe,
 // content-addressed by the binary's own SHA-256. The copy is made once per version and verified on
 // every spawn — a regular file, not a link or reparse point, whose bytes hash to the name it is
@@ -35,7 +37,10 @@ import (
 //
 // Elsewhere the kernel lets a running executable's file and directory be unlinked or replaced, so
 // removing or updating the plugin never waits on the daemon, and the daemon runs from the plugin
-// binary as it always has. Staging failure is not fatal anywhere: the daemon is started from the
+// binary as it always has. A binary run from anywhere but a plugin directory — a build tree, a
+// test's temporary directory, an operator's own copy — pins nothing a host will remove and is run
+// as it is, which also keeps a test that never names a plugin root from writing into the real
+// user's home. Staging failure is not fatal anywhere: the daemon is started from the
 // plugin binary instead, and it reports that itself when it starts (runningFromPluginRoot).
 
 // pluginRootEnv is the variable Claude Code sets to the plugin's installed directory for every
@@ -226,11 +231,13 @@ func fileSHA256(p string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// daemonProgram is the executable SpawnDetached starts for a hook running self: the staged copy
-// when stage is set (stagingEnabled) and staging succeeds, otherwise self. The error is the staging
-// failure, for a caller with a logger to report; it never prevents the spawn.
-func daemonProgram(self, home string, stage bool) (string, error) {
-	if !stage {
+// daemonProgram is the executable SpawnDetached starts for a hook running self: a staged copy when
+// stage is set (stagingEnabled) and self lies inside pluginRoot (CLAUDE_PLUGIN_ROOT) — the one case
+// in which the daemon would otherwise pin a plugin directory — and staging succeeds; self
+// otherwise. The error is the staging failure, for a caller with a logger to report; it never
+// prevents the spawn.
+func daemonProgram(self, home, pluginRoot string, stage bool) (string, error) {
+	if !stage || !insideDir(self, pluginRoot) {
 		return self, nil
 	}
 	staged, err := stageBinary(self, home)
@@ -245,12 +252,30 @@ func daemonProgram(self, home string, stage bool) (string, error) {
 // stagingEnabled: staging was expected and did not happen, and the plugin cannot be removed or
 // updated while this daemon runs. Run reports it Loud.
 func runningFromPluginRoot(exe, pluginRoot string, stage bool) bool {
-	if !stage || exe == "" || pluginRoot == "" {
+	return stage && insideDir(exe, pluginRoot)
+}
+
+// insideDir reports whether p lies inside dir: by the cleaned paths as spelled, or failing that by
+// the paths with links resolved, so a plugin root reached through a link, a junction or a short
+// (8.3) name is still recognized. An empty p or dir is inside nothing.
+func insideDir(p, dir string) bool {
+	if p == "" || dir == "" {
 		return false
 	}
-	rel, err := filepath.Rel(filepath.Clean(pluginRoot), filepath.Clean(exe))
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	if within(p, dir) {
+		return true
+	}
+	rp, err := filepath.EvalSymlinks(p)
+	if err != nil {
 		return false
 	}
-	return true
+	rd, err := filepath.EvalSymlinks(dir)
+	return err == nil && within(rp, rd)
+}
+
+// within is insideDir's lexical test.
+func within(p, dir string) bool {
+	rel, err := filepath.Rel(filepath.Clean(dir), filepath.Clean(p))
+	return err == nil && rel != "." && rel != ".." && !filepath.IsAbs(rel) &&
+		!strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
