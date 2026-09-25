@@ -1,0 +1,33 @@
+# test/platform in full after layout staging (every bundle-based case now stages into its own isolated home
+# on Windows). go test ./test/platform/ -count=1 -v -timeout=30m, Windows 11, co-loaded.
+# C:\Users\Quant\.qompack did not exist afterwards (ls: No such file or directory).
+=== RUN   TestPlatform_UnsupportedOptimizationsDisabled
+--- PASS: TestPlatform_UnsupportedOptimizationsDisabled (9.54s)
+=== RUN   TestPlatform_UnknownSettingsVersion
+--- PASS: TestPlatform_UnknownSettingsVersion (0.28s)
+=== RUN   TestPlatform_ProjectRootShapes
+=== RUN   TestPlatform_ProjectRootShapes/plain
+=== RUN   TestPlatform_ProjectRootShapes/spaces
+=== RUN   TestPlatform_ProjectRootShapes/unicode
+=== RUN   TestPlatform_ProjectRootShapes/long
+--- PASS: TestPlatform_ProjectRootShapes (14.51s)
+    --- PASS: TestPlatform_ProjectRootShapes/plain (3.13s)
+    --- PASS: TestPlatform_ProjectRootShapes/spaces (3.43s)
+    --- PASS: TestPlatform_ProjectRootShapes/unicode (3.80s)
+    --- PASS: TestPlatform_ProjectRootShapes/long (4.15s)
+=== RUN   TestPlatform_MixedCaseProjectRoot
+--- PASS: TestPlatform_MixedCaseProjectRoot (2.29s)
+=== RUN   TestPlatform_PluginRootWithSpacesAndUnicode
+--- PASS: TestPlatform_PluginRootWithSpacesAndUnicode (5.10s)
+=== RUN   TestPlatform_ReadOnlyProjectRoot
+--- PASS: TestPlatform_ReadOnlyProjectRoot (0.19s)
+=== RUN   TestPlatform_ReadOnlyQompackDir
+--- PASS: TestPlatform_ReadOnlyQompackDir (0.27s)
+=== RUN   TestPlatform_ReadOnlyBundleDir
+--- PASS: TestPlatform_ReadOnlyBundleDir (1.94s)
+=== RUN   TestPlatform_UnwritableHome
+--- PASS: TestPlatform_UnwritableHome (0.24s)
+=== RUN   TestPlatform_HookLauncherForms
+--- PASS: TestPlatform_HookLauncherForms (6.17s)
+ok  	github.com/qompack/qompack/test/platform	41.814s
+exit=0

@@ -589,7 +589,8 @@ Select-Object Path` in PowerShell). A current build runs it from
 day log in `.qompack/logs/` names why the copy could not be made when `session-start` started it.
 
 **Meaning.** The daemon outlives the session by design, and Windows will not delete a running
-executable or the directory holding it (C1.17). So the hook that starts the daemon runs it from a
+executable or the directory holding it (C1.17). So whatever starts the daemon from the plugin's
+binary — `session-start`, a hook's lazy spawn, or the `qompack mcp` server's — runs it from a
 verified copy under the user's `.qompack\bin` instead, and only the session's own hook processes and
 MCP server — which end with the session — ever run from the plugin directory. A daemon from a build
 before this change, or one started after the copy failed (a full disk, an unwritable `.qompack`
