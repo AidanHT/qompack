@@ -199,3 +199,78 @@ func TestAccountHostStream_FreshSessionKnowsItsThinking(t *testing.T) {
 	require.NotNil(t, total.Thinking, "the session's thinking total is the final running total minus zero")
 	require.Equal(t, int64(777), *total.Thinking)
 }
+
+// TestAccountHostStream_MainLoopMatchedAcrossModelSpellings: the host can name the session's model
+// one way on its init line (an alias, a "[1m]" context tag) and another as the key of modelUsage
+// (the API's model id). The main loop must still be subtracted from the running total it belongs
+// to; otherwise the whole turn is attributed beside the main loop AND counted as the main loop, and
+// the ledger counts it twice.
+func TestAccountHostStream_MainLoopMatchedAcrossModelSpellings(t *testing.T) {
+	for name, mutate := range map[string]func(s *eval.HostStream){
+		"context tag on init": func(s *eval.HostStream) { s.Init.Model = haiku + "[1m]" },
+		"alias on init, no model on the requests": func(s *eval.HostStream) {
+			s.Init.Model = "claude-haiku-4-5"
+			for i := range s.Turns {
+				for j := range s.Turns[i].Requests {
+					s.Turns[i].Requests[j].Model = ""
+				}
+			}
+		},
+	} {
+		s := parseLiveFixture(t, smoke1Stream)
+		init := *s.Init
+		s.Init = &init
+		mutate(&s)
+		a := eval.AccountHostStream(s, eval.AccountBaseline{})
+		require.True(t, a.Consistent, "%s: problems: %v", name, a.Problems)
+		require.Empty(t, a.Turns[0].Beside, "%s: the first turn ran nothing beside its main loop", name)
+		require.Equal(t, haiku, a.Turns[0].MainModel, "%s: the main loop is keyed as its running total is", name)
+		requireLedgerEqualsTotal(t, a, name)
+	}
+
+	// A main loop whose model matches no running total at all cannot be attributed: the account says
+	// so instead of silently counting the turn twice.
+	s := parseLiveFixture(t, smoke1Stream)
+	init := *s.Init
+	init.Model = "claude-elsewhere-1"
+	s.Init = &init
+	for i := range s.Turns {
+		for j := range s.Turns[i].Requests {
+			s.Turns[i].Requests[j].Model = "claude-elsewhere-1"
+		}
+	}
+	a := eval.AccountHostStream(s, eval.AccountBaseline{})
+	require.False(t, a.Consistent)
+	require.Contains(t, strings.Join(a.Problems, "\n"), "claude-elsewhere-1")
+}
+
+// TestLedgerRecords_NeverCountAnyTokenTwice is the no-double-count rule at the ledger: on every
+// recorded session, the ledger's per-category volumes add up to exactly what the host's final
+// running totals say the process spent — never more.
+func TestLedgerRecords_NeverCountAnyTokenTwice(t *testing.T) {
+	for _, name := range []string{smoke1Stream, smoke2Stream, smoke3Stream} {
+		a := eval.AccountHostStream(parseLiveFixture(t, name), eval.AccountBaseline{})
+		require.True(t, a.Consistent, "%s: problems: %v", name, a.Problems)
+		requireLedgerEqualsTotal(t, a, name)
+	}
+}
+
+// requireLedgerEqualsTotal compares the ledger view of an account with its totals over the volumes
+// the ledger keeps exactly: input, cache reads, and output (visible plus thinking).
+func requireLedgerEqualsTotal(t *testing.T, a eval.SessionAccount, name string) {
+	t.Helper()
+	sums := eval.RequestLedger{
+		Version: eval.RequestLedgerVersion,
+		Records: a.LedgerRecords("x", "anthropic", eval.PricingSubscription, "2026-09-22"),
+	}.Sum()
+	var want eval.UsageTotals
+	for _, u := range a.Total {
+		want.Input += u.Input
+		want.CacheRead += u.CacheRead
+		want.Output += u.Output
+	}
+	require.Equal(t, want.Input, int64(sums[eval.CategoryInput].Known), "%s: input", name)
+	require.Equal(t, want.CacheRead, int64(sums[eval.CategoryCacheRead].Known), "%s: cache read", name)
+	require.Equal(t, want.Output,
+		int64(sums[eval.CategoryOutput].Known)+int64(sums[eval.CategoryThinkingOutput].Known), "%s: output", name)
+}

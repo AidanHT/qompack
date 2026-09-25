@@ -1,0 +1,13 @@
+=== RUN   TestAccountHostStream_MainLoopMatchedAcrossModelSpellings
+    live_account_test.go:226: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_account_test.go:226
+        	Error:      	Should be empty, but was map[claude-haiku-4-5-20251001:{18 328 42295 8350 <nil> <nil> 0x13f1f3c84428}]
+        	Test:       	TestAccountHostStream_MainLoopMatchedAcrossModelSpellings
+        	Messages:   	context tag on init: the first turn ran nothing beside its main loop
+--- FAIL: TestAccountHostStream_MainLoopMatchedAcrossModelSpellings (0.00s)
+=== RUN   TestLedgerRecords_NeverCountAnyTokenTwice
+--- PASS: TestLedgerRecords_NeverCountAnyTokenTwice (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/eval	0.199s
+FAIL
+exit=1

@@ -147,7 +147,8 @@ type TurnAccount struct {
 	LocalCommand string `json:"local_command,omitempty"`
 	// Compacted reports that the turn produced a compact_boundary.
 	Compacted bool `json:"compacted"`
-	// MainModel is the model the main loop ran on.
+	// MainModel is the running-total key the main loop is accounted under: the model its requests
+	// named, or the init line's, matched to the modelUsage key it belongs to (see mainModelKey).
 	MainModel string `json:"main_model"`
 	// MainLoop is result.usage: the turn's main loop, exact.
 	MainLoop UsageTotals `json:"main_loop"`
@@ -211,9 +212,9 @@ func AccountHostStream(s HostStream, base AccountBaseline) SessionAccount {
 
 	prev := base.ModelUsage
 	prevCost := base.TotalCostUSD
-	mainModel := ""
+	initModel := ""
 	if s.Init != nil {
-		mainModel = s.Init.Model
+		initModel = s.Init.Model
 	}
 
 	for _, t := range s.Turns {
@@ -225,7 +226,6 @@ func AccountHostStream(s HostStream, base AccountBaseline) SessionAccount {
 			Turn:             t.Index,
 			LocalCommand:     t.Result.LocalCommand,
 			Compacted:        len(t.Compactions) > 0,
-			MainModel:        mainModel,
 			MainLoop:         usageOfResult(t.Result.Usage),
 			Delta:            map[string]UsageTotals{},
 			HostCostDeltaUSD: t.Result.TotalCostUSD - prevCost,
@@ -241,6 +241,13 @@ func AccountHostStream(s HostStream, base AccountBaseline) SessionAccount {
 			if !d.IsZero() {
 				ta.Delta[model] = d
 			}
+		}
+		var matched bool
+		ta.MainModel, matched = mainModelKey(t, initModel, ta.Delta)
+		if !matched && !ta.MainLoop.IsZero() {
+			problem("turn %d: the main loop ran on %s, which matches none of the models whose running totals "+
+				"changed (%v); its usage cannot be attributed, and would be counted both as the main loop and "+
+				"beside it", t.Index, orUnnamed(ta.MainModel), usageModels(ta.Delta))
 		}
 		ta.Beside, ta.BesideKind = beside(t, ta, problem)
 		ta.StepsMatchResult = stepsMatch(t)
@@ -260,6 +267,62 @@ func AccountHostStream(s HostStream, base AccountBaseline) SessionAccount {
 	}
 	acc.HostCostUSD = prevCost - base.TotalCostUSD
 	return acc
+}
+
+// mainModelKey returns the running-total key a turn's main loop is accounted under, and whether one
+// matched. The host does not spell a model the same way everywhere: the init line can carry an
+// alias or a context tag ("claude-opus-5-5[1m]") while modelUsage is keyed by the API's model id. The
+// main loop's own requests name the model the API reported, so they are tried first, then the init
+// line; an exact key wins, else the one key with the same canonical form. Subtracting the main loop
+// from a key it does not belong to would leave the whole turn "beside" the main loop while the main
+// loop is also counted, which is the double count this file exists to prevent.
+func mainModelKey(t HostTurn, initModel string, delta map[string]UsageTotals) (string, bool) {
+	var candidates []string
+	for _, r := range t.Requests {
+		if r.ParentToolUseID == "" && r.Model != "" {
+			candidates = append(candidates, r.Model)
+			break
+		}
+	}
+	if initModel != "" {
+		candidates = append(candidates, initModel)
+	}
+	for _, c := range candidates {
+		if _, ok := delta[c]; ok {
+			return c, true
+		}
+	}
+	for _, c := range candidates {
+		var hits []string
+		for k := range delta {
+			if CanonicalModel(k) == CanonicalModel(c) {
+				hits = append(hits, k)
+			}
+		}
+		if len(hits) == 1 {
+			return hits[0], true
+		}
+	}
+	if len(candidates) > 0 {
+		return candidates[0], false
+	}
+	return "", false
+}
+
+func orUnnamed(model string) string {
+	if model == "" {
+		return "an unnamed model"
+	}
+	return model
+}
+
+func usageModels(m map[string]UsageTotals) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // beside computes Delta − MainLoop and attributes it.
