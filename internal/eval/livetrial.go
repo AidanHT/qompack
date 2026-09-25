@@ -87,6 +87,9 @@ type LiveTrial struct {
 	Plugin *LivePluginIdentity `json:"plugin,omitempty"`
 	// HomeGuard is the operator-configuration guard's verdict around this trial.
 	HomeGuard *LiveHomeGuard `json:"home_guard,omitempty"`
+	// ForeignPlugins names every non-builtin plugin the host loaded beyond the arm's own (on the
+	// stock arm, every non-builtin plugin). Both arms are meant to run with nothing else.
+	ForeignPlugins []string `json:"foreign_plugins,omitempty"`
 	// PreregisteredModel reports whether Model is the task set's pre-registered model.
 	PreregisteredModel bool     `json:"preregistered_model"`
 	Notes              []string `json:"notes,omitempty"`
@@ -124,6 +127,11 @@ type LivePluginIdentity struct {
 	BundleSHA256 string `json:"bundle_json_sha256"`
 	// HostVersion is the plugin version the host reported loading.
 	HostVersion string `json:"host_version,omitempty"`
+	// HostSource and HostPath are where the host said it loaded the plugin from: the source must be
+	// the arm's own install ("qompack@inline" for --plugin-dir, "qompack@<marketplace>" for the
+	// marketplace flow) for the trial to count as having its plugin.
+	HostSource string `json:"host_source,omitempty"`
+	HostPath   string `json:"host_path,omitempty"`
 }
 
 // LiveHomeGuard is the verdict of the guard over the operator's real Claude Code configuration.
@@ -351,6 +359,8 @@ type ArmSummary struct {
 	// (SessionAccount.Consistent false, with the problems named): their outcomes count, but their
 	// category sums and estimate are not reliable.
 	AccountInconsistent int `json:"account_inconsistent"`
+	// ForeignPluginTrials counts trials whose host loaded a plugin other than the arm's own.
+	ForeignPluginTrials int `json:"foreign_plugin_trials"`
 	// Categories sums every trial's per-category usage, evidence counts included.
 	Categories map[UsageCategory]CategorySum `json:"categories,omitempty"`
 }
@@ -475,6 +485,12 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 				"%d of %d %s trial(s) ran with a hook failure the host reported; they are counted, "+
 					"not dropped, and each trial record names the failure", as.HookProblemTrials, as.Trials, arm))
 		}
+		if as.ForeignPluginTrials > 0 {
+			sum.Notes = append(sum.Notes, fmt.Sprintf(
+				"%d of %d %s trial(s) loaded a plugin other than the arm's own: %s; both arms are meant to "+
+					"run with nothing else (preregistration section 3)", as.ForeignPluginTrials, as.Trials, arm,
+				strings.Join(foreignPlugins(trials, arm), ", ")))
+		}
 		if as.AccountInconsistent > 0 {
 			sum.Notes = append(sum.Notes, fmt.Sprintf(
 				"%d of %d %s trial(s) have an inconsistent usage account; their outcomes count, but their "+
@@ -538,6 +554,25 @@ func DecideLive(a LiveAnalysis, s LiveSummary) LiveDecision {
 			Reason:  fmt.Sprintf("interval [%.3f, %.3f] straddles -%.3f", d.Low, d.High, a.NonInferiorityMargin),
 		}
 	}
+}
+
+// foreignPlugins is the sorted union of the foreign plugins one arm's trials loaded.
+func foreignPlugins(trials []LiveTrial, arm string) []string {
+	seen := map[string]bool{}
+	for _, t := range trials {
+		if t.Arm != arm {
+			continue
+		}
+		for _, p := range t.ForeignPlugins {
+			seen[p] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // summarizeGroups summarizes each group's arms, arms in name order.
@@ -634,6 +669,9 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		// to be wrong about, and is not counted here.
 		if !t.Account.Consistent && len(t.Account.Problems) > 0 {
 			out.AccountInconsistent++
+		}
+		if len(t.ForeignPlugins) > 0 {
+			out.ForeignPluginTrials++
 		}
 		for c, cs := range t.Categories {
 			if out.Categories == nil {

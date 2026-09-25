@@ -64,6 +64,10 @@ const liveMCPToolPrefix = "mcp__plugin_qompack_qompack__"
 // liveMCPServerName is the name the host lists the plugin's MCP server under.
 const liveMCPServerName = "plugin:qompack:qompack"
 
+// liveInlineSource is the marketplace name Claude Code gives a plugin loaded with --plugin-dir: the
+// host lists it as "<name>@inline" (2.1.280, observed in the smoke and pilot sessions).
+const liveInlineSource = "inline"
+
 // livePluginName is the plugin's name as the host lists it.
 const livePluginName = "qompack"
 
@@ -545,7 +549,7 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 	if stream.Init != nil {
 		rec.SessionID = stream.Init.SessionID
 		rec.ClaudeCodeVersion = stream.Init.ClaudeCodeVersion
-		rec.PluginLoaded = stream.PluginLoaded(livePluginName)
+		lt.recordPlugins(rec, stream)
 		if stream.Init.Model != "" && stream.Init.Model != rec.Model {
 			rec.Notes = append(rec.Notes, "host reported model "+stream.Init.Model)
 		}
@@ -600,11 +604,6 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 					q.MCPServerStatus = m.Status
 				}
 			}
-			for _, pl := range stream.Init.Plugins {
-				if pl.Name == livePluginName && rec.Plugin != nil {
-					rec.Plugin.HostVersion = pl.Version
-				}
-			}
 		}
 		if trErr == nil {
 			q.Injections, q.InjectedBytes = tr.QompackInjections()
@@ -631,6 +630,40 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 	}))
 	if rec.HarnessError != "" {
 		rec.Completed = false
+	}
+}
+
+// recordPlugins decides whether the trial ran with its arm's plugin and names anything else the host
+// loaded. On the qompack arm the plugin counts only when the host loaded it from the arm's own
+// install — the inline --plugin-dir source or the disposable marketplace — because a Qompack copy
+// from anywhere else (an operator install, another lane's marketplace) is not the frozen bundle the
+// trial is about. On the stock arm any Qompack plugin, from any source, contradicts the arm.
+func (lt liveTrialRun) recordPlugins(rec *eval.LiveTrial, stream eval.HostStream) {
+	if lt.arm != eval.ArmQompack {
+		rec.PluginLoaded = stream.PluginLoaded(livePluginName)
+		rec.ForeignPlugins = stream.ForeignPlugins("")
+		return
+	}
+	want := livePluginName + "@" + liveInlineSource
+	if lt.opts.install == liveInstallMarketplace {
+		want = livePluginName + "@" + liveMarketplaceName
+	}
+	rec.ForeignPlugins = stream.ForeignPlugins(want)
+	pl, ok := stream.PluginFrom(livePluginName, want)
+	rec.PluginLoaded = ok
+	if !ok {
+		if other, found := stream.PluginFrom(livePluginName, ""); found {
+			rec.Notes = append(rec.Notes, fmt.Sprintf("the host loaded Qompack from %s (%s), not from this "+
+				"arm's install (%s): not counted as the arm's plugin", other.Source, other.Path, want))
+		}
+		return
+	}
+	if rec.Plugin != nil {
+		rec.Plugin.HostVersion, rec.Plugin.HostSource, rec.Plugin.HostPath = pl.Version, pl.Source, pl.Path
+		if pl.Version != rec.Plugin.Version {
+			rec.Notes = append(rec.Notes, fmt.Sprintf("the host reported plugin version %s; the bundle is %s",
+				pl.Version, rec.Plugin.Version))
+		}
 	}
 }
 

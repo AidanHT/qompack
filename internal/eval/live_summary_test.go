@@ -230,3 +230,15 @@ func TestSummarizeLive_InconsistentAccountsAreNamed(t *testing.T) {
 	require.Zero(t, sum.Arms[eval.ArmStock].AccountInconsistent)
 	require.Contains(t, strings.Join(sum.Notes, "\n"), "1 of 3 qompack trial(s) have an inconsistent usage account")
 }
+
+// TestSummarizeLive_ForeignPluginsAreNamed: both arms are meant to run with no plugin but the
+// arm's own (preregistration section 3); a trial whose host loaded another is counted and named in
+// the notes rather than passing unremarked.
+func TestSummarizeLive_ForeignPluginsAreNamed(t *testing.T) {
+	s := trials(eval.ArmStock, 2, 2)
+	s[1].ForeignPlugins = []string{"superpowers@claude-plugins-official"}
+	sum := eval.SummarizeLive("r", liveAnalysis(), append(s, trials(eval.ArmQompack, 2, 2)...))
+	require.Equal(t, 1, sum.Arms[eval.ArmStock].ForeignPluginTrials)
+	require.Contains(t, strings.Join(sum.Notes, "\n"),
+		"1 of 2 stock trial(s) loaded a plugin other than the arm's own: superpowers@claude-plugins-official")
+}
