@@ -901,6 +901,7 @@ func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
 			fmt.Fprintf(&b, "\n%s difference (qompack − stock): %.3f [%.3f, %.3f]\n", d.name, d.diff.Estimate, d.diff.Low, d.diff.High)
 		}
 	}
+	renderHostHookTable(&b, s.Arms)
 	if len(s.ByVariant) > 0 {
 		b.WriteString("\n## By variant\n\nReported, not decided (preregistration section 8).\n\n")
 		b.WriteString("| variant | arm | trials | task success (95% CI) | constraint-clean (95% CI) | recovery (95% CI) |\n")
@@ -943,6 +944,28 @@ func renderArmTable(b *strings.Builder, arms map[string]eval.ArmSummary) {
 		fmt.Fprintf(b, "| %s | %d | %d | %s | %s | %d | %s | %.4f | %d | %d |\n", a, as.Trials, as.Completed,
 			fmtProportion(as.TaskSuccess), fmtProportion(as.ConstraintClean), as.ConstraintViolations,
 			fmtProportion(as.Recovery), as.MeanHostCost, as.HookProblemTrials, as.AccountInconsistent)
+	}
+}
+
+// renderHostHookTable writes each arm's per-hook latency as the host measured it (transcript
+// durationMs), the hook latency preregistration section 6 reports.
+func renderHostHookTable(b *strings.Builder, arms map[string]eval.ArmSummary) {
+	have := false
+	for _, as := range arms {
+		have = have || len(as.HostHookMS) > 0
+	}
+	if !have {
+		return
+	}
+	b.WriteString("\n## Hook latency, as the host measured it\n\nTranscript durationMs per hook, over every trial " +
+		"of the arm; reported, not decided (preregistration section 6).\n\n")
+	b.WriteString("| arm | hook | runs | p50 ms | p95 ms | max ms |\n|---|---|---|---|---|---|\n")
+	for _, arm := range liveSortedKeys(arms) {
+		hooks := arms[arm].HostHookMS
+		for _, name := range liveSortedKeys(hooks) {
+			h := hooks[name]
+			fmt.Fprintf(b, "| %s | %s | %d | %d | %d | %d |\n", arm, name, h.N, h.P50, h.P95, h.Max)
+		}
 	}
 }
 

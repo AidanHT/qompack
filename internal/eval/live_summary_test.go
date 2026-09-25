@@ -269,3 +269,18 @@ func TestSummarizeLive_NoPluginStateIsAHarnessFailureNotAMismatch(t *testing.T) 
 	require.Equal(t, 1, sum.Arms[eval.ArmQompack].PluginMismatch)
 	require.Equal(t, "not-applicable", sum.Decision.Verdict)
 }
+
+// TestSummarizeLive_HookLatencyIsTheHostsOwnPerHook is preregistration section 6: hook latency is
+// reported per hook, from the durations the host itself measured and wrote to its transcript
+// (durationMs), not the pipe-observed approximation pooled over every hook.
+func TestSummarizeLive_HookLatencyIsTheHostsOwnPerHook(t *testing.T) {
+	q := trials(eval.ArmQompack, 3, 3)
+	q[0].TranscriptHookMS = map[string][]int64{"SessionStart:compact": {400}, "PreCompact": {90}}
+	q[1].TranscriptHookMS = map[string][]int64{"SessionStart:compact": {200, 900}}
+	q[2].HookLatencyMS = map[string][]int64{"SessionStart:compact": {5000}} // pipe-observed only
+	sum := eval.SummarizeLive("r", liveAnalysis(), q)
+	got := sum.Arms[eval.ArmQompack].HostHookMS
+	require.Equal(t, eval.HookLatency{N: 3, P50: 400, P95: 900, Max: 900}, got["SessionStart:compact"])
+	require.Equal(t, eval.HookLatency{N: 1, P50: 90, P95: 90, Max: 90}, got["PreCompact"])
+	require.Len(t, got, 2, "only host-measured durations are summarized per hook")
+}

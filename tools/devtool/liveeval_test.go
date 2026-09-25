@@ -894,3 +894,17 @@ func TestRunLiveEval_StoppedRunReachesNoVerdict(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(md), "not-applicable")
 }
+
+// TestRenderLiveSummary_ShowsTheHostsHookLatency: summary.md reports each arm's per-hook latency as
+// the host measured it, the measure preregistration section 6 names.
+func TestRenderLiveSummary_ShowsTheHostsHookLatency(t *testing.T) {
+	a := eval.LiveAnalysis{Model: "m", Confidence: 0.95, NonInferiorityMargin: 0.2, TrialsPerArm: 1}
+	q := eval.LiveTrial{
+		TaskID: "t", Arm: eval.ArmQompack, Trial: 1, Completed: true, PluginExpected: true, PluginLoaded: true,
+		HostReportedPlugins: true, PreregisteredModel: true,
+		TranscriptHookMS: map[string][]int64{"SessionStart:compact": {1200, 300}},
+	}
+	md := renderLiveSummary(eval.LivePlan{RunID: "r"}, eval.SummarizeLive("r", a, []eval.LiveTrial{q}))
+	require.Contains(t, md, "## Hook latency, as the host measured it")
+	require.Contains(t, md, "| qompack | SessionStart:compact | 2 | 300 | 1200 | 1200 |")
+}

@@ -373,11 +373,17 @@ type ArmSummary struct {
 	MeanHostCost   float64     `json:"mean_host_cost_usd"`
 	MeanEstimateMc int64       `json:"mean_estimate_micros"`
 	// EstimateIncomplete counts trials whose estimate is a lower bound.
-	EstimateIncomplete int     `json:"estimate_incomplete"`
-	MeanWallMS         int64   `json:"mean_wall_ms"`
-	MeanStoreBytes     int64   `json:"mean_store_bytes,omitempty"`
-	HookP50MS          float64 `json:"hook_p50_ms,omitempty"`
-	HookP95MS          float64 `json:"hook_p95_ms,omitempty"`
+	EstimateIncomplete int   `json:"estimate_incomplete"`
+	MeanWallMS         int64 `json:"mean_wall_ms"`
+	MeanStoreBytes     int64 `json:"mean_store_bytes,omitempty"`
+	// HookP50MS and HookP95MS pool the pipe-observed latency of every hook (hook_started to
+	// hook_response as the driver received them): an approximation, kept for continuity. The
+	// pre-registered measure is HostHookMS.
+	HookP50MS float64 `json:"hook_p50_ms,omitempty"`
+	HookP95MS float64 `json:"hook_p95_ms,omitempty"`
+	// HostHookMS is, per hook name, the durations the host itself measured and recorded in its
+	// transcript (durationMs), over every trial of the arm: preregistration section 6's hook latency.
+	HostHookMS map[string]HookLatency `json:"host_hook_ms,omitempty"`
 	// HookProblemTrials counts trials whose host reported at least one hook failure.
 	HookProblemTrials int `json:"hook_problem_trials"`
 	// AccountInconsistent counts trials whose usage account broke one of its own rules
@@ -388,6 +394,15 @@ type ArmSummary struct {
 	ForeignPluginTrials int `json:"foreign_plugin_trials"`
 	// Categories sums every trial's per-category usage, evidence counts included.
 	Categories map[UsageCategory]CategorySum `json:"categories,omitempty"`
+}
+
+// HookLatency is one hook's host-measured durations over an arm's trials, in milliseconds, with
+// nearest-rank percentiles.
+type HookLatency struct {
+	N   int   `json:"n"`
+	P50 int64 `json:"p50"`
+	P95 int64 `json:"p95"`
+	Max int64 `json:"max"`
 }
 
 // LiveSummarySchema is the summary document's format version. A summary written before the field
@@ -675,6 +690,7 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 	var est, wall, store int64
 	var storeN int
 	var hooks []float64
+	hostHooks := map[string][]int64{}
 	for _, t := range ts {
 		// A trial the harness could not run as designed is never complete, whatever its steps say.
 		if t.Completed && t.HarnessError == "" {
@@ -738,6 +754,21 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 				hooks = append(hooks, float64(v))
 			}
 		}
+		for name, ms := range t.TranscriptHookMS {
+			hostHooks[name] = append(hostHooks[name], ms...)
+		}
+	}
+	for name, ms := range hostHooks {
+		if len(ms) == 0 {
+			continue
+		}
+		sort.Slice(ms, func(i, j int) bool { return ms[i] < ms[j] })
+		if out.HostHookMS == nil {
+			out.HostHookMS = map[string]HookLatency{}
+		}
+		out.HostHookMS[name] = HookLatency{
+			N: len(ms), P50: nearestRank(ms, 50), P95: nearestRank(ms, 95), Max: ms[len(ms)-1],
+		}
 	}
 	out.TaskSuccess = wilson(taskK, len(ts), z)
 	out.ConstraintClean = wilson(cleanK, len(ts), z)
@@ -766,6 +797,14 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 // all report them.
 func stripSplit(u UsageTotals) UsageTotals {
 	return UsageTotals{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite}
+}
+
+// nearestRank is the nearest-rank percentile of a non-empty ascending slice.
+func nearestRank(sorted []int64, p float64) int64 {
+	rank := int(math.Ceil(p / 100 * float64(len(sorted))))
+	rank = max(rank, 1)
+	rank = min(rank, len(sorted))
+	return sorted[rank-1]
 }
 
 // percentile is the nearest-rank percentile of an ascending slice.
