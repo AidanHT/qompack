@@ -725,3 +725,68 @@ func TestRunLiveEval_PluginMustComeFromTheArmsInstall(t *testing.T) {
 	require.Equal(t, []string{"superpowers@claude-plugins-official"}, rec.ForeignPlugins)
 	require.Contains(t, strings.Join(sum.Notes, "\n"), "loaded a plugin other than the arm's own")
 }
+
+// TestRunLiveEval_RelativeBundleReachesTheHostWhole: the pre-registration's §9 command names the
+// bundle by a path relative to the repository (dist/live-bundle/...), while every host session runs
+// in its disposable project directory. A --plugin-dir the driver passed through unchanged would be
+// resolved by the host against the project, find nothing there, and every qompack trial would run
+// without its plugin. The host must receive a path that names the bundle from wherever it runs.
+func TestRunLiveEval_RelativeBundleReachesTheHostWhole(t *testing.T) {
+	bundle := fakeBundle(t)
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rel, err := filepath.Rel(wd, bundle)
+	require.NoError(t, err)
+	require.False(t, filepath.IsAbs(rel))
+
+	home := t.TempDir()
+	env := fakeLiveEnv(t, nil)
+	env.home = home
+	scripted := scriptedPilotHost(t, home)
+	var pluginDir, sessionDir string
+	env.run = func(ctx context.Context, spec liveProcSpec) liveProcResult {
+		for i, a := range spec.Args {
+			if a == "--plugin-dir" {
+				pluginDir = spec.Args[i+1]
+			}
+		}
+		sessionDir = spec.Dir
+		return scripted(ctx, spec)
+	}
+	t.Setenv(liveEvalGateEnv, "1")
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack"}, out: t.TempDir(),
+		install: liveInstallPluginDir, bundle: rel, idleExit: 1, trials: 1,
+	}
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+	require.NotEmpty(t, pluginDir)
+	seen := pluginDir
+	if !filepath.IsAbs(seen) {
+		seen = filepath.Join(sessionDir, seen) // how the host, running in the project, resolves it
+	}
+	require.FileExists(t, filepath.Join(seen, identityFileName), "--plugin-dir %q names no bundle from %s", pluginDir, sessionDir)
+
+	var plan eval.LivePlan
+	readJSON(t, filepath.Join(o.out, "plan.json"), &plan)
+	require.Equal(t, bundle, plan.Plugin.BundleDir)
+
+	// The dry run shows the same resolved command line, so the install path can be checked before
+	// any session is spent.
+	o.dryRun, o.out = true, t.TempDir()
+	log.Reset()
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log))
+	require.Contains(t, log.String(), "host (qompack, task pilot-codeword): claude-fake -p ")
+	require.Contains(t, log.String(), "--plugin-dir "+bundle)
+}
+
+// TestLookClaude_RelativePathIsMadeAbsolute: an explicit --claude path is started with the session's
+// project as its working directory, so a relative one must be resolved before that.
+func TestLookClaude_RelativePathIsMadeAbsolute(t *testing.T) {
+	got, err := lookClaude(filepath.Join("bin", "claude"))
+	require.NoError(t, err)
+	require.True(t, filepath.IsAbs(got), got)
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(wd, "bin", "claude"), got)
+}
