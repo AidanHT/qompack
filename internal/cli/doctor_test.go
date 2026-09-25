@@ -635,7 +635,9 @@ func TestDoctor_ReportsDeliveryRollover(t *testing.T) {
 		_, doc, _ := doctorJSON(t, p.Root)
 		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
 		require.Equal(t, doctorUnknown, row["status"])
-		require.True(t, strings.HasPrefix(row["observed"].(string), "segment authority head unreadable"))
+		observed, isText := row["observed"].(string)
+		require.True(t, isText)
+		require.True(t, strings.HasPrefix(observed, "segment authority head unreadable"), observed)
 		require.Contains(t, row["detail"], "could not be read")
 	})
 }
