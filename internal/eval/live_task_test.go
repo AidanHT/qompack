@@ -294,3 +294,20 @@ func TestToolUsesAfterSteps_OnARealStream(t *testing.T) {
 	_, complete = eval.StepRecords(eval.LiveTask{Steps: []eval.LiveStep{{ID: "a", Prompt: "p"}, {ID: "c", Compact: true}}}, stock)
 	require.False(t, complete, "smoke3's second turn was an ordinary turn, not the /compact the task asked for")
 }
+
+// TestGradeLiveTrial_FileLinesCountsEveryLine: a file_lines check counts every non-empty line of a
+// file up to the grader's size bound, however long one line is. A line-scanner with a fixed token
+// limit stops at the first long line and under-counts, which can turn a wrong file into a pass.
+func TestGradeLiveTrial_FileLinesCountsEveryLine(t *testing.T) {
+	root := t.TempDir()
+	body := "short\n" + strings.Repeat("x", 100<<10) + "\nthird\r\n\n  \nfourth"
+	require.NoError(t, os.WriteFile(filepath.Join(root, "f.txt"), []byte(body), 0o600))
+	two, four := 2, 4
+	task := eval.LiveTask{Checks: []eval.LiveCheck{
+		{ID: "four", Outcome: eval.OutcomeTask, Kind: eval.CheckFileLines, Path: "f.txt", Lines: &four},
+		{ID: "two", Outcome: eval.OutcomeTask, Kind: eval.CheckFileLines, Path: "f.txt", Lines: &two},
+	}}
+	res := eval.GradeLiveTrial(task, root, eval.LiveEvidence{})
+	require.True(t, res[0].Passed, "four non-empty lines: %s", res[0].Detail)
+	require.False(t, res[1].Passed, "a count cut short at the long line must not pass: %s", res[1].Detail)
+}
