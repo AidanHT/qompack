@@ -647,6 +647,14 @@ func (d *daemon) Run(ctx context.Context) error {
 		d.log.Warn("daemon: failed to write state.bin", "err", err)
 	}
 	removeSpawnLockFile(d.root)
+	// On Windows a hook starts the daemon from a staged copy of the binary (spawn_stage.go, C1.17);
+	// a daemon found running from inside the plugin directory means that staging failed, and that
+	// the plugin cannot be removed or updated for as long as this process lives.
+	if exe, err := os.Executable(); err == nil && runningFromPluginRoot(exe, os.Getenv(pluginRootEnv), stagingEnabled) {
+		d.log.Loud("daemon: running from inside the plugin directory, which it keeps from being removed or "+
+			"updated until it exits; staging the binary under the user's .qompack/bin failed",
+			"exe", exe)
+	}
 
 	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
 		d.log.Warn("daemon: startup drain failed", "err", err)

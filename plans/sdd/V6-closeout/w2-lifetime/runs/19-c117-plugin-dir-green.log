@@ -1,0 +1,8 @@
+# C1.17 e2e regression on the fix, Windows 11, run alone, three times:
+# go test ./test/e2e/ -run TestE2E_DaemonLeavesThePluginDirectoryRemovable -count=3 -v
+--- PASS: TestE2E_DaemonLeavesThePluginDirectoryRemovable (4.07s)
+--- PASS: TestE2E_DaemonLeavesThePluginDirectoryRemovable (1.80s)
+--- PASS: TestE2E_DaemonLeavesThePluginDirectoryRemovable (1.40s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	7.566s
+exit=0

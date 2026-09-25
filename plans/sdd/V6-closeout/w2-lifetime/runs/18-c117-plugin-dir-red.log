@@ -1,0 +1,15 @@
+# C1.17 e2e regression on the PRE-FIX spawn code (internal/daemon/spawn.go and daemon.go as at 739b0f9, spawn_stage*.go
+# absent), Windows 11, run alone: go test ./test/e2e/ -run TestE2E_DaemonLeavesThePluginDirectoryRemovable -count=1 -v
+# The live session 2 symptom exactly: the plugin dir cannot be removed while the daemon it started runs.
+=== RUN   TestE2E_DaemonLeavesThePluginDirectoryRemovable
+    plugin_dir_lifetime_test.go:53: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/test/e2e/plugin_dir_lifetime_test.go:53
+        	Error:      	Received unexpected error:
+        	            	unlinkat C:\Users\Quant\AppData\Local\Temp\TestE2E_DaemonLeavesThePluginDirectoryRemovable3400509390\002\qompack-plugin\bin\qompack.exe: Access is denied.
+        	Test:       	TestE2E_DaemonLeavesThePluginDirectoryRemovable
+        	Messages:   	the plugin directory must be removable while the daemon it started is running
+--- FAIL: TestE2E_DaemonLeavesThePluginDirectoryRemovable (4.82s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	5.243s
+FAIL
+exit=1
