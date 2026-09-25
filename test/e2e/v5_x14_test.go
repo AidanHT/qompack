@@ -370,10 +370,13 @@ func TestV5_EveryContractAssertionHasARealProducer(t *testing.T) {
 			"a real wall-time sample, not a placeholder: %q", compact[contract.CPreCompactTiming].Observed)
 
 		// The setter claim, retired: the producer IS declared and its Check DID run (its Observed
-		// is not the not-yet-implemented placeholder), and whatever the transcript scan reported
-		// the ledger attributes it to compaction_request and records `unsupported`.
+		// is not the not-yet-implemented placeholder). Since C1.18 that Check scans nothing and says
+		// so — "retired" — and the ledger attributes it to compaction_request and records
+		// `unsupported`.
 		require.True(t, contract.HasProducer(contract.CPreCompactCustomInstr))
 		require.NotEqual(t, x14v5NotYetImplemented, compact[contract.CPreCompactCustomInstr].Observed)
+		require.Equal(t, "retired", compact[contract.CPreCompactCustomInstr].Observed,
+			"the retired row reports its retirement, never a pass or a warning")
 		require.Equal(t, contract.CapCompactionRequest, compact[contract.CPreCompactCustomInstr].Capability)
 		require.Equal(t, contract.OutcomeUnsupported, compact[contract.CPreCompactCustomInstr].Outcome,
 			"a phrase found (or not) in a transcript is not evidence an invented setter exists")
