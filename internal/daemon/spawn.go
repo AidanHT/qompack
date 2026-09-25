@@ -139,6 +139,7 @@ func spawnDetached(projectRoot, self, home string, log logging.Logger) error {
 			"err", stageErr)
 	}
 	cmd := buildSpawnCommand(program, projectRoot, os.Environ())
+	cmd.Dir = daemonWorkingDir(self, program)
 
 	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 	if err != nil {
@@ -156,16 +157,11 @@ func spawnDetached(projectRoot, self, home string, log logging.Logger) error {
 // buildSpawnCommand assembles the *exec.Cmd SpawnDetached starts, apart from its I/O redirection
 // (kept in SpawnDetached itself, since that owns the devNull handle's lifetime). environ is
 // injected so the env-stripping/adding logic is testable without touching the real process
-// environment.
-//
-// The daemon's working directory is the project root rather than whatever directory the spawning
-// hook ran in: a process's working directory cannot be removed on Windows either, and the daemon
-// outlives the hook by design.
+// environment. The working directory is spawnDetached's to choose (daemonWorkingDir).
 func buildSpawnCommand(self, projectRoot string, environ []string) *exec.Cmd {
 	cmd := exec.Command(self, daemonSubcommand, projectFlag, projectRoot) //nolint:gosec // G204: self is the plugin's own executable path (os.Executable()), not attacker input
 	cmd.Env = buildSpawnEnv(environ, projectRoot)
 	cmd.SysProcAttr = sysProcAttr()
-	cmd.Dir = projectRoot
 	return cmd
 }
 
