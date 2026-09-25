@@ -64,66 +64,92 @@ const (
 // closing, closed or faulted — it returns false, so publication never proceeds over an unreadable
 // frontier. The arrival<=1 first-arrival short-circuit is taken ONLY after the journal is confirmed
 // readable and owned, so a first arrival on an unusable journal is deferred too, not bypassed. The
-// scan is over the journal's per-file lease map (bounded, no I/O) and holds Lock.mu then st exactly as
-// acknowledged does. A false answer is a retryable defer: the caller preserves the WAL bytes and blob
-// and releases seen ownership.
+// active window is scanned over the journal's per-file lease map (bounded, no I/O) under Lock.mu then
+// st, exactly as acknowledged does. The ARCHIVED predecessors are the generation store's frontier for
+// the session, and that read runs with neither lock held (V6 close-out rollover review, finding 5): it
+// holds an archive-read slot instead (beginArchiveReadLocked), which keeps a rotation from archiving
+// between the window scan and the store read, so the two see one history. Each answer is a fact that
+// stays true once true — a settlement is never undone — so a true answer is still true when used; a
+// journal that began closing or faulted during the read answers false. A false answer is a retryable
+// defer: the caller preserves the WAL bytes and blob and releases seen ownership.
 func (j *deliveryJournal) predecessorsAcknowledged(session core.SessionID, arrival uint64) bool {
 	if j == nil || j.owner == nil {
 		return false
 	}
 	j.owner.mu.Lock()
-	defer j.owner.mu.Unlock()
 	if !j.owner.owned() {
+		j.owner.mu.Unlock()
 		return false
 	}
 	j.st.Lock()
-	defer j.st.Unlock()
+	unlock := func() {
+		j.st.Unlock()
+		j.owner.mu.Unlock()
+	}
 	if j.closing || j.closed || j.rotating || j.fault != nil {
+		unlock()
 		return false
 	}
 	if arrival <= 1 {
+		unlock()
 		return true // journal readable and owned AND first arrival: no predecessor
-	}
-	if j.gen != nil {
-		frontier, pending, err := j.gen.sessionFrontier(context.Background(), session)
-		if err != nil || (pending && frontier < arrival) {
-			return false
-		}
 	}
 	for _, l := range j.leases {
 		if l.Session != session || l.ArrivalSeq >= arrival {
 			continue
 		}
 		if _, ok := j.acks[l.Delivery]; !ok && j.terminal[l.Delivery] != terminalFor(l) {
+			unlock()
 			return false
 		}
 	}
-	return true
+	if j.gen == nil {
+		unlock()
+		return true
+	}
+	gen := j.beginArchiveReadLocked()
+	unlock()
+	frontier, pending, err := gen.sessionFrontier(context.Background(), session)
+	return j.endArchiveRead() && err == nil && (!pending || frontier >= arrival)
 }
 
 // leaseHeld returns the lease already recorded for nonce WITHOUT creating one, and whether there is
 // one. It never leases, never reassigns identity, and reads under the same discipline as
 // acknowledged; it returns an error on an unreadable journal (never a proven absence). The drain uses it to tell a
-// leased-then-denied line from a never-leased one (coordinator item 4).
+// leased-then-denied line from a never-leased one (coordinator item 4). A nonce the active window does
+// not hold is looked up in the generation store with neither Lock.mu nor st held, under an archive-read
+// slot, exactly as predecessorsAcknowledged reads the store: no rotation can move the nonce from the
+// window into the store between the two reads, so "in neither" is a proven absence.
 func (j *deliveryJournal) leaseHeld(nonce string) (deliveryLease, bool, error) {
 	if j == nil || j.owner == nil || nonce == "" {
 		return deliveryLease{}, false, deliveryJournalError()
 	}
 	j.owner.mu.Lock()
-	defer j.owner.mu.Unlock()
 	if !j.owner.owned() {
+		j.owner.mu.Unlock()
 		return deliveryLease{}, false, deliveryJournalError()
 	}
 	j.st.Lock()
-	defer j.st.Unlock()
+	unlock := func() {
+		j.st.Unlock()
+		j.owner.mu.Unlock()
+	}
 	if j.closing || j.closed || j.rotating || j.fault != nil {
+		unlock()
 		return deliveryLease{}, false, deliveryJournalError()
 	}
 	l, ok := j.leases[nonce]
-	if !ok && j.gen != nil {
-		return j.gen.resolveLease(context.Background(), nonce)
+	if ok || j.gen == nil {
+		unlock()
+		return l, ok, nil
 	}
-	return l, ok, nil
+	gen := j.beginArchiveReadLocked()
+	unlock()
+	l, ok, err := gen.resolveLease(context.Background(), nonce)
+	if !j.endArchiveRead() {
+		return deliveryLease{}, false, deliveryJournalError()
+	}
+	return l, ok, err
 }
 
 // leasedPredecessorsReady is the drain's wrapper. An UNLEASED line keeps its existing qualified
