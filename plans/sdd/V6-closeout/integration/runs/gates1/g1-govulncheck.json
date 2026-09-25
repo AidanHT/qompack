@@ -1,0 +1,21 @@
+{
+  "id": "g1-govulncheck",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "run",
+    "-modfile=tools/pinned/go.mod",
+    "golang.org/x/vuln/cmd/govulncheck",
+    "./..."
+  ],
+  "source_head": "6831cd23072bf97cc1d1927927a7f7e2050c20ff",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-25T15:01:42-04:00",
+  "ended_at": "2026-09-25T15:02:21-04:00",
+  "exit_code": 0,
+  "log": "g1-govulncheck.log",
+  "log_sha256": "a0887fb21c210b99282900970f622f595c78c2df44bbcfdadb28c02d972b9b09"
+}
