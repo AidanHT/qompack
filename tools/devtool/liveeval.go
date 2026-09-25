@@ -182,41 +182,6 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 	return o, nil
 }
 
-// livePlanned is one planned trial.
-type livePlanned struct {
-	Task  string `json:"task"`
-	Arm   string `json:"arm"`
-	Trial int    `json:"trial"`
-}
-
-// livePlan is the run's plan document, written before the first session starts.
-type livePlan struct {
-	RunID         string `json:"run_id"`
-	CreatedAt     string `json:"created_at"`
-	TaskSet       string `json:"task_set"`
-	TaskSetFile   string `json:"task_set_file"`
-	TaskSetSHA256 string `json:"task_set_sha256"`
-	// FixtureTreeSHA256 is eval.TreeManifestSHA256 over FixtureTreeDirs, the top-level directories
-	// (beside the task file) the task set's fixtures and hidden tests live in: the identity of every
-	// byte a trial starts from or is graded against, which the task-set hash alone does not cover.
-	FixtureTreeSHA256  string                   `json:"fixture_tree_sha256"`
-	FixtureTreeDirs    []string                 `json:"fixture_tree_dirs"`
-	Model              string                   `json:"model"`
-	PreregisteredModel string                   `json:"preregistered_model"`
-	Arms               []string                 `json:"arms"`
-	TrialsPerArm       int                      `json:"trials_per_arm"`
-	Install            string                   `json:"install"`
-	Plugin             *eval.LivePluginIdentity `json:"plugin,omitempty"`
-	ClaudeCLI          string                   `json:"claude_cli"`
-	ClaudeCLIVersion   string                   `json:"claude_cli_version"`
-	RateTableDate      string                   `json:"rate_table_date"`
-	RateTableSource    string                   `json:"rate_table_source"`
-	HeldOutIncluded    bool                     `json:"held_out_included"`
-	Trials             []livePlanned            `json:"trials"`
-	Host               string                   `json:"host"`
-	Agent              string                   `json:"agent"`
-}
-
 // runLiveEval is the whole run: validate, plan, gate, execute, summarize.
 func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) error {
 	ts, raw, err := eval.LoadLiveTaskSet(o.tasksFile)
@@ -247,7 +212,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		o.out = filepath.Join(liveDefaultOut, runID)
 	}
 
-	plan := livePlan{
+	plan := eval.LivePlan{
 		RunID: runID, CreatedAt: env.now().UTC().Format(time.RFC3339), TaskSet: ts.ID,
 		TaskSetFile: filepath.ToSlash(o.tasksFile), TaskSetSHA256: sha256Hex(raw),
 		FixtureTreeSHA256: tree, FixtureTreeDirs: treeDirs,
@@ -378,8 +343,8 @@ func selectLiveTasks(ts eval.LiveTaskSet, o liveOptions) ([]eval.LiveTask, error
 
 // planLiveTrials orders trials trial-major, task by task, alternating which arm goes first so a
 // drift over the run's wall-clock (a rate limit, a busy machine) does not always land on one arm.
-func planLiveTrials(tasks []eval.LiveTask, arms []string, trials int) []livePlanned {
-	var out []livePlanned
+func planLiveTrials(tasks []eval.LiveTask, arms []string, trials int) []eval.LivePlannedTrial {
+	var out []eval.LivePlannedTrial
 	for n := 1; n <= trials; n++ {
 		for i, t := range tasks {
 			order := append([]string(nil), arms...)
@@ -389,7 +354,7 @@ func planLiveTrials(tasks []eval.LiveTask, arms []string, trials int) []livePlan
 				}
 			}
 			for _, a := range order {
-				out = append(out, livePlanned{Task: t.ID, Arm: a, Trial: n})
+				out = append(out, eval.LivePlannedTrial{Task: t.ID, Arm: a, Trial: n})
 			}
 		}
 	}
@@ -872,7 +837,7 @@ func joinErr(a, b string) string {
 }
 
 // renderLiveSummary is the human-readable summary written beside summary.json.
-func renderLiveSummary(p livePlan, s eval.LiveSummary) string {
+func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Live evaluation %s\n\n", p.RunID)
 	fmt.Fprintf(&b, "Task set `%s` (sha256 `%s`; fixture tree %v manifest sha256 `%s`), model `%s` "+
