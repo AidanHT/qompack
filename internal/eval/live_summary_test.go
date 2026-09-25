@@ -19,7 +19,7 @@ func trials(arm string, n, k int) []eval.LiveTrial {
 	for i := range n {
 		out = append(out, eval.LiveTrial{
 			TaskID: fmt.Sprintf("t%d", i%3), Arm: arm, Trial: i + 1, Completed: true, TaskSuccess: i < k,
-			PluginExpected: arm == eval.ArmQompack, PluginLoaded: arm == eval.ArmQompack,
+			PluginExpected: arm == eval.ArmQompack, PluginLoaded: arm == eval.ArmQompack, HostReportedPlugins: true,
 			PreregisteredModel: true, EstimateComplete: true,
 		})
 	}
@@ -196,6 +196,7 @@ func TestSummarizeLive_ReportsByVariantAndPerTaskSign(t *testing.T) {
 		return eval.LiveTrial{
 			TaskID: task, Arm: arm, Trial: 1, Variant: variant, HeldOut: held, Completed: true, TaskSuccess: ok,
 			PluginExpected: arm == eval.ArmQompack, PluginLoaded: arm == eval.ArmQompack, PreregisteredModel: true,
+			HostReportedPlugins: true,
 		}
 	}
 	ts := []eval.LiveTrial{
@@ -241,4 +242,30 @@ func TestSummarizeLive_ForeignPluginsAreNamed(t *testing.T) {
 	require.Equal(t, 1, sum.Arms[eval.ArmStock].ForeignPluginTrials)
 	require.Contains(t, strings.Join(sum.Notes, "\n"),
 		"1 of 2 stock trial(s) loaded a plugin other than the arm's own: superpowers@claude-plugins-official")
+}
+
+// TestSummarizeLive_NoPluginStateIsAHarnessFailureNotAMismatch: a trial's plugin state is the plugin
+// list its host reported when it started. A qompack trial whose host never started — a marketplace
+// install that failed, a process that died before its first line — reported none, so it has no
+// plugin state to contradict its arm; it is a harness failure and, under intention to treat, a
+// failure on every outcome. Treating it as a mismatch instead would void the whole comparison over
+// one infrastructure failure on the qompack arm, while the same failure on the stock arm counts as
+// a stock failure: an asymmetry that can only ever spare the plugin a failure.
+func TestSummarizeLive_NoPluginStateIsAHarnessFailureNotAMismatch(t *testing.T) {
+	const n = 20
+	q := trials(eval.ArmQompack, n, n)
+	q[0].HostReportedPlugins, q[0].PluginLoaded = false, false
+	q[0].HarnessError, q[0].Completed, q[0].TaskSuccess = "marketplace install: exit 1", false, false
+	sum := eval.SummarizeLive("r", liveAnalysis(), append(trials(eval.ArmStock, n, 19), q...))
+	qa := sum.Arms[eval.ArmQompack]
+	require.Zero(t, qa.PluginMismatch, "no plugin state was reported, so none contradicted the arm")
+	require.Equal(t, n-1, qa.TaskSuccess.K, "the trial is a failure on the primary outcome")
+	require.Len(t, sum.Failed, 1, "and it is named")
+	require.NotEqual(t, "not-applicable", sum.Decision.Verdict)
+
+	// A host that did report its plugins, without the arm's plugin among them, still voids it.
+	q[0].HostReportedPlugins, q[0].HarnessError = true, ""
+	sum = eval.SummarizeLive("r", liveAnalysis(), append(trials(eval.ArmStock, n, 19), q...))
+	require.Equal(t, 1, sum.Arms[eval.ArmQompack].PluginMismatch)
+	require.Equal(t, "not-applicable", sum.Decision.Verdict)
 }

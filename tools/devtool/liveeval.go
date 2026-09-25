@@ -545,6 +545,7 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 	if err != nil {
 		rec.HarnessError = joinErr(rec.HarnessError, "parsing the stream: "+err.Error())
 	}
+	rec.HostReportedPlugins = stream.Init != nil
 	if stream.Init != nil {
 		rec.SessionID = stream.Init.SessionID
 		rec.ClaudeCodeVersion = stream.Init.ClaudeCodeVersion

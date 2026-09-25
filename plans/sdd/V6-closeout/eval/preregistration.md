@@ -201,3 +201,20 @@ The same review brought the harness into line with §8 as written — a harness 
 every outcome (recovery included, so it stays in that denominator), and the H2 regression, the
 per-variant results, the per-task signs and the clustering limitation are now reported. Those are
 corrections of the code to this document, not changes to it.
+
+**A2 — 2026-09-25, by the C5.4 independent-review seat (an Opus 5.5 workflow subagent, branch
+`closeout/w2-eval2`), before any confirmatory trial.** No task, fixture, hidden test, rate or
+analysis parameter changes; the §8 not-applicable rule is made precise.
+
+*Reason.* §8 makes the whole verdict not-applicable when "any trial's plugin state contradicted its
+arm", and scores a trial the harness could not run as designed as a failure on every outcome. The
+code read a qompack trial whose host never started (a failed install, a process that died before
+its first line) as "the plugin failed to load", so one such infrastructure failure voided the whole
+comparison, while the same failure on a stock trial counted as a stock failure. That asymmetry can
+only ever spare the plugin a counted failure.
+
+*Amendment.* A trial's plugin state is the plugin list its host reported at start-up (its `init`
+line, recorded as `host_reported_plugins`). Only a trial whose host reported one can contradict its
+arm. A trial whose host reported none is a harness failure and is scored under §8's intention-to-treat
+rule, as a failure on every outcome and listed by name (`eval.SummarizeLive`,
+`TestSummarizeLive_NoPluginStateIsAHarnessFailureNotAMismatch`).
