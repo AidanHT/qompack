@@ -1133,8 +1133,11 @@ func (d *daemon) handleAdminIdle(ctx context.Context, req ipc.Request) ipc.Respo
 	return ipc.Response{OK: true, Data: data}
 }
 
-// handleAdminShutdown replies first, then stops the daemon asynchronously so the reply write
-// itself is never racing the shutdown it announces.
+// handleAdminShutdown stops the daemon asynchronously and answers OK. The Stop goroutine can reach
+// ipc's Close (through runCancel and Serve's context.AfterFunc) before this handler's reply is
+// written, so the reply's delivery rests on Close leaving a connection with a request in flight open
+// for that reply, under a bounded write deadline (internal/ipc server.go; the V6 close-out's N1,
+// where the reply was lost in one Linux -race run in 100 before Close did).
 func (d *daemon) handleAdminShutdown(ctx context.Context, req ipc.Request) ipc.Response {
 	go func() { _ = d.Stop(context.Background()) }()
 	return ipc.Response{OK: true}
