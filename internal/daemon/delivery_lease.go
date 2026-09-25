@@ -146,6 +146,9 @@ type deliveryJournal struct {
 	// rotation is what the running rotation's doRotate recorded about its window, for the report that
 	// follows it (delivery_diagnostics.go). It is written and read only with the barrier held.
 	rotation rotationStats
+	// firstRotationAdvised is set once this journal has warned that the store's first rotation is
+	// near (delivery_diagnostics.go), so it warns at most once. Guarded by st.
+	firstRotationAdvised bool
 
 	// st guards fault, closed, closing and inflight, and every write of the admitted state: bytes,
 	// chain, leases and arrivals, and ackBytes, ackChain and acks. It is taken below Lock.mu and
@@ -440,6 +443,9 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 			return nil, err
 		}
 	}
+	// A store that has never rotated and already holds most of a window (a restart, or an upgrade of a
+	// store written before rollover) is told now, not only when its next admission crosses the point.
+	j.adviseFirstRotationIfDue()
 	l.journalOpenFault = false
 	return j, nil
 }
@@ -870,10 +876,14 @@ func (j *deliveryJournal) appendLeases(b *leaseBatch) error {
 	// Only synced and sealed bytes enter the identity maps. An uncertain write poisons this handle
 	// and requires a reload, and a complete surviving row then keeps its identity on retry.
 	j.st.Lock()
-	defer j.st.Unlock()
 	j.bytes, j.chain = b.size, b.chain
 	for _, l := range b.order {
 		j.leases[l.Delivery], j.arrivals[l.Session] = l, l.ArrivalSeq
+	}
+	advise, window := j.firstRotationAdviceDueLocked(), len(j.leases)
+	j.st.Unlock()
+	if advise {
+		j.adviseFirstRotation(window)
 	}
 	return nil
 }
