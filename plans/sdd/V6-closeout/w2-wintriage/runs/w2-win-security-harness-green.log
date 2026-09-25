@@ -1,0 +1,18 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0; both harness fixes applied
+# cmd: go test -count=1 -run 'TestHarness_' -v ./test/security
+# result: exit 0
+
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/the_observers_key_on_this_host
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/fold_true
+=== RUN   TestHarness_FileVersionPredicateReadsTheObserversKey/fold_false
+--- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey (0.00s)
+    --- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey/the_observers_key_on_this_host (0.00s)
+    --- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey/fold_true (0.00s)
+    --- PASS: TestHarness_FileVersionPredicateReadsTheObserversKey/fold_false (0.00s)
+=== RUN   TestHarness_TempArtifactDirDoesNotOutliveItsTest
+=== RUN   TestHarness_TempArtifactDirDoesNotOutliveItsTest/writes_a_record
+--- PASS: TestHarness_TempArtifactDirDoesNotOutliveItsTest (0.00s)
+    --- PASS: TestHarness_TempArtifactDirDoesNotOutliveItsTest/writes_a_record (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/security	1.754s

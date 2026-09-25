@@ -1,0 +1,17 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0; new TestHarness_TempArtifactDirDoesNotOutliveItsTest against the PRE-FIX artifactDir
+# cmd: go test -count=1 -run 'TestHarness_TempArtifactDirDoesNotOutliveItsTest' -v ./test/security
+# result: exit 1 (red as designed)
+
+=== RUN   TestHarness_TempArtifactDirDoesNotOutliveItsTest
+=== RUN   TestHarness_TempArtifactDirDoesNotOutliveItsTest/writes_a_record
+=== NAME  TestHarness_TempArtifactDirDoesNotOutliveItsTest
+    harness_test.go:95: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-wintriage/test/security/harness_test.go:95
+        	Error:      	Should be false
+        	Test:       	TestHarness_TempArtifactDirDoesNotOutliveItsTest
+        	Messages:   	artifactDir still maps TestHarness_TempArtifactDirDoesNotOutliveItsTest/writes_a_record to C:\Users\Quant\AppData\Local\Temp\TestHarness_TempArtifactDirDoesNotOutliveItsTestwrites_a_record846306562\001 after that test ended; its next run would write there
+--- FAIL: TestHarness_TempArtifactDirDoesNotOutliveItsTest (0.00s)
+    --- PASS: TestHarness_TempArtifactDirDoesNotOutliveItsTest/writes_a_record (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/security	1.554s
+FAIL

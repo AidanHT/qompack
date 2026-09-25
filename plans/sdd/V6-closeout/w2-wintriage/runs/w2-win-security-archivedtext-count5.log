@@ -1,0 +1,31 @@
+# host: Windows 11, go1.26.6, CGO_ENABLED=0; both harness fixes applied, QOMPACK_SECURITY_ARTIFACTS unset
+# cmd: go test -count=5 -timeout 30m -run 'TestSecurity_ArchivedTextIsDataNeverAnInstruction$' -v ./test/security
+# result: exit 0, 5/5 PASS, labelled: expand, re_read, recall
+
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security archive_trust_stored_text_is_never_executed: verified — prompt-injection-shaped content and a shell command were captured and then retrieved through 3 tools; every response carrying archived text set _meta.qompack.untrusted, the content came back verbatim, and the sentinel file the archived command would have created was never created.
+          detail:   labelled: expand, re_read, recall
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction179509040\001\archive_trust_stored_text_is_never_executed.json
+--- PASS: TestSecurity_ArchivedTextIsDataNeverAnInstruction (4.72s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security archive_trust_stored_text_is_never_executed: verified — prompt-injection-shaped content and a shell command were captured and then retrieved through 3 tools; every response carrying archived text set _meta.qompack.untrusted, the content came back verbatim, and the sentinel file the archived command would have created was never created.
+          detail:   labelled: expand, re_read, recall
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction3822055001\001\archive_trust_stored_text_is_never_executed.json
+--- PASS: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.26s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security archive_trust_stored_text_is_never_executed: verified — prompt-injection-shaped content and a shell command were captured and then retrieved through 3 tools; every response carrying archived text set _meta.qompack.untrusted, the content came back verbatim, and the sentinel file the archived command would have created was never created.
+          detail:   labelled: expand, re_read, recall
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction210903438\001\archive_trust_stored_text_is_never_executed.json
+--- PASS: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.04s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security archive_trust_stored_text_is_never_executed: verified — prompt-injection-shaped content and a shell command were captured and then retrieved through 3 tools; every response carrying archived text set _meta.qompack.untrusted, the content came back verbatim, and the sentinel file the archived command would have created was never created.
+          detail:   labelled: expand, re_read, recall
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction1776388225\001\archive_trust_stored_text_is_never_executed.json
+--- PASS: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.10s)
+=== RUN   TestSecurity_ArchivedTextIsDataNeverAnInstruction
+    untrusted_test.go:129: security archive_trust_stored_text_is_never_executed: verified — prompt-injection-shaped content and a shell command were captured and then retrieved through 3 tools; every response carrying archived text set _meta.qompack.untrusted, the content came back verbatim, and the sentinel file the archived command would have created was never created.
+          detail:   labelled: expand, re_read, recall
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestSecurity_ArchivedTextIsDataNeverAnInstruction3882264952\001\archive_trust_stored_text_is_never_executed.json
+--- PASS: TestSecurity_ArchivedTextIsDataNeverAnInstruction (1.08s)
+PASS
+ok  	github.com/qompack/qompack/test/security	10.515s
