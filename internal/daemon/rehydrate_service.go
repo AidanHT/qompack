@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -106,8 +108,21 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		if v := recover(); v != nil {
 			s.o.Log.Loud("rehydrate: panic recovered", "session", string(e.SessionID), "err", fmt.Sprint(v))
 			out, err = hookio.Empty(), nil
+			// The session.start route is waiting on this rehydration (session_start_compact.go):
+			// answer it now, with the deferred note, rather than with an empty output that says
+			// nothing or a wait that runs out its bound.
+			if t := compactTicketFrom(ctx); t != nil {
+				t.fail(DeferredFailed)
+			}
 		}
 	}()
+
+	// The observer's own SessionStart call, made beside a rehydration the session.start route is
+	// already building (session_start_compact.go): that call is the observer's bookkeeping, and a
+	// second rehydration here would only be thrown away.
+	if routeRehydrates(ctx) {
+		return hookio.Empty(), nil
+	}
 
 	// §12.1 is explicit: in ModeDegradedPassive there is "no additionalContext injection, no
 	// customInstructions, no scheduler-initiated checkpoints, no drop report". L0/L1 keep running;
@@ -168,18 +183,28 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		res.Degraded = true
 	}
 
+	// An empty additionalContext is noise: the host would inject a blank block and the §12.1 probe
+	// would still be appended by the session.start route regardless.
+	out = hookio.Empty()
+	if res.Text != "" {
+		out = hookio.Output{HookSpecificOutput: &hookio.HSO{
+			HookEventName:     "SessionStart",
+			AdditionalContext: res.Text,
+		}}
+	}
+
+	// The answer is handed to a waiting session.start route BEFORE the drop report is written, so
+	// that write (an atomic replace, two fsyncs) is never on the answer's path (C1.16). If the
+	// route has already answered without it, what was built never reached the model, and the drop
+	// report must say so rather than describe it as delivered.
+	if t := compactTicketFrom(ctx); t != nil && !t.offer(out) && res.Text != "" {
+		s.phase(histRehydrateRecord, func() { s.recordUndelivered(ctx, e.SessionID, res, budget, ref) })
+		return out, nil
+	}
+
 	s.phase(histRehydrateRecord, func() { s.record(ctx, e.SessionID, res, stats, budget) })
 	s.gauges(res)
-
-	if res.Text == "" {
-		// An empty additionalContext is noise: the host would inject a blank block and the §12.1
-		// probe would still be appended by the session.start route regardless.
-		return hookio.Empty(), nil
-	}
-	return hookio.Output{HookSpecificOutput: &hookio.HSO{
-		HookEventName:     "SessionStart",
-		AdditionalContext: res.Text,
-	}}, nil
+	return out, nil
 }
 
 // deps returns the collaborator set for this build, resolving the lazily opened ledger.
@@ -285,6 +310,57 @@ func (s *rehydrateService) record(ctx context.Context, sess core.SessionID, res 
 	if err := s.o.Reporter.Record(ctx, sess, st); err != nil {
 		s.o.Log.Warn("rehydrate: could not record state", "session", string(sess), "err", err.Error())
 	}
+}
+
+// undeliveredDropKind is the DropEntry kind of a whole rehydration that was built but never
+// delivered (recordUndelivered).
+const undeliveredDropKind = "rehydration"
+
+// recordUndelivered is record for a rehydration the session.start route answered without
+// (session_start_compact.go): the model received the deferred note, not this payload. The drop
+// report therefore leads with one entry for the whole rehydration, pointing at where its content
+// can still be read, followed by what the payload would have left out anyway; it lists no emitted
+// items and no tokens, because nothing was emitted, and it is marked degraded. dropped() then tells
+// the truth about the compaction instead of describing a payload as if the model had it.
+func (s *rehydrateService) recordUndelivered(ctx context.Context, sess core.SessionID, res rehydrate.Result, budget core.Tokens, ref checkpoint.Ref) {
+	if s.o.Reporter == nil {
+		return
+	}
+	detail := "not delivered: the SessionStart answer was due before this rehydration was ready, " +
+		"so the model received a deferred note instead"
+	id := "no-checkpoint"
+	if ref.Seq > 0 {
+		id = fmt.Sprintf("checkpoint-%04d", int(ref.Seq))
+	}
+	if p := s.projectRelative(ref.Path); p != "" {
+		detail += "; restore: Read " + p
+	}
+	dropped := append([]checkpoint.DropEntry{{Kind: undeliveredDropKind, ID: id, Detail: detail}}, res.Dropped...)
+	st := rehydrate.State{
+		Session:  sess,
+		Seq:      res.Seq,
+		Emitted:  core.UnixMilli(s.o.Clock.Now().UnixMilli()),
+		Budget:   budget,
+		Dropped:  dropped,
+		Degraded: true,
+	}
+	if err := s.o.Reporter.Record(ctx, sess, st); err != nil {
+		s.o.Log.Warn("rehydrate: could not record state", "session", string(sess), "err", err.Error())
+	}
+}
+
+// projectRelative renders p relative to the project root in slash form when it lies inside it (the
+// form rehydrate's own restore pointers use), and p itself otherwise; "" stays "".
+func (s *rehydrateService) projectRelative(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" || s.o.ProjectRoot == "" {
+		return p
+	}
+	rel, err := filepath.Rel(s.o.ProjectRoot, p)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return p
+	}
+	return filepath.ToSlash(rel)
 }
 
 // The per-phase histograms of one compact rehydration, beside rehydrate.build (the Build call

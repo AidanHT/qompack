@@ -1,0 +1,36 @@
+# C1.16 daemon rows on the fix, run alone:
+# go test ./internal/daemon/ -run 'TestSessionStartCompact_|TestCompactDeferredNote_|TestCompactAnswerBudget_|TestService_|TestSessionStartRoute_' -count=1 -v
+    session_start_compact_test.go:174: answered in 154.7028ms with the session's lock held
+--- PASS: TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest (0.46s)
+--- PASS: TestSessionStartCompact_LateRehydrationIsAnsweredWithTheDeferredNote (0.27s)
+--- PASS: TestSessionStartCompact_ReadyRehydrationIsTheAnswer (0.16s)
+--- PASS: TestSessionStartCompact_PanickingRehydrationIsAnsweredAtOnce (0.19s)
+--- PASS: TestSessionStartCompact_StoppingDaemonAnswersWithTheNote (0.16s)
+--- PASS: TestSessionStartCompact_PassiveModeStillActsOnNothing (0.15s)
+--- PASS: TestCompactDeferredNote_FitsTheHostCap (0.00s)
+--- PASS: TestCompactAnswerBudget_IsAThirdOfTheManifestTimeout (0.00s)
+--- PASS: TestSessionStartRoute_RecordsItsPhases (0.45s)
+--- PASS: TestService_CompactEmitsAdditionalContext (0.26s)
+--- PASS: TestService_ReinjectionKillSwitchEmitsNothing (0.17s)
+--- PASS: TestService_DegradedPassiveEmitsNothing (0.24s)
+--- PASS: TestService_CheckpointNotFoundStillEmits (0.26s)
+--- PASS: TestService_CheckpointErrorEmitsNothing (0.17s)
+--- PASS: TestService_ResumedOrForkedSessionInheritsProjectCheckpoint (0.23s)
+--- PASS: TestService_FreshServiceInstanceNeedsNoWarmup (0.21s)
+--- PASS: TestService_RepeatedCompactionIsIndependentAndDoesNotReingestItsOwnInjection (0.22s)
+--- PASS: TestService_DuplicateCompactEventIsHandledConsistently (0.26s)
+--- PASS: TestService_OutOfOrderCheckpointDeliveryReflectsWhateverIsCurrentlyLatest (0.22s)
+--- PASS: TestService_MissingSessionIDDoesNotPanic (0.25s)
+--- PASS: TestService_PanicRecovered (0.13s)
+--- PASS: TestService_RecordsState (0.13s)
+    rehydrate_service_test.go:757: platform: a directory mode bit does not deny file creation on Windows
+--- SKIP: TestService_StateWriteFailureStillEmits (0.00s)
+--- PASS: TestService_ClearResetsState (0.15s)
+--- PASS: TestService_ClearOnMissingStateIsNoOp (0.12s)
+--- PASS: TestService_DeclaresAdditionalContextProducer (0.19s)
+--- PASS: TestService_OffersTheAnswerThenRecordsIt (0.18s)
+--- PASS: TestService_AbandonedRehydrationRecordsItselfUndelivered (0.27s)
+--- PASS: TestService_RouteRehydratesMarkBuildsNothing (0.15s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	6.012s
+exit=0
