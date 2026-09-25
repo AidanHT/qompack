@@ -267,6 +267,10 @@ type daemon struct {
 	// ends is the set of session ends the flush route started on goroutines of their own (C1.15,
 	// session_end.go); New creates it, and Stop joins it (stopSessionEnds).
 	ends *sessionEnds
+	// recoveryMu serializes the read-change-write of the session recovery set (markRecoveryNeeded,
+	// clearRecoveryNeeded): the session ends run concurrently, so an unserialized rewrite lost the
+	// entry another end had just written (C1.15).
+	recoveryMu sync.Mutex
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
