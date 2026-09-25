@@ -377,6 +377,16 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	return abort
 }
 
+// liveRunsPreregisteredModel reports whether model is what a run of ts may run on under its
+// pre-registration: the model ts declares, or the one contingency alias the pre-registration
+// permits in its place (section 3). A task set with no pre-registration has only its own model.
+func liveRunsPreregisteredModel(ts eval.LiveTaskSet, model string) bool {
+	if pre, ok := eval.LivePreregistrations[ts.ID]; ok {
+		return pre.RunsPreregisteredModel(ts.Analysis.Model, model)
+	}
+	return model == ts.Analysis.Model
+}
+
 // liveDryRunHost is what a dry run shows of the host side: each arm's command line for task t (the
 // session id is chosen per trial) and, for the marketplace flow, the plugin commands a qompack trial
 // runs before its session, so the install path can be checked without starting anything.
@@ -493,7 +503,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 		Category: task.Category, Variant: task.Variant, HeldOut: task.HeldOut, Model: o.model,
 		Install: "none", StartedAt: env.now().UTC().Format(time.RFC3339),
 		PluginExpected:     lt.arm == eval.ArmQompack,
-		PreregisteredModel: o.model == lt.set.Analysis.Model,
+		PreregisteredModel: liveRunsPreregisteredModel(lt.set, o.model),
 	}
 	trialDir := filepath.Join(o.out, "trials", task.ID, lt.arm, fmt.Sprintf("%02d", lt.trial))
 	if err := os.MkdirAll(trialDir, liveDirPerm); err != nil {
@@ -629,6 +639,7 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 		rec.SessionID = stream.Init.SessionID
 		rec.ClaudeCodeVersion = stream.Init.ClaudeCodeVersion
 		lt.recordPlugins(rec, stream)
+		rec.HostModel = stream.Init.Model
 		if stream.Init.Model != "" && stream.Init.Model != rec.Model {
 			rec.Notes = append(rec.Notes, "host reported model "+stream.Init.Model)
 		}

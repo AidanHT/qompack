@@ -345,6 +345,18 @@ func TestLivePreregistrations_MatchTheDocumentAndTheMaterials(t *testing.T) {
 	require.Contains(t, doc, "loaded from one frozen bundle with `--plugin-dir`", "section 3 names the install path")
 
 	flat := strings.Join(strings.Fields(doc), " ")
+	require.Equal(t, ts.Analysis.Model, pre.Model, "the pre-registered model is the task set's")
+	require.Contains(t, flat, "**Model:** `"+pre.Model+"`, pinned by ID", "section 3 names the model")
+	require.Contains(t, flat, "the run is restarted with the host alias `"+pre.ModelContingency+"`",
+		"section 3 names the one contingency alias")
+	require.Regexp(t, "(?s)### Amendments.*A6.*alias `"+pre.ModelContingency+"`", doc,
+		"amendment A6 records when a contingency run is confirmatory")
+	require.True(t, pre.RunsPreregisteredModel(ts.Analysis.Model, ts.Analysis.Model))
+	require.True(t, pre.RunsPreregisteredModel(ts.Analysis.Model, pre.ModelContingency))
+	require.False(t, pre.RunsPreregisteredModel(ts.Analysis.Model, "opus"))
+	require.False(t, pre.RunsPreregisteredModel("claude-haiku-4-5", pre.ModelContingency),
+		"the alias stands in only for the model the pre-registration froze")
+
 	require.Equal(t, []string{"C1.12", "C1.1"}, pre.RequiredFixed)
 	require.Contains(t, flat, "The confirmatory run must be on a candidate where "+
 		strings.Join(pre.RequiredFixed, " and ")+" are fixed", "section 9 names the defects the candidate must not carry")

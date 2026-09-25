@@ -287,3 +287,15 @@ func TestSummarizeLive_HookLatencyIsTheHostsOwnPerHook(t *testing.T) {
 	require.Equal(t, eval.HookLatency{N: 1, P50: 90, P95: 90, Max: 90}, got["PreCompact"])
 	require.Len(t, got, 2, "only host-measured durations are summarized per hook")
 }
+
+// TestSummarizeLive_RecordsTheModelsTheHostsReported: the model a trial asked for and the model its
+// host reported at start-up can differ — an alias resolves to a dated ID — and preregistration
+// section 3's contingency requires the resolved model recorded. The summary carries the distinct
+// models the hosts reported, sorted, so a reader of summary.json alone can say what the run ran on.
+func TestSummarizeLive_RecordsTheModelsTheHostsReported(t *testing.T) {
+	s := trials(eval.ArmStock, 2, 2)
+	q := trials(eval.ArmQompack, 2, 2)
+	s[0].HostModel, s[1].HostModel, q[0].HostModel = "claude-b", "claude-a", "claude-b"
+	sum := eval.SummarizeLive("r", liveAnalysis(), append(s, q...))
+	require.Equal(t, []string{"claude-a", "claude-b"}, sum.HostModels)
+}

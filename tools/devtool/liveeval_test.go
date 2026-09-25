@@ -244,6 +244,7 @@ func TestRunLiveEval_OfflineTrialsBothArms(t *testing.T) {
 		require.NotEmpty(t, rec.TranscriptHookMS, "the host-measured hook durations come from the transcript")
 		require.Equal(t, arm == "qompack", rec.PluginLoaded)
 		require.False(t, rec.PreregisteredModel == false && rec.Model == "claude-haiku-4-5-20251001")
+		require.Equal(t, "claude-haiku-4-5-20251001", rec.HostModel, "the model the host reported at start-up")
 		for _, f := range []string{"stream.jsonl", "stderr.txt", "ledger.json", "estimate.json", "transcript-facts.json", "invocation.json"} {
 			require.FileExists(t, filepath.Join(out, "trials", "pilot-codeword", arm, "01", f))
 		}
@@ -1053,4 +1054,21 @@ func TestWriteJSONFile_ReplacesTheFileNeverRewritesIt(t *testing.T) {
 		names = append(names, e.Name())
 	}
 	require.ElementsMatch(t, []string{"alias", "summary.json"}, names, "no staging file is left behind")
+}
+
+// TestLiveRunsPreregisteredModel: a trial is on the pre-registered model when it asked for the task
+// set's own model, or — for a pre-registered task set — for the one alias section 3 lets a run use
+// in its place. The pilot set has no pre-registration and so no contingency.
+func TestLiveRunsPreregisteredModel(t *testing.T) {
+	ts, _, err := eval.LoadLiveTaskSet(liveTestTasks)
+	require.NoError(t, err)
+	pre := eval.LivePreregistrations[ts.ID]
+	require.True(t, liveRunsPreregisteredModel(ts, ts.Analysis.Model))
+	require.True(t, liveRunsPreregisteredModel(ts, pre.ModelContingency))
+	require.False(t, liveRunsPreregisteredModel(ts, "opus"))
+
+	pilot, _, err := eval.LoadLiveTaskSet(liveTestPilot)
+	require.NoError(t, err)
+	require.True(t, liveRunsPreregisteredModel(pilot, pilot.Analysis.Model))
+	require.False(t, liveRunsPreregisteredModel(pilot, pre.ModelContingency))
 }

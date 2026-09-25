@@ -541,3 +541,55 @@ func TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable(t *testing.T) {
 	require.False(t, errors.Is(err, commands.ErrUnavailable), "a broken artifact is a failure, not an absence")
 	require.Contains(t, err.Error(), newer.Plan.RunID)
 }
+
+// TestEval_LiveTheSection3ModelContingencyCanBeConfirmatory: preregistration section 3 fixes one
+// contingency — if the host rejects claude-sonnet-5, the run restarts on the host alias `sonnet`
+// and the model the host resolves it to is recorded. That run is the pre-registered design, not a
+// departure from it, so it can be confirmatory: when its trials' hosts all reported one resolved
+// model, which the report names, and with a note that the contingency's own preconditions are not
+// machine-checked. Any other model, an unrecorded resolution, or a split one is not confirmatory.
+func TestEval_LiveTheSection3ModelContingencyCanBeConfirmatory(t *testing.T) {
+	contingency := func(model string, hostModels ...string) commands.LiveEvalInput {
+		run := confirmatoryRun(19, 20)
+		run.Plan.Model = model
+		trials := append(liveTrials(eval.ArmStock, 20, 19), liveTrials(eval.ArmQompack, 20, 20)...)
+		for i := range trials {
+			trials[i].Model = model
+			if len(hostModels) > 0 {
+				trials[i].HostModel = hostModels[i%len(hostModels)]
+			}
+		}
+		run.Summary = eval.SummarizeLive(run.Plan.RunID, liveAnalysis(), trials)
+		return run
+	}
+
+	run := contingency("sonnet", "claude-sonnet-5-20260915")
+	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.True(t, rep.Live.Confirmatory, "%v", rep.Live.NotConfirmatory)
+	require.Equal(t, []string{"claude-sonnet-5-20260915"}, rep.Live.HostModels)
+	notes := strings.Join(rep.Live.Notes, "\n")
+	require.Contains(t, notes, "contingency")
+	require.Contains(t, notes, "not machine-checked")
+	require.NotNil(t, liveGate(t, rep.Task, "LIVE-T01").Passed, "the pre-registered contingency run is judged")
+	text, err := runWith(t, evalDeps(liveOnly(run), nil), "eval")
+	require.NoError(t, err)
+	require.Contains(t, text, "host reported claude-sonnet-5-20260915")
+
+	for name, c := range map[string]struct {
+		run  commands.LiveEvalInput
+		want string
+	}{
+		"resolution not recorded": {contingency("sonnet"), "does not record"},
+		"resolved to two models":  {contingency("sonnet", "claude-sonnet-5-20260915", "claude-sonnet-4-5"), "more than one model"},
+		"another alias":           {contingency("opus", "claude-opus-5"), "not the pre-registered model"},
+	} {
+		out, err := runWith(t, evalDeps(liveOnly(c.run), nil), "eval", "--json")
+		require.NoError(t, err, name)
+		rep := decodeEval(t, out)
+		require.False(t, rep.Live.Confirmatory, name)
+		require.Contains(t, strings.Join(rep.Live.NotConfirmatory, "\n"), c.want, name)
+		require.Nil(t, liveGate(t, rep.Task, "LIVE-T01").Passed, name)
+	}
+}
