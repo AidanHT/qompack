@@ -161,7 +161,9 @@ type deliveryJournal struct {
 	// closing is set by closeLocked before it waits and is never cleared, so no operation passes
 	// enter once a close has begun, and Release waits only for the operations already in flight.
 	closing bool
-	// inflight counts the operations between enter and leave: each one may write, sync or seal.
+	// inflight counts the operations between enter and leave, each of which may write, sync or seal,
+	// and the generation-store reads between beginArchiveReadLocked and endArchiveRead. A rotation and
+	// a close both wait for it to reach zero.
 	inflight int
 
 	// leaseQ group-commits lease (design §2.6): lease enqueues its request and waits, and the
@@ -1356,6 +1358,35 @@ func (j *deliveryJournal) leave() {
 	if j.inflight == 0 {
 		j.idle.Broadcast()
 	}
+}
+
+// beginArchiveReadLocked admits one read of the generation store into the section a rotation and a
+// close both wait out, and returns the store. The caller holds st, has found the journal neither
+// closing, closed, rotating nor faulted, and ends the read with endArchiveRead. It never waits: the
+// ordering gate and the drain's lease probe (delivery_order.go) call it with Lock.mu held, and a
+// rotation in progress is a deferral for them, not something to wait for.
+//
+// Holding a slot, not a lock, is what lets the read itself run with neither Lock.mu nor st held (V6
+// close-out rollover review, finding 5), while still seeing one history with the window the caller
+// read under st: a rotation is the only writer that moves a lease out of the window and into the store,
+// and it cannot begin archiving until every slot is given back. The store meanwhile only gains
+// settlements of archived leases (their acknowledgement and terminal mirrors), never loses a record.
+func (j *deliveryJournal) beginArchiveReadLocked() *deliveryGenerations {
+	j.inflight++
+	return j.gen
+}
+
+// endArchiveRead ends a read beginArchiveReadLocked admitted, and reports whether the journal is still
+// usable — neither closing, closed nor faulted — so an answer read while a close began or a fault struck
+// is not given (fail closed).
+func (j *deliveryJournal) endArchiveRead() bool {
+	j.st.Lock()
+	defer j.st.Unlock()
+	j.inflight--
+	if j.inflight == 0 {
+		j.idle.Broadcast()
+	}
+	return !j.closing && !j.closed && j.fault == nil
 }
 
 // poison records err as the journal's fault unless it already has one, and returns the fault it
