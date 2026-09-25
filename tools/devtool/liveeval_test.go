@@ -592,7 +592,7 @@ func TestRenderLiveSummary_ShowsEveryPreregisteredReport(t *testing.T) {
 		return eval.LiveTrial{
 			TaskID: task, Arm: arm, Trial: 1, Variant: variant, HeldOut: held, Completed: true, TaskSuccess: ok,
 			ConstraintViolations: violations, PluginExpected: arm == eval.ArmQompack,
-			PluginLoaded: arm == eval.ArmQompack, PreregisteredModel: true,
+			PluginLoaded: arm == eval.ArmQompack, PreregisteredModel: true, HostReportedPlugins: true,
 		}
 	}
 	var ts []eval.LiveTrial
@@ -819,4 +819,38 @@ func TestRunLiveEval_TrialProjectsLiveUnderTheWorkRoot(t *testing.T) {
 	rel, err := filepath.Rel(root, project)
 	require.NoError(t, err)
 	require.False(t, strings.HasPrefix(rel, ".."), "the trial project %s is outside the work root %s", project, root)
+}
+
+// TestRunLiveEval_InstallFailureIsAHarnessFailureNotAMismatch: a qompack trial whose marketplace
+// install fails never starts a host, so no plugin list was reported. The trial is a harness failure,
+// failing every outcome, and does not turn the whole run's verdict into not-applicable.
+func TestRunLiveEval_InstallFailureIsAHarnessFailureNotAMismatch(t *testing.T) {
+	home := t.TempDir()
+	env := fakeLiveEnv(t, nil)
+	env.home = home
+	env.run = scriptedPilotHost(t, home)
+	env.cli = func(_ context.Context, _ string, args ...string) liveCLIResult {
+		if len(args) > 1 && args[0] == "plugin" && args[1] == "install" {
+			return liveCLIResult{Code: 1, Stderr: "install failed"}
+		}
+		return liveCLIResult{}
+	}
+	out := t.TempDir()
+	t.Setenv(liveEvalGateEnv, "1")
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack", "stock"}, out: out,
+		install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1,
+	}
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "qompack", "01", "trial.json"), &rec)
+	require.Contains(t, rec.HarnessError, "marketplace install")
+	require.False(t, rec.HostReportedPlugins)
+	require.False(t, rec.TaskSuccess)
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(out, "summary.json"), &sum)
+	require.Zero(t, sum.Arms[eval.ArmQompack].PluginMismatch)
+	require.NotEqual(t, "not-applicable", sum.Decision.Verdict, sum.Decision.Reason)
+	require.Len(t, sum.Failed, 1)
 }

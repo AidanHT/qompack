@@ -49,9 +49,13 @@ type LiveTrial struct {
 	Completed bool `json:"completed"`
 	// PluginExpected and PluginLoaded are the arm's intent and what the host reported. A qompack
 	// trial whose plugin did not load is not a qompack trial, and the summary says so.
-	PluginExpected bool              `json:"plugin_expected"`
-	PluginLoaded   bool              `json:"plugin_loaded"`
-	Checks         []LiveCheckResult `json:"checks"`
+	PluginExpected bool `json:"plugin_expected"`
+	PluginLoaded   bool `json:"plugin_loaded"`
+	// HostReportedPlugins reports that the host printed its start-up line listing the plugins it
+	// loaded. Only then does the trial have a plugin state that can contradict its arm; a trial
+	// whose host never got that far is a harness failure, not a plugin mismatch.
+	HostReportedPlugins bool              `json:"host_reported_plugins"`
+	Checks              []LiveCheckResult `json:"checks"`
 	// TaskSuccess is every task check passing. An incomplete trial is graded on whatever state it
 	// left, and counts in the denominator.
 	TaskSuccess bool `json:"task_success"`
@@ -310,6 +314,13 @@ func (t *LiveTrial) ApplyHarnessFailure(task LiveTask) {
 	}
 }
 
+// pluginMismatch reports that the host's own list of loaded plugins contradicted the arm: the
+// arm's plugin absent on a qompack trial, or present on a stock trial. A trial whose host never
+// reported its plugins has no such list and is not a mismatch; its harness error scores it.
+func (t LiveTrial) pluginMismatch() bool {
+	return t.HostReportedPlugins && t.PluginExpected != t.PluginLoaded
+}
+
 // ── summary ─────────────────────────────────────────────────────────────────────────────────────
 
 // Proportion is k successes of n with a Wilson score interval.
@@ -440,7 +451,7 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 		if t.HeldOut {
 			group(byVariantArm, VariantHeldOut, t)
 		}
-		if !t.Completed || t.PluginExpected != t.PluginLoaded || t.HarnessError != "" {
+		if !t.Completed || t.pluginMismatch() || t.HarnessError != "" {
 			sum.Failed = append(sum.Failed, fmt.Sprintf("%s/%s/%d: completed=%t plugin_expected=%t "+
 				"plugin_loaded=%t harness_error=%q", t.TaskID, t.Arm, t.Trial, t.Completed,
 				t.PluginExpected, t.PluginLoaded, t.HarnessError))
@@ -524,7 +535,9 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 //   - inconclusive otherwise.
 //
 // Any trial whose plugin state contradicted its arm makes the verdict not-applicable: the arms
-// were not the arms the rule is about.
+// were not the arms the rule is about. A trial's plugin state is the plugin list its host reported
+// at start-up; a trial whose host reported none is a harness failure, scored as a failure on every
+// outcome like any other (preregistration section 8 and amendment A2), not a mismatch.
 func DecideLive(a LiveAnalysis, s LiveSummary) LiveDecision {
 	for _, arm := range s.Arms {
 		if arm.PluginMismatch > 0 {
@@ -640,7 +653,7 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		if t.Completed && t.HarnessError == "" {
 			out.Completed++
 		}
-		if t.PluginExpected != t.PluginLoaded {
+		if t.pluginMismatch() {
 			out.PluginMismatch++
 		}
 		harness := t.HarnessError != ""

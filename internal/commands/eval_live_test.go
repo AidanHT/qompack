@@ -27,7 +27,7 @@ func liveTrials(arm string, n, k int) []eval.LiveTrial {
 	for i := range n {
 		out = append(out, eval.LiveTrial{
 			TaskID: fmt.Sprintf("t%02d", i/2), Arm: arm, Trial: i%2 + 1, Completed: true, TaskSuccess: i < k,
-			PluginExpected: arm == eval.ArmQompack, PluginLoaded: arm == eval.ArmQompack,
+			PluginExpected: arm == eval.ArmQompack, PluginLoaded: arm == eval.ArmQompack, HostReportedPlugins: true,
 			PreregisteredModel: true, EstimateComplete: true,
 		})
 	}
