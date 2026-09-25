@@ -556,11 +556,16 @@ const sessionEndHook = "SessionEnd"
 
 // settleSessionLimit bounds the whole settle. The flush's own deadline is the manifest's SessionEnd
 // timeout less the slack that already puts the PreCompact route's deadline inside the hook client's
-// reply wait (precompactDeadlineSlack): SessionEnd ships with the same 20 s host timeout, and
-// internal/cli waits the same 15 s for its reply (flushReplyDeadline), so the same nesting holds —
-// the daemon's 14 s inside the client's 15 s inside the host's 20 s. The settle takes that deadline
-// less settleSessionHeadroom: 9 s with the shipped manifest. A manifest with no SessionEnd timeout
-// (not this build's own) leaves the settle one stall bound, the fixed bound it had before.
+// reply wait (precompactDeadlineSlack), and the settle takes that deadline less
+// settleSessionHeadroom: 9 s with the shipped manifest. A manifest with no SessionEnd timeout (not
+// this build's own) leaves the settle one stall bound, the fixed bound it had before.
+//
+// The derivation dates from when the flush hook waited for the whole end (C1.1): the daemon's 14 s
+// inside the client's 15 s reply wait inside the host's 20 s. Since C1.15 the hook no longer waits —
+// the flush is answered once durable and the session is ended asynchronously (session_end.go) — so
+// the limit no longer protects any reply. It is kept, unchanged, as the bound on how long a session
+// end holds out for a backlog that is still publishing before it runs SessionEnd ahead of it, counted
+// and announced (noteUnsettled); lifting it now that nothing waits is an owner's decision.
 func settleSessionLimit() time.Duration {
 	timeout := time.Duration(manifestHookTimeoutMs(sessionEndHook)) * time.Millisecond
 	if limit := timeout - precompactDeadlineSlack - settleSessionHeadroom; limit > settleSessionStall {
@@ -579,14 +584,17 @@ const counterFlushUnsettled = "l0_flush_unsettled"
 // settleSession runs before the flush's SessionEnd. It waits for sess's lane to go quiet: for as long
 // as the lane keeps settling deliveries, up to settleSessionLimit, and no longer than
 // settleSessionStall once it stops. Then, if the committed frontier still lacks any of the session's
-// leased arrivals (a lane parked behind a predecessor only the WAL or a client spool holds), or
-// cannot be read to tell, it runs one drain pass, which publishes them in arrival order and, when the
-// pass ends, wakes the lane for whatever the pass had to leave to it; and it waits for the lane to go
-// quiet once more. drain is flushRoute's own: a flush replayed by the drain must not drain again
-// (drainer.mu is not reentrant), so it only waits. The waits are on real time (context deadlines,
-// timers and channels), never on the daemon's clock. A session that does not settle is not waited
-// for any longer, and not silently: noteUnsettled counts and announces it before SessionEnd runs.
-func (d *daemon) settleSession(ctx context.Context, sess core.SessionID, drain bool) {
+// leased arrivals before upTo (a lane parked behind a predecessor only the WAL or a client spool
+// holds), or cannot be read to tell, it runs one drain pass, which publishes them in arrival order
+// and, when the pass ends, wakes the lane for whatever the pass had to leave to it; and it waits for
+// the lane to go quiet once more. upTo is the flush's own arrival when the flush is itself leased
+// (sessionEndArrival), whose own unacknowledged lease must not count against it — it is what is being
+// settled — and 0 for a flush with no lease, which settles every leased arrival of the session. drain
+// is endSession's own: a flush replayed by the drain must not drain again (drainer.mu is not
+// reentrant), so it only waits. The waits are on real time (context deadlines, timers and channels),
+// never on the daemon's clock. A session that does not settle is not waited for any longer, and not
+// silently: noteUnsettled counts and announces it before SessionEnd runs.
+func (d *daemon) settleSession(ctx context.Context, sess core.SessionID, drain bool, upTo uint64) {
 	stall, limit := settleSessionStall, settleSessionLimit()
 	if d.ing.settleStall > 0 {
 		stall = d.ing.settleStall
@@ -601,7 +609,7 @@ func (d *daemon) settleSession(ctx context.Context, sess core.SessionID, drain b
 			d.noteUnsettled(sess, why)
 			return
 		}
-		delivered, known := d.sessionDelivered(sess)
+		delivered, known := d.sessionDelivered(sess, upTo)
 		if known && delivered {
 			return
 		}
@@ -630,11 +638,12 @@ func (d *daemon) noteUnsettled(sess core.SessionID, reason string) {
 		"in the WAL for replay", "session", string(sess), "reason", reason)
 }
 
-// sessionDelivered reports whether every leased arrival of sess is on the committed frontier or
-// retired. known is false when the journal cannot be read — none is held, or it is closing, closed,
-// rotating or faulted — and delivered then means nothing: the ordering gate fails closed on an
-// unreadable frontier, and so does the flush, which never takes one for settled.
-func (d *daemon) sessionDelivered(sess core.SessionID) (delivered, known bool) {
+// sessionDelivered reports whether every leased arrival of sess before upTo — or, with upTo 0, every
+// leased arrival of sess — is on the committed frontier or retired. known is false when the journal
+// cannot be read — none is held, or it is closing, closed, rotating or faulted — and delivered then
+// means nothing: the ordering gate fails closed on an unreadable frontier, and so does the flush,
+// which never takes one for settled.
+func (d *daemon) sessionDelivered(sess core.SessionID, upTo uint64) (delivered, known bool) {
 	j, err := d.deliveryJournal()
 	if err != nil || j == nil {
 		return false, false
@@ -643,7 +652,13 @@ func (d *daemon) sessionDelivered(sess core.SessionID) (delivered, known bool) {
 	if !ok {
 		return false, false
 	}
-	if last == 0 || j.predecessorsAcknowledged(sess, last+1) {
+	if upTo == 0 {
+		if last == 0 {
+			return true, true
+		}
+		upTo = last + 1
+	}
+	if j.predecessorsAcknowledged(sess, upTo) {
 		return true, true
 	}
 	// predecessorsAcknowledged also answers false for a journal that became unreadable after

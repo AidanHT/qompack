@@ -263,6 +263,10 @@ type daemon struct {
 	// and nothing in production changes it; it is a field only so a test can hold a cancelled
 	// capture open for as long as it needs to prove that Stop really joins it.
 	promptAbandonAfter time.Duration
+
+	// ends is the set of session ends the flush route started on goroutines of their own (C1.15,
+	// session_end.go); New creates it, and Stop joins it (stopSessionEnds).
+	ends *sessionEnds
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -329,6 +333,7 @@ func New(o Options) (Daemon, error) {
 	// and only Stop may end it (stopPromptRecordings).
 	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
 	d.promptAbandonAfter = promptReplyDeadline
+	d.ends = newSessionEnds()
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
@@ -998,6 +1003,11 @@ func (d *daemon) Stop(ctx context.Context) error {
 		// for this cleanup — can be racing a paths.WriteAtomic that the hot-path worker or the
 		// serving re-drain still has open under .qompack/tmp/. See runWG.
 		d.runWG.Wait()
+
+		// The session ends the flush route started run on goroutines of their own (session_end.go).
+		// They get a bounded window of their own to finish before the drain below, which replays any
+		// flush one of them had to leave.
+		d.stopSessionEnds(ctx)
 
 		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
 		_, _ = d.Drain(drainCtx)
