@@ -1,0 +1,4 @@
+PASS      github.com/qompack/qompack/internal/daemon  (pass=860 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=240 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/ipc  (pass=100 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/guards  (pass=60 fail=0 skip=0)

@@ -1,0 +1,2 @@
+github.com/qompack/qompack/internal/ipc
+github.com/qompack/qompack/internal/daemon

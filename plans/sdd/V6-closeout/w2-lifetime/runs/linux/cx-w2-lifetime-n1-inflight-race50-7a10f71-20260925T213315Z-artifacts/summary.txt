@@ -1,0 +1,2 @@
+PASS      github.com/qompack/qompack/internal/ipc  (pass=250 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=50 fail=0 skip=0)

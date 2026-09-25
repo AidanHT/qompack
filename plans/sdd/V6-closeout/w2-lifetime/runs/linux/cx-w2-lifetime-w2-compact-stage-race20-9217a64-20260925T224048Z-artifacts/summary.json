@@ -1,0 +1,29 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 860,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 240,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/ipc": {
+   "result": "pass",
+   "passed": 100,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "pass",
+   "passed": 60,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

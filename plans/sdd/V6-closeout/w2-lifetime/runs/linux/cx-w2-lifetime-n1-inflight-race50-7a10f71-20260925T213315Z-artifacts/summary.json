@@ -1,0 +1,17 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/ipc": {
+   "result": "pass",
+   "passed": 250,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 50,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

@@ -1,0 +1,10 @@
+run_id=cx-w2-lifetime-w2-compact-stage-race20-9217a64-20260925T224048Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime
+rev=HEAD
+commit=9217a64f634a2051962b6291d1ebc8eaa90106e6
+bundle_sha256=320252cbe12a5f5164f8481b197256dc01eafcba733c716b18da7d1b50207a6f
+host_started_utc=2026-09-25T22:40:55Z
+inner_args=--run ^(TestSessionStartCompact_|TestCompactDeferredNote_|TestCompactAnswerBudget_|TestService_|TestSessionStartRoute_|TestStageBinary_|TestDaemonProgram_|TestBuildSpawnCommand_|TestRunningFromPluginRoot|TestRun_ReportsRunningFromThePluginDirectory|TestAdminShutdownReplyReachesTheCallerOverTheTransport|TestServerClose|TestGuard_AReleasedLockReportsItsSealResidual) --count 20 -- ./internal/daemon ./internal/cli ./internal/ipc ./test/guards
+host_finished_utc=2026-09-25T22:43:37Z
+container_exit=0
