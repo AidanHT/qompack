@@ -92,7 +92,9 @@ func TestDeliveryDiagnostics_EveryRotationIsLoudAndCounted(t *testing.T) {
 	requireKV(t, louds[0], "carried_leases", 1)
 	pause, ok := kvOf(louds[0], "pause_ms")
 	require.True(t, ok, "the pause is logged")
-	require.GreaterOrEqual(t, pause.(int64), int64(0))
+	ms, isMS := pause.(int64)
+	require.True(t, isMS, "the pause is logged in whole milliseconds")
+	require.GreaterOrEqual(t, ms, int64(0))
 
 	leaseN(t, j, "diag", 3, 2) // fills segment 1 and rotates out of it
 	require.Equal(t, uint64(2), j.segment)
