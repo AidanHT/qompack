@@ -19,6 +19,10 @@ type LivePreregistration struct {
 	FixtureTreeSHA256 string
 	// Install is how the qompack arm loads the plugin: "plugin-dir" (section 3).
 	Install string
+	// RequiredFixed names, by checklist ID, the known defects section 9 requires the candidate to no
+	// longer carry. Section 9 also sets any run on a candidate with a known open defect aside, so a
+	// confirmatory run's plan attests no open defect at all (amendment A5).
+	RequiredFixed []string
 }
 
 // LivePreregistrations maps each pre-registered task set's id to what its pre-registration froze.
@@ -31,7 +35,20 @@ var LivePreregistrations = map[string]LivePreregistration{
 		TaskSetSHA256:     "14e9ee33ccfff573c00db0a108824853e08d916c3099842c232b624ac5eafff0",
 		FixtureTreeSHA256: "30cf769d243776645506eb43b7e0b336d2fed9a6e2ea29b4fb70a1f2b4054276",
 		Install:           "plugin-dir",
+		RequiredFixed:     []string{"C1.12", "C1.1"},
 	},
+}
+
+// LiveDefectAttestation is the operator's statement, made when a run was planned, of which known
+// defects its plugin bundle still carries (preregistration section 9). A bundle cannot prove which
+// defects it fixes, so this is an attestation: recorded as the operator's, reported as one, and
+// never presented as machine-checked.
+type LiveDefectAttestation struct {
+	// Open lists, by checklist ID, every known defect the bundle still carries. Empty means the
+	// operator attests that it carries none.
+	Open []string `json:"open"`
+	// Source says where the statement came from, e.g. the live-eval flag that carried it.
+	Source string `json:"source"`
 }
 
 // LivePlannedTrial is one planned trial.
@@ -63,13 +80,16 @@ type LivePlan struct {
 	TrialsPerArm       int                 `json:"trials_per_arm"`
 	Install            string              `json:"install"`
 	Plugin             *LivePluginIdentity `json:"plugin,omitempty"`
-	ClaudeCLI          string              `json:"claude_cli"`
-	ClaudeCLIVersion   string              `json:"claude_cli_version"`
-	RateTableDate      string              `json:"rate_table_date"`
-	RateTableSource    string              `json:"rate_table_source"`
-	HeldOutIncluded    bool                `json:"held_out_included"`
-	Trials             []LivePlannedTrial  `json:"trials"`
-	Host               string              `json:"host"`
+	// KnownDefects is the operator's statement of which known defects Plugin still carries; nil
+	// when the run was planned without one (a stock-only run, or a plan written before it existed).
+	KnownDefects     *LiveDefectAttestation `json:"known_defects,omitempty"`
+	ClaudeCLI        string                 `json:"claude_cli"`
+	ClaudeCLIVersion string                 `json:"claude_cli_version"`
+	RateTableDate    string                 `json:"rate_table_date"`
+	RateTableSource  string                 `json:"rate_table_source"`
+	HeldOutIncluded  bool                   `json:"held_out_included"`
+	Trials           []LivePlannedTrial     `json:"trials"`
+	Host             string                 `json:"host"`
 	// Agent says who executed the run and in what capacity, e.g. agent-executed on the real
 	// installed host under owner decision D3, never human UAT.
 	Agent string `json:"agent"`

@@ -33,6 +33,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -109,6 +110,10 @@ type liveOptions struct {
 	idleExit       int
 	keepRaw        bool
 	dryRun         bool
+	// defectsAttested reports that --known-open-defects was given; openDefects is what it named
+	// (empty for "none").
+	defectsAttested bool
+	openDefects     []string
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -146,6 +151,9 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 	fs.BoolVar(&o.keepRaw, "keep-raw-transcripts", false,
 		"also copy the host's raw transcript into the trial directory (it carries the operator's identity and system prompt: never commit it)")
 	fs.BoolVar(&o.dryRun, "dry-run", false, "validate the task set, bundle and plan; start nothing")
+	defects := fs.String("known-open-defects", "",
+		"the operator's statement of which known defects the bundle still carries: none, or their checklist IDs "+
+			"comma-separated (required with the qompack arm; preregistration section 9)")
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
@@ -176,10 +184,65 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 			}
 		}
 	}
+	if *defects != "" {
+		open, err := parseKnownOpenDefects(*defects)
+		if err != nil {
+			return o, err
+		}
+		o.defectsAttested, o.openDefects = true, open
+	}
 	if o.trials < 0 || o.maxSessions < 0 || o.idleExit <= 0 {
 		return o, errors.New("live-eval: --trials and --max-sessions must be non-negative and --daemon-idle-exit positive")
 	}
 	return o, nil
+}
+
+// liveDefectID is the shape of a checklist ID such as C1.12.
+var liveDefectID = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)*$`)
+
+// parseKnownOpenDefects reads --known-open-defects: "none", or the comma-separated checklist IDs of
+// every known defect the bundle still carries. The result is never nil, so "none" is recorded as an
+// empty list rather than as no statement.
+func parseKnownOpenDefects(v string) ([]string, error) {
+	if strings.TrimSpace(v) == liveNoOpenDefects {
+		return []string{}, nil
+	}
+	open := []string{}
+	for _, id := range strings.Split(v, ",") {
+		id = strings.TrimSpace(id)
+		switch {
+		case id == "":
+		case id == liveNoOpenDefects:
+			return nil, fmt.Errorf("live-eval: --known-open-defects %q names defects and %q at once", v, liveNoOpenDefects)
+		case !liveDefectID.MatchString(id):
+			return nil, fmt.Errorf("live-eval: --known-open-defects: %q is not a checklist ID such as C1.12", id)
+		default:
+			open = append(open, id)
+		}
+	}
+	if len(open) == 0 {
+		return nil, fmt.Errorf("live-eval: --known-open-defects %q names no defect; say %q if the bundle carries none",
+			v, liveNoOpenDefects)
+	}
+	return open, nil
+}
+
+// liveNoOpenDefects is the --known-open-defects value that attests the bundle carries no known defect.
+const liveNoOpenDefects = "none"
+
+// liveDefectSource is how plan.json says where its defect attestation came from.
+const liveDefectSource = "the operator, by live-eval --known-open-defects when the run was planned"
+
+// knownDefectsText renders an attestation for the run's output and summary.md.
+func knownDefectsText(a *eval.LiveDefectAttestation) string {
+	switch {
+	case a == nil:
+		return "not attested"
+	case len(a.Open) == 0:
+		return liveNoOpenDefects
+	default:
+		return strings.Join(a.Open, ", ")
+	}
 }
 
 // runLiveEval is the whole run: validate, plan, gate, execute, summarize.
@@ -229,8 +292,15 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		if idErr != nil {
 			return idErr
 		}
+		if !o.defectsAttested {
+			return fmt.Errorf("live-eval: the qompack arm needs --known-open-defects: %q, or the checklist IDs of "+
+				"every known defect the bundle still carries. Preregistration section 9 counts only a run on a "+
+				"candidate with no known open defect as the confirmatory run, and a bundle cannot prove which "+
+				"defects it fixes, so the operator states it and plan.json records the statement", liveNoOpenDefects)
+		}
 		id.Install = o.install
 		plan.Plugin = &id
+		plan.KnownDefects = &eval.LiveDefectAttestation{Open: append([]string{}, o.openDefects...), Source: liveDefectSource}
 		// Every session runs in its disposable project, so the host would resolve a relative
 		// --plugin-dir against that project and load nothing. From here on the bundle is named by
 		// the absolute path its identity was read from.
@@ -244,6 +314,10 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	fmt.Fprintf(w, "live-eval: run %s: %d trial(s) of task set %s (%s, fixture tree %s) on %s, arms %s, install %s\n",
 		runID, len(plan.Trials), ts.ID, plan.TaskSetSHA256[:12], plan.FixtureTreeSHA256[:12], o.model,
 		strings.Join(o.arms, ","), o.install)
+	if plan.KnownDefects != nil {
+		fmt.Fprintf(w, "live-eval: known open defects: %s (%s; preregistration section 9)\n",
+			knownDefectsText(plan.KnownDefects), liveDefectSource)
+	}
 	if o.dryRun {
 		for _, p := range plan.Trials {
 			fmt.Fprintf(w, "  plan: %s/%s/%d\n", p.Task, p.Arm, p.Trial)
@@ -927,6 +1001,11 @@ func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
 		"(pre-registered `%s`), arms %s, install `%s`, Claude Code %s. %s.\n\n", p.TaskSet, p.TaskSetSHA256,
 		p.FixtureTreeDirs, p.FixtureTreeSHA256, p.Model, p.PreregisteredModel,
 		strings.Join(p.Arms, ", "), p.Install, p.ClaudeCLIVersion, p.Agent)
+	if p.Plugin != nil {
+		fmt.Fprintf(&b, "The bundle's known open defects: %s — the operator's statement when the run was planned, not "+
+			"machine-checked (preregistration section 9 counts only a run with none as the confirmatory run).\n\n",
+			knownDefectsText(p.KnownDefects))
+	}
 	fmt.Fprintf(&b, "Every cost figure is a list-price-equivalent ESTIMATE from the %s rate table; the sessions ran on a "+
 		"subscription, which has no per-token cash charge.\n\n", p.RateTableDate)
 	fmt.Fprintf(&b, "**Decision (pre-registered rule, primary outcome):** %s — %s\n\n", s.Decision.Verdict, s.Decision.Reason)

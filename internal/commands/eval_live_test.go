@@ -46,6 +46,7 @@ func confirmatoryRun(stockK, qompackK int) commands.LiveEvalInput {
 		TaskSetTasks: n / 2, Model: "claude-sonnet-5", PreregisteredModel: "claude-sonnet-5",
 		Arms: []string{eval.ArmStock, eval.ArmQompack}, TrialsPerArm: 2, Install: "plugin-dir",
 		Plugin:           &eval.LivePluginIdentity{Install: "plugin-dir", Version: "0.3.0", Commit: "c0ffee"},
+		KnownDefects:     &eval.LiveDefectAttestation{Open: []string{}, Source: "live-eval --known-open-defects"},
 		ClaudeCLIVersion: "2.1.280", RateTableDate: "2026-09-22", HeldOutIncluded: true, Host: "windows/amd64",
 		Agent: "agent-executed on the real installed host (owner decision D3); not human UAT",
 	}
@@ -429,6 +430,61 @@ func TestFileEvalArtifacts_NamesANewerRunThatNeverFinished(t *testing.T) {
 	text, err := runWith(t, evalDeps(in, nil), "eval")
 	require.NoError(t, err)
 	require.Contains(t, text, unfinished.Plan.RunID)
+}
+
+// TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation: preregistration section 9 makes
+// the candidate's defect state part of what the confirmatory run is — "The confirmatory run must be
+// on a candidate where C1.12 and C1.1 are fixed; a run on a candidate with a known open defect is
+// labelled with that defect and is not the confirmatory run." A plan that does not attest which
+// known defects its bundle carries cannot be told apart from one that carries C1.12, so it is not
+// confirmatory, and the report names the precondition it could not establish. A plan that attests
+// an open defect — C1.12 itself, or any other (amendment A5) — is labelled with it and not judged.
+func TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation(t *testing.T) {
+	for name, c := range map[string]struct {
+		defects *eval.LiveDefectAttestation
+		want    []string
+	}{
+		"not attested":        {nil, []string{"section 9", "C1.12 and C1.1 are fixed", "does not attest"}},
+		"C1.12 open":          {&eval.LiveDefectAttestation{Open: []string{"C1.12"}}, []string{"section 9", "C1.12"}},
+		"another defect open": {&eval.LiveDefectAttestation{Open: []string{"C1.11"}}, []string{"section 9", "C1.11"}},
+	} {
+		run := confirmatoryRun(19, 20)
+		run.Plan.KnownDefects = c.defects
+
+		out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+		require.NoError(t, err, name)
+		rep := decodeEval(t, out)
+		require.False(t, rep.Live.Confirmatory, name)
+		reasons := strings.Join(rep.Live.NotConfirmatory, "\n")
+		for _, want := range c.want {
+			require.Contains(t, reasons, want, name)
+		}
+		require.Nil(t, liveGate(t, rep.Task, "LIVE-T01").Passed, name)
+		require.NotEqual(t, commands.VerdictPass, rep.Verdict, name)
+	}
+}
+
+// TestEval_LiveConfirmatoryRunSaysItsDefectPreconditionIsAttested: a confirmatory run's section 9
+// precondition rests on the operator's word, which nothing in the report can check. The report says
+// so in the JSON and before any number in the text, rather than printing a bare "confirmatory: yes".
+func TestEval_LiveConfirmatoryRunSaysItsDefectPreconditionIsAttested(t *testing.T) {
+	run := confirmatoryRun(19, 20)
+	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.True(t, rep.Live.Confirmatory, "%v", rep.Live.NotConfirmatory)
+	require.NotNil(t, rep.Live.KnownDefects)
+	require.Empty(t, rep.Live.KnownDefects.Open)
+	require.Contains(t, rep.Live.DefectPrecondition, "not machine-checked")
+	require.Contains(t, rep.Live.DefectPrecondition, "operator")
+
+	text, err := runWith(t, evalDeps(liveOnly(run), nil), "eval")
+	require.NoError(t, err)
+	require.Contains(t, text, "known open defects (preregistration section 9): none open")
+	require.Contains(t, text, "confirmatory: yes — its section 9 known-defect precondition rests on the operator's "+
+		"attestation, not on a machine check")
+	require.NotContains(t, text, "confirmatory: yes\n", "never an unqualified yes")
+	require.Less(t, strings.Index(text, "not machine-checked"), strings.Index(text, "decision (pre-registered rule)"))
 }
 
 // TestEval_LiveNotConfirmatoryWhenAForeignPluginLoaded: preregistration section 3 makes the two arms

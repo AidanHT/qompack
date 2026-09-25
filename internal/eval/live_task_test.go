@@ -343,6 +343,13 @@ func TestLivePreregistrations_MatchTheDocumentAndTheMaterials(t *testing.T) {
 
 	require.Equal(t, "plugin-dir", pre.Install)
 	require.Contains(t, doc, "loaded from one frozen bundle with `--plugin-dir`", "section 3 names the install path")
+
+	flat := strings.Join(strings.Fields(doc), " ")
+	require.Equal(t, []string{"C1.12", "C1.1"}, pre.RequiredFixed)
+	require.Contains(t, flat, "The confirmatory run must be on a candidate where "+
+		strings.Join(pre.RequiredFixed, " and ")+" are fixed", "section 9 names the defects the candidate must not carry")
+	require.Regexp(t, "(?s)### Amendments.*A5.*--known-open-defects none", doc,
+		"amendment A5 records how the section 9 precondition is attested, and the command that attests it")
 	require.Equal(t, filepath.ToSlash(filepath.Clean(strings.TrimPrefix(filepath.ToSlash(preregistrationFile), "../../"))),
 		pre.Document)
 
