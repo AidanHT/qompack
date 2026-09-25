@@ -17,9 +17,9 @@ import (
 )
 
 // Owner decision D6 (2026-09-23) accepted the rotation pause and the carry bounds as documented
-// residuals on the condition that each shows itself when it happens. These tests pin that every such
-// event is a Loud line and a counter. None of them asserts a duration: a pause is reported, never
-// judged.
+// residuals on the condition that each shows itself when it happens, and that a store's first rotation
+// is announced before it. These tests pin that every such event is a Loud line (or, for the advice, a
+// Warn) and a counter. None of them asserts a duration: a pause is reported, never judged.
 
 // diagnosedJournal opens root's journal through a lock carrying recording diagnostics.
 func diagnosedJournal(t *testing.T, root string) (*deliveryJournal, *recordingLogger, obs.Registry) {
@@ -106,6 +106,8 @@ func TestDeliveryDiagnostics_EveryRotationIsLoudAndCounted(t *testing.T) {
 	require.Contains(t, snap.Counters, counterDeliveryRotationPauseMS, "the pause total is published")
 	require.Equal(t, int64(2), snap.Hists[histDeliveryRotationPause].N, "each pause is observed once")
 	require.Zero(t, snap.Counters[counterDeliveryRotationFailures])
+	// At a threshold of 2 the advice point is the threshold itself: one Warn, in segment 0.
+	require.Equal(t, 1, log.count(logWarn))
 }
 
 // TestDeliveryDiagnostics_RotationFinishedAtOpenIsReported: a rotation an open finishes (an earlier
@@ -238,6 +240,88 @@ func TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch(t *testing.T) {
 	require.ErrorIs(t, err, errSegmentUnavailable, "it is still an unavailable segment to every other caller")
 	require.Equal(t, int64(1), m.Counter(counterDeliveryRotationCarryOverBound).Value())
 	require.Contains(t, log.entries(logLoud)[1].Msg, "carried-lease file's bound")
+}
+
+// TestDeliveryDiagnostics_FirstRotationIsAdvisedOnceBeforeItHappens: a store that has never rotated
+// is warned once, when its window reaches three quarters of the threshold — before the rotation, and
+// never again after it.
+func TestDeliveryDiagnostics_FirstRotationIsAdvisedOnceBeforeItHappens(t *testing.T) {
+	setRollover(t, 8) // advice at 6 leases
+	j, log, m := diagnosedJournal(t, t.TempDir())
+	leaseN(t, j, "advice", 0, 5)
+	require.Zero(t, log.count(logWarn), "not yet near the first rotation")
+
+	leaseN(t, j, "advice", 5, 1)
+	require.Equal(t, uint64(0), j.segment, "the advice comes before the rotation")
+	warns := log.entries(logWarn)
+	require.Len(t, warns, 1)
+	require.Contains(t, warns[0].Msg, "rotate for the first time")
+	require.Contains(t, warns[0].Msg, "qompack backup create")
+	require.Contains(t, warns[0].Msg, "docs/backup.md")
+	requireKV(t, warns[0], "window_leases", 6)
+	require.Equal(t, int64(1), m.Counter(counterDeliveryFirstRotationBackupAdvised).Value())
+
+	leaseN(t, j, "advice", 6, 20) // the rotation, and two more after it
+	require.GreaterOrEqual(t, j.segment, uint64(2))
+	require.Equal(t, 1, log.count(logWarn), "the advice is given once")
+	require.Equal(t, int64(1), m.Counter(counterDeliveryFirstRotationBackupAdvised).Value())
+}
+
+// TestDeliveryDiagnostics_FirstRotationAdviceByBytes: the byte threshold, not only the entry count,
+// brings the advice.
+func TestDeliveryDiagnostics_FirstRotationAdviceByBytes(t *testing.T) {
+	setRollover(t, 1000)
+	line, err := json.Marshal(deliveryLease{
+		Version: core.EvidenceVersion, Delivery: genNonce(0), Session: "bytes",
+		RequestHash: testDeliveryRequest(genNonce(0)), ArrivalSeq: 1,
+		ObservationID: func() core.ObservationID {
+			id, err := core.NewObservationID("bytes", 1)
+			require.NoError(t, err)
+			return id
+		}(),
+	})
+	require.NoError(t, err)
+	deliveryRolloverBytes = int64(len(line)+1) * 4 // advice at three lines' worth
+	j, log, _ := diagnosedJournal(t, t.TempDir())
+	leaseN(t, j, "bytes", 0, 2)
+	require.Zero(t, log.count(logWarn))
+	leaseN(t, j, "bytes", 2, 1)
+	require.Equal(t, 1, log.count(logWarn))
+	require.Equal(t, uint64(0), j.segment)
+}
+
+// TestDeliveryDiagnostics_FirstRotationAdviceAtOpen: a store that already holds most of a window when
+// the daemon opens it is warned at the open, and not again at its next admission.
+func TestDeliveryDiagnostics_FirstRotationAdviceAtOpen(t *testing.T) {
+	setRollover(t, 8)
+	root := t.TempDir()
+	j := openRolloverJournal(t, root) // no diagnostics attached: nothing to warn through
+	leaseN(t, j, "restart", 0, 6)
+	require.NoError(t, j.owner.Release())
+
+	reopened, log, m := diagnosedJournal(t, root)
+	require.Equal(t, 1, log.count(logWarn), "warned at the open")
+	requireKV(t, log.entries(logWarn)[0], "window_leases", 6)
+	leaseN(t, reopened, "restart", 6, 1)
+	require.Equal(t, 1, log.count(logWarn))
+	require.Equal(t, int64(1), m.Counter(counterDeliveryFirstRotationBackupAdvised).Value())
+}
+
+// TestDeliveryDiagnostics_AdviceWaitsForSomewhereToReport: a journal with no diagnostics attached does
+// not spend its one advice; attached later, the next admission gives it.
+func TestDeliveryDiagnostics_AdviceWaitsForSomewhereToReport(t *testing.T) {
+	setRollover(t, 8)
+	lock, err := acquireTestDeliveryLock(t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lock.Release() })
+	j, err := lock.openDeliveryJournal()
+	require.NoError(t, err)
+	leaseN(t, j, "late", 0, 6)
+	log, m := attachRecordingDiagnostics(lock)
+	require.Zero(t, log.count(logWarn))
+	leaseN(t, j, "late", 6, 1)
+	require.Equal(t, 1, log.count(logWarn))
+	require.Equal(t, int64(1), m.Counter(counterDeliveryFirstRotationBackupAdvised).Value())
 }
 
 // TestDeliveryDiagnostics_StatusShowsTheRotationCounters: the daemon attaches its own logger and
