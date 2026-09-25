@@ -10,9 +10,9 @@ import (
 )
 
 func TestDeliveryTerminal_ArchivedDenialSettlesOrderingWithoutCaptureAck(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	root := t.TempDir()
-	j := openRolloverJournal(t, root)
+	j := roll.open(t, root)
 	ctx := context.Background()
 	const session core.SessionID = "archived-denial"
 	first, err := j.lease(ctx, genNonce(301), session, testDeliveryRequest(genNonce(301)))
@@ -38,7 +38,7 @@ func TestDeliveryTerminal_ArchivedDenialSettlesOrderingWithoutCaptureAck(t *test
 	require.Error(t, err, "a matching nonce cannot substitute for the full original binding")
 
 	require.NoError(t, j.owner.Release())
-	j = openRolloverJournal(t, root)
+	j = roll.open(t, root)
 	denied, err = j.terminalDenied(first)
 	require.NoError(t, err)
 	require.True(t, denied)
@@ -47,8 +47,8 @@ func TestDeliveryTerminal_ArchivedDenialSettlesOrderingWithoutCaptureAck(t *test
 }
 
 func TestDeliveryTerminal_RotationDefersDispositionWithoutDeadlock(t *testing.T) {
-	setRollover(t, 1)
-	j := openRolloverJournal(t, t.TempDir())
+	roll := parallelRollover(t, 1)
+	j := roll.open(t, t.TempDir())
 	lease, err := j.lease(context.Background(), genNonce(401), "rotating", testDeliveryRequest(genNonce(401)))
 	require.NoError(t, err)
 	j.st.Lock()

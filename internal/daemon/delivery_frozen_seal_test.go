@@ -19,12 +19,13 @@ import (
 // archived its two seals are rewritten as FROZEN documents: the same sealed position, in a shape the
 // pre-segment dual reader (readDeliverySealImage, then the strict v1 loadDeliveryPosition) refuses.
 
+// rotatedLegacyStore leases two deliveries through a journal that rotates after every lease (threshold 1
+// on its lock, so the caller may run in parallel), acknowledging the first, so segment 0 is archived.
 func rotatedLegacyStore(t *testing.T) (root string, first deliveryLease) {
 	t.Helper()
-	setRollover(t, 1)
 	ctx := context.Background()
 	root = t.TempDir()
-	j := openRolloverJournal(t, root)
+	j := rolloverAt(1).open(t, root)
 	var err error
 	first, err = j.lease(ctx, genNonce(0), "frozen", testDeliveryRequest(genNonce(0)))
 	require.NoError(t, err)
@@ -40,6 +41,7 @@ func rotatedLegacyStore(t *testing.T) (root string, first deliveryLease) {
 // reader every pre-segment build opens them with, while the sealed position they carry still checks
 // the untouched legacy journals exactly.
 func TestDeliveryRollover_ArchivedLegacySegmentRefusesThePreSegmentReader(t *testing.T) {
+	t.Parallel()
 	root, first := rotatedLegacyStore(t)
 	state := paths.Of(root).State
 	for _, seal := range []struct {
@@ -66,7 +68,7 @@ func TestDeliveryRollover_ArchivedLegacySegmentRefusesThePreSegmentReader(t *tes
 		require.Equal(t, 1, pos.Count)
 	}
 	// The current reader still resolves the archived identity and continues densely.
-	j := openRolloverJournal(t, root)
+	j := rolloverAt(1).open(t, root)
 	got, err := j.lease(context.Background(), first.Delivery, first.Session, first.RequestHash)
 	require.NoError(t, err)
 	require.Equal(t, first, got)
@@ -77,6 +79,7 @@ func TestDeliveryRollover_ArchivedLegacySegmentRefusesThePreSegmentReader(t *tes
 // the freeze leaves segment 0 with an ordinary seal; the next open verifies it against the journal and
 // freezes it before assigning anything.
 func TestDeliveryRollover_ArchivedLegacySegmentIsRefrozenAtOpen(t *testing.T) {
+	t.Parallel()
 	root, _ := rotatedLegacyStore(t)
 	state := paths.Of(root).State
 	// Put ordinary v1 seals back, sealing exactly the frozen positions (the pre-freeze state).
@@ -93,7 +96,7 @@ func TestDeliveryRollover_ArchivedLegacySegmentIsRefrozenAtOpen(t *testing.T) {
 		_, err = loadDeliveryPosition(p, seal.seed)
 		require.NoError(t, err, "fixture: an ordinary v1 seal again")
 	}
-	_ = openRolloverJournal(t, root)
+	_ = rolloverAt(1).open(t, root)
 	for _, seal := range []struct {
 		name string
 		seed core.Hash
@@ -113,6 +116,7 @@ func TestDeliveryRollover_ArchivedLegacySegmentIsRefrozenAtOpen(t *testing.T) {
 // archived segment is the offline check's, as for every other archived segment); a mismatch is evidence
 // to preserve, not to rewrite.
 func TestDeliveryRollover_FrozenSealThatDisagreesWithItsJournalRefusesOpen(t *testing.T) {
+	t.Parallel()
 	root, _ := rotatedLegacyStore(t)
 	state := paths.Of(root).State
 	p := filepath.Join(state, deliveryPositionFile)
@@ -138,10 +142,10 @@ func TestDeliveryRollover_FrozenSealThatDisagreesWithItsJournalRefusesOpen(t *te
 // segment 0. Found on a store whose authority still names segment 0 active, it is refused, never
 // silently thawed into a writable journal.
 func TestDeliveryRollover_FrozenSealOnTheActiveSegmentRefusesOpen(t *testing.T) {
-	setRollover(t, 100)
+	roll := parallelRollover(t, 100)
 	ctx := context.Background()
 	root := t.TempDir()
-	j := openRolloverJournal(t, root)
+	j := roll.open(t, root)
 	l, err := j.lease(ctx, genNonce(0), "active", testDeliveryRequest(genNonce(0)))
 	require.NoError(t, err)
 	require.NoError(t, j.owner.Release())
