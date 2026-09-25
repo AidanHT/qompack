@@ -7,7 +7,6 @@ package eval
 // driver (this package does not start processes) and handed back as CommandOutcome values.
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -264,11 +263,13 @@ func describeReadErr(p string, err error) string {
 	return fmt.Sprintf("%s unreadable: %v", p, err)
 }
 
+// nonEmptyLines counts the lines of data that hold anything but whitespace. It splits the bytes
+// itself rather than using a bufio.Scanner, whose token limit would stop the count at the first
+// line longer than 64 KiB and under-count a file the grader has already bounded by size.
 func nonEmptyLines(data []byte) int {
 	n := 0
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	for sc.Scan() {
-		if strings.TrimSpace(sc.Text()) != "" {
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) > 0 {
 			n++
 		}
 	}
