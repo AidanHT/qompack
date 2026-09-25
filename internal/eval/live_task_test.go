@@ -1,9 +1,13 @@
 package eval_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -61,6 +65,80 @@ func TestLiveTaskSet_TheFrozenSetIsValidAndShapedAsPreregistered(t *testing.T) {
 			require.NotEqual(t, task.Fixture, p.Fixture, "the pilot shares no fixture with the confirmatory set")
 		}
 	}
+}
+
+// preregistrationFile is the frozen pre-registration of the qompack-live-v1 study.
+var preregistrationFile = filepath.Join("..", "..", "plans", "sdd", "V6-closeout", "eval", "preregistration.md")
+
+// TestLiveTaskSet_FrozenMaterialsMatchThePreregistration: every frozen material still hashes to the
+// SHA-256 the pre-registration's section 2 table records — read out of the document itself, so the
+// test and the document cannot drift apart — the fixture and hidden-test tree hashes to the
+// locale-independent manifest value its amendment A1 records (the value `devtool live-eval` writes
+// into every run's plan.json), and the section 4 task table names exactly the tasks, variants and
+// held-out flags of tasks.json.
+func TestLiveTaskSet_FrozenMaterialsMatchThePreregistration(t *testing.T) {
+	raw, err := os.ReadFile(preregistrationFile)
+	require.NoError(t, err)
+	doc := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	for _, file := range []string{"tasks.json", "rates.json", "pilot.json"} {
+		row := regexp.MustCompile("(?m)^\\|[^|\\n]*\\|\\s*`testdata/eval/live/" + regexp.QuoteMeta(file) +
+			"`\\s*\\|\\s*`([0-9a-f]{64})`\\s*\\|")
+		m := row.FindStringSubmatch(doc)
+		require.NotNil(t, m, "preregistration section 2 records a SHA-256 for %s", file)
+		content, err := os.ReadFile(liveTaskFile(file))
+		require.NoError(t, err)
+		sum := sha256.Sum256(content)
+		require.Equal(t, m[1], hex.EncodeToString(sum[:]), "%s is not the pre-registered file", file)
+	}
+
+	tree, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile("tasks.json")), "fixtures", "hidden")
+	require.NoError(t, err)
+	require.Regexp(t, "(?s)### Amendments.*A1.*`"+tree+"`", doc,
+		"amendment A1 records the fixture tree's manifest hash")
+
+	ts, _, err := eval.LoadLiveTaskSet(liveTaskFile("tasks.json"))
+	require.NoError(t, err)
+	taskRow := regexp.MustCompile("(?m)^\\| `([A-Za-z0-9._-]+)` \\| [^|]+ \\| ([a-z-]+) \\| (\\*\\*yes\\*\\*|no) \\|$")
+	var got, want []string
+	for _, m := range taskRow.FindAllStringSubmatch(doc, -1) {
+		got = append(got, fmt.Sprintf("%s %s held=%t", m[1], m[2], m[3] != "no"))
+	}
+	for _, task := range ts.Tasks {
+		want = append(want, fmt.Sprintf("%s %s held=%t", task.ID, task.Variant, task.HeldOut))
+	}
+	require.Equal(t, want, got, "the section 4 table is the task set, in order")
+	require.Contains(t, doc, "`"+ts.Analysis.Model+"`", "section 3 names the pre-registered model")
+	require.Contains(t, doc, fmt.Sprintf("margin %.2f", ts.Analysis.NonInferiorityMargin),
+		"section 8 names the task set's margin")
+	require.Contains(t, doc, fmt.Sprintf("%d%% Newcombe", int(ts.Analysis.Confidence*100)),
+		"section 8 names the task set's confidence level")
+}
+
+// TestTreeManifestSHA256_IsTheSha256sumManifestInByteOrder pins the recipe: one
+// "<sha256>  <slash path>\n" line per regular file, paths relative to the root and in byte order,
+// hashed — exactly `find <dirs> -type f | LC_ALL=C sort | xargs sha256sum | sha256sum` run from
+// the root with GNU coreutils in text mode.
+func TestTreeManifestSHA256_IsTheSha256sumManifestInByteOrder(t *testing.T) {
+	root := t.TempDir()
+	files := map[string]string{"b/Z.txt": "z\n", "b/a.txt": "a\n", "a/x/y.go": "package y\n"}
+	for p, body := range files {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, filepath.Dir(filepath.FromSlash(p))), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(root, filepath.FromSlash(p)), []byte(body), 0o600))
+	}
+	var manifest strings.Builder
+	for _, p := range []string{"a/x/y.go", "b/Z.txt", "b/a.txt"} {
+		sum := sha256.Sum256([]byte(files[p]))
+		manifest.WriteString(hex.EncodeToString(sum[:]) + "  " + p + "\n")
+	}
+	want := sha256.Sum256([]byte(manifest.String()))
+	got, err := eval.TreeManifestSHA256(root, "b", "a")
+	require.NoError(t, err)
+	require.Equal(t, hex.EncodeToString(want[:]), got, "argument order does not matter; byte order of paths does")
+
+	_, err = eval.TreeManifestSHA256(root, "missing")
+	require.Error(t, err, "a directory that is not there is not an empty tree")
+	_, err = eval.TreeManifestSHA256(root, "../escape")
+	require.Error(t, err, "a directory outside the root is refused")
 }
 
 // TestLiveTaskSet_ValidationRefusesEveryMalformedShape: each mutation breaks one rule, and each is

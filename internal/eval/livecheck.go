@@ -17,6 +17,7 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -278,3 +279,56 @@ func nonEmptyLines(data []byte) int {
 const clipRunes = 160
 
 func clip(s string) string { return boundRunes(s, clipRunes) }
+
+// TreeManifestSHA256 hashes the regular files under each of dirs (slash paths relative to root) the
+// way `find <dirs> -type f | LC_ALL=C sort | xargs sha256sum | sha256sum` does with GNU coreutils in
+// text mode: one "<sha256>  <path>\n" line per file, paths relative to root and in byte order, and
+// the SHA-256 of that manifest. It is the fixture tree's identity in a run's plan and in the
+// pre-registration, and it is deliberately independent of the platform and the locale — a
+// manifest sorted by a locale's collation, or written with sha256sum's binary-mode "*" marker,
+// hashes differently for the same bytes. A directory that does not exist, or that is not beneath
+// root, is an error, not an empty tree.
+func TreeManifestSHA256(root string, dirs ...string) (string, error) {
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return "", fmt.Errorf("eval: opening %s: %w", root, err)
+	}
+	defer func() { _ = r.Close() }()
+	type entry struct{ path, sum string }
+	var entries []entry
+	for _, dir := range dirs {
+		if err := cleanRelative(dir); err != nil {
+			return "", fmt.Errorf("eval: tree manifest directory: %w", err)
+		}
+		info, err := r.Stat(dir)
+		if err != nil {
+			return "", fmt.Errorf("eval: tree manifest directory %s: %w", dir, err)
+		}
+		if !info.IsDir() {
+			return "", fmt.Errorf("eval: tree manifest directory %s is not a directory", dir)
+		}
+		err = fs.WalkDir(r.FS(), dir, func(p string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if !d.Type().IsRegular() {
+				return nil
+			}
+			sum, herr := hashRootFile(r, p)
+			if herr != nil {
+				return herr
+			}
+			entries = append(entries, entry{path: p, sum: sum})
+			return nil
+		})
+		if err != nil {
+			return "", fmt.Errorf("eval: hashing %s: %w", dir, err)
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].path < entries[j].path })
+	h := sha256.New()
+	for _, e := range entries {
+		_, _ = io.WriteString(h, e.sum+"  "+e.path+"\n")
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}

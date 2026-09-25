@@ -588,3 +588,32 @@ func TestRenderLiveSummary_ShowsEveryPreregisteredReport(t *testing.T) {
 		require.Contains(t, md, want)
 	}
 }
+
+// TestRunLiveEval_PlanRecordsTheFixtureTree: plan.json names the task set by its file hash AND the
+// fixture and hidden-test tree by its manifest hash (preregistration amendment A1), so a run on
+// edited fixtures under an unchanged tasks.json is visibly not a run of the pre-registered set. The
+// dry run prints both.
+func TestRunLiveEval_PlanRecordsTheFixtureTree(t *testing.T) {
+	want, err := eval.TreeManifestSHA256(filepath.Dir(liveTestPilot), "fixtures", "hidden")
+	require.NoError(t, err)
+
+	env := fakeLiveEnv(t, nil)
+	var out bytes.Buffer
+	o := liveOptions{tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock"}, out: t.TempDir(), dryRun: true}
+	require.NoError(t, runLiveEval(context.Background(), o, env, &out))
+	require.Contains(t, out.String(), "fixture tree "+want[:12])
+
+	home := t.TempDir()
+	env.home = home
+	env.run = scriptedPilotHost(t, home)
+	o.dryRun, o.trials, o.idleExit = false, 1, 1
+	t.Setenv(liveEvalGateEnv, "1")
+	require.NoError(t, runLiveEval(context.Background(), o, env, &out), out.String())
+	var plan livePlan
+	readJSON(t, filepath.Join(o.out, "plan.json"), &plan)
+	require.Equal(t, want, plan.FixtureTreeSHA256)
+	require.Equal(t, []string{"fixtures", "hidden"}, plan.FixtureTreeDirs)
+	md, err := os.ReadFile(filepath.Join(o.out, "summary.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(md), want)
+}
