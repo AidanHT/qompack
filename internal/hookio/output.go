@@ -26,12 +26,14 @@ type HSO struct {
 	HookEventName string `json:"hookEventName"`
 	// AdditionalContext is the injection channel of SessionStart, UserPromptSubmit and PostToolUse.
 	AdditionalContext string `json:"additionalContext,omitempty"`
-	// CustomInstructions carries the checkpointer's focus instruction (Qompack.md §8.5, O1) from the
-	// daemon to the hook client, and no further. No host event accepts it: Claude Code has no
-	// PreCompact hookSpecificOutput variant and 2.1.280 rejected the whole response over it (C1.12);
-	// custom_instructions is PreCompact INPUT, not a summarizer-output setter (Qompack.md §7.3), and
-	// §8.5 retires O1's output setter. ConformOutput drops it for every event. It stays on the IPC
-	// hop only because the daemon still produces and records it (contract.History.PrecompactInstr).
+	// CustomInstructions is RETIRED (C1.18): no producer in this build sets it. A daemon before
+	// C1.18 sent the checkpointer's focus instruction (Qompack.md §8.5, O1) here on its reply to the
+	// checkpoint route, but no host event accepts it — Claude Code has no PreCompact
+	// hookSpecificOutput variant and 2.1.280 rejected the whole response over it (C1.12), and
+	// custom_instructions is PreCompact INPUT, not a summarizer-output setter (§7.3; §8.5 retires
+	// O1's output setter). The field stays decodable because such a daemon can still be resident
+	// after an upgrade and answer a new hook client over IPC; ConformOutput drops it for every
+	// event, so it never reaches the host whoever sent it.
 	CustomInstructions string `json:"customInstructions,omitempty"`
 }
 
@@ -53,15 +55,4 @@ func Empty() Output { return Output{} }
 // {"hookSpecificOutput":{"hookEventName":"SessionStart"}}.
 func SessionStartOutput(ctx string) Output {
 	return Output{HookSpecificOutput: &HSO{HookEventName: EventSessionStart, AdditionalContext: ctx}}
-}
-
-// PreCompactOutput builds the daemon's IPC reply to the checkpoint route carrying instr as
-// customInstructions (Qompack.md §8.5's focus instruction). An empty instr omits the field entirely,
-// so PreCompactOutput("") serializes to {"hookSpecificOutput":{"hookEventName":"PreCompact"}}.
-//
-// It is an IPC value, never a host response: the host rejects any PreCompact hookSpecificOutput, so
-// what `qompack checkpoint` writes is ConformOutput(EventPreCompact, PreCompactOutput(instr)), which
-// is always the empty object (see HSO.CustomInstructions).
-func PreCompactOutput(instr string) Output {
-	return Output{HookSpecificOutput: &HSO{HookEventName: EventPreCompact, CustomInstructions: instr}}
 }

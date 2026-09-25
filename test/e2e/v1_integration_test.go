@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
@@ -181,14 +180,12 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 	// means the exact response bytes are no longer a CLI-side constant: SessionStart's
 	// additionalContext now carries a live §12.1 sentinel token the daemon mints unconditionally
 	// (handleSessionStart mints and emits it whenever the mode may act, with no wave-3 seam
-	// required). PreCompact answers through hookSpecificOutput too, and its customInstructions are
-	// a REAL sealed checkpoint's focus instruction -- built from what the five calls above this one
-	// actually left in the store, and so not a constant either. This row expected a bare "{}" here
-	// until the first-PreCompact defect was fixed; see the lifecycle entry for why that expectation
-	// was the symptom and not the contract. What stays true, and what this loop still proves end to
-	// end across pluginmanifest -> cmd/qompack -> cli -> ipc -> daemon -> hookio, is that every call
-	// in the lifecycle exits 0 with exactly one well-formed hookio.Output, and that the two calls
-	// that answer with a hookSpecificOutput name their own event in it.
+	// required). PreCompact answers the host with the empty object (C1.12), and since C1.18 the
+	// daemon renders no focus instruction for it at all; what the PreCompact DID is read from what
+	// it left behind (the block at the end of this loop). What stays true, and what this loop still
+	// proves end to end across pluginmanifest -> cmd/qompack -> cli -> ipc -> daemon -> hookio, is
+	// that every call in the lifecycle exits 0 with exactly one well-formed hookio.Output, and that
+	// the call that answers with a hookSpecificOutput names its own event in it.
 	for i, call := range v1Lifecycle {
 		payload := v1Payload(t, call)
 
@@ -210,45 +207,26 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 
 		// PreCompact answers the host with nothing, so what it DID is read from what it left behind.
 		// The seal: a checkpoint artifact, which is exactly what the first-PreCompact defect never
-		// wrote. The rendered focus instruction: the route records it in the contract history
-		// (capped at 256 runes), the one durable surface it still reaches, and §5.14 permits it to be
-		// built from the SourceSet -- durable, original content -- and from nothing else, so no
-		// payload secret may appear there.
+		// wrote.
+		//
+		// Criterion change (C1.18): this block also used to read the rendered focus instruction —
+		// from the contract history, where the route recorded its first 256 runes, and from the
+		// daemon's IPC reply to this same frozen PreCompact — and hold both to §5.14 (built from the
+		// SourceSet, so no payload secret in it). The instruction is retired: no host accepts one,
+		// so the daemon neither returns nor records it. The block now pins that retirement on both
+		// surfaces the instruction used to reach — nothing recorded, and the empty object on the IPC
+		// hop — which also leaves a payload secret nowhere new to land. The logs check after this
+		// loop still covers every log file.
 		if call.logHook == "PreCompact" {
 			require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root),
 				"call %d (%v): the PreCompact must seal a checkpoint; none here is the first-PreCompact "+
 					"defect, whose host-visible answer was the same \"{}\"", i+1, call.argv)
-			recorded := contract.LoadHistory(contract.HistoryPath(p.Root)).PrecompactInstr
-			require.NotEmpty(t, recorded, "call %d (%v): the route records the instruction it rendered", i+1, call.argv)
-			// Paragraph 1 is §8.5's standing focus instruction: always rendered, always first. It is
-			// computed from the package rather than pasted, so this row cannot drift from the text the
-			// daemon actually renders. The history keeps the instruction's first 256 runes, so the
-			// recorded first line is the standing paragraph cut by the history's OWN truncation —
-			// equality, not a prefix test, which any non-empty cut would pass.
-			standing := checkpoint.FocusInstructions(checkpoint.Checkpoint{}, checkpoint.Ref{}, checkpoint.FocusOptions{})
-			var capped contract.SessionHistory
-			capped.SetPrecompactInstr(standing)
-			require.Equal(t, cpFirstLine(capped.PrecompactInstr), cpFirstLine(recorded),
-				"the recorded instruction's first line is the standing focus paragraph, capped\nrecorded:\n%s", recorded)
-			for _, secret := range v1Secrets {
-				require.NotContains(t, recorded, secret,
-					"the focus instruction is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
-			}
+			require.Empty(t, contract.LoadHistory(contract.HistoryPath(p.Root)).PrecompactInstr,
+				"call %d (%v): no route records a retired instruction into the contract history", i+1, call.argv)
 
-			// The WHOLE instruction, not only the 256 runes the history keeps: this same frozen
-			// PreCompact, sent to the daemon's checkpoint route over the real IPC transport — the
-			// hop the hook client reads its reply from, and the last one the instruction still
-			// travels. A secret rendered after rune 256 is caught here.
 			var ev hookio.Event
 			require.NoError(t, json.Unmarshal(payload, &ev))
-			_, instr := cpPreCompactReplyFor(t, p.Root, ev)
-			require.NotEmpty(t, instr, "call %d (%v): the checkpoint route renders a focus instruction", i+1, call.argv)
-			require.Equal(t, standing, cpFirstLine(instr),
-				"the rendered instruction's first line is the standing focus paragraph\ninstructions:\n%s", instr)
-			for _, secret := range v1Secrets {
-				require.NotContains(t, instr, secret,
-					"the focus instruction is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
-			}
+			cpRequireNoInstructionReply(t, cpPreCompactReplyFor(t, p.Root, ev))
 		}
 	}
 
