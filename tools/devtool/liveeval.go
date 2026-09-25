@@ -231,6 +231,10 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		}
 		id.Install = o.install
 		plan.Plugin = &id
+		// Every session runs in its disposable project, so the host would resolve a relative
+		// --plugin-dir against that project and load nothing. From here on the bundle is named by
+		// the absolute path its identity was read from.
+		o.bundle = id.BundleDir
 	}
 	plan.Trials = planLiveTrials(tasks, o.arms, o.trials)
 	if o.maxSessions > 0 && len(plan.Trials) > o.maxSessions {
@@ -243,6 +247,9 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if o.dryRun {
 		for _, p := range plan.Trials {
 			fmt.Fprintf(w, "  plan: %s/%s/%d\n", p.Task, p.Arm, p.Trial)
+		}
+		for _, line := range liveDryRunHost(o, env, ts.Defaults, tasks[0]) {
+			fmt.Fprintln(w, "  "+line)
 		}
 		fmt.Fprintln(w, "live-eval: --dry-run: no session started")
 		return nil
@@ -294,6 +301,33 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	}
 	fmt.Fprintf(w, "live-eval: decision %s — %s\nlive-eval: records under %s\n", sum.Decision.Verdict, sum.Decision.Reason, o.out)
 	return abort
+}
+
+// liveDryRunHost is what a dry run shows of the host side: each arm's command line for task t (the
+// session id is chosen per trial) and, for the marketplace flow, the plugin commands a qompack trial
+// runs before its session, so the install path can be checked without starting anything.
+func liveDryRunHost(o liveOptions, env *liveEnv, d eval.LiveTaskDefaults, t eval.LiveTask) []string {
+	bin := env.claudeBin
+	if bin == "" {
+		bin = "claude"
+	}
+	var out []string
+	for _, arm := range o.arms {
+		var extra []string
+		if arm == eval.ArmQompack && o.install == liveInstallPluginDir {
+			extra = []string{"--plugin-dir", o.bundle}
+		}
+		if arm == eval.ArmQompack && o.install == liveInstallMarketplace {
+			id := livePluginName + "@" + liveMarketplaceName
+			out = append(out,
+				fmt.Sprintf("install (qompack, per trial): %s plugin marketplace add <trial>/marketplace --scope local "+
+					"(a copy of %s)", bin, o.bundle),
+				fmt.Sprintf("install (qompack, per trial): %s plugin install %s --scope local -y", bin, id))
+		}
+		args := liveSessionArgs(o.model, t, d, "<session-id>", extra)
+		out = append(out, fmt.Sprintf("host (%s, task %s): %s %s", arm, t.ID, bin, strings.Join(args, " ")))
+	}
+	return out
 }
 
 // liveFixtureTreeDirs is the sorted set of top-level directories, relative to the task file, that
@@ -703,7 +737,10 @@ func readLiveBundle(dir string) (eval.LivePluginIdentity, error) {
 			return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: bundle file %s does not match BUNDLE.json", f.Path)
 		}
 	}
-	abs, _ := filepath.Abs(dir)
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: resolving the bundle directory: %w", err)
+	}
 	return eval.LivePluginIdentity{
 		BundleDir: abs, Version: id.Version, Commit: id.Source.Commit, Dirty: id.Source.Dirty,
 		BundleSHA256: sha256Hex(raw),
@@ -937,10 +974,19 @@ func fmtProportion(p eval.Proportion) string {
 	return fmt.Sprintf("%d/%d = %.2f [%.2f, %.2f]", p.K, p.N, p.Rate, p.Low, p.High)
 }
 
-// lookClaude resolves the host CLI.
+// lookClaude resolves the host CLI. An explicit path is made absolute: every session starts in its
+// disposable project, and a relative program path is resolved against the working directory the
+// process starts in, not the one the driver was run from.
 func lookClaude(explicit string) (string, error) {
 	if explicit != "" {
-		return explicit, nil
+		if !strings.ContainsAny(explicit, `/\`) {
+			return explicit, nil // a bare name: looked up on PATH when the process starts
+		}
+		abs, err := filepath.Abs(explicit)
+		if err != nil {
+			return "", fmt.Errorf("live-eval: resolving --claude %s: %w", explicit, err)
+		}
+		return abs, nil
 	}
 	p, err := exec.LookPath("claude")
 	if err != nil {
