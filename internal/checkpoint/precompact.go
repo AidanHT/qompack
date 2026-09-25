@@ -50,7 +50,10 @@ type PreCompactInput struct {
 	OpenQuestions []string
 }
 
-// PreCompactResult is what the daemon turns into a hookio.Output.
+// PreCompactResult is the plain-data result of one PreCompact. Since C1.18 the daemon's checkpoint
+// seam discards it and answers the host with the empty object: the seal on disk is the whole of
+// what PreCompact is for, and Instructions (the rendered focus text) reaches no hop — it survives
+// only as state/precompact.json's instructions_bytes (see FocusInstructions).
 type PreCompactResult struct {
 	Ref          Ref
 	Instructions string
@@ -270,7 +273,9 @@ func (w *FileWriter) draftForPreCompact(ctx context.Context, in PreCompactInput,
 
 // preCompactDebug is .qompack/state/precompact.json: a Qompack-internal debug artifact. Nothing in
 // internal/contract reads it and no assertion depends on it. It exists so /qompack:status and a
-// human reading state/ can tell at a glance which build emitted the instruction.
+// human reading state/ can tell at a glance which build sealed the checkpoint, and it is the one
+// place the rendered focus text still shows (instructions_bytes, span_instruction): since C1.18 the
+// text itself reaches no hop.
 type preCompactDebug struct {
 	Seq               core.CheckpointSeq `json:"seq"`
 	Sentinel          string             `json:"sentinel"`

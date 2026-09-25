@@ -83,18 +83,20 @@ func TestPreCompactSealsACheckpointAndReturnsInstructions(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, core.CheckpointSeq(1), res.Ref.Seq)
-	require.NotEmpty(t, res.Instructions, "PreCompact's whole output to the host is this string")
+	require.NotEmpty(t, res.Instructions,
+		"PreCompact still renders the focus text; since C1.18 it reaches only state/precompact.json")
 	require.FileExists(t, paths.Long(res.Ref.Path))
 
 	entries, err := paths.ReadManifest(paths.Of(f.p.Root))
 	require.NoError(t, err)
 	require.Len(t, entries, 1, "the sealed checkpoint is indexed, not just written")
 
-	// The first line is what the contract monitor's custom_instructions_accepted probe is built
-	// from, so it must be a real sentence rather than a heading or a blank.
+	// The first line was what the contract monitor's custom_instructions_accepted probe was built
+	// from until C1.18 retired it. It is still pinned as a real sentence rather than a heading or a
+	// blank: §8.5's standing paragraph, whole, first.
 	first := strings.SplitN(res.Instructions, "\n", 2)[0]
 	require.GreaterOrEqual(t, len([]rune(first)), 24,
-		"paragraph 1 must clear the contract's minimum phrase length; got %q", first)
+		"paragraph 1 must stay a whole sentence of at least 24 runes; got %q", first)
 	require.NotContains(t, res.Instructions, "\\",
 		"the checkpoint path is rendered forward-slashed on every platform")
 }
