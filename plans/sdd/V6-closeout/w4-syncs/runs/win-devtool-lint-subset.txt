@@ -1,0 +1,25 @@
+== devtool lint: golangci-lint ==
+internal\daemon\spawn_stage_test.go:312:27: Error return value is not checked (errcheck)
+	addr, err := ipc.Resolve(d.(*daemon).root)
+	                         ^
+internal\daemon\handlers.go:803:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if compact != nil {
+	^
+exit status 1
+FAIL golangci-lint: exit status 1
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (72 package(s) checked)
+PASS importgraph
+== devtool lint: testdeps ==
+testdeps: OK (74 package(s) checked)
+PASS testdeps
+== devtool lint: bindeps ==
+bindeps: OK (6 target(s) checked)
+PASS bindeps
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+devtool: lint: lint: failed sub-check(s): golangci-lint
+exit status 1

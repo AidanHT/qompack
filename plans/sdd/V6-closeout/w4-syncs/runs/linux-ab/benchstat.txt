@@ -1,0 +1,75 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+                                            │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/new.txt │
+                                            │                        sec/op                         │            sec/op             vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-4                                             4.165 ± 140%                    3.121 ± 76%        ~ (p=0.165 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-4                                               6.451 ± 110%                    3.934 ± 45%        ~ (p=0.105 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-4                                           13.314 ±  99%                    5.669 ± 66%  -57.42% (p=0.001 n=10)
+OnToolUse_TestOutput256KB/Deduped-4                                                  106.98m ± 114%                   96.69m ± 93%        ~ (p=0.190 n=10)
+OnToolUse_TestOutput256KB/Delta-4                                                     180.1m ±  56%                   187.6m ± 36%        ~ (p=0.912 n=10)
+OnToolUse_TestOutput256KB/AllNovel-4                                                  250.6m ±  33%                   233.1m ± 43%        ~ (p=0.579 n=10)
+geomean                                                                                1.095                          815.6m        -25.54%
+
+                                            │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/new.txt │
+                                            │                        dedup-x                        │           dedup-x            vs base                 │
+OnToolUse_TestOutput256KB_Leased/Deduped-4                                               33.53 ± 0%                    33.53 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB_Leased/Delta-4                                                 28.39 ± 0%                    28.39 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB_Leased/AllNovel-4                                              3.610 ± 0%                    3.610 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/Deduped-4                                                      33.53 ± 0%                    33.53 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/Delta-4                                                        28.39 ± 0%                    28.39 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/AllNovel-4                                                     3.610 ± 0%                    3.610 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                                                  15.09                         15.09       +0.00%
+¹ all samples are equal
+
+                                            │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/new.txt │
+                                            │                        objects                        │           objects            vs base                 │
+OnToolUse_TestOutput256KB_Leased/Deduped-4                                               34.00 ± 0%                    34.00 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB_Leased/Delta-4                                                 38.00 ± 0%                    38.00 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB_Leased/AllNovel-4                                              197.0 ± 0%                    197.0 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/Deduped-4                                                      34.00 ± 0%                    34.00 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/Delta-4                                                        38.00 ± 0%                    38.00 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/AllNovel-4                                                     197.0 ± 0%                    197.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                                                  63.37                         63.37       +0.00%
+¹ all samples are equal
+
+                                            │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/new.txt │
+                                            │                        p50-ms                         │            p50-ms             vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-4                                            4.194k ± 150%                   3.276k ± 76%        ~ (p=0.085 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-4                                              6.553k ± 108%                   3.801k ± 48%        ~ (p=0.109 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-4                                          13.107k ±  76%                   5.767k ± 82%  -56.00% (p=0.003 n=10)
+OnToolUse_TestOutput256KB/Deduped-4                                                    69.64 ± 112%                    65.54 ± 19%        ~ (p=0.373 n=10)
+OnToolUse_TestOutput256KB/Delta-4                                                      188.4 ±  39%                    188.4 ± 35%        ~ (p=0.486 n=10)
+OnToolUse_TestOutput256KB/AllNovel-4                                                   254.0 ±  55%                    229.4 ± 43%        ~ (p=0.303 n=10)
+geomean                                                                               1.031k                           766.9        -25.61%
+
+                                            │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/new.txt │
+                                            │                        p99-ms                         │            p99-ms             vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-4                                            6.292k ±  83%                  4.064k ±  55%        ~ (p=0.100 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-4                                              8.651k ±  70%                  4.719k ±  39%        ~ (p=0.071 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-4                                          18.875k ±  56%                  6.816k ±  54%  -63.89% (p=0.001 n=10)
+OnToolUse_TestOutput256KB/Deduped-4                                                    213.0 ±  85%                   180.2 ± 155%        ~ (p=0.168 n=10)
+OnToolUse_TestOutput256KB/Delta-4                                                      196.6 ± 100%                   196.6 ±  83%        ~ (p=0.666 n=10)
+OnToolUse_TestOutput256KB/AllNovel-4                                                   294.9 ±  33%                   262.1 ±  63%        ~ (p=0.725 n=10)
+geomean                                                                               1.527k                         1.033k         -32.37%
+
+                                            │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/new.txt │
+                                            │                         B/op                          │             B/op              vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-4                                             11.27Mi ± 1%                   10.47Mi ± 4%   -7.08% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-4                                               11.53Mi ± 2%                   10.87Mi ± 3%   -5.79% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-4                                            12.74Mi ± 3%                   11.29Mi ± 4%  -11.38% (p=0.000 n=10)
+OnToolUse_TestOutput256KB/Deduped-4                                                    6.503Mi ± 0%                   6.510Mi ± 0%        ~ (p=0.971 n=10)
+OnToolUse_TestOutput256KB/Delta-4                                                      6.638Mi ± 0%                   6.638Mi ± 0%        ~ (p=0.579 n=10)
+OnToolUse_TestOutput256KB/AllNovel-4                                                   6.301Mi ± 0%                   6.309Mi ± 0%        ~ (p=0.190 n=10)
+geomean                                                                                8.754Mi                        8.394Mi        -4.11%
+
+                                            │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/linux-ab/new.txt │
+                                            │                       allocs/op                       │          allocs/op            vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-4                                             12.019k ± 0%                    9.444k ± 0%  -21.42% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-4                                                12.82k ± 1%                    10.28k ± 1%  -19.83% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-4                                             19.21k ± 0%                    13.67k ± 0%  -28.81% (p=0.000 n=10)
+OnToolUse_TestOutput256KB/Deduped-4                                                     6.291k ± 0%                    6.293k ± 0%        ~ (p=0.515 n=10)
+OnToolUse_TestOutput256KB/Delta-4                                                       7.116k ± 0%                    7.122k ± 0%        ~ (p=0.065 n=10)
+OnToolUse_TestOutput256KB/AllNovel-4                                                    7.534k ± 0%                    7.550k ± 0%   +0.21% (p=0.024 n=10)
+geomean                                                                                 9.997k                         8.751k       -12.46%

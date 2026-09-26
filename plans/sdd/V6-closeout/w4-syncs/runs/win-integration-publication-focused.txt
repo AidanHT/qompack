@@ -1,0 +1,16 @@
+=== RUN   TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites
+    appendonly_test.go:600: phase A: 2 idle ticks completed concurrently with the writers
+--- PASS: TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites (18.09s)
+=== RUN   TestIntegration_GCNeverCollectsALiveRootUnderIngest
+--- PASS: TestIntegration_GCNeverCollectsALiveRootUnderIngest (53.43s)
+=== RUN   TestIntegration_HookEventThroughDaemonToStore
+--- PASS: TestIntegration_HookEventThroughDaemonToStore (5.24s)
+=== RUN   TestIntegration_SupersessionMarksEarlierReadThroughDAG
+--- PASS: TestIntegration_SupersessionMarksEarlierReadThroughDAG (0.27s)
+=== RUN   TestIntegration_SpooledEventsSurviveToTheStore
+--- PASS: TestIntegration_SpooledEventsSurviveToTheStore (8.89s)
+=== RUN   TestIntegration_ObserverKeepRawPutsProveTheirDeltaRoundTrip
+--- PASS: TestIntegration_ObserverKeepRawPutsProveTheirDeltaRoundTrip (2.12s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	88.263s
+exit=0

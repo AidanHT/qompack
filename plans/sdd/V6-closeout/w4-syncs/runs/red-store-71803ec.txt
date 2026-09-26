@@ -1,0 +1,13 @@
+=== RUN   TestSyncPublication_CountsOnePassPerCall
+--- PASS: TestSyncPublication_CountsOnePassPerCall (0.09s)
+=== RUN   TestObservationPublish_UnverifiableRootWritesNoIntent
+    publication_passes_test.go:56: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/syncs-work/red-71803ec/internal/store/publication_passes_test.go:56
+        	Error:      	Should be true
+        	Test:       	TestObservationPublish_UnverifiableRootWritesNoIntent
+        	Messages:   	no intent may name a root that was never proven durable
+--- FAIL: TestObservationPublish_UnverifiableRootWritesNoIntent (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.434s
+FAIL
+exit=1

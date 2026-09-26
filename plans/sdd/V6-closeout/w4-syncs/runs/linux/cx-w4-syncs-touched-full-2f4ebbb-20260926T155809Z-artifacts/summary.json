@@ -1,0 +1,24 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/store": {
+   "result": "fail",
+   "passed": 844,
+   "failed": [
+    "TestGC_DeadlineOvershootIsBoundedByTheCheckInterval"
+   ],
+   "skipped": [
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/backslashes_become_slashes",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/mixed_separators_and_..",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/windows_absolute",
+    "TestRenameObject_ContentionIsRetriedThenReported"
+   ]
+  },
+  "github.com/qompack/qompack/internal/observer": {
+   "result": "pass",
+   "passed": 557,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

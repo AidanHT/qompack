@@ -1,0 +1,130 @@
+# round=1 side=new start=16:21:50 cpu_load_pct=68
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 823699210 ns/op	       111.8 dedup-x	        34.00 objects	       786.4 p50-ms	      1180 p99-ms	11276798 B/op	    9836 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 875013220 ns/op	        65.89 dedup-x	        53.00 objects	       852.0 p50-ms	      1180 p99-ms	11234998 B/op	   10910 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	2046117200 ns/op	         3.712 dedup-x	       626.0 objects	      2097 p50-ms	      2621 p99-ms	11975946 B/op	   15062 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  55381120 ns/op	       111.8 dedup-x	        34.00 objects	        40.96 p50-ms	       180.2 p99-ms	 6730714 B/op	    5832 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	  95133000 ns/op	        65.89 dedup-x	        53.00 objects	        81.92 p50-ms	       213.0 p99-ms	 6936827 B/op	    7019 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 286506070 ns/op	         3.712 dedup-x	       626.0 objects	       294.9 p50-ms	       426.0 p99-ms	 6677808 B/op	    7262 allocs/op
+PASS
+# round=1 side=new exit=0 end=16:22:45
+# round=2 side=new start=16:22:45 cpu_load_pct=77
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 710801260 ns/op	       111.8 dedup-x	        34.00 objects	       720.9 p50-ms	       983.0 p99-ms	11198096 B/op	    9814 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 811239570 ns/op	        65.89 dedup-x	        53.00 objects	       852.0 p50-ms	      1049 p99-ms	11198326 B/op	   10917 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	2000252630 ns/op	         3.712 dedup-x	       626.0 objects	      1966 p50-ms	      2621 p99-ms	12157309 B/op	   15105 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  96285250 ns/op	       111.8 dedup-x	        34.00 objects	        65.54 p50-ms	       360.4 p99-ms	 6718976 B/op	    5824 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	 161712860 ns/op	        65.89 dedup-x	        53.00 objects	       114.7 p50-ms	       360.4 p99-ms	 6944833 B/op	    7026 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 589066250 ns/op	         3.712 dedup-x	       626.0 objects	       589.8 p50-ms	       917.5 p99-ms	 6676123 B/op	    7267 allocs/op
+PASS
+# round=2 side=new exit=0 end=16:23:40
+# round=3 side=new start=16:26:25 cpu_load_pct=71
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 298712520 ns/op	       111.8 dedup-x	        34.00 objects	       294.9 p50-ms	       589.8 p99-ms	11051650 B/op	    9790 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 531004770 ns/op	        65.89 dedup-x	        53.00 objects	       491.5 p50-ms	       917.5 p99-ms	11091016 B/op	   10894 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	1343441180 ns/op	         3.712 dedup-x	       626.0 objects	      1442 p50-ms	      1573 p99-ms	12111614 B/op	   15085 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  45827180 ns/op	       111.8 dedup-x	        34.00 objects	        36.86 p50-ms	       147.5 p99-ms	 6715862 B/op	    5824 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	  85922870 ns/op	        65.89 dedup-x	        53.00 objects	        73.73 p50-ms	       196.6 p99-ms	 6943841 B/op	    7030 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 331755380 ns/op	         3.712 dedup-x	       626.0 objects	       327.7 p50-ms	       458.8 p99-ms	 6660273 B/op	    7245 allocs/op
+PASS
+# round=3 side=new exit=0 end=16:26:59
+# round=4 side=new start=16:26:59 cpu_load_pct=27
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 511638890 ns/op	       111.8 dedup-x	        34.00 objects	       524.3 p50-ms	       720.9 p99-ms	10806300 B/op	    9783 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 576875380 ns/op	        65.89 dedup-x	        53.00 objects	       589.8 p50-ms	       786.4 p99-ms	11228608 B/op	   10892 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	1503297580 ns/op	         3.712 dedup-x	       626.0 objects	      1573 p50-ms	      1704 p99-ms	12094366 B/op	   15040 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  42034680 ns/op	       111.8 dedup-x	        34.00 objects	        30.72 p50-ms	       147.5 p99-ms	 6727920 B/op	    5827 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	  69395830 ns/op	        65.89 dedup-x	        53.00 objects	        61.44 p50-ms	       180.2 p99-ms	 6933666 B/op	    7019 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 201694730 ns/op	         3.712 dedup-x	       626.0 objects	       196.6 p50-ms	       245.8 p99-ms	 6665608 B/op	    7260 allocs/op
+PASS
+# round=4 side=new exit=0 end=16:27:36
+# round=5 side=new start=16:29:24 cpu_load_pct=59
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 508598270 ns/op	       111.8 dedup-x	        34.00 objects	       491.5 p50-ms	       720.9 p99-ms	11141276 B/op	    9826 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 634098420 ns/op	        65.89 dedup-x	        53.00 objects	       655.4 p50-ms	       720.9 p99-ms	11415467 B/op	   10932 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	1710405700 ns/op	         3.712 dedup-x	       626.0 objects	      1835 p50-ms	      1966 p99-ms	12032637 B/op	   15095 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  41432350 ns/op	       111.8 dedup-x	        34.00 objects	        30.72 p50-ms	       163.8 p99-ms	 6732328 B/op	    5829 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	  71860690 ns/op	        65.89 dedup-x	        53.00 objects	        61.44 p50-ms	       196.6 p99-ms	 6928721 B/op	    7016 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 282997270 ns/op	         3.712 dedup-x	       626.0 objects	       294.9 p50-ms	       426.0 p99-ms	 6667556 B/op	    7262 allocs/op
+PASS
+# round=5 side=new exit=0 end=16:30:06
+# round=6 side=new start=16:30:06 cpu_load_pct=46
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 582609210 ns/op	       111.8 dedup-x	        34.00 objects	       589.8 p50-ms	       786.4 p99-ms	10951532 B/op	    9817 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 688132860 ns/op	        65.89 dedup-x	        53.00 objects	       720.9 p50-ms	       852.0 p99-ms	11416266 B/op	   10947 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	1684807180 ns/op	         3.712 dedup-x	       626.0 objects	      1704 p50-ms	      2097 p99-ms	12171010 B/op	   15085 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  67304120 ns/op	       111.8 dedup-x	        34.00 objects	        45.06 p50-ms	       294.9 p99-ms	 6708720 B/op	    5823 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	 136766940 ns/op	        65.89 dedup-x	        53.00 objects	        98.30 p50-ms	       491.5 p99-ms	 6941554 B/op	    7027 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 419269640 ns/op	         3.712 dedup-x	       626.0 objects	       393.2 p50-ms	       655.4 p99-ms	 6666307 B/op	    7257 allocs/op
+PASS
+# round=6 side=new exit=0 end=16:30:52
+# round=7 side=new start=16:32:59 cpu_load_pct=36
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 604866820 ns/op	       111.8 dedup-x	        34.00 objects	       589.8 p50-ms	       917.5 p99-ms	10836398 B/op	    9722 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 550269850 ns/op	        65.89 dedup-x	        53.00 objects	       589.8 p50-ms	       720.9 p99-ms	11106543 B/op	   10883 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	1472344440 ns/op	         3.712 dedup-x	       626.0 objects	      1573 p50-ms	      1704 p99-ms	12008444 B/op	   15053 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  37750500 ns/op	       111.8 dedup-x	        34.00 objects	        30.72 p50-ms	       114.7 p99-ms	 6746570 B/op	    5846 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	  69568670 ns/op	        65.89 dedup-x	        53.00 objects	        57.34 p50-ms	       180.2 p99-ms	 6943216 B/op	    7029 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 212631440 ns/op	         3.712 dedup-x	       626.0 objects	       213.0 p50-ms	       327.7 p99-ms	 6663034 B/op	    7249 allocs/op
+PASS
+# round=7 side=new exit=0 end=16:33:36
+# round=8 side=new start=16:33:36 cpu_load_pct=14
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 572939850 ns/op	       111.8 dedup-x	        34.00 objects	       589.8 p50-ms	       720.9 p99-ms	10714862 B/op	    9715 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 559382700 ns/op	        65.89 dedup-x	        53.00 objects	       589.8 p50-ms	       720.9 p99-ms	11348451 B/op	   10905 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	1491837110 ns/op	         3.712 dedup-x	       626.0 objects	      1573 p50-ms	      1966 p99-ms	12222211 B/op	   15083 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  51501950 ns/op	       111.8 dedup-x	        34.00 objects	        40.96 p50-ms	       163.8 p99-ms	 6737424 B/op	    5837 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	  78235960 ns/op	        65.89 dedup-x	        53.00 objects	        61.44 p50-ms	       163.8 p99-ms	 6950391 B/op	    7027 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 393252000 ns/op	         3.712 dedup-x	       626.0 objects	       393.2 p50-ms	       491.5 p99-ms	 6675460 B/op	    7261 allocs/op
+PASS
+# round=8 side=new exit=0 end=16:34:17
+# round=9 side=new start=16:37:14 cpu_load_pct=62
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 721802670 ns/op	       111.8 dedup-x	        34.00 objects	       720.9 p50-ms	       852.0 p99-ms	11228672 B/op	    9771 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 782676370 ns/op	        65.89 dedup-x	        53.00 objects	       786.4 p50-ms	       983.0 p99-ms	11363576 B/op	   10903 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	1818079310 ns/op	         3.712 dedup-x	       626.0 objects	      1966 p50-ms	      2097 p99-ms	12140633 B/op	   15103 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  51939990 ns/op	       111.8 dedup-x	        34.00 objects	        40.96 p50-ms	       163.8 p99-ms	 6734264 B/op	    5826 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	 104749960 ns/op	        65.89 dedup-x	        53.00 objects	        90.11 p50-ms	       245.8 p99-ms	 6955420 B/op	    7040 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 309386700 ns/op	         3.712 dedup-x	       626.0 objects	       327.7 p50-ms	       426.0 p99-ms	 6672744 B/op	    7268 allocs/op
+PASS
+# round=9 side=new exit=0 end=16:38:02
+# round=10 side=new start=16:38:02 cpu_load_pct=63
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-22         	      10	 743092690 ns/op	       111.8 dedup-x	        34.00 objects	       720.9 p50-ms	       917.5 p99-ms	10969952 B/op	    9811 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-22           	      10	 737748160 ns/op	        65.89 dedup-x	        53.00 objects	       720.9 p50-ms	       983.0 p99-ms	11221664 B/op	   10913 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-22        	      10	2266526670 ns/op	         3.712 dedup-x	       626.0 objects	      2359 p50-ms	      3146 p99-ms	12287223 B/op	   15119 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22                	      10	  76321600 ns/op	       111.8 dedup-x	        34.00 objects	        57.34 p50-ms	       294.9 p99-ms	 6735084 B/op	    5833 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22                  	      10	 106044510 ns/op	        65.89 dedup-x	        53.00 objects	        98.30 p50-ms	       213.0 p99-ms	 6941416 B/op	    7028 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22               	      10	 328288890 ns/op	         3.712 dedup-x	       626.0 objects	       327.7 p50-ms	       393.2 p99-ms	 6681089 B/op	    7266 allocs/op
+PASS
+# round=10 side=new exit=0 end=16:38:55

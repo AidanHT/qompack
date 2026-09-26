@@ -1,0 +1,10 @@
+run_id=cx-w4-syncs-x09-base-6aff949-20260926T164734Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-syncs
+rev=6aff949
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+bundle_sha256=b52958553e17f25049234ffed610e0eac9f243ef52d22f697007aa40fdbb5e4e
+host_started_utc=2026-09-26T16:47:43Z
+inner_args=--run ^TestV3_LiveSessionWriteSetAndAppendOnly$ --count 3 --timeout 45m -- ./test/e2e
+host_finished_utc=2026-09-26T16:52:17Z
+container_exit=1

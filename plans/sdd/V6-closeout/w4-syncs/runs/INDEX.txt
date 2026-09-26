@@ -1,0 +1,55 @@
+w4-syncs evidence (C2.3 / SP08-D1: redundant publication passes). Review base 6aff949.
+Every log here was produced by the resumed seat on 2026-09-26. The earlier seat's logs from the
+killed runs were moved out of the tree and are not evidence.
+
+Builds
+  base      31255da (identical to 6aff949 outside eval files), git archive
+  71803ec   the pass counter alone (no fix): the RED commit for the pass-count tests
+  f133c9c   product code of the final head; 2f4ebbb only adds a readonly_test.go allowlist entry
+  2f4ebbb   final head of the code (the evidence commit follows it)
+
+RED (failing first, on git archive 71803ec with the new test files copied in)
+  red-observer-passes-71803ec.txt   fresh leased tool/prompt/subagent capture: 4 passes, want 2;
+                                    redelivery 3 (unchanged baseline, passes)
+  red-store-71803ec.txt             TestObservationPublish_UnverifiableRootWritesNoIntent fails:
+                                    the base store writes an intent naming an unproven root
+  win-full-store-f133c9c-readonly-RED.txt
+                                    full store run at f133c9c: TestReadOnly_EveryExportedMethodIsClassified
+                                    fails on the unclassified PublishesObservationsDurably (fixed 2f4ebbb)
+  base-sweep-71803ec.txt            the new every-check sweep on the pre-change tree: passes, 22/23 checks
+
+Context-check maps (probe ctxmap_probe_test.go.txt, run once in each tree, not committed as a test)
+  ctxmap-base-31255da.txt           22 read / 23 stop checks: four SyncPublication passes per capture
+  ctxmap-f133c9c.txt                14 / 15 checks: two passes
+
+GREEN, Windows (host co-loaded by three other workstreams)
+  win-store-new-tests-focused.txt, win-observer-new-tests-focused.txt, win-readonly-classify-green.txt
+  win-full-store-2f4ebbb.txt        go test ./internal/store -count=1 -v: PASS (844 PASS lines, 1 platform skip)
+  win-full-observer-2f4ebbb.txt     go test ./internal/observer -count=1 -v: PASS (557 PASS lines)
+  win-daemon-publication-focused.txt, win-fault-publication-focused.txt,
+  win-integration-publication-focused.txt, win-e2e-publication-focused.txt: PASS
+  win-devtool-lint-subset.txt       golangci-lint fails on two internal/daemon findings this branch does
+                                    not touch; nomagic/importgraph/testdeps/bindeps/sleepcheck pass
+  win-golangci-touched.txt          golangci-lint on ./internal/store/... ./internal/observer/...: clean
+
+GREEN, Linux (linux-nonroot-gate.sh, non-root, -race; artifacts under linux/)
+  linux-gate-host-touched-full-2f4ebbb.txt    observer PASS 557; store 844 pass, 1 fail:
+                                              TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+  linux-gate-host-gc-overshoot-alone-2f4ebbb.txt / -base-6aff949.txt
+                                              that test fails alone on the head AND on 6aff949 in the
+                                              same window ("a finding about the HOST")
+  linux-gate-host-publication-focused-2f4ebbb.txt
+                                              daemon 29, fault 17, integration 6 pass; e2e 4 pass,
+                                              TestV3_LiveSessionWriteSetAndAppendOnly fails
+  linux-gate-host-x09-alone-2f4ebbb.txt / -base-6aff949.txt
+                                              x09 fails 3/3 on the head AND 3/3 on 6aff949 (the SessionEnd
+                                              "observer: gc" line never appears); pre-existing
+
+Load-independent measurements
+  syscount/     strace -f syscall counts per OnToolUse (N=5 after a warm-up), base vs new, leased and
+                unleased, three fixtures; summary.txt, builds.txt, harness and script
+  win-ab/, linux-ab/
+                paired ABBA A/B, 10 rounds per side; summary.txt = per-round ratios + exact sign test
+                (ab_pairs.py); benchstat.txt supplementary. Absolute times are co-loaded and are not
+                budget evidence.
+  ab_win.sh, linux_ab.sh, ab_pairs.py   the drivers and the analysis

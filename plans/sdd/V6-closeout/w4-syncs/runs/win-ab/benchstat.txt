@@ -1,0 +1,75 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+                                             │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/new.txt │
+                                             │                       sec/op                        │           sec/op            vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-22                                          1254.3m ± 22%                 593.7m ± 25%  -52.66% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-22                                            1479.4m ± 40%                 661.1m ± 23%  -55.31% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-22                                           3.209 ± 21%                  1.698 ± 21%  -47.10% (p=0.000 n=10)
+OnToolUse_TestOutput256KB/Deduped-22                                                  61.17m ± 33%                 51.72m ± 48%        ~ (p=0.796 n=10)
+OnToolUse_TestOutput256KB/Delta-22                                                    87.29m ± 26%                 90.53m ± 51%        ~ (p=0.436 n=10)
+OnToolUse_TestOutput256KB/AllNovel-22                                                 282.8m ± 44%                 318.8m ± 33%        ~ (p=0.579 n=10)
+geomean                                                                               456.0m                       316.0m        -30.72%
+
+                                             │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/new.txt │
+                                             │                       dedup-x                       │          dedup-x           vs base                 │
+OnToolUse_TestOutput256KB_Leased/Deduped-22                                             111.8 ± 0%                  111.8 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB_Leased/Delta-22                                               65.89 ± 0%                  65.89 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB_Leased/AllNovel-22                                            3.712 ± 0%                  3.712 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/Deduped-22                                                    111.8 ± 0%                  111.8 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/Delta-22                                                      65.89 ± 0%                  65.89 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/AllNovel-22                                                   3.712 ± 0%                  3.712 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                                                 30.13                       30.13       +0.00%
+¹ all samples are equal
+
+                                             │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/new.txt │
+                                             │                       objects                       │          objects           vs base                 │
+OnToolUse_TestOutput256KB_Leased/Deduped-22                                             34.00 ± 0%                  34.00 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB_Leased/Delta-22                                               53.00 ± 0%                  53.00 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB_Leased/AllNovel-22                                            626.0 ± 0%                  626.0 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/Deduped-22                                                    34.00 ± 0%                  34.00 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/Delta-22                                                      53.00 ± 0%                  53.00 ± 0%       ~ (p=1.000 n=10) ¹
+OnToolUse_TestOutput256KB/AllNovel-22                                                   626.0 ± 0%                  626.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                                                 104.1                       104.1       +0.00%
+¹ all samples are equal
+
+                                             │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/new.txt │
+                                             │                       p50-ms                        │           p50-ms            vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-22                                           1311.0 ± 25%                  589.8 ± 22%  -55.01% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-22                                             1507.5 ± 39%                  688.1 ± 24%  -54.35% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-22                                          3.539k ± 26%                 1.770k ± 19%  -50.00% (p=0.000 n=10)
+OnToolUse_TestOutput256KB/Deduped-22                                                   49.15 ± 37%                  40.96 ± 40%        ~ (p=0.511 n=10)
+OnToolUse_TestOutput256KB/Delta-22                                                     77.83 ± 26%                  77.83 ± 26%        ~ (p=0.701 n=10)
+OnToolUse_TestOutput256KB/AllNovel-22                                                  278.5 ± 41%                  327.7 ± 35%        ~ (p=0.514 n=10)
+geomean                                                                                441.9                        301.4        -31.79%
+
+                                             │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/new.txt │
+                                             │                       p99-ms                        │           p99-ms            vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-22                                           1573.0 ± 25%                  819.2 ± 20%  -47.92% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-22                                             1704.0 ± 38%                  884.8 ± 19%  -48.08% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-22                                          3.670k ± 43%                 2.031k ± 29%  -44.65% (p=0.000 n=10)
+OnToolUse_TestOutput256KB/Deduped-22                                                   188.4 ± 39%                  163.8 ± 80%        ~ (p=0.928 n=10)
+OnToolUse_TestOutput256KB/Delta-22                                                     204.8 ± 28%                  204.8 ± 76%        ~ (p=0.515 n=10)
+OnToolUse_TestOutput256KB/AllNovel-22                                                  393.2 ± 50%                  426.0 ± 54%        ~ (p=0.358 n=10)
+geomean                                                                                728.3                        525.4        -27.86%
+
+                                             │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/new.txt │
+                                             │                        B/op                         │            B/op             vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-22                                           11.33Mi ± 2%                 10.50Mi ± 2%   -7.32% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-22                                             11.49Mi ± 2%                 10.71Mi ± 2%   -6.80% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-22                                          13.14Mi ± 1%                 11.56Mi ± 1%  -12.00% (p=0.000 n=10)
+OnToolUse_TestOutput256KB/Deduped-22                                                  6.420Mi ± 0%                 6.420Mi ± 0%        ~ (p=0.631 n=10)
+OnToolUse_TestOutput256KB/Delta-22                                                    6.622Mi ± 0%                 6.621Mi ± 0%        ~ (p=0.631 n=10)
+OnToolUse_TestOutput256KB/AllNovel-22                                                 6.355Mi ± 0%                 6.361Mi ± 0%        ~ (p=0.247 n=10)
+geomean                                                                               8.793Mi                      8.402Mi        -4.46%
+
+                                             │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/base.txt │ plans/sdd/V6-closeout/w4-syncs/runs/win-ab/new.txt │
+                                             │                      allocs/op                      │         allocs/op           vs base                │
+OnToolUse_TestOutput256KB_Leased/Deduped-22                                           13.105k ± 0%                  9.800k ± 1%  -25.22% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/Delta-22                                              14.24k ± 0%                  10.91k ± 0%  -23.40% (p=0.000 n=10)
+OnToolUse_TestOutput256KB_Leased/AllNovel-22                                           22.21k ± 0%                  15.09k ± 0%  -32.08% (p=0.000 n=10)
+OnToolUse_TestOutput256KB/Deduped-22                                                   5.829k ± 0%                  5.828k ± 0%        ~ (p=0.838 n=10)
+OnToolUse_TestOutput256KB/Delta-22                                                     7.026k ± 0%                  7.027k ± 0%        ~ (p=0.897 n=10)
+OnToolUse_TestOutput256KB/AllNovel-22                                                  7.260k ± 0%                  7.261k ± 0%        ~ (p=0.795 n=10)
+geomean                                                                                10.35k                       8.847k       -14.55%
