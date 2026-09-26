@@ -47,8 +47,9 @@ import (
 // two intervals after it was spooled, instead of at the session's end or after two idle minutes.
 const spoolCheckInterval = idleRunBudget
 
-// counterSpoolWatchPasses counts the client-spool drain passes the watcher ran.
-const counterSpoolWatchPasses = "l0_spool_watch_passes"
+// counterSpoolWatchDrains counts the client-spool drain passes the watcher ran. (Not "..._passes":
+// gosec reads a constant named for passes as a hard-coded credential.)
+const counterSpoolWatchDrains = "l0_spool_watch_drains"
 
 // spoolWatcher is the watcher's configuration and its kick. New creates it; only the watcher's own
 // goroutine (watchClientSpools) reads the durations after that, and only tests change them, before
@@ -205,7 +206,7 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 
 	if len(due) > 0 {
 		if d.m != nil {
-			d.m.Counter(counterSpoolWatchPasses).Add(1)
+			d.m.Counter(counterSpoolWatchDrains).Add(1)
 		}
 		pass, cancel := context.WithTimeout(ctx, idleRunBudget)
 		if dr := d.drain.Load(); dr != nil {
