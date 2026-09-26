@@ -20,11 +20,15 @@ import (
 // written BEFORE the legacy record.
 //
 // The normal path is wired into RecordToolUse/RecordToolUseSuperseding: an observation-bearing record
-// fsyncs its intent, writes the single record-plus-marks batch, syncs the publication and commits. A
-// single Write is NOT crash-atomic (main adjudication); the fsynced intent plus precondition-guarded
-// recovery covers the crash cut. Completion and idempotence always replay the STORED ORIGINAL intent,
-// never a caller-modified one. Until an intent's publication is durable and complete it is UNAVAILABLE
-// to the committed lookup — never a published record, never a false absence.
+// verifies and syncs its root (SyncPublication), fsyncs its intent, writes the single record-plus-marks
+// batch, syncs the publication again and commits — two SyncPublication passes, the §0.2.2 order's two
+// barriers (durable object before any line naming it; durable record before anything is linked to
+// it). A single Write is NOT crash-atomic (main adjudication); the fsynced intent plus
+// precondition-guarded recovery covers the crash cut. Completion and idempotence always replay the
+// STORED ORIGINAL intent, never a caller-modified one. Until an intent's publication is durable and
+// complete it is UNAVAILABLE to the committed lookup — never a published record, never a false absence.
+// DurableObservationPublisher states the resulting guarantee to callers, so they add no passes of
+// their own around the call.
 //
 // Fail-closed posture (final review F2, coordinator): a torn/over-capacity/unreadable sidecar, or a
 // runtime intent-write/sync failure, sets obsSidecarUncertain for the PROCESS LIFETIME. There is no
@@ -55,10 +59,59 @@ type ObservationRecovery interface {
 	RecoverToolUseByObservation(ctx context.Context, obs core.ObservationID) (ToolUseRecord, error)
 }
 
+// DurableObservationPublisher is implemented by a Store whose observation-bearing RecordToolUse and
+// RecordToolUseSuperseding carry the publication's own durability barriers (00-ARCHITECTURE.md
+// §0.2.2). When PublishesObservationsDurably reports true, a nil return from either call for a record
+// with a non-empty Observation guarantees, for that record's Root:
+//
+//   - the root's recovery closure was verified and synced (SyncPublication) before the publication
+//     intent naming it was written, and so before the record line;
+//   - the index holding the record and its marks was synced (SyncPublication again) after the write,
+//     before the call returned.
+//
+// A caller holding the capability therefore needs no SyncPublication of its own around the call for
+// that root: one before would repeat the first barrier, and one after would repeat the second with
+// nothing new to make durable. It is a narrow capability rather than a widening of store.Store, like
+// SupersedingRecorder, and it has the same wrapper trap in the other direction: a type that embeds
+// *FSStore and overrides RecordToolUse* to write without calling through also inherits this method
+// and would claim barriers it skipped. A wrapper that embeds the store.Store interface cannot promote
+// it, and a caller then keeps its own passes.
+type DurableObservationPublisher interface {
+	PublishesObservationsDurably() bool
+}
+
 var (
-	_ ObservationReserver = (*FSStore)(nil)
-	_ ObservationRecovery = (*FSStore)(nil)
+	_ ObservationReserver         = (*FSStore)(nil)
+	_ ObservationRecovery         = (*FSStore)(nil)
+	_ DurableObservationPublisher = (*FSStore)(nil)
 )
+
+// PublishesObservationsDurably reports true: publishObservation carries both barriers for every
+// observation-bearing RecordToolUse and RecordToolUseSuperseding.
+func (s *FSStore) PublishesObservationsDurably() bool { return true }
+
+// publicationStep names one durability step of the observation publication path, so a test can stop
+// the path exactly where a crash would (obsPubFault).
+type publicationStep string
+
+const (
+	// pubStepRootSynced: the root's closure is verified and synced; no intent has been written.
+	pubStepRootSynced publicationStep = "root-synced"
+	// pubStepIntentDurable: the intent is fsynced (or was already stored); no record has been written.
+	pubStepIntentDurable publicationStep = "intent-durable"
+	// pubStepRecordWritten: the record and its marks are appended, not yet synced.
+	pubStepRecordWritten publicationStep = "record-written"
+	// pubStepPublicationSynced: the appended index is synced; the binding is not yet committed.
+	pubStepPublicationSynced publicationStep = "publication-synced"
+)
+
+// publicationFault consults the obsPubFault test seam after step. Production never sets it.
+func (s *FSStore) publicationFault(step publicationStep) error {
+	if s.obsPubFault == nil {
+		return nil
+	}
+	return s.obsPubFault(step)
+}
 
 // reservedIdentity is the immutable metadata a reservation binds a tool_use id to.
 type reservedIdentity struct {
@@ -618,11 +671,24 @@ func (s *FSStore) ReserveObservation(ctx context.Context, obs core.ObservationID
 
 // ── publish (the wired normal path) ──────────────────────────────────────────────────────────
 
-// publishObservation is the observation-bearing RecordToolUse[Superseding] path: reserve the intent,
-// then complete the STORED ORIGINAL's publication.
+// publishObservation is the observation-bearing RecordToolUse[Superseding] path: verify and sync the
+// record's root, reserve the intent, then complete the STORED ORIGINAL's publication.
+//
+// The root is synced BEFORE the intent, which is §0.2.2's first barrier applied to the intent line:
+// the intent names the root, and an intent whose root did not survive a power loss can never complete
+// (completeIntentLocked refuses it; TestObservationPublish_MissingObjectsKeepIntentIncomplete), so it
+// would hold its delivery unacknowledgeable for good. The sync runs outside obsPubMu, where the
+// observer's own pass used to run, so it does not lengthen the one publication mutex every session
+// shares. ReserveObservation, the reserve-only API, is unchanged and still writes no object barrier.
 func (s *FSStore) publishObservation(ctx context.Context, rec ToolUseRecord, older []core.ToolUseID) ([]core.ToolUseID, bool, error) {
 	obs := rec.Observation
 	if err := s.validateIntentInput(ctx, obs, &rec, older); err != nil {
+		return nil, false, err
+	}
+	if err := s.SyncPublication(ctx, rec.Root); err != nil {
+		return nil, false, fmt.Errorf("%w: observation %s: original root not durable: %v", core.ErrDegraded, obs, err)
+	}
+	if err := s.publicationFault(pubStepRootSynced); err != nil {
 		return nil, false, err
 	}
 	s.obsPubMu.Lock()
@@ -638,6 +704,9 @@ func (s *FSStore) publishObservation(ctx context.Context, rec ToolUseRecord, old
 	if err := s.reserveIntentLocked(in); err != nil {
 		return nil, false, err
 	}
+	if err := s.publicationFault(pubStepIntentDurable); err != nil {
+		return nil, false, err
+	}
 
 	s.mu.RLock()
 	b := s.obsBindings[obs]
@@ -646,16 +715,31 @@ func (s *FSStore) publishObservation(ctx context.Context, rec ToolUseRecord, old
 	if amb || b == nil {
 		return nil, false, fmt.Errorf("%w: observation %s is ambiguous", core.ErrDegraded, obs)
 	}
-	return s.completeIntentLocked(ctx, b.intent)
+	// The stored original names the root just synced on every path that reaches here: a new intent
+	// is built from rec, and an existing one is accepted only when its canonical bytes — Root
+	// included — equal rec's, or when it is the same-identity record buildIntentLocked adopted, whose
+	// Root is part of that identity. The comparison is kept anyway, so a stored original naming any
+	// other root is still re-proven before its record is written.
+	return s.completeIntentLocked(ctx, b.intent, b.intent.rec.Root == rec.Root)
 }
 
 // completeIntentLocked (obsPubMu held) makes the STORED ORIGINAL intent's publication durable and
 // complete: verify+sync the record's root, replay the record and only the still-missing marks (a LOST
 // target makes the observation unavailable, not success), sync the appended index, and commit only
 // when observationStateLocked reports published.
-func (s *FSStore) completeIntentLocked(ctx context.Context, in observationIntent) ([]core.ToolUseID, bool, error) {
-	if err := s.SyncPublication(ctx, in.rec.Root); err != nil {
-		return nil, false, fmt.Errorf("%w: observation %s: original root not durable: %v", core.ErrDegraded, in.obs, err)
+//
+// rootSynced reports that the caller verified and synced exactly in.rec.Root earlier in the same call
+// (publishObservation), and it skips only the first pass. Nothing that pass makes durable for this
+// root can have changed since: objects are immutable and content-addressed, the root's roots.jsonl
+// line was already synced, and the only write in between is the intent line, which
+// appendObservationIntent fsyncs itself together with the index directory. Recovery
+// (RecoverToolUseByObservation) passes false: after a restart the original root must be re-proven
+// before its record is written.
+func (s *FSStore) completeIntentLocked(ctx context.Context, in observationIntent, rootSynced bool) ([]core.ToolUseID, bool, error) {
+	if !rootSynced {
+		if err := s.SyncPublication(ctx, in.rec.Root); err != nil {
+			return nil, false, fmt.Errorf("%w: observation %s: original root not durable: %v", core.ErrDegraded, in.obs, err)
+		}
 	}
 
 	s.mu.RLock()
@@ -694,9 +778,15 @@ func (s *FSStore) completeIntentLocked(ctx context.Context, in observationIntent
 			return nil, false, err
 		}
 	}
+	if err := s.publicationFault(pubStepRecordWritten); err != nil {
+		return nil, false, err
+	}
 
 	if err := s.SyncPublication(ctx, in.rec.Root); err != nil {
 		return nil, false, fmt.Errorf("%w: observation %s: publication sync failed: %v", core.ErrDegraded, in.obs, err)
+	}
+	if err := s.publicationFault(pubStepPublicationSynced); err != nil {
+		return nil, false, err
 	}
 
 	s.mu.Lock()
@@ -756,7 +846,7 @@ func (s *FSStore) RecoverToolUseByObservation(ctx context.Context, obs core.Obse
 	case unavailable:
 		return ToolUseRecord{}, fmt.Errorf("%w: observation %s intent is unavailable", core.ErrDegraded, obs)
 	case b != nil:
-		if _, _, err := s.completeIntentLocked(ctx, b.intent); err != nil {
+		if _, _, err := s.completeIntentLocked(ctx, b.intent, false); err != nil {
 			return ToolUseRecord{}, err
 		}
 		return s.ToolUse(ctx, b.intent.rec.ID)

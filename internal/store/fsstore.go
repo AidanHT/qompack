@@ -270,7 +270,11 @@ type FSStore struct {
 	obsSidecarBytes   int64
 	obsSidecarEntries int
 	obsSyncData       func(*os.File) error
-	obsPubMu          sync.Mutex
+	// obsPubFault is a test seam consulted after each durability step of the observation publication
+	// path (publicationStep); an error stops the path there, where a crash would. Production never
+	// sets it.
+	obsPubFault func(publicationStep) error
+	obsPubMu    sync.Mutex
 
 	// ── files.jsonl ──
 	fileHist map[string][]FileVersion
