@@ -14,6 +14,7 @@
 package e2e
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -454,6 +455,66 @@ func x13v4Existing(t *testing.T, root string) map[string]int64 {
 	return out
 }
 
+// x13v4BurstID is the tool_use id of the burst's i-th hook, the same on both arms.
+func x13v4BurstID(i int) core.ToolUseID { return core.ToolUseID(fmt.Sprintf("toolu_v4x13_%02d", i)) }
+
+// x13v4WaitBurstIndexed waits until every one of the burst's own x13v4Turns tool uses is in root's
+// index/tool_use.jsonl, driving the rig's Drain on every tick exactly as v4Rig.WaitIndexed does —
+// once unconditionally first, so both arms take the same path (8658ccb) — and within the same
+// bound.
+//
+// It waits for the burst's IDS, not for a line count, and that is the correction. index/tool_use.jsonl
+// also holds the setup prompt's record (prompt_<session>_0 — the observer indexes a prompt there
+// too), so WaitIndexed(x13v4Turns) returned once the prompt and SEVEN of the eight tool uses had
+// landed. The eighth could still be queued behind its lease with nothing yet under .qompack/tmp or
+// state/pending, so x13v4Quiesce's settle window (4 x the 50 ms B-C budget) could pass before its
+// publication began, and the walk and the capture count then read a burst that was not finished.
+// Under a CPU and fsync load generator that was a red of its own: "the observer-only arm must write
+// one capture sidecar per hook in the burst", expected 8, actual 7 (w4-e2eflakes runs/
+// c-x13-count10-load-before-windows.log). A tool use's index record lands after its capture
+// sidecar (publication order), so once all eight ids are indexed all eight sidecars are durable.
+func x13v4WaitBurstIndexed(t *testing.T, r *v4Rig, root string) {
+	t.Helper()
+	ctx := context.Background()
+	ticker := time.NewTicker(obsProcessTick)
+	defer ticker.Stop()
+	deadline := time.Now().Add(obsProcessBound)
+	_, _ = r.D.Drain(ctx)
+	for {
+		missing := x13v4BurstNotIndexed(root)
+		if len(missing) == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			require.FailNowf(t, "the burst never reached the index",
+				"%d of the burst's %d tool uses were still not in %s's index/tool_use.jsonl after %s: %v; "+
+					"LOUD: %v", len(missing), x13v4Turns, root, obsProcessBound, missing, loudLines(t, root))
+		}
+		<-ticker.C
+		_, _ = r.D.Drain(ctx)
+	}
+}
+
+// x13v4BurstNotIndexed lists the burst's tool use ids that root's index/tool_use.jsonl does not hold.
+func x13v4BurstNotIndexed(root string) []core.ToolUseID {
+	indexed := map[core.ToolUseID]bool{}
+	for _, line := range obsToolUseLines(root) {
+		var rec struct {
+			ID core.ToolUseID `json:"id"`
+		}
+		if json.Unmarshal([]byte(line), &rec) == nil {
+			indexed[rec.ID] = true
+		}
+	}
+	var missing []core.ToolUseID
+	for i := range x13v4Turns {
+		if id := x13v4BurstID(i); !indexed[id] {
+			missing = append(missing, id)
+		}
+	}
+	return missing
+}
+
 // TestV4_HotPathUnchangedWithTheFullWave3ResidentSet is V4-VERIFY §4.13, structural arm.
 //
 // The negative control is the last arm: one idle pass with the same resident set MUST change the
@@ -492,11 +553,11 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
 	beforeA := x13v4Existing(t, p.Root)
 	for i := range x13v4Turns {
 		obsRunHook(t, r.Bin, []string{"observe", "tool"},
-			obsToolPayload(t, p.Root, x13v4Session, fmt.Sprintf("toolu_v4x13_%02d", i),
+			obsToolPayload(t, p.Root, x13v4Session, string(x13v4BurstID(i)),
 				fmt.Sprintf("src/x13_%02d.go", i),
 				fmt.Sprintf("package x13\n\nfunc h%02d() error { return nil }\n", i)), env)
 	}
-	r.WaitIndexed(t, x13v4Turns)
+	x13v4WaitBurstIndexed(t, r, p.Root)
 	fullSet := x13v4WriteSet(t, p.Root, beforeA)
 	require.NotEmpty(t, fullSet, "the hook burst must have written something")
 
@@ -512,11 +573,11 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
 	beforeB := x13v4Existing(t, pr.Root)
 	for i := range x13v4Turns {
 		obsRunHook(t, rr.Bin, []string{"observe", "tool"},
-			obsToolPayload(t, pr.Root, x13v4RefSession, fmt.Sprintf("toolu_v4x13_%02d", i),
+			obsToolPayload(t, pr.Root, x13v4RefSession, string(x13v4BurstID(i)),
 				fmt.Sprintf("src/x13_%02d.go", i),
 				fmt.Sprintf("package x13\n\nfunc h%02d() error { return nil }\n", i)), envr)
 	}
-	rr.WaitIndexed(t, x13v4Turns)
+	x13v4WaitBurstIndexed(t, rr, pr.Root)
 	refSet := x13v4WriteSet(t, pr.Root, beforeB)
 
 	// ── The claim: the wave-3 residents add NO work to the hot path ──────────────────────────────
