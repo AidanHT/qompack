@@ -1,0 +1,318 @@
+# Windows -race -count=5 on the new concurrency paths at 3edc200 (CGO_ENABLED=1, co-loaded host)
+# CGO_ENABLED=1 go test -race ./internal/daemon -run '^(TestFlush_|TestStop_FinishesAnAcceptedSessionEnd|TestSessionRecovery_|TestSpoolWatch_|TestDrainClientSpools_|TestSpoolRetryAfter_|TestDeliveryOrder_Flush|TestDrain_ControlLinesPublishNoCaptureSidecar|TestDrainOfSpooledFlushLineDoesNotDeadlock|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun)' -count=5 -timeout=60m -v
+=== RUN   TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== PAUSE TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== RUN   TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun
+--- PASS: TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun (0.14s)
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+--- PASS: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.30s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.78s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (1.38s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (0.88s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (0.72s)
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+--- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar (0.85s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/flush (0.34s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint (0.24s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/session.start (0.27s)
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (1.65s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (0.86s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (0.79s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (0.42s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.41s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (0.42s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (0.45s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (0.52s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (0.63s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.10s)
+=== RUN   TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery
+--- PASS: TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery (0.20s)
+=== RUN   TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+--- PASS: TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive (0.68s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+--- PASS: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (0.39s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (3.53s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.47s)
+=== RUN   TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool
+--- PASS: TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool (0.35s)
+=== RUN   TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight
+--- PASS: TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight (0.42s)
+=== RUN   TestSpoolWatch_KnowsTheClientSpoolFamily
+--- PASS: TestSpoolWatch_KnowsTheClientSpoolFamily (0.00s)
+=== RUN   TestSpoolRetryAfter_Doubles
+--- PASS: TestSpoolRetryAfter_Doubles (0.00s)
+=== CONT  TestDrainOfSpooledFlushLineDoesNotDeadlock
+--- PASS: TestDrainOfSpooledFlushLineDoesNotDeadlock (0.09s)
+=== RUN   TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== PAUSE TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== RUN   TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun
+--- PASS: TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun (0.15s)
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+--- PASS: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.29s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.77s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (1.40s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (0.88s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (0.71s)
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+--- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar (0.89s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/flush (0.38s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint (0.24s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/session.start (0.27s)
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (1.69s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (0.87s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (0.82s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (0.38s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.44s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (0.41s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (0.46s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (0.52s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (0.65s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.11s)
+=== RUN   TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery
+--- PASS: TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery (0.18s)
+=== RUN   TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+--- PASS: TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive (0.67s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+--- PASS: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (0.52s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (3.56s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.51s)
+=== RUN   TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool
+--- PASS: TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool (0.35s)
+=== RUN   TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight
+--- PASS: TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight (0.34s)
+=== RUN   TestSpoolWatch_KnowsTheClientSpoolFamily
+--- PASS: TestSpoolWatch_KnowsTheClientSpoolFamily (0.00s)
+=== RUN   TestSpoolRetryAfter_Doubles
+--- PASS: TestSpoolRetryAfter_Doubles (0.00s)
+=== CONT  TestDrainOfSpooledFlushLineDoesNotDeadlock
+--- PASS: TestDrainOfSpooledFlushLineDoesNotDeadlock (0.09s)
+=== RUN   TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== PAUSE TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== RUN   TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun
+--- PASS: TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun (2.14s)
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+--- PASS: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.33s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.86s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (1.38s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (0.86s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (0.66s)
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+--- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar (0.88s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/flush (0.35s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint (0.27s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/session.start (0.25s)
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (1.58s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (0.78s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (0.80s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (0.41s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.42s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (0.39s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (0.42s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (0.52s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (0.70s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.21s)
+=== RUN   TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery
+--- PASS: TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery (0.21s)
+=== RUN   TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+--- PASS: TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive (0.66s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+--- PASS: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (0.51s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (3.55s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.53s)
+=== RUN   TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool
+--- PASS: TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool (0.38s)
+=== RUN   TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight
+--- PASS: TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight (0.38s)
+=== RUN   TestSpoolWatch_KnowsTheClientSpoolFamily
+--- PASS: TestSpoolWatch_KnowsTheClientSpoolFamily (0.00s)
+=== RUN   TestSpoolRetryAfter_Doubles
+--- PASS: TestSpoolRetryAfter_Doubles (0.00s)
+=== CONT  TestDrainOfSpooledFlushLineDoesNotDeadlock
+--- PASS: TestDrainOfSpooledFlushLineDoesNotDeadlock (0.12s)
+=== RUN   TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== PAUSE TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== RUN   TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun
+--- PASS: TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun (0.17s)
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+--- PASS: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.38s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.94s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (1.39s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (0.91s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (0.72s)
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+--- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar (0.88s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/flush (0.36s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint (0.23s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/session.start (0.29s)
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (1.82s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (0.88s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (0.93s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (0.40s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.43s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (0.41s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (0.45s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (0.53s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (0.63s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.09s)
+=== RUN   TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery
+--- PASS: TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery (0.20s)
+=== RUN   TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+--- PASS: TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive (0.65s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+--- PASS: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (0.50s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (3.50s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.48s)
+=== RUN   TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool
+--- PASS: TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool (0.40s)
+=== RUN   TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight
+--- PASS: TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight (0.37s)
+=== RUN   TestSpoolWatch_KnowsTheClientSpoolFamily
+--- PASS: TestSpoolWatch_KnowsTheClientSpoolFamily (0.00s)
+=== RUN   TestSpoolRetryAfter_Doubles
+--- PASS: TestSpoolRetryAfter_Doubles (0.00s)
+=== CONT  TestDrainOfSpooledFlushLineDoesNotDeadlock
+--- PASS: TestDrainOfSpooledFlushLineDoesNotDeadlock (0.09s)
+=== RUN   TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== PAUSE TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== RUN   TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun
+--- PASS: TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun (0.15s)
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+--- PASS: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.37s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.85s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (1.38s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (0.97s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (0.71s)
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+--- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar (0.88s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/flush (0.37s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint (0.24s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/session.start (0.27s)
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (1.72s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (0.85s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (0.86s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (0.38s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.40s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (0.42s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (0.48s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (0.53s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (0.62s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.09s)
+=== RUN   TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery
+--- PASS: TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery (0.20s)
+=== RUN   TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+--- PASS: TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive (0.67s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+--- PASS: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (0.51s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (3.52s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.53s)
+=== RUN   TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool
+--- PASS: TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool (0.38s)
+=== RUN   TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight
+--- PASS: TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight (0.35s)
+=== RUN   TestSpoolWatch_KnowsTheClientSpoolFamily
+--- PASS: TestSpoolWatch_KnowsTheClientSpoolFamily (0.00s)
+=== RUN   TestSpoolRetryAfter_Doubles
+--- PASS: TestSpoolRetryAfter_Doubles (0.00s)
+=== CONT  TestDrainOfSpooledFlushLineDoesNotDeadlock
+--- PASS: TestDrainOfSpooledFlushLineDoesNotDeadlock (0.11s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	118.718s
+exit=0
+# CGO_ENABLED=1 go test -race ./internal/cli -run '^(TestFlushHook_IsFireAndForgetWithItsNonce|TestHookConnectDeadline)$' -count=5 -timeout=30m
+ok  	github.com/qompack/qompack/internal/cli	3.845s
+exit=0

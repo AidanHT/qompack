@@ -1,0 +1,4 @@
+# Windows full package internal/daemon at af3ed3c (co-loaded host; Linux gate running concurrently)
+# go test ./internal/daemon -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/daemon	319.853s
+exit=0

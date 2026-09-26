@@ -1,0 +1,44 @@
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+    flush_async_test.go:139: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:103
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:139
+        	Error:      	the flush did not answer while its SessionEnd was still running: the hook would outlive the host's 1.5 s SessionEnd budget and be cancelled
+        	Test:       	TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- FAIL: TestFlush_AnswersOnceDurableNotAfterSessionEnd (30.23s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.43s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+    flush_async_test.go:196: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:103
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:196
+        	Error:      	the flush did not answer while its SessionEnd was still running: the hook would outlive the host's 1.5 s SessionEnd budget and be cancelled
+        	Test:       	TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- FAIL: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (30.15s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+    flush_async_test.go:238: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:238
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+        	Messages:   	the spooled copy of an ended flush must not end the session again
+--- FAIL: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (0.74s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+    flush_async_test.go:257: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:257
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+        	Messages:   	every arrival before the drained flush was published, so its SessionEnd ran after all of them
+--- FAIL: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (0.83s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+    flush_async_test.go:268: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:103
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:268
+        	Error:      	the flush did not answer while its SessionEnd was still running: the hook would outlive the host's 1.5 s SessionEnd budget and be cancelled
+        	Test:       	TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestStop_FinishesAnAcceptedSessionEndBeforeItReturns1749017587\001\.qompack: The directory is not empty.
+--- FAIL: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (30.19s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	92.923s
+FAIL
+exit=1

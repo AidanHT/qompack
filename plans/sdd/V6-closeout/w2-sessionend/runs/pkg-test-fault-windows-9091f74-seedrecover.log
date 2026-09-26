@@ -1,0 +1,40 @@
+# Windows full package test/fault at 9091f74 + uncommitted seedSession/recoverSession runFlush (co-loaded host)
+# go test ./test/fault -count=1 -timeout=60m
+--- FAIL: TestFault_PublicationBoundaries (188.56s)
+    --- FAIL: TestFault_PublicationBoundaries/delivery_seal_torn_slot (61.92s)
+        publication_test.go:71: fault: the daemon did not end session sess-fault-delivery-seal-torn-slot-r within 30s of its flush hook (no terminal-hook marker naming it)
+        publication_test.go:71: fault delivery_seal_torn_slot: explicit_incomplete — the cut introduced no silently dangling reference; what it did leave, the audit can name as reported: drain_gap(client-35552.ndjson): pending: 9740 spool bytes not yet replayed; drain_gap(client-45736.ndjson): pending: 928 spool bytes not yet replayed; drain_gap(wal-sess-fault-delivery-seal-torn-slot-r.ndjson): pending: 10668 spool bytes not yet replayed
+              boundary: delivery seal with one torn slot, and a half-present seal pair
+              seed:     the delivery position files are torn the way daemon/delivery_seal_test.go's crash-reachable images are, then one side of the pair is removed entirely (delivery_seal_tool.go calls a half-present pair "a recovery decision, not a repair")
+              dangling: 0→0
+              detail:   cut: tore delivery-lease-position.json from 112 to 88 bytes; removed delivery-ack-position.json, leaving a half-present pair
+            everything the surfaces gained: daylog[24]: qompack-20260926.log: ts=2026-09-26T00:03:26.4273964Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[13]: ts=2026-09-26T00:03:26.4273964Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[7]: counter l0_delivery_unleased=2; surfaces LOUD.log+status --json+day log (warn)
+            of which naming this cut (delivery, seal, delivery-lease-position, delivery-ack-position, unleased, unacknowledged): daylog[13]: qompack-20260926.log: ts=2026-09-26T00:03:26.4273964Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[13]: ts=2026-09-26T00:03:26.4273964Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[6]: counter l0_delivery_unleased=2; surfaces LOUD.log+status --json+day log (warn)
+            audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+            audit after  {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:3}
+            degradation (new since the cut): daylog[13]: qompack-20260926.log: ts=2026-09-26T00:03:26.4273964Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[13]: ts=2026-09-26T00:03:26.4273964Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[6]: counter l0_delivery_unleased=2; surfaces LOUD.log+status --json+day log (warn)
+            newly dangling: none
+            newly reported: drain_gap(client-35552.ndjson): pending: 9740 spool bytes not yet replayed; drain_gap(client-45736.ndjson): pending: 928 spool bytes not yet replayed; drain_gap(wal-sess-fault-delivery-seal-torn-slot-r.ndjson): pending: 10668 spool bytes not yet replayed
+            remaining dangling after recovery: none
+              artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesdelivery_seal_torn_slot2548840509\001\delivery_seal_torn_slot.json
+    --- FAIL: TestFault_PublicationBoundaries/config_json_corrupt (92.12s)
+        publication_test.go:71: fault: no daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\proj within 1m0s (lock pid 0, held=false)
+        publication_test.go:71: fault: the daemon did not end session sess-fault-config-json-corrupt-r within 30s of its flush hook (no terminal-hook marker naming it)
+        publication_test.go:71: fault config_json_corrupt: explicit_incomplete — the cut introduced no dangling reference; recording did not resume within the bound and the product says so on LOUD.log+self-test --json+day log (warn): daylog[2]: qompack-20260926.log: ts=2026-09-26T00:06:03.6493566Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\pro…; loud[2]: ts=2026-09-26T00:06:03.6493566Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+              boundary: config.json corrupt
+              seed:     the `config-corrupt` QOMPACK_FAULT site, which writes truncated JSON into .qompack/config.json from a real hook process (internal/cli/fault.go)
+              dangling: 0→0
+              detail:   cut: .qompack/config.json holds 25 bytes of unparseable JSON
+            everything the surfaces gained: daylog[2]: qompack-20260926.log: ts=2026-09-26T00:06:03.6493566Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\pro…; loud[2]: ts=2026-09-26T00:06:03.6493566Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+            of which naming this cut (config): daylog[2]: qompack-20260926.log: ts=2026-09-26T00:06:03.6493566Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\pro…; loud[2]: ts=2026-09-26T00:06:03.6493566Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+            audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+            audit after  {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+            degradation (new since the cut): daylog[2]: qompack-20260926.log: ts=2026-09-26T00:06:03.6493566Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\pro…; loud[2]: ts=2026-09-26T00:06:03.6493566Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-4015334550\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+            newly dangling: none
+            newly reported: none
+            remaining dangling after recovery: none
+              artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesconfig_json_corrupt4179826693\001\config_json_corrupt.json
+FAIL
+FAIL	github.com/qompack/qompack/test/fault	257.339s
+FAIL
+exit=1

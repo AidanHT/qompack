@@ -1,0 +1,195 @@
+# Windows e2e: the remaining flush-bearing rows (read-after-flush survey) at 0bdbf9e, co-loaded host
+# go test ./test/e2e -run '^(TestV3_DegradedPassiveStillRecordsEverything|TestV3_LiveSessionWriteSetAndAppendOnly|TestV3_HookEventToTombstoneToRetrievalRoundTrip|TestV4_LiveSessionWriteSetAppendOnlyAndImmutability|TestV5_NoPackageWritesOutsideDotQompack|TestE2E_AllSixHooksExitZero|TestV1_HookLifecycleThroughRealBinary|TestHooksExitZeroUnderFaults|TestE2E_ObserverThroughDaemon|TestV5_HookEventToTombstoneToRetrievalAfterRestart)$' -count=1 -v -timeout=30m
+=== RUN   TestHooksExitZeroUnderFaults
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/oversize
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/oversize
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/Stop/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/Stop/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/Stop/oversize
+=== RUN   TestHooksExitZeroUnderFaults/Stop/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/Stop/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/Stop/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/Stop/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/Stop/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/Stop/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/Stop/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/Stop/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/oversize
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/oversize
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/oversize
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/panic:client
+=== NAME  TestHooksExitZeroUnderFaults
+    faultinject_test.go:99: TestHooksExitZeroUnderFaults: 6 hooks x 11 sites = 66 combinations run
+--- PASS: TestHooksExitZeroUnderFaults (59.61s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/stdin-eof (1.01s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/stdin-garbage (0.66s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/oversize (0.78s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/daemon-down (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/spool-readonly (0.31s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/spool-full:0 (0.40s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/disk-full (0.41s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/state-corrupt (0.78s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/config-corrupt (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/panic:hook (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/panic:client (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-eof (0.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-garbage (0.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/oversize (0.75s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/daemon-down (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-readonly (0.32s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-full:0 (0.30s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/disk-full (0.28s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/state-corrupt (0.71s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/config-corrupt (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:hook (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:client (1.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/stdin-eof (0.71s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/stdin-garbage (0.66s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/oversize (0.77s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/daemon-down (1.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/spool-readonly (0.31s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/spool-full:0 (0.29s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/disk-full (0.30s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/state-corrupt (0.62s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/config-corrupt (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/panic:hook (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/panic:client (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/stdin-eof (0.37s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/stdin-garbage (0.37s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/oversize (0.45s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/daemon-down (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/spool-readonly (0.31s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/spool-full:0 (0.32s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/disk-full (0.33s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/state-corrupt (0.43s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/config-corrupt (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/panic:hook (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/panic:client (0.29s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/stdin-eof (0.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/stdin-garbage (0.73s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/oversize (0.75s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/daemon-down (1.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/spool-readonly (0.40s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/spool-full:0 (0.37s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/disk-full (0.40s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/state-corrupt (0.68s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/config-corrupt (1.61s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/panic:hook (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/panic:client (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/stdin-eof (0.78s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage (0.75s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/oversize (1.09s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/daemon-down (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/spool-readonly (0.31s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/spool-full:0 (0.32s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/disk-full (0.40s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/state-corrupt (0.69s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/config-corrupt (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/panic:hook (1.53s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/panic:client (1.55s)
+=== RUN   TestE2E_AllSixHooksExitZero
+=== RUN   TestE2E_AllSixHooksExitZero/PostToolUse
+=== RUN   TestE2E_AllSixHooksExitZero/UserPromptSubmit
+=== RUN   TestE2E_AllSixHooksExitZero/Stop
+=== RUN   TestE2E_AllSixHooksExitZero/SessionStart
+=== RUN   TestE2E_AllSixHooksExitZero/PreCompact
+=== RUN   TestE2E_AllSixHooksExitZero/SessionEnd
+--- PASS: TestE2E_AllSixHooksExitZero (2.46s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PostToolUse (0.07s)
+    --- PASS: TestE2E_AllSixHooksExitZero/UserPromptSubmit (0.07s)
+    --- PASS: TestE2E_AllSixHooksExitZero/Stop (0.05s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionStart (0.95s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PreCompact (0.31s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionEnd (0.06s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (10.49s)
+=== RUN   TestV1_HookLifecycleThroughRealBinary
+--- PASS: TestV1_HookLifecycleThroughRealBinary (2.33s)
+=== RUN   TestV3_HookEventToTombstoneToRetrievalRoundTrip
+--- PASS: TestV3_HookEventToTombstoneToRetrievalRoundTrip (4.24s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (11.61s)
+=== RUN   TestV3_LiveSessionWriteSetAndAppendOnly
+    v3_x09_test.go:325: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/test/e2e/v3_x09_test.go:725
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/test/e2e/v3_x09_test.go:325
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestV3_LiveSessionWriteSetAndAppendOnly9305198\001\project\.qompack\records\captures\12\1213fbe0dc61b9e0a8e6a5f4934b957c512ec031069134d45ffb71d6c9c12eb0.json: The system cannot find the file specified.
+        	Test:       	TestV3_LiveSessionWriteSetAndAppendOnly
+        	Messages:   	delivery 5df90053a92ad2cb7d129aa0d03938a592958d13c4069efc49f7d5d4a5e4ab73 crossed the frontier during flush with no capture sidecar for sha256:1213fbe0dc61b9e0a8e6a5f4934b957c512ec031069134d45ffb71d6c9c12eb0
+--- FAIL: TestV3_LiveSessionWriteSetAndAppendOnly (33.89s)
+=== RUN   TestV4_LiveSessionWriteSetAppendOnlyAndImmutability
+--- PASS: TestV4_LiveSessionWriteSetAppendOnlyAndImmutability (10.81s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (8.90s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.86s)
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack/ComposedDaemon
+    v5_x16_test.go:381: project write set (74 files): [checkpoints/0001.json checkpoints/MANIFEST.jsonl dag/deps.jsonl index/files.json index/files.jsonl index/observations.jsonl index/roots.jsonl index/segments.jsonl index/sessions.jsonl index/tool_use.jsonl logs/LOUD.log logs/qompack-20260925.log metrics/latency.json objects/0e/65/0e659b6ff136d06105a2b8f5e50b41b7251c222473f9b4a300314cf42940a2dd.zst objects/13/2a/132ab0b5a01ebba7aa16912a99f006b2a7352fc0d5637a602d55ff0656932ddd.zst objects/20/57/205730fd119fa52c4f6124c7928d9536e2c572aa8290c8b521b7d47ba6aa5a10.zst objects/33/cd/33cd0d373e50ae53af66689d1f6299c73d919c1b2e7546ad143af580ddf883b0.zst objects/3d/59/3d59f796c2ff970c0a0407f5a0b46bac488dd27f780ae8f09107f5e791bae857.zst objects/43/ff/43ff2aa6787d563906206ce15abcb5df93f008942903066026ea6c2433ca6c61.zst objects/52/61/5261c733dd4045787292e1dd3cc056c7eda434e1daed8a1027d37e5094692322.zst objects/55/ac/55aca6ca9b140b081cf1da4fdac8749012e8da783e94831de51c79e11a444782.zst objects/6b/6c/6b6cad45c9ccd57d8cd28ada270ae1d067dd56c42cc3db80517c2f56d9eb9085.zst objects/98/b8/98b8d0eeec4b714e60044d44915801c36ab4de7ef635120a88e14e8876f3af4d.zst objects/ba/00/ba008ca1ee92d85c63b21e608df4610db6fb28bf1e0087db480209e5df05b3a7.zst objects/ce/28/ce28c4b691cebcf76fdc1277f467d6ab0481fa423ee90d3d12ec4000b89e8534.zst objects/ea/91/ea912e6bb9b2e5e67a8f9827f8bbcad901ff25005e14503ad68cbaa141642592.zst objects/ee/b8/eeb8a678866fabd35ae2b5a84b5ef41d96626c66f025d081a7e8b99a729a9fd4.zst objects/f1/24/f124033e2a5b8073349335838751712b4a19dcf165c24925149c96753ddc33f7.zst objects/f8/86/f8860d9ce906ec11e9db55c55f80d90c2708aa8c4c00ed38f9ff92bc8f4c9f99.zst objects/fd/14/fd144d2935afc11ae97207ccc1371348888d98e5dcbc44726463f1d3323d68af.zst pins/invariants.json pins/invariants.jsonl records/captures/03/032d06b85c2c1bd2f6c6fc9c0dcda501640923918ac4733a694f0c096bb9becf.json records/captures/14/14eec4702ca31ca2173a82b4f6dcb0749f1ef4bcd12264b3490b62c6e447a58b.json records/captures/1b/1b1dd5860da93447eab497c0cc6d5e0ba9f2bc5ea78aaaf83069433b65622e08.json records/captures/44/446e8ec99123ce3268bc390ded015fba002e75aeac2578ec6d760add299f3498.json records/captures/46/4650ed14e17c519ae657a188adbf7a619e4b4f01f2ee5fa12bbab3eec5e0d4c8.json records/captures/48/48eff3f71b3615956260f0b6d6b9971c0997d5c02802893a20f462450ac69344.json records/captures/5e/5e07b63e1320bfa6f9f7c6e8a996f23d9005eedf9c7166966b257f54dbdb13d7.json records/captures/88/88a0872d8ce3963bfa8b69afbad21b14b3191a57ad441f203ac4b2c1f2a3a326.json records/captures/8f/8f28fe874d8939d75a8061370beb8b4d145f188a53ba7a26e7856dc2b8726c8a.json records/captures/90/907ec54d5122e5e93f7b059e1636afd63463a68f86218f2229eaa6b0339f30a2.json records/captures/99/997ecc5d214c68f83445d62eb57f2e1c0de45e0caedf437db11642edf7fd4537.json records/captures/cd/cd4496a9569a47000a239b29c1e16b077f65b276d781df4ff03e827436120679.json records/captures/ce/ce75665099f2da4266d403875433654d2974fa5fa7f2f2987478e85f9706c91e.json records/captures/d8/d8e5dfa9db70abb9e84f963499396e72e7a73752f826fb1f791ed2ee482e78fd.json records/captures/e7/e7cf6d5d344a455591363eb0bd15379fb7f880789d06b4499c89a78819f78213.json records/captures/ef/ef2e147faf0ed7c40f7e43522aadb6f8642866aff352e0ff40d0dc7c724b91ff.json records/captures/fe/fedc1ff6b6db6a4327a0d70b9182c54ce181489f9d82ef2ed4f73d665cf73300.json records/eliminations.jsonl run/marker.json sketches/explore.hll sketches/touch.cms sketches/tried.bloom spool/client-54460.ndjson state/chunktokens.bin state/delivery-ack-position.json state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal-log.jsonl state/delivery-journal.json state/delivery-lease-position.json state/delivery-leases.jsonl state/draft-sess-e2e-v5-x16.json state/drain.json state/gc-live.bin state/history.json state/observations.json state/observer.json state/precompact.json state/rehydrate-sess-e2e-v5-x16.json state/retention-roots.jsonl state/session-recovery.json state/store.json]
+    v5_x16_test.go:381: HOME write set (0 files): []
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack/ShippedDaemon
+    v5_x16_test.go:432: project write set (53 files): [dag/deps.jsonl index/files.json index/files.jsonl index/observations.jsonl index/roots.jsonl index/segments.jsonl index/sessions.jsonl index/tool_use.jsonl logs/qompack-20260925.log metrics/latency.json objects/01/24/0124c9b792410603358bde288bb7a22e287078df23a04fc337b9f1a4f7c80059.zst objects/0a/76/0a76387e376d644e1f346157c5d0a49b553aa07c16e2d6e39ffe836fccccd09c.zst objects/0b/b0/0bb0968f0c2a5f8834cf43c5166d94d82c7e0d7aa92ace7399e6b2c91557634a.zst objects/47/7e/477eaa8c1436b871daaf9769d8efd12fbd78a8cdaeece654e9eb5937fe974737.zst objects/a4/5c/a45c19fbb17de7b6602f66b6974ed6510c95c4c4b913243d9893707d4e838cd1.zst objects/b1/3c/b13c2cf7a96d6580df51cac77b7e29227c40e1ad213712dcfe9ac95ae5baac8a.zst objects/c2/c4/c2c4a5d851dff9bda982e604f7d42ae31243b157a82d3e3fecd4cc226c862ce1.zst objects/ca/4d/ca4ddd021a89e4d5272f47412f7a783c24ce6f33cced2b529729e83726df6b29.zst objects/cb/8c/cb8ce5978106dfaa391fadc0af79f6a241d94e0535c594866334436b8d9aac58.zst objects/d0/fd/d0fd83cfa69856bc646c9334e34443b0d2ece97a84fad87a9d2c011804b075dd.zst objects/fb/50/fb501cc4c86056aa5c47febdf6f67132f54b5cfdc4caa19bae443fc0871d0d50.zst records/captures/0a/0a036d4a1480d0c3d18362c63ed92341112ea31f2f547be4515feecd9a639f78.json records/captures/0c/0c481740928f670a4ea93827a879fff37507459369ae98c560c9158475644730.json records/captures/5a/5ae71745229bdb877901f178f3ca6e3e98502e815e3579ef3e00f1bcc02c1fcc.json records/captures/75/757bbd7a8a9cbcd96f310d26e5fc1c828b382b3d6c4ee50a7e08e161f2695bb8.json records/captures/89/89b7f3e6feb68823cf1df73d9ceaaad3443a6aebe4c5aad8e2677866655f4973.json records/captures/94/94c3a828cd3f35951c9b9ecea2faec722b7a82c1dbb21874803eb5c43239ebab.json records/captures/b9/b9cdfacdbd304f8c2b7d20f935f2d2274737d3f7631186fee81d2b577c9e191d.json records/captures/d5/d5079e9450794a82feeaf96e2082d8738c02f9ec68517abb10f3c30b9ef2af6e.json records/captures/e4/e4108697882aa3ab70d844164e83b6464cc80c34dfa7840edae5b1569c939fa3.json records/captures/f9/f9b397b9ec6b689005a188327c949f403dbfc1d186964b6a549fcab2f8827574.json run/marker.json sketches/explore.hll sketches/touch.cms spool/client-54460.ndjson state/bocd.json state/chunktokens.bin state/delivery-ack-position.json state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal-log.jsonl state/delivery-journal.json state/delivery-lease-position.json state/delivery-leases.jsonl state/drain.json state/gc-live.bin state/history.json state/observations.json state/observer.json state/retention-roots.jsonl state/scheduler.json state/session-recovery.json state/store.json]
+    v5_x16_test.go:432: HOME write set (0 files): []
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_DirectedImportIsOutsideAndSeen
+=== RUN   TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_SeveredWritersStayConfined
+    v5_x16_test.go:520: project write set (3 files): [logs/LOUD.log logs/qompack-20260925.log run/spawn.lock]
+    v5_x16_test.go:520: HOME write set (0 files): []
+--- PASS: TestV5_NoPackageWritesOutsideDotQompack (16.65s)
+    --- PASS: TestV5_NoPackageWritesOutsideDotQompack/ComposedDaemon (11.64s)
+    --- PASS: TestV5_NoPackageWritesOutsideDotQompack/ShippedDaemon (4.67s)
+    --- PASS: TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_DirectedImportIsOutsideAndSeen (0.20s)
+    --- PASS: TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_SeveredWritersStayConfined (0.15s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	161.242s
+FAIL
+exit=1

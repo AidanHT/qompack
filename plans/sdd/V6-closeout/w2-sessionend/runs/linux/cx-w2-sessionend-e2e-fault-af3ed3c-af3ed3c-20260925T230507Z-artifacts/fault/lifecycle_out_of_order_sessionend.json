@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_out_of_order_sessionend",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "792fa4bc184a0f7f40ab3f360c9e8ac3bd90bd5ea800d10dea6ade71d2d99518"
+  },
+  "boundary": "SessionEnd before Stop",
+  "seed_method": "tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first",
+  "outcome": "failed",
+  "reason": "the event sequence left 1 dangling reference(s): capture_unpublished(sha256:c4ccd3f70488476fb84f23445c78a83bd7e3b12fd10bcdaca8c36e3cd4856904): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes c658a06a0f52 durable and no reference joined to it (root 000000000000). Owner: internal/daemon.",
+  "detail": "audit before {tool_uses:37 roots:30 sidecars:55 checkpoints:0 dangling:1 reported:1}; after {tool_uses:37 roots:30 sidecars:57 checkpoints:0 dangling:1 reported:1}; newly dangling: capture_unpublished(sha256:c4ccd3f70488476fb84f23445c78a83bd7e3b12fd10bcdaca8c36e3cd4856904): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes c658a06a0f52 durable and no reference joined to it (root 000000000000); duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 1,
+  "dangling_after": 1
+}

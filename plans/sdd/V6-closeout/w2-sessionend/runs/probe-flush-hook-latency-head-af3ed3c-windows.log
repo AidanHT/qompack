@@ -1,0 +1,19 @@
+# latency probe (temporary diagnostic, source in probe-flush-hook-latency_test.go.txt) at af3ed3c, Windows, co-loaded host
+# go test ./test/e2e -run '^TestZZProbe_FlushHookLatency$' -count=1 -v -timeout=30m
+=== RUN   TestZZProbe_FlushHookLatency
+    zz_probe_flush_latency_test.go:72: PROBE mode=backlog flush_hook_ms=86 session_end_marker_ms=4387 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:72: PROBE mode=backlog flush_hook_ms=65 session_end_marker_ms=4161 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:72: PROBE mode=backlog flush_hook_ms=85 session_end_marker_ms=4278 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:72: PROBE mode=backlog flush_hook_ms=76 session_end_marker_ms=4218 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:72: PROBE mode=backlog flush_hook_ms=70 session_end_marker_ms=4209 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:78: PROBE mode=backlog flush_hook_ms min=65 median=76 max=86 (n=5)
+    zz_probe_flush_latency_test.go:72: PROBE mode=quiet flush_hook_ms=74 session_end_marker_ms=456 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:72: PROBE mode=quiet flush_hook_ms=76 session_end_marker_ms=431 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:72: PROBE mode=quiet flush_hook_ms=70 session_end_marker_ms=390 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:72: PROBE mode=quiet flush_hook_ms=68 session_end_marker_ms=426 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:72: PROBE mode=quiet flush_hook_ms=58 session_end_marker_ms=390 indexed_at_marker=30
+    zz_probe_flush_latency_test.go:78: PROBE mode=quiet flush_hook_ms min=58 median=70 max=76 (n=5)
+--- PASS: TestZZProbe_FlushHookLatency (74.83s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	75.101s
+exit=0

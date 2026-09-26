@@ -1,0 +1,37 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 10,
+   "failed": [
+    "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting"
+   ],
+   "skipped": [
+    "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting"
+   ]
+  },
+  "github.com/qompack/qompack/test/fault": {
+   "result": "fail",
+   "passed": 27,
+   "failed": [
+    "TestFault_Lifecycle/fork",
+    "TestFault_Lifecycle/compaction_failed",
+    "TestFault_Lifecycle/duplicate_tool_use",
+    "TestFault_Lifecycle/out_of_order_precompact",
+    "TestFault_Lifecycle/out_of_order_sessionend",
+    "TestFault_Lifecycle",
+    "TestFault_Lifecycle/fork",
+    "TestFault_Lifecycle/compaction_manual",
+    "TestFault_Lifecycle/compaction_auto",
+    "TestFault_Lifecycle/compaction_crossed",
+    "TestFault_Lifecycle/duplicate_tool_use",
+    "TestFault_Lifecycle/missing_turn",
+    "TestFault_Lifecycle/out_of_order_precompact",
+    "TestFault_Lifecycle/out_of_order_sessionend",
+    "TestFault_Lifecycle"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

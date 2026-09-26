@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_frontier_state_is_explicit",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "792fa4bc184a0f7f40ab3f360c9e8ac3bd90bd5ea800d10dea6ade71d2d99518"
+  },
+  "boundary": "the frontier and checkpoint state after the whole lifecycle matrix",
+  "seed_method": "status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit",
+  "outcome": "recovered",
+  "reason": "the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 0 checkpoint artifact(s), the same 0 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/",
+  "detail": "status gaps: [counter contract.degrade=17 loud_tail: ts=2026-09-25T23:07:07.487087534Z level=loud msg=\"contract: degrading to passive recording\" mode=degraded-passive reason=\"critical host-contract failure: hook.additional_context_delivered (expected \\\"additionalContext reaches the transcript\\\", observed \\\"sentinel not found after two chances\\\")\" failed=hook.additional_context_delivered/critical,mcp.server_registered/info\n loud_tail: ts=2026-09-25T23:07:07.976359808Z level=loud msg=\"contract: degrading to passive recording\" mode=degraded-passive reason=\"critical host-contract failure: hook.additional_context_delivered (expected \\\"additionalContext reaches the transcript\\\", observed \\\"sentinel not found after two chances\\\")\" failed=hook.additional_context_delivered/critical,mcp.server_registered/info\n loud_tail: ts=2026-09-25T23:07:09.092608503Z level=loud msg=\"contract: degrading to passive recording\" mode=degraded-passive reason=\"critical host-contract failure: hook.additional_context_delivered (expected \\\"additionalContext reaches the transcript\\\", observed \\\"sentinel not found after two chances\\\")\" failed=hook.additional_context_delivered/critical,mcp.server_registered/info\n loud_tail: ts=2026-09-25T23:07:10.788004501Z level=loud msg=\"contract: degrading to passive recording\" mode=degraded-passive reason=\"critical host-contract failure: hook.additional_context_delivered (expected \\\"additionalContext reaches the transcript\\\", observed \\\"sentinel not found after two chances\\\")\" failed=hook.additional_context_delivered/critical,mcp.server_registered/info\n loud_tail: ts=2026-09-25T23:07:11.808575022Z level=loud msg=\"contract: degrading to passive recording\" mode=degraded-passive reason=\"critical host-contract failure: hook.additional_context_delivered (expected \\\"additionalContext reaches the transcript\\\", observed \\\"sentinel not found after two chances\\\")\" failed=hook.additional_context_delivered/critical,mcp.server_registered/info\n spool_files=6]\nself-test failures: []\nloud lines: 17; day-log warnings: 29\ncheckpoint artifacts on disk: []; manifest lists: [] (err \u003cnil\u003e)\naudit: {tool_uses:38 roots:31 sidecars:58 checkpoints:0 dangling:0 reported:0}",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

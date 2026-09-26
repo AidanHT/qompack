@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_out_of_order_precompact",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "792fa4bc184a0f7f40ab3f360c9e8ac3bd90bd5ea800d10dea6ade71d2d99518"
+  },
+  "boundary": "PreCompact before the tool events it would summarise",
+  "seed_method": "PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised",
+  "outcome": "failed",
+  "reason": "the event sequence left 1 dangling reference(s): capture_unpublished(sha256:32bcc5f102c88a9626e9509346587f7933a3f5441409f322cc1df5b6f75b2396): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes 9c410603d79b durable and no reference joined to it (root 000000000000). Owner: internal/daemon.",
+  "detail": "audit before {tool_uses:35 roots:28 sidecars:52 checkpoints:0 dangling:1 reported:3}; after {tool_uses:37 roots:30 sidecars:55 checkpoints:0 dangling:1 reported:1}; newly dangling: capture_unpublished(sha256:32bcc5f102c88a9626e9509346587f7933a3f5441409f322cc1df5b6f75b2396): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes 9c410603d79b durable and no reference joined to it (root 000000000000); duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 1,
+  "dangling_after": 1
+}

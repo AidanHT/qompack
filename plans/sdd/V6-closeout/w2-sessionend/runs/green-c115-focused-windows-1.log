@@ -1,0 +1,67 @@
+=== RUN   TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== PAUSE TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== RUN   TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun
+--- PASS: TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun (0.18s)
+=== RUN   TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== PAUSE TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+--- PASS: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.39s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (7.09s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (1.68s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (2.26s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (2.51s)
+=== RUN   TestSessionEndRecordsRecoveryNeeded
+--- PASS: TestSessionEndRecordsRecoveryNeeded (0.91s)
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+--- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar (5.36s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/flush (3.87s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint (1.04s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/session.start (0.45s)
+=== RUN   TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+=== PAUSE TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (11.23s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (6.71s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (4.52s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (2.02s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (1.46s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (1.77s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (2.70s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (2.78s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (2.62s)
+=== RUN   TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic
+=== PAUSE TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic
+=== CONT  TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== CONT  TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic
+=== RUN   TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic/abandoned
+=== PAUSE TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic/abandoned
+=== RUN   TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic/ended
+=== PAUSE TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic/ended
+=== CONT  TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic/abandoned
+=== CONT  TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== CONT  TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+=== CONT  TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic/ended
+--- PASS: TestDrainOfSpooledFlushLineDoesNotDeadlock (0.61s)
+--- PASS: TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic (0.00s)
+    --- PASS: TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic/abandoned (0.26s)
+    --- PASS: TestIdleExitWaitsForAnUnregisteredSessionThatKeepsSendingTraffic/ended (0.64s)
+--- PASS: TestMarkerIsWrittenByFlushAndCheckpointOnly (0.80s)
+--- PASS: TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment (1.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	46.309s
+exit=0

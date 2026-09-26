@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_resume",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "76fbd2d17c6fbddf1a6e5a9263d45d4a5c4774fc3abd6765b1fbc56ef6694af0"
+  },
+  "boundary": "SessionStart source: resume, then a turn",
+  "seed_method": "SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,4 @@
+# Windows full package internal/cli at af3ed3c (co-loaded host; Linux gate running concurrently)
+# go test ./internal/cli -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/cli	25.082s
+exit=0

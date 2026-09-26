@@ -1,0 +1,81 @@
+package e2e
+
+// TEMPORARY DIAGNOSTIC (w2-sessionend, C1.15): not a committed test. It measures, through the real
+// binary and a real detached daemon, how long the SessionEnd `flush` hook process takes from spawn to
+// exit — the time the host's shared 1.5 s SessionEnd budget is spent on — and how long after the
+// hook started the daemon's end of the session wrote its terminal-hook marker. It runs unchanged on
+// the base (b070bbe, where the hook waits for the whole end) and on this branch.
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"sort"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/testutil"
+)
+
+func TestZZProbe_FlushHookLatency(t *testing.T) {
+	bin := Build(t)
+	type row struct {
+		mode      string
+		hook, end time.Duration
+		indexed   int
+	}
+	var rows []row
+	const tools, perMode = 30, 5
+	for _, mode := range []string{"backlog", "quiet"} {
+		for s := range perMode {
+			p := testutil.NewProject(t)
+			env := e2eEnv(p)
+			sess := core.SessionID(fmt.Sprintf("probe-%s-%d", mode, s))
+			obsRunHook(t, bin, []string{"session-start"}, sessionStartFor(t, p.Root, sess), env)
+			e2eWaitDaemonUp(t, p.Root)
+			for i := range tools {
+				obsRunHook(t, bin, []string{"observe", "tool"}, obsToolPayload(t, p.Root, sess,
+					fmt.Sprintf("toolu_probe_%s_%d_%02d", mode, s, i), fmt.Sprintf("src/p%02d.go", i),
+					fmt.Sprintf("package p%02d\n", i)), env)
+			}
+			if mode == "quiet" {
+				require.Eventually(t, func() bool { return len(obsToolUseLines(p.Root)) >= tools },
+					obsProcessBound, obsProcessTick)
+			}
+			start := time.Now()
+			obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
+			hook := time.Since(start)
+			require.Eventually(t, func() bool {
+				b, err := os.ReadFile(paths.Long(contract.MarkerPath(p.Root)))
+				if err != nil {
+					return false
+				}
+				var m struct {
+					Session core.SessionID `json:"session"`
+				}
+				return json.Unmarshal(b, &m) == nil && m.Session == sess
+			}, obsProcessBound, 5*time.Millisecond)
+			end := time.Since(start)
+			rows = append(rows, row{mode, hook, end, len(obsToolUseLines(p.Root))})
+			e2eShutdownIfReachable(t, p.Root)
+		}
+	}
+	for _, mode := range []string{"backlog", "quiet"} {
+		var hooks []time.Duration
+		for _, r := range rows {
+			if r.mode == mode {
+				t.Logf("PROBE mode=%s flush_hook_ms=%d session_end_marker_ms=%d indexed_at_marker=%d",
+					r.mode, r.hook.Milliseconds(), r.end.Milliseconds(), r.indexed)
+				hooks = append(hooks, r.hook)
+			}
+		}
+		sort.Slice(hooks, func(i, j int) bool { return hooks[i] < hooks[j] })
+		t.Logf("PROBE mode=%s flush_hook_ms min=%d median=%d max=%d (n=%d)", mode,
+			hooks[0].Milliseconds(), hooks[len(hooks)/2].Milliseconds(), hooks[len(hooks)-1].Milliseconds(), len(hooks))
+	}
+}

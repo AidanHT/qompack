@@ -1,0 +1,10 @@
+# golangci-lint after renaming the watcher counter (G101 flagged counterSpoolWatchPasses); uncommitted on cc15f21
+# go run ./tools/devtool lint --only=golangci-lint,nomagic,sleepcheck
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+exit=0

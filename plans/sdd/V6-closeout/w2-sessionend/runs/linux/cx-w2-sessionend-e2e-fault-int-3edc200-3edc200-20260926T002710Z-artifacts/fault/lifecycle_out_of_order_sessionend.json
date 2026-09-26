@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_out_of_order_sessionend",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "76fbd2d17c6fbddf1a6e5a9263d45d4a5c4774fc3abd6765b1fbc56ef6694af0"
+  },
+  "boundary": "SessionEnd before Stop",
+  "seed_method": "tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:57 checkpoints:3 dangling:0 reported:1}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,4 @@
+# Windows full package internal/store at af3ed3c (co-loaded host; Linux gate running concurrently)
+# go test ./internal/store -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/store	391.313s
+exit=0

@@ -1,0 +1,10 @@
+run_id=cx-w2-sessionend-daemon-race2-3edc200-3edc200-20260926T002559Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend
+rev=3edc200
+commit=3edc200e51fbd1302a6148f109ecc5484be556c1
+bundle_sha256=6b8fda7cd18c238832aa2bf269012a4783854eecdcf94e9807c238c7b6932291
+host_started_utc=2026-09-26T00:26:03Z
+inner_args=--run ^(TestFlush_|TestStop_FinishesAnAcceptedSessionEnd|TestSessionRecovery_|TestSpoolWatch_|TestDrainClientSpools_|TestSpoolRetryAfter_|TestDeliveryOrder_Flush|TestDrain_ControlLinesPublishNoCaptureSidecar|TestDrainOfSpooledFlushLineDoesNotDeadlock|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun) --count 2 -- ./internal/daemon
+host_finished_utc=2026-09-26T00:27:09Z
+container_exit=0
