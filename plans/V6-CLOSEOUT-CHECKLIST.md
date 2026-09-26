@@ -33,8 +33,12 @@ start; hosted-runner fsync figures never become constants.
 | D14 | (2026-09-25) 00-ARCHITECTURE.md §2.5 amendment **ratified**: `golang.org/x/sys/unix` (exact path) joins the closed runtime-dependency list | C1.19 |
 | D15 | (2026-09-25) Hook-field size ceilings **confirmed**: degrade banner 200 host chars per quoted value, 64 for the id, whole banner under 1,000; thrash warning at most 5 warnings × 360 chars plus a counted tail, under 2,000 | C1.20 |
 | D16 | (2026-09-25) The pre-first-rotation backup Warn fires **once per daemon run** from 3/4 of the window until the first rotation. This supersedes D6's "once per store"; no new durable marker | C1.10/D6 |
+| D17 | (2026-09-26) Cold start: `EnsureRunning` **honours a fresh spawn lock** instead of starting a second daemon, and session-start's pre-send step (staging plus poll) gets a **bound so the whole hook ends inside the 15 s manifest timeout**; the exact number comes to the owner before commit | wave 5 `w5-coldstart`, follow-up to w3-startroute item (3) |
+| D18 | (2026-09-26) A session whose project root resolves to the **home directory is refused**: Qompack records nothing for it and says why (status/doctor and one host message); `~/.qompack` stays the user-global layer only | wave 5 `w5-home` |
+| D19 | (2026-09-26) Criterion changes **ratified**: §12.1 counts one chance per prompt delivery of the probe's own session sent after the probe was minted (w3-startroute, incl. its `internal/contract` scope); x13 asserts the hook's wall-clock fallback spool per arm instead of in the cross-arm equality (w4-e2eflakes `78b33a1`) | closes those needs-owner items |
+| D20 | (2026-09-26) SP08-D1: **keep the full post-write re-proof**; only pure redundancy is removed (each directory fsynced once per pass). The quiet C5.2 run decides B-C; a miss returns to the owner for re-budget or wontfix | wave 5 `w5-dirsync`; C2.3/C2.8 |
 
-Defaults taken without a separate question (owner may overrule): C1.9 host deny-rule honoring;
+Defaults taken without a separate question (owner may overrule): (2026-09-26) the §7.4 protected-path guard folds case on case-insensitive filesystems (Windows, macOS), with 8.3 short names and stream suffixes documented as out of scope for a textual guard; a delivery cut between its index record and its link keeps preserve-and-report (the replayed run does not emit the lost DAG node), documented as a known limitation; C1.9 host deny-rule honoring;
 C7.2 hosted runners report-only for fsync-bound rows (Q1 third option); pre-registration amendments
 A2–A4 (appended by `w2-eval2` before any confirmatory trial) accepted; `qompack eval` reports the
 pre-registered intention-to-treat decision (failed trials already counted as failures) and lists the
