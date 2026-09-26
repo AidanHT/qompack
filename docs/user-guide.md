@@ -210,8 +210,11 @@ whose trials were skipped, or a replay whose trials failed, "because a gate that
 evaluation which did not run is not a gate". A live run's failed trials do not by themselves make it
 inconclusive: its pre-registered decision already counts every one of them (intention to treat — a
 harness failure is scored as a failure on every outcome), so the verdict is that decision, and the
-report lists each failed trial by name with how it was counted. A metric with no declared threshold
-is printed and explicitly **not judged**, and cost never contributes to the verdict.
+report lists each failed trial by name with how it was counted. When a confirmatory run's rule
+reaches no verdict — inconclusive, or not-applicable because a trial's plugin state contradicted its
+arm — the verdict is `inconclusive` even when a passing replay is read beside it, as plain
+`qompack eval` does; a constraint regression still fails the run. A metric with no declared
+threshold is printed and explicitly **not judged**, and cost never contributes to the verdict.
 
 ## MCP tools
 

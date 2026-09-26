@@ -380,4 +380,7 @@ now reports section 8's intention-to-treat decision for a confirmatory run whose
 failures (a harness failure scored as a failure on every outcome, every other trial graded by its
 checks), and lists each failed trial by name, instead of overriding that decision with its own
 "inconclusive" (coordinator default of 2026-09-25, which the owner may overrule). Planned trials that
-never ran still leave the run without a verdict (A4).
+never ran still leave the run without a verdict (A4). When that decision is inconclusive or
+not-applicable, `qompack eval`'s verdict is inconclusive even with a passing replay read beside
+it: a replay cannot supply the pre-registered verdict the live rule did not reach (C5.5 review
+seat, 2026-09-25).
