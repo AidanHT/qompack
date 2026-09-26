@@ -460,16 +460,29 @@ func TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget(t *testing.T) 
 	req := flushAsyncRequest(dd, root, sess, orderNonce(62))
 	writeSpoolLines(t, root, "client-6262.ndjson", req) // the flush only its hook's client spool holds
 
-	// A client-spool pass, as the watcher runs one, with its budget shortened.
-	pass, cancel := context.WithTimeout(context.Background(), stopJoinProbe)
+	// A client-spool pass, as the watcher runs one. Its budget is spent the moment SessionEnd is
+	// running, by cancelling it then, rather than by a fixed timeout: a timeout short enough to expire
+	// during SessionEnd could also expire before a loaded -race host reached the line at all, and the
+	// flush would then never be replayed. An end still run inside the pass is cut off by this cancel,
+	// exactly as by the timeout.
+	pass, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	_, _ = dd.drain.Load().DrainClientSpools(pass)
+	passDone := make(chan struct{})
+	go func() {
+		defer close(passDone)
+		_, _ = dd.drain.Load().DrainClientSpools(pass)
+	}()
 	select {
 	case <-hold.entered:
 	case <-time.After(liveOrderBound):
 		require.FailNow(t, "the replayed flush never reached SessionEnd")
 	}
-	<-pass.Done() // the pass's budget is spent while SessionEnd is still running
+	cancel() // the pass's budget is spent while SessionEnd is still running
+	select {
+	case <-passDone:
+	case <-time.After(liveOrderBound):
+		require.FailNow(t, "the client-spool pass never returned once its budget was spent")
+	}
 
 	hold.open()
 	flushAsyncAwait(t, dd)
