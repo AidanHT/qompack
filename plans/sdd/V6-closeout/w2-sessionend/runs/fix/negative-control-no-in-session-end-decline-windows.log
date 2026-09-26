@@ -1,0 +1,19 @@
+# negative control: endDrainedFlush without its inSessionEnd decline (temporary edit, reverted)
+# go test ./internal/daemon -run '^TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart$' -count=1 -v
+=== RUN   TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart
+=== RUN   TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/Stop_has_closed_the_gate
+=== RUN   TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/a_session_end's_own_drain
+    flush_async_test.go:536: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:536
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/a_session_end's_own_drain
+        	Messages:   	the drain ended the session inside its own pass
+--- FAIL: TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart (0.77s)
+    --- PASS: TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/Stop_has_closed_the_gate (0.36s)
+    --- FAIL: TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/a_session_end's_own_drain (0.41s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.036s
+FAIL
+exit=1

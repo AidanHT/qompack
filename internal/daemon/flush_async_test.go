@@ -502,3 +502,40 @@ func TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged(t *testing.T) {
 	require.False(t, resp.OK, "a session end its context cut short answered OK, so its drain would acknowledge it")
 	require.NotEmpty(t, resp.Err)
 }
+
+// TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart pins where a drain still ends a replayed
+// flush inside its own pass (endDrainedFlush): once Stop has closed the ends' gate, its own drain
+// must finish what it replays before the store closes, and a drain a session end runs itself must
+// never start another end — an end whose acknowledgement failed leaves its flush for that very drain.
+func TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(dd *daemon) context.Context
+	}{
+		{"Stop has closed the gate", func(dd *daemon) context.Context {
+			dd.ends.close()
+			return context.Background()
+		}},
+		{"a session end's own drain", func(*daemon) context.Context {
+			return context.WithValue(context.Background(), sessionEndRunKey{}, true)
+		}},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dd, hold, root := flushAsyncDaemon(t)
+			hold.open()
+			dd.drainsEndSessions.Store(true)
+			ctx := tc.setup(dd)
+			sess := core.SessionID(fmt.Sprintf("sess-flush-inline-%d", i))
+			req := flushAsyncRequest(dd, root, sess, orderNonce(64+i))
+			base := fmt.Sprintf("client-%d.ndjson", 6464+i)
+			writeSpoolLines(t, root, base, req)
+
+			_, err := dd.Drain(ctx)
+			require.NoError(t, err)
+			require.Equal(t, int32(1), hold.calls.Load(), "the drain ended the session inside its own pass")
+			require.True(t, spoolWatchPublished(dd, req.Nonce), "and acknowledged the flush")
+			require.True(t, spoolWatchGone(root, base), "and released its spool")
+		})
+	}
+}
