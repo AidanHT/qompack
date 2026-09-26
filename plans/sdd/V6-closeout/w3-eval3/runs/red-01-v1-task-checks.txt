@@ -1,0 +1,67 @@
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/constraint-verbatim
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/constraint-verbatim
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/recall-user-fact
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/recall-user-fact
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/eliminated-approach
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/eliminated-approach
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/changing-requirement-format
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/changing-requirement-format
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/tool-output-recall
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/tool-output-recall
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/decision-rationale
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/decision-rationale
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/regression-guard
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/regression-guard
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/constraint-naming
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/constraint-naming
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/changing-requirement-slug
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/changing-requirement-slug
+=== RUN   TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/seed-recall
+=== PAUSE TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/seed-recall
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/constraint-verbatim
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/decision-rationale
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/changing-requirement-slug
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/constraint-naming
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/regression-guard
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/seed-recall
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/eliminated-approach
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/recall-user-fact
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/tool-output-recall
+=== CONT  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/changing-requirement-format
+=== NAME  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/seed-recall
+    liveeval_test.go:471: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3/tools/devtool/liveeval_test.go:471
+        	Error:      	Should be true
+        	Test:       	TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/seed-recall
+        	Messages:   	the untouched fixture passes every task check of seed-recall ([vets])
+=== NAME  TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/tool-output-recall
+    liveeval_test.go:471: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3/tools/devtool/liveeval_test.go:471
+        	Error:      	Should be true
+        	Test:       	TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/tool-output-recall
+        	Messages:   	the untouched fixture passes every task check of tool-output-recall ([builds])
+--- FAIL: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome (0.00s)
+    --- PASS: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/constraint-verbatim (1.76s)
+    --- PASS: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/changing-requirement-format (1.77s)
+    --- PASS: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/changing-requirement-slug (1.77s)
+    --- PASS: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/constraint-naming (1.77s)
+    --- PASS: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/recall-user-fact (1.78s)
+    --- PASS: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/decision-rationale (1.78s)
+    --- FAIL: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/seed-recall (1.83s)
+    --- FAIL: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/tool-output-recall (1.83s)
+    --- PASS: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/regression-guard (3.04s)
+    --- PASS: TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome/eliminated-approach (3.47s)
+=== RUN   TestLiveTaskSet_RegressionGuardPinnedGradesOnlyParseList
+    liveeval_test.go:495: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3/tools/devtool/liveeval_test.go:495
+        	Error:      	Should be true
+        	Test:       	TestLiveTaskSet_RegressionGuardPinnedGradesOnlyParseList
+        	Messages:   	ParseList is untouched, so pinned must pass: go test ./list -run ^TestHiddenEvalParseListPinned$ exited 1: # example.com/list/list_test [example.com/list/list.test]
+        	            	list\zz_hidden_eval_test.go:32:17: undefined: list.JoinList
+        	            	list\zz_hidden_eval_test.go:35:17: undefin…
+--- FAIL: TestLiveTaskSet_RegressionGuardPinnedGradesOnlyParseList (1.29s)
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	6.256s
+FAIL
+exit=1

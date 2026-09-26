@@ -1,0 +1,5 @@
+PASS      github.com/qompack/qompack/internal/eval  (pass=407 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/commands  (pass=115 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=371 fail=0 skip=0)
+PASS      github.com/qompack/qompack/tools/devtool  (pass=333 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)

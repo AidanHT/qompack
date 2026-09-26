@@ -1,0 +1,27 @@
+=== RUN   TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed
+    eval_live_test.go:213: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3/internal/commands/eval_live_test.go:213
+        	Error:      	Not equal: 
+        	            	expected: "pass"
+        	            	actual  : "inconclusive"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(commands.EvalVerdict) (len=4) "pass"
+        	            	+(commands.EvalVerdict) (len=12) "inconclusive"
+        	            	 
+        	Test:       	TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed
+        	Messages:   	the pre-registered decision stands
+--- FAIL: TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed (0.00s)
+=== RUN   TestEval_LiveNotConfirmatoryOnASupersededTaskSet
+    eval_live_test.go:262: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3/internal/commands/eval_live_test.go:262
+        	Error:      	Should be false
+        	Test:       	TestEval_LiveNotConfirmatoryOnASupersededTaskSet
+--- FAIL: TestEval_LiveNotConfirmatoryOnASupersededTaskSet (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/commands	1.092s
+FAIL
+exit=1
