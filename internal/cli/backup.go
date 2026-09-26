@@ -81,6 +81,16 @@ func runBackup(ctx context.Context, env Env, action string, args []string, out, 
 	if err != nil {
 		return err
 	}
+	// D18, for both ends and before the source is locked: the home directory's .qompack is the
+	// user-global layer, which is neither a store to back up nor a destination to restore one into.
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		return fmt.Errorf("backup: source: %w", refused)
+	}
+	if action == "restore" {
+		if refused := refuseHomeRoot(env, *dest); refused != nil {
+			return fmt.Errorf("backup: destination: %w", refused)
+		}
+	}
 	if !isDir(paths.Of(root).Dot) {
 		return errors.New("backup: source project has no existing store")
 	}

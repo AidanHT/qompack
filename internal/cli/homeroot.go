@@ -4,6 +4,7 @@ import (
 	"io"
 	"slices"
 
+	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -67,4 +68,39 @@ func writeRefusedHookOutput(op ipc.Op, args []string, out io.Writer) error {
 		o = hookio.Output{SystemMessage: homeRootNotice}
 	}
 	return hookio.WriteOutput(out, hookio.ConformOutput(hookEvent(op, args), o))
+}
+
+// loadUserGlobalConfig loads the configuration for a refused root: defaults, the user-global file,
+// the environment and --set flags, with no project layer, because the home directory has none. It
+// reports nothing and persists nothing: LoadConfigAndReport would write state/config-violations.json
+// under the root, which is the user-global layer's own directory.
+//
+// config.Load has no "no project layer" mode, so this names the user's home as both roots. The
+// project file it then reads is the user file itself (both are <home>/.qompack/config.json), and
+// applying one file twice is idempotent leaf by leaf, so the values are exactly the user layer's.
+// Only the second pass's labels differ, and they are put back: every leaf that pass set is a
+// user-file leaf, and every warning it raised repeats one the first pass raised.
+func loadUserGlobalConfig(env Env) (config.Config, config.Provenance, []config.Warning, error) {
+	home := homeDir(env)
+	cfg, prov, warns, err := config.Load(config.Env{
+		ProjectRoot: home, HomeDir: home, Getenv: env.Getenv, Flags: env.Set,
+	})
+	if err != nil {
+		return cfg, prov, warns, err
+	}
+	for k, src := range prov {
+		if src.Origin == config.OriginProjectFile {
+			src.Origin = config.OriginUserFile
+			prov[k] = src
+		}
+	}
+	seen := make(map[config.Warning]bool, len(warns))
+	unique := warns[:0]
+	for _, w := range warns {
+		if !seen[w] {
+			seen[w] = true
+			unique = append(unique, w)
+		}
+	}
+	return cfg, prov, unique, nil
 }
