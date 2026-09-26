@@ -1,0 +1,4 @@
+# Windows full package internal/cli at 53f290b (co-loaded host)
+# go test ./internal/cli -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/cli	15.872s
+exit=0
