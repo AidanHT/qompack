@@ -29,8 +29,11 @@ var homeEnvKeys = []string{"HOME", "USERPROFILE"}
 
 // HomeDirs returns the distinct, non-empty home directories getenv names, HOME first. getenv is
 // injected for the reason Resolve's is: tests and the CLI hand it the lookup they already use, so
-// this never reads the process environment itself.
+// this never reads the process environment itself. A nil getenv names no home.
 func HomeDirs(getenv func(string) string) []string {
+	if getenv == nil {
+		return nil
+	}
 	var out []string
 	for _, k := range homeEnvKeys {
 		if v := getenv(k); v != "" && !slices.Contains(out, v) {
