@@ -132,10 +132,13 @@ answer carried and owes its banner again (the hook's delivery nonce identifies t
 `SessionStart` the host fired before a pending `PreCompact` does not resolve
 `session_start.source_compact`, which stays pending for the start that follows the `PreCompact`. A
 replayed `PreCompact` still seals its checkpoint, but re-arms that obligation only if no `SessionStart`
-of the session has arrived since the hook fired. A replayed prompt whose hook ran before the current
-probe was minted cannot count as a miss for it. Each comparison is between the hooks' own timestamps. A replay is not a served request either, so
-it does not release the daemon's one re-drain after its first served request
-(`internal/daemon/handlers.go`, `handleSessionStart` and `handleCheckpoint`).
+of the session has arrived since the hook fired. A prompt counts as a miss for the current probe
+only if it is a prompt of the session the probe was minted for, sent after it was minted: a replayed
+prompt from before the probe, another window's prompt, or a prompt of a session whose own start was
+replayed and minted nothing never had a chance to find it. Each time comparison is between the hooks'
+own timestamps. A replay is not a served request either, so it does not release the daemon's one
+re-drain after its first served request (`internal/daemon/handlers.go`, `handleSessionStart`,
+`handleCheckpoint` and `sentinelMissCounts`).
 
 ## 2. Write set and retention
 
@@ -412,12 +415,14 @@ not decode; a checkpoint that fails verification is stepped over, and the payloa
 it) and a build that fails or panics. Nothing is built on a store that cannot be read, and the drop
 report records the rehydration as never built — one `rehydration` entry, `not delivered: …`, naming
 the cause and where the checkpoints are, with no items and no tokens — so `dropped()` never describes
-an earlier rehydration as this one. A rehydration that finishes after its answer went out records its
-drop report as undelivered, so `dropped()` says so first; so does one built when the daemon replays a
-compact `SessionStart` from a hook client's spool, since the hook had already answered without it. The hook client writes
-the same note when no answer arrives at all (a missed deadline, an unreachable daemon), wherever a
-rehydration was due; under degraded-passive or `runtime.mode` off or passive, with the daemon
-disabled, or with the reinjection switch below off, `{}` stays the answer, because nothing was due.
+an earlier rehydration as this one; for a replayed compaction it says the hook answered without the
+daemon rather than that the model received the note. A rehydration that finishes after its answer
+went out records its drop report as undelivered, so `dropped()` says so first; so does one built when
+the daemon replays a compact `SessionStart` from a hook client's spool, since the hook had already
+answered without it. The hook client writes the same note when no answer arrives at all (a missed
+deadline, an unreachable daemon), wherever a rehydration was due; under degraded-passive or
+`runtime.mode` off or passive, with the daemon disabled, or with the reinjection switch below off,
+`{}` stays the answer, because nothing was due.
 Measured with `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` under concurrent
 same-session ingest and an fsync co-load, the compact answer's p99 went from 1.85 s to 0.66 s
 (`plans/sdd/V6-closeout/w2-lifetime/runs/`); the route's phases are in `metrics/latency.json` as
