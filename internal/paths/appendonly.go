@@ -49,13 +49,20 @@ const (
 	protectedPinsDir        = "pins"
 )
 
-// mayBeProtected reports whether p could be a protected path under ANY project root, from p's text
-// alone. False is a proof, not a guess: IsProtected matches only a path whose position relative to
-// <root>/.qompack begins with checkpoints/ or pins/ or is sketches/tried.bloom; filepath.Rel returns
-// that relative position as a literal suffix of filepath.Clean(p); and Clean only removes elements
-// and separators, so every element of its result appears verbatim in p. A p containing none of the
-// three names therefore cannot be protected, whatever stores ownerOf would find, and OpenFile need not
-// walk p's ancestors — up to one stat each — to find out. True means only that the walk must run.
+// mayBeProtected reports whether p, an ABSOLUTE path, could be a protected path under ANY project
+// root, from p's text alone. False is a proof, not a guess. ownerOf asks each store about
+// filepath.Abs(p); IsProtected matches only a path whose position relative to <root>/.qompack
+// begins with checkpoints/ or pins/ or is sketches/tried.bloom; filepath.Rel returns that relative
+// position as a literal suffix of the cleaned path it is given; and for an absolute p, Abs only
+// cleans — on Windows after full-path normalization, which converts separators, drops "." and ".."
+// elements and strips trailing dots and spaces (Long's comment has the list) — so every element of
+// its result appears within p's text. A p containing none of the three names therefore cannot be
+// protected, whatever stores ownerOf would find, and OpenFile need not walk p's ancestors to find
+// out. True means only that the walk must run.
+//
+// A RELATIVE p proves nothing: Abs takes its leading elements from the working directory, not from
+// its text, and "invariants.jsonl" opened from inside pins/ is the pins log. OpenFile makes a
+// relative p absolute before asking.
 func mayBeProtected(p string) bool {
 	return strings.Contains(p, protectedCheckpointsDir) || strings.Contains(p, protectedPinsDir) ||
 		strings.Contains(p, protectedBloomName)
@@ -68,7 +75,15 @@ func mayBeProtected(p string) bool {
 // refuses any write that is neither an append (O_APPEND) nor an exclusive create (O_EXCL) — the
 // two operations the invariant actually allows.
 func OpenFile(p string, flag int, perm fs.FileMode) (*os.File, error) {
-	if !mayBeProtected(p) {
+	measured := p
+	if !filepath.IsAbs(p) {
+		// mayBeProtected reasons only over an absolute path. A relative p that cannot be made
+		// absolute is one ownerOf guards nothing for either, so its own text answers as well.
+		if abs, err := filepath.Abs(p); err == nil {
+			measured = abs
+		}
+	}
+	if !mayBeProtected(measured) {
 		// No root can make p protected (mayBeProtected), so the guard below could only pass.
 		// Skipping the ancestor walk is what keeps the store's per-object staging open at one
 		// syscall rather than one per directory level up to the project root.
