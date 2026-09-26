@@ -1,0 +1,22 @@
+=== RUN   TestSentinelScan_ARetriedPromptDeliveryIsOneChance
+    sentinel_scan_order_test.go:183: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/sentinel_scan_order_test.go:183
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestSentinelScan_ARetriedPromptDeliveryIsOneChance
+        	Messages:   	one prompt, retried, is one chance
+--- FAIL: TestSentinelScan_ARetriedPromptDeliveryIsOneChance (0.20s)
+=== RUN   TestSentinelScan_APromptRedeliveredAfterARestartIsOneChance
+    sentinel_scan_order_test.go:209: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/sentinel_scan_order_test.go:209
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestSentinelScan_APromptRedeliveredAfterARestartIsOneChance
+        	Messages:   	a redelivered prompt spends no second chance
+--- FAIL: TestSentinelScan_APromptRedeliveredAfterARestartIsOneChance (0.18s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.672s
+FAIL
+exit=1

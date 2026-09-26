@@ -1,0 +1,21 @@
+run_id=cx-w3-startroute-flushpass-alone-d9393a0-20260926T030617Z
+commit=d9393a086b4e1b2265202b7d809fc8dbd3966063
+tree=a9d355c10ca0f4bfa71966504f0909c298463225
+bundle_sha256=eaba75b39f9691b9cc5134b550e4c736604dcd9e25208637c135c963f8f0c354
+started_utc=2026-09-26T03:06:30Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=10 timeout=30m gomaxprocs=4 coload=0
+run=^TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T03:12:00Z

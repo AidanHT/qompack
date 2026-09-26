@@ -1,0 +1,55 @@
+=== RUN   TestSessionStartCompact_UnderSameSessionIngest
+    sessionstart_compact_load_test.go:328: round 0: 109.8103ms rehydration
+    sessionstart_compact_load_test.go:328: round 1: 126.3337ms rehydration
+    sessionstart_compact_load_test.go:328: round 2: 116.3734ms rehydration
+    sessionstart_compact_load_test.go:335: compact SessionStart wall (n=3): p50=116.3734ms p95=126.3337ms p99=126.3337ms max=126.3337ms answers=map[rehydration:3]
+    sessionstart_compact_load_test.go:335:   checkpoint.precompact              n=3     p50=122.88ms   p95=131.072ms  p99=131.072ms  max=123.997ms
+    sessionstart_compact_load_test.go:335:   checkpoint_finalize                n=3     p50=122.88ms   p95=147.456ms  p99=147.456ms  max=132.344ms
+    sessionstart_compact_load_test.go:335:   l0_ingest                          n=25    p50=24.576ms   p95=36.864ms   p99=180.224ms  max=164.462ms
+    sessionstart_compact_load_test.go:335:   l0_process                         n=6     p50=212.992ms  p95=229.376ms  p99=229.376ms  max=226.306ms
+    sessionstart_compact_load_test.go:335:   negknow.rebuild                    n=1     p50=2.816ms    p95=2.816ms    p99=2.816ms    max=2.796ms
+    sessionstart_compact_load_test.go:335:   negknow.refresh                    n=1     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   observer.prompt                    n=2     p50=2µs        p95=196.608ms  p99=196.608ms  max=181.186ms
+    sessionstart_compact_load_test.go:335:   observer.session_start             n=4     p50=73.728ms   p95=163.84ms   p99=163.84ms   max=159.478ms
+    sessionstart_compact_load_test.go:335:   observer.stop                      n=25    p50=180.224ms  p95=212.992ms  p99=360.448ms  max=348.04ms
+    sessionstart_compact_load_test.go:335:   rehydrate.build                    n=3     p50=576µs      p95=704µs      p99=704µs      max=669µs
+    sessionstart_compact_load_test.go:335:   rehydrate.deps                     n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   rehydrate.latest                   n=3     p50=576µs      p95=576µs      p99=576µs      max=551µs
+    sessionstart_compact_load_test.go:335:   rehydrate.record                   n=3     p50=18.432ms   p95=22.528ms   p99=22.528ms   max=22.451ms
+    sessionstart_compact_load_test.go:335:   rehydrate.selection                n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   session_start.compact_wait         n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   session_start.contract             n=4     p50=81.92ms    p95=98.304ms   p99=98.304ms   max=93.125ms
+    sessionstart_compact_load_test.go:335:   session_start.finish               n=4     p50=24.576ms   p95=30.72ms    p99=30.72ms    max=29.647ms
+    sessionstart_compact_load_test.go:335:   session_start.route                n=4     p50=106.496ms  p95=122.88ms   p99=122.88ms   max=122.772ms
+    sessionstart_compact_load_test.go:335:   session_start.seam                 n=4     p50=2µs        p95=576µs      p99=576µs      max=542µs
+--- PASS: TestSessionStartCompact_UnderSameSessionIngest (5.77s)
+=== RUN   TestSessionStartCompact_UnansweredIsTheDeferredNote
+--- PASS: TestSessionStartCompact_UnansweredIsTheDeferredNote (0.07s)
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=startup
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=resume
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=clear
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/daemon_disabled
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/degraded_passive
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=passive
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=off
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/reinjection_switched_off
+--- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue (0.59s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=startup (0.05s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=resume (0.06s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=clear (0.06s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source= (0.06s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/daemon_disabled (0.05s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/degraded_passive (0.08s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=passive (0.08s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=off (0.08s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/reinjection_switched_off (0.07s)
+=== RUN   TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole
+=== RUN   TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole/the_checkpoint_store_could_not_be_read
+=== RUN   TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole/building_it_failed
+--- PASS: TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole (0.16s)
+    --- PASS: TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole/the_checkpoint_store_could_not_be_read (0.09s)
+    --- PASS: TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole/building_it_failed (0.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	6.830s

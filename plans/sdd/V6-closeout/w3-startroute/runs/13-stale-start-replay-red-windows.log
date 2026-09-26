@@ -1,0 +1,12 @@
+=== RUN   TestSessionStartReplay_AStartFromBeforeThePreCompactLeavesItsObligationPending
+    checkpoint_replay_test.go:79: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/checkpoint_replay_test.go:79
+        	Error:      	Not equal: 
+        	            	expected: 0x0
+        	            	actual  : 0x1
+        	Test:       	TestSessionStartReplay_AStartFromBeforeThePreCompactLeavesItsObligationPending
+        	Messages:   	a start fired before the PreCompact must not be taken for the start it announced
+--- FAIL: TestSessionStartReplay_AStartFromBeforeThePreCompactLeavesItsObligationPending (0.15s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.410s
+FAIL

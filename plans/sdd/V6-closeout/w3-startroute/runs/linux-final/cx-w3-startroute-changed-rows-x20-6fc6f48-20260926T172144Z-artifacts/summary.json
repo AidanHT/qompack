@@ -1,0 +1,23 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/contract": {
+   "result": "pass",
+   "passed": 40,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1100,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 300,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

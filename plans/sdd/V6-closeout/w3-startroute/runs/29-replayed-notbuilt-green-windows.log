@@ -1,0 +1,87 @@
+=== RUN   TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping
+--- PASS: TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping (0.35s)
+=== RUN   TestSessionStartCompact_BookkeepingGateHonoursCancellation
+--- PASS: TestSessionStartCompact_BookkeepingGateHonoursCancellation (0.03s)
+=== RUN   TestSessionStartCompact_UnreadableCheckpointStoreIsAnsweredWithTheNote
+--- PASS: TestSessionStartCompact_UnreadableCheckpointStoreIsAnsweredWithTheNote (0.05s)
+=== RUN   TestSessionStartCompact_PanickingRehydrationServiceIsAnsweredWithTheNote
+--- PASS: TestSessionStartCompact_PanickingRehydrationServiceIsAnsweredWithTheNote (0.04s)
+=== RUN   TestSessionStartCompact_FailedRehydrationSeamIsAnsweredWithTheNote
+--- PASS: TestSessionStartCompact_FailedRehydrationSeamIsAnsweredWithTheNote (0.04s)
+=== RUN   TestSessionStartCompact_DegradedPassiveAnswersNothingForABrokenStore
+--- PASS: TestSessionStartCompact_DegradedPassiveAnswersNothingForABrokenStore (0.04s)
+=== RUN   TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest
+    session_start_compact_test.go:174: answered in 26.2555ms with the session's lock held
+--- PASS: TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest (0.13s)
+=== RUN   TestSessionStartCompact_LateRehydrationIsAnsweredWithTheDeferredNote
+--- PASS: TestSessionStartCompact_LateRehydrationIsAnsweredWithTheDeferredNote (0.21s)
+=== RUN   TestSessionStartCompact_ReadyRehydrationIsTheAnswer
+--- PASS: TestSessionStartCompact_ReadyRehydrationIsTheAnswer (0.04s)
+=== RUN   TestSessionStartCompact_PanickingRehydrationIsAnsweredAtOnce
+--- PASS: TestSessionStartCompact_PanickingRehydrationIsAnsweredAtOnce (0.04s)
+=== RUN   TestSessionStartCompact_StoppingDaemonAnswersWithTheNote
+--- PASS: TestSessionStartCompact_StoppingDaemonAnswersWithTheNote (0.03s)
+=== RUN   TestSessionStartCompact_PassiveModeStillActsOnNothing
+--- PASS: TestSessionStartCompact_PassiveModeStillActsOnNothing (0.04s)
+=== RUN   TestCompactDeferredNote_FitsTheHostCap
+--- PASS: TestCompactDeferredNote_FitsTheHostCap (0.00s)
+=== RUN   TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered
+--- PASS: TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered (0.03s)
+=== RUN   TestSessionStartCompact_LiveRequestIsNotAReplay
+--- PASS: TestSessionStartCompact_LiveRequestIsNotAReplay (0.03s)
+=== RUN   TestService_CompactEmitsAdditionalContext
+--- PASS: TestService_CompactEmitsAdditionalContext (0.04s)
+=== RUN   TestService_ReinjectionKillSwitchEmitsNothing
+--- PASS: TestService_ReinjectionKillSwitchEmitsNothing (0.03s)
+=== RUN   TestService_DegradedPassiveEmitsNothing
+--- PASS: TestService_DegradedPassiveEmitsNothing (0.03s)
+=== RUN   TestService_CheckpointNotFoundStillEmits
+--- PASS: TestService_CheckpointNotFoundStillEmits (0.04s)
+=== RUN   TestService_CheckpointErrorAnswersWithTheDeferredNote
+--- PASS: TestService_CheckpointErrorAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_UnreadableCheckpointManifestAnswersWithTheDeferredNote
+--- PASS: TestService_UnreadableCheckpointManifestAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_UndecodableCheckpointAnswersWithTheDeferredNote
+--- PASS: TestService_UndecodableCheckpointAnswersWithTheDeferredNote (0.06s)
+=== RUN   TestService_UnverifiableCheckpointStillRehydratesWithoutIt
+--- PASS: TestService_UnverifiableCheckpointStillRehydratesWithoutIt (0.05s)
+=== RUN   TestService_ResumedOrForkedSessionInheritsProjectCheckpoint
+--- PASS: TestService_ResumedOrForkedSessionInheritsProjectCheckpoint (0.04s)
+=== RUN   TestService_FreshServiceInstanceNeedsNoWarmup
+--- PASS: TestService_FreshServiceInstanceNeedsNoWarmup (0.04s)
+=== RUN   TestService_RepeatedCompactionIsIndependentAndDoesNotReingestItsOwnInjection
+--- PASS: TestService_RepeatedCompactionIsIndependentAndDoesNotReingestItsOwnInjection (0.05s)
+=== RUN   TestService_DuplicateCompactEventIsHandledConsistently
+--- PASS: TestService_DuplicateCompactEventIsHandledConsistently (0.05s)
+=== RUN   TestService_OutOfOrderCheckpointDeliveryReflectsWhateverIsCurrentlyLatest
+--- PASS: TestService_OutOfOrderCheckpointDeliveryReflectsWhateverIsCurrentlyLatest (0.06s)
+=== RUN   TestService_MissingSessionIDDoesNotPanic
+--- PASS: TestService_MissingSessionIDDoesNotPanic (0.05s)
+=== RUN   TestService_PanicRecovered
+--- PASS: TestService_PanicRecovered (0.04s)
+=== RUN   TestService_RecordsState
+--- PASS: TestService_RecordsState (0.05s)
+=== RUN   TestService_StateWriteFailureStillEmits
+    rehydrate_service_test.go:915: platform: a directory mode bit does not deny file creation on Windows
+--- SKIP: TestService_StateWriteFailureStillEmits (0.00s)
+=== RUN   TestService_ClearResetsState
+--- PASS: TestService_ClearResetsState (0.04s)
+=== RUN   TestService_ClearOnMissingStateIsNoOp
+--- PASS: TestService_ClearOnMissingStateIsNoOp (0.26s)
+=== RUN   TestService_DeclaresAdditionalContextProducer
+--- PASS: TestService_DeclaresAdditionalContextProducer (0.10s)
+=== RUN   TestService_OffersTheAnswerThenRecordsIt
+--- PASS: TestService_OffersTheAnswerThenRecordsIt (0.05s)
+=== RUN   TestService_AbandonedRehydrationRecordsItselfUndelivered
+--- PASS: TestService_AbandonedRehydrationRecordsItselfUndelivered (0.04s)
+=== RUN   TestService_RouteRehydratesMarkBuildsNothing
+--- PASS: TestService_RouteRehydratesMarkBuildsNothing (0.03s)
+=== RUN   TestService_ReplayedRehydrationRecordsWhyItWasNotDelivered
+--- PASS: TestService_ReplayedRehydrationRecordsWhyItWasNotDelivered (0.04s)
+=== RUN   TestService_ReplayedUnbuildableRehydrationSaysWhatTheHookAnswered
+--- PASS: TestService_ReplayedUnbuildableRehydrationSaysWhatTheHookAnswered (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	2.845s
+exit=0

@@ -1,0 +1,10 @@
+run_id=cx-w3-startroute-flushpass-x10-6fc6f48-20260926T172110Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute
+rev=6fc6f48
+commit=6fc6f48faafbb1534a239857e9f43da0d01bb965
+bundle_sha256=1f63653922d6bbbc69a2bad6c8a6a09e6580503f07bf375ec6419a1cbd021560
+host_started_utc=2026-09-26T17:21:16Z
+inner_args=--run ^TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget$ --count 10 -- ./internal/daemon
+host_finished_utc=2026-09-26T17:21:43Z
+container_exit=0
