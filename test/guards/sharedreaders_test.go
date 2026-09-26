@@ -111,6 +111,15 @@ var sharedReaders = []sharedReader{
 			"caused the abandoned lock it was waiting on (v1StopDaemonAndWaitGone measured it)",
 	},
 	{
+		file:  "test/e2e/faultinject_test.go",
+		fn:    "e2eSpawnInFlight",
+		holds: "run/spawn.lock",
+		why: "daemon.removeSpawnLockFile, the spawned daemon's single, unretried os.Remove of the marker " +
+			"once it listens. e2eAwaitSpawnInFlight polls through this helper for exactly that daemon " +
+			"(e2eShutdownIfReachable's spawn-in-flight wait), and a remove its read made fail leaves a " +
+			"marker that suppresses every later lazy spawn until it ages out of ipc's spawnLockStaleAfter",
+	},
+	{
 		file: "internal/store/backup.go",
 		fn:   "backupFileDigest",
 		// refuseIfTheProjectMoved delegates the actual open/read here. This streams
