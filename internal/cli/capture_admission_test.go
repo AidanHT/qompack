@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -88,7 +89,7 @@ func TestHookCapture_RefusesBeforeSpoolAndDaemonStart(t *testing.T) {
 			started := false
 			raw, err := json.Marshal(map[string]any{"cwd": root, "prompt": admissionSecret})
 			require.NoError(t, err)
-			err = doHook(hookSpec{op: ipc.OpObservePrompt, preSend: func(string, string, ipc.State, core.Clock) {
+			err = doHook(hookSpec{op: ipc.OpObservePrompt, preSend: func(string, string, ipc.State, core.Clock, time.Time) {
 				started = true
 			}})(context.Background(), Env{
 				Getenv: noEnv, HomeDir: t.TempDir(), Stdin: bytes.NewReader(raw), Clock: testClock(),
