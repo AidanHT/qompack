@@ -1,0 +1,8 @@
+== go run -modfile=tools/pinned/go.mod golangci-lint run ./test/e2e/...
+golangci exit=0
+== nomagic ./test/e2e/...
+nomagic exit=0
+== fmt-check
+fmt-check exit=0
+== go vet ./test/e2e
+vet exit=0

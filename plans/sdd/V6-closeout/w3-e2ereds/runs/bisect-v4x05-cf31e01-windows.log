@@ -1,0 +1,12 @@
+=== RUN   TestV4_TombstoneToRecallToExpandRoundTrip
+    v4_x05_test.go:180: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3e2e/cf31e01/test/e2e/v4_x05_test.go:180
+        	Error:      	Received unexpected error:
+        	            	qompack: append-only violation: observation sha256:e0e30336ccfd6f319ddd78fe60896ccf0d963cc2dcffa3d7d3dfb0a84a7a40e7 already reserved for a different intent
+        	Test:       	TestV4_TombstoneToRecallToExpandRoundTrip
+        	Messages:   	the store must accept the record; authorization is a RETRIEVAL-time gate, not a write gate
+--- FAIL: TestV4_TombstoneToRecallToExpandRoundTrip (4.20s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	4.448s
+FAIL
+exit=1
