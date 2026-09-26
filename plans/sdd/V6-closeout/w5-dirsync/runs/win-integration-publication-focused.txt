@@ -1,0 +1,18 @@
+# HEAD b1935ee (code head b1935ee), Windows, co-loaded host
+# go test ./test/integration -run '^(TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites|TestIntegration_GCNeverCollectsALiveRootUnderIngest|TestIntegration_ObserverKeepRawPutsProveTheirDeltaRoundTrip|TestIntegration_HookEventThroughDaemonToStore|TestIntegration_SpooledEventsSurviveToTheStore|TestIntegration_SupersessionMarksEarlierReadThroughDAG)$' -count=1 -v -timeout=30m
+=== RUN   TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites
+    appendonly_test.go:600: phase A: 2 idle ticks completed concurrently with the writers
+--- PASS: TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites (35.78s)
+=== RUN   TestIntegration_GCNeverCollectsALiveRootUnderIngest
+--- PASS: TestIntegration_GCNeverCollectsALiveRootUnderIngest (61.67s)
+=== RUN   TestIntegration_HookEventThroughDaemonToStore
+--- PASS: TestIntegration_HookEventThroughDaemonToStore (6.82s)
+=== RUN   TestIntegration_SupersessionMarksEarlierReadThroughDAG
+--- PASS: TestIntegration_SupersessionMarksEarlierReadThroughDAG (0.27s)
+=== RUN   TestIntegration_SpooledEventsSurviveToTheStore
+--- PASS: TestIntegration_SpooledEventsSurviveToTheStore (11.08s)
+=== RUN   TestIntegration_ObserverKeepRawPutsProveTheirDeltaRoundTrip
+--- PASS: TestIntegration_ObserverKeepRawPutsProveTheirDeltaRoundTrip (2.70s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	118.761s
+go_test_exit=0

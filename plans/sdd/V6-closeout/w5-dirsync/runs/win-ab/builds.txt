@@ -1,0 +1,4 @@
+base = git archive 90e1db3
+new  = git archive b1935ee180be6877bb7f3239d53e80f73c73d2ec (w5-dirsync code head)
+binaries: go test -c ./internal/observer in each tree (Windows, go1.26.6)
+run: sh ../ab_win.sh 12 <dir> 10x; summary: python ../ab_pairs.py <dir> (w4-syncs/runs/ab_pairs.py, unchanged)

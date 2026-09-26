@@ -1,0 +1,10 @@
+# Temporary diagnostic (not a repo test): Go's File.Sync on a Windows directory handle.
+# Source: winprobe-main.go.txt beside this file; run with: go run . (module toolchain go1.26.6)
+goos windows go1.26.6
+os.Open(dir): err=<nil>
+  (*File).Sync on read-only dir handle: err=sync C:\Users\Quant\AppData\Local\Temp\dirsync-probe-2047444482: Access is denied.
+  errno=5
+os.OpenFile(dir, O_RDWR): err=open C:\Users\Quant\AppData\Local\Temp\dirsync-probe-2047444482: is a directory
+CreateFile(dir, GENERIC_WRITE, BACKUP_SEMANTICS): err=<nil>
+  FlushFileBuffers(dir handle): err=<nil>
+exit=0

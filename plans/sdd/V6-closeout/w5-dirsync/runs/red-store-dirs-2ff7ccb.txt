@@ -1,16 +1,25 @@
-# RED: tree = 2ff7ccb + the new directory-count test (uncommitted), Windows
-# go test ./internal/store -run '^TestSyncPublication_SyncsEachDirectoryOncePerPass$' -count=1 -v
+# RED tree: git archive 2ff7ccb (counting seam, pre-fix per-object directory fsyncs) + HEAD's internal/store/publication_barriers_test.go (minus TestPublicationDirs_KeepsEachDirectoryOnceInTheOrderFirstReached, which unit-tests a helper the fix adds) + HEAD's internal/observer/publication_barriers_test.go + the pubSyncDir seam routed through the pre-fix loop (no behaviour change)
+# Windows; go test ./internal/store -run '^(TestSyncPublication_CountsAFileBarrierPerObjectAndIndex|TestSyncPublication_SyncsEachDirectoryOncePerPass|TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce)$' -count=1 -v
+=== RUN   TestSyncPublication_CountsAFileBarrierPerObjectAndIndex
+--- PASS: TestSyncPublication_CountsAFileBarrierPerObjectAndIndex (2.35s)
 === RUN   TestSyncPublication_SyncsEachDirectoryOncePerPass
-    publication_barriers_test.go:78: closure: 87 objects in 87 leaves under 74 fanouts; 163 directory fsyncs per pass (262 at three per object)
-    publication_barriers_test.go:84: 
-        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/internal/store/publication_barriers_test.go:84
+    publication_barriers_test.go:79: closure: 87 objects in 87 leaves under 74 fanouts; 163 directory fsyncs per pass (262 at three per object)
+    publication_barriers_test.go:85: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/dirsync/red-2ff7ccb/internal/store/publication_barriers_test.go:85
         	Error:      	Not equal: 
         	            	expected: 163
         	            	actual  : 262
         	Test:       	TestSyncPublication_SyncsEachDirectoryOncePerPass
         	Messages:   	pass 1: each directory holding a closure object is fsynced once, then index/
---- FAIL: TestSyncPublication_SyncsEachDirectoryOncePerPass (0.77s)
+--- FAIL: TestSyncPublication_SyncsEachDirectoryOncePerPass (1.22s)
+=== RUN   TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce
+    publication_barriers_test.go:118: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/dirsync/red-2ff7ccb/internal/store/publication_barriers_test.go:118
+        	Error:      	Should be false
+        	Test:       	TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce
+        	Messages:   	pass 1: C:\Users\Quant\AppData\Local\Temp\TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce1993375218\001\project\.qompack\objects is fsynced twice
+--- FAIL: TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce (1.14s)
 FAIL
-FAIL	github.com/qompack/qompack/internal/store	0.997s
+FAIL	github.com/qompack/qompack/internal/store	5.025s
 FAIL
 go_test_exit=1

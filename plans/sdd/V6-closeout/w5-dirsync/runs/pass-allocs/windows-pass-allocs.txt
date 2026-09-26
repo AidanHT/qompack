@@ -1,0 +1,28 @@
+# side=base (base = git archive 90e1db3, new = git archive b1935ee; each + pass-allocs/tempdiag_passallocs_test.go.txt as internal/store/tempdiag_passallocs_test.go), Windows
+# go test ./internal/store -run '^TestTempDiagSyncPublicationPassAllocs$' -count=3 -v
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=windows objects=87 allocs/pass=4190.0 bytes/pass=960188
+--- PASS: TestTempDiagSyncPublicationPassAllocs (30.72s)
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=windows objects=87 allocs/pass=4190.0 bytes/pass=970400
+--- PASS: TestTempDiagSyncPublicationPassAllocs (30.47s)
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=windows objects=87 allocs/pass=4191.0 bytes/pass=932380
+--- PASS: TestTempDiagSyncPublicationPassAllocs (33.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	94.458s
+go_test_exit=0
+# side=new (base = git archive 90e1db3, new = git archive b1935ee; each + pass-allocs/tempdiag_passallocs_test.go.txt as internal/store/tempdiag_passallocs_test.go), Windows
+# go test ./internal/store -run '^TestTempDiagSyncPublicationPassAllocs$' -count=3 -v
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=windows objects=87 allocs/pass=4182.0 bytes/pass=937226
+--- PASS: TestTempDiagSyncPublicationPassAllocs (33.88s)
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=windows objects=87 allocs/pass=4182.0 bytes/pass=950080
+--- PASS: TestTempDiagSyncPublicationPassAllocs (42.99s)
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=windows objects=87 allocs/pass=4182.0 bytes/pass=931618
+--- PASS: TestTempDiagSyncPublicationPassAllocs (45.83s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	122.918s
+go_test_exit=0

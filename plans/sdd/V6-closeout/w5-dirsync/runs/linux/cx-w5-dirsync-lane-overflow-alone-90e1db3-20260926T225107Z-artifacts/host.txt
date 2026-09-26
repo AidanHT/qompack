@@ -1,0 +1,10 @@
+run_id=cx-w5-dirsync-lane-overflow-alone-90e1db3-20260926T225107Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync
+rev=90e1db3
+commit=90e1db3016c4ebe5dc255fb16d356dd8857a87da
+bundle_sha256=c45eea800c2dd8fa34ce970b8c1511ecf41af0ccb29e4abf18279fbf58dd09b6
+host_started_utc=2026-09-26T22:51:33Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 10 -- ./internal/daemon
+host_finished_utc=2026-09-26T22:52:17Z
+container_exit=0

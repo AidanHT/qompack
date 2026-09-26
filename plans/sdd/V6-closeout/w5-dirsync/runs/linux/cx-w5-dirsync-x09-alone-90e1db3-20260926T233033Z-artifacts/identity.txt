@@ -1,0 +1,21 @@
+run_id=cx-w5-dirsync-x09-alone-90e1db3-20260926T233033Z
+commit=90e1db3016c4ebe5dc255fb16d356dd8857a87da
+tree=2bb3e25d9e123c14866d4d75e0cae14c1649f896
+bundle_sha256=a047588d5a4bf6833a25a35f0766559073bdc41eaa5ea41dbe5f8a96c48e8039
+started_utc=2026-09-26T23:30:43Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=2 timeout=30m gomaxprocs=4 coload=0
+run=^TestV3_LiveSessionWriteSetAndAppendOnly$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T23:33:19Z
