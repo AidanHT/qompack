@@ -1,0 +1,19 @@
+#!/bin/sh
+# w3-paths: Windows full runs of every touched package and every paths.WriteAtomic caller package,
+# one package at a time, at the worktree's HEAD. go test's exit code is captured directly, never
+# through a pipe.
+cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths || exit 2
+R=plans/sdd/V6-closeout/w3-paths/runs
+L=$R/07-windows-pkgs-full.log
+{
+	echo "# Windows full package runs at $(git rev-parse --short HEAD), go test -count=1 -timeout=30m, one package at a time;"
+	echo "# the machine is co-loaded by three other workstreams and this lane's Linux container runs; QOMPACK_UNDER_COLOAD not set"
+} > "$L"
+for p in ./internal/paths ./internal/ipc ./internal/tokens ./internal/cli ./internal/store ./internal/daemon \
+	./internal/contract ./internal/checkpoint ./internal/observer ./internal/obs ./internal/rehydrate \
+	./internal/sketch ./internal/dag ./internal/mcp ./internal/eval ./internal/testutil; do
+	echo "## go test $p -count=1 -timeout=30m  (start $(date -u +%H:%M:%SZ))" >> "$L"
+	go test "$p" -count=1 -timeout=30m >> "$L" 2>&1
+	echo "exit=$? (end $(date -u +%H:%M:%SZ))" >> "$L"
+done
+echo "DONE" >> "$L"

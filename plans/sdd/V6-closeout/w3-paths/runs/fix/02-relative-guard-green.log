@@ -1,0 +1,14 @@
+# green: same command after the OpenFile fix (committed as 34ddb55), Windows host
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_the_project_root
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_checkpoints/
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_pins/
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_below_pins/_through_..
+--- PASS: TestWriteAtomic_RefusesAProtectedPathNamedRelatively (0.09s)
+    --- PASS: TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_the_project_root (0.02s)
+    --- PASS: TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_checkpoints/ (0.02s)
+    --- PASS: TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_pins/ (0.02s)
+    --- PASS: TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_below_pins/_through_.. (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.386s
+exit=0

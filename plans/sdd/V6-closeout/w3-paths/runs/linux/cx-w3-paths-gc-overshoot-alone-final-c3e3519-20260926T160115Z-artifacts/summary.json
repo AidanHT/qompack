@@ -1,0 +1,11 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/store": {
+   "result": "pass",
+   "passed": 15,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

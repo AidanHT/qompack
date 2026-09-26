@@ -1,0 +1,31 @@
+#!/bin/sh
+# w3-paths: reproduce the w2-lifetime runs/21 incident WITHOUT the real home. Each run gets a fresh
+# fake home holding an empty .qompack, and TMP/TEMP point at a directory below it, so every
+# t.TempDir() of the run sits under a directory that contains a .qompack, exactly as the real
+# C:\Users\Quant\AppData\Local\Temp sat under C:\Users\Quant with C:\Users\Quant\.qompack present.
+# The fake home is listed after each run, so the log shows whether anything was staged in it.
+W=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work
+WT=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+L=$WT/plans/sdd/V6-closeout/w3-paths/runs/08-incident-repro-fake-home.log
+HEADSHA=$(git -C "$WT" rev-parse --short HEAD)
+rm -rf "$W/head-export" && mkdir -p "$W/head-export" && git -C "$WT" archive HEAD | tar -x -C "$W/head-export"
+rm -rf "$W/base-clean" && mkdir -p "$W/base-clean" && git -C "$WT" archive 6aff949 | tar -x -C "$W/base-clean"
+{
+	echo "# w2-lifetime runs/21 reproduced without the real home: per run, a fresh <fakehome> with an empty"
+	echo "# <fakehome>/.qompack, and TMP=TEMP=<fakehome>/tmp, so every t.TempDir() is below a directory holding a"
+	echo "# .qompack. base = git archive 6aff949 (unmodified), head = git archive $HEADSHA. Windows, co-loaded."
+	echo "# The real C:/Users/Quant/.qompack does not exist and is never touched."
+} > "$L"
+n=0
+for tree in base-clean head-export; do
+	n=$((n + 1))
+	fh="$W/fakehome-$n-$tree"
+	rm -rf "$fh" && mkdir -p "$fh/.qompack" "$fh/tmp"
+	FH=$(cygpath -w "$fh")
+	echo "## $tree: go test ./internal/ipc ./internal/cli -count=1 -timeout=30m  (fake home $FH)" >> "$L"
+	(cd "$W/$tree" && TMP="$FH\\tmp" TEMP="$FH\\tmp" go test ./internal/ipc ./internal/cli -count=1 -timeout=30m >> "$L" 2>&1)
+	echo "exit=$?" >> "$L"
+	echo "## $tree: the fake home's .qompack after the run (find):" >> "$L"
+	(cd "$fh" && find .qompack | sort) >> "$L"
+done
+echo "DONE" >> "$L"

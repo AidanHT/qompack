@@ -1,0 +1,18 @@
+# Windows full package runs at c3e3519, go test -count=1 -timeout=30m, one package at a time;
+# the machine is co-loaded by three other workstreams and this lane's Linux container runs; QOMPACK_UNDER_COLOAD not set
+## go test ./internal/paths -count=1 -timeout=30m  (start 16:27:53Z)
+ok  	github.com/qompack/qompack/internal/paths	6.595s
+exit=0 (end 16:28:02Z)
+## go test ./internal/ipc -count=1 -timeout=30m  (start 16:28:02Z)
+ok  	github.com/qompack/qompack/internal/ipc	21.234s
+exit=0 (end 16:28:25Z)
+## go test ./internal/tokens -count=1 -timeout=30m  (start 16:28:25Z)
+ok  	github.com/qompack/qompack/internal/tokens	6.347s
+exit=0 (end 16:28:35Z)
+## go test ./internal/cli -count=1 -timeout=30m  (start 16:28:35Z)
+ok  	github.com/qompack/qompack/internal/cli	25.581s
+exit=0 (end 16:29:03Z)
+## go test ./internal/store -count=1 -timeout=30m  (start 16:29:03Z)
+ok  	github.com/qompack/qompack/internal/store	316.969s
+exit=0 (end 16:34:23Z)
+DONE

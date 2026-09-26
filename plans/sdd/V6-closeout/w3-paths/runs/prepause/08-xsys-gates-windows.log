@@ -1,0 +1,66 @@
+# x/sys v0.44.0 gates at 63c3d07 + uncommitted bump; Windows
+## go run ./tools/devtool licenses --check
+licenses: THIRD_PARTY_NOTICES.md is current
+exit=0
+## go run ./tools/devtool build-all
+exit=0
+## go run ./tools/devtool lint --only=bindeps
+== devtool lint: bindeps ==
+bindeps: OK (6 target(s) checked)
+PASS bindeps
+exit=0
+## pinned govulncheck ./...
+exit=0
+=== Symbol Results ===
+
+No vulnerabilities found.
+
+=== Package Results ===
+
+No other vulnerabilities found.
+
+=== Module Results ===
+
+Vulnerability #1: GO-2026-6180
+    Ignore unrelated, unauthenticated hashes in Lookup in golang.org/x/mod/sumdb
+  More info: https://pkg.go.dev/vuln/GO-2026-6180
+  Module: golang.org/x/mod
+    Found in: golang.org/x/mod@v0.25.0
+    Fixed in: golang.org/x/mod@v0.40.0
+
+Vulnerability #2: GO-2026-6179
+    Fix transparency log tile verification bypass in golang.org/x/mod/sumdb/tlog
+  More info: https://pkg.go.dev/vuln/GO-2026-6179
+  Module: golang.org/x/mod
+    Found in: golang.org/x/mod@v0.25.0
+    Fixed in: golang.org/x/mod@v0.40.0
+
+Vulnerability #3: GO-2026-5841
+    OOB read in github.com/klauspost/compress/s2
+  More info: https://pkg.go.dev/vuln/GO-2026-5841
+  Module: github.com/klauspost/compress
+    Found in: github.com/klauspost/compress@v1.18.0
+    Fixed in: github.com/klauspost/compress@v1.18.7
+
+Your code is affected by 0 vulnerabilities.
+This scan also found 0 vulnerabilities in packages you import and 3
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+## pinned govulncheck ./... with GOOS=linux (binary built from tools/pinned)
+exit=0
+=== Symbol Results ===
+No vulnerabilities found.
+Your code is affected by 0 vulnerabilities.
+This scan also found 0 vulnerabilities in packages you import and 3
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+Use '-show verbose' for more details.
+## pinned govulncheck ./... with GOOS=darwin (binary built from tools/pinned)
+exit=0
+=== Symbol Results ===
+No vulnerabilities found.
+Your code is affected by 0 vulnerabilities.
+This scan also found 0 vulnerabilities in packages you import and 3
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+Use '-show verbose' for more details.

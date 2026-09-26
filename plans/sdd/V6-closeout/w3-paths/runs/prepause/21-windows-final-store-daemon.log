@@ -1,0 +1,2 @@
+# Windows full runs at dd24a58 (final), -count=1 -timeout=30m; co-loaded (this lane's Linux final-pkgs run + other workstreams); QOMPACK_UNDER_COLOAD not set
+## go test ./internal/store -count=1 -timeout=30m  (start 03:16:13Z)

@@ -1,0 +1,16 @@
+#!/bin/sh
+# w3-paths: Linux GC evidence, run sequentially so the runs do not load each other.
+cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths || exit 2
+G=plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh
+O=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux
+LOG=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/linux-gc.log
+mkdir -p "$O"
+run() {
+	echo "== $(date -u +%H:%M:%SZ) start: $*" >> "$LOG"
+	sh "$G" --prefix cx-w3-paths --out "$O" "$@" >> "$LOG" 2>&1
+	echo "== $(date -u +%H:%M:%SZ) gate exit=$?: $*" >> "$LOG"
+}
+run 6aff949 gc-overshoot-alone-base --run '^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$' --count 3 -- ./internal/store
+run w3-paths-gcprobe-base gcprobe-base --run '^TestW3Probe_GCPhaseCosts$' -- ./internal/store
+run w3-paths-gcprobe-head gcprobe-head --run '^TestW3Probe_GCPhaseCosts$' -- ./internal/store
+echo "DONE $(date -u +%H:%M:%SZ)" >> "$LOG"

@@ -1,0 +1,3 @@
+# go test ./test/docs -count=1 at c3e3519 (plans/00-ARCHITECTURE.md changed), Windows
+ok  	github.com/qompack/qompack/test/docs	4.122s
+exit=0

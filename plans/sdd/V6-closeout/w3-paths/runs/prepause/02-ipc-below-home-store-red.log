@@ -1,0 +1,12 @@
+# RED: TestStateRoundTrip_BelowAUserGlobalStore against the unfixed rootOf (54a4334 + the new row only), Windows
+=== RUN   TestStateRoundTrip_BelowAUserGlobalStore
+    state_test.go:67: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/ipc/state_test.go:67
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestStateRoundTrip_BelowAUserGlobalStore558763845\001\.qompack\tmp\wa-1292737155 C:\Users\Quant\AppData\Local\Temp\TestStateRoundTrip_BelowAUserGlobalStore558763845\001\work\project\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateRoundTrip_BelowAUserGlobalStore
+--- FAIL: TestStateRoundTrip_BelowAUserGlobalStore (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	1.442s
+FAIL
+exit=1

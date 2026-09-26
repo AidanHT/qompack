@@ -1,0 +1,102 @@
+# TestServerCloseWithLiveConnection alone, Windows, co-loaded (store full run + Linux gate running); head 91db668 worktree, real TMP
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	1.759s
+exit=0
+## head-91db668 export, fake TMP, alone x5
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.02s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.02s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	1.598s
+exit=0
+## base-54a4334 export, fake TMP, alone x5
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	1.572s
+exit=0
+## head-91db668 export, fake TMP, alone x5
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+    server_test.go:286: Close did not return within 1s with a live, silent connection open
+--- FAIL: TestServerCloseWithLiveConnection (1.10s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	2.718s
+FAIL
+exit=1
+## base-54a4334 export, fake TMP, alone x5
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.02s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	1.606s
+exit=0

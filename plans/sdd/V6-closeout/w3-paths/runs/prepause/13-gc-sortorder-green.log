@@ -1,0 +1,8 @@
+# all six GC sorts use gcHashLess
+=== RUN   TestGCHashOrder_IsTheTextOrder
+--- PASS: TestGCHashOrder_IsTheTextOrder (0.02s)
+=== RUN   TestRecordOutcomes_SortingAllocatesNothingPerComparison
+--- PASS: TestRecordOutcomes_SortingAllocatesNothingPerComparison (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.562s
+exit=0

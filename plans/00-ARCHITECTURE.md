@@ -372,7 +372,7 @@ add a hand-kept number without removing it. A `mkdir` claim followed by a plain 
 equivalent either: it replaces an empty directory a racer puts back between the two calls, and a
 crash between them strands an empty destination that the next restore refuses. The addition brings
 in no new module, version, licence or supplier.
-`golang.org/x/sys v0.33.0` is already a direct `go.mod` requirement and ships in the Windows binary,
+`golang.org/x/sys` is already a direct `go.mod` requirement and ships in the Windows binary,
 and `THIRD_PARTY_NOTICES.md` already reproduces its BSD-3-Clause licence, which
 `devtool licenses --check` confirms. `govulncheck ./cmd/qompack` on linux and darwin reports no
 vulnerable x/sys/unix symbol, and the package has no `init` function on the four release targets.
@@ -702,9 +702,14 @@ whose `.gitignore` we never touch.
 
 **Atomic writes.** `paths.WriteAtomic(p, b, perm)` writes to `.qompack/tmp/<rand>`, `Sync()`, then
 `os.Rename` onto `p` (same volume by construction, so `MoveFileEx(REPLACE_EXISTING)` semantics
-hold on Windows). Directory fsync on POSIX. Never used for append-only targets. `perm` is required
-rather than defaulted because two callers want different modes on the same mechanism — `0444` for a
-sealed artifact, `0644` for a mutable one — and a silent default is how one of them ends up wrong.
+hold on Windows). Directory fsync on POSIX. The `.qompack/tmp` is that of the store that owns `p`:
+the nearest element of `p`'s own path named `.qompack`, when it exists. A `.qompack` beside the
+path, such as the user-global `~/.qompack` above a project, owns nothing below it, and a `p` that
+no store owns is staged beside itself, so the rename never leaves the store, or the directory, that
+holds `p`. The §7.4 guard is asked of every existing store on the path, not only the owner. Never
+used for append-only targets. `perm` is required rather than defaulted because two callers want
+different modes on the same mechanism — `0444` for a sealed artifact, `0644` for a mutable one — and
+a silent default is how one of them ends up wrong.
 
 **`internal/paths` signatures are normative and live in §5.0.** This section states the *rules*;
 the signatures those rules are expressed in are frozen there. Restating them here is what let them

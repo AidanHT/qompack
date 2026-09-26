@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-spoolwatch-alone-head-c3e3519-20260926T171917Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=95052c43dc0accb82e0af4a85c5f7d8cbb56e3ea01039bed4a7c0c0398670194
+host_started_utc=2026-09-26T17:19:23Z
+inner_args=--run ^TestSpoolWatch_ --count 3 -- ./internal/daemon
+host_finished_utc=2026-09-26T17:20:03Z
+container_exit=0

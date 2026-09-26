@@ -58,7 +58,7 @@ var releaseTargets = []struct{ GOOS, GOARCH string }{
 // calls, and a crash between them strands an empty destination that the next restore then refuses.
 //
 // So the entry has no stdlib equivalent to fall back to. It adds no new module, version or licence:
-// golang.org/x/sys v0.33.0 is already a direct requirement and already ships in the Windows binary,
+// golang.org/x/sys is already a direct requirement and already ships in the Windows binary,
 // and THIRD_PARTY_NOTICES.md already carries its BSD-3-Clause text. govulncheck of ./cmd/qompack
 // on linux and darwin reports no vulnerable x/sys/unix symbol. Where the standard library does
 // suffice, it stays preferred (internal/paths/syncdata_linux.go takes syscall.Fdatasync). The

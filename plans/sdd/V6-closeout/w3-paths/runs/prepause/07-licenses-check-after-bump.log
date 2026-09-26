@@ -1,0 +1,4 @@
+# devtool licenses --check with x/sys v0.44.0 (before any notices edit)
+devtool: licenses: licenses: THIRD_PARTY_NOTICES.md is out of date (47420 bytes on disk, 47420 regenerated); run `devtool licenses --write`
+exit status 1
+exit=1

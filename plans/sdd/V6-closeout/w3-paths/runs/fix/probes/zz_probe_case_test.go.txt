@@ -1,0 +1,30 @@
+package paths_test
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+func TestZZProbeCaseVariantProtectedDir(t *testing.T) {
+	l := newLayout(t)
+	cp := paths.CheckpointPath(l, 1)
+	if err := paths.CreateNew(cp, []byte(`{"seq":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	variant := filepath.Join(l.Dot, "CHECKPOINTS", filepath.Base(cp))
+	err := paths.WriteAtomic(variant, []byte(`{"seq":1,"tampered":true}`), 0o600)
+	got, _ := os.ReadFile(cp)
+	t.Logf("WriteAtomic(%s) err=%v; checkpoint now %q", variant, err, got)
+	pins := filepath.Join(l.Pins, "invariants.jsonl")
+	_ = paths.AppendJSONL(pins, map[string]string{"id": "x"})
+	pv := filepath.Join(l.Dot, "PINS", "invariants.jsonl")
+	f, err := paths.OpenFile(pv, os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err == nil {
+		_ = f.Close()
+	}
+	got, _ = os.ReadFile(pins)
+	t.Logf("OpenFile(%s, O_TRUNC) err=%v; pins now %q", pv, err, got)
+}

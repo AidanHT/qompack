@@ -1,0 +1,21 @@
+run_id=cx-w3-paths-lane-overflow-again1-head-c3e3519-20260926T172207Z
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+tree=aa9a82c23d06049c19920d553be863698f7bba30
+bundle_sha256=c8210b72edba76f125659db930ad7810e515f6d81084471dc5ef51e6b97bc39a
+started_utc=2026-09-26T17:22:18Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=30m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T17:23:34Z

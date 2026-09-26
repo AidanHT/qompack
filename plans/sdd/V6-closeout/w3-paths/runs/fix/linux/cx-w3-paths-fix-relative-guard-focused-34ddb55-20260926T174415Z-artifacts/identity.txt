@@ -1,0 +1,21 @@
+run_id=cx-w3-paths-fix-relative-guard-focused-34ddb55-20260926T174415Z
+commit=34ddb550fc0b75df2c0294c2383be12c4ef3afc0
+tree=3c091c8fc83c2535a385772a6f453342d58f7ed3
+bundle_sha256=81a8726486b449325b6f53bcd93324a69e32d0efc3a3f01e124f950bff2456d1
+started_utc=2026-09-26T17:44:27Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^(TestWriteAtomic_RefusesAProtectedPathNamedRelatively|TestAppendOnlyGuard|TestMayBeProtected_NeverHidesAProtectedPath|TestMayBeProtected_EveryProtectedLocationTakesTheWalk)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T17:44:53Z

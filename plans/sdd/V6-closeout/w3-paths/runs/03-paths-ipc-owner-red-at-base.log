@@ -1,0 +1,87 @@
+# RED at the base: git archive 6aff949 + this branch's internal/paths/atomic_owner{,_windows}_test.go and internal/ipc/state_test.go only (product code is 6aff949's), Windows, co-loaded
+## go test ./internal/paths -run '^(TestWriteAtomic_(NeverStagesInAStoreThatDoesNotHoldTheTarget|AProjectStoreBelowAUserStoreIsItsOwnOwner|TheUserGlobalLayerWritesInItsOwnStore|AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt|RefusesAProtectedPathNamedRelatively|ACaseVariantStoreNameIsStillTheStoreOnWindows|AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt|AStorelessProjectInsideAnotherStoresTreeStagesBesideItself))$' -count=1 -v
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists
+    atomic_owner_test.go:96: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-6aff949/internal/paths/atomic_owner_test.go:96
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTargeta_pr4590021\001\.qompack\tmp\wa-1788543580 C:\Users\Quant\AppData\Local\Temp\TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTargeta_pr4590021\001\src\project\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all
+    atomic_owner_test.go:101: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-6aff949/internal/paths/atomic_owner_test.go:101
+        	Error:      	Not equal: 
+        	            	expected: []string{".", "calibration.json"}
+        	            	actual  : []string{".", "calibration.json", "tmp"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,5 @@
+        	            	-([]string) (len=2) {
+        	            	+([]string) (len=3) {
+        	            	  (string) (len=1) ".",
+        	            	- (string) (len=16) "calibration.json"
+        	            	+ (string) (len=16) "calibration.json",
+        	            	+ (string) (len=3) "tmp"
+        	            	 }
+        	Test:       	TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all
+        	Messages:   	a write outside the user-global store must not stage in it or create anything in it
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_beside_a_project_store_but_outside_it
+--- FAIL: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget (0.06s)
+    --- FAIL: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists (0.01s)
+    --- FAIL: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all (0.01s)
+    --- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_beside_a_project_store_but_outside_it (0.03s)
+=== RUN   TestWriteAtomic_AProjectStoreBelowAUserStoreIsItsOwnOwner
+--- PASS: TestWriteAtomic_AProjectStoreBelowAUserStoreIsItsOwnOwner (0.04s)
+=== RUN   TestWriteAtomic_TheUserGlobalLayerWritesInItsOwnStore
+--- PASS: TestWriteAtomic_TheUserGlobalLayerWritesInItsOwnStore (0.03s)
+=== RUN   TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt
+    atomic_owner_test.go:165: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-6aff949/internal/paths/atomic_owner_test.go:165
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt
+--- FAIL: TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt (0.03s)
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively
+    atomic_owner_test.go:198: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-6aff949/internal/paths/atomic_owner_test.go:198
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestWriteAtomic_RefusesAProtectedPathNamedRelatively
+--- FAIL: TestWriteAtomic_RefusesAProtectedPathNamedRelatively (0.03s)
+=== RUN   TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt
+    atomic_owner_test.go:228: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-6aff949/internal/paths/atomic_owner_test.go:228
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt
+--- FAIL: TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt (0.02s)
+=== RUN   TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself
+    atomic_owner_test.go:253: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-6aff949/internal/paths/atomic_owner_test.go:253
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBe2831874060\001\.qompack\tmp\wa-200185132 C:\Users\Quant\AppData\Local\Temp\TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBe2831874060\001\.qompack\eval\replay\project\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself
+--- FAIL: TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself (0.03s)
+=== RUN   TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows
+--- PASS: TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.723s
+FAIL
+exit=1
+## go test ./internal/ipc -run '^TestStateRoundTrip_BelowAUserGlobalStore$' -count=1 -v
+=== RUN   TestStateRoundTrip_BelowAUserGlobalStore
+    state_test.go:67: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-6aff949/internal/ipc/state_test.go:67
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestStateRoundTrip_BelowAUserGlobalStore3974416144\001\.qompack\tmp\wa-4199630919 C:\Users\Quant\AppData\Local\Temp\TestStateRoundTrip_BelowAUserGlobalStore3974416144\001\work\project\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateRoundTrip_BelowAUserGlobalStore
+--- FAIL: TestStateRoundTrip_BelowAUserGlobalStore (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	1.572s
+FAIL
+exit=1

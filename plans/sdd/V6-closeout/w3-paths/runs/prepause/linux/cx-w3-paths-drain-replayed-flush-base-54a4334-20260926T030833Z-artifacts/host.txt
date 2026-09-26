@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-drain-replayed-flush-base-54a4334-20260926T030833Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=54a4334
+commit=54a433466956701a444e2206d2fd79197a6719bd
+bundle_sha256=1417272cd37cf2aa49a8272f66635e51f45f5ef01a6219abfc44d0daae16afb7
+host_started_utc=2026-09-26T03:08:43Z
+inner_args=--run ^TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget$ --count 2 -- ./internal/daemon
+host_finished_utc=2026-09-26T03:10:12Z
+container_exit=1

@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-gcprobe-base-4570089-20260926T154956Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=w3-paths-gcprobe-base
+commit=45700897a24e885763d859cc30a6d5637a7328e1
+bundle_sha256=5133a909fbc766c181a55e84d81beaa2c0c7247839ed55c2099e233da31971aa
+host_started_utc=2026-09-26T15:50:10Z
+inner_args=--run ^TestW3Probe_GCPhaseCosts$ -- ./internal/store
+host_finished_utc=2026-09-26T15:53:53Z
+container_exit=0

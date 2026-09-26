@@ -1,0 +1,30 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/paths": {
+   "result": "pass",
+   "passed": 162,
+   "failed": [],
+   "skipped": [
+    "TestOpenFile_HandlesUnresolvableRootGracefully",
+    "TestRestoreLog_UnstatablePathIsNotCreated",
+    "TestReplaceBloom_PruneSurvivesUnreadableSketchesDir",
+    "TestHighestBloomBackupSeq_UnreadableDirIsAnError",
+    "TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows",
+    "TestReplacePinsView_DeniedStagingCreatePreservesView",
+    "TestTerminatePartialTail_UnreadablePathIsLeftAlone",
+    "TestWriteAtomic_CreateTempFailureLeavesNoStaging",
+    "TestEnsureLayout_WriteAtomicFailureIsPropagated",
+    "TestLong_IdentityWhenAbsFails",
+    "TestLong_PrefixesOverThreshold",
+    "TestLong_IdempotentOnAlreadyPrefixed",
+    "TestLong_UNCGetsUNCPrefix",
+    "TestManifest_ReadPropagatesNonNotExistOpenError",
+    "TestNorm_RejectsDifferentVolume",
+    "TestNorm_LeavesUNCVolumeMismatchUnresolved",
+    "TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved",
+    "TestResolve_PropagatesAbsFailure"
+   ]
+  }
+ },
+ "unreported": []
+}
