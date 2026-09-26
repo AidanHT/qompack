@@ -14,17 +14,17 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// runSpawnLockFileName mirrors ipc's own unexported spawnLockName ("spawn.lock"), the file a
-// client's lazySpawn takes inside <root>/.qompack/run to serialize concurrent detached-daemon
-// spawns. ipc's copy cannot be reached from this package (it is unexported and ipc may not import
-// daemon — §3.2), so the literal is respelled here for the one caller that needs it: Run, which
-// deletes it once the daemon it names has actually come up.
+// runSpawnLockFileName mirrors ipc's own unexported spawnLockName ("spawn.lock"), the file every
+// spawner of a project's daemon claims inside <root>/.qompack/run before it launches one
+// (ipc.ClaimSpawn). ipc's copy cannot be reached from this package (it is unexported and ipc may not
+// import daemon — §3.2), so the literal is respelled here for the one caller that needs it: Run,
+// which deletes it once the daemon it names has actually come up.
 const runSpawnLockFileName = "spawn.lock"
 
 // removeSpawnLockFile deletes <root>/.qompack/run/spawn.lock, if present (task-5-spec.md
-// daemon.go Run step 3: "delete run/spawn.lock after listen"). A client's own lazySpawn lock is
-// already self-clearing via staleness, so this is a courtesy cleanup, not a correctness
-// requirement — a missing file is not an error. paths.CreateNew leaves the file read-only
+// daemon.go Run step 3: "delete run/spawn.lock after listen"). A spawner's claim is already
+// self-clearing via staleness, so this is a courtesy cleanup, not a correctness requirement — a
+// missing file is not an error. paths.CreateNew leaves the file read-only
 // (0o444/FILE_ATTRIBUTE_READONLY), which blocks deletion on Windows, so the mode is cleared first;
 // harmless on POSIX, where permissions never gate an unlink.
 func removeSpawnLockFile(root string) {
@@ -37,12 +37,14 @@ func removeSpawnLockFile(root string) {
 // spawn.go): "costs nothing", so it is short.
 const ensureRunningDialTimeout = 20 * time.Millisecond
 
-// ensureRunningPollInterval and ensureRunningPollBound bound EnsureRunning's post-spawn poll: a
-// ticker every 25ms for up to 1500ms total (task-3-spec.md spawn.go). Both are real wall-clock
+// ensureRunningPollInterval and ensureRunningPollBound bound EnsureRunning's poll: a ticker every
+// 25ms for up to 1500ms total (task-3-spec.md spawn.go), counted from the moment the poll begins —
+// after this call's own spawn, or once it found another spawner's claim. Both are real wall-clock
 // durations, like every other connection deadline in this codebase (ipc.ClientOptions.Clock's own
 // doc comment: "never for connection deadlines ... because that is what the OS network stack
 // enforces regardless of what a test's injected Clock says") — waiting for a real spawned OS
-// process to come up cannot be faked by advancing a test clock.
+// process to come up cannot be faked by advancing a test clock. session-start does not use the
+// 1500ms bound: it polls until the instant its own hook budget allows (EnsureRunningUntil).
 const (
 	ensureRunningPollInterval = 25 * time.Millisecond
 	ensureRunningPollBound    = 1500 * time.Millisecond
@@ -65,29 +67,87 @@ const (
 )
 
 // EnsureRunning dials projectRoot's resolved address; on success it returns (false, nil) — a
-// daemon is already there. Otherwise it spawns one detached via SpawnDetached and polls the
-// address for up to ensureRunningPollBound, returning (true, nil) on the first successful dial, or
-// (true, core.ErrNotFound) if the daemon never came up. session-start treats the latter as "log,
-// spool, exit 0" — never a hook failure (§2.3). If SpawnDetached itself fails, nothing was
-// spawned, so this reports (false, serr) rather than claiming a spawn that never happened.
+// daemon is already there. Otherwise it makes sure one is coming, then polls the address for up to
+// ensureRunningPollBound, returning on the first successful dial, or with core.ErrNotFound if no
+// daemon came up in time. A caller treats the latter as "log, spool, exit 0" — never a hook failure
+// (§2.3).
+//
+// Making sure one is coming follows the spawn-lock rule every spawner of the daemon shares
+// (ipc.ClaimSpawn, V6 close-out D17): EnsureRunning spawns only when it claims run/spawn.lock. A
+// claim another spawner made within the lock's freshness window — a hook's lazy spawn, the MCP
+// server's, another session-start, a Windows spawn still copying its staged binary — means that
+// spawner's daemon is on its way, and EnsureRunning waits for it instead of starting a second one.
+// The wait re-checks the lock on every poll, so a claim whose spawner died goes stale inside it and
+// is reclaimed, and this caller spawns after all (fail-safe). A lock it cannot take for any other
+// reason does not stop it: session-start is the designated starter, and spawned before the lock
+// existed. Its own claim makes every later spawner wait for its daemon in turn, until that daemon
+// is listening and removes the lock (Run).
+//
+// spawned reports whether THIS call started the daemon. If the spawn itself fails, nothing was
+// spawned, so this reports (false, serr) rather than claiming a spawn that never happened, and
+// releases its claim so it holds no later spawner off.
 //
 // The liveness check is ipc.Probe (Ruling #22: a successful dial, not a round trip through
 // admin.ping) — deliberately: unlike lock.go's staleness protocol, which can afford to fall
 // through to slower POSIX/heartbeat checks on an inconclusive network result, a false "dead" here
-// costs a real SpawnDetached plus a full ensureRunningPollBound stall on the B-A hot path (budget
-// 15 ms). Requiring Response.OK from a specific op would make that false negative depend on how a
-// later op-routing table answers a probe op — Probe never does, because it never asks.
+// costs a real SpawnDetached plus a full poll on the B-A hot path (budget 15 ms). Requiring
+// Response.OK from a specific op would make that false negative depend on how a later op-routing
+// table answers a probe op — Probe never does, because it never asks. A daemon accepts dials from
+// the moment it listens, while its startup still runs (Run), so a successful dial means "a daemon
+// is there and will answer", not "it has finished starting".
 //
-// clk is accepted to match both task-3-spec.md's exact signature and this package's "every
-// component that observes time takes a core.Clock" convention, and is kept for a future caller
-// that needs it; it is not read here because the liveness dial itself, like every connection
-// deadline in this codebase, always runs against real wall-clock time (ipc.Probe takes a plain
-// time.Duration, not a Clock).
+// clk stamps and ages the spawn claim. The liveness dial itself, like every connection deadline in
+// this codebase, always runs against real wall-clock time (ipc.Probe takes a plain time.Duration,
+// not a Clock).
 func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock) (spawned bool, err error) {
+	return ensureRunning(projectRoot, self, log, clk, pollBound{after: ensureRunningPollBound},
+		detachedSpawner(log))
+}
+
+// EnsureRunningUntil is EnsureRunning with the poll's end given as an instant rather than a
+// duration: session-start's pre-send deadline, derived from its hook's manifest timeout
+// (internal/cli, D17). Everything before the poll — the dial, the claim and a spawn, which on
+// Windows stages the binary (spawn_stage.go) — also runs before until, and is never cut short: a
+// deadline that has already passed still gets one dial and, when this call may spawn, its spawn,
+// so the session always gets a daemon started; it only gets no wait for it. A zero until falls back
+// to EnsureRunning's own bound.
+func EnsureRunningUntil(projectRoot, self string, log logging.Logger, clk core.Clock, until time.Time) (spawned bool, err error) {
+	b := pollBound{until: until}
+	if until.IsZero() {
+		b = pollBound{after: ensureRunningPollBound}
+	}
+	return ensureRunning(projectRoot, self, log, clk, b, detachedSpawner(log))
+}
+
+// pollBound is when ensureRunning's poll ends: at until, or after the given duration counted from
+// the moment the poll begins. Exactly one of the two is set.
+type pollBound struct {
+	until time.Time
+	after time.Duration
+}
+
+// deadline is the poll's end for a poll beginning at begun.
+func (b pollBound) deadline(begun time.Time) time.Time {
+	if !b.until.IsZero() {
+		return b.until
+	}
+	return begun.Add(b.after)
+}
+
+// detachedSpawner is the spawner EnsureRunning uses in production: spawnDetached under the user's
+// home, reporting a staging failure to log.
+func detachedSpawner(log logging.Logger) func(projectRoot, self string) error {
+	return func(root, self string) error { return spawnDetached(root, self, userHomeDir(), log) }
+}
+
+// ensureRunning is EnsureRunning with its poll bound and its spawner injected, so the rule it
+// follows can be driven without starting a real process.
+func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock, bound pollBound,
+	spawn func(projectRoot, self string) error,
+) (spawned bool, err error) {
 	if log == nil {
 		log = logging.Nop()
 	}
-
 	addr, rerr := ipc.Resolve(projectRoot)
 	if rerr != nil {
 		return false, rerr
@@ -96,20 +156,30 @@ func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock)
 		return false, nil
 	}
 
-	if serr := spawnDetached(projectRoot, self, userHomeDir(), log); serr != nil {
-		log.Warn("daemon: spawn failed", "err", serr)
-		return false, serr
-	}
-
-	deadline := time.Now().Add(ensureRunningPollBound)
+	var deadline time.Time
 	ticker := time.NewTicker(ensureRunningPollInterval)
 	defer ticker.Stop()
 	for {
+		if !spawned {
+			if lock, claim := ipc.ClaimSpawn(projectRoot, clk); claim != ipc.SpawnInFlight {
+				if serr := spawn(projectRoot, self); serr != nil {
+					lock.Release()
+					log.Warn("daemon: spawn failed", "err", serr)
+					return false, serr
+				}
+				spawned = true
+			}
+		}
+		if deadline.IsZero() {
+			// The poll begins here, after this call's own spawn, so that preparing a staged copy
+			// does not eat EnsureRunning's bound; an until deadline is fixed whatever the spawn took.
+			deadline = bound.deadline(time.Now())
+		}
 		if ipc.Probe(addr, ensureRunningDialTimeout) {
-			return true, nil
+			return spawned, nil
 		}
 		if !time.Now().Before(deadline) {
-			return true, core.ErrNotFound
+			return spawned, core.ErrNotFound
 		}
 		<-ticker.C
 	}
