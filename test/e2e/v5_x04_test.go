@@ -592,5 +592,20 @@ func TestV5_PreCompactToRehydrateToDroppedRoundTrip(t *testing.T) {
 
 		// The append-only invariant holds on the project this arm wrote to.
 		p.AssertAppendOnly(t)
+
+		// The state-file absence again, once nothing can still write it. The positive arms wait
+		// for the file because the rehydrate service records it AFTER handing over the answer
+		// (C1.16), so the absence asserted right after the answer above cannot see a regression
+		// that records with injection off: that file would land after the check. The compact
+		// rehydration runs as reply work that Stop joins, within its drain grace, before it
+		// cancels it (startReplyWork, stopPromptRecordings), so once Stop returns every Record
+		// that was coming has landed. A diagnostic daemon that answers {} and records 2 s later
+		// passes this arm without this check and fails it here (w4-e2eflakes
+		// runs/fix-c-x04-negctl-*-windows.log). Stop is idempotent, so the rig's own cleanup
+		// Stop is a no-op after it.
+		require.NoError(t, r.D.Stop(context.Background()), "stopping the negative control's daemon")
+		require.NoFileExists(t, paths.Long(x4v5StatePath(p.Root, x4v5ControlSession)),
+			"NEGATIVE CONTROL: with injection off no rehydration may be recorded, not even after the "+
+				"answer")
 	})
 }
