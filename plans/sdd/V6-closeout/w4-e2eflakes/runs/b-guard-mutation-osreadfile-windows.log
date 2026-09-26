@@ -1,0 +1,29 @@
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+    sharedreaders_test.go:142: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/guards/sharedreaders_test.go:142
+        	Error:      	Should be empty, but was [os.ReadFile]
+        	Test:       	TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+        	Messages:   	CurrentDrops reads state/rehydrate-<session>.json with os.ReadFile. On Windows that handle carries no FILE_SHARE_DELETE, so while the read is in flight it blocks the rehydrate service's Record, whose paths.WriteAtomic replaces the file just after a compact SessionStart has answered (C1.16). The MCP dropped tool reads it through a Reporter of its own (internal/cli/daemon.go), so the reporter's mutex does not order the two, and an ordinary handle there both fails with ERROR_SHARING_VIOLATION and fails that replace (w4-e2eflakes runs/diag-b-sharing-modes-rerun-windows.log).
+        	            	
+        	            	Use paths.ReadFileShared (or paths.OpenShared) instead: same bytes, same *os.PathError shapes, plus delete sharing — see internal/paths/shared.go.
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing (0.10s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.370s
+FAIL
+exit=1
