@@ -19,55 +19,129 @@ func liveTaskFile(name string) string {
 	return filepath.Join("..", "..", "testdata", "eval", "live", name)
 }
 
-// TestLiveTaskSet_TheFrozenSetIsValidAndShapedAsPreregistered pins the declared set against the
+// The pre-registered task sets: qompack-live-v2 is the confirmatory set, and qompack-live-v1 the set
+// it superseded before use (preregistration amendment A7), kept byte-identical as the record.
+const (
+	liveTasksV1 = "tasks.json"
+	liveTasksV2 = "tasks-v2.json"
+)
+
+// TestLiveTaskSet_TheFrozenSetIsValidAndShapedAsPreregistered pins each declared set against the
 // pre-registration: ten tasks, three held out, two changing-requirement variants, every task with
 // a forced compaction between work and graded work, and the analysis parameters it names.
 func TestLiveTaskSet_TheFrozenSetIsValidAndShapedAsPreregistered(t *testing.T) {
-	ts, raw, err := eval.LoadLiveTaskSet(liveTaskFile("tasks.json"))
-	require.NoError(t, err)
-	require.NotEmpty(t, raw)
-	require.Equal(t, "qompack-live-v1", ts.ID)
-	require.Len(t, ts.Tasks, 10)
-	require.Equal(t, eval.LiveAnalysis{Model: "claude-sonnet-5", Confidence: 0.95, NonInferiorityMargin: 0.2, TrialsPerArm: 2}, ts.Analysis)
+	for file, id := range map[string]string{liveTasksV1: "qompack-live-v1", liveTasksV2: "qompack-live-v2"} {
+		ts, raw, err := eval.LoadLiveTaskSet(liveTaskFile(file))
+		require.NoError(t, err)
+		require.NotEmpty(t, raw)
+		require.Equal(t, id, ts.ID)
+		require.Len(t, ts.Tasks, 10)
+		require.Equal(t, eval.LiveAnalysis{Model: "claude-sonnet-5", Confidence: 0.95, NonInferiorityMargin: 0.2, TrialsPerArm: 2}, ts.Analysis)
 
-	var heldOut, changing int
-	outcomes := map[string]int{}
-	for _, task := range ts.Tasks {
-		if task.HeldOut {
-			heldOut++
-		}
-		if task.Variant == "changing-requirement" {
-			changing++
-		}
-		compacts := 0
-		for _, s := range task.Steps {
-			if s.Compact {
-				compacts++
-				require.Equal(t, "/compact", s.Message(), "both arms send the identical compaction turn")
+		var heldOut, changing int
+		outcomes := map[string]int{}
+		for _, task := range ts.Tasks {
+			if task.HeldOut {
+				heldOut++
+			}
+			if task.Variant == "changing-requirement" {
+				changing++
+			}
+			compacts := 0
+			for _, s := range task.Steps {
+				if s.Compact {
+					compacts++
+					require.Equal(t, "/compact", s.Message(), "both arms send the identical compaction turn")
+				}
+			}
+			require.Equal(t, 1, compacts, "task %s forces exactly one compaction", task.ID)
+			for _, c := range task.Checks {
+				outcomes[c.Outcome]++
 			}
 		}
-		require.Equal(t, 1, compacts, "task %s forces exactly one compaction", task.ID)
-		for _, c := range task.Checks {
-			outcomes[c.Outcome]++
+		require.Equal(t, 3, heldOut)
+		require.Equal(t, 2, changing)
+		for _, o := range []string{eval.OutcomeTask, eval.OutcomeConstraint, eval.OutcomeRecovery} {
+			require.Positive(t, outcomes[o], "the set grades %s", o)
 		}
-	}
-	require.Equal(t, 3, heldOut)
-	require.Equal(t, 2, changing)
-	for _, o := range []string{eval.OutcomeTask, eval.OutcomeConstraint, eval.OutcomeRecovery} {
-		require.Positive(t, outcomes[o], "the set grades %s", o)
-	}
 
-	pilot, _, err := eval.LoadLiveTaskSet(liveTaskFile("pilot.json"))
-	require.NoError(t, err)
-	for _, p := range pilot.Tasks {
-		for _, task := range ts.Tasks {
-			require.NotEqual(t, task.ID, p.ID, "the pilot shares no task with the confirmatory set")
-			require.NotEqual(t, task.Fixture, p.Fixture, "the pilot shares no fixture with the confirmatory set")
+		pilot, _, err := eval.LoadLiveTaskSet(liveTaskFile("pilot.json"))
+		require.NoError(t, err)
+		for _, p := range pilot.Tasks {
+			for _, task := range ts.Tasks {
+				require.NotEqual(t, task.ID, p.ID, "the pilot shares no task with the confirmatory set")
+				require.NotEqual(t, task.Fixture, p.Fixture, "the pilot shares no fixture with the confirmatory set")
+			}
 		}
 	}
 }
 
-// preregistrationFile is the frozen pre-registration of the qompack-live-v1 study.
+// TestLiveTaskSetV2_DiffersFromV1OnlyAsAmendmentA7States: amendment A7 says qompack-live-v2 is
+// qompack-live-v1 with exactly three tasks' grading changed — tool-output-recall and seed-recall each
+// gain a hidden test and the task check "behaviour" that runs it, and regression-guard's constraint
+// check "pinned" runs the pinned test from its own package — and the id and description. Everything
+// a session sees and every other check is the same, so the change cannot have moved anything a
+// trial is asked to do.
+func TestLiveTaskSetV2_DiffersFromV1OnlyAsAmendmentA7States(t *testing.T) {
+	v1, _, err := eval.LoadLiveTaskSet(liveTaskFile(liveTasksV1))
+	require.NoError(t, err)
+	v2, _, err := eval.LoadLiveTaskSet(liveTaskFile(liveTasksV2))
+	require.NoError(t, err)
+
+	require.Equal(t, v1.Version, v2.Version)
+	require.Equal(t, v1.Defaults, v2.Defaults)
+	require.Equal(t, v1.Analysis, v2.Analysis)
+	require.Contains(t, v2.Description, "supersedes qompack-live-v1")
+	require.Len(t, v2.Tasks, len(v1.Tasks))
+
+	behaviour := eval.LiveCheck{
+		ID: "behaviour", Outcome: eval.OutcomeTask, Kind: eval.CheckCommand, Argv: []string{"go", "test", "./..."},
+	}
+	for i, old := range v1.Tasks {
+		cur := v2.Tasks[i]
+		require.Equal(t, old.ID, cur.ID, "the tasks keep their order")
+		want := old
+		switch old.ID {
+		case "tool-output-recall", "seed-recall":
+			require.Empty(t, old.HiddenFixture)
+			want.HiddenFixture = "hidden-v2/" + old.ID
+			// The new check sits just before the module-builds check, which stays.
+			last := old.Checks[len(old.Checks)-1]
+			require.Equal(t, eval.CheckCommand, last.Kind)
+			require.Equal(t, []string{"go", "vet", "./..."}, last.Argv)
+			nb := behaviour
+			nb.Description = cur.Checks[len(cur.Checks)-2].Description
+			want.Checks = append(append(append([]eval.LiveCheck{}, old.Checks[:len(old.Checks)-1]...), nb), last)
+		case "regression-guard":
+			require.Equal(t, "hidden/regression-guard", old.HiddenFixture)
+			want.HiddenFixture = "hidden-v2/regression-guard"
+			want.Checks = append([]eval.LiveCheck{}, old.Checks...)
+			require.Equal(t, "pinned", want.Checks[0].ID)
+			require.Equal(t, []string{"go", "test", "./list", "-run", "^TestHiddenEvalParseListPinned$"}, want.Checks[0].Argv)
+			want.Checks[0].Argv = []string{"go", "test", "./pinned", "-run", "^TestHiddenEvalParseListPinned$"}
+			want.Checks[0].Description = old.Checks[0].Description + " (compiled apart from the JoinList test)"
+		}
+		require.Equal(t, want, cur, "task %s differs from qompack-live-v1 beyond amendment A7", old.ID)
+	}
+}
+
+// TestLiveTaskSet_FixtureTreeDirs: the fixture tree a run's plan names is every top-level directory
+// the set's fixtures and hidden fixtures live under — for qompack-live-v1 the tree amendment A1
+// hashes, for qompack-live-v2 the tree amendment A7 hashes.
+func TestLiveTaskSet_FixtureTreeDirs(t *testing.T) {
+	for file, want := range map[string][]string{
+		liveTasksV1:  {"fixtures", "hidden"},
+		liveTasksV2:  {"fixtures", "hidden", "hidden-v2"},
+		"pilot.json": {"fixtures", "hidden"},
+	} {
+		ts, _, err := eval.LoadLiveTaskSet(liveTaskFile(file))
+		require.NoError(t, err)
+		require.Equal(t, want, ts.FixtureTreeDirs(), file)
+	}
+}
+
+// preregistrationFile is the frozen pre-registration of the live study: task set qompack-live-v1,
+// superseded before use by qompack-live-v2 in its amendment A7.
 var preregistrationFile = filepath.Join("..", "..", "plans", "sdd", "V6-closeout", "eval", "preregistration.md")
 
 // TestLiveTaskSet_FrozenMaterialsMatchThePreregistration: every frozen material still hashes to the
@@ -75,43 +149,58 @@ var preregistrationFile = filepath.Join("..", "..", "plans", "sdd", "V6-closeout
 // test and the document cannot drift apart — the fixture and hidden-test tree hashes to the
 // locale-independent manifest value its amendment A1 records (the value `devtool live-eval` writes
 // into every run's plan.json), and the section 4 task table names exactly the tasks, variants and
-// held-out flags of tasks.json.
+// held-out flags of tasks.json. Amendment A7's table records qompack-live-v2's task-set file and its
+// fixture tree (fixtures, hidden, hidden-v2) the same way, and the section 4 table still names its
+// tasks, which A7 left unchanged; qompack-live-v1's materials, superseded before use, still match.
 func TestLiveTaskSet_FrozenMaterialsMatchThePreregistration(t *testing.T) {
 	raw, err := os.ReadFile(preregistrationFile)
 	require.NoError(t, err)
 	doc := strings.ReplaceAll(string(raw), "\r\n", "\n")
-	for _, file := range []string{"tasks.json", "rates.json", "pilot.json"} {
+	for _, file := range []string{liveTasksV1, "rates.json", "pilot.json", liveTasksV2} {
 		row := regexp.MustCompile("(?m)^\\|[^|\\n]*\\|\\s*`testdata/eval/live/" + regexp.QuoteMeta(file) +
 			"`\\s*\\|\\s*`([0-9a-f]{64})`\\s*\\|")
 		m := row.FindStringSubmatch(doc)
-		require.NotNil(t, m, "preregistration section 2 records a SHA-256 for %s", file)
+		require.NotNil(t, m, "the preregistration records a SHA-256 for %s", file)
 		content, err := os.ReadFile(liveTaskFile(file))
 		require.NoError(t, err)
 		sum := sha256.Sum256(content)
 		require.Equal(t, m[1], hex.EncodeToString(sum[:]), "%s is not the pre-registered file", file)
 	}
+	a7 := strings.Index(doc, "**A7 — ")
+	require.Positive(t, a7, "amendment A7 is recorded")
+	v2Row := regexp.MustCompile("(?m)^\\|[^|\\n]*\\|\\s*`testdata/eval/live/" + regexp.QuoteMeta(liveTasksV2) + "`")
+	require.Greater(t, v2Row.FindStringIndex(doc)[0], a7, "qompack-live-v2's hash is recorded in amendment A7")
 
-	tree, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile("tasks.json")), "fixtures", "hidden")
+	tree, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile(liveTasksV1)), "fixtures", "hidden")
 	require.NoError(t, err)
 	require.Regexp(t, "(?s)### Amendments.*A1.*`"+tree+"`", doc,
 		"amendment A1 records the fixture tree's manifest hash")
-
-	ts, _, err := eval.LoadLiveTaskSet(liveTaskFile("tasks.json"))
+	tree2, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile(liveTasksV2)), "fixtures", "hidden", "hidden-v2")
 	require.NoError(t, err)
-	taskRow := regexp.MustCompile("(?m)^\\| `([A-Za-z0-9._-]+)` \\| [^|]+ \\| ([a-z-]+) \\| (\\*\\*yes\\*\\*|no) \\|$")
-	var got, want []string
-	for _, m := range taskRow.FindAllStringSubmatch(doc, -1) {
-		got = append(got, fmt.Sprintf("%s %s held=%t", m[1], m[2], m[3] != "no"))
+	treeRow := regexp.MustCompile("(?m)^\\|[^|\\n]*\\|\\s*`testdata/eval/live/\\{fixtures,hidden,hidden-v2\\}/`\\s*\\|\\s*`([0-9a-f]{64})`\\s*\\|")
+	m := treeRow.FindStringSubmatchIndex(doc)
+	require.NotNil(t, m, "amendment A7 records qompack-live-v2's fixture tree")
+	require.Greater(t, m[0], a7)
+	require.Equal(t, tree2, doc[m[2]:m[3]], "the fixture tree is not the one amendment A7 froze")
+
+	for _, file := range []string{liveTasksV1, liveTasksV2} {
+		ts, _, err := eval.LoadLiveTaskSet(liveTaskFile(file))
+		require.NoError(t, err)
+		taskRow := regexp.MustCompile("(?m)^\\| `([A-Za-z0-9._-]+)` \\| [^|]+ \\| ([a-z-]+) \\| (\\*\\*yes\\*\\*|no) \\|$")
+		var got, want []string
+		for _, m := range taskRow.FindAllStringSubmatch(doc, -1) {
+			got = append(got, fmt.Sprintf("%s %s held=%t", m[1], m[2], m[3] != "no"))
+		}
+		for _, task := range ts.Tasks {
+			want = append(want, fmt.Sprintf("%s %s held=%t", task.ID, task.Variant, task.HeldOut))
+		}
+		require.Equal(t, want, got, "the section 4 table is the task set %s, in order", ts.ID)
+		require.Contains(t, doc, "`"+ts.Analysis.Model+"`", "section 3 names the pre-registered model")
+		require.Contains(t, doc, fmt.Sprintf("margin %.2f", ts.Analysis.NonInferiorityMargin),
+			"section 8 names the task set's margin")
+		require.Contains(t, doc, fmt.Sprintf("%d%% Newcombe", int(ts.Analysis.Confidence*100)),
+			"section 8 names the task set's confidence level")
 	}
-	for _, task := range ts.Tasks {
-		want = append(want, fmt.Sprintf("%s %s held=%t", task.ID, task.Variant, task.HeldOut))
-	}
-	require.Equal(t, want, got, "the section 4 table is the task set, in order")
-	require.Contains(t, doc, "`"+ts.Analysis.Model+"`", "section 3 names the pre-registered model")
-	require.Contains(t, doc, fmt.Sprintf("margin %.2f", ts.Analysis.NonInferiorityMargin),
-		"section 8 names the task set's margin")
-	require.Contains(t, doc, fmt.Sprintf("%d%% Newcombe", int(ts.Analysis.Confidence*100)),
-		"section 8 names the task set's confidence level")
 }
 
 // TestTreeManifestSHA256_IsTheSha256sumManifestInByteOrder pins the recipe: one
@@ -322,48 +411,65 @@ func TestLivePreregistrations_MatchTheDocumentAndTheMaterials(t *testing.T) {
 	raw, err := os.ReadFile(preregistrationFile)
 	require.NoError(t, err)
 	doc := strings.ReplaceAll(string(raw), "\r\n", "\n")
-
-	ts, taskBytes, err := eval.LoadLiveTaskSet(liveTaskFile("tasks.json"))
-	require.NoError(t, err)
-	pre, ok := eval.LivePreregistrations[ts.ID]
-	require.True(t, ok, "the frozen task set %s is pre-registered", ts.ID)
-
-	sum := sha256.Sum256(taskBytes)
-	require.Equal(t, hex.EncodeToString(sum[:]), pre.TaskSetSHA256, "the recorded task-set hash is the committed file's")
-	row := regexp.MustCompile(`(?m)^\|[^|\n]*\|\s*` + "`" + `testdata/eval/live/tasks\.json` + "`" + `\s*\|\s*` + "`" +
-		`([0-9a-f]{64})` + "`" + `\s*\|`)
-	m := row.FindStringSubmatch(doc)
-	require.NotNil(t, m)
-	require.Equal(t, m[1], pre.TaskSetSHA256, "the recorded task-set hash is section 2's")
-
-	tree, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile("tasks.json")), "fixtures", "hidden")
-	require.NoError(t, err)
-	require.Equal(t, tree, pre.FixtureTreeSHA256, "the recorded fixture tree is the committed tree")
-	require.Regexp(t, "(?s)### Amendments.*A1.*`"+pre.FixtureTreeSHA256+"`", doc, "and amendment A1's value")
-
-	require.Equal(t, "plugin-dir", pre.Install)
-	require.Contains(t, doc, "loaded from one frozen bundle with `--plugin-dir`", "section 3 names the install path")
-
 	flat := strings.Join(strings.Fields(doc), " ")
-	require.Equal(t, ts.Analysis.Model, pre.Model, "the pre-registered model is the task set's")
-	require.Contains(t, flat, "**Model:** `"+pre.Model+"`, pinned by ID", "section 3 names the model")
-	require.Contains(t, flat, "the run is restarted with the host alias `"+pre.ModelContingency+"`",
-		"section 3 names the one contingency alias")
-	require.Regexp(t, "(?s)### Amendments.*A6.*alias `"+pre.ModelContingency+"`", doc,
-		"amendment A6 records when a contingency run is confirmatory")
-	require.True(t, pre.RunsPreregisteredModel(ts.Analysis.Model, ts.Analysis.Model))
-	require.True(t, pre.RunsPreregisteredModel(ts.Analysis.Model, pre.ModelContingency))
-	require.False(t, pre.RunsPreregisteredModel(ts.Analysis.Model, "opus"))
-	require.False(t, pre.RunsPreregisteredModel("claude-haiku-4-5", pre.ModelContingency),
-		"the alias stands in only for the model the pre-registration froze")
 
-	require.Equal(t, []string{"C1.12", "C1.1"}, pre.RequiredFixed)
-	require.Contains(t, flat, "The confirmatory run must be on a candidate where "+
-		strings.Join(pre.RequiredFixed, " and ")+" are fixed", "section 9 names the defects the candidate must not carry")
-	require.Regexp(t, "(?s)### Amendments.*A5.*--known-open-defects none", doc,
-		"amendment A5 records how the section 9 precondition is attested, and the command that attests it")
-	require.Equal(t, filepath.ToSlash(filepath.Clean(strings.TrimPrefix(filepath.ToSlash(preregistrationFile), "../../"))),
-		pre.Document)
+	// The amendment that froze each set's fixture tree: A1 for qompack-live-v1, A7 for qompack-live-v2.
+	treeAmendment := map[string]string{"qompack-live-v1": "A1", "qompack-live-v2": "A7"}
+	require.Len(t, eval.LivePreregistrations, len(treeAmendment), "every pre-registered set is checked here")
+	for id, pre := range eval.LivePreregistrations {
+		require.True(t, strings.HasPrefix(pre.TaskSetFile, "testdata/eval/live/"), id)
+		ts, taskBytes, err := eval.LoadLiveTaskSet(filepath.Join("..", "..", filepath.FromSlash(pre.TaskSetFile)))
+		require.NoError(t, err, id)
+		require.Equal(t, id, ts.ID, "the recorded file is the task set %s", id)
+
+		sum := sha256.Sum256(taskBytes)
+		require.Equal(t, hex.EncodeToString(sum[:]), pre.TaskSetSHA256, "%s: the recorded task-set hash is the committed file's", id)
+		row := regexp.MustCompile(`(?m)^\|[^|\n]*\|\s*` + "`" + regexp.QuoteMeta(pre.TaskSetFile) + "`" + `\s*\|\s*` + "`" +
+			`([0-9a-f]{64})` + "`" + `\s*\|`)
+		m := row.FindStringSubmatch(doc)
+		require.NotNil(t, m, id)
+		require.Equal(t, m[1], pre.TaskSetSHA256, "%s: the recorded task-set hash is the document's", id)
+
+		tree, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile(liveTasksV1)), ts.FixtureTreeDirs()...)
+		require.NoError(t, err)
+		require.Equal(t, tree, pre.FixtureTreeSHA256, "%s: the recorded fixture tree is the committed tree", id)
+		require.Regexp(t, "(?s)### Amendments.*"+treeAmendment[id]+".*`"+pre.FixtureTreeSHA256+"`", doc,
+			"%s: and amendment %s's value", id, treeAmendment[id])
+
+		require.Equal(t, "plugin-dir", pre.Install)
+		require.Contains(t, doc, "loaded from one frozen bundle with `--plugin-dir`", "section 3 names the install path")
+
+		require.Equal(t, ts.Analysis.Model, pre.Model, "the pre-registered model is the task set's")
+		require.Contains(t, flat, "**Model:** `"+pre.Model+"`, pinned by ID", "section 3 names the model")
+		require.Contains(t, flat, "the run is restarted with the host alias `"+pre.ModelContingency+"`",
+			"section 3 names the one contingency alias")
+		require.Regexp(t, "(?s)### Amendments.*A6.*alias `"+pre.ModelContingency+"`", doc,
+			"amendment A6 records when a contingency run is confirmatory")
+		require.True(t, pre.RunsPreregisteredModel(ts.Analysis.Model, ts.Analysis.Model))
+		require.True(t, pre.RunsPreregisteredModel(ts.Analysis.Model, pre.ModelContingency))
+		require.False(t, pre.RunsPreregisteredModel(ts.Analysis.Model, "opus"))
+		require.False(t, pre.RunsPreregisteredModel("claude-haiku-4-5", pre.ModelContingency),
+			"the alias stands in only for the model the pre-registration froze")
+
+		require.Equal(t, []string{"C1.12", "C1.1"}, pre.RequiredFixed)
+		require.Contains(t, flat, "The confirmatory run must be on a candidate where "+
+			strings.Join(pre.RequiredFixed, " and ")+" are fixed", "section 9 names the defects the candidate must not carry")
+		require.Regexp(t, "(?s)### Amendments.*A5.*--known-open-defects none", doc,
+			"amendment A5 records how the section 9 precondition is attested, and the command that attests it")
+		require.Equal(t, filepath.ToSlash(filepath.Clean(strings.TrimPrefix(filepath.ToSlash(preregistrationFile), "../../"))),
+			pre.Document)
+	}
+
+	// qompack-live-v2 supersedes qompack-live-v1 before use, as amendment A7 records, with the
+	// section 9 command naming the new file; v2 itself is current.
+	v1, v2 := eval.LivePreregistrations["qompack-live-v1"], eval.LivePreregistrations["qompack-live-v2"]
+	require.Equal(t, "qompack-live-v2", v1.SupersededBy)
+	require.Contains(t, v1.SupersededWhy, "amendment A7")
+	require.Contains(t, v1.SupersededWhy, "D12")
+	require.Empty(t, v2.SupersededBy)
+	require.Regexp(t, "(?s)\\*\\*A7 — .*`qompack-live-v1` is \\*\\*superseded before use\\*\\*", doc)
+	require.Regexp(t, "(?s)\\*\\*A7 — .*--tasks "+regexp.QuoteMeta(v2.TaskSetFile)+" .*--known-open-defects none", doc,
+		"amendment A7 gives section 9's command for the new set")
 
 	_, pilot := eval.LivePreregistrations["qompack-live-pilot-v1"]
 	require.False(t, pilot, "the pilot set is harness validation, never pre-registered")
@@ -376,7 +482,7 @@ func TestLivePreregistrations_MatchTheDocumentAndTheMaterials(t *testing.T) {
 // stock host has no such tools to be penalised for. A retrieval query that happens to name the
 // command ("go run ./cmd/probe") must not fail the constraint; running the command still must.
 func TestToolUsesAfterSteps_TheArchiveIsRecoveryNotRederivation(t *testing.T) {
-	ts, _, err := eval.LoadLiveTaskSet(liveTaskFile("tasks.json"))
+	ts, _, err := eval.LoadLiveTaskSet(liveTaskFile(liveTasksV2))
 	require.NoError(t, err)
 	var task eval.LiveTask
 	for _, tk := range ts.Tasks {
