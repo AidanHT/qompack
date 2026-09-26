@@ -61,6 +61,16 @@ var sharedReaders = []sharedReader{
 		why:   "SaveHistory's paths.WriteAtomic, which this lock-free pair leaves free to overlap a load",
 	},
 	{
+		file:  "internal/rehydrate/drops.go",
+		fn:    "CurrentDrops",
+		holds: "state/rehydrate-<session>.json",
+		why: "the rehydrate service's Record, whose paths.WriteAtomic replaces the file just after a " +
+			"compact SessionStart has answered (C1.16). The MCP dropped tool reads it through a Reporter " +
+			"of its own (internal/cli/daemon.go), so the reporter's mutex does not order the two, and an " +
+			"ordinary handle there both fails with ERROR_SHARING_VIOLATION and fails that replace " +
+			"(w4-e2eflakes runs/diag-b-sharing-modes-rerun-windows.txt)",
+	},
+	{
 		file:  "internal/ipc/state.go",
 		fn:    "ReadState",
 		holds: "run/state.bin",

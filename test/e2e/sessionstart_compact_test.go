@@ -266,10 +266,10 @@ const scStateRecordBound = obsProcessAllowance
 // is open, and fails with ERROR_SHARING_VIOLATION: the co-load red w3-e2ereds recorded for
 // TestV5_PreCompactToRehydrateToDroppedRoundTrip. The same os.ReadFile handle, held across the
 // rename, also makes the daemon's replace fail, so a row reading that way can turn its own read
-// into a failed Record. Measured on Windows (plans/sdd/V6-closeout/w4-e2eflakes/runs/
-// diag-b-sharing-modes-run2-windows.log): an os.ReadFile reader racing WriteAtomic replaces saw
-// 1,123 sharing violations in 64,245 reads and failed 65 of 435 replaces; a paths.ReadFileShared
-// reader saw none in 48,251 reads and failed none of 436. The product's own reader of this file,
+// into a failed Record. Measured on Windows over 10 s each (plans/sdd/V6-closeout/w4-e2eflakes/
+// runs/diag-b-sharing-modes-rerun-windows.txt): an os.ReadFile reader racing WriteAtomic replaces
+// saw 863 sharing violations in 53,980 reads and failed 98 of 402 replaces; a paths.ReadFileShared
+// reader saw none in 63,201 reads and failed none of 449. The product's own reader of this file,
 // the dropped tool's rehydrate CurrentDrops, already reads through paths.ReadFileShared.
 //
 // Only "does not exist yet" is waited out. Any other read error, and a file that does not decode,
