@@ -63,6 +63,7 @@ close-out by the user's later instruction and every record says so.
 | 2b | `wf_b2b236ea-ef1` | 2026-09-25 re-run of wave 2 in the same worktrees, off `b070bbe`. Each agent was told to inspect the first attempt's leftovers (uncommitted SessionStart/rehydrate phase histograms in `w2-lifetime`; repro logs in `w2-hookout`/`w2-rollover2`) and adopt or discard them deliberately. Plus a new `w2-wintriage` for the one Windows red that reproduces alone (`TestSecurity_ArchivedTextIsDataNeverAnInstruction`) and two slow fault subcases. **Result:** 19 agents, all completed. Model requests stalled for every agent 15:13–17:17 local and each was restarted. Reviews: wintriage, lint and rollover2 sound; lifetime, eval2, hookout and sessionend needs-fixes, each resolved by its fix seat. All seven branches are merged (`dc3649f`…`54a4334`); the only conflict was two additive blocks in `daemon.go`; daemon, cli and ipc pass after the merge |
 | 3 | `wf_eed51aa0-3c3` | off `54a4334`: `w3-startroute` D11 + replayed spooled session.start mints an undelivered probe (false degrade) + cold-start wait evaluation · `w3-e2ereds` three e2e reds that fail on `b070bbe` (V4/V5 tombstone, V5 elimination surfaces) · `w3-paths` `WriteAtomic` ancestor walk escaping into a real `~/.qompack` + x/sys bump for GO-2026-5024 + Linux `TestGC_DeadlineOvershoot…` · `w3-eval3` D12 task set v2 + intention-to-treat verdict + dry run |
 | 4 | `wf_9c2ba09a-353` | off `31255da` (w3-e2ereds merged): `w4-syncs` SP08-D1. The leased PostToolUse path syncs one root about four times per capture; remove only passes provably redundant on the fresh-publish path, pinned by a pass-count seam and crash tests · `w4-e2eflakes` the Windows e2e rows that fail only under load (spawn-in-flight helper, rehydrate-state sharing violation, wave-3 touch-set, V3 hot path) |
+| 3/4 resume | `wf_85543bfd-f18` | 2026-09-26: the four paused workstreams (`w3-startroute`, `w3-paths`, `w4-syncs`, `w4-e2eflakes`) resumed in their own worktrees. Each seat first merges `closeout/integration` `6aff949`, treats the earlier commits and edits as an unreviewed draft, re-runs any evidence the pause cut short, and finishes the task. Review base is `6aff949`. Pipeline: implement → review → fix → verify, the verify seat checking the fix seat's resolutions. Script: `coordinator/resume-w3w4.js` |
 
 Integrated gates run 1 (`b070bbe`; evidence `plans/sdd/V6-closeout/integration/runs/` on
 `closeout/integration` `6b3db32`). Linux non-root `-race`, every non-e2e package: green except
@@ -81,7 +82,9 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 (`handleAdminShutdown`'s `sync.Once` vs `daemon.Run`) and failures in `test/guards`,
 `test/integration` and `test/security` beyond the ingest family — assigned to the `linux` lane.
 
-## PAUSED 2026-09-25 23:20 (America/Toronto): resume here
+## PAUSED 2026-09-25 23:20 (America/Toronto), resumed 2026-09-26
+
+Step 1 below was dispatched on 2026-09-26 as run `wf_85543bfd-f18` (dispatch log, row "3/4 resume").
 
 Paused at the owner's request. Both running workflows were stopped with TaskStop: wave 3
 `wf_eed51aa0-3c3` and wave 4 `wf_9c2ba09a-353`. Two orphaned Linux gate runs from their agents
