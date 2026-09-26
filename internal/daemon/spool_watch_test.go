@@ -164,7 +164,7 @@ func TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook(t *testi
 			return false
 		}
 		_, held, err := j.leaseHeld(spooled.Nonce)
-		return err == nil && held && dd.m.Counter(counterSpoolWatchPasses).Value() >= 1
+		return err == nil && held && dd.m.Counter(counterSpoolWatchDrains).Value() >= 1
 	}, liveOrderBound, liveOrderTick, "the settled spool gets its first pass, which leases its line")
 	require.False(t, spoolWatchPublished(dd, spooled.Nonce),
 		"control: the first pass cannot publish it while its session's earlier arrival is publishing")
@@ -208,18 +208,18 @@ func TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick(t *testi
 	writeSpoolLines(t, root, "client-6161.ndjson", blocked)
 
 	stop := spoolWatchRunTraffic(t, dd, root, "sess-spool-busy", 1)
-	require.Eventually(t, func() bool { return dd.m.Counter(counterSpoolWatchPasses).Value() >= 2 },
+	require.Eventually(t, func() bool { return dd.m.Counter(counterSpoolWatchDrains).Value() >= 2 },
 		liveOrderBound, liveOrderTick, "the unconsumed spool is passed again")
 	// Traffic for well past the horizon: a kick every tick, and a look every interval.
 	pause := time.NewTimer(3 * horizon)
 	<-pause.C
-	passes := dd.m.Counter(counterSpoolWatchPasses).Value()
+	passes := dd.m.Counter(counterSpoolWatchDrains).Value()
 	require.LessOrEqual(t, passes, int64(maxPasses),
 		"an unconsumable spool is passed at a doubling wait inside the horizon (at most %d passes), not "+
 			"on every look while hooks keep arriving", maxPasses)
 	settle := time.NewTimer(10 * spoolWatchTick)
 	<-settle.C
-	require.Equal(t, passes, dd.m.Counter(counterSpoolWatchPasses).Value(),
+	require.Equal(t, passes, dd.m.Counter(counterSpoolWatchDrains).Value(),
 		"past the horizon the watcher stops passing it; the idle drain and the others own it")
 	stop()
 	require.FileExists(t, filepath.Join(paths.Of(root).Spool, "client-6161.ndjson"),
@@ -242,7 +242,7 @@ func TestSpoolWatch_DoesNothingWithoutAKick(t *testing.T) {
 
 	quiet := time.NewTimer(10 * spoolWatchTick)
 	<-quiet.C
-	require.Zero(t, dd.m.Counter(counterSpoolWatchPasses).Value(), "no request served, so no look and no pass")
+	require.Zero(t, dd.m.Counter(counterSpoolWatchDrains).Value(), "no request served, so no look and no pass")
 	require.FileExists(t, filepath.Join(paths.Of(root).Spool, "client-7272.ndjson"))
 
 	dd.noteServed()

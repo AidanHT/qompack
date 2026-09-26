@@ -151,6 +151,6 @@ decision's 2026-09-25 addendum. That round added these counters:
 - `l0_session_end_refused`: flushes acknowledged while Stop was already joining the session ends,
   so no end was started for them in that process. Each one's line stays durable in its session's WAL
   and its session stays marked as needing recovery.
-- `l0_spool_watch_passes`: client-spool passes the watcher ran.
+- `l0_spool_watch_drains`: client-spool passes the watcher ran.
 
 Record: the `w2-sessionend` report, committed by the coordinator under `plans/sdd/V6-closeout/`.
