@@ -195,12 +195,15 @@ open defect (`devtool live-eval --known-open-defects none`, the pre-registration
 attestation is the operator's word — a bundle cannot prove which defects it fixes — and the report
 says so beside every run that carries one, so `confirmatory: yes` is never printed unqualified. Any
 other run prints why it is not confirmatory and its gates read `not judged`
-(`internal/commands/cmd_eval_live.go`).
+(`internal/commands/cmd_eval_live.go`). Most of these conditions are fixed when a run is planned, so
+`devtool live-eval` prints that half (`eval.LivePlanDepartures`) and the bundle it would load before
+any session starts, and with `--confirmatory` it refuses to plan a run that departs from them.
 
 A pre-registered task set that its pre-registration superseded before use is never confirmatory:
 `qompack-live-v1` gave way to `qompack-live-v2` (`testdata/eval/live/tasks-v2.json`, amendment A7)
-before any trial of either, because two of its tasks could be passed by doing nothing, and `devtool
-live-eval` refuses to plan a run of it.
+before any trial of either, because two of its tasks could be passed by doing nothing and one
+constraint check failed trials that never touched what it guards, and `devtool live-eval` refuses to
+plan a run of it.
 
 What it can report: a verdict of `pass`, `fail`, or `inconclusive` — a distinct outcome for a run
 whose trials were skipped, or a replay whose trials failed, "because a gate that passes on an
