@@ -91,7 +91,7 @@ internal/daemon, internal/store and internal/mcp have no changes. The only inter
 - `go test ./test/integration/ -run TestV5_TruncationOrdersActionHistoryAndPromotionCorrectly -count=1` — ok
 - `go test ./test/guards/ -run TestQompack -count=1 -v` — 3/3 PASS at v1.6
 - `go test ./test/guards/ -count=1 -timeout=30m` — FAIL on TestGuard_TheV1DeliveryPositionHasOneEncoder and TestCarriedDefects_WaveReportRequiresResolution; both fail identically on base 32e1a37
-- `go test ./test/e2e/ -run '<21 compact-rehydration cases incl. TestE2E_SessionStartCompactFitsTheHostCap>' -count=1 -v -timeout=30m` — 20 PASS; TestV5_EliminationThroughEveryFourSurfaces FAIL, identical on base 32e1a37 (expects a PreCompact hookSpecificOutput that C1.12 removed)
+- `go test ./test/e2e/ -run '<21 compact-rehydration cases incl. TestE2E_SessionStartCompactFitsTheHostCap>' -count=1 -v -timeout=30m` — 20 PASS; TestV5_EliminationThroughEveryFourSurfaces FAIL, identical on base 32e1a37 (expects a PreCompact hookSpecificOutput that C1.12 removed) <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go run ./tools/devtool lint` — fails only bindeps, stubskips, runpatterns — all pre-existing (C1.19 and packaging/report.md lines 123 and 317); nomagic, import graph and the rest pass
 - `red run on base 32e1a37 (temporary test, not committed): golden full fixture at the default budget` — FAIL as expected: 32,049 UTF-16 units > 9,500 (evidence/red-base-large-session.txt)
 - `red run on base 32e1a37 (temporary e2e test, not committed): compact start over six 2,600-character rules` — FAIL as expected: 20,033 units, Loud over-cap line fired (evidence/red-base-e2e-session-start.txt)

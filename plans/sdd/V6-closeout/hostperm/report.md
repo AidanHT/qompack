@@ -119,9 +119,9 @@ These are invisible to a plugin: session-only /permissions rules; --allowedTools
 
 ### Tests
 
-- `go test ./internal/mcp -run 'HostDenyRed|HashFormRed' -count=1 -v (unfixed tree, cf31e01 + new tests)` — FAIL as expected, reproducing V6-HOST-1 and the re_read hash-form gap (runs/01-red-before-fix.log)
+- `go test ./internal/mcp -run 'HostDenyRed|HashFormRed' -count=1 -v (unfixed tree, cf31e01 + new tests)` — FAIL as expected, reproducing V6-HOST-1 and the re_read hash-form gap (runs/01-red-before-fix.log) <!-- runpatterns: historical red-before-fix run on cf31e01 plus the then-new tests, whose names changed before commit; the alternation is also split at the shell-pipeline character by this checker's parser -->
 - `same two tests after the fix` — PASS (runs/02-red-after-fix.log)
-- `go test ./internal/mcp -run TestHostPolicy_ALinkSpellingIsJudgedToo, Linux container, uid 10001, at ed5a80c + that test` — FAIL as expected, the link-spelling defect (runs/04); Windows passed before the fix because junctions are not followed (runs/03)
+- `go test ./internal/mcp -run TestHostPolicy_ALinkSpellingIsJudgedToo` (Linux container, uid 10001, at ed5a80c + that test) — FAIL as expected, the link-spelling defect (runs/04); Windows passed before the fix because junctions are not followed (runs/03)
 - `go test ./internal/hostperm -count=1 -coverprofile (Windows)` — PASS, 95.1% coverage; 2 tests skip on Windows because they need a platform capability and run on Linux
 - `go test ./internal/hostperm -run '^$' -bench . -benchmem -count=5 -benchtime=2000x (Windows, co-load)` — Measured; see summary COST (runs/10-bench-windows.log)
 - `go test ./internal/mcp ./internal/hostperm -count=1 -timeout=30m -skip '^TestBudgetBF$' at e98f408 (Windows)` — PASS (runs/33)
@@ -274,7 +274,7 @@ DOCS: security.md section 1 now states every spelling that is judged and the 500
 
 - `go test ./internal/mcp -run 'TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused|TestHostPolicy_AShortNameSpellingIsRefused' -count=1 -v (Windows, 7f80138 plus new tests)` — RED as intended: all 30 alias and 8.3 subtests served the denied secret (runs/70)
 - `same, fixed tree` — PASS 32/32, no skips (runs/75)
-- `go test ./internal/hostperm -run '<4 Windows alias tests>|TestAnUnboundedRuleCountFailsClosed' -count=1 -v` — RED at 7f80138 (runs/71, runs/72); PASS after the fix
+- `go test ./internal/hostperm -run '<4 Windows alias tests>|TestAnUnboundedRuleCountFailsClosed' -count=1 -v` — RED at 7f80138 (runs/71, runs/72); PASS after the fix <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test ./internal/hostperm -run 'AgreesWithTheReference' (differential against the verbatim old matcher, plus a mutation check)` — PASS; the mutant is caught by both tests
 - `go test ./internal/hostperm ./internal/mcp -count=1 -timeout=30m (Windows)` — hostperm PASS; mcp PASS except TestBudgetBF p95 327.68ms > 250ms (runs/86)
 - `go test ./internal/mcp -run '^TestBudgetBF$' alone, head then a base 7f80138 archive (Windows)` — both breach under co-load: head p95 393ms at 42% CPU, base p95 786ms at 85% CPU; pre-existing co-load gate (runs/88)

@@ -120,7 +120,7 @@ I used 2 of the 6 allowed sessions (haiku, max-turns 3). Each created ~/.claude/
 - `go test -count=1 ./internal/hookio/ ./internal/pluginmanifest/ ./test/canary/ ./test/docs/` — ok
 - `go test -count=1 -timeout=30m ./tools/devtool/ (after the final commits)` — ok
 - `go test -count=1 ./test/platform/ (full) and -run '^TestPlatform_HookLauncherForms$' -v` — ok (201s); PowerShell ParserError recorded as a contrast
-- `go test -run '<16 PreCompact/IT rows>' ./test/e2e/` — 15 ok; TestV5_NoPackageWritesOutsideDotQompack/ShippedDaemon FAIL 'never indexed the burst', same failure on a git-archive cf31e01 snapshot (C1.1)
+- `go test -run '<16 PreCompact/IT rows>' ./test/e2e/` — 15 ok; TestV5_NoPackageWritesOutsideDotQompack/ShippedDaemon FAIL 'never indexed the burst', same failure on a git-archive cf31e01 snapshot (C1.1) <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test -run '^TestV1_PluginManifestCommandsExecuteAgainstRealBinary$' ./test/e2e/ (IT-5, exec form)` — ok, all 7 events
 - `go test -count=3 -run '^TestV1_HookLifecycleThroughRealBinary$' ./test/e2e/` — failed 2 of 3 on this branch with 'call 1 session-start answers through hookSpecificOutput'; the same message failed 1 of 3 on the cf31e01 snapshot. The flake predates this branch and depends on machine load (all three final-e2e targets ran on a heavily loaded shared machine).
 - `go test -run '^TestInstall_HostCLIInstallUpgradeUninstall$' ./test/e2e/` — FAIL: fsck 'turn 0 after turn 1'; the same failure on the cf31e01 snapshot (C1.2 family)
@@ -314,7 +314,7 @@ All 7 findings were confirmed.
 - `go test ./test/guards -run '^TestMarketplaceWorkflow' -count=1 -v` — both FAIL on d9b0069's workflow; both PASS after c74cec0
 - `go test ./internal/cli -run '^TestHookOutput_OverTheHostCapIsLoud$' -count=1 -v` — one_over FAIL without the client Loud; PASS with it
 - `go test ./test/e2e -run '^(TestV1_HookLifecycleThroughRealBinary)$' -count=1 with temporary focus.go leak mutation` — FAIL at the new whole-instruction check (history checks passed); mutation reverted
-- `go test ./test/e2e -run '^(TestE2E_CheckpointHookWritesImmutableArtifact|TestV1_HookLifecycleThroughRealBinary|TestV4_PreCompactToCheckpointToRehydrateRoundTrip|TestV4_O1SpanInstructionFromARealCheckpointFrontier|TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint|TestV5_PreCompactToRehydrateToDroppedRoundTrip|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$' -count=1 -timeout=30m` — 7/7 PASS (121.8s)
+- `go test ./test/e2e -run '^(TestE2E_CheckpointHookWritesImmutableArtifact|TestV1_HookLifecycleThroughRealBinary|TestV4_PreCompactToCheckpointToRehydrateRoundTrip|TestV4_O1SpanInstructionFromARealCheckpointFrontier|TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint|TestV5_PreCompactToRehydrateToDroppedRoundTrip|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$' -count=1 -timeout=30m` — 7/7 PASS (121.8s) <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line -->
 - `go test ./internal/hookio -count=1` — ok
 - `go test ./internal/cli -count=1 -timeout=30m` — ok (57.1s)
 - `go test ./tools/devtool -count=1 -timeout=30m` — ok (38.6s)

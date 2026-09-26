@@ -91,7 +91,7 @@ The sections above are the report: verdict table, root cause with evidence, what
 - `go test ./internal/store -count=1 -timeout=30m (Windows)` — FAIL 1 — TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (wall-clock calibration under co-load); re-run alone PASS (runs/store-gc-deadline-rerun-alone-windows.log)
 - `go test ./test/e2e -count=1 -timeout=30m (Windows, heavily co-loaded)` — FAIL — 30m wall; C1.1 cases, (a) turn defect in Install/Rollback/UnknownSchema, plus LazySpawn/AllSixHooks/HooksExitZeroUnderFaults (co-load suspects; LazySpawn passed on re-run) — runs/pkg-test-e2e-windows.log, runs/e2e-coload-suspects-rerun-windows.log
 - `Linux container, non-root qompack-test, -race, GOMAXPROCS=4: go test ./internal/cli ./internal/store (commit 43051d5)` — cli PASS 314; store 793 pass / 1 fail TestGC_DeadlineOvershoot… ('host could not be measured'); re-run alone PASS (runs/linux-*.log, runs/linux-artifacts/)
-- `Linux container, non-root, -race: go test ./test/e2e -run '^(TestV1_ConfigPrecedenceReachesHookBehaviour|TestUnknownSchema_…)$'` — PASS 8, skip 1 (UnknownSchema: claude CLI not on PATH in container)
+- `Linux container, non-root, -race: go test ./test/e2e -run '^(TestV1_ConfigPrecedenceReachesHookBehaviour|TestUnknownSchema_…)$'` — PASS 8, skip 1 (UnknownSchema: claude CLI not on PATH in container) <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser, and its second branch is abbreviated with an ellipsis; the full names are in the evidence log -->
 - `go vet ./internal/cli ./internal/store ./test/e2e; go run ./tools/devtool fmt-check` — exit 0 / exit 0
 - `go run ./tools/devtool lint` — exit 1: golangci-lint, nomagic, importgraph, testdeps, sleepcheck, runpatterns, docmarkers, coveragefloors PASS; bindeps FAIL (x/sys/unix via internal/paths from 3ab1523, pre-existing on cf31e01); stubskips FAIL (3 skip reasons in tests from 3ab1523/00e0c98/891582e, pre-existing, + 4 packages at the 30m wall under co-load)
 
@@ -200,11 +200,11 @@ After 2.1 to 2.3 were fixed, the E2 runs stalled at session (d): c12-after-fixes
 All runs use -count=1 -timeout=30m. Windows is this shared 22-CPU host. Linux is container qompack-v6-linux-verification (Go 1.26.6), user qompack-test (uid 10001), GOMAXPROCS=4, -race, with the exact commit copied in by git bundle into a fresh /work/cx-e2e-* directory.
 
 ### 5.1 Implementer seat
-- go test ./internal/cli -run TestFsck_ToolUse: 4 FAIL, then 4 PASS.
-- go test ./internal/store -run TestAuditPublication_: build fail, then PASS.
-- go test ./internal/cli -run 'TestFsck_(NewerCaptureSchema|UnknownObservationIntent|ToolUse)': 1 FAIL, then PASS.
-- go test ./test/e2e -run TestV1_ConfigPrecedenceReachesHookBehaviour: FAIL, then PASS.
-- go test ./test/e2e -run TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting: FAIL, on the turn finding only (C1.1/C1.13). With E2 applied: stalled twice (which led to 43051d5), then PASS.
+- `go test ./internal/cli -run TestFsck_ToolUse` — 4 FAIL, then 4 PASS.
+- `go test ./internal/store -run TestAuditPublication_` — build fail, then PASS.
+- go test ./internal/cli -run 'TestFsck_(NewerCaptureSchema|UnknownObservationIntent|ToolUse)': 1 FAIL, then PASS. <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line -->
+- `go test ./test/e2e -run TestV1_ConfigPrecedenceReachesHookBehaviour` — FAIL, then PASS.
+- `go test ./test/e2e -run TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting` — FAIL, on the turn finding only (C1.1/C1.13). With E2 applied: stalled twice (which led to 43051d5), then PASS.
 - go test ./internal/cli: ok (pkg-internal-cli-windows.log).
 - go test ./internal/store: 1 FAIL, TestGC_DeadlineOvershootIsBoundedByTheCheckInterval, in a 1374 s run. Alone it PASSES, so this is CO-LOAD (store-gc-deadline-rerun-alone-windows.log). This work did not touch that test.
 - Linux -race ./internal/cli ./internal/store: cli 314 pass; store 793 pass with 1 FAIL, the same GC test, which PASSES alone (linux-store-gc-deadline-rerun-alone-race.log), so CO-LOAD.
@@ -309,7 +309,7 @@ The committed test is red by design and nothing skips it. This branch's test/e2e
 - `Linux container, 6edd2e4, uid 10001, GOMAXPROCS=4: go test ./internal/daemon -run '^TestFlush_SessionEndIsOrderedAfterAcceptedArrivals$' -count=1 -race -v -timeout=30m` — FAIL both arms (same message), 0 DATA RACE, runs/review-flush-order-red-linux-race.log
 - `E3 (scratch copy, never committed: drain before SessionEnd) go test ./internal/daemon -run 'TestFlush_SessionEndIsOrderedAfterAcceptedArrivals|TestSessionEndRecordsRecoveryNeeded|TestStragglerAfterSessionEnd|TestDrainOfSpooledFlushLine|TestStartupDrainOfSpooledFlushLine|TestMarkerIsWrittenByFlushAndCheckpointOnly' -count=1 -v` — PASS all: the new test is satisfiable, runs/experiment-e3-drain-before-session-end-windows.log
 - `go test ./internal/daemon -count=1 -timeout=30m (full package, Windows)` — FAIL in 643.6s; the ONLY failure is the new red-by-design test, every other daemon test passes, runs/review-pkg-internal-daemon-windows.log
-- `repro (scratch git archive 6edd2e4): go test ./internal/daemon -run TestReviewRepro_DrainedControlLineWritesNoCaptureSidecar -v` — FAIL: sidecars with op flush/checkpoint; audit incomplete 'capture sidecar with an unrecognized op', runs/review-repro-drained-control-sidecar-windows.log
+- `repro (scratch git archive 6edd2e4): go test ./internal/daemon -run TestReviewRepro_DrainedControlLineWritesNoCaptureSidecar -v` — FAIL: sidecars with op flush/checkpoint; audit incomplete 'capture sidecar with an unrecognized op', runs/review-repro-drained-control-sidecar-windows.log <!-- runpatterns: names the review's repro test, kept as evidence in runs/review-repro-drained-control-sidecar_test.go.txt and run on a scratch archive, not a test in this tree -->
 - `go run ./tools/devtool fmt-check ; go vet ./internal/daemon` — clean (exit 0)
 - `go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,runpatterns,docmarkers,coveragefloors` — all PASS except bindeps (4 x/sys/unix violations, identical on base cf31e01); stubskips omitted because it runs the whole tree; runs/review-devtool-lint-windows.log
 - `implementer seat: go test ./internal/cli (full), fsck red/green, store support-gap red/green, e2e C1.3` — cli ok; fsck-tooluse 4 FAIL -> 4 PASS; store build-fail -> PASS; C1.3 FAIL -> PASS on Windows and Linux -race (8/8)
