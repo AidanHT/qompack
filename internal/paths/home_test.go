@@ -125,6 +125,7 @@ func TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach(t *testing.T) {
 	require.Equal(t, []string{b},
 		paths.HomeDirs(getenvFunc(map[string]string{"USERPROFILE": b})), "USERPROFILE alone")
 	require.Empty(t, paths.HomeDirs(getenvFunc(nil)), "no home in the environment")
+	require.Empty(t, paths.HomeDirs(nil), "no lookup at all names no home")
 }
 
 // BenchmarkIsHome_AProjectBelowHome prices the check every hook now pays once per resolved root:
