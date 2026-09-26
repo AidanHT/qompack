@@ -698,9 +698,10 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 
 // scanSentinelForPrompt is the §12.1 hook.additional_context_delivered probe's other half: a
 // worker (never the reply path) scans the transcript tail for the sentinel SessionStart minted,
-// and records what it found. It is a no-op once the sentinel has already been observed, or if
-// none was ever minted this session (an act.-suppressed SessionStart, a replayed one, or a session
-// that predates this mechanism).
+// and records what it found. It is a no-op once the sentinel has already been observed, or when
+// none is current: none was ever minted (every start so far was act.-suppressed or replayed, or the
+// project predates this mechanism), or the replay of the start whose answer lost it withdrew it
+// (withdrawLostStartAnswer).
 //
 // A miss is counted only from a prompt that had a chance to find the sentinel (sentinelMissCounts):
 // two misses that were never chances would degrade the project for a probe no prompt has really
