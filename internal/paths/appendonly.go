@@ -54,7 +54,7 @@ const (
 // <root>/.qompack begins with checkpoints/ or pins/ or is sketches/tried.bloom; filepath.Rel returns
 // that relative position as a literal suffix of filepath.Clean(p); and Clean only removes elements
 // and separators, so every element of its result appears verbatim in p. A p containing none of the
-// three names therefore cannot be protected, whatever root rootOf would find, and OpenFile need not
+// three names therefore cannot be protected, whatever stores ownerOf would find, and OpenFile need not
 // walk p's ancestors — up to one stat each — to find out. True means only that the walk must run.
 func mayBeProtected(p string) bool {
 	return strings.Contains(p, protectedCheckpointsDir) || strings.Contains(p, protectedPinsDir) ||
@@ -74,8 +74,7 @@ func OpenFile(p string, flag int, perm fs.FileMode) (*os.File, error) {
 		// syscall rather than one per directory level up to the project root.
 		return os.OpenFile(Long(p), flag, perm)
 	}
-	root, abs, ok := rootOf(p)
-	if ok && IsProtected(root, abs) {
+	if ownerOf(p).protected {
 		if flag&os.O_TRUNC != 0 {
 			return nil, fmt.Errorf("%w: O_TRUNC on %s", core.ErrAppendOnly, p)
 		}

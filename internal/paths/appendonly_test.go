@@ -101,7 +101,7 @@ func TestAppendOnlyGuard(t *testing.T) {
 	require.Equal(t, "bloomdata", string(bloomAfter))
 }
 
-// TestOpenFile_HandlesUnresolvableRootGracefully drives rootOf's own filepath.Abs failure path
+// TestOpenFile_HandlesUnresolvableRootGracefully drives ownerOf's own filepath.Abs failure path
 // (a NUL byte is invalid anywhere in a Windows path): OpenFile must fall back to treating p as
 // unprotected rather than panicking or misbehaving when it cannot even determine a root.
 func TestOpenFile_HandlesUnresolvableRootGracefully(t *testing.T) {
