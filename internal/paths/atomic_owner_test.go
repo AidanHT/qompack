@@ -183,27 +183,73 @@ func TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt(t *te
 // TestWriteAtomic_RefusesAProtectedPathNamedRelatively pins that the guard asks about the path it
 // is given, however it is spelled. A relative path was measured against the absolute root as
 // given, filepath.Rel cannot relate the two, and the guard answered "not protected".
+//
+// The rows differ in where the working directory is. From the project root the relative spelling
+// still names checkpoints/ or pins/; from inside those directories, or below one through "..", it
+// names neither, and OpenFile once read that text alone, skipped the guard, and truncated the pins
+// log. Every door must refuse the write the invariant forbids and let through the append it allows.
 func TestWriteAtomic_RefusesAProtectedPathNamedRelatively(t *testing.T) {
-	l := newLayout(t)
-	cp := paths.CheckpointPath(l, 1)
-	require.NoError(t, paths.CreateNew(cp, []byte(`{"seq":1}`)))
-	pins := filepath.Join(l.Pins, "invariants.jsonl")
-	require.NoError(t, paths.AppendJSONL(pins, map[string]string{"id": "inv-1"}))
-	t.Chdir(l.Root)
-	relCP, err := filepath.Rel(l.Root, cp)
-	require.NoError(t, err)
-	relPins, err := filepath.Rel(l.Root, pins)
-	require.NoError(t, err)
+	cases := []struct {
+		name string
+		cwd  func(t *testing.T, l paths.Layout) string
+	}{
+		{"from the project root", func(_ *testing.T, l paths.Layout) string { return l.Root }},
+		{"from inside checkpoints/", func(_ *testing.T, l paths.Layout) string { return l.Checkpoints }},
+		{"from inside pins/", func(_ *testing.T, l paths.Layout) string { return l.Pins }},
+		{"from below pins/ through ..", func(t *testing.T, l paths.Layout) string {
+			dir := filepath.Join(l.Pins, "sub")
+			require.NoError(t, os.MkdirAll(dir, 0o700))
+			return dir
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			l := newLayout(t)
+			cp := paths.CheckpointPath(l, 1)
+			require.NoError(t, paths.CreateNew(cp, []byte(`{"seq":1}`)))
+			pins := filepath.Join(l.Pins, "invariants.jsonl")
+			require.NoError(t, paths.AppendJSONL(pins, map[string]string{"id": "inv-1"}))
+			pinsBefore, err := os.ReadFile(pins)
+			require.NoError(t, err)
+			cwd := tc.cwd(t, l)
+			relCP, err := filepath.Rel(cwd, cp)
+			require.NoError(t, err)
+			relPins, err := filepath.Rel(cwd, pins)
+			require.NoError(t, err)
+			t.Chdir(cwd)
 
-	require.ErrorIs(t, paths.WriteAtomic(relCP, []byte(`{"seq":1,"tampered":true}`), 0o600), core.ErrAppendOnly)
-	_, err = paths.OpenFile(relPins, os.O_WRONLY|os.O_TRUNC, 0o600)
-	require.ErrorIs(t, err, core.ErrAppendOnly)
-	_, err = paths.OpenSharedRW(relPins)
-	require.ErrorIs(t, err, core.ErrAppendOnly)
+			require.ErrorIs(t, paths.WriteAtomic(relCP, []byte(`{"seq":1,"tampered":true}`), 0o600),
+				core.ErrAppendOnly, "WriteAtomic(%q)", relCP)
+			requireOpenRefused(t, relCP, os.O_WRONLY|os.O_TRUNC)
+			requireOpenRefused(t, relPins, os.O_WRONLY|os.O_TRUNC)
+			requireOpenRefused(t, relPins, os.O_WRONLY)
+			f, err := paths.OpenSharedRW(relPins)
+			if err == nil {
+				_ = f.Close()
+			}
+			require.ErrorIs(t, err, core.ErrAppendOnly, "OpenSharedRW(%q)", relPins)
+			require.NoError(t, paths.AppendJSONL(relPins, map[string]string{"id": "inv-2"}),
+				"the append the invariant allows must still go through")
 
-	got, err := os.ReadFile(cp)
-	require.NoError(t, err)
-	require.Equal(t, `{"seq":1}`, string(got))
+			got, err := os.ReadFile(cp)
+			require.NoError(t, err)
+			require.Equal(t, `{"seq":1}`, string(got))
+			got, err = os.ReadFile(pins)
+			require.NoError(t, err)
+			require.Equal(t, string(pinsBefore)+`{"id":"inv-2"}`+"\n", string(got))
+		})
+	}
+}
+
+// requireOpenRefused asserts that OpenFile refuses p opened with flag as a §7.4 violation, and
+// closes whatever it opened when it does not, so a failed row leaves no handle behind.
+func requireOpenRefused(t *testing.T, p string, flag int) {
+	t.Helper()
+	f, err := paths.OpenFile(p, flag, 0o600)
+	if err == nil {
+		_ = f.Close()
+	}
+	require.ErrorIs(t, err, core.ErrAppendOnly, "OpenFile(%q, %#x)", p, flag)
 }
 
 // TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt is the other half of the stray
