@@ -1,0 +1,4 @@
+fmt-check exit=0
+vet exit=0
+ok  	github.com/qompack/qompack/test/docs	2.938s
+docs exit=0

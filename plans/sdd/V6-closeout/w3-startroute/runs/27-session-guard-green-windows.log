@@ -1,0 +1,27 @@
+=== RUN   TestCheckpointReplay_DoesNotReopenACompactStartAlreadyObserved
+--- PASS: TestCheckpointReplay_DoesNotReopenACompactStartAlreadyObserved (0.19s)
+=== RUN   TestCheckpointReplay_StillArmsWhenNoStartHasFollowed
+--- PASS: TestCheckpointReplay_StillArmsWhenNoStartHasFollowed (0.05s)
+=== RUN   TestSessionStartReplay_AStartFromBeforeThePreCompactLeavesItsObligationPending
+--- PASS: TestSessionStartReplay_AStartFromBeforeThePreCompactLeavesItsObligationPending (0.17s)
+=== RUN   TestDispatchOp_AReplayIsNotAServedRequest
+--- PASS: TestDispatchOp_AReplayIsNotAServedRequest (0.00s)
+=== RUN   TestSentinelScan_APromptFromBeforeTheMintIsNoMiss
+--- PASS: TestSentinelScan_APromptFromBeforeTheMintIsNoMiss (0.12s)
+=== RUN   TestSentinelScan_APromptOfAnotherSessionIsNoMiss
+--- PASS: TestSentinelScan_APromptOfAnotherSessionIsNoMiss (0.10s)
+=== RUN   TestSessionStartReplay_MintsNoProbeAndAnswersNothing
+--- PASS: TestSessionStartReplay_MintsNoProbeAndAnswersNothing (0.13s)
+=== RUN   TestSessionStartReplay_NeverDegradesTheProjectTwoPromptsLater
+--- PASS: TestSessionStartReplay_NeverDegradesTheProjectTwoPromptsLater (0.09s)
+=== RUN   TestSessionStartReplay_WithdrawsTheProbeItsLostAnswerCarried
+--- PASS: TestSessionStartReplay_WithdrawsTheProbeItsLostAnswerCarried (0.23s)
+=== RUN   TestSessionStartReplay_LeavesTheDegradeBannerToTheNextLiveStart
+--- PASS: TestSessionStartReplay_LeavesTheDegradeBannerToTheNextLiveStart (0.21s)
+=== RUN   TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried
+--- PASS: TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried (0.20s)
+=== RUN   TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession
+--- PASS: TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession (0.20s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.994s
+exit=0

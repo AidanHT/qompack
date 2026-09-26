@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
@@ -48,7 +49,17 @@ type SentinelState struct {
 	// The CAdditionalContext assertion fails once this reaches 2 ("not found ⇒ fail" after two
 	// chances) and is never itself incremented by that assertion's Check.
 	Chances int `json:"chances"`
+	// MissedBy names the prompt deliveries (their hook's delivery nonce) whose misses Chances has
+	// counted for Token, so a delivery handed over again — a retry after a capture that failed, a
+	// redelivery after a daemon restart — spends no second chance (RecordSentinelScanOf). It is reset
+	// wherever Chances is, and holds at most maxSentinelMissedBy entries.
+	MissedBy []string `json:"missed_by,omitempty"`
 }
+
+// maxSentinelMissedBy caps SentinelState.MissedBy. The assertion fails at the second counted miss;
+// the few entries past that keep a later redelivery of any counted prompt from counting again while
+// the project sits degraded, and bound what a hand-edited history.json can carry.
+const maxSentinelMissedBy = 8
 
 // SessionHistory is the first real implementation of History (00-ARCHITECTURE.md §5.19): the
 // persistent, cross-session record every §12.1 assertion phrased "across two sessions" or
@@ -226,14 +237,29 @@ func (h *SessionHistory) RecordLast(results []Result) {
 // ScanTranscriptTail, and directly by this package's own tests to drive the two-chances state
 // machine the CAdditionalContext assertion reads — deliberately never by the assertion's Check
 // itself (see SentinelState's doc comment). A nil receiver is a no-op.
-func (h *SessionHistory) RecordSentinelScan(found bool) {
+func (h *SessionHistory) RecordSentinelScan(found bool) { h.RecordSentinelScanOf(found, "") }
+
+// RecordSentinelScanOf is RecordSentinelScan for the scan one prompt delivery made, named by its
+// hook's delivery nonce. A delivery is one chance, however many times the daemon handles it: a miss
+// by a delivery MissedBy already names changes nothing. A delivery with no name ("") counts every
+// time, as every scan did before deliveries were named. A find clears the record with the count.
+func (h *SessionHistory) RecordSentinelScanOf(found bool, delivery string) {
 	if h == nil {
 		return
 	}
 	if found {
 		h.Sentinel.Observed = true
 		h.Sentinel.Chances = 0
+		h.Sentinel.MissedBy = nil
 		return
+	}
+	if delivery != "" {
+		if slices.Contains(h.Sentinel.MissedBy, delivery) {
+			return
+		}
+		if len(h.Sentinel.MissedBy) < maxSentinelMissedBy {
+			h.Sentinel.MissedBy = append(h.Sentinel.MissedBy, delivery)
+		}
 	}
 	h.Sentinel.Chances++
 }
@@ -254,6 +280,9 @@ func (h *SessionHistory) applyCaps() {
 	}
 	if len(h.Last) > maxLastResults {
 		h.Last = h.Last[len(h.Last)-maxLastResults:]
+	}
+	if len(h.Sentinel.MissedBy) > maxSentinelMissedBy {
+		h.Sentinel.MissedBy = h.Sentinel.MissedBy[:maxSentinelMissedBy]
 	}
 }
 

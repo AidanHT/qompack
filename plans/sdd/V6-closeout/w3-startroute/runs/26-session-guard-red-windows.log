@@ -1,0 +1,18 @@
+=== RUN   TestSentinelScan_APromptOfAnotherSessionIsNoMiss
+    sentinel_scan_order_test.go:131: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/sentinel_scan_order_test.go:131
+        	Error:      	Should be zero, but was 2
+        	Test:       	TestSentinelScan_APromptOfAnotherSessionIsNoMiss
+        	Messages:   	another session's prompts are no chances to find this probe
+--- FAIL: TestSentinelScan_APromptOfAnotherSessionIsNoMiss (0.12s)
+=== RUN   TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession
+    session_start_replay_probe_test.go:184: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_replay_probe_test.go:184
+        	Error:      	"2" is not less than "2"
+        	Test:       	TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession
+        	Messages:   	no prompt of another session may run out the probe's chances
+--- FAIL: TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession (0.17s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.543s
+FAIL
+exit=1

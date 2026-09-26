@@ -1,0 +1,21 @@
+run_id=cx-w3-startroute-review-rows-x20-4a2240f-20260926T175236Z
+commit=4a2240fde842586aaf943738e82768e37253bdfc
+tree=b9cbc0e8530b965d0372a2b27fe41a2ed5293fe9
+bundle_sha256=1e27e9e6d515af824e1cfe2b08ad0171d6d84cb1fe3600e1a7008fdf23ccbe61
+started_utc=2026-09-26T17:52:46Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=60m gomaxprocs=4 coload=0
+run=^(TestService_|TestSessionStartCompact_|TestCompactDeferredNote_)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T17:54:32Z

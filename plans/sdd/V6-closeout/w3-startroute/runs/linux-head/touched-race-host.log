@@ -1,0 +1,36 @@
+run_id=cx-w3-startroute-touched-race-8d80aa6-20260926T154921Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute
+rev=8d80aa6
+commit=8d80aa63d51bae61f7dee5fcf5d15896f1050d12
+bundle_sha256=d309f202a9e1f2e5739a2ba5f01bdc52a9ff757e4b80f050c0987bbae57c0f9c
+host_started_utc=2026-09-26T15:49:35Z
+inner_args=--timeout 30m -- ./internal/daemon ./internal/cli
+/work/cx-w3-startroute-touched-race-8d80aa6-20260926T154921Z.bundle: OK
+run_id=cx-w3-startroute-touched-race-8d80aa6-20260926T154921Z
+commit=8d80aa63d51bae61f7dee5fcf5d15896f1050d12
+tree=015f1844801b13ac5222480e22c1e7ca6e81e836
+bundle_sha256=d309f202a9e1f2e5739a2ba5f01bdc52a9ff757e4b80f050c0987bbae57c0f9c
+started_utc=2026-09-26T15:49:41Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1494 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/cli  (pass=374 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/plans/sdd/V6-closeout/w3-startroute/runs/linux-head/cx-w3-startroute-touched-race-8d80aa6-20260926T154921Z-artifacts
+exit=0
+exit=0

@@ -1,0 +1,23 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "NO RESULT",
+   "passed": 0,
+   "failed": [
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget",
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget",
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget",
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget",
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget",
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget",
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget",
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget",
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": [
+  "github.com/qompack/qompack/internal/daemon"
+ ]
+}

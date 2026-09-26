@@ -2,7 +2,11 @@ package contract_test
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -71,4 +75,58 @@ func tokenSuffix(t *testing.T, token string) string {
 	const prefix = "qompack-contract-"
 	require.True(t, len(token) > len(prefix) && token[:len(prefix)] == prefix, "token %q must start with %q", token, prefix)
 	return token[len(prefix):]
+}
+
+// TestRecordSentinelScanOf_ADeliveryIsOneChance: a prompt's delivery can reach the daemon's scan more
+// than once — a retry after a capture that failed, a redelivery after a restart — and it is still one
+// chance. A delivery with no name counts every time, as every scan did before deliveries were named,
+// and a find clears the record with the count.
+func TestRecordSentinelScanOf_ADeliveryIsOneChance(t *testing.T) {
+	contract.DeclareProducer(contract.CAdditionalContext)
+	t.Cleanup(contract.ResetProducers)
+
+	h := &contract.SessionHistory{}
+	a := assertionByID(t, contract.CAdditionalContext)
+	env := contract.Env{Clock: newFakeClock(), History: h}
+
+	h.RecordSentinelScanOf(false, "nonce-a")
+	h.RecordSentinelScanOf(false, "nonce-a")
+	require.Equal(t, 1, h.Sentinel.Chances, "one delivery, handled twice, is one chance")
+	require.True(t, a.Check(context.Background(), env).OK, "so it is not yet a failure")
+
+	h.RecordSentinelScanOf(false, "nonce-b")
+	require.Equal(t, 2, h.Sentinel.Chances, "a second delivery is the second chance")
+	require.False(t, a.Check(context.Background(), env).OK)
+	require.Equal(t, []string{"nonce-a", "nonce-b"}, h.Sentinel.MissedBy)
+
+	h.RecordSentinelScanOf(false, "")
+	h.RecordSentinelScanOf(false, "")
+	require.Equal(t, 4, h.Sentinel.Chances, "an unnamed delivery counts every time")
+
+	h.RecordSentinelScanOf(true, "nonce-c")
+	require.True(t, h.Sentinel.Observed)
+	require.Zero(t, h.Sentinel.Chances)
+	require.Empty(t, h.Sentinel.MissedBy, "a find clears the record with the count")
+}
+
+// TestRecordSentinelScanOf_TheRecordIsBounded: MissedBy never grows past its cap, in memory or from a
+// hand-edited history.json, and a delivery past the cap still counts.
+func TestRecordSentinelScanOf_TheRecordIsBounded(t *testing.T) {
+	h := &contract.SessionHistory{}
+	for i := range 20 {
+		h.RecordSentinelScanOf(false, fmt.Sprintf("nonce-%02d", i))
+	}
+	require.Equal(t, 20, h.Sentinel.Chances, "every distinct delivery counts")
+	require.Len(t, h.Sentinel.MissedBy, 8)
+
+	root := t.TempDir()
+	path := contract.HistoryPath(root)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	long := make([]string, 50)
+	for i := range long {
+		long[i] = fmt.Sprintf("%q", fmt.Sprintf("n%d", i))
+	}
+	raw := `{"version":1,"sentinel":{"token":"t","chances":50,"missed_by":[` + strings.Join(long, ",") + `]}}`
+	require.NoError(t, os.WriteFile(path, []byte(raw), 0o600))
+	require.Len(t, contract.LoadHistory(path).Sentinel.MissedBy, 8, "a hand-edited record is capped on load")
 }

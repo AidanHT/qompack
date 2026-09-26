@@ -1,0 +1,4 @@
+PASS      github.com/qompack/qompack/internal/contract  (pass=160 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=1495 fail=1 skip=1)
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+PASS      github.com/qompack/qompack/internal/cli  (pass=374 fail=0 skip=0)

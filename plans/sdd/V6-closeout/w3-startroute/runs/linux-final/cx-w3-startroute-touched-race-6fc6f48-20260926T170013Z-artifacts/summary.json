@@ -1,0 +1,27 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/contract": {
+   "result": "pass",
+   "passed": 160,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 1495,
+   "failed": [
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"
+   ],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 374,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

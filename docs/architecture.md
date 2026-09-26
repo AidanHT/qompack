@@ -121,6 +121,27 @@ watcher replays such a spool about two check intervals after it was written and 
 must still wait for an earlier delivery of its session (C1.13); the startup, flush, idle and
 operator drains replay whatever is left.
 
+A replayed request is one whose hook has already answered the host without the daemon, so a replay
+does the request's bookkeeping and nothing the host would have to see. A replayed `SessionStart`
+registers the session, runs and records the contract assertions and the observer's bookkeeping, but
+mints no `hook.additional_context_delivered` probe (§12.1) and puts nothing into its answer: a probe
+nobody received would run out its two chances and degrade the project, blaming the host for a reply
+Qompack lost. A degrade banner such a replay cannot show is owed to the next live `SessionStart`. When
+the replay is of a request the daemon did answer, too late for its hook, it withdraws the probe that
+answer carried and owes its banner again (the hook's delivery nonce identifies the request). A replayed
+`SessionStart` the host fired before a pending `PreCompact` does not resolve
+`session_start.source_compact`, which stays pending for the start that follows the `PreCompact`. A
+replayed `PreCompact` still seals its checkpoint, but re-arms that obligation only if no `SessionStart`
+of the session has arrived since the hook fired. A prompt counts as a miss for the current probe
+only if it is a prompt of the session the probe was minted for, sent after it was minted: a replayed
+prompt from before the probe, another window's prompt, or a prompt of a session whose own start was
+replayed and minted nothing never had a chance to find it. A prompt is one chance however often its
+delivery is handled — a retry after a capture that failed, or a redelivery after a restart, carries
+the same delivery nonce and spends nothing more. Each time comparison is between the hooks' own
+timestamps. A replay is not a served request either, so it does not release the daemon's one
+re-drain after its first served request (`internal/daemon/handlers.go`, `handleSessionStart`,
+`handleCheckpoint` and `sentinelMissCounts`).
+
 ## 2. Write set and retention
 
 Everything Qompack writes for a project lives under `<project>/.qompack/`.
@@ -387,15 +408,23 @@ observer seams for that session (tool results, Stops, prompt captures, `SessionE
 pending bookkeeping first, and no other session's do (`compactGates`). The rehydration's drop report
 is written after its answer is handed over. The wait is bounded at a third of the `SessionStart`
 manifest timeout (5 s) from the request's arrival; a rehydration not ready by then, one that fails
-outright, or one a stopping daemon cannot start is answered with an explicit note instead — it says
-the rehydration did not arrive and why, and names the MCP calls that recover the pre-compaction
-material (`expand` of the session's first prompt, `recall`, `dropped()`) and where the checkpoints
-are. A rehydration that finishes after its answer went out records its drop report as undelivered,
-so `dropped()` says so first; so does one built when the daemon replays a compact `SessionStart`
-from a hook client's spool, since the hook had already answered without it. The hook client writes
-the same note when no answer arrives at all (a missed deadline, an unreachable daemon), wherever a
-rehydration was due; under degraded-passive or `runtime.mode` off or passive, with the daemon
-disabled, or with the reinjection switch below off, `{}` stays the answer, because nothing was due.
+outright, or one a stopping daemon cannot start or cuts short is answered with an explicit note
+instead — it says the rehydration did not arrive and why, and names the MCP calls that recover the
+pre-compaction material (`expand` of the session's first prompt, `recall`, `dropped()`) and where the
+checkpoints are. Since owner decision D11 the same note answers a rehydration that cannot be built at all: a
+checkpoint store that cannot be read (an unreadable manifest, or a checkpoint that verifies but does
+not decode; a checkpoint that fails verification is stepped over, and the payload is built without
+it) and a build that fails or panics. Nothing is built on a store that cannot be read, and the drop
+report records the rehydration as never built — one `rehydration` entry, `not delivered: …`, naming
+the cause and where the checkpoints are, with no items and no tokens — so `dropped()` never describes
+an earlier rehydration as this one; for a replayed compaction it says the hook answered without the
+daemon rather than that the model received the note. A rehydration that finishes after its answer
+went out records its drop report as undelivered, so `dropped()` says so first; so does one built when
+the daemon replays a compact `SessionStart` from a hook client's spool, since the hook had already
+answered without it. The hook client writes the same note when no answer arrives at all (a missed
+deadline, an unreachable daemon), wherever a rehydration was due; under degraded-passive or
+`runtime.mode` off or passive, with the daemon disabled, or with the reinjection switch below off,
+`{}` stays the answer, because nothing was due.
 Measured with `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` under concurrent
 same-session ingest and an fsync co-load, the compact answer's p99 went from 1.85 s to 0.66 s
 (`plans/sdd/V6-closeout/w2-lifetime/runs/`); the route's phases are in `metrics/latency.json` as

@@ -1,0 +1,5 @@
+=== RUN   TestE2E_SessionStartCompactUnreadableCheckpointStore
+--- PASS: TestE2E_SessionStartCompactUnreadableCheckpointStore (3.79s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	4.115s
+exit=0

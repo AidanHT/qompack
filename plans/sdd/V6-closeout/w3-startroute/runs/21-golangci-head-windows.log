@@ -1,0 +1,4 @@
+internal\daemon\spawn_stage_test.go:312:27: Error return value is not checked (errcheck)
+	addr, err := ipc.Resolve(d.(*daemon).root)
+	                         ^
+exit status 1

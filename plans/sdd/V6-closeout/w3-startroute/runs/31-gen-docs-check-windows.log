@@ -1,0 +1,3 @@
+gen-command-docs exit=0
+gen-config-docs exit=0
+gen-mcp-docs exit=0

@@ -217,6 +217,17 @@ because no mode emits it: no host accepts one, so it is retired — C1.18,
 [docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution).) `qompack status` prints the
 mode as `degraded-passive`.
 
+A `SessionStart` whose hook could not reach the daemon in time — a cold daemon on a loaded machine is
+enough — is spooled and replayed later, after the hook has answered without it. The replay mints no
+`hook.additional_context_delivered` probe, and withdraws the probe of an answer that reached its hook
+too late, so such a start cannot produce "sentinel not found after two chances"; only the prompts
+of the session a probe was minted for, sent after it, count as its chances, and each prompt counts
+once however many times its delivery is replayed. Nor can a replay fail
+`session_start.source_compact`: a replayed `SessionStart` fired before a pending `PreCompact` is not
+taken for the start it announced, and a replayed `PreCompact` whose compact `SessionStart` has
+already arrived does not re-arm it. If a replay is what degrades the project, its banner appears on
+the next `SessionStart` instead ([docs/architecture.md](architecture.md#1-process-model)).
+
 **Meaning — `unavailable` latency rows.** Observed on this tree, every per-hook row in a fresh
 project read `unavailable` with its own reason, for example:
 
@@ -641,26 +652,40 @@ protection against a second writer.
 **Symptom.** After a compaction the model's context opens with "Qompack could not deliver this
 compaction's rehydration" instead of the rehydration.
 
-**Diagnose.** The note names its cause in parentheses. "it was not ready when the answer was due"
-and "building it failed" are the daemon's own: `.qompack/logs/LOUD.log` has a matching `compact
-SessionStart answered without its rehydration` line, `qompack status --json` counts it under
-`session_start_compact_deferred`, and `.qompack/metrics/latency.json` has the route's phases —
-`session_start.contract`, `.compact_wait`, `.finish` and `rehydrate.latest`, `.record` — which say
-where the time went. "the Qompack daemon did not answer in time" is the hook client's: no answer
-reached it within its 10 s deadline, so look at whether a daemon was running at all (`qompack
-status`) and at the disk load at that moment.
+**Diagnose.** The note names its cause in parentheses. "it was not ready when the answer was due",
+"building it failed", "the checkpoint store could not be read" and "the Qompack daemon was shutting
+down" are the daemon's own:
+`.qompack/logs/LOUD.log` has a matching `compact SessionStart answered without its rehydration`
+line, `qompack status --json` counts it under `session_start_compact_deferred`, and
+`.qompack/metrics/latency.json` has the route's phases — `session_start.contract`, `.compact_wait`,
+`.finish` and `rehydrate.latest`, `.record` — which say where the time went. For "building it failed"
+and "the checkpoint store could not be read", `LOUD.log` also has the failure itself: `rehydrate:
+checkpoint unreadable` (with `checkpoint manifest unreadable` when the manifest is the cause),
+`rehydrate: build failed`, or `rehydrate: panic recovered`; `qompack fsck` checks the checkpoint
+store. "the Qompack daemon was shutting down" is no fault of the store or the build: the daemon was
+stopping before the rehydration could start, or its stop cut the rehydration short (`LOUD.log` then
+has `rehydrate: stopped before the rehydration was built`). "the Qompack daemon did not answer in
+time" is the hook client's: no answer reached it within its 10 s deadline, so look at whether a
+daemon was running at all (`qompack status`) and at the disk load at that moment.
 
 **Meaning.** The rehydration is bounded (C1.16): the daemon waits for a compact rehydration for at
 most a third of the hook's 15 s timeout, counted from the request's arrival, and a rehydration that
 is not ready by then is answered with this note rather than with nothing. It finishes anyway, and
 its drop report is recorded as undelivered, so `dropped()` says first that the whole rehydration
-never reached the model.
+never reached the model. A rehydration that cannot be built at all is answered the same way (owner
+decision D11): a checkpoint store the daemon cannot read — an unreadable `MANIFEST.jsonl`, or a
+checkpoint whose bytes verify but do not decode — gets no rehydration built on top of it, and a build
+that fails or panics has nothing to deliver. Each records a drop report whose first entry is the
+whole rehydration, `not delivered: …`, naming the cause, so `dropped()` says it was never built. A
+checkpoint that fails verification is not this case: the daemon steps over it to its parent, or
+builds the rehydration without a checkpoint, and delivers that.
 
 `dropped()` reports on the most recently *recorded* rehydration, which for a while can be an
 earlier one, as the note itself says. A rehydration still being built has recorded nothing yet, and
-one that failed outright or that a stopping daemon never started records nothing at all. When the
-hook client wrote the note ("did not answer in time"), the daemon may still have answered, too
-late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
+one that a stopping daemon never started records nothing at all; one its stop cut short records a
+report that opens `not delivered: the Qompack daemon was shutting down, so no rehydration was built`.
+When the hook client wrote the note ("did not answer in time"), the daemon may still have answered,
+too late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
 and when the daemon replays it — at its next idle drain, within 30 s, or its next start — it
 records the rehydration as undelivered and says the hook answered without it. If the spool itself
 could not be written, that correction never comes: `.qompack/logs/LOUD.log` then has an `ipc: spool`

@@ -1,0 +1,29 @@
+=== RUN   TestCheckpointReplay_DoesNotReopenACompactStartAlreadyObserved
+--- PASS: TestCheckpointReplay_DoesNotReopenACompactStartAlreadyObserved (0.57s)
+=== RUN   TestCheckpointReplay_StillArmsWhenNoStartHasFollowed
+--- PASS: TestCheckpointReplay_StillArmsWhenNoStartHasFollowed (0.18s)
+=== RUN   TestSessionStartReplay_AStartFromBeforeThePreCompactLeavesItsObligationPending
+--- PASS: TestSessionStartReplay_AStartFromBeforeThePreCompactLeavesItsObligationPending (0.34s)
+=== RUN   TestSentinelScan_APromptFromBeforeTheMintIsNoMiss
+--- PASS: TestSentinelScan_APromptFromBeforeTheMintIsNoMiss (0.25s)
+=== RUN   TestSentinelScan_APromptOfAnotherSessionIsNoMiss
+--- PASS: TestSentinelScan_APromptOfAnotherSessionIsNoMiss (0.20s)
+=== RUN   TestSentinelScan_ARetriedPromptDeliveryIsOneChance
+--- PASS: TestSentinelScan_ARetriedPromptDeliveryIsOneChance (0.23s)
+=== RUN   TestSentinelScan_APromptRedeliveredAfterARestartIsOneChance
+--- PASS: TestSentinelScan_APromptRedeliveredAfterARestartIsOneChance (0.26s)
+=== RUN   TestSessionStartReplay_MintsNoProbeAndAnswersNothing
+--- PASS: TestSessionStartReplay_MintsNoProbeAndAnswersNothing (0.13s)
+=== RUN   TestSessionStartReplay_NeverDegradesTheProjectTwoPromptsLater
+--- PASS: TestSessionStartReplay_NeverDegradesTheProjectTwoPromptsLater (0.43s)
+=== RUN   TestSessionStartReplay_WithdrawsTheProbeItsLostAnswerCarried
+--- PASS: TestSessionStartReplay_WithdrawsTheProbeItsLostAnswerCarried (0.41s)
+=== RUN   TestSessionStartReplay_LeavesTheDegradeBannerToTheNextLiveStart
+--- PASS: TestSessionStartReplay_LeavesTheDegradeBannerToTheNextLiveStart (0.39s)
+=== RUN   TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried
+--- PASS: TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried (0.33s)
+=== RUN   TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession
+--- PASS: TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession (0.29s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	4.289s
+exit=0
