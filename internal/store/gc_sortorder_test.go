@@ -49,13 +49,13 @@ func TestGCHashOrder_IsTheTextOrder(t *testing.T) {
 	require.False(t, gcHashLess(one, one), "a hash is never less than itself")
 }
 
-// TestRecordOutcomes_SortingAllocatesNothingPerComparison pins the cost that mispriced the overshoot
-// window on a -race Linux host: recordOutcomes runs before GC's sweep, where the deadline is never
-// consulted, and its sorts built two String() forms per comparison. Over 3 072 dead roots that is
-// tens of thousands of allocations, 171…292 ms under -race and 10…18 ms without it (w3-paths
-// runs/linux). A sort of n items makes at least n-1 comparisons, so a comparator that allocates
-// even once each cannot come in under that count; the outcome rows themselves are appended into
-// one growing slice.
+// TestRecordOutcomes_SortingAllocatesNothingPerComparison pins the cost that mispriced the
+// overshoot window on a -race Linux host: recordOutcomes runs before GC's sweep, where the deadline
+// is never consulted, and its sorts built two String() forms per comparison. Over 3 072 dead roots
+// that is 222 108 allocations, 104…292 ms under -race and 10…18 ms without it (w3-paths gcprobe
+// runs). A sort of n items makes at least n-1 comparisons, so a comparator that allocates even once
+// each cannot come in under that count; the outcome rows themselves are appended into one growing
+// slice.
 func TestRecordOutcomes_SortingAllocatesNothingPerComparison(t *testing.T) {
 	s := &FSStore{}
 	dead := randomHashes(gcSortOrderRoots, 2)

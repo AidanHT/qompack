@@ -191,7 +191,8 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 // order-preserving (each byte becomes two digits whose ASCII order is their nibble order), so the
 // raw bytes compare the same way. GC's report and tombstone sorts use it because they run before
 // the sweep, where the deadline is never consulted, and a String() per side per comparison made
-// recordOutcomes over 3 072 dead roots cost 171…292 ms under -race (10…18 ms without).
+// recordOutcomes over 3 072 dead roots cost 104…292 ms under -race (10…18 ms without); it is
+// 10…15 ms under -race with the byte comparison.
 func gcHashLess(a, b core.Hash) bool { return bytes.Compare(a[:], b[:]) < 0 }
 
 // resumeCursor returns the sweep cursor to continue from, or "" to sweep from the beginning.
