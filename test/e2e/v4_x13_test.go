@@ -511,6 +511,7 @@ type x13v4Fallback struct {
 	NeverLive []core.ToolUseID
 	// Received is how many hot-path requests the daemon received live, of every op: the samples
 	// its dispatch recorded (the B-A histogram, plus the ones rejected for an implausible TS).
+	// x13v4Received reads it.
 	Received int64
 	// Durable is how many hot-path lines the daemon's WAL holds, of every op and session.
 	Durable int
@@ -519,7 +520,29 @@ type x13v4Fallback struct {
 // x13v4SampleInvalidCounter is internal/daemon/handlers.go's counterHotpathSampleInvalid, spelled
 // here because it is unexported: a live hot-path request whose TS failed validHotPathTS is counted
 // there instead of in the B-A histogram, and it was still received.
+//
+// A spelled name can go stale silently: obs.Registry creates an instrument on first use, so a name
+// the daemon no longer records under reads as zero rather than as missing, and so does the B-A
+// histogram if the daemon stopped recording into obs.Budgets()' name for it. Presence cannot be
+// required outright either, since a healthy run records no invalid sample and so never creates the
+// counter. What catches a stale name is x13v4ClassifyFallback's accounting: every hot-path WAL line
+// has exactly one sample behind it, so a sample recorded under a name this row does not read leaves
+// Received short of Durable, and that fails the row (errX13v4Unaccounted).
 const x13v4SampleInvalidCounter = "hotpath_sample_invalid"
+
+// errX13v4Unaccounted is x13v4ClassifyFallback's error when the daemon holds more hot-path WAL lines
+// than the samples this row reads account for. A sample recorded under a name the row does not read
+// is the cause it exists to catch; a sample still in flight is the one benign cause, and
+// x13v4RequireFallbackIsTimingOnly re-reads the registry until that has had its bound.
+var errX13v4Unaccounted = errors.New("the daemon's recorded hot-path samples do not account for every " +
+	"hot-path WAL line")
+
+// x13v4Received is how many hot-path requests the daemon received live, read from its registry:
+// the samples its dispatch recorded in the B-A histogram (obs.Budgets()' name for it, baHist) plus
+// the ones it counted under x13v4SampleInvalidCounter instead.
+func x13v4Received(snap obs.Snapshot, baHist string) int64 {
+	return snap.Hists[baHist].N + snap.Counters[x13v4SampleInvalidCounter]
+}
 
 // x13v4ClassifyFallback decides whether one arm's client fallback is a timing fallback and nothing
 // else. spooled are the requests in the client spool files the burst created or grew, wal every line
@@ -534,6 +557,14 @@ const x13v4SampleInvalidCounter = "hotpath_sample_invalid"
 // capture count instead.) A request the daemon received and refused before its WAL line — a failed
 // append, a handler that returned early — is the one refusal that leaves no trace in the daemon's
 // write set, and it is exactly Received > Durable.
+//
+// The other direction is an error too, errX13v4Unaccounted. Accept is reached only from dispatchOp's
+// hot-path routes (a client spool line the drain replays goes to runIngested and appends nothing),
+// and dispatchOp records exactly one sample for every hot-path request past admission, so every
+// hot-path WAL line has one sample behind it and a quiescent daemon has Received == Durable.
+// Received < Durable means a sample was recorded under a name x13v4Received does not read, which
+// would make Received undercount and the refusal check above weaker without a sound; see
+// x13v4SampleInvalidCounter.
 func x13v4ClassifyFallback(sess core.SessionID, spooled, wal []ipc.Request, received int64) (x13v4Fallback, error) {
 	burst := map[core.ToolUseID]bool{}
 	for i := range x13v4Turns {
@@ -569,6 +600,12 @@ func x13v4ClassifyFallback(sess core.SessionID, spooled, wal []ipc.Request, rece
 		return f, fmt.Errorf("the daemon received %d hot-path requests live but its WAL holds only %d "+
 			"hot-path lines: it refused a delivery before making it durable, so this arm's client "+
 			"fallback is not a timing fallback", f.Received, f.Durable)
+	}
+	if f.Received < int64(f.Durable) {
+		return f, fmt.Errorf("%w: the WAL holds %d hot-path lines but only %d samples were read, from the "+
+			"B-A histogram and the %q counter; if the daemon now records a hot-path sample under another "+
+			"name, Received undercounts and the refusal check is weakened", errX13v4Unaccounted,
+			f.Durable, f.Received, x13v4SampleInvalidCounter)
 	}
 	return f, nil
 }
@@ -631,6 +668,12 @@ func x13v4ClientFallback(t *testing.T, root string, before map[string]int64) (sp
 // read right after the burst) is a timing fallback of this arm's own burst and nothing else
 // (x13v4ClassifyFallback). It runs after the arm's walk, when every live request has been handled;
 // the WAL and the counters it reads are the daemon's and do not go away.
+//
+// A sample can still be in flight then: dispatchOp records it after its handler returns, and the
+// worker can publish the delivery before that. So while the samples fall short of the WAL
+// (errX13v4Unaccounted) the registry is read again on obsProcessTick, within obsProcessBound, the
+// bound this package already gives the daemon to finish processing what it has accepted. A shortfall
+// that outlasts it is not in flight, and fails the row.
 func x13v4RequireFallbackIsTimingOnly(t *testing.T, r *v4Rig, root string, sess core.SessionID,
 	spooled []ipc.Request, files []string,
 ) {
@@ -638,10 +681,24 @@ func x13v4RequireFallbackIsTimingOnly(t *testing.T, r *v4Rig, root string, sess 
 	wal, _ := x13v4ReadRequests(t, root, func(name string) bool {
 		return strings.HasPrefix("spool/"+name, x13v4WalPrefix)
 	})
-	snap := r.Opts.Metrics.Snapshot()
-	received := snap.Hists[x1v5HistOf(t, obs.BA)].N + snap.Counters[x13v4SampleInvalidCounter]
-	f, err := x13v4ClassifyFallback(sess, spooled, wal, received)
-	require.NoError(t, err, "arm %s", sess)
+	baHist := x1v5HistOf(t, obs.BA)
+	f, err := x13v4ClassifyFallback(sess, spooled, wal, x13v4Received(r.Opts.Metrics.Snapshot(), baHist))
+	if errors.Is(err, errX13v4Unaccounted) {
+		ticker := time.NewTicker(obsProcessTick)
+		defer ticker.Stop()
+		deadline := time.NewTimer(obsProcessBound)
+		defer deadline.Stop()
+	await:
+		for errors.Is(err, errX13v4Unaccounted) {
+			select {
+			case <-ticker.C:
+				f, err = x13v4ClassifyFallback(sess, spooled, wal, x13v4Received(r.Opts.Metrics.Snapshot(), baHist))
+			case <-deadline.C:
+				break await
+			}
+		}
+	}
+	require.NoError(t, err, "arm %s (B-A histogram %q)", sess, baHist)
 	t.Logf("arm %s: client fallback files read %v: %d late-ACK duplicates %v, %d never reached the daemon "+
 		"live %v; the daemon received %d hot-path requests live and holds %d hot-path WAL lines",
 		sess, files, len(f.LateACK), f.LateACK, len(f.NeverLive), f.NeverLive, f.Received, f.Durable)
