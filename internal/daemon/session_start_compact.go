@@ -48,6 +48,14 @@ import (
 // goes on: a rehydration that finishes later records its drop report as undelivered, so dropped()
 // says so rather than describing a payload the model never saw.
 //
+// A rehydration that cannot be built at all is answered with the same note, never with silence
+// (owner decision D11): the checkpoint store cannot be read, the build returns an error, or it
+// panics. The rehydration service fails the ticket with the reason (DeferredCheckpointUnreadable,
+// DeferredFailed) as soon as it knows, so the route answers at once rather than at the bound, and
+// counts and Louds it like any deferral; the service then records the drop report as never built
+// (rehydrate_service.go notBuilt). Degraded-passive and the reinjection kill switch still answer
+// nothing: nothing was due.
+//
 // A compact SessionStart can also reach the route a second time, replayed from a hook client's
 // spool by the drain (drainDispatch): the client spools a request no answer reached in time — the
 // daemon unreachable, or its reply past the client's deadline — after the hook has already answered
@@ -82,7 +90,8 @@ func compactAnswerBudget() time.Duration {
 const defaultCompactAnswerBudget = 5 * time.Second
 
 // counterCompactDeferred counts compact SessionStarts answered with the deferred note because the
-// rehydration was not ready in time (or could not be started, the daemon stopping).
+// rehydration was not ready in time, could not be started (the daemon stopping), or could not be
+// built (an unreadable checkpoint store, a failed or panicking build — D11).
 const counterCompactDeferred = "session_start_compact_deferred"
 
 // histSessionStartCompactWait is the route's wait for the compact rehydration, beside the other
@@ -96,8 +105,12 @@ const (
 	DeferredNotReady = "it was not ready when the answer was due"
 	// DeferredStopping is the daemon's own too: the daemon was shutting down.
 	DeferredStopping = "the Qompack daemon was shutting down"
-	// DeferredFailed is the daemon's own: building it failed outright (a recovered panic).
+	// DeferredFailed is the daemon's own: building it failed outright (a recovered panic, or a build
+	// that returned an error).
 	DeferredFailed = "building it failed"
+	// DeferredCheckpointUnreadable is the daemon's own too: the checkpoint store could not be read, so
+	// nothing was built (owner decision D11).
+	DeferredCheckpointUnreadable = "the checkpoint store could not be read"
 	// DeferredNoAnswer is the hook client's: the daemon did not answer the SessionStart hook at all.
 	DeferredNoAnswer = "the Qompack daemon did not answer in time"
 )
@@ -318,8 +331,11 @@ func (d *daemon) startCompactAnswer(ctx context.Context, ev hookio.Event, arrive
 		defer answerDone()
 		out, err := answer(c)
 		if err != nil {
+			// A rehydration that reports failure built nothing to deliver, so the answer is the
+			// deferred note naming why (owner decision D11), never the empty output.
 			d.log.Warn("daemon: SessionStart failed", "err", err)
-			out = hookio.Empty()
+			ticket.fail(DeferredFailed)
+			return
 		}
 		ticket.offer(out)
 	}, func() { ticket.fail(DeferredFailed) })

@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/pluginmanifest"
@@ -105,4 +107,31 @@ func TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue(t *testin
 		writeProjectConfig(t, root, `{"runtime":{"migration":{"reinjection":{"sessionStartCompact":false}}}}`)
 		require.Equal(t, "{}\n", string(runSessionStartWith(t, root, "compact")))
 	})
+}
+
+// TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole: owner decision D11 has the DAEMON
+// answer a compaction it could not rehydrate — the checkpoint store unreadable, the build failed —
+// with the deferred note and the §12.1 probe after it. The client must hand that answer to the host
+// exactly as the daemon sent it: host-conforming, whole, and far under the per-field cap.
+func TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole(t *testing.T) {
+	schema := loadHostHookSchema(t)
+	for _, reason := range []string{daemon.DeferredCheckpointUnreadable, daemon.DeferredFailed} {
+		t.Run(reason, func(t *testing.T) {
+			root := replyProject(t)
+			note := daemon.CompactDeferredNote("sess-host-contract", reason) +
+				"\n<!-- qompack-contract-probe qompack-contract-000000000000 -->"
+			replyDaemon(t, root, func(ipc.Request) *hookio.Output {
+				out := hookio.SessionStartOutput(note)
+				return &out
+			})
+
+			stdout := runSessionStartWith(t, root, "compact")
+			require.Empty(t, hostSchemaViolations(schema, "SessionStart", stdout), "stdout=%s", stdout)
+			var got hookio.Output
+			require.NoError(t, json.Unmarshal(stdout, &got))
+			require.NotNil(t, got.HookSpecificOutput)
+			require.Equal(t, note, got.HookSpecificOutput.AdditionalContext, "the daemon's note reaches the host unchanged")
+			require.Empty(t, hookio.HostCapOverruns(got))
+		})
+	}
 }
