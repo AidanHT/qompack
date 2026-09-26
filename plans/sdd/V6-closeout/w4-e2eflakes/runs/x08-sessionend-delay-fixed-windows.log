@@ -1,0 +1,9 @@
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (10.73s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (9.95s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (9.73s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	30.649s
+exit=0

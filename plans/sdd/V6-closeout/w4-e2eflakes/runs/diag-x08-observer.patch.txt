@@ -1,0 +1,41 @@
+# w4-e2eflakes, V3 x08: the TEMPORARY observer diagnostics behind the x08-* logs. Applied to
+# internal/observer/session.go only for those runs, keyed to session sess-v3-x08 and
+# ZZDIAG_W4_X08_SKETCH (delay: 3 s at the start of the observer's SessionEnd; suppress: skip its sketch
+# save), reverted with git checkout, never committed. x08-diag-missing-sketch-count8 came from a temporary
+# test-side dump (listing sketches/, LOUD and the day logs, then re-checking touch.cms 3 s later) that was
+# likewise reverted.
+
+diff --git a/internal/observer/session.go b/internal/observer/session.go
+index 2f52ce2..60062f1 100644
+--- a/internal/observer/session.go
++++ b/internal/observer/session.go
+@@ -1,6 +1,8 @@
+ package observer
+ 
+ import (
++	"os"
++	"time"
+ 	"context"
+ 	"path/filepath"
+ 
+@@ -161,6 +163,9 @@ func (o *observer) onSessionEnd(ctx context.Context, e Event) (Output, error) {
+ 	if err := ctx.Err(); err != nil {
+ 		return hookio.Empty(), err
+ 	}
++	if e.SessionID == "sess-v3-x08" && os.Getenv("ZZDIAG_W4_X08_SKETCH") == "delay" { // DIAGNOSTIC, NEVER COMMITTED
++		time.Sleep(3 * time.Second)
++	}
+ 	now := o.now()
+ 	st := o.session(e.SessionID)
+ 
+@@ -207,7 +212,9 @@ func (o *observer) onSessionEnd(ctx context.Context, e Event) (Output, error) {
+ 	//    WireObserver hands it, so the daemon's call is a no-op and THIS write is the one that
+ 	//    happens. Both writers go through sketch.Save to the same two paths, so even a dirtied
+ 	//    set's second write is idempotent and neither can produce a half-file.
+-	o.saveSketches()
++	if !(e.SessionID == "sess-v3-x08" && os.Getenv("ZZDIAG_W4_X08_SKETCH") == "suppress") { // DIAGNOSTIC, NEVER COMMITTED
++		o.saveSketches()
++	}
+ 
+ 	st.mu.Unlock() // released before o.mu is wanted anywhere below — decision 9's lock order
+ 

@@ -1,0 +1,22 @@
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+    v3_x08_test.go:298: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v3_x08_test.go:298
+        	Error:      	unable to find file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestV3_DegradedPassiveStillRecordsEverything2819101131\\001\\project\\.qompack\\sketches\\touch.cms"
+        	Test:       	TestV3_DegradedPassiveStillRecordsEverything
+--- FAIL: TestV3_DegradedPassiveStillRecordsEverything (10.85s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+    v3_x08_test.go:298: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v3_x08_test.go:298
+        	Error:      	unable to find file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestV3_DegradedPassiveStillRecordsEverything3567990188\\001\\project\\.qompack\\sketches\\touch.cms"
+        	Test:       	TestV3_DegradedPassiveStillRecordsEverything
+--- FAIL: TestV3_DegradedPassiveStillRecordsEverything (9.79s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+    v3_x08_test.go:298: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v3_x08_test.go:298
+        	Error:      	unable to find file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestV3_DegradedPassiveStillRecordsEverything3375750084\\001\\project\\.qompack\\sketches\\touch.cms"
+        	Test:       	TestV3_DegradedPassiveStillRecordsEverything
+--- FAIL: TestV3_DegradedPassiveStillRecordsEverything (9.94s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	30.816s
+FAIL
+exit=1

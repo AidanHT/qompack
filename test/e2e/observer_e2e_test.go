@@ -185,11 +185,35 @@ func obsFlushPayload(t *testing.T, root string, sess core.SessionID) []byte {
 // the daemon's own record that that work is done.
 func obsRunFlush(t *testing.T, bin, root string, sess core.SessionID, env map[string]string) {
 	t.Helper()
-	before, _ := os.ReadFile(paths.Long(contract.MarkerPath(root)))
+	before := obsSessionEndMarker(root)
 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, root, sess), env)
+	obsAwaitSessionEnded(t, root, sess, before)
+}
+
+// obsSessionEndMarker returns the terminal-hook marker's bytes as they stand, or nil before it
+// exists or while it cannot be read: what obsAwaitSessionEnded must see change, and what it polls.
+//
+// It reads through paths.ReadFileShared, never os.ReadFile. The daemon replaces the marker with
+// paths.WriteAtomic (contract.WriteMarker), once per SessionEnd, and does not retry a failed
+// replace. On Windows an os.ReadFile handle (no FILE_SHARE_DELETE) open at that moment makes the
+// replace fail, the old marker stays, and obsAwaitSessionEnded times out waiting for a write its own
+// poll prevented. Measured with a reader in a tight loop against 400 WriteMarker calls: an
+// os.ReadFile reader failed 245 of them (w4-e2eflakes runs/fix-b-diag-marker-before-windows.log).
+// test/guards' sharedReaders inventory pins this read.
+func obsSessionEndMarker(root string) []byte {
+	b, _ := paths.ReadFileShared(contract.MarkerPath(root))
+	return b
+}
+
+// obsAwaitSessionEnded waits, within obsProcessBound, for the daemon to have ended sess: for a
+// terminal-hook marker that names sess and is not the before the caller read ahead of its flush hook.
+// See obsRunFlush for why that marker is the daemon's own record that the end's work is done. It
+// polls through obsSessionEndMarker, whose doc says why that read must not be os.ReadFile.
+func obsAwaitSessionEnded(t *testing.T, root string, sess core.SessionID, before []byte) {
+	t.Helper()
 	require.Eventually(t, func() bool {
-		b, err := os.ReadFile(paths.Long(contract.MarkerPath(root)))
-		if err != nil || bytes.Equal(b, before) {
+		b := obsSessionEndMarker(root)
+		if b == nil || bytes.Equal(b, before) {
 			return false
 		}
 		var m struct {
@@ -511,6 +535,16 @@ func TestE2E_ThinSliceDropsControlOnlyEdges(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return strings.Contains(strings.Join(obsToolUseLines(p.Root), "\n"), lastID)
 	}, obsProcessBound, obsProcessTick, "the last mixed call was never indexed: %s", obsWaitDiag{p.Root})
+	// The index record is publication's second stage, not its end. The observer links it to its
+	// capture sidecar next (tooluse.go step 6b) and only then emits the DAG node (step 10); a
+	// shutdown landing before that link cancels the first run, and the replay that follows takes
+	// the redelivery path, which by design never recomputes a first run's derived DAG (step 6c). So
+	// the shutdown below has to wait for the link, or the last node's absence from the graph is
+	// the test's own race: under -race in the whole-package Linux run the thin slice came back
+	// empty (w4-e2eflakes runs/linux/cx-w4-e2eflakes-e2e-whole-78b33a1-*), and a cancellable 3 s
+	// delay injected before the link reproduces exactly that on Windows. Once the link lands the
+	// DAG step no longer depends on the run's context, and Stop waits for the worker to finish.
+	x02SidecarFor(t, p.Root, lastID)
 
 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
 	e2eShutdownIfReachable(t, p.Root)

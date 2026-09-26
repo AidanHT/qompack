@@ -1,0 +1,13 @@
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+    procalive_windows_test.go:137: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/internal/testutil/procalive_windows_test.go:137
+        	Error:      	Not equal: 
+        	            	expected: 0x0
+        	            	actual  : 0x102
+        	Test:       	TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+        	Messages:   	round 0: ProcessAlive reported pid 42252 gone while its process object was not yet signaled: the kernel was still closing its handles
+--- FAIL: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (0.73s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/testutil	1.039s
+FAIL
+exit=1

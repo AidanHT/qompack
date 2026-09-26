@@ -1,0 +1,78 @@
+# w4-e2eflakes, the two Linux whole-package reds: the TEMPORARY observer diagnostics behind the lx-* logs.
+# Applied to internal/observer only for those runs (each keyed to one tool use id and one env var), reverted
+# with git checkout, never committed. ZZDIAG_W4_T13_FILEVER=delay|suppress: a 3 s sleep before step 7, or
+# no file version, for toolu_e2e_t13_01. ZZDIAG_W4_THIN_DAG=delay: a 3 s sleep before step 10 (the DAG);
+# =linkdelay: a 3 s wait before step 6b that returns ctx.Err() if the run is cancelled first; =nolink:
+# every link of toolu_thin_39 refused, first run and replay alike (in finishObservation).
+
+diff --git a/internal/observer/identity.go b/internal/observer/identity.go
+index a42dbc9..083a80c 100644
+--- a/internal/observer/identity.go
++++ b/internal/observer/identity.go
+@@ -1,6 +1,7 @@
+ package observer
+ 
+ import (
++	"os"
+ 	"context"
+ 	"errors"
+ 
+@@ -114,6 +115,9 @@ func (o *observer) finishObservation(ctx context.Context, obs core.ObservationID
+ 	if err := o.syncObservation(ctx, rec.Root); err != nil {
+ 		return err
+ 	}
++	if rec.ID == "toolu_thin_39" && os.Getenv("ZZDIAG_W4_THIN_DAG") == "nolink" { // DIAGNOSTIC, NEVER COMMITTED
++		return o.unpublished(stageLink)
++	}
+ 	if err := o.linkObservation(obs, rec); err != nil {
+ 		return o.unpublished(stageLink)
+ 	}
+diff --git a/internal/observer/tooluse.go b/internal/observer/tooluse.go
+index 8a8efe0..1ecb175 100644
+--- a/internal/observer/tooluse.go
++++ b/internal/observer/tooluse.go
+@@ -4,6 +4,7 @@ import (
+ 	"context"
+ 	"fmt"
+ 	"strings"
++	"os"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/canon"
+@@ -207,6 +208,13 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
+ 	//     It runs BEFORE the replay check below on purpose: a first run killed between its record
+ 	//     and this link left a durable record with no join, and the redelivery completing that join
+ 	//     is the only thing that can repair it.
++	if rec.ID == "toolu_thin_39" && os.Getenv("ZZDIAG_W4_THIN_DAG") == "linkdelay" { // DIAGNOSTIC, NEVER COMMITTED
++		select {
++		case <-ctx.Done():
++			return hookio.Empty(), ctx.Err()
++		case <-time.After(3 * time.Second):
++		}
++	}
+ 	if err := o.finishObservation(ctx, obs, rec); err != nil {
+ 		return hookio.Empty(), err
+ 	}
+@@ -241,6 +249,12 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
+ 	}
+ 	o.rememberToolUse(st, rec)
+ 
++	if rec.ID == "toolu_e2e_t13_01" && os.Getenv("ZZDIAG_W4_T13_FILEVER") == "delay" { // DIAGNOSTIC, NEVER COMMITTED
++		time.Sleep(3 * time.Second)
++	}
++	if rec.ID == "toolu_e2e_t13_01" && os.Getenv("ZZDIAG_W4_T13_FILEVER") == "suppress" { // DIAGNOSTIC, NEVER COMMITTED
++		empty = true
++	}
+ 	// 7. §8.2 file version history. Only a result that IS the content of a path is a version of it.
+ 	if !empty && pathKey != "" && supersedableClass(display) == classFileContent {
+ 		o.soft(stageFileVer, o.opt.Store.AppendFileVersion(ctx, pathKey, store.FileVersion{
+@@ -263,6 +277,9 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
+ 	// 9. §8.1 item 5.
+ 	o.feedSketches(rec)
+ 
++	if rec.ID == "toolu_thin_39" && os.Getenv("ZZDIAG_W4_THIN_DAG") == "delay" { // DIAGNOSTIC, NEVER COMMITTED
++		time.Sleep(3 * time.Second)
++	}
+ 	// 10. §8.1 item 4, expressed entirely as one dag.BuildToolUse call.
+ 	o.emitToolGraph(ctx, st, rec, body, superseded)
+ 

@@ -1,0 +1,20 @@
+9e984d570daeb3b7fef846adaf27661758850d34
+fmt-check exit=0
+vet exit=0
+vet linux exit=0
+golangci-lint exit=0
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (72 package(s) checked)
+PASS importgraph
+== devtool lint: testdeps ==
+testdeps: OK (74 package(s) checked)
+PASS testdeps
+== devtool lint: bindeps ==
+bindeps: OK (6 target(s) checked)
+PASS bindeps
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+devtool lint exit=0

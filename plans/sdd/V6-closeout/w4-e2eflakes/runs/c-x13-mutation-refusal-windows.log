@@ -1,0 +1,22 @@
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:847: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:644
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:847
+        	Error:      	Received unexpected error:
+        	            	the daemon received 9 hot-path requests live but its WAL holds only 8 hot-path lines: it refused a delivery before making it durable, so this arm's client fallback is not a timing fallback
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	arm sess-e2e-v4-x13
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (6.29s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:847: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:644
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:847
+        	Error:      	Received unexpected error:
+        	            	the daemon received 9 hot-path requests live but its WAL holds only 8 hot-path lines: it refused a delivery before making it durable, so this arm's client fallback is not a timing fallback
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	arm sess-e2e-v4-x13
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (4.75s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	11.259s
+FAIL
+exit=1

@@ -1,0 +1,28 @@
+# the three marker-wait users with obsSessionEndMarker on paths.ReadFileShared (uncommitted on dc41e2d)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (5.24s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (5.40s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (6.57s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.29s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (3.84s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (5.20s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (6.40s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.32s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (3.90s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (5.33s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (6.39s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.26s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	48.503s
+exit=0

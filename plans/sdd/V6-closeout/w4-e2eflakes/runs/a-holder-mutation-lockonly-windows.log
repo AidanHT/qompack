@@ -1,0 +1,20 @@
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+    shutdown_spawn_inflight_test.go:223: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:202
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:223
+        	Error:      	e2eShutdownIfReachable returned too early
+        	Test:       	TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+        	Messages:   	it returned once the lock was released, while the stand-in lock holder (pid 46664) was still running
+--- FAIL: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (3.16s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+    shutdown_spawn_inflight_test.go:223: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:202
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:223
+        	Error:      	e2eShutdownIfReachable returned too early
+        	Test:       	TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+        	Messages:   	it returned once the lock was released, while the stand-in lock holder (pid 54060) was still running
+--- FAIL: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (1.89s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	5.303s
+FAIL
+exit=1

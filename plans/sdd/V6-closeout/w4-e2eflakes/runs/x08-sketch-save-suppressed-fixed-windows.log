@@ -1,0 +1,10 @@
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+    v3_x08_test.go:308: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v3_x08_test.go:308
+        	Error:      	unable to find file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestV3_DegradedPassiveStillRecordsEverything2936354371\\001\\project\\.qompack\\sketches\\touch.cms"
+        	Test:       	TestV3_DegradedPassiveStillRecordsEverything
+--- FAIL: TestV3_DegradedPassiveStillRecordsEverything (7.82s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	8.022s
+FAIL
+exit=1

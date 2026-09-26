@@ -299,13 +299,15 @@ func x4v5StatePath(root string, sess core.SessionID) string {
 }
 
 // x4v5ReadState reads the persisted rehydration record the `dropped` tool answers from.
+//
+// It waits for the record rather than reading it the instant the compact SessionStart returns: the
+// rehydrate service writes it after it has handed the answer over (C1.16), and it reads through
+// paths.ReadFileShared so that the read cannot collide with the writer's replace. scAwaitState
+// gives both reasons in full; together they were this row's co-load red, a Windows sharing
+// violation opening this file.
 func x4v5ReadState(t *testing.T, root string, sess core.SessionID) rehydrate.State {
 	t.Helper()
-	b, err := os.ReadFile(paths.Long(x4v5StatePath(root, sess)))
-	require.NoError(t, err, "the rehydrate service must persist state/rehydrate-%s.json", sess)
-	var st rehydrate.State
-	require.NoError(t, json.Unmarshal(b, &st), "state/rehydrate-%s.json: %s", sess, b)
-	return st
+	return scAwaitState(t, x4v5StatePath(root, sess))
 }
 
 // x4v5RequireHeadingOrder asserts every §8.6 heading present in ac appears in normative order.
@@ -590,5 +592,20 @@ func TestV5_PreCompactToRehydrateToDroppedRoundTrip(t *testing.T) {
 
 		// The append-only invariant holds on the project this arm wrote to.
 		p.AssertAppendOnly(t)
+
+		// The state-file absence again, once nothing can still write it. The positive arms wait
+		// for the file because the rehydrate service records it AFTER handing over the answer
+		// (C1.16), so the absence asserted right after the answer above cannot see a regression
+		// that records with injection off: that file would land after the check. The compact
+		// rehydration runs as reply work that Stop joins, within its drain grace, before it
+		// cancels it (startReplyWork, stopPromptRecordings), so once Stop returns every Record
+		// that was coming has landed. A diagnostic daemon that answers {} and records 2 s later
+		// passes this arm without this check and fails it here (w4-e2eflakes
+		// runs/fix-c-x04-negctl-*-windows.log). Stop is idempotent, so the rig's own cleanup
+		// Stop is a no-op after it.
+		require.NoError(t, r.D.Stop(context.Background()), "stopping the negative control's daemon")
+		require.NoFileExists(t, paths.Long(x4v5StatePath(p.Root, x4v5ControlSession)),
+			"NEGATIVE CONTROL: with injection off no rehydration may be recorded, not even after the "+
+				"answer")
 	})
 }

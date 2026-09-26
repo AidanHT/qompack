@@ -1,0 +1,19 @@
+# w4-e2eflakes item (b): which reader of a paths.WriteAtomic-replaced file can see ERROR_SHARING_VIOLATION.
+# Re-run 2026-09-26 on the branch at 87ffe91 (internal/paths unchanged since the base), Windows 11, go1.26.6,
+# co-loaded host. The source is runs/diag-b-sharing-modes_windows_test.go.txt, copied into internal/paths as
+# zz_diag_w4_sharing_windows_test.go for this run only and removed after it (never committed).
+# Command: go test ./internal/paths -run '^TestZZDiagW4_' -count=1 -v -timeout=5m
+
+=== RUN   TestZZDiagW4_DeleteAccessHandleVsReaders
+    zz_diag_w4_sharing_windows_test.go:36: os.ReadFile under a DELETE-access handle: err=open C:\Users\Quant\AppData\Local\Temp\TestZZDiagW4_DeleteAccessHandleVsReaders1866909887\001\rehydrate-x.json: The process cannot access the file because it is being used by another process. sharingViolation=true
+    zz_diag_w4_sharing_windows_test.go:38: paths.ReadFileShared under the same handle: err=<nil> bytes=7
+--- PASS: TestZZDiagW4_DeleteAccessHandleVsReaders (0.05s)
+=== RUN   TestZZDiagW4_ChurnSharedReader
+    zz_diag_w4_sharing_windows_test.go:91: ReadFileShared reader: writes=449 writeErrors=0 reads=63201 readErrors=0 sharingViolations=0
+--- PASS: TestZZDiagW4_ChurnSharedReader (10.04s)
+=== RUN   TestZZDiagW4_ChurnOsReadFileReader
+    zz_diag_w4_sharing_windows_test.go:96: os.ReadFile reader: writes=304 writeErrors=98 reads=53980 readErrors=863 sharingViolations=863
+--- PASS: TestZZDiagW4_ChurnOsReadFileReader (10.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	22.039s
+exit=0

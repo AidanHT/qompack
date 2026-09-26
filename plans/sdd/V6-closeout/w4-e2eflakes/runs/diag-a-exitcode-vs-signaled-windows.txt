@@ -1,0 +1,149 @@
+# w4-e2eflakes item (a): does GetExitCodeProcess report an exit before the process's handles close?
+# Host: Windows 11 (win32), go1.26.6, 2026-09-26, co-loaded by three other workstreams.
+# Program: exitdiag (source below). The child opens -n files without FILE_SHARE_DELETE, touches -mb MiB,
+# prints ready and exits(0) on stdin EOF. The parent polls GetExitCodeProcess with a FRESH OpenProcess per
+# poll (-fresh, exactly testutil.ProcessAlive's old shape) until it is no longer STILL_ACTIVE, then at once
+# checks WaitForSingleObject(h,0) on its own SYNCHRONIZE handle and tries os.Remove on the child's file f0.
+# exitCodeSetButNotSignaled: exits where the exit code was set but the process object was not signaled.
+# exitCodeSetButFileStillHeld: exits where f0 could not be removed at that instant.
+# fileStillHeldOnceSignaled: exits where f0 was still held once the object WAS signaled (expected 0).
+# Commands: exitdiag.exe -iters=40 -fresh with (-n=2000 -mb=256), (-n=20 -mb=32), (-n=5 -mb=8)
+
+iterations=40 fresh=true files=2000 mb=256 exitCodeSetButNotSignaled=40 exitCodeSetButFileStillHeld=39 fileStillHeldOnceSignaled=0 maxSignalLag=151.4067ms maxFileHeldAfterSignalLag=0s
+exit=0
+iterations=40 fresh=true files=20 mb=32 exitCodeSetButNotSignaled=40 exitCodeSetButFileStillHeld=38 fileStillHeldOnceSignaled=0 maxSignalLag=7.634ms maxFileHeldAfterSignalLag=0s
+exit=0
+iterations=40 fresh=true files=5 mb=8 exitCodeSetButNotSignaled=40 exitCodeSetButFileStillHeld=38 fileStillHeldOnceSignaled=0 maxSignalLag=4.6358ms maxFileHeldAfterSignalLag=0s
+exit=0
+
+# ---- source (main.go) ----
+//go:build windows
+
+// exitdiag measures, on Windows, whether GetExitCodeProcess can report a child's exit code before
+// the child's handles are closed and before its process object is signaled.
+package main
+
+import (
+	"bufio"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"syscall"
+	"time"
+)
+
+const stillActive = 259
+const synchronize = 0x00100000
+
+func child(dir string, n, mb int) {
+	var keep []*os.File
+	for i := 0; i < n; i++ {
+		f, err := os.OpenFile(filepath.Join(dir, "f"+strconv.Itoa(i)), os.O_CREATE|os.O_RDWR, 0o600)
+		if err != nil {
+			fmt.Println("openerr", err)
+			os.Exit(3)
+		}
+		keep = append(keep, f)
+	}
+	mem := make([]byte, mb<<20)
+	for i := 0; i < len(mem); i += 4096 {
+		mem[i] = 1
+	}
+	fmt.Println("ready", len(keep), len(mem))
+	_, _ = io.Copy(io.Discard, os.Stdin)
+	os.Exit(0)
+}
+
+func main() {
+	mode := flag.String("mode", "parent", "")
+	dir := flag.String("dir", "", "")
+	n := flag.Int("n", 2000, "files")
+	mb := flag.Int("mb", 256, "MiB")
+	iters := flag.Int("iters", 50, "")
+	fresh := flag.Bool("fresh", false, "probe with a fresh OpenProcess per poll, as testutil.ProcessAlive does")
+	flag.Parse()
+	if *mode == "child" {
+		child(*dir, *n, *mb)
+		return
+	}
+	self, _ := os.Executable()
+	codeBeforeSignal, codeBeforeClose, heldAtSignal, iterations := 0, 0, 0, 0
+	var maxSig, maxClose time.Duration
+	for it := 0; it < *iters; it++ {
+		d, _ := os.MkdirTemp("", "exitdiag-")
+		cmd := exec.Command(self, "-mode=child", "-dir="+d, "-n="+strconv.Itoa(*n), "-mb="+strconv.Itoa(*mb))
+		in, _ := cmd.StdinPipe()
+		out, _ := cmd.StdoutPipe()
+		if err := cmd.Start(); err != nil {
+			panic(err)
+		}
+		line, _ := bufio.NewReader(out).ReadString('\n')
+		if len(line) < 5 || line[:5] != "ready" {
+			panic("child: " + line)
+		}
+		pid := uint32(cmd.Process.Pid)
+		h, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION|synchronize, false, pid)
+		if err != nil {
+			panic(err)
+		}
+		exitCode := func() uint32 {
+			hh := h
+			if *fresh {
+				x, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, pid)
+				if err != nil {
+					return 0 // ERROR_INVALID_PARAMETER: gone
+				}
+				defer syscall.CloseHandle(x)
+				hh = x
+			}
+			var c uint32
+			if err := syscall.GetExitCodeProcess(hh, &c); err != nil {
+				panic(err)
+			}
+			return c
+		}
+		held := filepath.Join(d, "f0")
+		_ = in.Close()
+		for exitCode() == stillActive {
+		}
+		t0 := time.Now()
+		sig, _ := syscall.WaitForSingleObject(h, 0)
+		rmErr := os.Remove(held)
+		if sig != 0 {
+			codeBeforeSignal++
+		}
+		if rmErr != nil {
+			codeBeforeClose++
+		}
+		var sigAt, closeAt time.Duration
+		for sig != 0 {
+			sig, _ = syscall.WaitForSingleObject(h, 0)
+		}
+		sigAt = time.Since(t0)
+		if rmErr != nil {
+			if rmErr = os.Remove(held); rmErr != nil {
+				heldAtSignal++
+			}
+		}
+		for rmErr != nil {
+			rmErr = os.Remove(held)
+			closeAt = time.Since(t0)
+		}
+		if sigAt > maxSig {
+			maxSig = sigAt
+		}
+		if closeAt > maxClose {
+			maxClose = closeAt
+		}
+		_ = cmd.Wait()
+		_ = syscall.CloseHandle(h)
+		_ = os.RemoveAll(d)
+		iterations++
+	}
+	fmt.Printf("iterations=%d fresh=%v files=%d mb=%d exitCodeSetButNotSignaled=%d exitCodeSetButFileStillHeld=%d fileStillHeldOnceSignaled=%d maxSignalLag=%s maxFileHeldAfterSignalLag=%s\n",
+		iterations, *fresh, *n, *mb, codeBeforeSignal, codeBeforeClose, heldAtSignal, maxSig, maxClose)
+}

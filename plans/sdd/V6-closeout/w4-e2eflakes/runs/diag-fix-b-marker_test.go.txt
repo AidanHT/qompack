@@ -1,0 +1,50 @@
+// Throwaway diagnostic of the w4-e2eflakes fix seat, run as test/e2e/zz_diag_marker_test.go and
+// deleted after the two runs recorded in fix-b-diag-marker-{before,after}-windows.log. Never
+// committed as a test: it measures a rate, and the regression pin is test/guards' sharedReaders.
+package e2e
+
+import (
+	"os"
+	"sync"
+	"sync/atomic"
+	"testing"
+
+	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/paths"
+)
+
+func diagMarkerRace(t *testing.T, read func(root string)) (failed, total int) {
+	root := t.TempDir()
+	require := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	require(contract.WriteMarker(root, "sess-diag", core.UnixMilli(1)))
+	var stop atomic.Bool
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for !stop.Load() {
+			read(root)
+		}
+	}()
+	const n = 400
+	for i := 0; i < n; i++ {
+		if err := contract.WriteMarker(root, "sess-diag", core.UnixMilli(i+2)); err != nil {
+			failed++
+		}
+	}
+	stop.Store(true)
+	wg.Wait()
+	return failed, n
+}
+
+func TestDiagMarkerReaderBlocksWriteMarker(t *testing.T) {
+	f, n := diagMarkerRace(t, func(root string) { _, _ = os.ReadFile(paths.Long(contract.MarkerPath(root))) })
+	t.Logf("os.ReadFile reader: %d of %d WriteMarker replaces failed", f, n)
+	f, n = diagMarkerRace(t, func(root string) { _ = obsSessionEndMarker(root) })
+	t.Logf("obsSessionEndMarker reader: %d of %d WriteMarker replaces failed", f, n)
+}

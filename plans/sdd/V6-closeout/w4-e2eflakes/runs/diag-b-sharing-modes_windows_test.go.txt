@@ -1,0 +1,97 @@
+//go:build windows
+
+package paths
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/windows"
+)
+
+// DIAGNOSTIC (w4-e2eflakes, not committed): which reader of a WriteAtomic-replaced file can see
+// ERROR_SHARING_VIOLATION on Windows.
+func TestZZDiagW4_DeleteAccessHandleVsReaders(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "rehydrate-x.json")
+	require.NoError(t, WriteAtomic(p, []byte(`{"a":1}`), 0o600))
+
+	// What posixReplace holds between SetFileInformationByHandle(FileRenameInfoEx) and its deferred
+	// CloseHandle: a handle on the file now at p, DELETE|SYNCHRONIZE, share READ|WRITE|DELETE.
+	name, err := windows.UTF16PtrFromString(Long(p))
+	require.NoError(t, err)
+	h, err := windows.CreateFile(name, windows.DELETE|windows.SYNCHRONIZE,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	require.NoError(t, err)
+	_, osErr := os.ReadFile(Long(p))
+	b, shErr := ReadFileShared(p)
+	_ = windows.CloseHandle(h)
+	t.Logf("os.ReadFile under a DELETE-access handle: err=%v sharingViolation=%v", osErr,
+		errors.Is(osErr, windows.ERROR_SHARING_VIOLATION))
+	t.Logf("paths.ReadFileShared under the same handle: err=%v bytes=%d", shErr, len(b))
+}
+
+func zzChurn(t *testing.T, reader func(string) error) (writes, writeErrs, reads, readErrs, sharing int64) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "rehydrate-x.json")
+	require.NoError(t, WriteAtomic(p, []byte(`{"a":1}`), 0o600))
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	var w, we, r, re, sv atomic.Int64
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if err := WriteAtomic(p, []byte(`{"a":2,"pad":"xxxxxxxxxxxxxxxxxxxxxxxx"}`), 0o600); err != nil {
+				we.Add(1)
+				continue
+			}
+			w.Add(1)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			err := reader(p)
+			r.Add(1)
+			if err != nil {
+				re.Add(1)
+				if errors.Is(err, windows.ERROR_SHARING_VIOLATION) {
+					sv.Add(1)
+				}
+			}
+		}
+	}()
+	timer := time.NewTimer(10 * time.Second)
+	<-timer.C
+	close(stop)
+	wg.Wait()
+	return w.Load(), we.Load(), r.Load(), re.Load(), sv.Load()
+}
+
+func TestZZDiagW4_ChurnSharedReader(t *testing.T) {
+	w, we, r, re, sv := zzChurn(t, func(p string) error { _, err := ReadFileShared(p); return err })
+	t.Logf("ReadFileShared reader: writes=%d writeErrors=%d reads=%d readErrors=%d sharingViolations=%d", w, we, r, re, sv)
+}
+
+func TestZZDiagW4_ChurnOsReadFileReader(t *testing.T) {
+	w, we, r, re, sv := zzChurn(t, func(p string) error { _, err := os.ReadFile(Long(p)); return err })
+	t.Logf("os.ReadFile reader: writes=%d writeErrors=%d reads=%d readErrors=%d sharingViolations=%d", w, we, r, re, sv)
+}

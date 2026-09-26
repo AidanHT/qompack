@@ -1,0 +1,37 @@
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+    v5_x04_test.go:468: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/sessionstart_compact_test.go:298
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v5_x04_test.go:310
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v5_x04_test.go:468
+        	Error:      	the compact rehydration never persisted its state file
+        	Test:       	TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+        	Messages:   	C:\Users\Quant\AppData\Local\Temp\TestV5_PreCompactToRehydrateToDroppedRoundTripfull_budget_round4090413107\001\project\.qompack\state\rehydrate-sess-e2e-v5-x04.json did not appear within 30s of the compact SessionStart's answer. The rehydrate service writes it right after it offers the answer (C1.16), so its absence means the Record never ran or failed, not that it was slow
+--- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip (61.75s)
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (61.74s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	62.075s
+FAIL
+exit=1
+=== RUN   TestE2E_SessionStartCompactFitsTheHostCap
+    c114_hostcap_test.go:58: compact additionalContext: 7378 host characters (ceiling 9500, host cap 10000); restorable rules offered: 15750
+    c114_hostcap_test.go:79: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/sessionstart_compact_test.go:298
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/c114_hostcap_test.go:105
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/c114_hostcap_test.go:79
+        	Error:      	the compact rehydration never persisted its state file
+        	Test:       	TestE2E_SessionStartCompactFitsTheHostCap
+        	Messages:   	C:\Users\Quant\AppData\Local\Temp\TestE2E_SessionStartCompactFitsTheHostCap1885359722\001\project\.qompack\state\rehydrate-e2e-1.json did not appear within 30s of the compact SessionStart's answer. The rehydrate service writes it right after it offers the answer (C1.16), so its absence means the Record never ran or failed, not that it was slow
+--- FAIL: TestE2E_SessionStartCompactFitsTheHostCap (34.13s)
+=== RUN   TestE2E_SessionStartClear
+    sessionstart_compact_test.go:541: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/sessionstart_compact_test.go:298
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/sessionstart_compact_test.go:541
+        	Error:      	the compact rehydration never persisted its state file
+        	Test:       	TestE2E_SessionStartClear
+        	Messages:   	C:\Users\Quant\AppData\Local\Temp\TestE2E_SessionStartClear555798260\001\project\.qompack\state\rehydrate-e2e-1.json did not appear within 30s of the compact SessionStart's answer. The rehydrate service writes it right after it offers the answer (C1.16), so its absence means the Record never ran or failed, not that it was slow
+--- FAIL: TestE2E_SessionStartClear (31.33s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	65.778s
+FAIL
+exit=1

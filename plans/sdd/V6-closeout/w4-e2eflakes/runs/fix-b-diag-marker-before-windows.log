@@ -1,0 +1,8 @@
+# diag before the fix: obsSessionEndMarker is still os.ReadFile (dc41e2d); throwaway zz_diag_marker_test.go
+=== RUN   TestDiagMarkerReaderBlocksWriteMarker
+    zz_diag_marker_test.go:47: os.ReadFile reader: 245 of 400 WriteMarker replaces failed
+    zz_diag_marker_test.go:49: obsSessionEndMarker reader: 216 of 400 WriteMarker replaces failed
+--- PASS: TestDiagMarkerReaderBlocksWriteMarker (4.35s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	4.557s
+exit=0

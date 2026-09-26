@@ -1,0 +1,98 @@
+# w4-e2eflakes item (c): the TEMPORARY instrumentation behind runs/c-x13-diag-count15-load-windows.log.
+# Base 26f8edf^ (the row before any item (c) change). Never committed: the call site was reverted with
+# git checkout and the helper file deleted after the run.
+
+# ---- call site (test/e2e/v4_x13_test.go) ----
+diff --git a/test/e2e/v4_x13_test.go b/test/e2e/v4_x13_test.go
+index c0edb5f..9e1d2b3 100644
+--- a/test/e2e/v4_x13_test.go
++++ b/test/e2e/v4_x13_test.go
+@@ -519,6 +519,9 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
+ 	rr.WaitIndexed(t, x13v4Turns)
+ 	refSet := x13v4WriteSet(t, pr.Root, beforeB)
+ 
++	zzX13Dump(t, "wave3", p.Root, beforeA) // DIAGNOSTIC, NEVER COMMITTED
++	zzX13Dump(t, "ref", pr.Root, beforeB)  // DIAGNOSTIC, NEVER COMMITTED
++	t.Logf("ZZDIAG sets: wave3=%v ref=%v", fullSet, refSet)
+ 	// ── The claim: the wave-3 residents add NO work to the hot path ──────────────────────────────
+ 	require.Equal(t, refSet, fullSet,
+ 		"a hook burst must touch the same files whether or not the checkpoint writer, the frontier "+
+
+# ---- helper (test/e2e/zz_diag_x13_test.go) ----
+package e2e
+
+// DIAGNOSTIC w4-e2eflakes item (c), NEVER COMMITTED.
+
+import (
+	"encoding/json"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/paths"
+)
+
+func zzX13Dump(t *testing.T, label, root string, before map[string]int64) {
+	t.Helper()
+	l := paths.Of(root)
+	entries, _ := os.ReadDir(paths.Long(l.Spool))
+	for _, e := range entries {
+		p := filepath.Join(l.Spool, e.Name())
+		b, _ := paths.ReadFileShared(p)
+		var ops []string
+		for _, line := range strings.Split(string(b), "\n") {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			req, err := ipc.DecodeRequest([]byte(line))
+			if err != nil {
+				ops = append(ops, "undecodable")
+				continue
+			}
+			id := ""
+			if req.Event != nil {
+				id = string(req.Event.ToolUseID)
+			}
+			ops = append(ops, string(req.Op)+":"+string(req.Session)+":"+id+":n="+req.Nonce)
+		}
+		_, was := before["spool/"+e.Name()]
+		t.Logf("ZZDIAG %s spool %s (in-before=%v) %d lines: %v", label, e.Name(), was, len(ops), ops)
+	}
+	var tu []string
+	for _, line := range obsToolUseLines(root) {
+		var rec struct {
+			ID      string `json:"id"`
+			Session string `json:"session"`
+		}
+		_ = json.Unmarshal([]byte(line), &rec)
+		tu = append(tu, rec.ID+"@"+rec.Session)
+	}
+	t.Logf("ZZDIAG %s index/tool_use.jsonl %d lines: %v", label, len(tu), tu)
+	var caps []string
+	_ = filepath.WalkDir(paths.Long(filepath.Join(l.Dot, "records", "captures")), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		b, _ := os.ReadFile(p)
+		var sc struct {
+			Op        string `json:"op"`
+			Session   string `json:"session"`
+			Arrival   uint64 `json:"arrival"`
+			ToolUseID string `json:"tool_use_id"`
+			Published bool   `json:"published"`
+		}
+		_ = json.Unmarshal(b, &sc)
+		rel, _ := filepath.Rel(paths.Long(l.Dot), p)
+		_, was := before[filepath.ToSlash(rel)]
+		caps = append(caps, sc.Op+"@"+sc.Session+"#"+string(rune('0'+sc.Arrival%10))+":"+sc.ToolUseID+":pub="+map[bool]string{true: "y", false: "n"}[sc.Published]+":before="+map[bool]string{true: "y", false: "n"}[was])
+		return nil
+	})
+	sort.Strings(caps)
+	t.Logf("ZZDIAG %s captures %d: %v", label, len(caps), caps)
+	st, _ := paths.ReadFileShared(filepath.Join(l.State, "drain.json"))
+	t.Logf("ZZDIAG %s drain.json: %s", label, st)
+}

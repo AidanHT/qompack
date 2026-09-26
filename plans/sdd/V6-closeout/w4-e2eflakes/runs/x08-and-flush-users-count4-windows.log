@@ -1,0 +1,35 @@
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (5.84s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (5.71s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (6.66s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.32s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (4.19s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (5.48s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (6.76s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.34s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (4.15s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (5.56s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (6.58s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.30s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (4.21s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (5.58s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (6.78s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.36s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	67.751s
+exit=0

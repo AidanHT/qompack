@@ -1,0 +1,18 @@
+# w4-e2eflakes item (c): the TEMPORARY product mutation behind runs/c-x13-mutation-refusal-windows.log: the
+# wave-3 arm's daemon refuses toolu_v4x13_03 before its WAL line (only when ZZMUT_W4_REFUSE is set).
+# Applied only for that run, reverted with git checkout, never committed.
+
+diff --git a/internal/daemon/handlers.go b/internal/daemon/handlers.go
+index 029b147..6bc35e1 100644
+--- a/internal/daemon/handlers.go
++++ b/internal/daemon/handlers.go
+@@ -477,6 +477,9 @@ func (d *daemon) acceptHotPathEvent(ctx context.Context, req ipc.Request) ipc.Re
+ 	if !d.monitor.Mode().MayRecord() {
+ 		return ipc.Response{OK: true}
+ 	}
++	if os.Getenv("ZZMUT_W4_REFUSE") != "" && req.Session == "sess-e2e-v4-x13" && req.Event != nil && req.Event.ToolUseID == "toolu_v4x13_03" { // TEMPORARY MUTATION, NEVER COMMITTED
++		return ipc.Response{OK: false, Err: "zz mutation: refused before the WAL"}
++	}
+ 
+ 	line, err := ipc.EncodeRequest(req)
+ 	if err != nil {

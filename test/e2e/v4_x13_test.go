@@ -6,7 +6,9 @@
 // assertion here would be noise wearing a gate's name. ADR 0010's co-load policy applies, and the
 // measured arm belongs on a quiet runner. This row asserts the STRUCTURAL claim instead — what is
 // resident, and what work the hot path does — which is the half that can be established here and
-// is the half a regression would break first.
+// is the half a regression would break first. The one file a HOOK writes on a missed deadline, its
+// client fallback spool, is therefore asserted per arm rather than compared between arms; see
+// x13v4HookFallbackToken.
 //
 // It also lives in test/e2e rather than test/bench/hotpath: the bench package's budget machinery is
 // owned elsewhere, and a structural A/B needs two DIFFERENT compositions of the same daemon, which
@@ -14,7 +16,9 @@
 package e2e
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -31,6 +35,7 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -277,7 +282,9 @@ const x13v4CapturePrefix = "records/captures/"
 // SAME write set. That fallback is exactly what carried defect SP05-D2 is about and what this wave
 // says it has bounded, so the comparison has to be able to see it. Splitting the token costs
 // nothing that the fold was needed for — the per-run component (session, pid, rotation sequence) is
-// still erased WITHIN each family.
+// still erased WITHIN each family. The row sees spool/<client> through its own per-arm assertion,
+// not through the write-set equality, because whether a hook spools is decided by a wall clock; see
+// x13v4HookFallbackToken.
 const (
 	x13v4WalPrefix    = "spool/wal-"
 	x13v4ClientPrefix = "spool/client-"
@@ -454,6 +461,342 @@ func x13v4Existing(t *testing.T, root string) map[string]int64 {
 	return out
 }
 
+// x13v4HookFallbackToken is the one write-set token that the HOOK writes rather than the daemon, and
+// writes because of the clock rather than because of what the daemon does: the client's fallback
+// spool (internal/ipc/client.go spoolAndReturn). A hook appends its delivery there when the dial
+// does not connect within State.ConnectDeadlineMs, when the one-byte ACK does not arrive within
+// State.AckDeadlineMs, or when the daemon NAKs. The first two are wall-clock outcomes, and
+// config.AckDeadlineMsWindows's own derivation says the deadline "is sized from quiet runs and
+// engages the degrade path under ordinary load".
+//
+// So under load either arm can spool, and a set equality over this token is a timing gate in
+// disguise, one this row's header rules out. Measured under a CPU and fsync load generator
+// (w4-e2eflakes runs/c-x13-diag-count15-load-windows.log): 5 of 15 runs failed the equality on
+// this token alone, in both directions. The observer-only arm was the one that spooled in three of
+// them, which no wave-3 resident can cause, and in each of those three the spooled delivery's nonce
+// was already on a line of that arm's WAL: the daemon had made it durable and only acknowledged it
+// late. (In the other two the wave-3 arm's spool had been drained away before it could be read.)
+// With this assertion and the two settles below in place, two runs of 20 under the same load
+// generator (the second beside TestV3_HotPathUnchangedWithLedgerResident's 2,250 spawns) passed 40
+// of 40; 18 of their 80 arms spooled, 41 deliveries in all, every one a late-ACK duplicate
+// (runs/c-x13-count20-final-load-windows.log, runs/c-x13-count20-final-heavy-windows.log).
+//
+// The token is not dropped. The equality compares x13v4DaemonWriteSet, and each arm's fallback is
+// asserted on its own by x13v4RequireFallbackIsTimingOnly, which fails if the daemon refused any
+// hot-path request it received: the one way a daemon-side change makes a hook spool without leaving
+// a trace in the daemon's own write set. The two other daemon-side routes to a NAK both write
+// logs/LOUD.log, which stays in the equality: a breach into spool submode (applyHotPathTransition)
+// and a WAL'd delivery that could not be leased (makeDurable).
+const x13v4HookFallbackToken = "spool/<client>"
+
+// x13v4DaemonWriteSet is set without x13v4HookFallbackToken, and without nothing else.
+func x13v4DaemonWriteSet(set []string) []string {
+	out := make([]string, 0, len(set))
+	for _, name := range set {
+		if name != x13v4HookFallbackToken {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// x13v4Fallback is what one arm's client fallback spool held, classified.
+type x13v4Fallback struct {
+	// LateACK are burst deliveries the hook spooled although the daemon had already made them
+	// durable live: their nonce is on a line of the daemon's WAL. Only the ACK was late.
+	LateACK []core.ToolUseID
+	// NeverLive are burst deliveries the hook spooled with no live copy in the WAL. The daemon
+	// never received them (the dial or the write did not reach it), since a request it received
+	// and refused before making it durable is what Received > Durable catches.
+	NeverLive []core.ToolUseID
+	// Received is how many hot-path requests the daemon received live, of every op: the samples
+	// its dispatch recorded (the B-A histogram, plus the ones rejected for an implausible TS).
+	Received int64
+	// Durable is how many hot-path lines the daemon's WAL holds, of every op and session.
+	Durable int
+}
+
+// x13v4SampleInvalidCounter is internal/daemon/handlers.go's counterHotpathSampleInvalid, spelled
+// here because it is unexported: a live hot-path request whose TS failed validHotPathTS is counted
+// there instead of in the B-A histogram, and it was still received.
+const x13v4SampleInvalidCounter = "hotpath_sample_invalid"
+
+// x13v4ClassifyFallback decides whether one arm's client fallback is a timing fallback and nothing
+// else. spooled are the requests in the client spool files the burst created or grew, wal every line
+// of the daemon's WAL, received the daemon's count of hot-path requests received live.
+//
+// It is an error when a spooled request is not one of this arm's own burst deliveries — the premise
+// on which the token leaves the equality — or when the daemon received more hot-path requests than
+// it made durable. Every live hot-path request that passes privacy admission is handled by a route
+// that calls Accept, whose first act is the WAL append (ingest.makeDurable), and dispatchOp records
+// its sample only after that handler returns, so at a quiescent point Received <= Durable. (One
+// refused at admission is answered OK, so it never spools, records no sample, and is caught by the
+// capture count instead.) A request the daemon received and refused before its WAL line — a failed
+// append, a handler that returned early — is the one refusal that leaves no trace in the daemon's
+// write set, and it is exactly Received > Durable.
+func x13v4ClassifyFallback(sess core.SessionID, spooled, wal []ipc.Request, received int64) (x13v4Fallback, error) {
+	burst := map[core.ToolUseID]bool{}
+	for i := range x13v4Turns {
+		burst[x13v4BurstID(i)] = true
+	}
+	live := map[string]bool{}
+	f := x13v4Fallback{Received: received}
+	for _, req := range wal {
+		if req.Op.HotPath() {
+			f.Durable++
+		}
+		if req.Nonce != "" {
+			live[req.Nonce] = true
+		}
+	}
+	for _, req := range spooled {
+		if req.Op != ipc.OpObserveTool || req.Session != sess || req.Event == nil || !burst[req.Event.ToolUseID] {
+			id := core.ToolUseID("")
+			if req.Event != nil {
+				id = req.Event.ToolUseID
+			}
+			return f, fmt.Errorf("the client fallback spool holds %s for session %q, tool use %q, which is "+
+				"not one of this arm's burst deliveries; only those may leave the write-set equality",
+				req.Op, req.Session, id)
+		}
+		if req.Nonce != "" && live[req.Nonce] {
+			f.LateACK = append(f.LateACK, req.Event.ToolUseID)
+		} else {
+			f.NeverLive = append(f.NeverLive, req.Event.ToolUseID)
+		}
+	}
+	if int64(f.Durable) < f.Received {
+		return f, fmt.Errorf("the daemon received %d hot-path requests live but its WAL holds only %d "+
+			"hot-path lines: it refused a delivery before making it durable, so this arm's client "+
+			"fallback is not a timing fallback", f.Received, f.Durable)
+	}
+	return f, nil
+}
+
+// x13v4ReadRequests decodes every complete line of the files under root's .qompack/spool whose name
+// passes keep, skipping a file that is gone by the time it is read (the daemon's drain removes a
+// client spool it has consumed). A final fragment with no terminator is an append still in progress
+// and not a line yet. It reads with paths.ReadFileShared, never os.ReadFile: that drain deletes the
+// file, and an ordinary Windows handle would make its delete fail.
+func x13v4ReadRequests(t *testing.T, root string, keep func(name string) bool) (reqs []ipc.Request, read []string) {
+	t.Helper()
+	dir := paths.Of(root).Spool
+	entries, err := os.ReadDir(paths.Long(dir))
+	require.NoError(t, err)
+	for _, e := range entries {
+		if e.IsDir() || !keep(e.Name()) {
+			continue
+		}
+		b, err := paths.ReadFileShared(filepath.Join(dir, e.Name()))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		require.NoError(t, err, "reading spool/%s", e.Name())
+		read = append(read, e.Name())
+		lines := strings.Split(string(b), "\n")
+		for _, line := range lines[:len(lines)-1] {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			req, err := ipc.DecodeRequest([]byte(line))
+			require.NoError(t, err, "spool/%s holds a line that does not decode: %s", e.Name(), line)
+			reqs = append(reqs, req)
+		}
+	}
+	return reqs, read
+}
+
+// x13v4ClientFallback reads what the burst's hooks appended to their client fallback spools: the
+// spool/client-*.ndjson files under root that before did not hold, or held at another size.
+//
+// It is called the moment the burst's last hook has returned and before anything drains, which is
+// when those files are certain to be whole and most likely to still exist: every hook appends its
+// fallback line before it exits (ipc.Client.Send), and the daemon's drain removes a client spool
+// once it has consumed it. A spool consumed during the burst itself is gone before the walk too, so
+// the write set never names it either. The files read are returned for the log.
+func x13v4ClientFallback(t *testing.T, root string, before map[string]int64) (spooled []ipc.Request, files []string) {
+	t.Helper()
+	return x13v4ReadRequests(t, root, func(name string) bool {
+		if !strings.HasPrefix("spool/"+name, x13v4ClientPrefix) {
+			return false
+		}
+		info, err := os.Stat(paths.Long(filepath.Join(paths.Of(root).Spool, name)))
+		was, ok := before["spool/"+name]
+		return err == nil && (!ok || was != info.Size())
+	})
+}
+
+// x13v4RequireFallbackIsTimingOnly asserts, for the arm r serves at root, what the write-set equality
+// no longer asserts about x13v4HookFallbackToken: what the burst's hooks spooled (x13v4ClientFallback,
+// read right after the burst) is a timing fallback of this arm's own burst and nothing else
+// (x13v4ClassifyFallback). It runs after the arm's walk, when every live request has been handled;
+// the WAL and the counters it reads are the daemon's and do not go away.
+func x13v4RequireFallbackIsTimingOnly(t *testing.T, r *v4Rig, root string, sess core.SessionID,
+	spooled []ipc.Request, files []string,
+) {
+	t.Helper()
+	wal, _ := x13v4ReadRequests(t, root, func(name string) bool {
+		return strings.HasPrefix("spool/"+name, x13v4WalPrefix)
+	})
+	snap := r.Opts.Metrics.Snapshot()
+	received := snap.Hists[x1v5HistOf(t, obs.BA)].N + snap.Counters[x13v4SampleInvalidCounter]
+	f, err := x13v4ClassifyFallback(sess, spooled, wal, received)
+	require.NoError(t, err, "arm %s", sess)
+	t.Logf("arm %s: client fallback files read %v: %d late-ACK duplicates %v, %d never reached the daemon "+
+		"live %v; the daemon received %d hot-path requests live and holds %d hot-path WAL lines",
+		sess, files, len(f.LateACK), f.LateACK, len(f.NeverLive), f.NeverLive, f.Received, f.Durable)
+}
+
+// x13v4SettleSetup waits, before an arm's baseline is taken, until everything its setup hooks sent
+// has reached the daemon and been leased: no client fallback spool is left under spool/ (the drain
+// removes one once it has consumed it), and the setup prompt's capture sidecar exists (the ingest
+// worker writes it for every leased hot-path delivery, whatever the observer then does with the
+// prompt). It drives the rig's Drain on every tick, within v4Rig.WaitIndexed's bound.
+//
+// Without it the burst window could hold SETUP work, and only on one arm. Under heavy load a setup
+// hook can miss its connect or ACK deadline, or its delivery can still be on its way through the
+// daemon's durable path when x13v4Existing's settle window has passed, since nothing of it shows
+// under tmp/ or state/pending yet. The wave-3 arm's residency steps then make further requests of
+// its daemon before its baseline (a compact SessionStart through the real binary, an idle pass),
+// and the observer-only arm makes none. With the CPU at 100 % the observer-only arm's delta alone
+// carried the delivery journal's own files, which are created when the journal first opens
+// (state/delivery-journal.json and state/delivery-generations/manifest.jsonl in five runs, the
+// position seals and state/delivery-journal-log.jsonl too in two more; w4-e2eflakes runs/
+// c-x13-count20-load-cpu100-windows.log). Settling both arms the same way puts setup where it
+// belongs.
+func x13v4SettleSetup(t *testing.T, r *v4Rig, root string, sess core.SessionID) {
+	t.Helper()
+	ctx := context.Background()
+	ticker := time.NewTicker(obsProcessTick)
+	defer ticker.Stop()
+	deadline := time.Now().Add(obsProcessBound)
+	for {
+		_, _ = r.D.Drain(ctx)
+		pending := x13v4FilesWithPrefix(root, x13v4ClientPrefix)
+		captured := x13v4PromptCaptured(t, root, sess)
+		if len(pending) == 0 && captured {
+			return
+		}
+		if time.Now().After(deadline) {
+			require.FailNowf(t, "the setup never settled",
+				"after %s, %s still held client fallback spools %v (setup prompt captured: %v); LOUD: %v",
+				obsProcessBound, root, pending, captured, loudLines(t, root))
+		}
+		<-ticker.C
+	}
+}
+
+// x13v4FilesWithPrefix names the files under root's .qompack/spool whose slash path relative to
+// .qompack starts with prefix.
+func x13v4FilesWithPrefix(root, prefix string) []string {
+	entries, err := os.ReadDir(paths.Long(paths.Of(root).Spool))
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasPrefix("spool/"+e.Name(), prefix) {
+			out = append(out, e.Name())
+		}
+	}
+	return out
+}
+
+// x13v4PromptCaptured reports whether root holds a capture sidecar for sess's observe.prompt.
+func x13v4PromptCaptured(t *testing.T, root string, sess core.SessionID) bool {
+	t.Helper()
+	dot := paths.Of(root).Dot
+	found := false
+	_ = filepath.WalkDir(paths.Long(filepath.Join(dot, filepath.FromSlash(x13v4CapturePrefix))),
+		func(p string, d fs.DirEntry, werr error) error {
+			if werr != nil || d.IsDir() || found {
+				return nil //nolint:nilerr // an absent tree holds no capture yet
+			}
+			raw, err := paths.ReadFileShared(p)
+			if err != nil {
+				return nil //nolint:nilerr // a sidecar being replaced is read on the next tick
+			}
+			var sc struct {
+				Op      string         `json:"op"`
+				Session core.SessionID `json:"session"`
+			}
+			found = json.Unmarshal(raw, &sc) == nil && sc.Op == string(ipc.OpObservePrompt) && sc.Session == sess
+			return nil
+		})
+	return found
+}
+
+// x13v4BurstID is the tool_use id of the burst's i-th hook, the same on both arms.
+func x13v4BurstID(i int) core.ToolUseID { return core.ToolUseID(fmt.Sprintf("toolu_v4x13_%02d", i)) }
+
+// x13v4WaitBurstIndexed waits until every one of the burst's own x13v4Turns tool uses is in root's
+// index/tool_use.jsonl, driving the rig's Drain on every tick exactly as v4Rig.WaitIndexed does —
+// once unconditionally first, so both arms take the same path (8658ccb) — and within the same
+// bound.
+//
+// It waits for the burst's IDS, not for a line count, and that is the correction. index/tool_use.jsonl
+// also holds the setup prompt's record (prompt_<session>_0 — the observer indexes a prompt there
+// too), so WaitIndexed(x13v4Turns) returned once the prompt and SEVEN of the eight tool uses had
+// landed. The eighth could still be queued behind its lease with nothing yet under .qompack/tmp or
+// state/pending, so x13v4Quiesce's settle window (4 x the 50 ms B-C budget) could pass before its
+// publication began, and the walk and the capture count then read a burst that was not finished.
+// Under a CPU and fsync load generator that was a red of its own: "the observer-only arm must write
+// one capture sidecar per hook in the burst", expected 8, actual 7 (w4-e2eflakes runs/
+// c-x13-count10-load-before-windows.log). A tool use's index record lands after its capture
+// sidecar (publication order), so once all eight ids are indexed all eight sidecars are durable.
+//
+// It also waits until no client fallback spool is left, i.e. until the drain has consumed and
+// removed every copy a hook spooled. A spool left standing is work for the daemon's spool watcher,
+// which passes over it on its own clock (spoolCheckInterval, then after 2, 4, 8 intervals) and
+// rewrites state/drain.json through a tmp/ staging file on every pass (drainer.saveState): a
+// writer that no settle window bounds, whose staging file a walk can catch. With the CPU at 100 %
+// one arm's walk did catch a tmp/<staging> file that the other's did not (runs/
+// c-x13-count20-load-cpu100-windows.log). What the hooks spooled has already been read by
+// x13v4ClientFallback, so nothing the per-arm assertion needs is lost.
+func x13v4WaitBurstIndexed(t *testing.T, r *v4Rig, root string) {
+	t.Helper()
+	ctx := context.Background()
+	ticker := time.NewTicker(obsProcessTick)
+	defer ticker.Stop()
+	deadline := time.Now().Add(obsProcessBound)
+	_, _ = r.D.Drain(ctx)
+	for {
+		missing := x13v4BurstNotIndexed(root)
+		pending := x13v4FilesWithPrefix(root, x13v4ClientPrefix)
+		if len(missing) == 0 && len(pending) == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			require.FailNowf(t, "the burst never settled",
+				"after %s, %d of the burst's %d tool uses were still not in %s's index/tool_use.jsonl %v, "+
+					"and client fallback spools %v were still unconsumed; LOUD: %v",
+				obsProcessBound, len(missing), x13v4Turns, root, missing, pending, loudLines(t, root))
+		}
+		<-ticker.C
+		_, _ = r.D.Drain(ctx)
+	}
+}
+
+// x13v4BurstNotIndexed lists the burst's tool use ids that root's index/tool_use.jsonl does not hold.
+func x13v4BurstNotIndexed(root string) []core.ToolUseID {
+	indexed := map[core.ToolUseID]bool{}
+	for _, line := range obsToolUseLines(root) {
+		var rec struct {
+			ID core.ToolUseID `json:"id"`
+		}
+		if json.Unmarshal([]byte(line), &rec) == nil {
+			indexed[rec.ID] = true
+		}
+	}
+	var missing []core.ToolUseID
+	for i := range x13v4Turns {
+		if id := x13v4BurstID(i); !indexed[id] {
+			missing = append(missing, id)
+		}
+	}
+	return missing
+}
+
 // TestV4_HotPathUnchangedWithTheFullWave3ResidentSet is V4-VERIFY §4.13, structural arm.
 //
 // The negative control is the last arm: one idle pass with the same resident set MUST change the
@@ -489,16 +832,19 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
 	}
 
 	// The hook burst, with NO idle pass inside it: this is the hot path and nothing else.
+	x13v4SettleSetup(t, r, p.Root, x13v4Session)
 	beforeA := x13v4Existing(t, p.Root)
 	for i := range x13v4Turns {
 		obsRunHook(t, r.Bin, []string{"observe", "tool"},
-			obsToolPayload(t, p.Root, x13v4Session, fmt.Sprintf("toolu_v4x13_%02d", i),
+			obsToolPayload(t, p.Root, x13v4Session, string(x13v4BurstID(i)),
 				fmt.Sprintf("src/x13_%02d.go", i),
 				fmt.Sprintf("package x13\n\nfunc h%02d() error { return nil }\n", i)), env)
 	}
-	r.WaitIndexed(t, x13v4Turns)
+	spooledA, spoolFilesA := x13v4ClientFallback(t, p.Root, beforeA)
+	x13v4WaitBurstIndexed(t, r, p.Root)
 	fullSet := x13v4WriteSet(t, p.Root, beforeA)
 	require.NotEmpty(t, fullSet, "the hook burst must have written something")
+	x13v4RequireFallbackIsTimingOnly(t, r, p.Root, x13v4Session, spooledA, spoolFilesA)
 
 	// ── Arm B: the SAME burst against an observer-only daemon ────────────────────────────────────
 	pr := v4Project(t)
@@ -509,22 +855,29 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
 	obsRunHook(t, rr.Bin, []string{"observe", "prompt"},
 		obsPromptPayload(t, pr.Root, x13v4RefSession, "hold every wave-3 subsystem resident"), envr)
 
+	x13v4SettleSetup(t, rr, pr.Root, x13v4RefSession)
 	beforeB := x13v4Existing(t, pr.Root)
 	for i := range x13v4Turns {
 		obsRunHook(t, rr.Bin, []string{"observe", "tool"},
-			obsToolPayload(t, pr.Root, x13v4RefSession, fmt.Sprintf("toolu_v4x13_%02d", i),
+			obsToolPayload(t, pr.Root, x13v4RefSession, string(x13v4BurstID(i)),
 				fmt.Sprintf("src/x13_%02d.go", i),
 				fmt.Sprintf("package x13\n\nfunc h%02d() error { return nil }\n", i)), envr)
 	}
-	rr.WaitIndexed(t, x13v4Turns)
+	spooledB, spoolFilesB := x13v4ClientFallback(t, pr.Root, beforeB)
+	x13v4WaitBurstIndexed(t, rr, pr.Root)
 	refSet := x13v4WriteSet(t, pr.Root, beforeB)
+	x13v4RequireFallbackIsTimingOnly(t, rr, pr.Root, x13v4RefSession, spooledB, spoolFilesB)
 
 	// ── The claim: the wave-3 residents add NO work to the hot path ──────────────────────────────
-	require.Equal(t, refSet, fullSet,
-		"a hook burst must touch the same files whether or not the checkpoint writer, the frontier "+
-			"advancer, the pin store, the ledger and the cadence task are resident. A difference here "+
-			"is wave-3 work that migrated ONTO the hot path.\nwith wave 3: %v\nwithout:    %v",
-		fullSet, refSet)
+	// Every file the DAEMON touched is compared. The hook's own fallback spool was asserted above,
+	// per arm, rather than here: whether a hook spools is decided by its connect and ACK deadlines,
+	// so it differs between arms under load (x13v4HookFallbackToken).
+	require.Equal(t, x13v4DaemonWriteSet(refSet), x13v4DaemonWriteSet(fullSet),
+		"a hook burst must make the daemon touch the same files whether or not the checkpoint writer, "+
+			"the frontier advancer, the pin store, the ledger and the cadence task are resident. A "+
+			"difference here is wave-3 work that migrated ONTO the hot path.\nwith wave 3: %v\nwithout:    %v"+
+			"\nLOUD with wave 3: %v\nLOUD without:    %v",
+		fullSet, refSet, loudLines(t, p.Root), loudLines(t, pr.Root))
 
 	// The fold above compares KINDS. The capture path writes exactly one sidecar per leased
 	// delivery, so the burst's eight tool hooks must have left eight on each arm — the count is

@@ -1,0 +1,7 @@
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (8.76s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (7.90s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	16.892s
+exit=0

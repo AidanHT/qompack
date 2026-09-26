@@ -1,0 +1,36 @@
+=== RUN   TestE2E_SessionStartCompactFitsTheHostCap
+    c114_hostcap_test.go:59: compact additionalContext: 7378 host characters (ceiling 9500, host cap 10000); restorable rules offered: 15750
+    c114_hostcap_test.go:80: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/c114_hostcap_test.go:105
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/c114_hostcap_test.go:80
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestE2E_SessionStartCompactFitsTheHostCap1135553000\001\project\.qompack\state\rehydrate-e2e-1.json: The system cannot find the file specified.
+        	Test:       	TestE2E_SessionStartCompactFitsTheHostCap
+        	Messages:   	the compact rehydration must persist its state file
+--- FAIL: TestE2E_SessionStartCompactFitsTheHostCap (5.19s)
+=== RUN   TestE2E_SessionStartClear
+    sessionstart_compact_test.go:475: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/sessionstart_compact_test.go:475
+        	Error:      	unable to find file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestE2E_SessionStartClear4287231019\\001\\project\\.qompack\\state\\rehydrate-e2e-1.json"
+        	Test:       	TestE2E_SessionStartClear
+        	Messages:   	the compact run must have recorded what it injected
+--- FAIL: TestE2E_SessionStartClear (3.92s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	9.464s
+FAIL
+exit=1
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+    v5_x04_test.go:466: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v5_x04_test.go:305
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v5_x04_test.go:466
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestV5_PreCompactToRehydrateToDroppedRoundTripfull_budget_round793998808\001\project\.qompack\state\rehydrate-sess-e2e-v5-x04.json: The system cannot find the file specified.
+        	Test:       	TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+        	Messages:   	the rehydrate service must persist state/rehydrate-sess-e2e-v5-x04.json
+--- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip (28.49s)
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (28.49s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	29.029s
+FAIL
+exit=1

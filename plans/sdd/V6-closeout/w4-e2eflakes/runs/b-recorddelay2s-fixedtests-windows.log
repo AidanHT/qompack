@@ -1,0 +1,15 @@
+=== RUN   TestE2E_SessionStartCompactFitsTheHostCap
+    c114_hostcap_test.go:58: compact additionalContext: 7378 host characters (ceiling 9500, host cap 10000); restorable rules offered: 15750
+--- PASS: TestE2E_SessionStartCompactFitsTheHostCap (4.81s)
+=== RUN   TestE2E_SessionStartClear
+--- PASS: TestE2E_SessionStartClear (3.06s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	8.214s
+exit=0
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (20.55s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (20.55s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	20.839s
+exit=0

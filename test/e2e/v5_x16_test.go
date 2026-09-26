@@ -366,14 +366,12 @@ func TestV5_NoPackageWritesOutsideDotQompack(t *testing.T) {
 		// settle and get none: the directed-import arm never touches IPC, and the severed-writers
 		// arm runs under the daemon-down fault, whose spawn site is a no-op.
 		//
-		// Unlike that arm's, this call spends its whole e2eDaemonDownBound and then logs "released …
-		// but was still running": v4StartRig's daemon is IN-PROCESS, so daemon.lock records the test
-		// binary's own pid (internal/daemon/lock.go) and the helper's second condition — the pid that
-		// held the lock has exited — can never be met by a daemon living inside the test that is
-		// asking. That log line is an artefact of an in-process daemon, not a straggler. The settle
-		// underneath it is real and lands in milliseconds: admin.shutdown runs daemon.Stop, whose
-		// LAST act is Lock.Release, so the lock's disappearance already proves every cleanup step
-		// above it has run.
+		// Unlike that arm's, this daemon is IN-PROCESS (v4StartRig), so daemon.lock records the test
+		// binary's own pid (internal/daemon/lock.go), and "has that pid exited?" could never be
+		// answered yes from inside the test that is asking. The helper therefore counts our own pid
+		// as settled once the lock is gone (e2eShutdownProcessSettled says why), and the settle lands
+		// in milliseconds: admin.shutdown runs daemon.Stop, whose LAST act is Lock.Release, so the
+		// lock's disappearance already proves every cleanup step above it has run.
 		e2eShutdownIfReachable(t, p.Root)
 
 		after := x16v5Snapshot(t, roots)

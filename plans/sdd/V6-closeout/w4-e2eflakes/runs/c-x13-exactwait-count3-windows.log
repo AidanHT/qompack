@@ -1,0 +1,15 @@
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:593: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3764199368\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:595: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3764199368\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.99s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:593: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2297051426\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:595: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2297051426\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (9.92s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:593: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1191746059\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:595: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1191746059\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.59s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	31.748s
+exit=0
