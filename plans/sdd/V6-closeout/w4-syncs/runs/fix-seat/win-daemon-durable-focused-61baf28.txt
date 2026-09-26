@@ -1,0 +1,43 @@
+=== RUN   TestStoreWrapperDropsTheSupersedingCapability
+--- PASS: TestStoreWrapperDropsTheSupersedingCapability (0.00s)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+--- PASS: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.24s)
+=== RUN   TestStoreWrapperDropsTheDurablePublisherCapability
+--- PASS: TestStoreWrapperDropsTheDurablePublisherCapability (0.00s)
+=== RUN   TestObserverDurablePublisherFailureRemainsDrainRetryable
+--- PASS: TestObserverDurablePublisherFailureRemainsDrainRetryable (0.59s)
+=== RUN   TestStoreWrapperDropsTheSupersedingCapability
+--- PASS: TestStoreWrapperDropsTheSupersedingCapability (0.00s)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+--- PASS: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.23s)
+=== RUN   TestStoreWrapperDropsTheDurablePublisherCapability
+--- PASS: TestStoreWrapperDropsTheDurablePublisherCapability (0.00s)
+=== RUN   TestObserverDurablePublisherFailureRemainsDrainRetryable
+--- PASS: TestObserverDurablePublisherFailureRemainsDrainRetryable (0.52s)
+=== RUN   TestStoreWrapperDropsTheSupersedingCapability
+--- PASS: TestStoreWrapperDropsTheSupersedingCapability (0.00s)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+--- PASS: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.24s)
+=== RUN   TestStoreWrapperDropsTheDurablePublisherCapability
+--- PASS: TestStoreWrapperDropsTheDurablePublisherCapability (0.00s)
+=== RUN   TestObserverDurablePublisherFailureRemainsDrainRetryable
+--- PASS: TestObserverDurablePublisherFailureRemainsDrainRetryable (0.53s)
+=== RUN   TestStoreWrapperDropsTheSupersedingCapability
+--- PASS: TestStoreWrapperDropsTheSupersedingCapability (0.00s)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+--- PASS: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.23s)
+=== RUN   TestStoreWrapperDropsTheDurablePublisherCapability
+--- PASS: TestStoreWrapperDropsTheDurablePublisherCapability (0.00s)
+=== RUN   TestObserverDurablePublisherFailureRemainsDrainRetryable
+--- PASS: TestObserverDurablePublisherFailureRemainsDrainRetryable (0.52s)
+=== RUN   TestStoreWrapperDropsTheSupersedingCapability
+--- PASS: TestStoreWrapperDropsTheSupersedingCapability (0.00s)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+--- PASS: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.23s)
+=== RUN   TestStoreWrapperDropsTheDurablePublisherCapability
+--- PASS: TestStoreWrapperDropsTheDurablePublisherCapability (0.00s)
+=== RUN   TestObserverDurablePublisherFailureRemainsDrainRetryable
+--- PASS: TestObserverDurablePublisherFailureRemainsDrainRetryable (0.58s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	4.171s
+exit=0

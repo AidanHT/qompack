@@ -1,0 +1,99 @@
+package daemon
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
+	"github.com/qompack/qompack/internal/store"
+)
+
+// TestW4Probe_AtomicFaultStoreDeliveryShape is a SCRATCH probe (never committed as a test): it
+// replays TestObserverAtomicPublicationFailureRemainsDrainRetryable's exact request and wrapper and
+// reports whether the delivery is leased and how many SyncPublication passes it pays.
+func TestW4Probe_AtomicFaultStoreDeliveryShape(t *testing.T) {
+	root := t.TempDir()
+	metrics := obs.New(core.SystemClock())
+	backing, err := store.Open(root, testConfig(), store.Deps{Metrics: metrics})
+	require.NoError(t, err)
+	faulty := newAtomicFaultStore(t, backing, errors.New("tool-use index refused"))
+	_, dd, _ := wireTestDaemon(t, root, func(o *Options) { o.Store = faulty })
+	t.Cleanup(func() { _ = dd.ing.Close() })
+
+	_, pubSync := store.Store(faulty).(store.PublicationSync)
+	_, recovery := store.Store(faulty).(store.ObservationRecovery)
+	_, durable := store.Store(faulty).(store.DurableObservationPublisher)
+	t.Logf("atomicFaultStore forwards: PublicationSync=%v ObservationRecovery=%v DurableObservationPublisher=%v",
+		pubSync, recovery, durable)
+
+	req := ipc.Request{
+		Op: ipc.OpObserveTool, Session: "sess-atomic-publication", TS: core.NowMilli(dd.clk),
+		Event: &hookio.Event{
+			HookEventName: "PostToolUse", SessionID: "sess-atomic-publication", CWD: root,
+			ToolName: "Read", ToolUseID: "toolu_atomic_publication",
+			ToolInput:    json.RawMessage(`{"file_path":"src/atomic.go"}`),
+			ToolResponse: json.RawMessage(`{"content":"package atomic\n"}`),
+		},
+	}
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	require.NoError(t, dd.ing.Accept(req, line))
+	job := <-dd.ing.ring
+	t.Logf("job leased=%v nonce=%q", job.leased, req.Nonce)
+
+	var seenObs core.ObservationID
+	dd.ing.dispatch(context.Background(), func(ctx context.Context, got ipc.Request) ipc.Response {
+		seenObs = observer.ObservationFrom(ctx)
+		return dd.runIngested(ctx, got)
+	}, job)
+	t.Logf("first attempt: ObservationFrom(ctx)=%q passes=%d", seenObs,
+		metrics.Counter(store.CounterPublicationSync).Value())
+
+	faulty.repair()
+	dd.ing.seen.finish(job.key, false)
+	require.NoError(t, dd.ing.CloseSession(req.Session))
+	dr := newDrainer(DrainConfig{Root: root, Seen: dd.ing.seen, Dispatch: func(ctx context.Context, got ipc.Request) ipc.Response {
+		seenObs = observer.ObservationFrom(ctx)
+		return dd.runIngested(ctx, got)
+	}})
+	n, err := dr.Drain(context.Background())
+	require.NoError(t, err)
+	t.Logf("drain replayed %d; ObservationFrom(ctx)=%q; total passes=%d", n, seenObs,
+		metrics.Counter(store.CounterPublicationSync).Value())
+}
+
+// TestW4Probe_AtomicFaultStoreCannotPublishALeasedDelivery is the same wrapper, with NO fault armed,
+// handed a LEASED delivery: it reports whether the observer can publish through it at all.
+func TestW4Probe_AtomicFaultStoreCannotPublishALeasedDelivery(t *testing.T) {
+	root := t.TempDir()
+	metrics := obs.New(core.SystemClock())
+	backing, err := store.Open(root, testConfig(), store.Deps{Metrics: metrics})
+	require.NoError(t, err)
+	faulty := newAtomicFaultStore(t, backing, nil)
+	_, dd, _ := wireTestDaemon(t, root, func(o *Options) { o.Store = faulty })
+	lock := lockFor(t, dd, root)
+	defer func() { _ = lock.Release() }()
+
+	req := sp08d2Read(testDeliveryToken('c'), "sess-probe-leased", "toolu_probe_leased")
+	require.True(t, dd.dispatchOp(context.Background(), req).OK)
+	job := <-dd.ing.ring
+	var resp ipc.Response
+	var seenObs core.ObservationID
+	dd.ing.dispatch(context.Background(), func(ctx context.Context, got ipc.Request) ipc.Response {
+		seenObs = observer.ObservationFrom(ctx)
+		resp = dd.runIngested(ctx, got)
+		return resp
+	}, job)
+	_, lookupErr := backing.ToolUse(context.Background(), "toolu_probe_leased")
+	t.Logf("leased=%v obs=%q resp.OK=%v resp.Err=%q passes=%d legacyCalls=%d lookupErr=%v",
+		job.leased, seenObs, resp.OK, resp.Err, metrics.Counter(store.CounterPublicationSync).Value(),
+		faulty.legacyCalls(), lookupErr)
+}
