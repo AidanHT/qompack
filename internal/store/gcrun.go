@@ -186,6 +186,14 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 	return rep, nil
 }
 
+// gcHashLess orders two hashes exactly as their String() forms compare, without building either.
+// String() is a constant prefix followed by the lowercase hex of the 32 bytes, and hex is
+// order-preserving (each byte becomes two digits whose ASCII order is their nibble order), so the
+// raw bytes compare the same way. GC's report and tombstone sorts use it because they run before
+// the sweep, where the deadline is never consulted, and a String() per side per comparison made
+// recordOutcomes over 3 072 dead roots cost 171…292 ms under -race (10…18 ms without).
+func gcHashLess(a, b core.Hash) bool { return bytes.Compare(a[:], b[:]) < 0 }
+
 // resumeCursor returns the sweep cursor to continue from, or "" to sweep from the beginning.
 func resumeCursor(prior gcState, resuming bool) string {
 	if resuming && prior.Phase == "sweep" {
@@ -1480,7 +1488,7 @@ func (s *FSStore) applyQuota(m *markResult, quota int64, rep *GCReport, outcomes
 		if cands[i].ts != cands[j].ts {
 			return cands[i].ts < cands[j].ts
 		}
-		return cands[i].hash.String() < cands[j].hash.String()
+		return gcHashLess(cands[i].hash, cands[j].hash)
 	})
 
 	var freed int64
@@ -1505,7 +1513,7 @@ func (s *FSStore) applyQuota(m *markResult, quota int64, rep *GCReport, outcomes
 		for h := range m.hard {
 			blockers = append(blockers, h)
 		}
-		sort.Slice(blockers, func(i, j int) bool { return blockers[i].String() < blockers[j].String() })
+		sort.Slice(blockers, func(i, j int) bool { return gcHashLess(blockers[i], blockers[j]) })
 		for _, h := range blockers {
 			r := m.hard[h]
 			rep.Unsafe++
@@ -1552,7 +1560,7 @@ func (s *FSStore) recordOutcomes(m *markResult, rep *GCReport, outcomes *outcome
 	for h := range m.hard {
 		hard = append(hard, h)
 	}
-	sort.Slice(hard, func(i, j int) bool { return hard[i].String() < hard[j].String() })
+	sort.Slice(hard, func(i, j int) bool { return gcHashLess(hard[i], hard[j]) })
 	for _, h := range hard {
 		r := m.hard[h]
 		rep.Retained++
@@ -1565,14 +1573,14 @@ func (s *FSStore) recordOutcomes(m *markResult, rep *GCReport, outcomes *outcome
 	for h := range m.soft {
 		soft = append(soft, h)
 	}
-	sort.Slice(soft, func(i, j int) bool { return soft[i].String() < soft[j].String() })
+	sort.Slice(soft, func(i, j int) bool { return gcHashLess(soft[i], soft[j]) })
 	for _, h := range soft {
 		rep.Retained++
 		outcomes.add(RootOutcome{Root: h, Result: RootRetained, Reason: m.soft[h], Bytes: m.size[h]})
 	}
 
 	dead := append([]core.Hash(nil), m.deadRoots...)
-	sort.Slice(dead, func(i, j int) bool { return dead[i].String() < dead[j].String() })
+	sort.Slice(dead, func(i, j int) bool { return gcHashLess(dead[i], dead[j]) })
 	for _, h := range dead {
 		if _, evicted := m.evicted[h]; evicted {
 			continue
@@ -1729,7 +1737,7 @@ func (s *FSStore) clearGCState() {
 // that created the root (Qompack.md §7.4), so the file stays append-only and the original record
 // remains readable.
 func (s *FSStore) tombstoneDeadRoots(ctx context.Context, dead []core.Hash) error {
-	sort.Slice(dead, func(i, j int) bool { return dead[i].String() < dead[j].String() })
+	sort.Slice(dead, func(i, j int) bool { return gcHashLess(dead[i], dead[j]) })
 	for i, h := range dead {
 		if i%gcCheckEvery == 0 {
 			if err := ctx.Err(); err != nil {
