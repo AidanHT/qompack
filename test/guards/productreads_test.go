@@ -95,7 +95,7 @@ var ordinaryReads = []ordinaryRead{
 		"removal of other builds' copies; either one refused by this read fails only that removal"},
 	{"internal/dag/log.go", "load", "dag/deps.jsonl, read once when the daemon opens its graph and " +
 		"before that graph's first Compact can replace it; the daemon lock keeps every other writer " +
-		"out, and fsck and backup read it shared"},
+		"out, and backup reads it shared"},
 	{"internal/eval/importer.go", "insideRepository", whyEvalInput},
 	{"internal/eval/importer.go", "parseTranscript", whyEvalInput},
 	{"internal/eval/ledger.go", "LoadRequestLedger", whyEvalInput},
