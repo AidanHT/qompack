@@ -291,10 +291,10 @@ type hookSpec struct {
 	// is the designated daemon starter, off the hot path, with a generous hook timeout). self is
 	// env.Self threaded through explicitly (see cli.Env.Self's own doc comment) rather than read
 	// from a package-level seam. st is the same 32-byte state record doHook already read, so
-	// preSend can honour runtime.daemon.enabled without a second disk read (fix round 2, FR-6). by
-	// is the instant it has to return by (hookBudget.preSendBy), zero when the hook has no
-	// hostTimeout.
-	preSend func(root, self string, st ipc.State, clk core.Clock, by time.Time)
+	// preSend can honour runtime.daemon.enabled without a second disk read (fix round 2, FR-6). b is
+	// the hook's budget: preSendBy is when it should return by, latestPoll when it must; both are
+	// zero when the hook has no hostTimeout.
+	preSend func(root, self string, st ipc.State, clk core.Clock, b hookBudget)
 }
 
 // doHook stamps TS, resolves state, honors ModeOff and reads bounded raw input. The initial
@@ -460,7 +460,7 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		connectDeadline := hookConnectDeadline(spec, st)
 		budget := newHookBudget(began, spec.hostTimeout, spec.deadline, connectDeadline)
 		if spec.preSend != nil {
-			spec.preSend(root, env.Self, st, clk, budget.preSendBy)
+			spec.preSend(root, env.Self, st, clk, budget)
 		}
 
 		addr, aerr := ipc.Resolve(root)

@@ -39,6 +39,7 @@ func TestSessionStartBudget_SplitsTheManifestTimeout(t *testing.T) {
 	b := newHookBudget(began, spec.hostTimeout, spec.deadline, hookConnectDeadlineFloor)
 	require.Equal(t, 13500*time.Millisecond, b.doneBy.Sub(began), "the hook's own work ends 1.5 s before the host's timeout")
 	require.Equal(t, 3250*time.Millisecond, b.preSendBy.Sub(began), "what is left for the pre-send step")
+	require.Equal(t, 13250*time.Millisecond, b.latestPoll.Sub(began), "a late daemon may be waited for until only the dial fits")
 	require.Equal(t, sessionStartReplyDeadline, b.replyDeadline(b.preSendBy, spec.deadline, hookConnectDeadlineFloor),
 		"a pre-send step inside its budget leaves the full reply deadline")
 	require.Equal(t, 2*time.Second, b.replyDeadline(b.preSendBy.Add(8*time.Second), spec.deadline, hookConnectDeadlineFloor),
@@ -90,11 +91,11 @@ func runBudgetedSessionStart(t *testing.T, root, source string, spec hookSpec) (
 	var by time.Time
 	var mu sync.Mutex
 	inner := spec.preSend
-	spec.preSend = func(r, s string, st ipc.State, clk core.Clock, deadline time.Time) {
+	spec.preSend = func(r, s string, st ipc.State, clk core.Clock, b hookBudget) {
 		mu.Lock()
-		by = deadline
+		by = b.preSendBy
 		mu.Unlock()
-		inner(r, s, st, clk, deadline)
+		inner(r, s, st, clk, b)
 	}
 	payload := strings.Replace(string(entryPayload(t, "SessionStart", root)), `"source":"compact"`,
 		`"source":"`+source+`"`, 1)
@@ -114,9 +115,9 @@ func runBudgetedSessionStart(t *testing.T, root, source string, spec hookSpec) (
 }
 
 // blockUntil is a pre-send step that runs until at: staging a binary on a loaded machine.
-func blockUntil(at func(by time.Time) time.Time) func(string, string, ipc.State, core.Clock, time.Time) {
-	return func(_, _ string, _ ipc.State, _ core.Clock, by time.Time) {
-		<-time.After(time.Until(at(by)))
+func blockUntil(at func(by time.Time) time.Time) func(string, string, ipc.State, core.Clock, hookBudget) {
+	return func(_, _ string, _ ipc.State, _ core.Clock, b hookBudget) {
+		<-time.After(time.Until(at(b.preSendBy)))
 	}
 }
 

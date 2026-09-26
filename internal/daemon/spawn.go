@@ -104,34 +104,39 @@ func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock)
 		detachedSpawner(log))
 }
 
-// EnsureRunningUntil is EnsureRunning with the poll's end given as an instant rather than a
-// duration: session-start's pre-send deadline, derived from its hook's manifest timeout
-// (internal/cli, D17). Everything before the poll — the dial, the claim and a spawn, which on
-// Windows stages the binary (spawn_stage.go) — also runs before until, and is never cut short: a
-// deadline that has already passed still gets one dial and, when this call may spawn, its spawn,
-// so the session always gets a daemon started; it only gets no wait for it. A zero until falls back
-// to EnsureRunning's own bound.
-func EnsureRunningUntil(projectRoot, self string, log logging.Logger, clk core.Clock, until time.Time) (spawned bool, err error) {
-	b := pollBound{until: until}
-	if until.IsZero() {
-		b = pollBound{after: ensureRunningPollBound}
-	}
-	return ensureRunning(projectRoot, self, log, clk, b, detachedSpawner(log))
+// EnsureRunningUntil is EnsureRunning bounded by session-start's hook budget (internal/cli
+// hookBudget, D17b): its poll runs until until, the pre-send deadline, and never past latest, the
+// last instant a reply could still follow. Everything before the poll — the dial, the claim and a
+// spawn, which on Windows stages the binary (spawn_stage.go) and can stall in process creation for
+// seconds on a loaded machine — is never cut short, and a daemon this call started, or found
+// already on its way, late still gets ensureRunningPollBound to come up, the wait EnsureRunning has
+// always given it, up to latest; session-start then waits that much less for the reply. A deadline
+// that has already passed therefore still gets one dial and, when this call may spawn, its spawn,
+// so the session always gets a daemon started. Zero instants fall back to EnsureRunning's bound.
+func EnsureRunningUntil(projectRoot, self string, log logging.Logger, clk core.Clock, until, latest time.Time) (spawned bool, err error) {
+	return ensureRunning(projectRoot, self, log, clk,
+		pollBound{until: until, after: ensureRunningPollBound, latest: latest}, detachedSpawner(log))
 }
 
-// pollBound is when ensureRunning's poll ends: at until, or after the given duration counted from
-// the moment the poll begins. Exactly one of the two is set.
+// pollBound is when ensureRunning's poll ends, for a poll that begins once this call spawned or
+// found another spawn in flight: at until or after the given duration from that moment, whichever
+// is later, and never past latest. A zero until or latest bounds nothing.
 type pollBound struct {
-	until time.Time
-	after time.Duration
+	until  time.Time
+	after  time.Duration
+	latest time.Time
 }
 
 // deadline is the poll's end for a poll beginning at begun.
 func (b pollBound) deadline(begun time.Time) time.Time {
-	if !b.until.IsZero() {
-		return b.until
+	end := begun.Add(b.after)
+	if b.until.After(end) {
+		end = b.until
 	}
-	return begun.Add(b.after)
+	if !b.latest.IsZero() && end.After(b.latest) {
+		end = b.latest
+	}
+	return end
 }
 
 // detachedSpawner is the spawner EnsureRunning uses in production: spawnDetached under the user's
@@ -172,7 +177,7 @@ func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock,
 		}
 		if deadline.IsZero() {
 			// The poll begins here, after this call's own spawn, so that preparing a staged copy
-			// does not eat EnsureRunning's bound; an until deadline is fixed whatever the spawn took.
+			// or a slow process creation does not eat the wait the new daemon gets.
 			deadline = bound.deadline(time.Now())
 		}
 		if ipc.Probe(addr, ensureRunningDialTimeout) {

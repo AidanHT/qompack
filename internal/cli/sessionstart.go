@@ -25,15 +25,16 @@ import (
 // hookExitReserve (1.5 s) is kept for the process's start and exit, the reply deadline (10 s) and
 // the dial (hookConnectDeadlineFloor, 250 ms) come last, and what is left before them — 3.25 s from
 // doHook's first statement — is everything up to and including the daemon start, whose poll stops
-// there. Staging a binary is never cut short; when it runs over, the reply wait is shortened
-// instead (hookBudget.replyDeadline).
+// there. Staging a binary and creating the process are never cut short, and a daemon started late
+// still gets the 1.5 s EnsureRunning always gave it to come up; whatever runs over is taken from
+// the reply wait instead (hookBudget.replyDeadline), so the hook still ends in time.
 func runSessionStart(ctx context.Context, env Env, args []string, out, errw io.Writer) error {
 	return doHook(sessionStartSpec(ensureDaemonRunning))(ctx, env, args, out, errw)
 }
 
 // sessionStartSpec is session-start's hookSpec with preSend supplied: ensureDaemonRunning in
 // production.
-func sessionStartSpec(preSend func(root, self string, st ipc.State, clk core.Clock, by time.Time)) hookSpec {
+func sessionStartSpec(preSend func(root, self string, st ipc.State, clk core.Clock, b hookBudget)) hookSpec {
 	return hookSpec{
 		op: ipc.OpSessionStart, reply: true, deadline: sessionStartReplyDeadline,
 		hostTimeout: sessionStartHostTimeout(), preSend: preSend,
@@ -56,8 +57,8 @@ func sessionStartHostTimeout() time.Duration {
 // timeout, which only a malformed build can produce: the 15 s the manifest has always carried.
 const defaultSessionStartHostTimeout = 15 * time.Second
 
-// ensureDaemonRunning calls daemon.EnsureRunningUntil for session-start's preSend seam, with by, the
-// instant its hook budget allows the pre-send step, as the poll's end.
+// ensureDaemonRunning calls daemon.EnsureRunningUntil for session-start's preSend seam, bounding its
+// poll by the hook's budget: the pre-send deadline, and the last instant a reply could still follow.
 //
 // It is a no-op under the daemon-down fault site (task-6-spec.md's table: that site's whole point
 // is that nothing is listening AND nothing may be spawned in response), whenever self is ""
@@ -69,7 +70,7 @@ const defaultSessionStartHostTimeout = 15 * time.Second
 // its idle drain quietly processed the spool anyway, which an operator who typed "disabled" does
 // not expect. None of the three conditions above should pay for a real spawn/dial attempt whose
 // daemon can never do anything useful in response.
-func ensureDaemonRunning(root, self string, st ipc.State, clk core.Clock, by time.Time) {
+func ensureDaemonRunning(root, self string, st ipc.State, clk core.Clock, b hookBudget) {
 	if _, on := faultActive(faultDaemonDown); on {
 		return
 	}
@@ -79,5 +80,5 @@ func ensureDaemonRunning(root, self string, st ipc.State, clk core.Clock, by tim
 	if !st.DaemonEnabled {
 		return
 	}
-	_, _ = daemon.EnsureRunningUntil(root, self, newHookLogger(root), clk, by)
+	_, _ = daemon.EnsureRunningUntil(root, self, newHookLogger(root), clk, b.preSendBy, b.latestPoll)
 }

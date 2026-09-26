@@ -295,6 +295,13 @@ const untilDaemonUpAfter = ensureRunningPollBound + 300*time.Millisecond
 // machine's timer and poll delays.
 const untilDeadlineMargin = 2 * time.Second
 
+// sessionStartBound is the pollBound session-start hands ensureRunning through EnsureRunningUntil:
+// its pre-send deadline, EnsureRunning's own wait after a late spawn, and the last instant a reply
+// could still follow.
+func sessionStartBound(until, latest time.Time) pollBound {
+	return pollBound{until: until, after: ensureRunningPollBound, latest: latest}
+}
+
 // TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound: session-start hands EnsureRunningUntil
 // the instant its hook budget allows (D17b), and the poll runs until then — a daemon that comes up
 // after EnsureRunning's fixed 1.5 s bound but before that instant is found, not missed and spooled.
@@ -309,23 +316,44 @@ func TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound(t *testing.T) {
 	}
 
 	until := time.Now().Add(untilDaemonUpAfter + untilDeadlineMargin)
-	spawned, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{until: until}, spawnLate)
+	spawned, err := ensureRunning(root, "self", logging.Nop(), clk, sessionStartBound(until, until.Add(time.Second)), spawnLate)
 	require.NoError(t, err, "a daemon up before the deadline must be found")
 	require.True(t, spawned)
 	require.EqualValues(t, 1, f.calls.Load())
 }
 
+// TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait: the spawn itself ran past the pre-send
+// deadline — process creation stalls for seconds on a loaded Windows machine (the V6 close-out's
+// cold-start diagnostic saw 4-5 s) — and the daemon it started comes up moments later. It still gets
+// the 1.5 s EnsureRunning has always given a daemon it started, taken from the reply wait, instead
+// of being given up on at once and the start spooled.
+func TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait(t *testing.T) {
+	root := t.TempDir()
+	clk := newFakeClock(epoch)
+	f := newFakeDaemons(t)
+
+	now := time.Now()
+	spawned, err := ensureRunning(root, "self", logging.Nop(), clk,
+		sessionStartBound(now.Add(-time.Second), now.Add(spawnLockTestBound)), f.spawnUp)
+	require.NoError(t, err, "a daemon up within the classic wait after a late spawn must be found")
+	require.True(t, spawned)
+	require.EqualValues(t, 1, f.calls.Load())
+}
+
 // TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon: when everything before the pre-send step
-// used the whole budget, session-start gets no wait, but the session still gets its daemon started —
-// one spawn, then ErrNotFound at once, and Send spools.
+// used the whole budget, no reply could follow any more, so session-start gets no wait — but the
+// session still gets its daemon started: one spawn, then ErrNotFound at once, and the start is
+// spooled for that daemon to replay.
 func TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon(t *testing.T) {
 	root := t.TempDir()
 	clk := newFakeClock(epoch)
 	f := newFakeDaemons(t)
 
-	spawned, err := ensureRunning(root, "self", logging.Nop(), clk,
-		pollBound{until: time.Now().Add(-time.Second)}, f.spawnNever)
+	past := time.Now().Add(-time.Second)
+	began := time.Now()
+	spawned, err := ensureRunning(root, "self", logging.Nop(), clk, sessionStartBound(past, past), f.spawnNever)
 	require.ErrorIs(t, err, core.ErrNotFound)
 	require.True(t, spawned, "a passed deadline cuts the wait, never the spawn")
 	require.EqualValues(t, 1, f.calls.Load())
+	require.Less(t, time.Since(began), ensureRunningPollBound, "with no reply possible it does not wait")
 }
