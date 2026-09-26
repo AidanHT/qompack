@@ -1,0 +1,4 @@
+ok  	github.com/qompack/qompack/internal/paths	11.855s
+ok  	github.com/qompack/qompack/internal/commands	1.978s
+ok  	github.com/qompack/qompack/internal/cli	42.256s
+ok  	github.com/qompack/qompack/test/docs	4.175s

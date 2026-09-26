@@ -1,0 +1,41 @@
+# Bisectability sweep after folding the TestHookCapture_HardBoundPrecedesConfiguration change into
+# 086a477 (review finding). Every commit 90e1db3..7abddc7, each from `git archive <commit>` into a
+# scratch directory (Windows, co-loaded machine), one after another:
+#   go vet ./internal/paths ./internal/commands ./internal/mcp ./internal/cli ./internal/daemon ./tools/devtool ./test/docs
+#   go test -count=1 -timeout=30m ./internal/paths ./internal/commands ./internal/cli ./test/docs
+#   25bed9e also: go test -count=1 -v -run '^TestAcquireLock_RefusesTheHomeDirectory$' ./internal/daemon
+#   8979fa3 also: go test -count=1 -timeout=30m ./internal/mcp; go run ./tools/devtool gen-mcp-docs --check
+#   8979fa3..7abddc7 also: go test -count=1 -v -run '^TestHookCapture_HardBoundPrecedesConfiguration$|^TestHomeRoot_' ./internal/cli/
+# (at 8979fa3 the second alternative matches nothing yet: the TestHomeRoot_ tests arrive in 086a477)
+bb9b5a7 vet exit=0
+bb9b5a7 paths+commands+cli+docs exit=0
+31941a7 vet exit=0
+31941a7 paths+commands+cli+docs exit=0
+25e2a8b vet exit=0
+25e2a8b paths+commands+cli+docs exit=0
+25bed9e vet exit=0
+25bed9e paths+commands+cli+docs exit=0
+25bed9e daemon-lock exit=0
+46a2821 vet exit=0
+46a2821 paths+commands+cli+docs exit=0
+8979fa3 vet exit=0
+8979fa3 paths+commands+cli+docs exit=0
+8979fa3 mcp exit=0
+8979fa3 gen-mcp-docs-check exit=0
+8979fa3 hardbound+homeroot exit=0
+086a477 vet exit=0
+086a477 paths+commands+cli+docs exit=0
+086a477 hardbound+homeroot exit=0
+96344bf vet exit=0
+96344bf paths+commands+cli+docs exit=0
+96344bf hardbound+homeroot exit=0
+6dbf63f vet exit=0
+6dbf63f paths+commands+cli+docs exit=0
+6dbf63f hardbound+homeroot exit=0
+c48b82a vet exit=0
+c48b82a paths+commands+cli+docs exit=0
+c48b82a hardbound+homeroot exit=0
+7abddc7 vet exit=0
+7abddc7 paths+commands+cli+docs exit=0
+7abddc7 hardbound+homeroot exit=0
+done

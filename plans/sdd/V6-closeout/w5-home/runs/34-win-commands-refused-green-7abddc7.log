@@ -1,0 +1,34 @@
+# head=7abddc7: go test -count=1 -v -run '^TestRefused_' ./internal/commands/
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable
+=== PAUSE TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable
+=== RUN   TestRefused_HelpStillAnswers
+=== PAUSE TestRefused_HelpStillAnswers
+=== RUN   TestRefused_StatusReportsTheRefusalAsItsOneReason
+=== PAUSE TestRefused_StatusReportsTheRefusalAsItsOneReason
+=== RUN   TestRefused_CollectStatusAsksNoSource
+=== PAUSE TestRefused_CollectStatusAsksNoSource
+=== RUN   TestRefused_EvalStillReadsItsArtifacts
+=== PAUSE TestRefused_EvalStillReadsItsArtifacts
+=== CONT  TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable
+=== CONT  TestRefused_CollectStatusAsksNoSource
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/recall
+=== CONT  TestRefused_StatusReportsTheRefusalAsItsOneReason
+=== CONT  TestRefused_EvalStillReadsItsArtifacts
+--- PASS: TestRefused_CollectStatusAsksNoSource (0.00s)
+--- PASS: TestRefused_EvalStillReadsItsArtifacts (0.00s)
+=== CONT  TestRefused_HelpStillAnswers
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/pin
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/checkpoint
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/why
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/dropped
+--- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/recall (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/pin (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/checkpoint (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/why (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/dropped (0.00s)
+--- PASS: TestRefused_HelpStillAnswers (0.00s)
+--- PASS: TestRefused_StatusReportsTheRefusalAsItsOneReason (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/commands	1.022s
+exit=0

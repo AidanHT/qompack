@@ -1,0 +1,15 @@
+# Review finding reproduced on reachable commits: git archive 086a477 with internal/cli/capture_admission_test.go
+# taken from 8979fa3, i.e. the behaviour commit without the test change folded into it (the branch as it stood
+# before the fold). go test -count=1 -run '^TestHookCapture_HardBoundPrecedesConfiguration$' ./internal/cli/
+--- FAIL: TestHookCapture_HardBoundPrecedesConfiguration (0.11s)
+    capture_admission_test.go:207: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/prefold-086a477/internal/cli/capture_admission_test.go:207
+        	Error:      	Not equal: 
+        	            	expected: 4194305
+        	            	actual  : 0
+        	Test:       	TestHookCapture_HardBoundPrecedesConfiguration
+        	Messages:   	the bound had already read its last byte and refused the delivery before any configuration environment was scanned: the resource bound never depends on policy being available
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.430s
+FAIL
+exit=1

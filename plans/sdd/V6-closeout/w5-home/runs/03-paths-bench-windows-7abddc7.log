@@ -1,0 +1,13 @@
+# head=7abddc7: go test -count=5 -run '^$' -bench '^BenchmarkIsHome_AProjectBelowHome$' -benchtime=2000x -benchmem ./internal/paths/ (co-loaded machine)
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIsHome_AProjectBelowHome-22    	    2000	     39186 ns/op	    1186 B/op	       9 allocs/op
+BenchmarkIsHome_AProjectBelowHome-22    	    2000	     28189 ns/op	    1184 B/op	       9 allocs/op
+BenchmarkIsHome_AProjectBelowHome-22    	    2000	     28818 ns/op	    1184 B/op	       9 allocs/op
+BenchmarkIsHome_AProjectBelowHome-22    	    2000	     29837 ns/op	    1184 B/op	       9 allocs/op
+BenchmarkIsHome_AProjectBelowHome-22    	    2000	     28688 ns/op	    1184 B/op	       9 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.578s
+exit=0

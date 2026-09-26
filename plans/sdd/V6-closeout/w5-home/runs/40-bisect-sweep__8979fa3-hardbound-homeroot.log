@@ -1,0 +1,4 @@
+=== RUN   TestHookCapture_HardBoundPrecedesConfiguration
+--- PASS: TestHookCapture_HardBoundPrecedesConfiguration (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.267s

@@ -1,0 +1,180 @@
+# Temporary diagnostic TestDiagW5HomeWritesAtBase (scratch only, never committed) run on git archive bb9b5a7
+# (base 90e1db3 + paths.IsHome only; no entry point refuses). Fake home under TMP=<scratch>/tmp; entries created or rewritten under <home> per entry point:
+DIAG hook PostToolUse         exit=0 created-under-home=9
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\spool
+DIAG     + .qompack\spool\client-37936.ndjson
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG hook UserPromptSubmit    exit=0 created-under-home=9
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\spool
+DIAG     + .qompack\spool\client-37936.ndjson
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG hook SessionStart        exit=0 created-under-home=9
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\spool
+DIAG     + .qompack\spool\client-37936.ndjson
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG hook PreCompact          exit=0 created-under-home=9
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\spool
+DIAG     + .qompack\spool\client-37936.ndjson
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG hook Stop                exit=0 created-under-home=9
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\spool
+DIAG     + .qompack\spool\client-37936.ndjson
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG hook SubagentStop        exit=0 created-under-home=9
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\spool
+DIAG     + .qompack\spool\client-37936.ndjson
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG hook SessionEnd          exit=0 created-under-home=9
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\spool
+DIAG     + .qompack\spool\client-37936.ndjson
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG config print             exit=0 created-under-home=3
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG status                   exit=0 created-under-home=8
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\pins
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG pin --list               exit=0 created-under-home=6
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\pins
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG fsck                     exit=0 created-under-home=0
+DIAG self-test                exit=0 created-under-home=22
+DIAG     + .qompack\.gitignore
+DIAG     + .qompack\backup
+DIAG     + .qompack\checkpoints
+DIAG     + .qompack\dag
+DIAG     + .qompack\eval
+DIAG     + .qompack\eval\opt
+DIAG     + .qompack\eval\replay
+DIAG     + .qompack\grammar
+DIAG     + .qompack\index
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\metrics
+DIAG     + .qompack\migrate
+DIAG     + .qompack\objects
+DIAG     + .qompack\pins
+DIAG     + .qompack\records
+DIAG     + .qompack\run
+DIAG     + .qompack\sketches
+DIAG     + .qompack\spool
+DIAG     + .qompack\spool\client-37936.ndjson
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\tmp
+DIAG mcp                      exit=0 created-under-home=24
+DIAG     + .qompack\.gitignore
+DIAG     + .qompack\backup
+DIAG     + .qompack\checkpoints
+DIAG     + .qompack\dag
+DIAG     + .qompack\eval
+DIAG     + .qompack\eval\opt
+DIAG     + .qompack\eval\replay
+DIAG     + .qompack\grammar
+DIAG     + .qompack\index
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\metrics
+DIAG     + .qompack\migrate
+DIAG     + .qompack\objects
+DIAG     + .qompack\pins
+DIAG     + .qompack\records
+DIAG     + .qompack\run
+DIAG     + .qompack\run\spawn.lock
+DIAG     + .qompack\sketches
+DIAG     + .qompack\spool
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\state\mcp.json
+DIAG     + .qompack\tmp
+DIAG daemon (3s)              exit=0 created-under-home=29
+DIAG     + .qompack\.gitignore
+DIAG     + .qompack\backup
+DIAG     + .qompack\checkpoints
+DIAG     + .qompack\dag
+DIAG     + .qompack\eval
+DIAG     + .qompack\eval\opt
+DIAG     + .qompack\eval\replay
+DIAG     + .qompack\grammar
+DIAG     + .qompack\index
+DIAG     + .qompack\index\files.jsonl
+DIAG     + .qompack\index\roots.jsonl
+DIAG     + .qompack\index\segments.jsonl
+DIAG     + .qompack\index\sessions.jsonl
+DIAG     + .qompack\index\tool_use.jsonl
+DIAG     + .qompack\logs\LOUD.log
+DIAG     + .qompack\logs\qompack-20260926.log
+DIAG     + .qompack\metrics
+DIAG     + .qompack\metrics\latency.json
+DIAG     + .qompack\migrate
+DIAG     + .qompack\objects
+DIAG     + .qompack\pins
+DIAG     + .qompack\records
+DIAG     + .qompack\run
+DIAG     + .qompack\sketches
+DIAG     + .qompack\spool
+DIAG     + .qompack\state
+DIAG     + .qompack\state\config-violations.json
+DIAG     + .qompack\state\drain.json
+DIAG     + .qompack\tmp
+# non-DIAG tail (the test's own exit):
+--- FAIL: TestDiagW5HomeWritesAtBase (11.19s)
+    --- FAIL: TestDiagW5HomeWritesAtBase/hook_SessionStart (1.94s)
+        testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestDiagW5HomeWritesAtBasehook_SessionStart4062777218\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+    --- FAIL: TestDiagW5HomeWritesAtBase/self-test (1.85s)
+        testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestDiagW5HomeWritesAtBaseself-test1551634535\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	11.648s
+FAIL

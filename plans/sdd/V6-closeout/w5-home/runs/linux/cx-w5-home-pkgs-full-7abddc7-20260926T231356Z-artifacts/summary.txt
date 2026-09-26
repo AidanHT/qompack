@@ -1,0 +1,6 @@
+PASS      github.com/qompack/qompack/internal/paths  (pass=177 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/cli  (pass=414 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/commands  (pass=126 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/mcp  (pass=387 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1501 fail=0 skip=1)
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)
