@@ -1,0 +1,1 @@
+PASS      github.com/qompack/qompack/test/e2e  (pass=301 fail=0 skip=3)
