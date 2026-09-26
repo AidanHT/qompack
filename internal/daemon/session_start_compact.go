@@ -49,12 +49,14 @@ import (
 // says so rather than describing a payload the model never saw.
 //
 // A rehydration that cannot be built at all is answered with the same note, never with silence
-// (owner decision D11): the checkpoint store cannot be read, the build returns an error, or it
-// panics. The rehydration service fails the ticket with the reason (DeferredCheckpointUnreadable,
+// (owner decision D11): the checkpoint store cannot be read, the build fails, or it panics. The
+// rehydration service fails the ticket with the reason (DeferredCheckpointUnreadable,
 // DeferredFailed) as soon as it knows, so the route answers at once rather than at the bound, and
 // counts and Louds it like any deferral; the service then records the drop report as never built
-// (rehydrate_service.go notBuilt). Degraded-passive and the reinjection kill switch still answer
-// nothing: nothing was due.
+// (rehydrate_service.go notBuilt). A rehydration Stop cuts short — its context cancelled mid-read or
+// mid-build — is answered DeferredStopping the same way: its reader or build reports the context's
+// end, which is no fault of the store or the build (rehydrate_service.go cutShort). Degraded-passive
+// and the reinjection kill switch still answer nothing: nothing was due.
 //
 // A compact SessionStart can also reach the route a second time, replayed from a hook client's
 // spool by the drain (drainDispatch): the client spools a request no answer reached in time — the
@@ -90,8 +92,8 @@ func compactAnswerBudget() time.Duration {
 const defaultCompactAnswerBudget = 5 * time.Second
 
 // counterCompactDeferred counts compact SessionStarts answered with the deferred note because the
-// rehydration was not ready in time, could not be started (the daemon stopping), or could not be
-// built (an unreadable checkpoint store, a failed or panicking build — D11).
+// rehydration was not ready in time, could not be started or finished (the daemon stopping), or
+// could not be built (an unreadable checkpoint store, a failed or panicking build — D11).
 const counterCompactDeferred = "session_start_compact_deferred"
 
 // histSessionStartCompactWait is the route's wait for the compact rehydration, beside the other
@@ -103,10 +105,11 @@ const (
 	// DeferredNotReady is the daemon's own: the rehydration was still being built when the answer
 	// was due.
 	DeferredNotReady = "it was not ready when the answer was due"
-	// DeferredStopping is the daemon's own too: the daemon was shutting down.
+	// DeferredStopping is the daemon's own too: the daemon was shutting down, before the rehydration
+	// could start or while Stop's cancellation cut it short.
 	DeferredStopping = "the Qompack daemon was shutting down"
-	// DeferredFailed is the daemon's own: building it failed outright (a recovered panic, or a build
-	// that returned an error).
+	// DeferredFailed is the daemon's own: building it failed outright (a recovered panic, or a
+	// Rehydrate seam that returned an error). A build cut short by Stop is DeferredStopping.
 	DeferredFailed = "building it failed"
 	// DeferredCheckpointUnreadable is the daemon's own too: the checkpoint store could not be read, so
 	// nothing was built (owner decision D11).
