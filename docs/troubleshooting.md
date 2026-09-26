@@ -147,6 +147,13 @@ without its own `.git` resolves to the home directory: run `git init` there, or 
 the work moves into a project below it, so the line it showed stays true; start a new session in the
 project.
 
+A build before this refusal recorded such sessions into `~/.qompack` itself, so after an upgrade that
+directory may still hold a project store beside the user-wide files — `objects/`, `index/`, `spool/`,
+`run/`, `state/` and the rest of the layout — and a daemon an older build started there may still be
+running until its idle exit. This build never reads, writes or removes any of it. Whether to keep it
+is yours to decide: `config.json`, `calibration.json`, `logs/` and, on Windows, `bin/` are the
+user-wide layer; everything else there is the old home-directory sessions' history.
+
 ### `qompack config print --provenance`
 
 **Symptom.** A setting does not appear to be doing anything.
