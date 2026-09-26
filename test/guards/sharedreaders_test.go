@@ -12,13 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sharedReader names one production function that MUST take its handle through
-// paths.ReadFileShared / paths.OpenShared rather than os.ReadFile / os.Open.
+// sharedReader names one function that MUST take its handle through paths.ReadFileShared /
+// paths.OpenShared rather than os.ReadFile / os.Open: a production reader, or a test/e2e helper that
+// polls a file a live daemon is replacing.
 //
 // The list is an inventory, not a pattern: "reads a file some other process replaces or deletes
 // while this one is live" is a judgement about the file, and there is no syntax that carries it.
 // Adding a row is the deliberate act of making that judgement; the guard's job is only to stop the
 // answer silently reverting afterwards.
+//
+// A test helper earns a row when its read can break the product write it is waiting for. The
+// daemon's replace fails while the helper's ordinary handle is open, nothing retries it, and the
+// helper's wait then times out on a write its own read prevented: a load-sensitive red with no
+// product defect behind it.
 type sharedReader struct {
 	file  string // module-relative, slash-separated
 	fn    string // FuncDecl name; the receiver, if any, is ignored
@@ -75,6 +81,24 @@ var sharedReaders = []sharedReader{
 		fn:    "ReadState",
 		holds: "run/state.bin",
 		why:   "the daemon's WriteState, whose §12.2 hot-mode transition goes unpublished if the replace fails",
+	},
+	{
+		file:  "test/e2e/observer_e2e_test.go",
+		fn:    "obsSessionEndMarker",
+		holds: "run/marker.json",
+		why: "the daemon's contract.WriteMarker, a paths.WriteAtomic made once per SessionEnd and not " +
+			"retried. obsAwaitSessionEnded polls through this helper for exactly that write, so a replace " +
+			"its read made fail leaves the old marker in place and the wait times out (obsRunFlush's rows " +
+			"and V3 x08)",
+	},
+	{
+		file:  "test/e2e/sessionstart_compact_test.go",
+		fn:    "scAwaitState",
+		holds: "state/rehydrate-<session>.json",
+		why: "the rehydrate service's Record, the paths.WriteAtomic that lands just after the compact " +
+			"answer (C1.16) while this helper polls for it. An ordinary handle both failed the read with " +
+			"ERROR_SHARING_VIOLATION (V5 x04's co-load red) and failed that replace " +
+			"(w4-e2eflakes runs/diag-b-sharing-modes-rerun-windows.txt)",
 	},
 	{
 		file: "internal/store/backup.go",

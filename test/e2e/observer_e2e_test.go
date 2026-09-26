@@ -191,20 +191,29 @@ func obsRunFlush(t *testing.T, bin, root string, sess core.SessionID, env map[st
 }
 
 // obsSessionEndMarker returns the terminal-hook marker's bytes as they stand, or nil before it
-// exists: what obsAwaitSessionEnded must see change.
+// exists or while it cannot be read: what obsAwaitSessionEnded must see change, and what it polls.
+//
+// It reads through paths.ReadFileShared, never os.ReadFile. The daemon replaces the marker with
+// paths.WriteAtomic (contract.WriteMarker), once per SessionEnd, and does not retry a failed
+// replace. On Windows an os.ReadFile handle (no FILE_SHARE_DELETE) open at that moment makes the
+// replace fail, the old marker stays, and obsAwaitSessionEnded times out waiting for a write its own
+// poll prevented. Measured with a reader in a tight loop against 400 WriteMarker calls: an
+// os.ReadFile reader failed 245 of them (w4-e2eflakes runs/fix-b-diag-marker-before-windows.log).
+// test/guards' sharedReaders inventory pins this read.
 func obsSessionEndMarker(root string) []byte {
-	b, _ := os.ReadFile(paths.Long(contract.MarkerPath(root)))
+	b, _ := paths.ReadFileShared(contract.MarkerPath(root))
 	return b
 }
 
 // obsAwaitSessionEnded waits, within obsProcessBound, for the daemon to have ended sess: for a
 // terminal-hook marker that names sess and is not the before the caller read ahead of its flush hook.
-// See obsRunFlush for why that marker is the daemon's own record that the end's work is done.
+// See obsRunFlush for why that marker is the daemon's own record that the end's work is done. It
+// polls through obsSessionEndMarker, whose doc says why that read must not be os.ReadFile.
 func obsAwaitSessionEnded(t *testing.T, root string, sess core.SessionID, before []byte) {
 	t.Helper()
 	require.Eventually(t, func() bool {
-		b, err := os.ReadFile(paths.Long(contract.MarkerPath(root)))
-		if err != nil || bytes.Equal(b, before) {
+		b := obsSessionEndMarker(root)
+		if b == nil || bytes.Equal(b, before) {
 			return false
 		}
 		var m struct {
