@@ -1,0 +1,58 @@
+== go run ./tools/devtool lint --only=stubskips @ 8116d69 (Windows; re-run of the one sub-check whose full-lint pass lost test/e2e at the 30m wall) started 2026-09-25T22:26:35Z
+== devtool lint: stubskips ==
+stubskips: github.com/qompack/qompack/internal/analyzer/analyzertest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/canon/canontest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/checkpoint: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/checkpoint/checkpointtest: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/chunk/chunktest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/config: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/contract/contracttest: 4 skip(s)
+stubskips: github.com/qompack/qompack/internal/daemon: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/dag/dagtest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/eval: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/grammar/grammartest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/hostperm: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/ipc: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/ipc/ipctest: 6 skip(s)
+stubskips: github.com/qompack/qompack/internal/mcp/mcptest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/negknow: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/negknow/negknowtest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/observer/observertest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/paths: 7 skip(s)
+stubskips: github.com/qompack/qompack/internal/pins/pinstest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/redact/redacttest: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/rehydrate/rehydratetest: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/skills: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/store: 1 skip(s)
+stubskips: github.com/qompack/qompack/internal/store/storetest: 2 skip(s)
+stubskips: github.com/qompack/qompack/internal/symbols/symbolstest: 1 skip(s)
+stubskips: github.com/qompack/qompack/test/canary: 4 skip(s)
+stubskips: github.com/qompack/qompack/test/e2e: 1 skip(s)
+stubskips: github.com/qompack/qompack/test/security: 1 skip(s)
+  notice: github.com/qompack/qompack/internal/checkpoint (TestValidatePointersFollowsADirectorySymlinkLikeNorm): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/checkpoint (TestValidatePointersFollowsAFileSymlinkLikeNorm): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/config (TestLoadForCapture_RefusesUnsafeConfigFileLeaves/symlink_leaf): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/daemon (TestService_StateWriteFailureStillEmits): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/eval (TestSynthesize_WriteCorpus): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/hostperm (TestSymlinkTargetsAreChecked): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/hostperm (TestUnreadableSettingsFailClosed): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/ipc (TestWindowsPipeACLRejectsOtherUser): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/negknow (TestRecordContractFixtures): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestEnsureLayout_ReportsAnUnexpectedStatError): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestHighestBloomBackupSeq_ReportsAnUnexpectedReadDirError): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestNorm_LeavesSymlinkOutsideRootUnresolved): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestNorm_ResolvesSymlinkInsideRoot): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestNorm_ResolvesSymlinkWhenRootPathIsItselfASymlink): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestNorm_SymlinkedRootStillRefusesEscape): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/paths (TestReadManifest_ReportsAnUnexpectedOpenError): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/skills (TestIndex_SkipsSymlinks): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/internal/store (TestMaintenance_SymlinkComponentInBackupTreeRefused): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/canary (TestCanary_CompactionBlocking): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/canary (TestCanary_NewResultReplacement): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/canary (TestCanary_SessionStartReinjection): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/canary (TestCanary_UsageAttribution): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/e2e (TestE2E_RequiredProductChildRaceInstrumentation): platform-gated, not run on this host
+  notice: github.com/qompack/qompack/test/security (TestSecurity_ArchivedRetrievalCannotBeWalkedOutsideTheProject/captured_file_replaced_by_link_outside): platform-gated, not run on this host
+stubskips: OK
+PASS stubskips
+exit=0 finished 2026-09-25T23:01:30Z

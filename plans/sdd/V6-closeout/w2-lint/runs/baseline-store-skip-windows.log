@@ -1,0 +1,6 @@
+=== RUN   TestMaintenance_SymlinkComponentInBackupTreeRefused
+    maintenance_test.go:259: symlink not permitted on this host: symlink C:\Users\Quant\AppData\Local\Temp\TestMaintenance_SymlinkComponentInBackupTreeRefused1799327860\002\external-secret C:\Users\Quant\AppData\Local\Temp\TestMaintenance_SymlinkComponentInBackupTreeRefused1799327860\001\project\.qompack\backup\sym\tree\.gitignore: A required privilege is not held by the client.
+--- SKIP: TestMaintenance_SymlinkComponentInBackupTreeRefused (0.34s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.554s
+exit=0

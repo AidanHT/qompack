@@ -1,0 +1,5 @@
+golangci-lint pinned (tools/pinned/go.mod), built for the host, run from the repo root at 8116d69
+== GOOS=linux golangci-lint run (touched packages)
+exit=0
+== GOOS=darwin golangci-lint run (touched packages)
+exit=0

@@ -1,0 +1,4 @@
+== devtool lint: bindeps ==
+bindeps: OK (6 target(s) checked)
+PASS bindeps
+exit=0

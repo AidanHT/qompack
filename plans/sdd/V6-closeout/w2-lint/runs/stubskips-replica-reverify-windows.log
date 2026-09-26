@@ -1,0 +1,12 @@
+== scratch replica of stubskips.classifySkips over go test -json, edits stashed (baseline: committed tree at 75f7f20)
+SKIP-PROBLEM    github.com/qompack/qompack/internal/daemon TestDeliveryPath_V6_RefusesAliasedSegmentParent
+SKIP-PROBLEM    github.com/qompack/qompack/internal/daemon TestDeliveryTerminal_DrainAfterPhysicalScopeChanges
+SKIP-PROBLEM    github.com/qompack/qompack/internal/store TestMaintenance_SymlinkComponentInBackupTreeRefused
+SKIP-PROBLEM    github.com/qompack/qompack/internal/hookio TestCaptureScope_JunctionSwapDefeatsLexicalContainment
+tests passed=0 failed=0 skipped=4 problems=4
+exit=1
+
+== same replica, edits applied (tree later committed as 36883f6..8116d69)
+SKIP-PERMITTED  github.com/qompack/qompack/internal/store TestMaintenance_SymlinkComponentInBackupTreeRefused
+tests passed=4 failed=0 skipped=1 problems=0
+exit=0

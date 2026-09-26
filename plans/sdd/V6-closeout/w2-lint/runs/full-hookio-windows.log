@@ -1,0 +1,3 @@
+== go test -count=1 -timeout=30m ./internal/hookio @ 8116d69
+ok  	github.com/qompack/qompack/internal/hookio	1.058s
+exit=0

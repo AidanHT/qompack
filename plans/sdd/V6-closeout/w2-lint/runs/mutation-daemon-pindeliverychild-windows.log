@@ -1,0 +1,95 @@
+== MUTATION: pinDeliveryChild checks os.ModeSymlink only (os.ModeIrregular dropped); informational: does anything else refuse the junction?
+diff --git a/internal/daemon/delivery_path.go b/internal/daemon/delivery_path.go
+index 9464731..22c060f 100644
+--- a/internal/daemon/delivery_path.go
++++ b/internal/daemon/delivery_path.go
+@@ -35,7 +35,7 @@ func pinDeliveryChild(parent *os.Root, name string, create bool) (*os.Root, erro
+ 		}
+ 		info, err = parent.Lstat(name)
+ 	}
+-	if err != nil || !info.IsDir() || info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
++	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 { // MUTATION: ModeIrregular dropped
+ 		return nil, deliveryJournalError()
+ 	}
+ 	child, err := parent.OpenRoot(name)
+=== RUN   TestDeliveryPath_V6_RefusesAliasedSegmentParent
+--- PASS: TestDeliveryPath_V6_RefusesAliasedSegmentParent (0.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.377s
+exit=0
+== MUTATION: pinDeliveryChild keeps only the Lstat error check (IsDir and ModeSymlink|ModeIrregular dropped)
+diff --git a/internal/daemon/delivery_path.go b/internal/daemon/delivery_path.go
+index 9464731..20e603a 100644
+--- a/internal/daemon/delivery_path.go
++++ b/internal/daemon/delivery_path.go
+@@ -35,7 +35,7 @@ func pinDeliveryChild(parent *os.Root, name string, create bool) (*os.Root, erro
+ 		}
+ 		info, err = parent.Lstat(name)
+ 	}
+-	if err != nil || !info.IsDir() || info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
++	if err != nil { // MUTATION: whole type check dropped
+ 		return nil, deliveryJournalError()
+ 	}
+ 	child, err := parent.OpenRoot(name)
+=== RUN   TestDeliveryPath_V6_RefusesAliasedSegmentParent
+--- PASS: TestDeliveryPath_V6_RefusesAliasedSegmentParent (0.06s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.314s
+exit=0
+== MUTATION: pinDeliveryChild with the type check AND the SameFile identity check dropped (os.Root is the only layer left)
+diff --git a/internal/daemon/delivery_path.go b/internal/daemon/delivery_path.go
+index 9464731..5d66a3d 100644
+--- a/internal/daemon/delivery_path.go
++++ b/internal/daemon/delivery_path.go
+@@ -35,7 +35,7 @@ func pinDeliveryChild(parent *os.Root, name string, create bool) (*os.Root, erro
+ 		}
+ 		info, err = parent.Lstat(name)
+ 	}
+-	if err != nil || !info.IsDir() || info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
++	if err != nil { // MUTATION: type check dropped
+ 		return nil, deliveryJournalError()
+ 	}
+ 	child, err := parent.OpenRoot(name)
+@@ -43,7 +43,7 @@ func pinDeliveryChild(parent *os.Root, name string, create bool) (*os.Root, erro
+ 		return nil, err
+ 	}
+ 	opened, err := child.Stat(".")
+-	if err != nil || !os.SameFile(info, opened) {
++	if err != nil || opened == nil { // MUTATION: SameFile identity check dropped
+ 		_ = child.Close()
+ 		return nil, deliveryJournalError()
+ 	}
+# github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]
+internal\daemon\delivery_path.go:31:2: declared and not used: info
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL
+exit=1
+== MUTATION (retry, compiles): type check AND SameFile identity check dropped (os.Root is the only layer left)
+diff --git a/internal/daemon/delivery_path.go b/internal/daemon/delivery_path.go
+index 9464731..e51aa39 100644
+--- a/internal/daemon/delivery_path.go
++++ b/internal/daemon/delivery_path.go
+@@ -35,15 +35,16 @@ func pinDeliveryChild(parent *os.Root, name string, create bool) (*os.Root, erro
+ 		}
+ 		info, err = parent.Lstat(name)
+ 	}
+-	if err != nil || !info.IsDir() || info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
++	if err != nil { // MUTATION: type check dropped
+ 		return nil, deliveryJournalError()
+ 	}
++	_ = info
+ 	child, err := parent.OpenRoot(name)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	opened, err := child.Stat(".")
+-	if err != nil || !os.SameFile(info, opened) {
++	if err != nil || opened == nil { // MUTATION: SameFile identity check dropped
+ 		_ = child.Close()
+ 		return nil, deliveryJournalError()
+ 	}
+=== RUN   TestDeliveryPath_V6_RefusesAliasedSegmentParent
+--- PASS: TestDeliveryPath_V6_RefusesAliasedSegmentParent (0.06s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.302s
+exit=0
