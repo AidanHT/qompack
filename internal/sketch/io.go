@@ -138,7 +138,11 @@ func LoadWithLog(p string, s Sketch, log logging.Logger) error {
 		log.Loud(loudOversizeMsg, "path", p, "bytes", st.Size())
 		return fmt.Errorf("%w: %w: %s", core.ErrNotFound, ErrTooLarge, p)
 	}
-	b, err := os.ReadFile(paths.Long(p))
+	// Shared (paths.ReadFileShared): `qompack fsck` and the negknow ledger it opens load sketches
+	// from their own process while the daemon replaces them (Save's paths.WriteAtomic, and
+	// ReplaceBloom's renames of tried.bloom), and on Windows an ordinary handle would fail those
+	// replaces (test/guards' sharedReaders).
+	b, err := paths.ReadFileShared(p)
 	if err != nil {
 		return fmt.Errorf("%w: %s: %v", core.ErrNotFound, p, err)
 	}
