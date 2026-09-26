@@ -16,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/testutil"
 )
 
 // TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight is the regression test for the unclassified
@@ -120,7 +121,7 @@ func TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight(t *testing.T) {
 			"%s after the return): it handed a tree a live daemon was still writing to to the caller's "+
 			"RemoveAll", cmd.Process.Pid, time.Since(returned))
 	require.NoError(t, waitErr, "fixture: the late daemon must have run and exited cleanly")
-	_, held := e2eDaemonHoldingLock(dir)
+	_, held := testutil.DaemonHoldingLock(dir)
 	require.False(t, held, "no live daemon may hold the project's lock once the helper returns")
 }
 
@@ -132,7 +133,7 @@ func TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight(t *testing.T) {
 //
 // The helper used to learn that pid from ONE read of daemon.lock, taken as the shutdown handshake
 // began. A lock that did not parse at that instant (paths.CreateNew creates the file and only then
-// writes its body, and e2eDaemonHoldingLock counts that as held with no pid) left it with pid 0,
+// writes its body, and testutil.DaemonHoldingLock counts that as held with no pid) left it with pid 0,
 // for which "has it exited?" is always yes, so from then on the lock's disappearance alone ended
 // the wait. That is the exact state e2eAwaitSpawnInFlight returns into: it stops at the first
 // sighting of a held lock, which can be the empty file a starting daemon has just created.
