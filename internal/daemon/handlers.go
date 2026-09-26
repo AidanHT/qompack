@@ -841,18 +841,16 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	// bookkeeping were started in phase 1, and only the rehydration is waited for, within
 	// compactAnswerBudget of the request's arrival (session_start_compact.go).
 	seamStart := time.Now()
-	var out hookio.Output
-	if compact != nil {
+	out := hookio.Empty()
+	switch {
+	case compact != nil:
 		out = d.awaitCompactAnswer(ctx, compact)
-	} else if mode.MayAct() && d.svc.SessionStart != nil {
+	case mode.MayAct() && d.svc.SessionStart != nil:
 		if o, err := d.svc.SessionStart(ctx, *ev); err == nil {
 			out = o
 		} else {
 			d.log.Warn("daemon: SessionStart failed", "err", err)
-			out = hookio.Empty()
 		}
-	} else {
-		out = hookio.Empty()
 	}
 	d.observePhase(histSessionStartSeam, seamStart)
 
