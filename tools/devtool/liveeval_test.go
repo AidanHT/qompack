@@ -143,6 +143,68 @@ func TestRunLiveEval_ASupersededTaskSetIsNeverPlanned(t *testing.T) {
 	require.Empty(t, eval.LivePreregistrations[ts.ID].SupersededBy, "and current")
 }
 
+// TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign: a confirmatory run is 40 real
+// sessions of a budget the owner capped, and whether it can be the confirmatory run is mostly fixed
+// when it is planned — the frozen materials, --plugin-dir, the pre-registered model, both arms, all
+// ten tasks with the held-out ones, two trials per arm, a clean bundle and the known-defect statement.
+// The driver says so before any session starts, dry run included, naming the bundle it would load;
+// with --confirmatory it refuses to plan a run that departs from the design, so a departure found by
+// `qompack eval` after the sessions cannot happen.
+func TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign(t *testing.T) {
+	env := fakeLiveEnv(t, nil)
+	confirmatory := func() liveOptions {
+		return liveOptions{
+			tasksFile: liveTestTasks, rates: liveTestRates, arms: []string{"stock", "qompack"}, out: t.TempDir(),
+			install: liveInstallPluginDir, bundle: fakeBundle(t), includeHeldOut: true, maxSessions: 40,
+			defectsAttested: true, openDefects: []string{}, dryRun: true, confirmatory: true,
+		}
+	}
+	var out bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), confirmatory(), env, &out))
+	pre := eval.LivePreregistrations["qompack-live-v2"]
+	for _, want := range []string{
+		"40 trial(s) of task set qompack-live-v2 (" + pre.TaskSetSHA256[:12] + ", fixture tree " + pre.FixtureTreeSHA256[:12] +
+			") on claude-sonnet-5, arms stock,qompack, install plugin-dir",
+		"live-eval: bundle 9.9.9-test at commit deadbeef (dirty=false)",
+		"live-eval: confirmatory preconditions at plan time: met",
+		"plan: seed-recall/qompack/2",
+		"--model claude-sonnet-5",
+	} {
+		require.Contains(t, out.String(), want)
+	}
+
+	for name, c := range map[string]struct {
+		mutate func(*liveOptions)
+		want   string
+	}{
+		"held-out excluded": {func(o *liveOptions) { o.includeHeldOut = false }, "it excluded the held-out tasks"},
+		"an open defect":    {func(o *liveOptions) { o.openDefects = []string{"C1.15"} }, "known open defect(s) C1.15"},
+		"one trial per arm": {func(o *liveOptions) { o.trials = 1 }, "ran 1 trials per arm per task, not the pre-registered 2"},
+		"marketplace":       {func(o *liveOptions) { o.install = liveInstallMarketplace }, "not the pre-registered --plugin-dir"},
+		"another model":     {func(o *liveOptions) { o.model = "opus" }, "not the pre-registered model claude-sonnet-5"},
+		"the pilot":         {func(o *liveOptions) { o.tasksFile = liveTestPilot }, "has no pre-registration"},
+	} {
+		o := confirmatory()
+		o.confirmatory = false
+		c.mutate(&o)
+		out.Reset()
+		require.NoError(t, runLiveEval(context.Background(), o, env, &out), name)
+		require.Contains(t, out.String(), "live-eval: not the confirmatory design: ", name)
+		require.Contains(t, out.String(), c.want, name)
+
+		o.confirmatory = true
+		out.Reset()
+		err := runLiveEval(context.Background(), o, env, &out)
+		require.ErrorContains(t, err, "--confirmatory", name)
+		require.ErrorContains(t, err, c.want, name)
+		require.NotContains(t, out.String(), "plan: ", "%s: nothing is planned", name)
+	}
+
+	o, err := parseLiveFlags([]string{"--confirmatory"})
+	require.NoError(t, err)
+	require.True(t, o.confirmatory)
+}
+
 // TestPlanLiveTrials_AlternatesArmOrder: across tasks and trials each arm goes first half the time.
 func TestPlanLiveTrials_AlternatesArmOrder(t *testing.T) {
 	tasks := []eval.LiveTask{{ID: "a"}, {ID: "b"}}
