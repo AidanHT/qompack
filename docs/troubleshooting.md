@@ -653,16 +653,20 @@ protection against a second writer.
 compaction's rehydration" instead of the rehydration.
 
 **Diagnose.** The note names its cause in parentheses. "it was not ready when the answer was due",
-"building it failed" and "the checkpoint store could not be read" are the daemon's own:
+"building it failed", "the checkpoint store could not be read" and "the Qompack daemon was shutting
+down" are the daemon's own:
 `.qompack/logs/LOUD.log` has a matching `compact SessionStart answered without its rehydration`
 line, `qompack status --json` counts it under `session_start_compact_deferred`, and
 `.qompack/metrics/latency.json` has the route's phases — `session_start.contract`, `.compact_wait`,
-`.finish` and `rehydrate.latest`, `.record` — which say where the time went. For the last two,
-`LOUD.log` also has the failure itself: `rehydrate: checkpoint unreadable` (with `checkpoint manifest
-unreadable` when the manifest is the cause), `rehydrate: build failed`, or `rehydrate: panic
-recovered`; `qompack fsck` checks the checkpoint store. "the Qompack daemon did not answer in time"
-is the hook client's: no answer reached it within its 10 s deadline, so look at whether a daemon was
-running at all (`qompack status`) and at the disk load at that moment.
+`.finish` and `rehydrate.latest`, `.record` — which say where the time went. For "building it failed"
+and "the checkpoint store could not be read", `LOUD.log` also has the failure itself: `rehydrate:
+checkpoint unreadable` (with `checkpoint manifest unreadable` when the manifest is the cause),
+`rehydrate: build failed`, or `rehydrate: panic recovered`; `qompack fsck` checks the checkpoint
+store. "the Qompack daemon was shutting down" is no fault of the store or the build: the daemon was
+stopping before the rehydration could start, or its stop cut the rehydration short (`LOUD.log` then
+has `rehydrate: stopped before the rehydration was built`). "the Qompack daemon did not answer in
+time" is the hook client's: no answer reached it within its 10 s deadline, so look at whether a
+daemon was running at all (`qompack status`) and at the disk load at that moment.
 
 **Meaning.** The rehydration is bounded (C1.16): the daemon waits for a compact rehydration for at
 most a third of the hook's 15 s timeout, counted from the request's arrival, and a rehydration that
@@ -678,9 +682,10 @@ builds the rehydration without a checkpoint, and delivers that.
 
 `dropped()` reports on the most recently *recorded* rehydration, which for a while can be an
 earlier one, as the note itself says. A rehydration still being built has recorded nothing yet, and
-one that a stopping daemon never started records nothing at all. When the
-hook client wrote the note ("did not answer in time"), the daemon may still have answered, too
-late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
+one that a stopping daemon never started records nothing at all; one its stop cut short records a
+report that opens `not delivered: the Qompack daemon was shutting down, so no rehydration was built`.
+When the hook client wrote the note ("did not answer in time"), the daemon may still have answered,
+too late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
 and when the daemon replays it — at its next idle drain, within 30 s, or its next start — it
 records the rehydration as undelivered and says the hook answered without it. If the spool itself
 could not be written, that correction never comes: `.qompack/logs/LOUD.log` then has an `ipc: spool`

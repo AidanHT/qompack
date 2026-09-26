@@ -408,10 +408,10 @@ observer seams for that session (tool results, Stops, prompt captures, `SessionE
 pending bookkeeping first, and no other session's do (`compactGates`). The rehydration's drop report
 is written after its answer is handed over. The wait is bounded at a third of the `SessionStart`
 manifest timeout (5 s) from the request's arrival; a rehydration not ready by then, one that fails
-outright, or one a stopping daemon cannot start is answered with an explicit note instead — it says
-the rehydration did not arrive and why, and names the MCP calls that recover the pre-compaction
-material (`expand` of the session's first prompt, `recall`, `dropped()`) and where the checkpoints
-are. Since owner decision D11 the same note answers a rehydration that cannot be built at all: a
+outright, or one a stopping daemon cannot start or cuts short is answered with an explicit note
+instead — it says the rehydration did not arrive and why, and names the MCP calls that recover the
+pre-compaction material (`expand` of the session's first prompt, `recall`, `dropped()`) and where the
+checkpoints are. Since owner decision D11 the same note answers a rehydration that cannot be built at all: a
 checkpoint store that cannot be read (an unreadable manifest, or a checkpoint that verifies but does
 not decode; a checkpoint that fails verification is stepped over, and the payload is built without
 it) and a build that fails or panics. Nothing is built on a store that cannot be read, and the drop
