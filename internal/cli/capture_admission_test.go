@@ -188,12 +188,23 @@ func TestHookCapture_HardBoundPrecedesConfiguration(t *testing.T) {
 	reader := &countedAdmissionReader{remaining: hookCaptureMaxBytes * 2}
 	var out, errw bytes.Buffer
 	// How much of the delivery had been read when the environment was first consulted for anything
-	// other than the project root. -1 means it was never consulted at all.
+	// other than the project root and the home directory. -1 means it was never consulted at all.
 	readAtFirstLookup := -1
+	// How much had been read when the home directory was first looked up, which D18's refusal of a
+	// home-directory root does before anything else. -1 means it was never looked up.
+	readAtHomeLookup := -1
 	code := Dispatch(context.Background(), All(), argvFor("observe prompt"), Env{
 		Getenv: func(key string) string {
-			if key == "QOMPACK_PROJECT_ROOT" {
+			switch key {
+			case "QOMPACK_PROJECT_ROOT":
 				return root
+			case "HOME", "USERPROFILE":
+				// Whether the resolved root may be used at all (D18) is decided from these, like the
+				// root itself is from QOMPACK_PROJECT_ROOT: root resolution, not configuration.
+				if readAtHomeLookup < 0 {
+					readAtHomeLookup = reader.read
+				}
+				return ""
 			}
 			if readAtFirstLookup < 0 {
 				readAtFirstLookup = reader.read
@@ -207,6 +218,8 @@ func TestHookCapture_HardBoundPrecedesConfiguration(t *testing.T) {
 	require.Equal(t, hookCaptureMaxBytes+1, readAtFirstLookup,
 		"the bound had already read its last byte and refused the delivery before any configuration "+
 			"environment was scanned: the resource bound never depends on policy being available")
+	require.Equal(t, 0, readAtHomeLookup,
+		"the home-directory refusal (D18) is decided before a byte of the delivery is read")
 
 	req := onlySpooledRequest(t, root)
 	require.NotNil(t, req.Capture, "a delivery over the hard cap leaves a record, not nothing (V4-Z)")
