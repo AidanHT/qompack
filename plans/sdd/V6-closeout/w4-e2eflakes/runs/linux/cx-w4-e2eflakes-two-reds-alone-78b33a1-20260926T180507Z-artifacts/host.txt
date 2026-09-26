@@ -1,0 +1,10 @@
+run_id=cx-w4-e2eflakes-two-reds-alone-78b33a1-20260926T180507Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes
+rev=78b33a1
+commit=78b33a16ec1ab9f84741f28a99d9d7bafd9c4ac8
+bundle_sha256=e0b368bbae96e35b5b8cf893f00292804f9eb3d37410488e4c31c42cabb57d7a
+host_started_utc=2026-09-26T18:05:12Z
+inner_args=--run ^(TestE2E_ThinSliceDropsControlOnlyEdges|TestV4_T13HandleResolvesAfterCompactionOverStdio)$ --count 5 --coload --timeout 60m -- ./test/e2e
+host_finished_utc=2026-09-26T18:06:06Z
+container_exit=0

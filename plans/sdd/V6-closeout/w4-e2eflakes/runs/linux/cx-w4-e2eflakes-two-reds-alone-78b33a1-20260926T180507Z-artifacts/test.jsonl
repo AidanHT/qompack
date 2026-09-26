@@ -1,0 +1,44 @@
+{"Time":"2026-09-26T18:05:23.110757361Z","Action":"start","Package":"github.com/qompack/qompack/test/e2e"}
+{"Time":"2026-09-26T18:05:23.132321629Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges"}
+{"Time":"2026-09-26T18:05:23.132367863Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges\n"}
+{"Time":"2026-09-26T18:05:33.228051129Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (10.10s)\n"}
+{"Time":"2026-09-26T18:05:33.228105185Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Elapsed":10.1}
+{"Time":"2026-09-26T18:05:33.228119029Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio"}
+{"Time":"2026-09-26T18:05:33.22812341Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio\n"}
+{"Time":"2026-09-26T18:05:34.119247739Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (0.89s)\n"}
+{"Time":"2026-09-26T18:05:34.119285274Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Elapsed":0.89}
+{"Time":"2026-09-26T18:05:34.119679971Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges"}
+{"Time":"2026-09-26T18:05:34.119696693Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges\n"}
+{"Time":"2026-09-26T18:05:44.353548752Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (10.23s)\n"}
+{"Time":"2026-09-26T18:05:44.353608814Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Elapsed":10.23}
+{"Time":"2026-09-26T18:05:44.353623455Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio"}
+{"Time":"2026-09-26T18:05:44.353628478Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio\n"}
+{"Time":"2026-09-26T18:05:45.240486373Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (0.89s)\n"}
+{"Time":"2026-09-26T18:05:45.240534572Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Elapsed":0.89}
+{"Time":"2026-09-26T18:05:45.240633453Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges"}
+{"Time":"2026-09-26T18:05:45.240642616Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges\n"}
+{"Time":"2026-09-26T18:05:51.102771002Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (5.86s)\n"}
+{"Time":"2026-09-26T18:05:51.102828006Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Elapsed":5.86}
+{"Time":"2026-09-26T18:05:51.102845732Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio"}
+{"Time":"2026-09-26T18:05:51.102869324Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio\n"}
+{"Time":"2026-09-26T18:05:51.990860239Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (0.89s)\n"}
+{"Time":"2026-09-26T18:05:51.990906732Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Elapsed":0.89}
+{"Time":"2026-09-26T18:05:51.991028769Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges"}
+{"Time":"2026-09-26T18:05:51.991037615Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges\n"}
+{"Time":"2026-09-26T18:05:57.789794129Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (5.80s)\n"}
+{"Time":"2026-09-26T18:05:57.789829183Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Elapsed":5.8}
+{"Time":"2026-09-26T18:05:57.789880233Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio"}
+{"Time":"2026-09-26T18:05:57.78988518Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio\n"}
+{"Time":"2026-09-26T18:05:58.709251809Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (0.92s)\n"}
+{"Time":"2026-09-26T18:05:58.709299041Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Elapsed":0.92}
+{"Time":"2026-09-26T18:05:58.709430806Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges"}
+{"Time":"2026-09-26T18:05:58.709450949Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges\n"}
+{"Time":"2026-09-26T18:06:04.565896081Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Output":"--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (5.86s)\n"}
+{"Time":"2026-09-26T18:06:04.565941632Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ThinSliceDropsControlOnlyEdges","Elapsed":5.86}
+{"Time":"2026-09-26T18:06:04.565951423Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio"}
+{"Time":"2026-09-26T18:06:04.565954052Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio\n"}
+{"Time":"2026-09-26T18:06:05.463062219Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Output":"--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (0.90s)\n"}
+{"Time":"2026-09-26T18:06:05.463102397Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV4_T13HandleResolvesAfterCompactionOverStdio","Elapsed":0.9}
+{"Time":"2026-09-26T18:06:05.463136522Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Output":"PASS\n"}
+{"Time":"2026-09-26T18:06:06.467879929Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Output":"ok  \tgithub.com/qompack/qompack/test/e2e\t43.360s\n"}
+{"Time":"2026-09-26T18:06:06.467964369Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Elapsed":43.36}
