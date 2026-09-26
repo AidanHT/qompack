@@ -1,0 +1,37 @@
+run_id=cx-w3-eval3-fix-touched-0a7b320-0a7b320-20260926T024134Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3
+rev=0a7b320
+commit=0a7b320f1372b00f07c96ffe31458830dd47f8f8
+bundle_sha256=86ba0d51116c00138d25a549ac5a1dd983d11b73f588e94f896f2761491e3f28
+host_started_utc=2026-09-26T02:41:41Z
+inner_args=--timeout 30m -- ./internal/commands ./internal/cli ./test/docs
+/work/cx-w3-eval3-fix-touched-0a7b320-0a7b320-20260926T024134Z.bundle: OK
+run_id=cx-w3-eval3-fix-touched-0a7b320-0a7b320-20260926T024134Z
+commit=0a7b320f1372b00f07c96ffe31458830dd47f8f8
+tree=b6960dff07cb8832da2b90cb31d6ff99c2b545a7
+bundle_sha256=86ba0d51116c00138d25a549ac5a1dd983d11b73f588e94f896f2761491e3f28
+started_utc=2026-09-26T02:41:44Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/commands  (pass=116 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=371 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3/plans/sdd/V6-closeout/w3-eval3/runs/linux/cx-w3-eval3-fix-touched-0a7b320-0a7b320-20260926T024134Z-artifacts
+exit=0
+exit=0

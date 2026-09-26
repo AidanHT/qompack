@@ -1,0 +1,25 @@
+# go test ./internal/commands -run TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision -count=1 (at 931536b + test only), exit=1
+--- FAIL: TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision (0.00s)
+    eval_live_test.go:349: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3/internal/commands/eval_live_test.go:349
+        	Error:      	Not equal: 
+        	            	expected: "inconclusive"
+        	            	actual  : "pass"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(commands.EvalVerdict) (len=12) "inconclusive"
+        	            	+(commands.EvalVerdict) (len=4) "pass"
+        	            	 
+        	Test:       	TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision
+        	Messages:   	plugin mismatch (replay read: true)
+FAIL
+FAIL	github.com/qompack/qompack/internal/commands	1.215s
+FAIL
+
+# go test ./internal/commands -run 'TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision' -count=12 (at 931536b + test only), exit=1
+# first failing case per iteration (map order varies):
+      1         	Messages:   	interval straddles (replay read: true)
+     11         	Messages:   	plugin mismatch (replay read: true)
