@@ -1,0 +1,42 @@
+# TEMPORARY DIAGNOSTIC TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (source: runs/diag-w5-sibling-shutdown_test.go.txt) against the ported sibling helpers (working tree over 919b0fb), -count=3
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (3.13s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.57s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.58s)
+PASS
+ok  	github.com/qompack/qompack/test/fault	6.666s
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (2.25s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.56s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.54s)
+PASS
+ok  	github.com/qompack/qompack/test/platform	6.513s
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (2.63s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.54s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.54s)
+PASS
+ok  	github.com/qompack/qompack/test/release	6.926s
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (2.30s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.59s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.59s)
+PASS
+ok  	github.com/qompack/qompack/test/security	6.668s
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (1.48s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (1.10s)
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+--- PASS: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (1.18s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	4.355s
+exit=0

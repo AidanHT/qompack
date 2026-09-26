@@ -1,0 +1,53 @@
+# TEMPORARY DIAGNOSTIC TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (source: runs/diag-w5-sibling-shutdown_test.go.txt) against the HEAD (pre-port) sibling helpers, 919b0fb
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+    zz_diag_w5_shutdown_test.go:94: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/fault/zz_diag_w5_shutdown_test.go:80
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/fault/zz_diag_w5_shutdown_test.go:94
+        	Error:      	the helper returned too early
+        	Test:       	TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+        	Messages:   	it returned once the lock was released, after 4 attempts, while the stand-in lock holder (pid 35024, alive=true) was still running
+--- FAIL: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.85s)
+FAIL
+FAIL	github.com/qompack/qompack/test/fault	2.135s
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+    zz_diag_w5_shutdown_test.go:94: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/platform/zz_diag_w5_shutdown_test.go:80
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/platform/zz_diag_w5_shutdown_test.go:94
+        	Error:      	the helper returned too early
+        	Test:       	TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+        	Messages:   	it returned once the lock was released, after 4 attempts, while the stand-in lock holder (pid 34696, alive=true) was still running
+--- FAIL: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.81s)
+FAIL
+FAIL	github.com/qompack/qompack/test/platform	1.989s
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+    zz_diag_w5_shutdown_test.go:94: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/release/zz_diag_w5_shutdown_test.go:80
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/release/zz_diag_w5_shutdown_test.go:94
+        	Error:      	the helper returned too early
+        	Test:       	TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+        	Messages:   	it returned once the lock was released, after 4 attempts, while the stand-in lock holder (pid 27264, alive=true) was still running
+--- FAIL: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.82s)
+FAIL
+FAIL	github.com/qompack/qompack/test/release	2.004s
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+    zz_diag_w5_shutdown_test.go:94: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/security/zz_diag_w5_shutdown_test.go:80
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/security/zz_diag_w5_shutdown_test.go:94
+        	Error:      	the helper returned too early
+        	Test:       	TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+        	Messages:   	it returned once the lock was released, after 4 attempts, while the stand-in lock holder (pid 9112, alive=true) was still running
+--- FAIL: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.92s)
+FAIL
+FAIL	github.com/qompack/qompack/test/security	2.584s
+=== RUN   TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+    zz_diag_w5_shutdown_test.go:94: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/zz_diag_w5_shutdown_test.go:80
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/zz_diag_w5_shutdown_test.go:94
+        	Error:      	the helper returned too early
+        	Test:       	TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder
+        	Messages:   	it returned once the lock was released, after 4 attempts, while the stand-in lock holder (pid 37332, alive=true) was still running
+--- FAIL: TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder (0.42s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.633s
+FAIL
+exit=1

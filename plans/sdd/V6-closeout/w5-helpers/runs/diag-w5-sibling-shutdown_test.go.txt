@@ -1,0 +1,107 @@
+// TEMPORARY DIAGNOSTIC, never committed as a test. Copied as test/<pkg>/zz_diag_w5_shutdown_test.go
+// into test/fault, test/platform, test/release and test/security with the package clause changed,
+// and into test/guards with the package clause changed and shutdownIfReachable(t, root) replaced
+// by v1StopDaemonAndWaitGone(t, root). Removed from the tree after the runs.
+
+package fault
+
+// TEMPORARY DIAGNOSTIC (w5-helpers), never committed as a test: stages the spawn-in-flight lock
+// history against this package's own shutdown helper. An empty daemon.lock, then a body naming a
+// live stand-in (this test binary re-executed), then the lock removed while the stand-in runs. A
+// helper that returns before the stand-in exits hands a live writer's tree to RemoveAll.
+
+import (
+	"bufio"
+	"encoding/json"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/testutil"
+)
+
+const zzDiagW5ChildEnv = "QOMPACK_ZZDIAG_W5_CHILD"
+
+func TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder(t *testing.T) {
+	if os.Getenv(zzDiagW5ChildEnv) != "" {
+		_, _ = os.Stdout.WriteString("zzdiag-ready\n")
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		os.Exit(3)
+	}
+	root := t.TempDir()
+	self, err := os.Executable()
+	require.NoError(t, err)
+	cmd := exec.Command(self, "-test.run=^TestZZDiagW5_SiblingShutdownWaitsForEveryLockHolder$")
+	cmd.Env = append(os.Environ(), zzDiagW5ChildEnv+"=1")
+	in, err := cmd.StdinPipe()
+	require.NoError(t, err)
+	out, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+	require.NoError(t, cmd.Start())
+	sc := bufio.NewScanner(out)
+	require.True(t, sc.Scan() && strings.HasPrefix(sc.Text(), "zzdiag-ready"))
+	pid := cmd.Process.Pid
+	done := make(chan struct{})
+	t.Cleanup(func() {
+		_ = in.Close()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Minute):
+		}
+		_ = cmd.Wait()
+	})
+
+	lock := daemon.LockPath(root)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(lock)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(lock), nil, 0o600))
+
+	go func() {
+		defer close(done)
+		shutdownIfReachable(t, root)
+	}()
+	spool := filepath.Join(paths.Of(root).Spool, "client-"+strconv.Itoa(os.Getpid())+".ndjson")
+	attempts := func() int {
+		b, _ := paths.ReadFileShared(spool)
+		return strings.Count(string(b), `"`+string(ipc.OpAdminShutdown)+`"`)
+	}
+	await := func(n int, why string) {
+		t.Helper()
+		deadline := time.Now().Add(time.Minute)
+		tick := time.NewTicker(25 * time.Millisecond)
+		defer tick.Stop()
+		for attempts() < n {
+			select {
+			case <-done:
+				require.FailNowf(t, "the helper returned too early", "it returned %s, after %d attempts, "+
+					"while the stand-in lock holder (pid %d, alive=%v) was still running", why, attempts(), pid,
+					testutil.ProcessAlive(pid))
+			case <-tick.C:
+			}
+			require.False(t, time.Now().After(deadline), "no attempt %d %s", n, why)
+		}
+	}
+	await(1, "before its loop started")
+	body, err := json.Marshal(daemon.LockInfo{PID: pid, Started: time.Now().UnixMilli()})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(paths.Long(lock), body, 0o600))
+	await(attempts()+2, "before it read the lock's holder")
+	require.NoError(t, os.Remove(paths.Long(lock)))
+	await(attempts()+2, "once the lock was released")
+	require.NoError(t, in.Close())
+	select {
+	case <-done:
+	case <-time.After(time.Minute):
+		t.Fatal("the helper did not return within a minute of the holder exiting")
+	}
+	require.False(t, testutil.ProcessAlive(pid))
+}

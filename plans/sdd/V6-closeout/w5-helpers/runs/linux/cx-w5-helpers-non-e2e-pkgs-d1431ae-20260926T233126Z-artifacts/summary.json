@@ -1,0 +1,57 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/testutil": {
+   "result": "pass",
+   "passed": 53,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1501,
+   "failed": [],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/test/fault": {
+   "result": "pass",
+   "passed": 56,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/platform": {
+   "result": "pass",
+   "passed": 14,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/release": {
+   "result": "pass",
+   "passed": 8,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/security": {
+   "result": "pass",
+   "passed": 30,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "fail",
+   "passed": 165,
+   "failed": [
+    "TestCarriedDefects_WaveReportRequiresResolution/SP06-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP10-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP09-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D3",
+    "TestCarriedDefects_WaveReportRequiresResolution"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

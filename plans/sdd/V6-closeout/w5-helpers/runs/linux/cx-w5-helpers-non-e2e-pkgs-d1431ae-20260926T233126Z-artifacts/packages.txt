@@ -1,0 +1,7 @@
+github.com/qompack/qompack/internal/testutil
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/test/fault
+github.com/qompack/qompack/test/platform
+github.com/qompack/qompack/test/release
+github.com/qompack/qompack/test/security
+github.com/qompack/qompack/test/guards

@@ -1,0 +1,230 @@
+### mutation OLD (temporary edit of internal/testutil/daemongone.go by runs/mutate.py.txt, restored with git checkout after)
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock
+--- PASS: TestLockHolders_AnEmptyLockIsNeverSettled (0.01s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock (0.00s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit
+    daemongone_test.go:289: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:164
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:289
+        	Error:      	ShutdownDaemonUntilGone returned too early
+        	Test:       	TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit
+        	Messages:   	it returned once the lock was released, while its holder was still running, after 5 attempts, with outcome {Gone:true LockPID:0 LockHeld:false Running:[] Unidentified:false}
+--- FAIL: TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit (0.23s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified
+    daemongone_test.go:328: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:164
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:328
+        	Error:      	ShutdownDaemonUntilGone returned too early
+        	Test:       	TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified
+        	Messages:   	it returned once a lock whose holder it never identified was released, after 3 attempts, with outcome {Gone:true LockPID:0 LockHeld:false Running:[] Unidentified:false}
+--- FAIL: TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified (0.07s)
+=== RUN   TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown
+--- PASS: TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown (0.18s)
+=== RUN   TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce
+--- PASS: TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/testutil	0.845s
+FAIL
+exit=1 (mutation OLD)
+### mutation M1 (temporary edit of internal/testutil/daemongone.go by runs/mutate.py.txt, restored with git checkout after)
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read
+    daemongone_test.go:238: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:238
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read
+        	Messages:   	settled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock
+--- FAIL: TestLockHolders_AnEmptyLockIsNeverSettled (0.01s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there (0.00s)
+    --- FAIL: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock (0.00s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit
+--- PASS: TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit (0.26s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified
+    daemongone_test.go:328: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:164
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:328
+        	Error:      	ShutdownDaemonUntilGone returned too early
+        	Test:       	TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified
+        	Messages:   	it returned once a lock whose holder it never identified was released, after 3 attempts, with outcome {Gone:true LockPID:0 LockHeld:false Running:[] Unidentified:false}
+--- FAIL: TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified (0.07s)
+=== RUN   TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown
+--- PASS: TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown (0.10s)
+=== RUN   TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce
+--- PASS: TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/testutil	0.669s
+FAIL
+exit=1 (mutation M1)
+### mutation M2 (temporary edit of internal/testutil/daemongone.go by runs/mutate.py.txt, restored with git checkout after)
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone
+    daemongone_test.go:238: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:238
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone
+        	Messages:   	settled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock
+--- FAIL: TestLockHolders_AnEmptyLockIsNeverSettled (0.02s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read (0.00s)
+    --- FAIL: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock (0.00s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit
+    daemongone_test.go:289: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:164
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:289
+        	Error:      	ShutdownDaemonUntilGone returned too early
+        	Test:       	TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit
+        	Messages:   	it returned once the lock was released, while its holder was still running, after 5 attempts, with outcome {Gone:true LockPID:0 LockHeld:false Running:[] Unidentified:false}
+--- FAIL: TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit (0.24s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified
+--- PASS: TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified (3.01s)
+=== RUN   TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown
+    daemongone_test.go:414: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:414
+        	Error:      	ShutdownDaemonUntilGone returned too early
+        	Test:       	TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown
+        	Messages:   	it returned after 1 received shutdowns, while the lock's holder (pid 29096, alive=true) was still running, with outcome {Gone:true LockPID:0 LockHeld:false Running:[] Unidentified:false}
+--- FAIL: TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown (0.05s)
+=== RUN   TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce
+--- PASS: TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/testutil	3.566s
+FAIL
+exit=1 (mutation M2)
+### mutation M3 (temporary edit of internal/testutil/daemongone.go by runs/mutate.py.txt, restored with git checkout after)
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock
+--- PASS: TestLockHolders_AnEmptyLockIsNeverSettled (0.02s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock (0.00s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit
+--- PASS: TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit (0.38s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified
+--- PASS: TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified (3.00s)
+=== RUN   TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown
+    daemongone_test.go:414: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:414
+        	Error:      	ShutdownDaemonUntilGone returned too early
+        	Test:       	TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown
+        	Messages:   	it returned after 1 received shutdowns, while the lock's holder (pid 27624, alive=true) was still running, with outcome {Gone:true LockPID:0 LockHeld:false Running:[] Unidentified:false}
+--- FAIL: TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown (0.04s)
+=== RUN   TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce
+--- PASS: TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/testutil	3.976s
+FAIL
+exit=1 (mutation M3)
+### mutation M4 (temporary edit of internal/testutil/daemongone.go by runs/mutate.py.txt, restored with git checkout after)
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there
+    daemongone_test.go:238: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:238
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there
+        	Messages:   	settled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read
+    daemongone_test.go:238: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:238
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read
+        	Messages:   	settled
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process
+=== RUN   TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock
+    daemongone_test.go:238: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:238
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock
+        	Messages:   	settled
+--- FAIL: TestLockHolders_AnEmptyLockIsNeverSettled (0.01s)
+    --- FAIL: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_still_there (0.00s)
+    --- FAIL: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_gone_with_no_pid_ever_read (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_live_holder's_body,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/empty_lock,_then_a_body_naming_a_dead_process (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/our_own_pid,_then_gone (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/no_lock_at_all (0.00s)
+    --- PASS: TestLockHolders_AnEmptyLockIsNeverSettled/a_lock_abandoned_by_a_dead_process (0.00s)
+    --- FAIL: TestLockHolders_AnEmptyLockIsNeverSettled/gone,_then_a_new_empty_lock (0.00s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit
+--- PASS: TestShutdownDaemonUntilGone_WaitsForEveryLockHolderToExit (0.26s)
+=== RUN   TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified
+    daemongone_test.go:328: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:164
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/testutil/daemongone_test.go:328
+        	Error:      	ShutdownDaemonUntilGone returned too early
+        	Test:       	TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified
+        	Messages:   	it returned once a lock whose holder it never identified was released, after 3 attempts, with outcome {Gone:true LockPID:0 LockHeld:false Running:[] Unidentified:false}
+--- FAIL: TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified (0.07s)
+=== RUN   TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown
+--- PASS: TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown (0.11s)
+=== RUN   TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce
+--- PASS: TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/testutil	0.684s
+FAIL
+exit=1 (mutation M4)

@@ -1,0 +1,29 @@
+import sys
+
+# TEMPORARY product mutations for the x13 accounting evidence; reverted with
+# git checkout -- internal/daemon/handlers.go after each run, never committed.
+m = sys.argv[1]
+p = 'internal/daemon/handlers.go'
+s = open(p, encoding='utf-8').read()
+
+
+def rep(old, new):
+    global s
+    assert s.count(old) == 1, (m, old)
+    s = s.replace(old, new)
+
+
+if m == 'C1':
+    # the daemon records its B-A samples under a name the row does not read
+    rep('d.m.Hist(histName(obs.BA)).Observe(estimated)',
+        'd.m.Hist(histName(obs.BA) + "_renamed").Observe(estimated)')
+elif m == 'C2':
+    # the invalid-sample counter is renamed, and every live sample is rejected for its TS, so every
+    # sample lands in the renamed counter
+    rep('counterHotpathSampleInvalid = "hotpath_sample_invalid"',
+        'counterHotpathSampleInvalid = "hotpath_sample_invalid_renamed"')
+    rep('func validHotPathTS(ts, recvTS core.UnixMilli) bool {\n',
+        'func validHotPathTS(ts, recvTS core.UnixMilli) bool {\n\tif ts != 0 {\n\t\treturn false\n\t}\n')
+else:
+    raise SystemExit('unknown ' + m)
+open(p, 'w', encoding='utf-8', newline='\n').write(s)

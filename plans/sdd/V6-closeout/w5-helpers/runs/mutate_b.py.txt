@@ -1,0 +1,25 @@
+import sys
+m = sys.argv[1]
+def edit(p, old, new):
+    s = open(p, encoding='utf-8').read()
+    assert s.count(old) == 1, (m, p, old)
+    open(p, 'w', encoding='utf-8', newline='\n').write(s.replace(old, new))
+if m == 'B1':
+    # the observer treats every recorder as one that declares the durable barriers
+    edit('internal/observer/tooluse.go',
+         'storeSynced := obs != "" && recorderPublishesDurably(o.toolRecorder())',
+         'storeSynced := obs != "" && (true || recorderPublishesDurably(o.toolRecorder()))')
+elif m == 'B2':
+    # finishObservation skips its re-proving pass
+    edit('internal/observer/identity.go',
+         '\tif err := o.syncObservation(ctx, rec.Root); err != nil {\n\t\treturn err\n\t}\n\tif err := o.linkObservation(obs, rec); err != nil {',
+         '\tif err := error(nil); err != nil {\n\t\treturn err\n\t}\n\tif err := o.linkObservation(obs, rec); err != nil {')
+elif m == 'B3':
+    # a refused record write is swallowed instead of retaining the delivery
+    s = open('internal/observer/tooluse.go', encoding='utf-8').read()
+    old = '\tsuperseded, recorded, recErr := o.publishRecord(ctx, rec, res, empty)\n\tif recErr != nil {\n\t\treturn hookio.Empty(), o.unpublished(stageIndex)\n\t}'
+    assert s.count(old) == 1, old
+    s = s.replace(old, '\tsuperseded, recorded, recErr := o.publishRecord(ctx, rec, res, empty)\n\tif recErr != nil {\n\t\treturn hookio.Empty(), nil\n\t}')
+    open('internal/observer/tooluse.go', 'w', encoding='utf-8', newline='\n').write(s)
+else:
+    raise SystemExit('unknown ' + m)
