@@ -1213,7 +1213,9 @@ func TestGC_DeadlineBudgetRepricesAfterAMissedWindow(t *testing.T) {
 // factor and an omitted phase is an additive cost; so its budgets swung between the two misses.
 // The first check is now timed through GC itself, on the attempts' own clock. Pre-sweep work the
 // deadline never consults is a real gap of its own, like the tombstoning above: recordOutcomes
-// cost 10…18 ms without -race on the same host.
+// cost 10…18 ms without -race on the same host. Its sorts built two String() forms per
+// comparison, 222 108 allocations for those roots; they compare the bytes now (gcHashLess, same
+// order), which is what gives that host a window wide enough to measure at all.
 //
 // Every assertion about what the collector DID is hard in both modes: the calibration passes
 // complete and sweep the whole tree, an already-expired deadline stops the sweep at its first
