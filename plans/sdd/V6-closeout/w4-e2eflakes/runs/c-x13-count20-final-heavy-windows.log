@@ -1,0 +1,123 @@
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read [client-37788.ndjson]: 1 late-ACK duplicates [toolu_v4x13_07], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet4188232625\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet4188232625\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (12.72s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet4098686252\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet4098686252\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.66s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read [client-12184.ndjson]: 1 late-ACK duplicates [toolu_v4x13_00], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet4081887038\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet4081887038\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.69s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read [client-48924.ndjson client-55156.ndjson]: 2 late-ACK duplicates [toolu_v4x13_03 toolu_v4x13_02], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3676425042\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3676425042\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.85s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read [client-60292.ndjson]: 1 late-ACK duplicates [toolu_v4x13_03], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet854107836\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet854107836\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.53s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2518510241\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2518510241\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.71s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1489555947\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1489555947\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.63s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet458957342\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet458957342\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.88s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet405300435\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet405300435\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.63s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3714704116\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3714704116\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.96s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet977976551\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet977976551\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (11.01s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2930167755\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2930167755\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.88s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2520975234\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2520975234\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (11.00s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet36454533\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet36454533\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (11.09s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read [client-20800.ndjson client-45264.ndjson client-57212.ndjson]: 3 late-ACK duplicates [toolu_v4x13_07 toolu_v4x13_05 toolu_v4x13_06], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2787183939\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2787183939\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (13.71s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet167730025\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet167730025\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.21s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read [client-36152.ndjson client-56596.ndjson]: 2 late-ACK duplicates [toolu_v4x13_00 toolu_v4x13_01], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3436528455\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3436528455\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.79s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read [client-35508.ndjson client-49856.ndjson client-52212.ndjson client-58056.ndjson]: 4 late-ACK duplicates [toolu_v4x13_01 toolu_v4x13_07 toolu_v4x13_06 toolu_v4x13_00], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2367093846\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2367093846\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (11.57s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read [client-50500.ndjson client-54868.ndjson]: 2 late-ACK duplicates [toolu_v4x13_03 toolu_v4x13_04], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2792875153\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2792875153\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.61s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:838: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:860: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:876: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet465537886\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:878: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet465537886\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (11.08s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	221.426s
+exit=0
