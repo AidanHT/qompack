@@ -1,0 +1,7 @@
+=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio
+--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (4.88s)
+=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio
+--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (3.92s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	9.033s
+exit=0

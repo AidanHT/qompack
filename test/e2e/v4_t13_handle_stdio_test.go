@@ -113,6 +113,16 @@ func TestV4_T13HandleResolvesAfterCompactionOverStdio(t *testing.T) {
 	require.Regexp(t, `^sha256:[0-9a-f]{64}$`, handle,
 		"recall must return a content-addressed handle for %s; hits=%+v", t13ToolUseID, recalled.Hits)
 
+	// The re_read after the compaction answers from the §8.2 file-version history, which the
+	// observer appends at tooluse.go step 7, after the index record the wait above saw. So the
+	// version has to be published before it is asked for, or the row races the observer rather than
+	// testing the handle: under -race in the whole-package Linux run, re_read came back Found:false
+	// (w4-e2eflakes runs/linux/cx-w4-e2eflakes-e2e-whole-78b33a1-*), and a 3 s delay injected before
+	// step 7 reproduces exactly that on Windows. x02WaitFileVersion waits for this exact version.
+	handleRoot, err := core.ParseHash(handle)
+	require.NoError(t, err)
+	x02WaitFileVersion(t, p.Root, mcpE2EPath, handleRoot)
+
 	before.finish(t)
 
 	// ---- The compaction. ----

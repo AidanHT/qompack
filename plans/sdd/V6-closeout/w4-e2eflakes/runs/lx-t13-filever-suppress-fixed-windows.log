@@ -1,0 +1,13 @@
+=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio
+    v4_t13_handle_stdio_test.go:124: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v5_x02_test.go:218
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_t13_handle_stdio_test.go:124
+        	Error:      	Condition never satisfied
+        	Test:       	TestV4_T13HandleResolvesAfterCompactionOverStdio
+        	Messages:   	the observer never recorded sha256:052d8e8c55b25ed4e9779622470e2f465afd297cf54ea7a7915928fa96cb557e as a version of src/pool.ts (store key "src/pool.ts")
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestV4_T13HandleResolvesAfterCompactionOverStdio3569793438\001\project\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+--- FAIL: TestV4_T13HandleResolvesAfterCompactionOverStdio (33.52s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	33.725s
+FAIL
+exit=1
