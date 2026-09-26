@@ -74,7 +74,8 @@ func TestFlushHook_ASlowAckInsideTheHostBudgetLeavesNoSpool(t *testing.T) {
 	got := make(chan ipc.Request, 1)
 	replyDaemon(t, root, func(req ipc.Request) *hookio.Output {
 		if req.Op == ipc.OpFlush {
-			time.Sleep(flushSlowAck)
+			slow := time.NewTimer(flushSlowAck)
+			<-slow.C
 		}
 		select {
 		case got <- req:
