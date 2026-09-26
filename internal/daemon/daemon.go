@@ -266,7 +266,21 @@ type daemon struct {
 	// it, before abandoning a callee that ignores cancellation. New sets it to promptReplyDeadline
 	// and nothing in production changes it; it is a field only so a test can hold a cancelled
 	// capture open for as long as it needs to prove that Stop really joins it.
+	//
+	// The same group, gate and lifetime carry the SessionStart(source=compact) work the session.start
+	// route stops waiting for — the rehydration past its answer budget, and the observer's
+	// bookkeeping it never waits for (session_start_compact.go, startReplyWork) — so Stop joins those
+	// through stopPromptRecordings too, before it closes what they write into.
 	promptAbandonAfter time.Duration
+
+	// compactBudget is how long the session.start route waits for a compact rehydration, from the
+	// request's arrival, before answering with the deferred note (compactAnswerBudget). New sets it;
+	// it is a field only so a test can make the bound short.
+	compactBudget time.Duration
+
+	// compactGates holds each session's next observer work until the compact SessionStart
+	// bookkeeping the route did not wait for has finished (session_start_compact.go).
+	compactGates compactGates
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -333,6 +347,8 @@ func New(o Options) (Daemon, error) {
 	// and only Stop may end it (stopPromptRecordings).
 	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
 	d.promptAbandonAfter = promptReplyDeadline
+	d.compactBudget = compactAnswerBudget()
+	d.orderAfterCompactBookkeeping()
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
@@ -641,6 +657,14 @@ func (d *daemon) Run(ctx context.Context) error {
 		d.log.Warn("daemon: failed to write state.bin", "err", err)
 	}
 	removeSpawnLockFile(d.root)
+	// On Windows a hook starts the daemon from a staged copy of the binary (spawn_stage.go, C1.17);
+	// a daemon found running from inside the plugin directory means that staging failed, and that
+	// the plugin cannot be removed or updated for as long as this process lives.
+	if exe, err := os.Executable(); err == nil && runningFromPluginRoot(exe, os.Getenv(pluginRootEnv), stagingEnabled) {
+		d.log.Loud("daemon: running from inside the plugin directory, which it keeps from being removed or "+
+			"updated until it exits; staging the binary under the user's .qompack/bin failed",
+			"exe", exe)
+	}
 
 	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
 		d.log.Warn("daemon: startup drain failed", "err", err)
@@ -964,7 +988,10 @@ func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Respons
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
 		return ipc.Response{OK: true}
 	default:
-		return d.dispatchOp(ctx, req)
+		// Marked as a replay: the hook that spooled it has already answered without the daemon, so
+		// a compact SessionStart's rehydration built here can only be recorded as undelivered
+		// (session_start_compact.go).
+		return d.dispatchOp(withSpoolReplay(ctx), req)
 	}
 }
 
@@ -1011,7 +1038,9 @@ func (d *daemon) Stop(ctx context.Context) error {
 		// The verbatim prompt captures the reply path stopped waiting for are joined here: after the
 		// ingest workers, which hold the observer session locks a capture may be queued on, and
 		// before anything below saves or closes what a capture writes into. They share the drain's
-		// bounded window rather than adding one of their own (stopPromptRecordings).
+		// bounded window rather than adding one of their own (stopPromptRecordings). The compact
+		// SessionStart work the session.start route started (startReplyWork) is in the same group
+		// and is joined by the same call.
 		d.stopPromptRecordings(drainCtx)
 		cancel()
 		if err := d.ing.Close(); err != nil {

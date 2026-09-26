@@ -53,6 +53,41 @@ existing is a budget: a hook has a 15 ms p99 budget (B-A) and cannot open a stor
 reconstruct scheduler state on every tool call, so "the daemon pays those costs once and the hook
 pays only a connect-write-ack".
 
+**The daemon's lifetime.** One daemon serves a project, whichever sessions come and go: the
+singleton lock `.qompack/run/daemon.lock` decides which process that is, and a second one started
+for the same project exits 0 without touching it (`internal/daemon/lock.go`). It is started by
+`qompack session-start` (`daemon.EnsureRunning`) or, lazily, by any hook that finds nothing
+listening (`internal/ipc/client.go`, `lazySpawn`, serialized by `run/spawn.lock`), and it outlives
+the session that started it by design. It exits by itself once no session has been live for
+`runtime.daemon.idleExitSeconds` ([default `1800`](config-reference.md#runtime)): a session stops
+being live at its `SessionEnd`, or after that same window of silence when the `SessionEnd` never
+arrived (`idleExitDue`, `SessionRegistry.EndAbandoned`).
+
+A process that outlives the session must not hold the plugin's own files. On Windows a running
+executable cannot be deleted and neither can its directory, so a daemon started from the plugin's
+`bin/qompack.exe` kept the plugin directory from being removed — the V6 close-out's live session 2
+found a `--plugin-dir` extraction the host could only half delete (C1.17), and a plugin update or
+uninstall removes the old version's directory the same way. There, a process running the plugin's
+own binary starts the daemon from a copy instead: `<home>/.qompack/bin/<sha256>/qompack.exe`,
+named by the binary's own SHA-256, made once per version and verified on every spawn — a regular
+file, not a link or reparse point, whose bytes hash to its name and to the spawning process's own
+executable — and replaced rather than run when it does not verify
+(`internal/daemon/spawn_stage.go`). The plugin's binary is recognised either inside
+`CLAUDE_PLUGIN_ROOT`, which the host sets for every plugin hook, or by the plugin's layout —
+`bin/qompack.exe` with `.claude-plugin/plugin.json` beside `bin/` — because the daemon is also
+started lazily by `qompack mcp`, which the host launches from `.mcp.json` and which is not
+guaranteed that variable. Copies of other versions that no daemon is running are pruned when a new
+one is made. On Linux and macOS the kernel lets a running executable and its directory be unlinked
+or replaced, so the daemon runs from the plugin binary and nothing is copied; a binary run from
+outside any plugin directory (a build tree, a test's temporary directory) pins nothing a host
+removes and is not copied either. A daemon started from a copy runs in the copy's own directory,
+never the directory the spawning hook ran in; one started from the hook's own binary inherits the
+hook's working directory. Neither is the project root, which can be longer than a Windows process's
+working directory may be (MAX_PATH). If the copy cannot be made the daemon is started from the
+plugin binary after all, `session-start` logs why, and the daemon itself reports it Loud when it
+starts. A daemon started before a plugin update keeps running its own version until its idle exit;
+the next spawn runs the new one.
+
 **What runs where.** The hook process parses its event, connects, writes and waits for an ACK. The
 daemon does the work: it is the single writer of the store, and — per `internal/mcp`'s package
 comment — the MCP *handlers* execute in the daemon too, not in the `qompack mcp` process. The stdio
@@ -78,6 +113,11 @@ Everything Qompack writes for a project lives under `<project>/.qompack/`.
 `replay/` and `opt/`), `records/`, `state/`, `run/`, `spool/`, `logs/`, `metrics/`, `tmp/`,
 `migrate/` and `backup/`. `EnsureLayout` also writes `<project>/.qompack/.gitignore` containing
 exactly `*\n`, so the store self-ignores even in a project whose own `.gitignore` is never touched.
+
+Per user, Qompack writes only under `<home>/.qompack/` (the user-global configuration layer, the
+token-estimator calibration file, a fallback log directory for a project whose own log cannot be
+written, and — on Windows — the daemon's staged executable, `bin/<sha256>/qompack.exe`, §1).
+`test/guards/writeset_test.go` runs all six hooks and fails on any write outside these two trees.
 
 Named files referenced elsewhere on this page: `checkpoints/NNNN.json` and
 `checkpoints/MANIFEST.jsonl`, `index/observations.jsonl`, `records/eliminations.jsonl`,
@@ -316,6 +356,33 @@ it. The shipped defaults are `runtime.rehydrate.minTokens` `8000` and `runtime.r
 `12000`, with `checkpoint.budgetTokens` `12000` for the checkpoint artifact itself
 (`docs/config-reference.md`). Since D5 the host ceiling binds first: 9,500 characters is roughly
 2,400 tokens of prose, so the token keys now matter only when set below that.
+
+**The answer is bounded, and never silently empty (C1.16).** The host gives `qompack session-start`
+a 10 s reply deadline, after which the hook client answers `{}`; in the V6 close-out's live session
+2 a compact `SessionStart` under load took 10.3 s and lost its rehydration that way. The
+`session.start` route now starts the rehydration itself (`Services.Rehydrate`) as soon as the
+contract run has said the mode may act, so it overlaps the route's own durable writes, and it no
+longer waits behind the observer's per-session lock, which a worker writing one of the same
+session's tool results holds across every store write: the observer's `SessionStart` bookkeeping
+runs beside the rehydration and finishes on its own (`internal/daemon/session_start_compact.go`). It
+is still ordered before the session's next event, as it was when the answer waited for it: the
+observer seams for that session (tool results, Stops, prompt captures, `SessionEnd`) wait for its
+pending bookkeeping first, and no other session's do (`compactGates`). The rehydration's drop report
+is written after its answer is handed over. The wait is bounded at a third of the `SessionStart`
+manifest timeout (5 s) from the request's arrival; a rehydration not ready by then, one that fails
+outright, or one a stopping daemon cannot start is answered with an explicit note instead — it says
+the rehydration did not arrive and why, and names the MCP calls that recover the pre-compaction
+material (`expand` of the session's first prompt, `recall`, `dropped()`) and where the checkpoints
+are. A rehydration that finishes after its answer went out records its drop report as undelivered,
+so `dropped()` says so first; so does one built when the daemon replays a compact `SessionStart`
+from a hook client's spool, since the hook had already answered without it. The hook client writes
+the same note when no answer arrives at all (a missed deadline, an unreachable daemon), wherever a
+rehydration was due; under degraded-passive or `runtime.mode` off or passive, with the daemon
+disabled, or with the reinjection switch below off, `{}` stays the answer, because nothing was due.
+Measured with `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` under concurrent
+same-session ingest and an fsync co-load, the compact answer's p99 went from 1.85 s to 0.66 s
+(`plans/sdd/V6-closeout/w2-lifetime/runs/`); the route's phases are in `metrics/latency.json` as
+`session_start.*` and `rehydrate.*`.
 
 Injection has an independent kill switch: `runtime.migration.reinjection.sessionStartCompact`
 (default `true`). Setting it false disables injection without touching recording. It names the one

@@ -638,11 +638,75 @@ protection against a second writer.
 
 ---
 
+**Symptom.** After a compaction the model's context opens with "Qompack could not deliver this
+compaction's rehydration" instead of the rehydration.
+
+**Diagnose.** The note names its cause in parentheses. "it was not ready when the answer was due"
+and "building it failed" are the daemon's own: `.qompack/logs/LOUD.log` has a matching `compact
+SessionStart answered without its rehydration` line, `qompack status --json` counts it under
+`session_start_compact_deferred`, and `.qompack/metrics/latency.json` has the route's phases —
+`session_start.contract`, `.compact_wait`, `.finish` and `rehydrate.latest`, `.record` — which say
+where the time went. "the Qompack daemon did not answer in time" is the hook client's: no answer
+reached it within its 10 s deadline, so look at whether a daemon was running at all (`qompack
+status`) and at the disk load at that moment.
+
+**Meaning.** The rehydration is bounded (C1.16): the daemon waits for a compact rehydration for at
+most a third of the hook's 15 s timeout, counted from the request's arrival, and a rehydration that
+is not ready by then is answered with this note rather than with nothing. It finishes anyway, and
+its drop report is recorded as undelivered, so `dropped()` says first that the whole rehydration
+never reached the model.
+
+`dropped()` reports on the most recently *recorded* rehydration, which for a while can be an
+earlier one, as the note itself says. A rehydration still being built has recorded nothing yet, and
+one that failed outright or that a stopping daemon never started records nothing at all. When the
+hook client wrote the note ("did not answer in time"), the daemon may still have answered, too
+late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
+and when the daemon replays it — at its next idle drain, within 30 s, or its next start — it
+records the rehydration as undelivered and says the hook answered without it. If the spool itself
+could not be written, that correction never comes: `.qompack/logs/LOUD.log` then has an `ipc: spool`
+line for the dropped request.
+
+**Action.** Recover in the session: the note lists the calls — `expand` of the session's first
+prompt, `recall` for anything captured, `dropped()` — and `.qompack/checkpoints/` holds the
+checkpoint itself (the highest number is the newest). If it recurs, the machine's disk is the usual
+cause: the route's own durable writes (`session_start.contract`, `.finish`) are fsync-bound.
+
+---
+
+**Symptom.** On Windows, a plugin update or uninstall, or the host's cleanup of a `--plugin-dir`
+extraction, cannot remove the plugin directory; `bin/qompack.exe` is "in use" or "Access is
+denied", and the directory is left half deleted.
+
+**Diagnose.** Find which executable the project's daemon is running from: the `pid` in
+`.qompack/run/daemon.lock`, then its image path (Task Manager's details, or `Get-Process -Id <pid> |
+Select-Object Path` in PowerShell). A current build runs it from
+`%USERPROFILE%\.qompack\bin\<sha256>\qompack.exe`. If it runs from inside the plugin directory,
+`.qompack/logs/LOUD.log` has a `daemon: running from inside the plugin directory` line, and the project's
+day log in `.qompack/logs/` names why the copy could not be made when `session-start` started it.
+
+**Meaning.** The daemon outlives the session by design, and Windows will not delete a running
+executable or the directory holding it (C1.17). So whatever starts the daemon from the plugin's
+binary — `session-start`, a hook's lazy spawn, or the `qompack mcp` server's — runs it from a
+verified copy under the user's `.qompack\bin` instead, and only the session's own hook processes and
+MCP server — which end with the session — ever run from the plugin directory. A daemon from a build
+before this change, or one started after the copy failed (a full disk, an unwritable `.qompack`
+under the user profile), still holds the directory until it exits.
+
+**Action.** Wait for the daemon's idle exit (below), or end that one process by its `pid`, then retry
+the update or removal. If the LOUD line is there, fix what stopped the copy — the directory
+`%USERPROFILE%\.qompack\bin` must be writable by you — and the next daemon start uses a copy.
+Copies of versions no daemon is running are removed automatically when a new version is staged.
+
+---
+
 **Symptom.** A daemon is running and you want it to stop.
 
 **Meaning.** It stops on its own when idle: `runtime.daemon.idleExitSeconds`
 ([default `1800`](config-reference.md#runtime)) is the number of seconds with zero live sessions
-before the daemon exits (`internal/daemon/daemon.go`, `idleExitDue`).
+before the daemon exits (`internal/daemon/daemon.go`, `idleExitDue`). A session stops being live at
+its `SessionEnd`, or, when the `SessionEnd` never arrived, after that same number of seconds with no
+traffic from it — so a daemon can outlive its last session by up to twice the setting. On Windows
+the process is the staged copy described above, not the plugin's own binary.
 
 **There is no operator stop command in this build.** The daemon does have an `admin.shutdown` op,
 but the only callers of `ipc.OpAdminShutdown` outside the daemon itself are the bench harness
