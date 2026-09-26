@@ -1,0 +1,60 @@
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+    spawn_lock_test.go:136: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/red/internal/daemon/spawn_lock_test.go:136
+        	Error:      	Received unexpected error:
+        	            	daemon: spawn: exec: "/this/path/does/not/exist": executable file not found in %PATH%
+        	Test:       	TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+        	Messages:   	a spawn announced in a fresh spawn.lock must be waited for, not duplicated
+--- FAIL: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.00s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+    spawn_lock_test.go:170: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/red/internal/daemon/spawn_lock_test.go:170
+        	Error:      	Not equal: 
+        	            	expected: int(1)
+        	            	actual  : int64(2)
+        	Test:       	TestEnsureRunning_TwoColdHooksStartOneDaemon
+        	Messages:   	two cold hooks on one project must start one daemon, not two
+--- FAIL: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.18s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+    spawn_lock_test.go:207: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/red/internal/daemon/spawn_lock_test.go:207
+        	Error:      	Not equal: 
+        	            	expected: int(1)
+        	            	actual  : int64(2)
+        	Test:       	TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+        	Messages:   	the hook that arrived mid-staging must not spawn a second daemon
+--- FAIL: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.19s)
+=== RUN   TestEnsureRunning_ItsSpawnHoldsOffALazySpawn
+    spawn_lock_test.go:225: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/red/internal/daemon/spawn_lock_test.go:225
+        	Error:      	Not equal: 
+        	            	expected: int(0)
+        	            	actual  : int64(1)
+        	Test:       	TestEnsureRunning_ItsSpawnHoldsOffALazySpawn
+        	Messages:   	a lazy spawn must honour the spawn session-start already announced
+--- FAIL: TestEnsureRunning_ItsSpawnHoldsOffALazySpawn (0.23s)
+=== RUN   TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale
+    spawn_lock_test.go:239: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/red/internal/daemon/spawn_lock_test.go:239
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale
+        	Messages:   	a fresh lock is waited on, up to the bound
+--- FAIL: TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale (0.18s)
+=== RUN   TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails
+--- PASS: TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails (0.01s)
+=== RUN   TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound
+--- PASS: TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound (1.83s)
+=== RUN   TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon
+--- PASS: TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon (0.00s)
+=== RUN   TestEnsureRunning_AlreadyRunningNeverSpawns
+--- PASS: TestEnsureRunning_AlreadyRunningNeverSpawns (0.01s)
+=== RUN   TestEnsureRunning_SpawnFailureReportsImmediately
+=== PAUSE TestEnsureRunning_SpawnFailureReportsImmediately
+=== CONT  TestEnsureRunning_SpawnFailureReportsImmediately
+--- PASS: TestEnsureRunning_SpawnFailureReportsImmediately (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	2.845s
+FAIL
+exit=1
