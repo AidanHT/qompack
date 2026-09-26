@@ -313,6 +313,30 @@ func TestDeliveryDiagnostics_FirstRotationAdviceAtOpen(t *testing.T) {
 	require.Equal(t, int64(1), m.Counter(counterDeliveryFirstRotationBackupAdvised).Value())
 }
 
+// TestDeliveryDiagnostics_FirstRotationAdviceRepeatsEachRun pins the advice's cadence: once per daemon
+// run, not once per store. A store one run warned about and restarted before its first rotation is
+// warned again by the next run. That run's counters are the only ones doctor's delivery.rollover row
+// reads (they reset at every restart), so a once-per-store Warn would leave doctor silent about the
+// coming rotation for the rest of the window.
+func TestDeliveryDiagnostics_FirstRotationAdviceRepeatsEachRun(t *testing.T) {
+	setRollover(t, 8) // advice at 6 leases
+	root := t.TempDir()
+	first, firstLog, firstM := diagnosedJournal(t, root)
+	leaseN(t, first, "rerun", 0, 6)
+	require.Equal(t, 1, firstLog.count(logWarn), "the first run warns as it crosses the point")
+	require.Equal(t, int64(1), firstM.Counter(counterDeliveryFirstRotationBackupAdvised).Value())
+	require.NoError(t, first.owner.Release())
+
+	second, secondLog, secondM := diagnosedJournal(t, root)
+	require.Equal(t, uint64(0), second.segment, "the store has still never rotated")
+	require.Equal(t, 1, secondLog.count(logWarn), "the next run warns again, at its open")
+	requireKV(t, secondLog.entries(logWarn)[0], "window_leases", 6)
+	require.Equal(t, int64(1), secondM.Counter(counterDeliveryFirstRotationBackupAdvised).Value())
+	leaseN(t, second, "rerun", 6, 1)
+	require.Equal(t, uint64(0), second.segment)
+	require.Equal(t, 1, secondLog.count(logWarn), "and once only within that run")
+}
+
 // TestDeliveryDiagnostics_AdviceWaitsForSomewhereToReport: a journal with no diagnostics attached does
 // not spend its one advice; attached later, the next admission gives it.
 func TestDeliveryDiagnostics_AdviceWaitsForSomewhereToReport(t *testing.T) {
