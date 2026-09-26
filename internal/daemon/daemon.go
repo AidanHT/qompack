@@ -796,9 +796,16 @@ func (d *daemon) Run(ctx context.Context) error {
 				d.awaitStopCleanup()
 				return nil
 			default:
-				_ = d.Stop(context.Background())
-				return err
 			}
+			if ctx.Err() != nil {
+				// The caller's cancellation closed the server, not a transport failure: the
+				// ctx.Done arm's shutdown, whichever of the two ready arms select picked. The
+				// accept loop starts before the startup, so a cancellation during the startup has
+				// already ended Serve by the time this loop first selects (V6 close-out D17).
+				return d.Stop(context.Background())
+			}
+			_ = d.Stop(context.Background())
+			return err
 		case <-hbTicker.C:
 			// The local, not d.lock: this is Run's own goroutine reading the value Run itself
 			// published, which needs no synchronisation and cannot be nil here (every path that
