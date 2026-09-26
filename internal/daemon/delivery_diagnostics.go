@@ -149,6 +149,12 @@ func firstRotationAdviceAt(threshold int64) int64 { return threshold - threshold
 // first rotation), and an acknowledgement line is shorter than a lease line, so the lease journal
 // always reaches the rollover threshold first. It consumes the one advice only when there is somewhere
 // to report it. The caller holds st.
+//
+// Once per journal is once per daemon run, and deliberately not once per store: doctor's
+// delivery.rollover row reads only the last run's counters, which reset at every restart, so each run
+// past the advice point warns again and its doctor row keeps naming the coming rotation. A durable
+// once-per-store marker would also be new state written into a store that must still suit an older
+// build (TestDeliveryDiagnostics_FirstRotationAdviceRepeatsEachRun).
 func (j *deliveryJournal) firstRotationAdviceDueLocked() bool {
 	if j.firstRotationAdvised || j.segment != 0 || !j.rolloverArmed() || j.diagnostics() == nil {
 		return false
