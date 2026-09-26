@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/canon"
 	"github.com/qompack/qompack/internal/core"
@@ -40,6 +42,72 @@ const stagePromptPut = "prompt.put"
 
 // thrashLineSep joins several drained warnings into one additionalContext block.
 const thrashLineSep = "\n"
+
+// The thrash warning's size bounds (C1.20). The warning is UserPromptSubmit additionalContext, and
+// the host delivers that field whole only up to hookio.HostFieldMaxChars; over it Claude gets a file
+// path and a preview it is not asked to read. Neither the number of newly looping rules nor the
+// length of one is Qompack's to bound: a rule's line spells its whole terminal expansion, and each
+// terminal is a host tool name. So the rendered block keeps at most thrashWarningMaxLines lines,
+// each at most thrashWarningLineMaxChars, and says how many it left out; the whole block then stays
+// under thrashWarningMaxChars, a fifth of the host's cap.
+const (
+	// thrashWarningMaxLines is how many warnings one prompt shows. A loop usually surfaces as one
+	// rule, or a handful of nested ones; more than this is one loop reported many ways.
+	thrashWarningMaxLines = 5
+	// thrashWarningLineMaxChars bounds one rendered warning, cut marker included. An ordinary one
+	// ("[qompack] possible loop: Read→Edit→Bash repeated 11× …") is about a hundred.
+	thrashWarningLineMaxChars = 360
+	// thrashWarningMaxChars is the most the whole block can measure: the lines, their separators and
+	// the counted tail.
+	thrashWarningMaxChars = 2000
+)
+
+// thrashCutMarker ends a warning line boundThrashWarning had to cut.
+const thrashCutMarker = "…"
+
+// thrashOmittedFormat is the counted tail naming the warnings a prompt did not show.
+const thrashOmittedFormat = "[qompack] …and %d more possible loops not shown"
+
+// boundThrashWarning joins drained warning lines into one additionalContext block that fits the
+// host's per-field cap by construction: the first thrashWarningMaxLines lines, each cut on a rune
+// boundary to thrashWarningLineMaxChars host characters (hookio.HostChars, the unit the host
+// measures in), then one line counting the rest. Lines that fit are kept byte for byte, so an
+// ordinary warning renders exactly as grammar.FormatWarning wrote it.
+func boundThrashWarning(lines []string) string {
+	shown := lines
+	if len(shown) > thrashWarningMaxLines {
+		shown = shown[:thrashWarningMaxLines]
+	}
+	out := make([]string, 0, len(shown)+1)
+	for _, l := range shown {
+		out = append(out, cutHostChars(l, thrashWarningLineMaxChars, thrashCutMarker))
+	}
+	if omitted := len(lines) - len(shown); omitted > 0 {
+		out = append(out, fmt.Sprintf(thrashOmittedFormat, omitted))
+	}
+	return strings.Join(out, thrashLineSep)
+}
+
+// cutHostChars is s when it measures at most maxChars host characters, and otherwise its longest
+// whole-rune prefix that fits together with marker. An invalid UTF-8 byte counts as one unit, which
+// is what the host's JSON decoder sees once it has become U+FFFD.
+func cutHostChars(s string, maxChars int, marker string) string {
+	if hookio.HostChars(s) <= maxChars {
+		return s
+	}
+	budget := maxChars - hookio.HostChars(marker)
+	used, end := 0, 0
+	for end < len(s) {
+		_, size := utf8.DecodeRuneInString(s[end:])
+		n := hookio.HostChars(s[end : end+size])
+		if used+n > budget {
+			break
+		}
+		used += n
+		end += size
+	}
+	return s[:end] + marker
+}
 
 // thrashAdvice is the suggestion every thrash warning ends with. It is deliberately one clause: a
 // loop warning that argues with the agent costs more tokens than the loop it is reporting.

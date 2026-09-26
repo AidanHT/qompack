@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -231,7 +233,18 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 		// for a file no live process will ever touch. An abandoned lock names a dead pid, so it
 		// still returns here as immediately as it did before. Only a lock whose pid is still
 		// running falls through, and only that case ever had anything to wait for.
-		if _, held := e2eDaemonHoldingLock(root); !held {
+		//
+		// The fourth case is a daemon that does not hold the lock YET. A hook's lazySpawn launches
+		// a detached daemon and exits without waiting for it, and on a loaded host that process can
+		// take seconds just to reach its first statement: TestHooksExitZeroUnderFaults' "TempDir
+		// RemoveAll cleanup: … The directory is not empty" was this helper returning here, and the
+		// daemon then taking its lock — recreating .qompack/run — inside a tree RemoveAll was
+		// deleting (measured under co-load: a lock taken 4.2 s after this return, with a fresh
+		// run/spawn.lock present throughout; w2-hookout runs/diag-faultrows-coload-windows.log).
+		// run/spawn.lock is the product's own "a spawn is in flight" marker, so while a fresh one
+		// exists this waits for the daemon it names to take the lock, and only then proceeds to
+		// shut it down. A spawn that never arrives lets the marker go stale, and the wait ends.
+		if _, held := e2eDaemonHoldingLock(root); !held && !e2eAwaitSpawnInFlight(root) {
 			return
 		}
 	}
@@ -375,6 +388,62 @@ func e2eDaemonHoldingLock(root string) (pid int, held bool) {
 		return 0, true // mid-CreateNew, per the paragraph above.
 	}
 	return info.PID, e2eProcessAlive(info.PID)
+}
+
+// e2eSpawnLockName is internal/ipc's unexported spawnLockName, respelled here as internal/daemon
+// respells it (runSpawnLockFileName): the file a hook's lazySpawn writes in <root>/.qompack/run,
+// carrying its own UnixMilli timestamp, before it launches a detached daemon. The daemon removes it
+// once it listens.
+const e2eSpawnLockName = "spawn.lock"
+
+// e2eSpawnLockStaleAfter is internal/ipc's unexported spawnLockStaleAfter: how old a spawn.lock has
+// to be before a client stops treating the spawn it names as in flight and spawns again. It is the
+// product's own answer to "is a daemon still coming?", so this helper uses exactly it.
+const e2eSpawnLockStaleAfter = 10 * time.Second
+
+// e2eSpawnInFlight reports whether root holds a spawn.lock younger than e2eSpawnLockStaleAfter — a
+// detached daemon launch the product itself still counts as underway. It reads through
+// paths.ReadFileShared for the reason e2eDaemonHoldingLock does: the daemon deletes this file
+// itself, and a reader without FILE_SHARE_DELETE would make that delete fail on Windows. A file that
+// does not parse is stale, as ipc's own spawnLockIsStale reads it.
+func e2eSpawnInFlight(root string) bool {
+	b, err := paths.ReadFileShared(filepath.Join(paths.Of(root).Run, e2eSpawnLockName))
+	if err != nil {
+		return false
+	}
+	ms, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64)
+	if err != nil {
+		return false
+	}
+	return time.Since(time.UnixMilli(ms)) < e2eSpawnLockStaleAfter
+}
+
+// e2eAwaitSpawnInFlight waits, while a spawn is in flight (e2eSpawnInFlight), for the daemon it
+// launched to take root's lock, and reports whether one did. It gives up when the marker is gone or
+// stale — the product's own point for "that spawn is not coming" — or after e2eDaemonUpBound, this
+// file's bound for a lazily spawned daemon to come up on a loaded host.
+func e2eAwaitSpawnInFlight(root string) bool {
+	ticker := time.NewTicker(e2eLazySpawnSettleTick)
+	defer ticker.Stop()
+	deadline := time.NewTimer(e2eDaemonUpBound)
+	defer deadline.Stop()
+	for {
+		if _, held := e2eDaemonHoldingLock(root); held {
+			return true
+		}
+		if !e2eSpawnInFlight(root) {
+			// One last look: the daemon removes spawn.lock only once it listens, by which time it
+			// holds the lock, so a marker that vanished may mean the daemon just arrived.
+			_, held := e2eDaemonHoldingLock(root)
+			return held
+		}
+		select {
+		case <-ticker.C:
+		case <-deadline.C:
+			_, held := e2eDaemonHoldingLock(root)
+			return held
+		}
+	}
 }
 
 // e2eFileExists reports whether p is present, without opening it — see e2eShutdownIfReachable on

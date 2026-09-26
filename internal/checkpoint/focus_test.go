@@ -48,7 +48,7 @@ func TestFocusStandingTemplateVerbatim(t *testing.T) {
 
 // TestFocusStandingOnlyWhenAllOptionsOff asserts the zero FocusOptions emits exactly one
 // paragraph: no span, no prohibition, no sentinel. The standing paragraph is unconditional, so
-// the zero value is still a usable custom_instructions payload rather than an empty one.
+// the zero value still renders a non-empty focus text rather than an empty one.
 func TestFocusStandingOnlyWhenAllOptionsOff(t *testing.T) {
 	got := FocusInstructions(Checkpoint{}, focusRef(), FocusOptions{})
 
@@ -102,8 +102,8 @@ func TestFocusOmitsSpanWhenConfigDisabled(t *testing.T) {
 	require.NotContains(t, got, "A durable checkpoint")
 }
 
-// TestFocusContainsSentinel asserts the G3.4 prohibition carries SentinelPhrase, the marker a
-// human or /qompack:status uses to recognize a Qompack-authored custom_instructions payload.
+// TestFocusContainsSentinel asserts the G3.4 prohibition carries SentinelPhrase, the marker that
+// identifies Qompack-authored focus text (and the value state/precompact.json records).
 func TestFocusContainsSentinel(t *testing.T) {
 	got := FocusInstructions(Checkpoint{}, focusRef(), FocusOptions{ForbidSnippets: true})
 
@@ -158,11 +158,12 @@ func TestFocusCappedAtFourThousandBytes(t *testing.T) {
 	}
 }
 
-// TestFocusFirstLineIsAProbePhrase is contract.probePhrase's precondition asserted at the source:
-// the first line of the emitted instruction is what contract.CPreCompactCustomInstr scans the
-// transcript tail for, and it must be at least customInstrMinPhraseChars (24) runes or the
-// assertion reports "no probe phrase long enough" forever — a permanent non-observation dressed
-// up as a pass.
+// TestFocusFirstLineIsAProbePhrase pins paragraph 1 as the whole first line of the rendered text,
+// at least 24 runes long. Until C1.18 that was the precondition of contract.probePhrase, which
+// built precompact.custom_instructions_accepted's transcript probe from the first line of the
+// recorded instruction. C1.18 retired the instruction and the probe and removed probePhrase; the
+// shape is still §8.5's (the standing instruction first, whole, never wrapped), so it stays
+// pinned, and the name stays because plans/sdd/V5-VERIFY/inventory-SP-10.md cites it.
 func TestFocusFirstLineIsAProbePhrase(t *testing.T) {
 	const minPhraseRunes = 24
 

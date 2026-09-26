@@ -203,7 +203,7 @@ func TestNoObservationSpellings_AreWhatTheChecksActuallyEmit(t *testing.T) {
 		CSessionStartSourceCompact: "no-precompact-pending",
 		CAdditionalContext:         "not-yet-observed",
 		CPreCompactTiming:          "timeout-unknown",
-		CPreCompactCustomInstr:     "no-instructions-emitted",
+		CPreCompactCustomInstr:     "retired", // C1.18: the row is retired and observes nothing
 		CTranscriptReadable:        "no-transcript-path",
 		CPluginRootResolves:        "unset",
 	}

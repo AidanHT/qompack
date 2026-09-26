@@ -32,7 +32,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `checkpoint.budgetTokens` | integer | `12000` | [1000,100000] | §8.5 | target token budget for a single checkpoint artifact |
 | `checkpoint.frontier.advanceOnSegmentClose` | boolean | `true` | — | §8.5 | advance the checkpoint frontier incrementally whenever a segment closes |
 | `checkpoint.frontier.maxResidualTokens` | integer | `20000` | (0,∞) | §8.5 | maximum tokens between the frontier and the compaction point before a full pass is forced |
-| `checkpoint.incrementalSpanInstruction` | boolean | `true` | — | §8.5 | emit the O1 focus instruction narrowing the summarizer to the span after the checkpoint frontier |
+| `checkpoint.incrementalSpanInstruction` | boolean | `true` | — | §8.5 | retired (C1.18): no host accepts a PreCompact instruction, so none is emitted; read for compatibility only (docs/cannot-do.md) |
 | `checkpoint.tiers.first` | array | `["pointers","narrative"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields truncated first under budget pressure |
 | `checkpoint.tiers.late` | array | `["decisions","open_questions","current_work"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields truncated only after the first tier is exhausted |
 | `checkpoint.tiers.never` | array | `["invariants","user_intent","eliminated"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields that are never truncated |
@@ -240,5 +240,5 @@ file and line it was set in, and what the key no longer means.
 | `scheduler.youngDaly.enabled` | Young–Daly pacing is compatibility/harness-only: no native compaction trigger, cut or veto depends on it (Qompack.md v1.5 Appendix C; SP-12 reviewed migration) |
 | `scheduler.youngDaly.measuredDeltaSeconds` | Young–Daly pacing is compatibility/harness-only: the measured delta no longer times a native compaction (Qompack.md v1.5 Appendix C; SP-12 reviewed migration) |
 | `scheduler.idle.deepCutWhenCold` | no native cut is available to a plugin; the key is read for compatibility only and selects no history rewrite (Qompack.md v1.5 §12; SP-12 reviewed migration) |
-| `checkpoint.incrementalSpanInstruction` | custom_instructions is PreCompact input, not a summarizer setter; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration) |
+| `checkpoint.incrementalSpanInstruction` | custom_instructions is PreCompact input, not a summarizer setter, and since C1.18 Qompack emits no PreCompact instruction at all; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration) |
 

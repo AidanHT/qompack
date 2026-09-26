@@ -109,7 +109,7 @@ type IdleCfg struct {
 // CheckpointCfg is the L4 checkpointer's configuration (Appendix C "checkpoint").
 type CheckpointCfg struct {
 	BudgetTokens               int         `json:"budgetTokens"               doc:"target token budget for a single checkpoint artifact" rng:"[1000,100000]" sec:"§8.5"`
-	IncrementalSpanInstruction bool        `json:"incrementalSpanInstruction" doc:"emit the O1 focus instruction narrowing the summarizer to the span after the checkpoint frontier" sec:"§8.5"`
+	IncrementalSpanInstruction bool        `json:"incrementalSpanInstruction" doc:"retired (C1.18): no host accepts a PreCompact instruction, so none is emitted; read for compatibility only (docs/cannot-do.md)" sec:"§8.5"`
 	Frontier                   FrontierCfg `json:"frontier"`
 	Tiers                      TiersCfg    `json:"tiers"`
 }

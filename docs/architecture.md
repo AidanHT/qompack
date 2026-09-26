@@ -258,22 +258,31 @@ rehydrator builds the payload that `SessionStart source=compact` injects.
 `qompack checkpoint` answers the host with the empty object and nothing else. The hooks reference
 gives PreCompact no `hookSpecificOutput` variant and says the host discards its `systemMessage` and
 `continue`, and Claude Code 2.1.280 rejected the focus instruction Qompack used to return there
-(C1.12). The daemon still renders that instruction and records it, but it travels no further than
-the IPC reply: every hook client passes the daemon's reply through `internal/hookio`'s
-`ConformOutput`, which keeps only the fields the host accepts and acts on for the event being
-answered — `additionalContext` and `systemMessage` for `SessionStart`, `UserPromptSubmit` and
-`PostToolUse`, `systemMessage` for `Stop`/`SubagentStop`, nothing for `PreCompact` and `SessionEnd`,
-and never `continue`. The table is pinned against a transcription of the documented schema in
-`testdata/host/hooks-output-schema.json`.
+(C1.12). That instruction is retired (C1.18): the daemon's checkpoint route seals the checkpoint and
+replies with the empty object, and records no instruction in the contract history. The one
+assertion that probed for it, `precompact.custom_instructions_accepted`, now reports `retired` and
+is attributed to an unsupported capability. `internal/checkpoint` still composes the focus text,
+but only to record its length in the `state/precompact.json` debug record; it reaches no hop.
+
+Every hook client still passes the daemon's reply through `internal/hookio`'s `ConformOutput`,
+because a daemon of an older build can still be resident after an upgrade. `ConformOutput` keeps
+only the fields the host accepts and acts on for the event being answered — `additionalContext` and
+`systemMessage` for `SessionStart`, `UserPromptSubmit` and `PostToolUse`, `systemMessage` for
+`Stop`/`SubagentStop`, nothing for `PreCompact` and `SessionEnd`, and never `continue`. The table is
+pinned against a transcription of the documented schema in `testdata/host/hooks-output-schema.json`.
 
 That transcription also records the host's per-field cap: an `additionalContext` or `systemMessage`
 over 10,000 characters is accepted, but Claude receives only a file path and a 2,000-character
 preview in its place, and is not asked to read the file. The host counts UTF-16 code units — its
 own code tests `field.length <= 1e4` (2.1.280; `hookio.HostChars`,
 `plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt`). The hook client passes an
-over-cap field through unchanged and logs a Loud line with its size (`hookio.HostCapOverruns`); for
-the rehydration that path is now a defence that does not fire, because the payload is built to fit
-([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
+over-cap field through unchanged and logs a Loud line with its size (`hookio.HostCapOverruns`). That
+path is a defence that does not fire, because every field Qompack emits is built to fit: the
+rehydration
+([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)),
+the `SessionStart` degrade banner (each quoted value cut to 200 characters, the whole banner under
+1,000) and the `UserPromptSubmit` loop warning (at most five warnings of 360 characters and a count
+of the rest, under 2,000) (C1.20).
 
 Two things about that payload are load-bearing, per `internal/rehydrate`'s package comment. Its
 **order** is normative — `ItemKind`'s constants are the importance order, and a rehydration that

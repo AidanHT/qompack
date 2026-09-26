@@ -401,7 +401,9 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 		}
 		sv.PreCompact = func(context.Context, hookio.Event) (hookio.Output, error) {
 			preCompactActed.Store(true)
-			return hookio.PreCompactOutput("must-never-be-delivered"), nil
+			return hookio.Output{HookSpecificOutput: &hookio.HSO{
+				HookEventName: hookio.EventPreCompact, CustomInstructions: "must-never-be-delivered",
+			}}, nil
 		}
 		sv.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
 			promptRan.Store(true)

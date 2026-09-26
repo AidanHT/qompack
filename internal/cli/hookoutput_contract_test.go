@@ -239,13 +239,17 @@ func maximalReply(event string) *hookio.Output {
 
 // TestHookOutput_PreCompactCarriesNoHookSpecificOutput is C1.12's regression test: the checkpoint
 // hook answering a PreCompact must not hand the host a hookSpecificOutput, because the host has no
-// PreCompact variant and rejects the whole response. The daemon's own reply is used verbatim —
-// hookio.PreCompactOutput is what internal/daemon's checkpoint seam returns — so this is the shipped
-// path, not a contrived one.
+// PreCompact variant and rejects the whole response. The reply is the one internal/daemon's
+// checkpoint seam returned verbatim until C1.18 retired its focus instruction — which is what a
+// daemon of that build, still resident after an upgrade, sends today — so this is a real path, not
+// a contrived one.
 func TestHookOutput_PreCompactCarriesNoHookSpecificOutput(t *testing.T) {
 	schema := loadHostHookSchema(t)
 	root := replyProject(t)
-	shipped := hookio.PreCompactOutput("Encode what a competent engineer with no session history would get wrong.")
+	shipped := hookio.Output{HookSpecificOutput: &hookio.HSO{
+		HookEventName:      hookio.EventPreCompact,
+		CustomInstructions: "Encode what a competent engineer with no session history would get wrong.",
+	}}
 	replyDaemon(t, root, func(ipc.Request) *hookio.Output { return &shipped })
 
 	e := pluginmanifest.HookEntryPoint{Event: "PreCompact", Subcommand: "checkpoint"}

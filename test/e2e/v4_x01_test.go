@@ -93,12 +93,10 @@ func TestV4_PreCompactToCheckpointToRehydrateRoundTrip(t *testing.T) {
 	r.SeedTurns(t, x1v4Session, "v4x01", 6)
 
 	// ── PreCompact: the real writer seals the artifact ───────────────────────────────────────────
-	out, instr := r.PreCompactReply(t, x1v4Session)
-	require.NotNil(t, out.HookSpecificOutput,
-		"in ModeFull the bound Services.PreCompact seam must answer through hookSpecificOutput")
-	require.NotEmpty(t, instr, "a full-mode PreCompact must emit customInstructions")
-	require.Contains(t, instr, checkpoint.SentinelPhrase,
-		"ForbidSnippets is always true on the PreCompact path, so the sentinel rides every payload")
+	// Criterion change (C1.18): the seam's reply used to carry the focus instruction, and this row
+	// read the snippet sentinel from it. The instruction is retired — no host accepts one — so the
+	// reply is the empty object, and the seal is proven by the artifact and its manifest below.
+	cpRequireNoInstructionReply(t, r.PreCompactReply(t, x1v4Session))
 
 	require.Equal(t, []string{"0001.json"}, cpCheckpointArtifacts(t, p.Root),
 		"the PreCompact hook must have sealed exactly one artifact")

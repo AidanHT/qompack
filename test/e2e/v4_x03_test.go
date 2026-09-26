@@ -1,24 +1,24 @@
-// V4 §4.3 — the O1 span instruction is rendered from a REAL checkpoint frontier.
+// V4 §4.3 — the checkpoint frontier a seal records is a REAL, evidence-backed one.
 //
 // Wired: internal/store's SegmentLog closes and encodes real segments; internal/daemon's
-// advance_frontier idle task drives internal/checkpoint's FrontierAdvancer (unit G) over them; the
-// frontier the advancer commits is what FocusInstructions renders the span paragraph from; and the
-// paragraph itself is read from the daemon's checkpoint reply over the real IPC transport. It no
-// longer reaches `qompack checkpoint`'s stdout: the host has no PreCompact hookSpecificOutput and
-// rejects one (C1.12), so the hook client withholds it (v4Rig.PreCompactReply).
+// advance_frontier idle task drives internal/checkpoint's FrontierAdvancer (unit G) over them; and
+// the frontier the advancer commits is the one the seal records in state/precompact.json.
+//
+// Criterion change (C1.18): this row used to read the O1 span PARAGRAPH — rendered from that
+// frontier — from the daemon's checkpoint reply and pin that it named the committed frontier (and
+// did not, in the negative-control arm). The paragraph was a PreCompact customInstructions, which no
+// host accepts (C1.12), so its producer is retired and the reply is the empty object: both arms now
+// pin that, and the frontier half — the part that is Qompack's own state — is asserted as before.
 //
 // RETIRED CLAUSE (reconciliation map §4.3, row V4-SP10-13): this is LOCAL draft progress, not a
-// native O(1) context boundary. Nothing here asserts any host-side compaction effect, and the
-// guard below asserts the emitted paragraph makes no such claim either.
+// native O(1) context boundary. Nothing here asserts any host-side compaction effect.
 package e2e
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -73,16 +73,12 @@ func TestV4_O1SpanInstructionFromARealCheckpointFrontier(t *testing.T) {
 		obsPromptPayload(t, p.Root, x3v4Session, "trace the frontier through a real segment ladder"), env)
 	r.SeedTurns(t, x3v4Session, "v4x03", 4)
 
-	// ── Arm 1, the negative control: no encoded evidence, so no span past turn 0 ──────────────────
-	_, instrNoEvidence := r.PreCompactReply(t, x3v4Session)
-	require.NotEmpty(t, instrNoEvidence, "PreCompact must still emit instructions with no frontier")
+	// ── Arm 1, the negative control: no encoded evidence, so no frontier past turn 0 ──────────────
+	cpRequireNoInstructionReply(t, r.PreCompactReply(t, x3v4Session))
 	artNoEvidence := x3v4ReadPreCompactArtifact(t, p.Root)
 	require.Equal(t, core.TurnIndex(0), artNoEvidence.Frontier,
-		"with no segment closed and encoded there is no durable evidence, so the committed frontier "+
-			"is 0 — the advancer's documented fallback, not a guess")
-	require.NotContains(t, instrNoEvidence,
-		fmt.Sprintf("through turn %d", int(x3v4FrontierTurn)),
-		"NEGATIVE CONTROL: the span paragraph must not name a frontier no evidence backs")
+		"NEGATIVE CONTROL: with no segment closed and encoded there is no durable evidence, so the "+
+			"committed frontier is 0 — the advancer's documented fallback, not a guess")
 
 	// ── Arm 2: real closed segments, a real advance, and the paragraph that names it ─────────────
 	cpCloseObserverSegment(t, r.Segs, x3v4Session)
@@ -117,28 +113,10 @@ func TestV4_O1SpanInstructionFromARealCheckpointFrontier(t *testing.T) {
 				"the committed frontier stands on", int(id))
 	}
 
-	_, instr := r.PreCompactReply(t, x3v4Session)
-	require.NotEmpty(t, instr)
+	cpRequireNoInstructionReply(t, r.PreCompactReply(t, x3v4Session))
 	art := x3v4ReadPreCompactArtifact(t, p.Root)
 	require.Equal(t, x3v4FrontierTurn, art.Frontier,
-		"the frontier the span paragraph was rendered from must be the one the advancer committed")
-	require.True(t, art.SpanInstruction,
-		"IncrementalSpanInstruction is on by default, so the span paragraph was requested")
-
-	require.Contains(t, instr,
-		fmt.Sprintf("A durable checkpoint (`.qompack/checkpoints/%04d.json`) fully covers the "+
-			"session through turn %d", int(art.Seq), int(x3v4FrontierTurn)),
-		"the span paragraph must name the artifact's project-relative path and the LOCAL frontier "+
-			"the advancer committed: %s", instr)
-	require.Contains(t, instr, fmt.Sprintf("Summarize only what happened after turn %d", int(x3v4FrontierTurn)),
-		"narrowing the summarizer to the residual span is the paragraph's whole purpose: %s", instr)
-
-	// The retired clause, asserted as an absence: this is local draft progress and must not be
-	// dressed up as a host-side context boundary (row V4-SP10-13).
-	for _, forbidden := range []string{
-		"context window has been", "native compaction", "the host has compacted", "O(1) context",
-	} {
-		require.NotContains(t, strings.ToLower(instr), strings.ToLower(forbidden),
-			"the span paragraph must claim LOCAL draft progress only, never a host-side effect: %s", instr)
-	}
+		"the frontier the seal records must be the one the advancer committed")
+	require.Greater(t, int(art.Frontier), int(artNoEvidence.Frontier),
+		"the two arms differ only in the evidence, so only the evidence can have moved the frontier")
 }

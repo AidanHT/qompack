@@ -19,10 +19,11 @@ import (
 // absent by name.
 //
 // hookio's absence is the load-bearing one: it is the mechanical form of the advisory-handling
-// rule. The focus instruction §8.5 hands the summarizer is advisory — the host may ignore it —
-// and this package must not care, because a checkpoint is built from durable originals, never
-// from the summarizer's output. With no hookio import the package cannot read a transcript, and
-// therefore cannot branch on whether the summarizer complied with the focus instruction. The
+// rule. The focus instruction §8.5 describes is advisory — a host may ignore it, and since C1.18
+// Qompack hands it to none — and this package must not care, because a checkpoint is built from
+// durable originals, never from the summarizer's output. With no hookio import the package cannot
+// read a transcript, and therefore cannot branch on whether the summarizer complied with any focus
+// instruction. The
 // other absences close the same class of door: no subprocesses (os/exec), no network (net,
 // net/http), no scheduling or IPC reach-around into live session state.
 //
