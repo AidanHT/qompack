@@ -57,21 +57,25 @@ type LiveEvalReport struct {
 	Trials       TrialCounts `json:"trials"`
 	// Confidence and Margin are the pre-registered interval level and non-inferiority margin.
 	// MarginKnown is false for a summary written before it carried its analysis.
-	Confidence          float64                      `json:"confidence"`
-	Margin              float64                      `json:"non_inferiority_margin"`
-	MarginKnown         bool                         `json:"non_inferiority_margin_known"`
-	Arms                []eval.ArmSummary            `json:"arms"`
-	TaskSuccessDiff     *eval.Difference             `json:"task_success_diff,omitempty"`
-	ConstraintCleanDiff *eval.Difference             `json:"constraint_clean_diff,omitempty"`
-	RecoveryDiff        *eval.Difference             `json:"recovery_diff,omitempty"`
-	Decision            eval.LiveDecision            `json:"decision"`
-	Regression          string                       `json:"constraint_regression,omitempty"`
-	Failed              []string                     `json:"failed,omitempty"`
-	Notes               []string                     `json:"notes,omitempty"`
-	RateTableDate       string                       `json:"rate_table_date,omitempty"`
-	Analysis            eval.LiveAnalysis            `json:"analysis"`
-	ByVariant           map[string][]eval.ArmSummary `json:"by_variant,omitempty"`
-	TaskSigns           map[string]int               `json:"task_signs,omitempty"`
+	Confidence          float64           `json:"confidence"`
+	Margin              float64           `json:"non_inferiority_margin"`
+	MarginKnown         bool              `json:"non_inferiority_margin_known"`
+	Arms                []eval.ArmSummary `json:"arms"`
+	TaskSuccessDiff     *eval.Difference  `json:"task_success_diff,omitempty"`
+	ConstraintCleanDiff *eval.Difference  `json:"constraint_clean_diff,omitempty"`
+	RecoveryDiff        *eval.Difference  `json:"recovery_diff,omitempty"`
+	Decision            eval.LiveDecision `json:"decision"`
+	Regression          string            `json:"constraint_regression,omitempty"`
+	// Failed names every failed trial, and FailedTreatment says how the decision counted them: under
+	// intention to treat (preregistration section 8) each is in every denominator, a harness failure
+	// scored as a failure on every outcome and any other trial graded by its checks.
+	Failed          []string                     `json:"failed,omitempty"`
+	FailedTreatment string                       `json:"failed_treatment,omitempty"`
+	Notes           []string                     `json:"notes,omitempty"`
+	RateTableDate   string                       `json:"rate_table_date,omitempty"`
+	Analysis        eval.LiveAnalysis            `json:"analysis"`
+	ByVariant       map[string][]eval.ArmSummary `json:"by_variant,omitempty"`
+	TaskSigns       map[string]int               `json:"task_signs,omitempty"`
 }
 
 // buildLiveReport qualifies one run and carries its summary over.
@@ -114,6 +118,9 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 		r.Trials.Skipped = r.Trials.Planned - r.Trials.Ran
 	}
 	r.Trials.Failed = len(s.Failed)
+	if r.Trials.Failed > 0 {
+		r.FailedTreatment = liveFailedTreatment
+	}
 	r.NotConfirmatory = notConfirmatory(p, s, r)
 	r.Confirmatory = len(r.NotConfirmatory) == 0
 	if contingencyRun(p) && len(s.HostModels) > 0 {
@@ -126,35 +133,23 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 	return r
 }
 
+// liveFailedTreatment says how a live run's decision counted its failed trials. The summary's
+// decision applies preregistration section 8's intention-to-treat rule itself (eval.SummarizeLive,
+// eval.DecideLive), so the command reports that decision and does not override it for them.
+const liveFailedTreatment = "each is in every denominator of the decision (intention to treat, preregistration " +
+	"section 8): a harness failure is scored as a failure on every outcome, any other failed trial is graded by " +
+	"its checks, and a trial whose plugin state contradicted its arm makes the decision not-applicable"
+
 // notConfirmatory lists every way the run departs from a confirmatory run of its pre-registered
-// design: its frozen materials and install path (sections 2 and 3, amendment A1), its model (section
-// 3), both arms identical but for the plugin (section 3), every task and every planned trial
-// (sections 4 and 7), a clean bundle and the candidate's known-defect precondition (section 9,
-// amendment A5). Failed trials are not among them: under intention to treat they are failures the
-// analysis counts, not a reason to set the run aside.
+// design: what its plan fixed before any trial ran (eval.LivePlanDepartures — its frozen materials
+// and install path, a set that was not superseded, its model, both arms, every task, the trials per
+// arm, a clean bundle and the candidate's known-defect precondition), and what only its trials show —
+// the model a contingency alias resolved to, every planned trial run, and no plugin but the arm's
+// own on either arm (sections 3 and 7). Failed trials are not among them: under intention to treat
+// they are failures the analysis counts, not a reason to set the run aside.
 func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []string {
-	var out []string
-	out = append(out, notPreregisteredMaterials(p)...)
-	if pre, ok := eval.LivePreregistrations[p.TaskSet]; ok {
-		out = append(out, openDefectReasons(p, pre)...)
-	}
-	out = append(out, modelDepartures(p, s)...)
-	if !(containsString(p.Arms, eval.ArmStock) && containsString(p.Arms, eval.ArmQompack)) {
-		out = append(out, fmt.Sprintf("it did not run both arms (arms: %s)", orUnknown(strings.Join(p.Arms, ", "))))
-	}
-	if !p.HeldOutIncluded {
-		out = append(out, "it excluded the held-out tasks")
-	}
-	switch {
-	case p.TaskSetTasks == 0:
-		out = append(out, "its plan does not record the task set's size, so a narrowed run cannot be ruled out")
-	case r.Tasks != p.TaskSetTasks:
-		out = append(out, fmt.Sprintf("it planned %d of the task set's %d tasks", r.Tasks, p.TaskSetTasks))
-	}
-	if s.Analysis.TrialsPerArm > 0 && p.TrialsPerArm != s.Analysis.TrialsPerArm {
-		out = append(out, fmt.Sprintf("it ran %d trials per arm per task, not the pre-registered %d",
-			p.TrialsPerArm, s.Analysis.TrialsPerArm))
-	}
+	out := eval.LivePlanDepartures(p, s.Analysis.TrialsPerArm)
+	out = append(out, modelResolutionDepartures(p, s)...)
 	if r.Trials.Skipped > 0 {
 		out = append(out, fmt.Sprintf("%d planned trial(s) did not run", r.Trials.Skipped))
 	}
@@ -170,82 +165,28 @@ func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []s
 		out = append(out, fmt.Sprintf("%d of %d %s trial(s) loaded a plugin other than the arm's own (%s), so the "+
 			"arms differed by more than Qompack (preregistration section 3)", as.ForeignPluginTrials, as.Trials, arm, names))
 	}
-	switch {
-	case p.Plugin == nil:
-		out = append(out, "its plan names no plugin bundle")
-	case p.Plugin.Dirty:
-		out = append(out, "its bundle was assembled from a worktree with uncommitted changes, not a frozen candidate")
-	}
 	return out
 }
 
 // contingencyRun reports that the run used the one alias its task set's pre-registration permits in
 // place of the pre-registered model (section 3's contingency).
-func contingencyRun(p eval.LivePlan) bool {
-	pre, ok := eval.LivePreregistrations[p.TaskSet]
-	return ok && p.Model != p.PreregisteredModel && pre.RunsPreregisteredModel(p.PreregisteredModel, p.Model)
-}
+func contingencyRun(p eval.LivePlan) bool { return eval.LivePlanOnContingency(p) }
 
-// modelDepartures lists how the run's model departs from section 3: the pre-registered model, or
-// the contingency alias with the model the host resolved it to recorded (amendment A6). A resolution
-// that was not recorded, or that differed between trials, leaves the run's model unknown or the
-// arms not identical.
-func modelDepartures(p eval.LivePlan, s eval.LiveSummary) []string {
+// modelResolutionDepartures lists how a run on section 3's contingency alias departs from it once its
+// trials have run: the model the host resolved the alias to must be recorded, and be one model
+// (amendment A6). A resolution that was not recorded, or that differed between trials, leaves the
+// run's model unknown or the arms not identical. Whether the plan's model was the pre-registered one
+// or the alias at all is eval.LivePlanDepartures'.
+func modelResolutionDepartures(p eval.LivePlan, s eval.LiveSummary) []string {
 	switch {
-	case p.PreregisteredModel != "" && p.Model == p.PreregisteredModel:
-		return nil
 	case !contingencyRun(p):
-		return []string{fmt.Sprintf("it ran on %s, not the pre-registered model %s",
-			orUnknown(p.Model), orUnknown(p.PreregisteredModel))}
+		return nil
 	case len(s.HostModels) == 0:
 		return []string{fmt.Sprintf("it ran on the contingency alias %s, and its summary does not record the model "+
 			"the host resolved it to, which preregistration section 3 requires", p.Model)}
 	case len(s.HostModels) > 1:
 		return []string{fmt.Sprintf("it ran on the contingency alias %s, which the hosts resolved to more than one "+
 			"model (%s), so its trials did not all run on one model", p.Model, strings.Join(s.HostModels, ", "))}
-	}
-	return nil
-}
-
-// notPreregisteredMaterials lists how the run's plan departs from what its task set's
-// pre-registration froze: the task-set file, the fixture and hidden-test tree, and the install path
-// of the qompack arm. A task set with no pre-registration is never the pre-registered study.
-func notPreregisteredMaterials(p eval.LivePlan) []string {
-	pre, ok := eval.LivePreregistrations[p.TaskSet]
-	if !ok {
-		return []string{fmt.Sprintf("its task set %s has no pre-registration", orUnknown(p.TaskSet))}
-	}
-	var out []string
-	if p.TaskSetSHA256 != pre.TaskSetSHA256 {
-		out = append(out, fmt.Sprintf("its task set file hashes to %s, not the pre-registered %s (%s)",
-			shortHash(p.TaskSetSHA256), shortHash(pre.TaskSetSHA256), pre.Document))
-	}
-	if p.FixtureTreeSHA256 != pre.FixtureTreeSHA256 {
-		out = append(out, fmt.Sprintf("its fixture tree hashes to %s, not the pre-registered %s (%s)",
-			shortHash(p.FixtureTreeSHA256), shortHash(pre.FixtureTreeSHA256), pre.Document))
-	}
-	if p.Install != pre.Install {
-		out = append(out, fmt.Sprintf("its qompack arm was installed by %s, not the pre-registered --%s",
-			orUnknown(p.Install), pre.Install))
-	}
-	return out
-}
-
-// openDefectReasons applies preregistration section 9: "The confirmatory run must be on a candidate
-// where C1.12 and C1.1 are fixed; a run on a candidate with a known open defect is labelled with that
-// defect and is not the confirmatory run" (amendment A5 reads "a known open defect" as any). Nothing
-// in a bundle proves which defects it fixes, so the plan carries the operator's statement, and a
-// plan without one cannot be told apart from a run on a candidate that still carries C1.12.
-func openDefectReasons(p eval.LivePlan, pre eval.LivePreregistration) []string {
-	switch {
-	case p.KnownDefects == nil:
-		return []string{fmt.Sprintf("its plan does not attest which known defects its bundle carries, and "+
-			"preregistration section 9 counts only a run on a candidate where %s are fixed and no known defect "+
-			"is open as the confirmatory run", strings.Join(pre.RequiredFixed, " and "))}
-	case len(p.KnownDefects.Open) > 0:
-		return []string{fmt.Sprintf("its bundle carries the known open defect(s) %s, as its plan attests, and "+
-			"preregistration section 9 labels such a run with them and does not count it as the confirmatory run",
-			strings.Join(p.KnownDefects.Open, ", "))}
 	}
 	return nil
 }
@@ -287,15 +228,18 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 		Detail: fmt.Sprintf("%s; decision %s — %s", diffText(r.TaskSuccessDiff, r.Confidence), r.Decision.Verdict,
 			r.Decision.Reason),
 	}
+	if r.Trials.Failed > 0 {
+		primary.Detail += fmt.Sprintf("; %d failed trial(s) counted under intention to treat", r.Trials.Failed)
+	}
 	switch {
 	case notJudged != "":
 		primary.Detail = notJudged + "; " + primary.Detail
-	case r.Decision.Verdict == "superior" || r.Decision.Verdict == "non-inferior":
-		primary.Passed = boolPtr(true)
+	case !liveDecisionReached(r.Decision):
+		primary.Detail = "not judged: the pre-registered rule reached no verdict; " + primary.Detail
 	case r.Decision.Verdict == "inferior":
 		primary.Passed = boolPtr(false)
 	default:
-		primary.Detail = "not judged: the pre-registered rule reached no verdict; " + primary.Detail
+		primary.Passed = boolPtr(true)
 	}
 
 	constraint := EvalGate{
@@ -321,6 +265,17 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 			"(preregistration section 8)",
 	}
 	return []EvalGate{primary, constraint}, []EvalGate{rec}
+}
+
+// liveDecisionReached reports that the pre-registered rule reached a verdict on the primary outcome:
+// superior or non-inferior, which pass it, or inferior, which fails it. Inconclusive and
+// not-applicable reach none, and neither does anything else a summary might carry.
+func liveDecisionReached(d eval.LiveDecision) bool {
+	switch d.Verdict {
+	case "superior", "non-inferior", "inferior":
+		return true
+	}
+	return false
 }
 
 // renderLive prints the live half of the report, the run's qualification before any of its numbers.
@@ -368,6 +323,9 @@ func renderLive(rw *errWriter, r *LiveEvalReport) {
 	for _, as := range r.Arms {
 		rw.printf("    %-8s mean estimate %d micros (%d of %d trial(s) a lower bound), mean host-reported %.4f USD, "+
 			"mean wall %d ms\n", as.Arm, as.MeanEstimateMc, as.EstimateIncomplete, as.Trials, as.MeanHostCost, as.MeanWallMS)
+	}
+	if len(r.Failed) > 0 {
+		rw.printf("  failed trials: %d, %s\n", len(r.Failed), r.FailedTreatment)
 	}
 	for _, f := range r.Failed {
 		rw.printf("  failed trial: %s\n", f)
@@ -419,12 +377,3 @@ func proportionText(p eval.Proportion) string {
 }
 
 func boolPtr(b bool) *bool { return &b }
-
-func containsString(xs []string, x string) bool {
-	for _, v := range xs {
-		if v == x {
-			return true
-		}
-	}
-	return false
-}
