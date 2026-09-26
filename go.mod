@@ -9,7 +9,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/klauspost/compress v1.18.0
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sys v0.33.0
+	golang.org/x/sys v0.44.0
 	golang.org/x/tools v0.34.0
 	pgregory.net/rapid v1.1.0
 )
