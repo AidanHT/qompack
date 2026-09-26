@@ -21,7 +21,9 @@ func TestBackup_RefusesFrontierChangedBeforeItsOwnCopy(t *testing.T) {
 	require.NoError(t, os.WriteFile(head, []byte("before\n"), 0o600))
 	moved := false
 	m.copyBackupFile = func(ctx context.Context, src, dst string) (int64, string, error) {
-		if filepath.Clean(src) == filepath.Clean(paths.Long(head)) {
+		// src is spelled from the layout's Dot, as TakeBackup hands every source on (C1.7); it was
+		// the walk's paths.Long spelling once, which equals head only while head is short.
+		if filepath.Clean(src) == filepath.Clean(head) {
 			moved = true
 			require.NoError(t, os.WriteFile(head, []byte("after!\n"), 0o600))
 		}
