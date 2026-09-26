@@ -409,6 +409,8 @@ var readOnlyReadsAllowlist = map[string]string{
 	"ApproxRefs":           "reads the in-memory refcount map",
 	"Segments": "returns the segment log, which carries its own refusal in segLog.append " +
 		"(TestOpenReadOnly_TheSegmentLogRefusesWrites)",
+	"PublishesObservationsDurably": "returns a constant capability declaration and touches nothing; " +
+		"readOnlyStore does not delegate it because a read-only store publishes nothing",
 }
 
 // receiverIs reports whether fn is a method on want, by pointer or by value.
