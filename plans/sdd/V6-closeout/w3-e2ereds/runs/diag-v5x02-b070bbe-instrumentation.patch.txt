@@ -1,0 +1,26 @@
+diff --git a/../cf31e01/test/e2e/v5_x02_test.go b/test/e2e/v5_x02_test.go
+index eea1616..f43ffac 100644
+--- a/../cf31e01/test/e2e/v5_x02_test.go
++++ b/test/e2e/v5_x02_test.go
+@@ -534,6 +534,21 @@ func TestV5_TombstoneToExpandRoundTrip(t *testing.T) {
+ 	require.Equal(t, second, secondNow.Content, "the second handle recovers the second delivery exactly")
+ 
+ 	mcpE2ECall(t, child, next(), mcp.ToolReRead, map[string]any{"path": x02Path, "full": true}, &newest)
++	if newest.Hash != rec2.Root.String() {
++		dump := func(tag string) {
++			b, _ := os.ReadFile(paths.Long(filepath.Join(paths.Of(p.Root).Index, "files.jsonl")))
++			t.Logf("ZZDIAG %s rec=%s rec2=%s files.jsonl: %s", tag, rec.Root, rec2.Root, b)
++			ents, _ := os.ReadDir(paths.Long(paths.Of(p.Root).Index))
++			for _, e := range ents { fi, _ := e.Info(); t.Logf("ZZDIAG %s index/%s %d", tag, e.Name(), fi.Size()) }
++		}
++		dump("at-failure")
++		time.Sleep(8 * time.Second)
++		var again x02ContentBody
++		mcpE2ECall(t, child, next(), mcp.ToolReRead, map[string]any{"path": x02Path}, &again)
++		t.Logf("ZZDIAG after 8s re_read hash=%s turn=%v found=%v src=%s", again.Hash, again.Span, again.Found, again.Source)
++		dump("after-8s")
++		t.Logf("ZZDIAG diag: %s", x02Diag(t, p.Root))
++	}
+ 	require.Equal(t, rec2.Root.String(), newest.Hash, "an unpinned re_read is the newest capture")
+ 	require.Equal(t, "store", newest.Source)
+ 	require.Equal(t, second, newest.Content)

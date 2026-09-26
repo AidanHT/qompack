@@ -1,0 +1,16 @@
+{
+  "name": "privacy_eval_export",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "00df95ad8569df355d2e92090054646a3ed6a4ed388ad216fdecb1600159da2f"
+  },
+  "outcome": "verified",
+  "reason": "eval.Import wrote 1 session(s) from 1 transcript file(s) with the default redaction and the operator's own runtime.redact.patterns rule, replacing 22 spans; the destination is swept as its own surface."
+}

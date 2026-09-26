@@ -1,0 +1,20 @@
+{
+  "name": "switch_reinjection_session_start_compact",
+  "capability": "switch",
+  "scope": "installed_bundle",
+  "switch": "runtime.migration.reinjection.sessionStartCompact",
+  "value": "false",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "00df95ad8569df355d2e92090054646a3ed6a4ed388ad216fdecb1600159da2f"
+  },
+  "outcome": "verified",
+  "reason": "reinjection off stopped the injected span on SessionStart source=compact while the session's tool event was still recorded",
+  "detail": "with the switch: SessionStart(compact) carried no injected span (its additionalContext was \"\u003c!-- qompack-contract-probe qompack-contract-e96ef1f4894d --\u003e\" — the contract monitor's probe marker, which is contract machinery and not reinjection) and index/tool_use.jsonl names toolu_01RELEASESWITCHSEED0001; 5 file(s) under objects+index. Without it, after a daemon restart: 621 byte(s) carrying an injected span. Not duplicated here: internal/daemon's TestService_ReinjectionKillSwitchEmitsNothing pins the service seam and test/e2e's v5_x04 pins the hook answer",
+  "control": "defaults injected a checkpoint span, 621 byte(s) of additionalContext, on the same project"
+}

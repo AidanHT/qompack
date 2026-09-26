@@ -1,0 +1,59 @@
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:540: ZZDIAG at-failure rec=sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7 rec2=sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9 files.jsonl: {"v":1,"path":"src/auth.ts","ts":1790387030836,"turn":0,"root":"sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7","bytes":204820}
+    v5_x02_test.go:542: ZZDIAG at-failure index/files.jsonl 153
+    v5_x02_test.go:542: ZZDIAG at-failure index/observations.jsonl 3935
+    v5_x02_test.go:542: ZZDIAG at-failure index/roots.jsonl 47198
+    v5_x02_test.go:542: ZZDIAG at-failure index/segments.jsonl 0
+    v5_x02_test.go:542: ZZDIAG at-failure index/sessions.jsonl 0
+    v5_x02_test.go:542: ZZDIAG at-failure index/tool_use.jsonl 25512
+    v5_x02_test.go:548: ZZDIAG after 8s re_read hash=sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9 turn=[0 20686] found=true src=store
+    v5_x02_test.go:540: ZZDIAG after-8s rec=sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7 rec2=sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9 files.jsonl: {"v":1,"path":"src/auth.ts","ts":1790387030836,"turn":0,"root":"sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7","bytes":204820}
+        {"v":1,"path":"src/auth.ts","ts":1790387032963,"turn":0,"root":"sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9","bytes":204890}
+    v5_x02_test.go:542: ZZDIAG after-8s index/files.jsonl 306
+    v5_x02_test.go:542: ZZDIAG after-8s index/observations.jsonl 3935
+    v5_x02_test.go:542: ZZDIAG after-8s index/roots.jsonl 57755
+    v5_x02_test.go:542: ZZDIAG after-8s index/segments.jsonl 0
+    v5_x02_test.go:542: ZZDIAG after-8s index/sessions.jsonl 0
+    v5_x02_test.go:542: ZZDIAG after-8s index/tool_use.jsonl 30962
+    v5_x02_test.go:550: ZZDIAG diag: -- C:\Users\Quant\AppData\Local\Temp\TestV5_TombstoneToExpandRoundTrip4212484629\001\project\.qompack\records
+           \captures\65\65efd6e9b4635ece709c10ffa4e98bcfe87760dc526a1e4d02cb6726aaebd0ad.json (290327 bytes)
+           \captures\ab\ab2a1244ecb47d8fe70b648c0cf686442558f103548b2005008ec11c5a72d963.json (290423 bytes)
+        -- C:\Users\Quant\AppData\Local\Temp\TestV5_TombstoneToExpandRoundTrip4212484629\001\project\.qompack\state
+           \delivery-ack-position.json (32768 bytes)
+           \delivery-acks.jsonl (516 bytes)
+           \delivery-generations\manifest.jsonl (0 bytes)
+           \delivery-journal-log.jsonl (117 bytes)
+           \delivery-journal.json (187 bytes)
+           \delivery-lease-position.json (32768 bytes)
+           \delivery-leases.jsonl (602 bytes)
+           \drain.json (2 bytes)
+           \history.json (448 bytes)
+           \mcp.json (203 bytes)
+           \observations.json (3357 bytes)
+           \promotions.json (513 bytes)
+           \retention-roots.jsonl (402 bytes)
+        -- C:\Users\Quant\AppData\Local\Temp\TestV5_TombstoneToExpandRoundTrip4212484629\001\project\.qompack\logs
+           \qompack-20260926.log (534 bytes)
+              ts=2026-09-26T01:43:50.4264215Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+              ts=2026-09-26T01:43:50.4998704Z level=info msg="observer: session registered" session=sess-e2e-v5-x02 source=startup turn=0 segment=1
+              ts=2026-09-26T01:43:50.4998704Z level=info msg="scheduler: session bound" session=sess-e2e-v5-x02 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+        -- LOUD: []
+    v5_x02_test.go:552: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3e2e/exp-b070bbe/test/e2e/v5_x02_test.go:552
+        	Error:      	Not equal: 
+        	            	expected: "sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9"
+        	            	actual  : "sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+        	            	+sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	an unpinned re_read is the newest capture
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (13.71s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	13.967s
+FAIL
+exit=1

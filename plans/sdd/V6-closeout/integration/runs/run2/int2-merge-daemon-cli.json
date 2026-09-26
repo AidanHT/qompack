@@ -1,0 +1,25 @@
+{
+  "id": "int2-merge-daemon-cli",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout",
+    "30m",
+    "./internal/daemon/",
+    "./internal/cli/",
+    "./internal/ipc/"
+  ],
+  "source_head": "54a433466956701a444e2206d2fd79197a6719bd",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-25T21:28:36-04:00",
+  "ended_at": "2026-09-25T21:31:40-04:00",
+  "exit_code": 0,
+  "log": "int2-merge-daemon-cli.log",
+  "log_sha256": "09239858a3229df510521c6f479054f9cc4ec0f39f7a68651cac2306a2da10d5"
+}

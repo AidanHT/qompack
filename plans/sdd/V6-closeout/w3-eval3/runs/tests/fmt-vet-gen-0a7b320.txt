@@ -1,0 +1,4 @@
+fmt-check @0a7b320 exit=0
+go vet ./internal/commands @0a7b320 exit=0
+gen-command-docs: docs/commands.md is up to date
+gen-command-docs --check @0a7b320 exit=0
