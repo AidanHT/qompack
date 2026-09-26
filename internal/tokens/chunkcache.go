@@ -143,7 +143,11 @@ func (e *exact) Close() error {
 // flush writes pending records. When the file has grown past chunkCacheCompactFactor times the
 // in-memory cap it is rewritten from the live set instead, which is what keeps a long-lived
 // project's cache file from growing without bound.
+//
+// A whole flush holds fmu, so flushes from concurrent session ends reach the file one at a time.
 func (e *exact) flush(closing bool) error {
+	e.fmu.Lock()
+	defer e.fmu.Unlock()
 	e.cmu.Lock()
 	if e.cachePath == "" || (e.closed && !closing) {
 		e.cmu.Unlock()
