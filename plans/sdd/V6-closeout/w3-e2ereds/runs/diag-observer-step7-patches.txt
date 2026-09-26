@@ -1,0 +1,20 @@
+Diagnostic edits used by this lane, applied to internal/observer/tooluse.go immediately before
+"// 7. §8.2 file version history" and reverted with git checkout afterwards. Never committed.
+
+(1) delay (runs/diag-v5x02-filever-delay-windows.log at 54a4334 with the old test: FAIL, same
+    expected/actual as the reported red; runs/diag-v5x02-after-filever-delay-windows.log with the
+    corrected test: PASS 2/2):
+
+	if pathKey == "src/auth.ts" && rec.ID == "toolu_v5_x02_02" {
+		time.Sleep(3 * time.Second)
+	}
+
+(2) suppress (runs/diag-v5x02-after-filever-suppressed-windows.log with the corrected test: FAIL at
+    x02WaitFileVersion after its 30 s bound, proving the wait is not vacuous):
+
+	if pathKey == "src/auth.ts" && rec.ID == "toolu_v5_x02_02" {
+		return hookio.Empty(), nil
+	}
+
+The first diagnostic run (1) also logged rec.Root/rec2.Root from the test:
+rec.Root=sha256:5fbaba0b... (the "actual" in every reported failure), rec2.Root=sha256:38aa18e0...

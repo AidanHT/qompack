@@ -1,0 +1,9 @@
+=== RUN   TestV4_TombstoneToRecallToExpandRoundTrip
+--- PASS: TestV4_TombstoneToRecallToExpandRoundTrip (5.13s)
+=== RUN   TestV4_TombstoneToRecallToExpandRoundTrip
+--- PASS: TestV4_TombstoneToRecallToExpandRoundTrip (3.30s)
+=== RUN   TestV4_TombstoneToRecallToExpandRoundTrip
+--- PASS: TestV4_TombstoneToRecallToExpandRoundTrip (3.17s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	11.843s
+exit=0

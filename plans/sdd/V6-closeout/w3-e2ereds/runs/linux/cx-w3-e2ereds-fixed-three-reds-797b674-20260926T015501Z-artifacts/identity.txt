@@ -1,0 +1,21 @@
+run_id=cx-w3-e2ereds-fixed-three-reds-797b674-20260926T015501Z
+commit=797b6743140fc5962317807e5171c8f1c1bccbf4
+tree=16b8086972d58eecf4035c3a836dc3c031413139
+bundle_sha256=987342ca367de5b921906470e2f714ee8cebd9ecff8ba413377c7a688535bfe9
+started_utc=2026-09-26T01:55:11Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^(TestV4_TombstoneToRecallToExpandRoundTrip|TestV5_TombstoneToExpandRoundTrip|TestV5_EliminationThroughEveryFourSurfaces)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T01:56:53Z
