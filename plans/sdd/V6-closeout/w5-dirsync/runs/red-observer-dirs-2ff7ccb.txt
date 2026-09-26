@@ -1,0 +1,32 @@
+# RED: tree = 2ff7ccb + the new observer barrier test (uncommitted), Windows
+# go test ./internal/observer -run '^TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass$' -count=1 -v
+=== RUN   TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass
+=== RUN   TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Deduped
+    publication_barriers_test.go:72: capture 0: 34 closure objects; per pass 36 file + 103 directory fsyncs; per capture 72 + 206
+    publication_barriers_test.go:80: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/internal/observer/publication_barriers_test.go:80
+        	Error:      	"103" is not less than or equal to "70"
+        	Test:       	TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Deduped
+        	Messages:   	capture 0: one fsync per directory, not a leaf, a fanout and the objects/ root per object
+=== RUN   TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Delta
+    publication_barriers_test.go:72: capture 0: 34 closure objects; per pass 36 file + 103 directory fsyncs; per capture 72 + 206
+    publication_barriers_test.go:80: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/internal/observer/publication_barriers_test.go:80
+        	Error:      	"103" is not less than or equal to "70"
+        	Test:       	TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Delta
+        	Messages:   	capture 0: one fsync per directory, not a leaf, a fanout and the objects/ root per object
+=== RUN   TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/AllNovel
+    publication_barriers_test.go:72: capture 0: 75 closure objects; per pass 77 file + 226 directory fsyncs; per capture 154 + 452
+    publication_barriers_test.go:80: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/internal/observer/publication_barriers_test.go:80
+        	Error:      	"226" is not less than or equal to "152"
+        	Test:       	TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/AllNovel
+        	Messages:   	capture 0: one fsync per directory, not a leaf, a fanout and the objects/ root per object
+--- FAIL: TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass (3.95s)
+    --- FAIL: TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Deduped (0.92s)
+    --- FAIL: TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Delta (1.07s)
+    --- FAIL: TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/AllNovel (1.95s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	4.159s
+FAIL
+go_test_exit=1

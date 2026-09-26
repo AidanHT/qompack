@@ -1,0 +1,16 @@
+# RED: tree = 2ff7ccb + the new directory-count test (uncommitted), Windows
+# go test ./internal/store -run '^TestSyncPublication_SyncsEachDirectoryOncePerPass$' -count=1 -v
+=== RUN   TestSyncPublication_SyncsEachDirectoryOncePerPass
+    publication_barriers_test.go:78: closure: 87 objects in 87 leaves under 74 fanouts; 163 directory fsyncs per pass (262 at three per object)
+    publication_barriers_test.go:84: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/internal/store/publication_barriers_test.go:84
+        	Error:      	Not equal: 
+        	            	expected: 163
+        	            	actual  : 262
+        	Test:       	TestSyncPublication_SyncsEachDirectoryOncePerPass
+        	Messages:   	pass 1: each directory holding a closure object is fsynced once, then index/
+--- FAIL: TestSyncPublication_SyncsEachDirectoryOncePerPass (0.77s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.997s
+FAIL
+go_test_exit=1
