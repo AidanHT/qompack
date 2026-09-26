@@ -1,0 +1,7 @@
+=== RUN   TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+--- PASS: TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget (0.44s)
+=== RUN   TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged
+--- PASS: TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged (0.29s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.980s
+exit=0

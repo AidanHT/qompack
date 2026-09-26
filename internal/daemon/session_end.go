@@ -33,6 +33,12 @@ import (
 // (drainDispatch -> flushRoute); a hook that missed the ACK deadline and spooled a copy of the flush
 // has that copy absorbed through the flush's own lease once it is acknowledged. A caller that asks for
 // the end's own answer (a Reply request: an older hook client, an operator, a test) still waits for it.
+//
+// A leased flush that only a drain meets — a hook whose dial failed spooled it, or a daemon that
+// stopped left it in its WAL — is ended the same way once the daemon serves: the drain hands it to an
+// end of its own (endDrainedFlush) rather than ending the session inside its budgeted pass. Only the
+// startup drain, Stop's drain and a session end's own drains still end one inline (flushRoute), and a
+// replay its context cuts short there is left unacknowledged for a later drain.
 
 // sessionEndAbandonAfter is how long Stop still waits for a session end after cancelling it, before
 // abandoning one that ignores cancellation. It is the bound Stop gives the one other kind of goroutine
@@ -188,9 +194,19 @@ func (d *daemon) startSessionEnd(ctx context.Context, req ipc.Request, own job, 
 		return done
 	}
 
+	return d.launchSessionEnd(ctx, req, ownp)
+}
+
+// launchSessionEnd ends req's session on a goroutine of its own (endSession) and returns the channel
+// the end's answer arrives on; it is buffered, so nobody has to read it. The caller has counted the end
+// in (sessionEnds.begin). own is the accepted or replayed flush the end finishes, or nil.
+func (d *daemon) launchSessionEnd(ctx context.Context, req ipc.Request, own *job) <-chan ipc.Response {
+	done := make(chan ipc.Response, 1)
+	e := d.ends
 	// The request's values (the Services/Registry/Daemon context dispatchOp bound), none of its
-	// cancellation: the end outlives the request, and Stop, not the connection, ends it.
-	run, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	// cancellation: the end outlives the request, and Stop, not the connection, ends it. It is marked
+	// as a session end's, so no drain it runs starts another one (endDrainedFlush).
+	run, cancel := context.WithCancel(context.WithValue(context.WithoutCancel(ctx), sessionEndRunKey{}, true))
 	stopAfter := context.AfterFunc(e.ctx, cancel)
 	go func() {
 		defer e.end()
@@ -207,9 +223,49 @@ func (d *daemon) startSessionEnd(ctx context.Context, req ipc.Request, own job, 
 					"session", string(req.Session), "recover", r)
 			}
 		}()
-		resp = d.endSession(run, req, true, ownp)
+		resp = d.endSession(run, req, true, own)
 	}()
 	return done
+}
+
+// sessionEndRunKey marks the context a session end runs under (launchSessionEnd).
+type sessionEndRunKey struct{}
+
+// inSessionEnd reports whether ctx is a session end's, or descends from one: the drains an end runs
+// itself, before SessionEnd and after it.
+func inSessionEnd(ctx context.Context) bool {
+	v, _ := ctx.Value(sessionEndRunKey{}).(bool)
+	return v
+}
+
+// endDrainedFlush is the drainer's EndSession (DrainConfig.EndSession). A leased flush that a drain
+// replays while the daemon is serving — one only a hook's client spool holds, because its dial failed,
+// or one a WAL holds after a daemon that stopped before ending it — is ended exactly as an acknowledged
+// live one is: on a goroutine of its own, under the ends' lifetime, with no budget but the session
+// end's own. Inside the drain's pass it had only what was left of the pass's budget — idleRunBudget for
+// the client-spool watcher, the drains the lanes ask for and the idle drain, and drainLineDeadline for
+// any one line — so a SessionEnd longer than that could never finish through those drains.
+//
+// The drain has already passed the line through the ordering gate — every earlier arrival of its
+// session is on the committed frontier — and taken its in-process ownership (seen.begin). The end
+// takes that ownership over: it finishes the flush once SessionEnd has run (finishOwnFlush), and the
+// drain leaves the line for a later pass, the end's own final drain as a rule, which absorbs it.
+//
+// It reports false, and the drain replays the line inline as before (drainDispatch -> flushRoute),
+// when no end may start: during Run's startup drain, before drainsEndSessions is set; once Stop has
+// closed the gate, for Stop's own drain; and in a drain a session end runs itself. That last one must
+// never start another: an end whose acknowledgement failed leaves its flush pending for its final
+// drain, and handing it on from there would pass the same flush from end to end with no pause.
+func (d *daemon) endDrainedFlush(ctx context.Context, req ipc.Request, key core.Hash, lease deliveryLease) bool {
+	if !d.drainsEndSessions.Load() || inSessionEnd(ctx) {
+		return false
+	}
+	if !d.ends.begin() {
+		return false
+	}
+	own := job{req: req, recv: core.NowMilli(d.clk), key: key, lease: lease, leased: true}
+	d.launchSessionEnd(ctx, req, &own)
+	return true
 }
 
 // awaitSessionEnds waits until no session end is running, and reports whether it got there before

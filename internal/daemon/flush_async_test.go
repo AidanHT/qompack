@@ -434,3 +434,71 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	require.Less(t, took, bound,
 		"Stop waited %s behind a session end's drain: the grace must run from Stop's start, not after runWG", took)
 }
+
+// TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget: a flush only a hook's client spool
+// holds — its dial failed while the daemon was serving — is replayed by a drain, and the drains that
+// run while the daemon serves are budgeted: the client-spool watcher's pass, the drains the lanes ask
+// for and the idle drain get idleRunBudget, and any one line drainLineDeadline. Ended inside the pass,
+// the session's settle and SessionEnd got whatever was left of that budget, and a SessionEnd longer
+// than that could never finish through those drains. The flush must be ended as an acknowledged live
+// one is — on its own goroutine, with no budget but the end's own — and acknowledged only once its
+// SessionEnd has really run.
+func TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget(t *testing.T) {
+	dd, hold, root := flushAsyncDaemon(t)
+	dd.drainsEndSessions.Store(true) // serving: Run sets it once its startup drain is done
+	var finished atomic.Int32
+	held := dd.svc.SessionEnd
+	dd.svc.SessionEnd = func(ctx context.Context, e hookio.Event) error {
+		err := held(ctx, e)
+		if err == nil {
+			finished.Add(1)
+		}
+		return err
+	}
+
+	const sess core.SessionID = "sess-flush-pass-budget"
+	req := flushAsyncRequest(dd, root, sess, orderNonce(62))
+	writeSpoolLines(t, root, "client-6262.ndjson", req) // the flush only its hook's client spool holds
+
+	// A client-spool pass, as the watcher runs one, with its budget shortened.
+	pass, cancel := context.WithTimeout(context.Background(), stopJoinProbe)
+	defer cancel()
+	_, _ = dd.drain.Load().DrainClientSpools(pass)
+	select {
+	case <-hold.entered:
+	case <-time.After(liveOrderBound):
+		require.FailNow(t, "the replayed flush never reached SessionEnd")
+	}
+	<-pass.Done() // the pass's budget is spent while SessionEnd is still running
+
+	hold.open()
+	flushAsyncAwait(t, dd)
+	require.Equal(t, int32(1), finished.Load(),
+		"the replayed flush's SessionEnd ran to completion, once, and was not cut off at the pass's budget")
+	j, err := dd.deliveryJournal()
+	require.NoError(t, err)
+	lease, leased, err := j.leaseHeld(req.Nonce)
+	require.NoError(t, err)
+	require.True(t, leased)
+	require.True(t, j.acknowledged(lease.Delivery), "the ended flush reaches the committed frontier")
+	require.Eventually(t, func() bool { return spoolWatchGone(root, "client-6262.ndjson") },
+		liveOrderBound, liveOrderTick, "the absorbed client spool is released")
+	sr, err := LoadSessionRecovery(root)
+	require.NoError(t, err)
+	require.NotContains(t, sr.Sessions, sess, "a finished session end leaves no recovery marker")
+}
+
+// TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged: a flush a drain replays inline — the
+// startup drain, Stop's drain — is acknowledged by that drain when the route answers OK. A session end
+// its context cut short, before or during SessionEnd, has not ended the session, and must not answer
+// OK: a drain whose pass outlived the line's own drainLineDeadline, the startup drain's, acknowledged
+// it, and SessionEnd never ran for that session.
+func TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged(t *testing.T) {
+	dd, _, root := flushAsyncDaemon(t) // SessionEnd stays held, as a slow one would be
+	const sess core.SessionID = "sess-flush-cut-short"
+	ctx, cancel := context.WithTimeout(context.Background(), stopJoinProbe)
+	defer cancel()
+	resp := dd.flushRoute(ctx, flushAsyncRequest(dd, root, sess, orderNonce(63)), false)
+	require.False(t, resp.OK, "a session end its context cut short answered OK, so its drain would acknowledge it")
+	require.NotEmpty(t, resp.Err)
+}
