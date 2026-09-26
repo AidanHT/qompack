@@ -74,8 +74,8 @@ func OpenFile(p string, flag int, perm fs.FileMode) (*os.File, error) {
 		// syscall rather than one per directory level up to the project root.
 		return os.OpenFile(Long(p), flag, perm)
 	}
-	root, ok := rootOf(p)
-	if ok && IsProtected(root, p) {
+	root, abs, ok := rootOf(p)
+	if ok && IsProtected(root, abs) {
 		if flag&os.O_TRUNC != 0 {
 			return nil, fmt.Errorf("%w: O_TRUNC on %s", core.ErrAppendOnly, p)
 		}
