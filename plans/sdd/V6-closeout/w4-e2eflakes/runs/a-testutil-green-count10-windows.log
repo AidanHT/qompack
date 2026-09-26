@@ -1,0 +1,23 @@
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.63s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.83s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.50s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.70s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.22s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.56s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.91s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.33s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.21s)
+=== RUN   TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+--- PASS: TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles (1.53s)
+PASS
+ok  	github.com/qompack/qompack/internal/testutil	15.715s
+exit=0
