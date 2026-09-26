@@ -17,10 +17,6 @@ const tempFilePrefix = "wa-"
 
 // pathOwner is what ownerOf finds on a path's own directory chain.
 type pathOwner struct {
-	// abs is the path made absolute, the form the §7.4 guard must be asked about: filepath.Rel
-	// cannot relate a relative path to an absolute root, so IsProtected(root, p) answers "not
-	// protected" for every relative spelling of a protected path.
-	abs string
 	// root is the project root whose .qompack owns the path, so Of(root).Tmp is where WriteAtomic
 	// stages. It is meaningful only when owned is true.
 	root  string
@@ -60,15 +56,19 @@ type pathOwner struct {
 // cannot unprotect anything by standing between a protected file and its real store: a path through
 // <root>/.qompack/checkpoints/.qompack/ is still under <root>'s checkpoints/.
 //
+// Every store is asked about p made absolute: filepath.Rel cannot relate a relative path to an
+// absolute root, so IsProtected(root, p) answered "not protected" for every relative spelling of a
+// protected path. A p that cannot be made absolute is owned and guarded by nothing, as before.
+//
 // Only an element named .qompack costs a stat, so the walk no longer stats every ancestor up to the
 // volume root. The name is compared the way IsProtected's filepath.Rel compares it: case-folded on
 // Windows, where both the filesystem and filepath.Rel fold case, and exactly elsewhere.
 func ownerOf(p string) pathOwner {
+	var o pathOwner
 	abs, err := filepath.Abs(p)
 	if err != nil {
-		return pathOwner{abs: p}
+		return o
 	}
-	o := pathOwner{abs: abs}
 	nearest := true
 	for d := filepath.Dir(abs); ; {
 		parent := filepath.Dir(d)
