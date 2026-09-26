@@ -115,6 +115,27 @@ func TestPublicationPasses_FreshLeasedToolCaptureSyncsTwice(t *testing.T) {
 	require.Equal(t, core.ToolUseID("toolu_B"), a.SupersededBy, "the mark landed with B's record")
 }
 
+// TestPublicationPasses_FreshLeasedPromptSyncsTwice pins the prompt path's fresh publication.
+func TestPublicationPasses_FreshLeasedPromptSyncsTwice(t *testing.T) {
+	r := newPassRig(t)
+	id := r.sidecar(1, "observe.prompt")
+	_, err := r.o.OnUserPrompt(WithObservation(context.Background(), id), promptOf("a prompt to capture"))
+	require.NoError(t, err)
+	require.Equal(t, int64(2), r.passes(), "a fresh leased prompt pays the two §0.2.2 barriers")
+	r.requirePublished(id, VerbatimPromptID(testSession, 0))
+}
+
+// TestPublicationPasses_FreshLeasedSubagentStopSyncsTwice pins the SubagentStop path's fresh
+// publication.
+func TestPublicationPasses_FreshLeasedSubagentStopSyncsTwice(t *testing.T) {
+	r := newPassRig(t)
+	id := r.sidecar(1, rdxOpStop)
+	_, err := r.o.OnStop(WithObservation(context.Background(), id), stopOf(true), true)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), r.passes(), "a fresh leased subagent capture pays the two §0.2.2 barriers")
+	r.requirePublished(id, SubagentCaptureID(testSession, 0))
+}
+
 // TestPublicationPasses_RedeliveryReprovesTheOriginalPublication pins the recovery path as
 // unchanged: a redelivery of a published capture re-proves the root before the store completes the
 // intent, syncs after it, and re-proves again before the link, so it pays three passes — in the same
