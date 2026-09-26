@@ -1,0 +1,20 @@
+{
+  "name": "config_json_corrupt",
+  "phase": "publication",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "721af7689f8e64131bb83024870d1c954f98679037d9b2e6b87fb5523e556c04"
+  },
+  "boundary": "config.json corrupt",
+  "seed_method": "the `config-corrupt` QOMPACK_FAULT site, which writes truncated JSON into .qompack/config.json from a real hook process (internal/cli/fault.go)",
+  "outcome": "explicit_incomplete",
+  "reason": "the cut introduced no dangling reference; recording did not resume within the bound and the product says so on LOUD.log+self-test --json+day log (warn): daylog[2]: qompack-20260926.log: ts=2026-09-26T01:25:39.903122936Z level=loud msg=\"configuration unusable, using defaults\" message=\"unparseable config: unexpected end of JSON input\" location=/tmp/qompack-fault-3087123545/proj/.qompack/config.json; loud[2]: ts=2026-09-26T01:25:39.903122936Z level=loud msg=\"configuration unusable, using defaults\" message=\"unparseable config: unexpected end of JSON input\" location=/tmp/qompack-fault-3087123545/proj/.qompack/config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)",
+  "detail": "cut: .qompack/config.json holds 25 bytes of unparseable JSON\neverything the surfaces gained: daylog[2]: qompack-20260926.log: ts=2026-09-26T01:25:39.903122936Z level=loud msg=\"configuration unusable, using defaults\" message=\"unparseable config: unexpected end of JSON input\" location=/tmp/qompack-fault-3087123545/proj/.qompack/config.json; loud[2]: ts=2026-09-26T01:25:39.903122936Z level=loud msg=\"configuration unusable, using defaults\" message=\"unparseable config: unexpected end of JSON input\" location=/tmp/qompack-fault-3087123545/proj/.qompack/config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)\nof which naming this cut (config): daylog[2]: qompack-20260926.log: ts=2026-09-26T01:25:39.903122936Z level=loud msg=\"configuration unusable, using defaults\" message=\"unparseable config: unexpected end of JSON input\" location=/tmp/qompack-fault-3087123545/proj/.qompack/config.json; loud[2]: ts=2026-09-26T01:25:39.903122936Z level=loud msg=\"configuration unusable, using defaults\" message=\"unparseable config: unexpected end of JSON input\" location=/tmp/qompack-fault-3087123545/proj/.qompack/config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\ndegradation (new since the cut): daylog[2]: qompack-20260926.log: ts=2026-09-26T01:25:39.903122936Z level=loud msg=\"configuration unusable, using defaults\" message=\"unparseable config: unexpected end of JSON input\" location=/tmp/qompack-fault-3087123545/proj/.qompack/config.json; loud[2]: ts=2026-09-26T01:25:39.903122936Z level=loud msg=\"configuration unusable, using defaults\" message=\"unparseable config: unexpected end of JSON input\" location=/tmp/qompack-fault-3087123545/proj/.qompack/config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}
