@@ -148,6 +148,13 @@ func (l *rsLogger) Loud(msg string, _ ...any) {
 }
 
 func (l *rsLogger) loudCount() int { l.mu.Lock(); defer l.mu.Unlock(); return len(l.louds) }
+
+func (l *rsLogger) loudMsgs() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string(nil), l.louds...)
+}
+
 func (l *rsLogger) warnCount() int { l.mu.Lock(); defer l.mu.Unlock(); return len(l.warns) }
 
 var _ logging.Logger = (*rsLogger)(nil)
@@ -610,9 +617,19 @@ func TestService_CheckpointErrorAnswersWithTheDeferredNote(t *testing.T) {
 	rsRequireNotBuiltReport(t, f.proj.Root, "the checkpoint store could not be read")
 }
 
-// TestService_BuildFailureAnswersWithTheDeferredNote: a build that returns an error — today that is
-// the daemon stopping under it, which cancels the build's context — is answered with the deferred
-// note (D11), Loud once, and recorded as never built.
+// TestService_BuildFailureAnswersWithTheDeferredNote: a build that returns an error is answered
+// with the deferred note (D11), Loud once, and recorded as never built. The only error
+// rehydrate.BuildWithStats returns is its context's, and in the daemon that context ends only when
+// Stop cancels the rehydration (startReplyWork), so the note and the report say the daemon was
+// shutting down — the build did not fail on its merits, and nothing about it needs repairing.
+//
+// Criterion change (w3-startroute review, 2026-09-26): this row required DeferredFailed ("building
+// it failed") and a report saying the build failed. That named the wrong cause for the one error a
+// build can return: the rehydration was cut short by the daemon stopping. The row now requires the
+// cause the rest of the route already uses for a stopping daemon (DeferredStopping), still Loud once
+// and still recorded as never built. A failure on the build's merits is still DeferredFailed
+// (TestService_PanicRecovered, and the route's
+// TestSessionStartCompact_FailedRehydrationSeamIsAnsweredWithTheNote).
 func TestService_BuildFailureAnswersWithTheDeferredNote(t *testing.T) {
 	f := rsNewFixture(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -620,9 +637,47 @@ func TestService_BuildFailureAnswersWithTheDeferredNote(t *testing.T) {
 
 	out, err := f.svc.OnCompact(ctx, rsCompactEvent(f.proj.Root))
 	require.NoError(t, err, "a hook may exit only 0 (§2.3); the failure is reported, never returned")
-	rsRequireDeferredNote(t, out, daemon.DeferredFailed)
-	require.Equal(t, 1, f.log.loudCount(), "a failed build is never silent (§12)")
-	rsRequireNotBuiltReport(t, f.proj.Root, "building the rehydration failed")
+	rsRequireDeferredNote(t, out, daemon.DeferredStopping)
+	require.Equal(t, 1, f.log.loudCount(), "a rehydration lost to a stopping daemon is never silent (§12)")
+	rsRequireNotBuiltReport(t, f.proj.Root, "the Qompack daemon was shutting down")
+	require.NotContains(t, rsReadState(t, f.proj.Root).Dropped[0].Detail, "building the rehydration failed",
+		"a build cut short by the daemon stopping did not fail on its merits")
+}
+
+// TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping: the shipped reader returns its
+// context's error once that context has ended, before it reads a checkpoint (fileReader.load), and
+// in the daemon the rehydration's context ends only when Stop cancels it (startReplyWork). That is
+// the daemon stopping, not the store failing: the note and the drop report say so, and the store is
+// not Loud'd as unreadable, so neither the transcript nor dropped() sends anyone to repair a store
+// that is healthy. The same store read under a live context then rehydrates, which is what shows it
+// was healthy.
+func TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping(t *testing.T) {
+	f := rsNewFixture(t)
+	body, err := checkpoint.Marshal(rsGoldenCheckpoint(t))
+	require.NoError(t, err)
+	rsWriteCheckpointArtifact(t, f.proj.Root, body)
+	svc := rsRealReaderService(t, f)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	out, err := svc.OnCompact(ctx, rsCompactEvent(f.proj.Root))
+	require.NoError(t, err, "a hook may exit only 0 (§2.3); the failure is reported, never returned")
+	rsRequireDeferredNote(t, out, daemon.DeferredStopping)
+	require.Zero(t, f.tok.count(), "nothing is built once the daemon is stopping")
+	require.Equal(t, 1, f.log.loudCount(), "a rehydration lost to a stopping daemon is never silent (§12)")
+	require.NotContains(t, f.log.loudMsgs(), "rehydrate: checkpoint unreadable",
+		"a healthy store is never reported unreadable")
+	rsRequireNotBuiltReport(t, f.proj.Root, "the Qompack daemon was shutting down")
+	require.NotContains(t, rsReadState(t, f.proj.Root).Dropped[0].Detail, "checkpoint store could not be read",
+		"dropped() must not blame the store for the daemon stopping")
+
+	out, err = svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.NotNil(t, out.HookSpecificOutput)
+	ac := out.HookSpecificOutput.AdditionalContext
+	require.NotEmpty(t, ac, "the store the cancelled read did not blame is healthy: it rehydrates")
+	require.NotContains(t, ac, daemon.DeferredNoteTag)
+	require.Equal(t, 1, f.log.loudCount(), "and reading it is not a contract event")
 }
 
 // rsRealReaderService is rsNewFixture's service over the SHIPPED checkpoint reader instead of the

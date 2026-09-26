@@ -144,10 +144,13 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		degraded error
 	)
 	s.phase(histRehydrateLatest, func() { cp, ref, degraded = s.latest(ctx, e.SessionID) })
-	if degraded == errFatalCheckpoint {
+	switch degraded {
+	case errFatalCheckpoint:
 		// Nothing is built on a store that cannot be read — a half-known context would be worse than
 		// none — but the compaction is still answered: with the note, not silence (D11).
 		return s.notBuilt(ctx, e.SessionID, DeferredCheckpointUnreadable, notBuiltCheckpointUnreadable), nil
+	case errCheckpointCutShort:
+		return s.stopped(ctx, e.SessionID, "reading the checkpoint"), nil
 	}
 
 	budget := core.Tokens(s.o.Cfg.Runtime.Rehydrate.MaxTokens)
@@ -175,6 +178,9 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 
 	s.timed(func() { res, stats, buildErr = rehydrate.BuildWithStats(ctx, req, deps) })
 	if buildErr != nil {
+		if cutShort(ctx, buildErr) {
+			return s.stopped(ctx, e.SessionID, "building the rehydration"), nil
+		}
 		s.o.Log.Loud("rehydrate: build failed", "session", string(e.SessionID), "err", buildErr.Error())
 		return s.notBuilt(ctx, e.SessionID, DeferredFailed, notBuiltBuildFailed), nil
 	}
@@ -256,11 +262,25 @@ func (s *rehydrateService) OnClear(ctx context.Context, e observer.Event) (out o
 	return hookio.Empty(), nil
 }
 
-// The two non-fatal checkpoint outcomes latest distinguishes.
+// The checkpoint outcomes latest distinguishes besides a checkpoint: none to read, a store that
+// cannot be read, and a read its own context cut short (cutShort), which is no fault of the store.
 var (
-	errNoCheckpoint    = errors.New("rehydrate: no checkpoint")
-	errFatalCheckpoint = errors.New("rehydrate: checkpoint unreadable")
+	errNoCheckpoint       = errors.New("rehydrate: no checkpoint")
+	errFatalCheckpoint    = errors.New("rehydrate: checkpoint unreadable")
+	errCheckpointCutShort = errors.New("rehydrate: checkpoint read cut short")
 )
+
+// cutShort reports whether err is ctx's own ending rather than a fault of the work that returned it:
+// the shipped checkpoint reader and rehydrate.BuildWithStats both return ctx.Err() once ctx has ended.
+//
+// In the daemon a rehydration's context ends only when Stop cancels it: startReplyWork runs it under
+// a context that keeps none of the request's cancellation or deadline and is cancelled through
+// promptCtx alone. So a rehydration cut short is one the daemon stopping took away (stopped), and
+// never a store to be reported unreadable or a build that failed.
+func cutShort(ctx context.Context, err error) bool {
+	cerr := ctx.Err()
+	return cerr != nil && errors.Is(err, cerr)
+}
 
 // latest resolves the checkpoint to rehydrate from.
 //
@@ -283,6 +303,10 @@ func (s *rehydrateService) latest(ctx context.Context, sess core.SessionID) (che
 		s.o.Log.Info("rehydrate: no checkpoint for session; building from L0 and the ledger",
 			"session", string(sess), "err", err.Error())
 		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errNoCheckpoint
+	case cutShort(ctx, err):
+		// The read stopped because its context ended, not because the store failed it: OnCompact
+		// reports the daemon stopping (stopped), and the store is not Loud'd as unreadable.
+		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errCheckpointCutShort
 	default:
 		s.o.Log.Loud("rehydrate: checkpoint unreadable", "session", string(sess), "err", err.Error())
 		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errFatalCheckpoint
@@ -322,6 +346,7 @@ const (
 	notBuiltCheckpointUnreadable = "not delivered: the checkpoint store could not be read, so no rehydration " +
 		"was built"
 	notBuiltBuildFailed = "not delivered: building the rehydration failed"
+	notBuiltStopping    = "not delivered: the Qompack daemon was shutting down, so no rehydration was built"
 	// notBuiltAnswered is what the model received when the daemon answered the compaction itself: its
 	// deferred note, on time or — when the route had already answered at its bound — earlier.
 	notBuiltAnswered = "the model received a deferred note instead"
@@ -329,14 +354,15 @@ const (
 )
 
 // notBuilt is the answer to a compaction whose rehydration could not be built — the checkpoint store
-// could not be read, the build returned an error, or it panicked. Owner decision D11: such a
-// compaction is answered with the explicit deferred note naming reason, exactly as a late one is
-// (session_start_compact.go), never with silence, which would leave the model with a compacted
-// context and no word of what it lost. A session.start route waiting on this rehydration is answered
-// first, through its ticket, so the route counts and Louds the deferral like any other; then the drop
-// report is recorded as never built (recordNotBuilt), off the answer's path, so dropped() does not
-// describe an earlier rehydration as this one. Degraded-passive and the reinjection kill switch are
-// checked before anything that can fail, so neither ever reaches here: they still answer nothing.
+// could not be read, the build failed or panicked, or the daemon stopping cut it short (stopped).
+// Owner decision D11: such a compaction is answered with the explicit deferred note naming reason,
+// exactly as a late one is (session_start_compact.go), never with silence, which would leave the
+// model with a compacted context and no word of what it lost. A session.start route waiting on this
+// rehydration is answered first, through its ticket, so the route counts and Louds the deferral like
+// any other; then the drop report is recorded as never built (recordNotBuilt), off the answer's path,
+// so dropped() does not describe an earlier rehydration as this one. Degraded-passive and the
+// reinjection kill switch are checked before anything that can fail, so neither ever reaches here:
+// they still answer nothing.
 //
 // What the model received instead is the daemon's note, except for a compaction replayed from a hook's
 // spool (its ticket abandoned with undeliveredReplayed): that hook answered without the daemon, with
@@ -354,14 +380,24 @@ func (s *rehydrateService) notBuilt(ctx context.Context, sess core.SessionID, re
 	return compactDeferredOutput(sess, reason)
 }
 
+// stopped is notBuilt for a rehydration the daemon stopping cut short while it was doing what
+// (cutShort): the note and the drop report name that cause (DeferredStopping, notBuiltStopping),
+// never an unreadable store or a failed build. It is Loud once, as every compaction answered without
+// its rehydration is (§13 invariant 10).
+func (s *rehydrateService) stopped(ctx context.Context, sess core.SessionID, what string) hookio.Output {
+	s.o.Log.Loud("rehydrate: stopped before the rehydration was built", "session", string(sess), "while", what)
+	return s.notBuilt(ctx, sess, DeferredStopping, notBuiltStopping)
+}
+
 // recordNotBuilt persists the drop report of a compaction whose rehydration was never built: one
 // entry for the whole rehydration, saying so and why, and where the checkpoints are kept. It lists no
 // emitted items and no tokens, because nothing was emitted, and it is marked degraded.
 //
-// It records under a context that keeps ctx's values but not its cancellation: the build that failed
-// may have failed BECAUSE its context was cancelled (the daemon stopping), and that compaction is one
-// dropped() must describe all the same. The write is one small atomic replace, and Stop joins it with
-// the rest of the reply work (startReplyWork). A failed write is warned and swallowed, like record's.
+// It records under a context that keeps ctx's values but not its cancellation: the rehydration may
+// not have been built BECAUSE its context was cancelled (the daemon stopping, stopped), and that
+// compaction is one dropped() must describe all the same. The write is one small atomic replace, and
+// Stop joins it with the rest of the reply work (startReplyWork). A failed write is warned and
+// swallowed, like record's.
 func (s *rehydrateService) recordNotBuilt(ctx context.Context, sess core.SessionID, why string) {
 	if s.o.Reporter == nil {
 		return

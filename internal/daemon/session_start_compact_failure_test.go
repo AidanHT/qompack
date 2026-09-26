@@ -61,8 +61,16 @@ type failureFixture struct {
 
 func newFailureFixture(t *testing.T, reader *failingReader) *failureFixture {
 	t.Helper()
+	f := newFailureFixtureOver(t, reader)
+	f.reader = reader
+	return f
+}
+
+// newFailureFixtureOver is newFailureFixture over any checkpoint.Reader; f.reader stays nil.
+func newFailureFixtureOver(t *testing.T, reader checkpoint.Reader) *failureFixture {
+	t.Helper()
 	root := t.TempDir()
-	f := &failureFixture{log: newRecordingLogger(), reader: reader}
+	f := &failureFixture{log: newRecordingLogger()}
 	o := NewOptions(root, testConfig())
 	o.Log = f.log
 	var mode func() contract.Mode
@@ -122,6 +130,50 @@ func TestSessionStartCompact_UnreadableCheckpointStoreIsAnsweredWithTheNote(t *t
 	require.NotEmpty(t, drops, "dropped() must describe this compaction, not an earlier one")
 	require.Equal(t, undeliveredDropKind, drops[0].Kind)
 	require.True(t, strings.HasPrefix(drops[0].Detail, "not delivered: "), "never reported as delivered: %q", drops[0].Detail)
+}
+
+// stoppingReader is a checkpoint.Reader whose Latest waits for its context to end and then returns
+// that context's error, as the shipped reader does once its context has ended (fileReader.load).
+type stoppingReader struct {
+	failingReader
+	entered chan struct{}
+}
+
+func (r *stoppingReader) Latest(ctx context.Context, _ core.SessionID) (checkpoint.Checkpoint, checkpoint.Ref, error) {
+	close(r.entered)
+	<-ctx.Done()
+	return checkpoint.Checkpoint{}, checkpoint.Ref{}, ctx.Err()
+}
+
+// TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping: Stop cancels a compact
+// rehydration's context (startReplyWork, through promptCtx) while it is reading the checkpoint store.
+// The store did nothing wrong, so the route answers that the daemon was shutting down, and dropped()
+// says the same — never that the checkpoint store could not be read.
+func TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping(t *testing.T) {
+	reader := &stoppingReader{entered: make(chan struct{})}
+	f := newFailureFixtureOver(t, reader)
+	const sess = core.SessionID("sess-d11-stopping")
+
+	go func() {
+		select {
+		case <-reader.entered:
+			f.dd.promptCancel() // what Stop does to the reply work it joins
+		case <-time.After(compactTestBound):
+		}
+	}()
+	resp, _ := dispatchWithin(t, f.dd, compactRequest(f.dd.root, sess), compactTestBound,
+		"a rehydration the daemon stopped must answer the route at once")
+	requireFailureNote(t, f, resp, sess, DeferredStopping)
+	require.NotContains(t, f.log.msgs(logLoud), "rehydrate: checkpoint unreadable",
+		"a healthy store is never blamed")
+
+	joinReplyWork(t, f.dd)
+	drops, err := rehydrate.NewReporter(f.dd.root, f.log).CurrentDrops(context.Background(), sess)
+	require.NoError(t, err)
+	require.NotEmpty(t, drops, "dropped() must describe this compaction, not an earlier one")
+	require.Equal(t, undeliveredDropKind, drops[0].Kind)
+	require.True(t, strings.HasPrefix(drops[0].Detail, notBuiltStopping), "%q", drops[0].Detail)
+	require.NotContains(t, drops[0].Detail, "checkpoint store could not be read")
 }
 
 // TestSessionStartCompact_PanickingRehydrationServiceIsAnsweredWithTheNote: the shipped service's own
