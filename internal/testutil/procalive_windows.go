@@ -7,15 +7,8 @@ import (
 	"syscall"
 )
 
-// stillActiveExitCode is GetExitCodeProcess's "has not exited yet" sentinel — STILL_ACTIVE, the
-// 259 that Windows reports as a running process's exit code. It is declared here rather than
-// pulled from golang.org/x/sys/windows for the reason internal/daemon/spawn_windows.go gives for
-// its own CREATE_NO_WINDOW/DETACHED_PROCESS constants; the standard syscall package does carry
-// OpenProcess and GetExitCodeProcess, it simply does not export this one constant (measured:
-// `undefined: syscall.STILL_ACTIVE`).
-const stillActiveExitCode = 259
-
-// ProcessAlive reports whether a process with this pid is still running.
+// ProcessAlive reports whether a process with this pid is still running — and, on Windows, "not
+// running" means its process object has been SIGNALED, not merely that it has an exit code.
 //
 // internal/daemon asks the same question as step 3 of its staleness protocol and, on Windows,
 // declines to answer: lock_windows.go's pidAlive returns known=false. That is the right call
@@ -23,12 +16,23 @@ const stillActiveExitCode = 259
 // no opinion. A test's shutdown helper has no such fallback — its only alternative would be
 // daemon.staleAfter, 90 seconds, per subtest — so it asks Windows directly instead.
 //
-// OpenProcess + GetExitCodeProcess is decisive in both directions. Measured on this tree's own
-// runner (windows/amd64, go1.26.6), with a DETACHED_PROCESS child standing in for a spawned
-// daemon:
+// Every caller returns on "not alive" and hands a project directory to t.TempDir's RemoveAll, so
+// the answer has to mean the process can no longer hold anything open there. An exit code does not
+// mean that. Windows sets a process's exit code before it closes the process's handles and unmaps
+// its memory, and signals the process object only after both. This probe used to be
+// GetExitCodeProcess != STILL_ACTIVE, and measured against a child holding files open without
+// FILE_SHARE_DELETE (plans/sdd/V6-closeout/w4-e2eflakes/runs/diag-a-exitcode-vs-signaled-windows.txt):
+// in 120 of 120 exits the exit code was set while the object was not yet signaled, for up to
+// 151 ms; in 115 of them the child's file still could not be deleted at that instant; in 0 of 120
+// was it still held once the object was signaled. TestProcessAlive_V6_WindowsExitedChildHoldsNoHandles
+// pins the difference.
 //
-//	this process                                 -> exit code 259            -> alive
-//	a live detached child                        -> exit code 259            -> alive
+// OpenProcess(SYNCHRONIZE) + a zero-timeout WaitForSingleObject is decisive in both directions.
+// Measured on this tree's own runner (windows/amd64, go1.26.6; w4-e2eflakes runs/
+// diag-a-probe-table-windows.txt), with a DETACHED_PROCESS child standing in for a spawned daemon:
+//
+//	this process                                 -> WAIT_TIMEOUT             -> alive
+//	a live detached child                        -> WAIT_TIMEOUT             -> alive
 //	that child after Kill + Wait + Release       -> ERROR_INVALID_PARAMETER  -> dead
 //	a pid that never existed                     -> ERROR_INVALID_PARAMETER  -> dead
 //	pid 4 (System, not ours to query)            -> ERROR_ACCESS_DENIED      -> alive
@@ -45,17 +49,17 @@ func ProcessAlive(pid int) bool {
 	if pid <= 0 {
 		return false
 	}
-	h, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(pid))
+	h, err := syscall.OpenProcess(syscall.SYNCHRONIZE, false, uint32(pid))
 	if err != nil {
 		return errors.Is(err, syscall.ERROR_ACCESS_DENIED)
 	}
 	defer func() { _ = syscall.CloseHandle(h) }()
 
-	var code uint32
-	if err := syscall.GetExitCodeProcess(h, &code); err != nil {
-		// The handle opened, so a process object is there; a query that failed for some other
+	event, err := syscall.WaitForSingleObject(h, 0)
+	if err != nil {
+		// The handle opened, so a process object is there; a wait that failed for some other
 		// reason is not evidence of death, and guessing "dead" is the expensive direction.
 		return true
 	}
-	return code == stillActiveExitCode
+	return event != syscall.WAIT_OBJECT_0
 }

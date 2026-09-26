@@ -19,7 +19,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -239,6 +241,67 @@ func scWarmDaemon(t *testing.T, bin string, p *testutil.Project, env map[string]
 // scStatePath is <root>/.qompack/state/rehydrate-<sess>.json.
 func scStatePath(root string) string {
 	return filepath.Join(paths.Of(root).State, "rehydrate-"+string(scSession)+".json")
+}
+
+// scStateRecordBound bounds the wait for a compact rehydration's state file after the compact
+// SessionStart that built it has answered.
+//
+// The file is written AFTER the answer, by design. C1.16 (e7c1954) hands the built payload to the
+// waiting session.start route first, so that the drop report's durable write (a paths.WriteAtomic:
+// staging file, fsync, rename) is never on the answer's path. internal/daemon/rehydrate_service.go
+// says so where it offers the answer. The hook's reply is therefore no evidence that the file
+// exists yet, and a row that reads it the moment the hook returns is racing the daemon's own write.
+// What this waits for is one durable file write that follows a reply, the same class of work
+// obsProcessAllowance already bounds for the observer's post-ACK store writes, so it reuses that
+// allowance instead of adding a second number for the same mechanism.
+const scStateRecordBound = obsProcessAllowance
+
+// scAwaitState waits, within scStateRecordBound, for the rehydration state file at p to exist, and
+// returns it decoded.
+//
+// It reads through paths.ReadFileShared, never os.ReadFile, and that is half of the fix. The writer
+// replaces the file with a POSIX-semantics rename issued through a handle that holds DELETE access
+// (internal/paths/replace_windows.go, posixReplace). On Windows an os.ReadFile handle
+// (FILE_SHARE_READ|FILE_SHARE_WRITE, no FILE_SHARE_DELETE) cannot open the file while that handle
+// is open, and fails with ERROR_SHARING_VIOLATION: the co-load red w3-e2ereds recorded for
+// TestV5_PreCompactToRehydrateToDroppedRoundTrip. The same os.ReadFile handle, held across the
+// rename, also makes the daemon's replace fail, so a row reading that way can turn its own read
+// into a failed Record. Measured on Windows over 10 s each (plans/sdd/V6-closeout/w4-e2eflakes/
+// runs/diag-b-sharing-modes-rerun-windows.txt): an os.ReadFile reader racing WriteAtomic replaces
+// saw 863 sharing violations in 53,980 reads and failed 98 of 402 replaces; a paths.ReadFileShared
+// reader saw none in 63,201 reads and failed none of 449. The product's own reader of this file,
+// the dropped tool's rehydrate CurrentDrops, already reads through paths.ReadFileShared.
+//
+// Only "does not exist yet" is waited out. Any other read error, and a file that does not decode,
+// fails at once: the replace is atomic, so a reader never sees a partial file, and no other error
+// is a transient this wait may absorb.
+//
+// A ticker paces the poll (§6.1 bans time.Sleep in tests), and the bound is a wall-clock
+// comparison rather than a second select channel, for the reason x13v4Quiesce gives: an expired
+// wait here is a hard failure, so its bound must not slip.
+func scAwaitState(t *testing.T, p string) rehydrate.State {
+	t.Helper()
+	ticker := time.NewTicker(obsProcessTick)
+	defer ticker.Stop()
+	deadline := time.Now().Add(scStateRecordBound)
+	for {
+		b, err := paths.ReadFileShared(p)
+		switch {
+		case err == nil:
+			var st rehydrate.State
+			require.NoError(t, json.Unmarshal(b, &st), "%s must decode as a rehydrate.State: %s", p, b)
+			return st
+		case !errors.Is(err, fs.ErrNotExist):
+			require.NoError(t, err, "reading the rehydration state file %s", p)
+		}
+		if time.Now().After(deadline) {
+			require.FailNowf(t, "the compact rehydration never persisted its state file",
+				"%s did not appear within %s of the compact SessionStart's answer. The rehydrate "+
+					"service writes it right after it offers the answer (C1.16), so its absence means "+
+					"the Record never ran or failed, not that it was slow", p, scStateRecordBound)
+		}
+		<-ticker.C
+	}
 }
 
 // scFailedSummaryTranscript writes the "the model called a tool instead of summarizing" tail: a
@@ -472,8 +535,10 @@ func TestE2E_SessionStartClear(t *testing.T) {
 
 	scWarmDaemon(t, bin, p, env)
 	scRunStart(t, bin, env, scStartPayload(t, p.Root, "compact", ""))
-	require.FileExists(t, paths.Long(scStatePath(p.Root)),
-		"the compact run must have recorded what it injected")
+	// The compact run must have recorded what it injected. The record lands after the answer
+	// (scStateRecordBound), so this waits for it, which also keeps it from landing after the
+	// clear below and recreating the file the clear just removed.
+	scAwaitState(t, scStatePath(p.Root))
 
 	out := scRunStart(t, bin, env, scStartPayload(t, p.Root, "clear", ""))
 	ac := ""
