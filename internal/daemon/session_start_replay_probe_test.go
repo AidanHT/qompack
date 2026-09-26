@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -159,4 +160,33 @@ func TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried(t *testing.T) {
 	require.NotNil(t, next.Output)
 	require.Contains(t, next.Output.SystemMessage, "Qompack: degraded to passive recording",
 		"the banner whose answer was lost is owed to the next live start")
+}
+
+// TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession: a replayed start mints
+// no probe, so the probe an EARLIER live start minted stays current — one the host did deliver, to
+// that earlier session's transcript. The replayed session's own prompts scan their own transcript,
+// which never had it: counting their misses would degrade the project two prompts later exactly as
+// the undelivered probe did, whenever the earlier session ended before any prompt of its own found it.
+func TestSessionStartReplay_AnEarlierSessionsProbeIsNotMissedByTheReplayedSession(t *testing.T) {
+	dd := replayProbeDaemon(t)
+	const earlier, replayed = core.SessionID("sess-earlier-live"), core.SessionID("sess-later-spooled")
+	earlierTranscript := replayTranscript(t, dd.root)
+	transcript := filepath.Join(dd.root, "later-transcript.jsonl")
+	require.NoError(t, os.WriteFile(paths.Long(transcript), []byte(`{"type":"user"}`+"\n"), 0o600))
+
+	require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, earlier, "startup", earlierTranscript, "nonce-earlier")).OK)
+	require.NotEmpty(t, history(t, dd).Sentinel.Token, "fixture: the earlier live start minted and delivered a probe")
+
+	dd.drainDispatch(context.Background(), startRequest(dd, replayed, "startup", transcript, "nonce-spooled"))
+	for range 2 {
+		promptScan(dd, replayed, transcript, core.NowMilli(dd.clk)+1)
+	}
+	require.Less(t, history(t, dd).Sentinel.Chances, 2, "no prompt of another session may run out the probe's chances")
+
+	resp := dd.dispatchOp(context.Background(), startRequest(dd, replayed, "resume", transcript, "nonce-next"))
+	require.True(t, resp.OK)
+	require.Equal(t, contract.ModeFull, dd.monitor.Mode(),
+		"a replayed SessionStart must never degrade the project through an earlier session's probe")
+	require.NotNil(t, resp.Output)
+	require.Empty(t, resp.Output.SystemMessage)
 }
