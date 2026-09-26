@@ -169,8 +169,14 @@ type publicationDirs struct {
 	order []string
 }
 
+// fanoutLevels is how many fanout directories sit between the objects/ root and an object file
+// (objects/ab/cd/<hash>, Qompack.md §7.4). It sizes publicationDirs up front, so a pass over n
+// objects allocates its set once rather than regrowing it; a wrong value costs only a regrowth.
+const fanoutLevels = 2
+
 func newPublicationDirs(top string, objects int) *publicationDirs {
-	return &publicationDirs{top: top, seen: make(map[string]struct{}, objects)}
+	n := fanoutLevels*objects + 1
+	return &publicationDirs{top: top, seen: make(map[string]struct{}, n), order: make([]string, 0, n)}
 }
 
 // add records dir and each ancestor of it up to top. A directory only ever enters the set together
