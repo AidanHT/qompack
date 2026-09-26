@@ -133,6 +133,13 @@ func parseHead(b []byte) string {
 //
 // An unreadable HEAD degrades the branch name to "unknown" rather than failing: the branch only
 // flavors a pointer_dirty detail, while the index is the check itself.
+//
+// HEAD and the index are read shared (paths.ReadFileShared). Git replaces both by renaming a
+// .lock file over them: a checkout or switch rewrites HEAD, and add, commit and an
+// index-refreshing status (which editors run in the background) rewrite the index, up to 64 MiB
+// of which is read here. On Windows an ordinary handle makes that rename fail for as long as the
+// read lasts, which git retries and, if the read outlasts its retries, reports as a failed rename
+// (test/guards' sharedReaders).
 func readGitState(root string) (string, map[string]indexEntry, error) {
 	gitDir, err := resolveGitDir(root)
 	if err != nil {
@@ -140,7 +147,7 @@ func readGitState(root string) (string, map[string]indexEntry, error) {
 	}
 
 	branch := "unknown"
-	if hb, err := os.ReadFile(filepath.Join(gitDir, "HEAD")); err == nil {
+	if hb, err := paths.ReadFileShared(filepath.Join(gitDir, "HEAD")); err == nil {
 		branch = parseHead(hb)
 	}
 
@@ -152,7 +159,7 @@ func readGitState(root string) (string, map[string]indexEntry, error) {
 	if info.Size() > maxIndexBytes {
 		return "", nil, fmt.Errorf("%w: index is %d bytes, over the 64 MiB cap", errIndexUnsupported, info.Size())
 	}
-	raw, err := os.ReadFile(idxPath)
+	raw, err := paths.ReadFileShared(idxPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("%w: reading index: %v", errIndexUnsupported, err)
 	}
