@@ -65,7 +65,7 @@ fmt-check PASS; go vet PASS on the touched packages for windows, linux and darwi
 - `go test ./tools/devtool -run 'TestAllowedBinDep|TestIsStdlib|TestShippedModulesEqualTheAllowlistIntersection' -count=1 -v` — PASS (shipped modules: go-winio, klauspost/compress, x/sys)
 - `go run ./tools/devtool licenses --check` — PASS: THIRD_PARTY_NOTICES.md is current
 - `CGO_ENABLED=0 GOOS={linux,darwin} GOARCH=amd64 govulncheck -show verbose ./cmd/qompack (pinned build)` — 0 symbol-level vulnerabilities; module-level only: GO-2026-5841 (klauspost s2, not imported), GO-2026-5024 (x/sys/windows, windows only)
-- `go test -json -count=1 -run '<the 4 tests>' ./internal/daemon ./internal/hookio ./internal/store, test edits stashed, fed to a scratch replica of classifySkips` — 4 skip problems (baseline reproduced)
+- `go test -json -count=1 -run '<the 4 tests>' ./internal/daemon ./internal/hookio ./internal/store, test edits stashed, fed to a scratch replica of classifySkips` — 4 skip problems (baseline reproduced) <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `same, with the edits plus TestMaintenance_DirectoryLinkComponentInBackupTreeRefused` — 4 PASS, 1 permitted platform skip, 0 problems
 - `mutation: paths.ResolvesInside returns lexical containment only; run the hookio JunctionSwap and daemon DrainAfterPhysicalScopeChanges tests` — both FAIL on the junction, so the tests still discriminate (reverted)
 - `mutation: maintNoFollow drops os.ModeIrregular; go test ./internal/store -run TestMaintenance_DirectoryLinkComponentInBackupTreeRefused` — FAIL as expected (reverted)
