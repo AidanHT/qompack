@@ -13,6 +13,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 // The exact estimator (00-ARCHITECTURE.md §5.20; Qompack.md G10.2) replaces the host's coarse 4/3
@@ -357,13 +358,10 @@ func DefaultCalibPath() string {
 		return filepath.Join(h, calibFileName)
 	}
 	if h, err := os.UserHomeDir(); err == nil && h != "" {
-		return filepath.Join(h, dotQompack, calibFileName)
+		return filepath.Join(paths.Global(h), calibFileName)
 	}
-	return filepath.Join(os.TempDir(), dotQompack, calibFileName)
+	return filepath.Join(paths.Global(os.TempDir()), calibFileName)
 }
-
-// dotQompack is the user-global runtime directory name, matching paths.Global's own convention.
-const dotQompack = ".qompack"
 
 // calibFileName is the calibration document's file name within that directory.
 const calibFileName = "calibration.json"

@@ -258,6 +258,18 @@ func TestDefaultCalibPath_PrefersQompackHome(t *testing.T) {
 	require.True(t, filepath.IsAbs(got))
 }
 
+// TestDefaultCalibPath_IsTheUserGlobalLayersOwnFile pins that, without QOMPACK_HOME, the calibration
+// document is named through paths.Global, the user-global layer's own root. paths.WriteAtomic then
+// stages it in that layer's .qompack/tmp because the layer is on the path, never by a walk from
+// somewhere else. The home is a temp directory; the real one is never read or written.
+func TestDefaultCalibPath_IsTheUserGlobalLayersOwnFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("QOMPACK_HOME", "")
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	require.Equal(t, filepath.Join(paths.Global(home), "calibration.json"), tokens.DefaultCalibPath())
+}
+
 // TestCalibrate_PersistMergesOverAVersionedDocument asserts persist reads a versioned document,
 // preserves every other project's entry, and writes the flat shape back.
 func TestCalibrate_PersistMergesOverAVersionedDocument(t *testing.T) {
