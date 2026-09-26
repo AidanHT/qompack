@@ -220,7 +220,7 @@ func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	recvTS := core.NowMilli(d.clk)
 	// The daemon is provably serving — release Run's spool re-drain (daemon.go, redrainOnceServing).
 	// A request drainDispatch replays from a spool proves nothing of the kind: Run's startup drain
-	// replays before Serve has accepted a connection, and spending the signal there would run the
+	// replays before Run dispatches any request, and spending the signal there would run the
 	// re-drain before the cold-start window it exists to cover has closed.
 	if !spoolReplay(ctx) {
 		d.noteServed()
@@ -1250,7 +1250,7 @@ func (d *daemon) handleFlush(ctx context.Context, req ipc.Request) ipc.Response 
 // false: a flush replayed BY Drain must never call back into Drain on the same goroutine —
 // drainer.Drain holds a plain, non-reentrant sync.Mutex for the whole replay, so a re-entrant call
 // would deadlock the daemon on the very first drained flush line, including the startup drain that
-// runs before Serve ever accepts a connection (Critical C-1, fix round 1). The drain that replays such
+// runs before Run dispatches any request (Critical C-1, fix round 1). The drain that replays such
 // a line acknowledges it itself when this answers OK, which it does not when the end's context cut it
 // short, and hands its lease over on the context, so the end still settles only the arrivals before
 // it (sessionEndArrival).
