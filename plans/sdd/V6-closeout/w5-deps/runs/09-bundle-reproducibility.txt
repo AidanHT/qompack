@@ -1,0 +1,46 @@
+== run a HEAD=2167632c3baeb3ef2f0457e3864aa7115e79531a porcelain=[] 2026-09-26T22:07:13Z
+bundle: qompack-plugin-v0.2.0-1102-g2167632-windows-amd64 (11 file(s), version v0.2.0-1102-g2167632)
+bundle: qompack-plugin-v0.2.0-1102-g2167632-linux-amd64 (11 file(s), version v0.2.0-1102-g2167632)
+bundle-a exit=0
+   after porcelain=[]
+== run b HEAD=2167632c3baeb3ef2f0457e3864aa7115e79531a porcelain=[] 2026-09-26T22:07:21Z
+bundle: qompack-plugin-v0.2.0-1102-g2167632-windows-amd64 (11 file(s), version v0.2.0-1102-g2167632)
+bundle: qompack-plugin-v0.2.0-1102-g2167632-linux-amd64 (11 file(s), version v0.2.0-1102-g2167632)
+bundle-b exit=0
+   after porcelain=[]
+== run c (fresh GOCACHE) HEAD=2167632c3baeb3ef2f0457e3864aa7115e79531a porcelain=[] 2026-09-26T22:07:42Z
+bundle: qompack-plugin-v0.2.0-1102-g2167632-windows-amd64 (11 file(s), version v0.2.0-1102-g2167632)
+bundle: qompack-plugin-v0.2.0-1102-g2167632-linux-amd64 (11 file(s), version v0.2.0-1102-g2167632)
+bundle-c exit=0
+   after porcelain=[] 2026-09-26T22:09:01Z
+
+file lists: 26 files in a, 26 in b; cmp of every file: 0 differ; diff -r a b: identical; diff -r a c (fresh GOCACHE): identical
+bin/qompack(.exe) in the bundles are byte-identical to build-all's (see 08-binary-sizes.txt sha256)
+
+sha256 of every file in bundle-a (b and c identical):
+e473876e447273e71681874c3d1d435a26149a8b896e56f810a7a09da39777cd *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/.claude-plugin/plugin.json
+90277ce38e85f33f2f65e7bb654e9cf05bdb8a37496a68ed2889c94e14c67e64 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/.mcp.json
+c8bf97ee791624d3c47c9e36ad8e89e8bc56a2bcc0d627eddd2e6068dce89d3b *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/bin/qompack
+3cba4b3ab9930caa3ce1ad67ee3274c047b8b9722e11ae4246e065791fadaf91 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/BUNDLE.json
+7a0a2da7e0542fb837fef655d8d4a4fd3583802f5f6ac4949d8735d73f3d393e *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/checksums.txt
+7c4ef8a52021641320d70fbab643f85b93791acc76fb1922f30518eccd7ad5d0 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/commands/checkpoint.md
+2fe3851069f017fbdcce72313b93cf2043fa24584d0194ac63354cd0981c912c *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/commands/dropped.md
+2e1ac0fd56b4cc89c0525f9721a5f45a5cef73f7cd3fe7c95ab6413b3f0cf280 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/commands/eval.md
+7d48a7d37859de10c28f4001ea3ecdf6eec52d0bb2585f4a2fa2be71cc147147 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/commands/pin.md
+bd9a7a1d39f2e573054997caa2b51bb01db4ccc652ef1be977c8ec2e5e4f1667 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/commands/recall.md
+b002f0354d266a9d80492fd3db4687d9ea64f92cf2e0bcc1a4cf9e4a8be5eb67 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/commands/status.md
+71aefa2f488b7734a9517b260b81eaea405f7be8253d4e1fc53b46a4b4a28729 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/commands/why.md
+1673dbebd38af56a07b07eb200daf1df127441584aaf9184d748168f0b94f805 *./qompack-plugin-v0.2.0-1102-g2167632-linux-amd64/hooks/hooks.json
+e473876e447273e71681874c3d1d435a26149a8b896e56f810a7a09da39777cd *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/.claude-plugin/plugin.json
+37d89da303e19dd551fe28e55679f613c2ffbb51c929a3a1fcbdafdc394ff268 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/.mcp.json
+d039480139a49d96d0d58660ad57e682df029b21b6c1d190f46c6771681ede9c *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/bin/qompack.exe
+c8361ae3a01758185c6c3ade1bb01e51e3e8974aef9e8a74960dd9d6032cb547 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/BUNDLE.json
+2fc561fe54a1342740bd204ff2927bdd6fe1414cff16ab8a67aecf38fab6cd06 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/checksums.txt
+7c4ef8a52021641320d70fbab643f85b93791acc76fb1922f30518eccd7ad5d0 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/commands/checkpoint.md
+2fe3851069f017fbdcce72313b93cf2043fa24584d0194ac63354cd0981c912c *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/commands/dropped.md
+2e1ac0fd56b4cc89c0525f9721a5f45a5cef73f7cd3fe7c95ab6413b3f0cf280 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/commands/eval.md
+7d48a7d37859de10c28f4001ea3ecdf6eec52d0bb2585f4a2fa2be71cc147147 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/commands/pin.md
+bd9a7a1d39f2e573054997caa2b51bb01db4ccc652ef1be977c8ec2e5e4f1667 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/commands/recall.md
+b002f0354d266a9d80492fd3db4687d9ea64f92cf2e0bcc1a4cf9e4a8be5eb67 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/commands/status.md
+71aefa2f488b7734a9517b260b81eaea405f7be8253d4e1fc53b46a4b4a28729 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/commands/why.md
+9bc236ff32295961fe25d8e38c63278662ee25f96bc949ad5a6e4183cb6e0630 *./qompack-plugin-v0.2.0-1102-g2167632-windows-amd64/hooks/hooks.json

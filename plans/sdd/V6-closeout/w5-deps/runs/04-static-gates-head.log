@@ -1,0 +1,12 @@
+HEAD=2167632c3baeb3ef2f0457e3864aa7115e79531a
+== go mod tidy -diff
+tidy-diff exit=0
+== go mod verify
+all modules verified
+verify exit=0
+== licenses --check
+licenses: THIRD_PARTY_NOTICES.md is current
+licenses exit=0
+== govulncheck (pinned)
+No vulnerabilities found.
+govulncheck exit=0
