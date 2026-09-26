@@ -713,8 +713,9 @@ daemon is running now; until it has replayed the start, the request is a `sessio
 `.qompack/spool/client-*.ndjson` file.
 
 **Meaning.** `session-start` is bounded by its 15 s manifest timeout as a whole (V6 close-out D17b):
-the daemon must be listening within 3.25 s of the hook starting, and its answer must arrive within
-the reply wait that follows (10 s, shorter when the start ran over). A start that misses either is
+the daemon must be listening within 3.25 s of the hook starting (or within 1.5 s of a spawn that
+itself ran late), and its answer must arrive within the reply wait that follows (10 s, shorter when
+the start ran over). A start that misses either is
 spooled, not lost: the daemon replays it — at its next idle drain, within 30 s, or its next start —
 and records the session, but a replayed start mints no probe and delivers no rehydration, because
 its answer could reach no one. Only one daemon is started per project however many hooks race to
