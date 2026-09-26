@@ -281,13 +281,20 @@ type hookSpec struct {
 	// hot-path state record's AckDeadlineMs, which is every observe op's; only the flush, off the hot
 	// path and with the host's SessionEnd budget to spend, sets its own (flushAckDeadline).
 	ackDeadline time.Duration
+	// hostTimeout is the host's manifest timeout for this hook. When it is set, doHook shares it out
+	// (hookBudget, V6 close-out D17b): preSend is told the instant it has to be done by, and the
+	// reply wait is cut to what is left when the steps before the dial ran over, so the whole
+	// invocation ends inside the timeout. Only session-start sets it; zero keeps the fixed deadlines.
+	hostTimeout time.Duration
 	// preSend runs once, after the project root/state are final and before the client is
-	// constructed. Only session-start uses it, to call daemon.EnsureRunning (§2.4: session-start is
-	// the designated daemon starter, off the hot path, with a generous hook timeout). self is
+	// constructed. Only session-start uses it, to call daemon.EnsureRunningUntil (§2.4: session-start
+	// is the designated daemon starter, off the hot path, with a generous hook timeout). self is
 	// env.Self threaded through explicitly (see cli.Env.Self's own doc comment) rather than read
 	// from a package-level seam. st is the same 32-byte state record doHook already read, so
-	// preSend can honour runtime.daemon.enabled without a second disk read (fix round 2, FR-6).
-	preSend func(root, self string, st ipc.State, clk core.Clock)
+	// preSend can honour runtime.daemon.enabled without a second disk read (fix round 2, FR-6). by
+	// is the instant it has to return by (hookBudget.preSendBy), zero when the hook has no
+	// hostTimeout.
+	preSend func(root, self string, st ipc.State, clk core.Clock, by time.Time)
 }
 
 // doHook stamps TS, resolves state, honors ModeOff and reads bounded raw input. The initial
@@ -307,6 +314,8 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			clk = core.SystemClock()
 		}
 		ts := clk.Now().UnixMilli() // FIRST statement — the B-A origin.
+		// The same instant on the wall clock the host's timeout runs on, whatever clk is (D17b).
+		began := time.Now()
 
 		root := resolveProjectRoot(env, nil)
 		faultCorruptStateIfNeeded(root)
@@ -448,8 +457,10 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			}
 		}()
 
+		connectDeadline := hookConnectDeadline(spec, st)
+		budget := newHookBudget(began, spec.hostTimeout, spec.deadline, connectDeadline)
 		if spec.preSend != nil {
-			spec.preSend(root, env.Self, st, clk)
+			spec.preSend(root, env.Self, st, clk, budget.preSendBy)
 		}
 
 		addr, aerr := ipc.Resolve(root)
@@ -464,8 +475,6 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		if _, on := faultActive(faultDaemonDown); on {
 			spawn = noopSpawn
 		}
-
-		connectDeadline := hookConnectDeadline(spec, st)
 
 		c := ipc.NewClientWithOptions(addr, sp, hookLog, hookMetrics, ipc.ClientOptions{
 			// State is already this hook's own single 32-byte read (st, above); NewClientWithOptions
@@ -487,7 +496,18 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			deadline = hookSendDeadlineFloor
 		}
 
-		resp, _ := c.Send(ctx, req, deadline)
+		var resp ipc.Response
+		if deadline = budget.replyDeadline(time.Now(), deadline, connectDeadline); deadline > 0 {
+			resp, _ = c.Send(ctx, req, deadline)
+		} else {
+			// D17b: the steps before the dial used the whole budget, so no answer could be waited for
+			// before the host's timeout. The request is spooled as a start that missed its deadline
+			// is, without dialling a daemon that would then answer into nothing, and the answer below
+			// is the one an unanswered start gets.
+			_ = sp.Append(req)
+			hookLog.Warn("hook: no time left to wait for the daemon's answer; the request was spooled",
+				"op", string(spec.op), "overrun_ms", -deadline.Milliseconds())
+		}
 		respOut := hookio.Empty()
 		if resp.Output != nil {
 			respOut = *resp.Output
