@@ -267,6 +267,10 @@ type daemon struct {
 	// ends is the set of session ends the flush route started on goroutines of their own (C1.15,
 	// session_end.go); New creates it, and Stop joins it (stopSessionEnds).
 	ends *sessionEnds
+	// sessionEndGrace is how long Stop lets the session ends in flight finish on their merits before
+	// it cancels them. New sets it to stopDrainBound and nothing in production changes it; it is a
+	// field only so a test can prove what Stop does once the grace is over without waiting it out.
+	sessionEndGrace time.Duration
 	// recoveryMu serializes the read-change-write of the session recovery set (markRecoveryNeeded,
 	// clearRecoveryNeeded): the session ends run concurrently, so an unserialized rewrite lost the
 	// entry another end had just written (C1.15).
@@ -342,6 +346,7 @@ func New(o Options) (Daemon, error) {
 	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
 	d.promptAbandonAfter = promptReplyDeadline
 	d.ends = newSessionEnds()
+	d.sessionEndGrace = stopDrainBound
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
@@ -1005,6 +1010,10 @@ func (d *daemon) Stop(ctx context.Context) error {
 		if runCancel != nil {
 			runCancel() // unblocks Run's own select loop and stops the worker pool below.
 		}
+		// The session ends the flush route started run on goroutines of their own (session_end.go).
+		// No new one starts from here on, and their grace starts now: the join of Run's goroutines
+		// below can wait on one of them (stopSessionEnds says why), and they are joined after it.
+		joinSessionEnds := d.stopSessionEnds(ctx)
 
 		// Wait out whatever is left of Run's startup — cancelled now, so briefly — before joining or
 		// closing anything it publishes, and take the two things it published for this cleanup to
@@ -1021,10 +1030,9 @@ func (d *daemon) Stop(ctx context.Context) error {
 		// serving re-drain still has open under .qompack/tmp/. See runWG.
 		d.runWG.Wait()
 
-		// The session ends the flush route started run on goroutines of their own (session_end.go).
-		// They get a bounded window of their own to finish before the drain below, which replays any
-		// flush one of them had to leave.
-		d.stopSessionEnds(ctx)
+		// What is left of the session ends' grace, before the drain below, which replays any flush
+		// one of them had to leave.
+		joinSessionEnds()
 
 		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
 		_, _ = d.Drain(drainCtx)
