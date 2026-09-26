@@ -1,0 +1,83 @@
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (5.16s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.30s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.32s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.11s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.11s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.35s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (5.58s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.73s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (7.10s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (4.07s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (7.61s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (3.18s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (6.40s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.69s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.63s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.34s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.52s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.67s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.44s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.23s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.23s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.20s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.01s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.23s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.20s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.18s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.15s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.18s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.16s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.21s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.14s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.26s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.42s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.29s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.28s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.22s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.47s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.31s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.92s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.32s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	131.271s
+exit=0
