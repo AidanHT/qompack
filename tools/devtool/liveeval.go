@@ -114,6 +114,9 @@ type liveOptions struct {
 	// (empty for "none").
 	defectsAttested bool
 	openDefects     []string
+	// confirmatory refuses to plan a run that departs, at plan time, from its task set's
+	// pre-registered confirmatory design (eval.LivePlanDepartures).
+	confirmatory bool
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -151,6 +154,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 	fs.BoolVar(&o.keepRaw, "keep-raw-transcripts", false,
 		"also copy the host's raw transcript into the trial directory (it carries the operator's identity and system prompt: never commit it)")
 	fs.BoolVar(&o.dryRun, "dry-run", false, "validate the task set, bundle and plan; start nothing")
+	fs.BoolVar(&o.confirmatory, "confirmatory", false,
+		"refuse to plan, dry run included, unless the plan is the task set's pre-registered confirmatory design")
 	defects := fs.String("known-open-defects", "",
 		"the operator's statement of which known defects the bundle still carries: none, or their checklist IDs "+
 			"comma-separated (required with the qompack arm; preregistration section 9)")
@@ -323,6 +328,27 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if plan.KnownDefects != nil {
 		fmt.Fprintf(w, "live-eval: known open defects: %s (%s; preregistration section 9)\n",
 			knownDefectsText(plan.KnownDefects), liveDefectSource)
+	}
+	if p := plan.Plugin; p != nil {
+		fmt.Fprintf(w, "live-eval: bundle %s at commit %s (dirty=%t), %s sha256 %s, at %s\n",
+			p.Version, p.Commit, p.Dirty, identityFileName, p.BundleSHA256, p.BundleDir)
+	}
+	// What makes this the confirmatory run is mostly fixed now; say it before any session is spent.
+	departures := eval.LivePlanDepartures(plan, ts.Analysis.TrialsPerArm)
+	if len(departures) == 0 {
+		fmt.Fprintln(w, "live-eval: confirmatory preconditions at plan time: met. Still to be shown by the trials: "+
+			"every planned trial runs, no plugin but the arm's own loads on either arm, and a contingency alias "+
+			"resolves to one model; the section 9 known-defect statement is the operator's, not machine-checked")
+	} else {
+		fmt.Fprintf(w, "live-eval: not the confirmatory design: %s\n", strings.Join(departures, "; "))
+		if o.confirmatory {
+			doc := "its task set has no pre-registration"
+			if pre, ok := eval.LivePreregistrations[ts.ID]; ok {
+				doc = pre.Document
+			}
+			return fmt.Errorf("live-eval: --confirmatory: this plan is not the pre-registered confirmatory design "+
+				"(%s), so no session is planned: %s", doc, strings.Join(departures, "; "))
+		}
 	}
 	if o.dryRun {
 		for _, p := range plan.Trials {
