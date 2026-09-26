@@ -41,6 +41,37 @@ func TestStateRoundTrip(t *testing.T) {
 	require.EqualValues(t, 32, fi.Size())
 }
 
+// TestStateRoundTrip_BelowAUserGlobalStore is the round trip again, with the project under a
+// stand-in home that holds a user-global .qompack, as a real home does once the plugin has run
+// there. WriteState used to stage in that home store and fail its rename into the project's
+// run/ directory, which did not exist yet (w2-lifetime runs/21: 6 rows of this package and 2 of
+// internal/cli, on a machine with a real ~/.qompack). The home here is a temp directory; the real
+// home is never touched.
+func TestStateRoundTrip_BelowAUserGlobalStore(t *testing.T) {
+	home := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".qompack"), 0o700))
+	root := filepath.Join(home, "work", "project")
+	require.NoError(t, os.MkdirAll(root, 0o700))
+	want := ipc.State{
+		Mode:              contract.ModeDegradedPassive,
+		Hot:               ipc.HotSpool,
+		ConnectDeadlineMs: 5,
+		AckDeadlineMs:     8,
+		DaemonEnabled:     true,
+		SpoolOnBreach:     true,
+		MaxPayloadBytes:   1048576,
+		DaemonPID:         4242,
+		Written:           core.UnixMilli(1730000000000),
+	}
+
+	require.NoError(t, ipc.WriteState(root, want))
+
+	require.Equal(t, want, ipc.ReadState(root, config.Defaults()))
+	entries, err := os.ReadDir(filepath.Join(home, ".qompack"))
+	require.NoError(t, err)
+	require.Empty(t, entries, "the project's state write must not stage in the home's store")
+}
+
 // TestStateMissingFallsBackToDefaults asserts the normal first-run case: no state file at all
 // falls back to StateFromConfig(fallback), silently.
 func TestStateMissingFallsBackToDefaults(t *testing.T) {
