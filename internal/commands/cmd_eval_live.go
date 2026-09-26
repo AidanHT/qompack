@@ -209,13 +209,18 @@ func modelDepartures(p eval.LivePlan, s eval.LiveSummary) []string {
 
 // notPreregisteredMaterials lists how the run's plan departs from what its task set's
 // pre-registration froze: the task-set file, the fixture and hidden-test tree, and the install path
-// of the qompack arm. A task set with no pre-registration is never the pre-registered study.
+// of the qompack arm. A task set with no pre-registration is never the pre-registered study, and
+// neither is one its pre-registration superseded before use (qompack-live-v1, amendment A7).
 func notPreregisteredMaterials(p eval.LivePlan) []string {
 	pre, ok := eval.LivePreregistrations[p.TaskSet]
 	if !ok {
 		return []string{fmt.Sprintf("its task set %s has no pre-registration", orUnknown(p.TaskSet))}
 	}
 	var out []string
+	if pre.SupersededBy != "" {
+		out = append(out, fmt.Sprintf("its task set %s was %s; the confirmatory set is %s (%s)",
+			p.TaskSet, pre.SupersededWhy, pre.SupersededBy, pre.Document))
+	}
 	if p.TaskSetSHA256 != pre.TaskSetSHA256 {
 		out = append(out, fmt.Sprintf("its task set file hashes to %s, not the pre-registered %s (%s)",
 			shortHash(p.TaskSetSHA256), shortHash(pre.TaskSetSHA256), pre.Document))

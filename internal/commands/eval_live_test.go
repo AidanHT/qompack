@@ -39,9 +39,9 @@ func liveTrials(arm string, n, k int) []eval.LiveTrial {
 func confirmatoryRun(stockK, qompackK int) commands.LiveEvalInput {
 	const n = 20
 	trials := append(liveTrials(eval.ArmStock, n, stockK), liveTrials(eval.ArmQompack, n, qompackK)...)
-	pre := eval.LivePreregistrations["qompack-live-v1"]
+	pre := eval.LivePreregistrations["qompack-live-v2"]
 	plan := eval.LivePlan{
-		RunID: "20260930T120000Z-abcdef", CreatedAt: "2026-09-30T12:00:00Z", TaskSet: "qompack-live-v1",
+		RunID: "20260930T120000Z-abcdef", CreatedAt: "2026-09-30T12:00:00Z", TaskSet: "qompack-live-v2",
 		TaskSetSHA256: pre.TaskSetSHA256, FixtureTreeSHA256: pre.FixtureTreeSHA256,
 		TaskSetTasks: n / 2, Model: "claude-sonnet-5", PreregisteredModel: "claude-sonnet-5",
 		Arms: []string{eval.ArmStock, eval.ArmQompack}, TrialsPerArm: 2, Install: "plugin-dir",
@@ -201,6 +201,28 @@ func TestEval_LiveFailedTrialsKeepTheVerdictInconclusive(t *testing.T) {
 	require.True(t, rep.Live.Confirmatory)
 	require.Equal(t, 1, rep.Live.Trials.Failed)
 	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+}
+
+// TestEval_LiveNotConfirmatoryOnASupersededTaskSet: qompack-live-v1 was superseded before any trial
+// of it by qompack-live-v2 (preregistration amendment A7, owner decision D12). A run of it on its
+// own frozen materials is still not the confirmatory run, and the report says why and names the set
+// that replaced it.
+func TestEval_LiveNotConfirmatoryOnASupersededTaskSet(t *testing.T) {
+	run := confirmatoryRun(19, 20)
+	v1 := eval.LivePreregistrations["qompack-live-v1"]
+	run.Plan.TaskSet, run.Plan.TaskSetSHA256, run.Plan.FixtureTreeSHA256 = "qompack-live-v1", v1.TaskSetSHA256, v1.FixtureTreeSHA256
+
+	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.False(t, rep.Live.Confirmatory)
+	require.Len(t, rep.Live.NotConfirmatory, 1, "its materials are its own pre-registered ones: %v", rep.Live.NotConfirmatory)
+	reason := rep.Live.NotConfirmatory[0]
+	for _, want := range []string{"qompack-live-v1", "superseded", "qompack-live-v2", "amendment A7"} {
+		require.Contains(t, reason, want)
+	}
+	require.Nil(t, liveGate(t, rep.Task, "LIVE-T01").Passed)
+	require.NotEqual(t, commands.VerdictPass, rep.Verdict)
 }
 
 // TestEval_ReplayAndLiveAreReportedTogether: with both artifacts the replay gates and the live gates
