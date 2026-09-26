@@ -188,7 +188,12 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     the record and its marks leaves a record whose marks never landed, and the at-least-once
 	//     redelivery that follows appends those marks alone, behind a record line that predates the
 	//     flush — a supersede mark with no new record behind it, which x09's flush arm rejects.
-	if obs != "" {
+	//
+	//     A leased record's root must be durable before any line names it (00-ARCHITECTURE.md
+	//     §0.2.2). A recorder that declares the barriers proves it inside the call, before its
+	//     intent; otherwise the observer proves it here (SP08-D1: doing both was one pass too many).
+	storeSynced := obs != "" && recorderPublishesDurably(o.toolRecorder())
+	if obs != "" && !storeSynced {
 		if err := o.syncObservation(ctx, rec.Root); err != nil {
 			return hookio.Empty(), err
 		}
@@ -207,7 +212,11 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     It runs BEFORE the replay check below on purpose: a first run killed between its record
 	//     and this link left a durable record with no join, and the redelivery completing that join
 	//     is the only thing that can repair it.
-	if err := o.finishObservation(ctx, obs, rec); err != nil {
+	//
+	//     The record must be durable before the link. A recorder that declares the barriers synced
+	//     the index after its write, in the call that just returned, so only the link remains; a
+	//     second pass here would re-read and re-sync a publication nothing has touched since.
+	if err := o.linkPublished(ctx, obs, rec, storeSynced); err != nil {
 		return hookio.Empty(), err
 	}
 
