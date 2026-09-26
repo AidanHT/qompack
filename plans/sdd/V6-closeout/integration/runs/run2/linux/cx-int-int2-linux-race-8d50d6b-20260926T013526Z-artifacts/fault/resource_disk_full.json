@@ -1,0 +1,20 @@
+{
+  "name": "resource_disk_full",
+  "phase": "resource",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "00df95ad8569df355d2e92090054646a3ed6a4ed388ad216fdecb1600159da2f"
+  },
+  "boundary": "every write fails, from the first one",
+  "seed_method": "the `disk-full` QOMPACK_FAULT site (internal/cli/fault.go:172-208). SIMULATED: this is a forced write failure, not a real ENOSPC — no volume was filled",
+  "outcome": "recovered",
+  "reason": "the cut introduced no dangling reference, none remains anywhere under .qompack/, and the product went on recording: the recovery session's own observation was indexed.",
+  "detail": "the faulted delivery toolu_fault_disk_full_01 did not reach the index, so the disk-full site bit; after the restart and drain it still had not landed\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}\naudit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:0 reported:1}\ndegradation (new since the cut): daylog[2]: qompack-20260926.log: ts=2026-09-26T01:46:26.693794104Z level=loud msg=\"ipc: spool append refused — event dropped\" op=observe.tool err=\"qompack: fault disk-full: no space left on device\"; loud[2]: ts=2026-09-26T01:46:26.693794104Z level=loud msg=\"ipc: spool append refused — event dropped\" op=observe.tool err=\"qompack: fault disk-full: no space left on device\"; surfaces LOUD.log+day log (warn)\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,16 @@
+{
+  "name": "restrict-readonly-qompack-dir",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "00df95ad8569df355d2e92090054646a3ed6a4ed388ad216fdecb1600159da2f"
+  },
+  "outcome": "verified",
+  "reason": "a read-only .qompack leaves durable evidence that names the dropped event",
+  "detail": "drop-naming observables that changed under the deny: [hook stderr (2418 bytes)] (all changes: [hook stderr (2418 bytes)]); deny applied to \"/tmp/qompack-platform-3329465793/plain-project/.qompack\" after the layout existed; daemon suppressed through QOMPACK_RUNTIME__DAEMON__ENABLED=false"
+}

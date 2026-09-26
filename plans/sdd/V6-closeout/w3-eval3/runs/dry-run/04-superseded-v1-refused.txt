@@ -1,0 +1,4 @@
+$ env -u QOMPACK_LIVE_EVAL go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks.json --include-held-out --arms stock,qompack --install plugin-dir --bundle dist/live-bundle-eval3/qompack-plugin-0.3.0-eval3.dryrun-windows-amd64 --known-open-defects none --max-sessions 40 --dry-run
+devtool: live-eval: live-eval: task set qompack-live-v1 was superseded before any trial of it (preregistration amendment A7, owner decision D12): the untouched fixture already passed every task check of tool-output-recall and seed-recall, and regression-guard's constraint check pinned failed whenever JoinList was missing; no run of it can be the confirmatory run, so none is planned. Run qompack-live-v2 (testdata/eval/live/tasks-v2.json) instead
+exit status 1
+exit=1

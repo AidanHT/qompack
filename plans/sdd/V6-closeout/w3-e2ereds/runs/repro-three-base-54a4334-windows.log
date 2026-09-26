@@ -1,0 +1,29 @@
+=== RUN   TestV4_TombstoneToRecallToExpandRoundTrip
+    v4_x05_test.go:180: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-e2ereds/test/e2e/v4_x05_test.go:180
+        	Error:      	Received unexpected error:
+        	            	qompack: append-only violation: observation sha256:e0e30336ccfd6f319ddd78fe60896ccf0d963cc2dcffa3d7d3dfb0a84a7a40e7 already reserved for a different intent
+        	Test:       	TestV4_TombstoneToRecallToExpandRoundTrip
+        	Messages:   	the store must accept the record; authorization is a RETRIEVAL-time gate, not a write gate
+--- FAIL: TestV4_TombstoneToRecallToExpandRoundTrip (3.94s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+=== RUN   TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution
+--- PASS: TestV5_TombstoneToExpandRoundTrip (3.37s)
+    --- PASS: TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution (0.87s)
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/uncertain_under_stale_response_drop
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/negative_control_blind_ledger_is_unavailable_not_absent
+    v5_x05_test.go:625: blind-ledger digest carries the MCP record's line: true; the stale tag: false
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/old_caller_adapter_agrees_with_the_wire
+--- PASS: TestV5_EliminationThroughEveryFourSurfaces (10.72s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces (2.40s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface (0.81s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/uncertain_under_stale_response_drop (2.15s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/negative_control_blind_ledger_is_unavailable_not_absent (2.28s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/old_caller_adapter_agrees_with_the_wire (1.51s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	18.307s
+FAIL
+exit=1

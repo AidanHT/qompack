@@ -1,0 +1,20 @@
+{
+  "name": "v6_startup_accounting_unpublished_capture",
+  "phase": "publication",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "00df95ad8569df355d2e92090054646a3ed6a4ed388ad216fdecb1600159da2f"
+  },
+  "boundary": "capture sidecar published:false with no reference joined, discovered at daemon startup",
+  "seed_method": "packaged hook capture, stopped writer, then a published observe.tool sidecar returned to stage one; the daemon is then restarted so its startup accounting runs",
+  "outcome": "explicit_incomplete",
+  "reason": "the daemon's startup accounting names the stage-one observe.tool capture on `status --json` (loud tail / publication counter) and on LOUD.log, and preserves the objects and the sidecar unchanged; the capture is still unpublished afterwards — this is automatic detection, not recovery, which stays the operator's verified backup/restore path",
+  "detail": "returned observe.tool capture sha256:199a34e672142b15b1ca044cbb8e27c1cde3df5e2b7f3c1866d968597271f425 to stage one; status gaps naming the cut present=true; objects=3; sidecars=3",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

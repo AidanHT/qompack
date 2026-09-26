@@ -1,0 +1,5 @@
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.92s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	4.158s
+exit=0

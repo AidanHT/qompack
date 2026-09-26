@@ -1,0 +1,85 @@
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:540: ZZDIAG at-failure rec=sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7 rec2=sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9 files.jsonl: {"v":1,"path":"src/auth.ts","ts":1790386936781,"turn":0,"root":"sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7","bytes":204820}
+        {"v":1,"path":"src/auth.ts","ts":1790386940980,"turn":0,"root":"sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9","bytes":204890}
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"toolu_v5_x02_01","s":"sess-e2e-v5-x02","turn":0,"ts":1790386936781,"tool":"FileRead","argd":"sha256:e5aa59c2c23aaa29b1ae9db434e73b04b5eb2b09ebe3704a352f0da01da47c62","argp":"src/auth.ts","root":"sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7","path":"src/auth.ts
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:5018ad0d2157","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939079,"tool":"mcp__qompack__expand","argd":"sha256:c029f82006b502623e0fc8952fdc16e610a74e55a44f9fa4c99e0a9da19bf28a","argp":"{\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:3fef25847c01ca790f830f79b7040ca7ae3c59
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:53fad0f1e25c","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939200,"tool":"mcp__qompack__expand","argd":"sha256:3eb8175cf5f8128c1dae3256659539e2438eb6abfd334d105e3ac98885eadd57","argp":"{\"span\":\"20686:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:a670b3128ca39
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:bd8cd73ccee9","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939346,"tool":"mcp__qompack__expand","argd":"sha256:94a52ea24fdb62cb74b9ce8d617a6374844486b7ba73f4e175b107594604cc46","argp":"{\"span\":\"47775:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:7818c435b018a
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:adaf2dfa8ebc","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939552,"tool":"mcp__qompack__expand","argd":"sha256:c484d06323fb973d34f5cb69f1c8ef36805169ca9283a15951546116e9b7761f","argp":"{\"span\":\"71155:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:1c74e842dc462
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:cf5b33ad2327","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939643,"tool":"mcp__qompack__expand","argd":"sha256:296362765b8a1a1b02348cedd88c5df8905fc851b9d934d2b5332e961ef717d8","argp":"{\"span\":\"94619:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:026f706795c30
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:d18fc511639d","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939741,"tool":"mcp__qompack__expand","argd":"sha256:902453dde538b35f310fdb81e06b73be0f530631ae97145b1b9a560d7f9e2de4","argp":"{\"span\":\"116489:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:076b131f667d
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:e348aea8108f","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939841,"tool":"mcp__qompack__expand","argd":"sha256:3d0b663da97ac2485c458abe6611f7020c35844c5ec4524e2423c6766b024545","argp":"{\"span\":\"145897:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:49b6f73f9e21
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:0c985474d696","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939980,"tool":"mcp__qompack__expand","argd":"sha256:ad70b343bf47d51cfe79a084ad29108d9c61dcc80cfdc3d33aedb728204a3957","argp":"{\"span\":\"168200:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:ac39ab1797cd
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:009e41aa1eb7","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940065,"tool":"mcp__qompack__expand","argd":"sha256:b1aa085edf2da1305a855257ddf369922a4c601040ea2c07bf7135869970a787","argp":"{\"span\":\"193080:11740\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:fa3461da6c21
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:e0d398b5b83e","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940301,"tool":"mcp__qompack__expand","argd":"sha256:02680762882479863ee4172017f2b1f327dcd0d57e92e5f6ac56bc077cb8e4c7","argp":"{\"full\":true,\"hash\":\"sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:d2d6ffdb01df","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940539,"tool":"mcp__qompack__re_read","argd":"sha256:3851da518ae37cba2fe39c6a3579589f9885b70a4051b4414b7ca8a7fa4c7b1e","argp":"{\"full\":true,\"path\":\"src/auth.ts\"}","root":"sha256:9fff94cfb2af3aa2ad2ea60e21667370ac
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:8e55f1e40d88","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940613,"tool":"mcp__qompack__re_read","argd":"sha256:7b73678b521a081daae827f2fc891ce6ae883b2692fff199fd1e2e541232776f","argp":"{\"path\":\"src/never-captured.ts\"}","root":"sha256:5a5dc283095e5e5e92682b982440560ea931c6
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"toolu_v5_x02_02","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940980,"tool":"FileRead","argd":"sha256:e5aa59c2c23aaa29b1ae9db434e73b04b5eb2b09ebe3704a352f0da01da47c62","argp":"src/auth.ts","root":"sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9","path":"src/auth.ts
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"op":"supersede","id":"toolu_v5_x02_01","by":"toolu_v5_x02_02","ts":1790386941780}
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:e59418832200","s":"sess-e2e-v5-x02","turn":0,"ts":1790386941940,"tool":"mcp__qompack__expand","argd":"sha256:da01051771f9661143fcdaac21ec5d6a766cc4ac4668f93615e038c8d40d3e6c","argp":"{\"full\":true,\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:f0258857f516b52998863dee
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:269cb52e550a","s":"sess-e2e-v5-x02","turn":0,"ts":1790386942233,"tool":"mcp__qompack__expand","argd":"sha256:32ae4032af445ca62c01eff87fa8ed60903ec393aedba09589713dfcced6494d","argp":"{\"full\":true,\"tool_use_id\":\"toolu_v5_x02_02\"}","root":"sha256:05cfe98b8816eff70e817288
+    v5_x02_test.go:541: ZZDIAG at-failure tu: {"v":1,"id":"qompack-mcp:947101f242dc","s":"sess-e2e-v5-x02","turn":0,"ts":1790386942435,"tool":"mcp__qompack__re_read","argd":"sha256:3851da518ae37cba2fe39c6a3579589f9885b70a4051b4414b7ca8a7fa4c7b1e","argp":"{\"full\":true,\"path\":\"src/auth.ts\"}","root":"sha256:aa67eb62706f4e380652f5acc20b7e4c02
+    v5_x02_test.go:547: ZZDIAG after 8s re_read hash=sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+    v5_x02_test.go:540: ZZDIAG after-8s rec=sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7 rec2=sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9 files.jsonl: {"v":1,"path":"src/auth.ts","ts":1790386936781,"turn":0,"root":"sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7","bytes":204820}
+        {"v":1,"path":"src/auth.ts","ts":1790386940980,"turn":0,"root":"sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9","bytes":204890}
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"toolu_v5_x02_01","s":"sess-e2e-v5-x02","turn":0,"ts":1790386936781,"tool":"FileRead","argd":"sha256:e5aa59c2c23aaa29b1ae9db434e73b04b5eb2b09ebe3704a352f0da01da47c62","argp":"src/auth.ts","root":"sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7","path":"src/auth.ts
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:5018ad0d2157","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939079,"tool":"mcp__qompack__expand","argd":"sha256:c029f82006b502623e0fc8952fdc16e610a74e55a44f9fa4c99e0a9da19bf28a","argp":"{\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:3fef25847c01ca790f830f79b7040ca7ae3c59
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:53fad0f1e25c","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939200,"tool":"mcp__qompack__expand","argd":"sha256:3eb8175cf5f8128c1dae3256659539e2438eb6abfd334d105e3ac98885eadd57","argp":"{\"span\":\"20686:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:a670b3128ca39
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:bd8cd73ccee9","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939346,"tool":"mcp__qompack__expand","argd":"sha256:94a52ea24fdb62cb74b9ce8d617a6374844486b7ba73f4e175b107594604cc46","argp":"{\"span\":\"47775:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:7818c435b018a
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:adaf2dfa8ebc","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939552,"tool":"mcp__qompack__expand","argd":"sha256:c484d06323fb973d34f5cb69f1c8ef36805169ca9283a15951546116e9b7761f","argp":"{\"span\":\"71155:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:1c74e842dc462
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:cf5b33ad2327","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939643,"tool":"mcp__qompack__expand","argd":"sha256:296362765b8a1a1b02348cedd88c5df8905fc851b9d934d2b5332e961ef717d8","argp":"{\"span\":\"94619:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:026f706795c30
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:d18fc511639d","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939741,"tool":"mcp__qompack__expand","argd":"sha256:902453dde538b35f310fdb81e06b73be0f530631ae97145b1b9a560d7f9e2de4","argp":"{\"span\":\"116489:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:076b131f667d
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:e348aea8108f","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939841,"tool":"mcp__qompack__expand","argd":"sha256:3d0b663da97ac2485c458abe6611f7020c35844c5ec4524e2423c6766b024545","argp":"{\"span\":\"145897:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:49b6f73f9e21
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:0c985474d696","s":"sess-e2e-v5-x02","turn":0,"ts":1790386939980,"tool":"mcp__qompack__expand","argd":"sha256:ad70b343bf47d51cfe79a084ad29108d9c61dcc80cfdc3d33aedb728204a3957","argp":"{\"span\":\"168200:16384\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:ac39ab1797cd
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:009e41aa1eb7","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940065,"tool":"mcp__qompack__expand","argd":"sha256:b1aa085edf2da1305a855257ddf369922a4c601040ea2c07bf7135869970a787","argp":"{\"span\":\"193080:11740\",\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:fa3461da6c21
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:e0d398b5b83e","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940301,"tool":"mcp__qompack__expand","argd":"sha256:02680762882479863ee4172017f2b1f327dcd0d57e92e5f6ac56bc077cb8e4c7","argp":"{\"full\":true,\"hash\":\"sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:d2d6ffdb01df","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940539,"tool":"mcp__qompack__re_read","argd":"sha256:3851da518ae37cba2fe39c6a3579589f9885b70a4051b4414b7ca8a7fa4c7b1e","argp":"{\"full\":true,\"path\":\"src/auth.ts\"}","root":"sha256:9fff94cfb2af3aa2ad2ea60e21667370ac
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:8e55f1e40d88","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940613,"tool":"mcp__qompack__re_read","argd":"sha256:7b73678b521a081daae827f2fc891ce6ae883b2692fff199fd1e2e541232776f","argp":"{\"path\":\"src/never-captured.ts\"}","root":"sha256:5a5dc283095e5e5e92682b982440560ea931c6
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"toolu_v5_x02_02","s":"sess-e2e-v5-x02","turn":0,"ts":1790386940980,"tool":"FileRead","argd":"sha256:e5aa59c2c23aaa29b1ae9db434e73b04b5eb2b09ebe3704a352f0da01da47c62","argp":"src/auth.ts","root":"sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9","path":"src/auth.ts
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"op":"supersede","id":"toolu_v5_x02_01","by":"toolu_v5_x02_02","ts":1790386941780}
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:e59418832200","s":"sess-e2e-v5-x02","turn":0,"ts":1790386941940,"tool":"mcp__qompack__expand","argd":"sha256:da01051771f9661143fcdaac21ec5d6a766cc4ac4668f93615e038c8d40d3e6c","argp":"{\"full\":true,\"tool_use_id\":\"toolu_v5_x02_01\"}","root":"sha256:f0258857f516b52998863dee
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:269cb52e550a","s":"sess-e2e-v5-x02","turn":0,"ts":1790386942233,"tool":"mcp__qompack__expand","argd":"sha256:32ae4032af445ca62c01eff87fa8ed60903ec393aedba09589713dfcced6494d","argp":"{\"full\":true,\"tool_use_id\":\"toolu_v5_x02_02\"}","root":"sha256:05cfe98b8816eff70e817288
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:947101f242dc","s":"sess-e2e-v5-x02","turn":0,"ts":1790386942435,"tool":"mcp__qompack__re_read","argd":"sha256:3851da518ae37cba2fe39c6a3579589f9885b70a4051b4414b7ca8a7fa4c7b1e","argp":"{\"full\":true,\"path\":\"src/auth.ts\"}","root":"sha256:aa67eb62706f4e380652f5acc20b7e4c02
+    v5_x02_test.go:541: ZZDIAG after-8s tu: {"v":1,"id":"qompack-mcp:1bfcbfa83c79","s":"sess-e2e-v5-x02","turn":0,"ts":1790386950607,"tool":"mcp__qompack__re_read","argd":"sha256:b673e714bbaa47e4224722f82da1860510d8987a7338dba32afac673f2bab099","argp":"{\"path\":\"src/auth.ts\"}","root":"sha256:fd0f511351467e60b2346330a175e69c796cc3a28e868090
+    v5_x02_test.go:549: ZZDIAG diag: -- C:\Users\Quant\AppData\Local\Temp\TestV5_TombstoneToExpandRoundTrip3925032589\001\project\.qompack\records
+           \captures\65\65efd6e9b4635ece709c10ffa4e98bcfe87760dc526a1e4d02cb6726aaebd0ad.json (290327 bytes)
+           \captures\ab\ab2a1244ecb47d8fe70b648c0cf686442558f103548b2005008ec11c5a72d963.json (290423 bytes)
+        -- C:\Users\Quant\AppData\Local\Temp\TestV5_TombstoneToExpandRoundTrip3925032589\001\project\.qompack\state
+           \delivery-ack-position.json (32768 bytes)
+           \delivery-acks.jsonl (516 bytes)
+           \delivery-generations\manifest.jsonl (0 bytes)
+           \delivery-journal-log.jsonl (117 bytes)
+           \delivery-journal.json (187 bytes)
+           \delivery-lease-position.json (32768 bytes)
+           \delivery-leases.jsonl (602 bytes)
+           \drain.json (2 bytes)
+           \history.json (448 bytes)
+           \mcp.json (202 bytes)
+           \observations.json (3357 bytes)
+           \promotions.json (513 bytes)
+           \retention-roots.jsonl (402 bytes)
+        -- C:\Users\Quant\AppData\Local\Temp\TestV5_TombstoneToExpandRoundTrip3925032589\001\project\.qompack\logs
+           \qompack-20260926.log (534 bytes)
+              ts=2026-09-26T01:42:16.1534124Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+              ts=2026-09-26T01:42:16.2650829Z level=info msg="observer: session registered" session=sess-e2e-v5-x02 source=startup turn=0 segment=1
+              ts=2026-09-26T01:42:16.2650829Z level=info msg="scheduler: session bound" session=sess-e2e-v5-x02 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+        -- LOUD: []
+    v5_x02_test.go:551: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3e2e/exp-b070bbe/test/e2e/v5_x02_test.go:551
+        	Error:      	Not equal: 
+        	            	expected: "sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9"
+        	            	actual  : "sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+        	            	+sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	an unpinned re_read is the newest capture
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (17.80s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	18.112s
+FAIL
+exit=1

@@ -17,10 +17,13 @@ import (
 )
 
 const (
-	liveTestTasks = "../../testdata/eval/live/tasks.json"
-	liveTestPilot = "../../testdata/eval/live/pilot.json"
-	liveTestRates = "../../testdata/eval/live/rates.json"
-	pilotCodeWord = "2c1a7a62c3"
+	// liveTestTasks is the confirmatory set, qompack-live-v2; liveTestTasksV1 is the set it superseded
+	// before use (preregistration amendment A7), kept byte-identical as the record.
+	liveTestTasks   = "../../testdata/eval/live/tasks-v2.json"
+	liveTestTasksV1 = "../../testdata/eval/live/tasks.json"
+	liveTestPilot   = "../../testdata/eval/live/pilot.json"
+	liveTestRates   = "../../testdata/eval/live/rates.json"
+	pilotCodeWord   = "2c1a7a62c3"
 )
 
 func TestParseLiveFlags(t *testing.T) {
@@ -110,6 +113,96 @@ func TestRunLiveEval_TheQompackArmNeedsADefectAttestation(t *testing.T) {
 	md, err := os.ReadFile(filepath.Join(o.out, "summary.md"))
 	require.NoError(t, err)
 	require.Contains(t, string(md), "known open defects: none")
+}
+
+// TestRunLiveEval_ASupersededTaskSetIsNeverPlanned: qompack-live-v1 was superseded before any trial
+// of it (preregistration amendment A7). Its file stays in the tree as the record, and a run of it
+// could never be the confirmatory run, so the driver refuses to plan one — dry run included, since a
+// dry run exists to validate the real run's command — and names the set to run instead. The default
+// task set is the current one.
+func TestRunLiveEval_ASupersededTaskSetIsNeverPlanned(t *testing.T) {
+	env := fakeLiveEnv(t, nil)
+	var out bytes.Buffer
+	o := liveOptions{tasksFile: liveTestTasksV1, rates: liveTestRates, arms: []string{"stock"}, out: t.TempDir(), dryRun: true}
+	err := runLiveEval(context.Background(), o, env, &out)
+	require.ErrorContains(t, err, "task set qompack-live-v1 was superseded before any trial of it")
+	require.ErrorContains(t, err, "amendment A7")
+	require.ErrorContains(t, err, "testdata/eval/live/tasks-v2.json")
+	require.Empty(t, out.String(), "nothing is planned")
+
+	o.tasksFile = liveTestTasks
+	require.NoError(t, runLiveEval(context.Background(), o, env, &out))
+	require.Contains(t, out.String(), "task set qompack-live-v2")
+
+	d, err := parseLiveFlags(nil)
+	require.NoError(t, err)
+	require.Equal(t, "testdata/eval/live/tasks-v2.json", d.tasksFile)
+	ts, _, err := eval.LoadLiveTaskSet(filepath.Join("..", "..", filepath.FromSlash(d.tasksFile)))
+	require.NoError(t, err)
+	require.Contains(t, eval.LivePreregistrations, ts.ID, "the default task set is pre-registered")
+	require.Empty(t, eval.LivePreregistrations[ts.ID].SupersededBy, "and current")
+}
+
+// TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign: a confirmatory run is 40 real
+// sessions of a budget the owner capped, and whether it can be the confirmatory run is mostly fixed
+// when it is planned — the frozen materials, --plugin-dir, the pre-registered model, both arms, all
+// ten tasks with the held-out ones, two trials per arm, a clean bundle and the known-defect statement.
+// The driver says so before any session starts, dry run included, naming the bundle it would load;
+// with --confirmatory it refuses to plan a run that departs from the design, so a departure found by
+// `qompack eval` after the sessions cannot happen.
+func TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign(t *testing.T) {
+	env := fakeLiveEnv(t, nil)
+	confirmatory := func() liveOptions {
+		return liveOptions{
+			tasksFile: liveTestTasks, rates: liveTestRates, arms: []string{"stock", "qompack"}, out: t.TempDir(),
+			install: liveInstallPluginDir, bundle: fakeBundle(t), includeHeldOut: true, maxSessions: 40,
+			defectsAttested: true, openDefects: []string{}, dryRun: true, confirmatory: true,
+		}
+	}
+	var out bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), confirmatory(), env, &out))
+	pre := eval.LivePreregistrations["qompack-live-v2"]
+	for _, want := range []string{
+		"40 trial(s) of task set qompack-live-v2 (" + pre.TaskSetSHA256[:12] + ", fixture tree " + pre.FixtureTreeSHA256[:12] +
+			") on claude-sonnet-5, arms stock,qompack, install plugin-dir",
+		"live-eval: bundle 9.9.9-test at commit deadbeef (dirty=false)",
+		"live-eval: confirmatory preconditions at plan time: met",
+		"plan: seed-recall/qompack/2",
+		"--model claude-sonnet-5",
+	} {
+		require.Contains(t, out.String(), want)
+	}
+
+	for name, c := range map[string]struct {
+		mutate func(*liveOptions)
+		want   string
+	}{
+		"held-out excluded": {func(o *liveOptions) { o.includeHeldOut = false }, "it excluded the held-out tasks"},
+		"an open defect":    {func(o *liveOptions) { o.openDefects = []string{"C1.15"} }, "known open defect(s) C1.15"},
+		"one trial per arm": {func(o *liveOptions) { o.trials = 1 }, "ran 1 trials per arm per task, not the pre-registered 2"},
+		"marketplace":       {func(o *liveOptions) { o.install = liveInstallMarketplace }, "not the pre-registered --plugin-dir"},
+		"another model":     {func(o *liveOptions) { o.model = "opus" }, "not the pre-registered model claude-sonnet-5"},
+		"the pilot":         {func(o *liveOptions) { o.tasksFile = liveTestPilot }, "has no pre-registration"},
+	} {
+		o := confirmatory()
+		o.confirmatory = false
+		c.mutate(&o)
+		out.Reset()
+		require.NoError(t, runLiveEval(context.Background(), o, env, &out), name)
+		require.Contains(t, out.String(), "live-eval: not the confirmatory design: ", name)
+		require.Contains(t, out.String(), c.want, name)
+
+		o.confirmatory = true
+		out.Reset()
+		err := runLiveEval(context.Background(), o, env, &out)
+		require.ErrorContains(t, err, "--confirmatory", name)
+		require.ErrorContains(t, err, c.want, name)
+		require.NotContains(t, out.String(), "plan: ", "%s: nothing is planned", name)
+	}
+
+	o, err := parseLiveFlags([]string{"--confirmatory"})
+	require.NoError(t, err)
+	require.True(t, o.confirmatory)
 }
 
 // TestPlanLiveTrials_AlternatesArmOrder: across tasks and trials each arm goes first half the time.
@@ -347,44 +440,17 @@ func TestRemoveCreatedPluginData(t *testing.T) {
 // TestLiveTaskSet_ReferenceSolutionsPassEveryCheck proves every task is gradeable: a correct,
 // constraint-respecting project (fixture + reference solution + hidden tests, with the reference
 // answers and no tool re-run) passes every check, and the untouched fixture does not pass them all.
+// It covers the confirmatory set, the pilot and qompack-live-v1, which stays gradeable as the record
+// of the set amendment A7 superseded; the stricter rule every current set must also meet is
+// TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome.
 func TestLiveTaskSet_ReferenceSolutionsPassEveryCheck(t *testing.T) {
-	var answers map[string]map[string]string
-	readJSON(t, "../../testdata/eval/live/reference/answers.json", &answers)
-	for _, file := range []string{liveTestTasks, liveTestPilot} {
+	for _, file := range []string{liveTestTasks, liveTestPilot, liveTestTasksV1} {
 		ts, _, err := eval.LoadLiveTaskSet(file)
 		require.NoError(t, err)
 		for _, task := range ts.Tasks {
-			t.Run(task.ID, func(t *testing.T) {
+			t.Run(ts.ID+"/"+task.ID, func(t *testing.T) {
 				t.Parallel()
-				fixture := task.FixtureDir(file)
-				hashes, err := eval.HashTree(fixture)
-				require.NoError(t, err)
-				after := map[string][]eval.HostToolUse{}
-				for _, s := range task.Steps {
-					if s.Compact {
-						after[s.ID] = nil
-					}
-				}
-				grade := func(withReference, runCommands bool) []eval.LiveCheckResult {
-					project := t.TempDir()
-					require.NoError(t, copyTree(fixture, project))
-					if withReference {
-						require.NoError(t, copyTree(filepath.Join(filepath.Dir(file), "reference", task.ID), project))
-					}
-					if task.HiddenFixture != "" {
-						require.NoError(t, copyTree(filepath.Join(filepath.Dir(file), filepath.FromSlash(task.HiddenFixture)), project))
-					}
-					cmds := map[string]eval.CommandOutcome{}
-					for _, c := range task.Checks {
-						if c.Kind == eval.CheckCommand && runCommands {
-							cmds[c.ID] = runLiveCheckCommand(project, c.Argv)
-						}
-					}
-					return eval.GradeLiveTrial(task, project, eval.LiveEvidence{
-						Answers: answers[task.ID], Fixture: hashes, Commands: cmds, ToolUsesAfter: after,
-					})
-				}
-				for _, r := range grade(true, true) {
+				for _, r := range gradeLiveProject(t, file, task, true, true) {
 					require.True(t, r.Passed, "reference fails %s: %s", r.ID, r.Detail)
 				}
 				// The untouched fixture must not already pass every check. A failing non-command
@@ -399,12 +465,169 @@ func TestLiveTaskSet_ReferenceSolutionsPassEveryCheck(t *testing.T) {
 					return false
 				}
 				notCommand := func(k string) bool { return k != eval.CheckCommand }
-				if !failed(grade(false, false), notCommand) {
-					require.True(t, failed(grade(false, true), func(string) bool { return true }),
+				if !failed(gradeLiveProject(t, file, task, false, false), notCommand) {
+					require.True(t, failed(gradeLiveProject(t, file, task, false, true), func(string) bool { return true }),
 						"the untouched fixture must not already pass every check")
 				}
 			})
 		}
+	}
+}
+
+// gradeLiveProject builds one task's project the way a trial leaves it for grading — the fixture,
+// then (withReference) the task's reference solution, then the hidden tests — and grades it with the
+// reference answers and no tool call after any compaction. runCommands false leaves every command
+// check ungraded (failed), which settles the file and answer checks without compiling anything.
+func gradeLiveProject(t *testing.T, file string, task eval.LiveTask, withReference, runCommands bool) []eval.LiveCheckResult {
+	t.Helper()
+	return gradeLiveProjectWith(t, file, task, withReference, nil, runCommands)
+}
+
+// gradeLiveProjectWith is gradeLiveProject with extra files (slash path to content) written over the
+// project after the reference solution and before the hidden tests: what a session left that the
+// reference did not.
+func gradeLiveProjectWith(t *testing.T, file string, task eval.LiveTask, withReference bool, extra map[string]string,
+	runCommands bool,
+) []eval.LiveCheckResult {
+	t.Helper()
+	var answers map[string]map[string]string
+	readJSON(t, "../../testdata/eval/live/reference/answers.json", &answers)
+	fixture := task.FixtureDir(file)
+	hashes, err := eval.HashTree(fixture)
+	require.NoError(t, err)
+	after := map[string][]eval.HostToolUse{}
+	for _, s := range task.Steps {
+		if s.Compact {
+			after[s.ID] = nil
+		}
+	}
+	project := t.TempDir()
+	require.NoError(t, copyTree(fixture, project))
+	if withReference {
+		require.NoError(t, copyTree(filepath.Join(filepath.Dir(file), "reference", task.ID), project))
+	}
+	for p, body := range extra {
+		target := filepath.Join(project, filepath.FromSlash(p))
+		require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
+		require.NoError(t, os.WriteFile(target, []byte(body), 0o600))
+	}
+	if task.HiddenFixture != "" {
+		require.NoError(t, copyTree(filepath.Join(filepath.Dir(file), filepath.FromSlash(task.HiddenFixture)), project))
+	}
+	cmds := map[string]eval.CommandOutcome{}
+	for _, c := range task.Checks {
+		if c.Kind == eval.CheckCommand && runCommands {
+			cmds[c.ID] = runLiveCheckCommand(project, c.Argv)
+		}
+	}
+	return eval.GradeLiveTrial(task, project, eval.LiveEvidence{
+		Answers: answers[task.ID], Fixture: hashes, Commands: cmds, ToolUsesAfter: after,
+	})
+}
+
+// liveTask returns the task id of the task set in file.
+func liveTask(t *testing.T, file, id string) eval.LiveTask {
+	t.Helper()
+	ts, _, err := eval.LoadLiveTaskSet(file)
+	require.NoError(t, err)
+	for _, task := range ts.Tasks {
+		if task.ID == id {
+			return task
+		}
+	}
+	t.Fatalf("%s declares no task %s", file, id)
+	return eval.LiveTask{}
+}
+
+// liveResults indexes graded checks by id.
+func liveResults(res []eval.LiveCheckResult) map[string]eval.LiveCheckResult {
+	out := map[string]eval.LiveCheckResult{}
+	for _, r := range res {
+		out[r.ID] = r
+	}
+	return out
+}
+
+// TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome: a session that does nothing after the
+// compaction must not score a task success. Task success is the primary outcome (preregistration
+// section 6, H1), so a task whose task checks the untouched fixture already passes counts every
+// trial of it as a success whatever the session did, pushing both arms towards 1 and a
+// non-inferior verdict. Owner decision D12: every task of the confirmatory set needs a task check
+// the untouched fixture fails — failing some other outcome (a recovery check) is not enough. The
+// pilot meets the same rule; qompack-live-v1 did not (tool-output-recall and seed-recall), which is
+// why amendment A7 superseded it before use.
+func TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome(t *testing.T) {
+	for _, file := range []string{liveTestTasks, liveTestPilot} {
+		ts, _, err := eval.LoadLiveTaskSet(file)
+		require.NoError(t, err)
+		for _, task := range ts.Tasks {
+			t.Run(ts.ID+"/"+task.ID, func(t *testing.T) {
+				t.Parallel()
+				var passedTask []string
+				failed := false
+				for _, r := range gradeLiveProject(t, file, task, false, true) {
+					if r.Outcome != eval.OutcomeTask {
+						continue
+					}
+					if r.Passed {
+						passedTask = append(passedTask, r.ID)
+					} else {
+						failed = true
+					}
+				}
+				require.True(t, failed, "the untouched fixture passes every task check of %s (%v)", task.ID, passedTask)
+			})
+		}
+	}
+}
+
+// TestLiveTaskSet_RegressionGuardPinnedGradesOnlyParseList: regression-guard's constraint check
+// "pinned" says ParseList's behaviour is unchanged. A trial that never wrote JoinList did not touch
+// ParseList, so it must fail the task (the JoinList checks) and still pass "pinned"; a check that
+// compiles the hidden JoinList test beside the pinned one fails the constraint too, counting one
+// omission in both H1 and H2. The check must still catch what it is for: a ParseList whose
+// behaviour changed on a pinned input fails it, with JoinList written correctly.
+func TestLiveTaskSet_RegressionGuardPinnedGradesOnlyParseList(t *testing.T) {
+	task := liveTask(t, liveTestTasks, "regression-guard")
+	got := liveResults(gradeLiveProject(t, liveTestTasks, task, false, true))
+	require.True(t, got["pinned"].Passed, "ParseList is untouched, so pinned must pass: %s", got["pinned"].Detail)
+	require.False(t, got["join"].Passed, "JoinList was never written: %s", got["join"].Detail)
+	require.False(t, got["all"].Passed, "JoinList was never written: %s", got["all"].Detail)
+
+	// A "faster" ParseList that stops trimming tabs: list_test.go still passes, a pinned input does not.
+	faster := "package list\n\nimport \"strings\"\n\n// ParseList splits s on commas.\nfunc ParseList(s string) []string {\n" +
+		"\tvar out []string\n\tfor _, part := range strings.Split(s, \",\") {\n" +
+		"\t\tif p := strings.Trim(part, \" \"); p != \"\" {\n\t\t\tout = append(out, p)\n\t\t}\n\t}\n\treturn out\n}\n"
+	got = liveResults(gradeLiveProjectWith(t, liveTestTasks, task, true, map[string]string{"list/list.go": faster}, true))
+	require.False(t, got["pinned"].Passed, "a changed ParseList must fail pinned: %s", got["pinned"].Detail)
+	require.Contains(t, got["pinned"].Detail, "--- FAIL: TestHiddenEvalParseListPinned")
+	require.True(t, got["join"].Passed, "JoinList itself is right: %s", got["join"].Detail)
+}
+
+// TestLiveTaskSet_ToolResultTasksGradeTheDeliverable: tool-output-recall's and seed-recall's task
+// check is a hidden test of the file the final step asks for, so a session that wrote the wrong
+// token, a placeholder, or a variable where the prompt asked for a constant does not score a task
+// success, and the reference does.
+func TestLiveTaskSet_ToolResultTasksGradeTheDeliverable(t *testing.T) {
+	for name, c := range map[string]struct {
+		task, path, body string
+		pass             bool
+	}{
+		"token right":          {"tool-output-recall", "TOKEN", "975408daf9b5\n", true},
+		"token with blanks":    {"tool-output-recall", "TOKEN", "\n  975408daf9b5  \r\n", true},
+		"token wrong":          {"tool-output-recall", "TOKEN", "975408daf9b6\n", false},
+		"token in a sentence":  {"tool-output-recall", "TOKEN", "build-token: 975408daf9b5\n", false},
+		"seed right":           {"seed-recall", "config/seed.go", "package config\n\nconst Seed = \"5cc87334711f2d40\"\n", true},
+		"seed as a variable":   {"seed-recall", "config/seed.go", "package config\n\nvar Seed = \"5cc87334711f2d40\"\n", false},
+		"seed placeholder":     {"seed-recall", "config/seed.go", "package config\n\nconst Seed = \"<the seed>\"\n", false},
+		"seed typed and right": {"seed-recall", "config/seed.go", "package config\n\nconst Seed string = \"5cc87334711f2d40\"\n", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			task := liveTask(t, liveTestTasks, c.task)
+			got := liveResults(gradeLiveProjectWith(t, liveTestTasks, task, false, map[string]string{c.path: c.body}, true))
+			require.Equal(t, c.pass, got["behaviour"].Passed, got["behaviour"].Detail)
+		})
 	}
 }
 

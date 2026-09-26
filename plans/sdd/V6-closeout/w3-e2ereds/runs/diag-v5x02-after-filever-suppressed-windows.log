@@ -1,0 +1,12 @@
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:560: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-e2ereds/test/e2e/v5_x02_test.go:218
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-e2ereds/test/e2e/v5_x02_test.go:560
+        	Error:      	Condition never satisfied
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	the observer never recorded sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9 as a version of src/auth.ts (store key "src/auth.ts")
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (34.08s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	34.335s
+FAIL
+exit=1

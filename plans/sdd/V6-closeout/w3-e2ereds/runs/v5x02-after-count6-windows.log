@@ -1,0 +1,27 @@
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+=== RUN   TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution
+--- PASS: TestV5_TombstoneToExpandRoundTrip (5.20s)
+    --- PASS: TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution (1.01s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+=== RUN   TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution
+--- PASS: TestV5_TombstoneToExpandRoundTrip (3.23s)
+    --- PASS: TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution (0.89s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+=== RUN   TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution
+--- PASS: TestV5_TombstoneToExpandRoundTrip (4.30s)
+    --- PASS: TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution (1.04s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+=== RUN   TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution
+--- PASS: TestV5_TombstoneToExpandRoundTrip (3.24s)
+    --- PASS: TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution (0.86s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+=== RUN   TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution
+--- PASS: TestV5_TombstoneToExpandRoundTrip (3.67s)
+    --- PASS: TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution (0.88s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+=== RUN   TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution
+--- PASS: TestV5_TombstoneToExpandRoundTrip (3.31s)
+    --- PASS: TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution (0.86s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	23.174s
+exit=0

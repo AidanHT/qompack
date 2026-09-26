@@ -1,0 +1,16 @@
+{
+  "name": "archive_trust_re_read_never_reads_the_live_disk",
+  "capability": "archive_trust",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "00df95ad8569df355d2e92090054646a3ed6a4ed388ad216fdecb1600159da2f"
+  },
+  "outcome": "verified",
+  "reason": "re_read served the archived bytes after the working-tree file was replaced, and again after it was deleted; the replacement marker never appeared in either response."
+}

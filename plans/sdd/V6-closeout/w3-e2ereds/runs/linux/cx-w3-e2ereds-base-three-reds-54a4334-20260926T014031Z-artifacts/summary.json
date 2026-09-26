@@ -1,0 +1,18 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 18,
+   "failed": [
+    "TestV4_TombstoneToRecallToExpandRoundTrip",
+    "TestV5_TombstoneToExpandRoundTrip",
+    "TestV4_TombstoneToRecallToExpandRoundTrip",
+    "TestV5_TombstoneToExpandRoundTrip",
+    "TestV4_TombstoneToRecallToExpandRoundTrip",
+    "TestV5_TombstoneToExpandRoundTrip"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

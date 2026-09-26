@@ -1,0 +1,10 @@
+run_id=cx-w3-e2ereds-fixed-three-reds-797b674-20260926T015501Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-e2ereds
+rev=797b674
+commit=797b6743140fc5962317807e5171c8f1c1bccbf4
+bundle_sha256=987342ca367de5b921906470e2f714ee8cebd9ecff8ba413377c7a688535bfe9
+host_started_utc=2026-09-26T01:55:07Z
+inner_args=--run ^(TestV4_TombstoneToRecallToExpandRoundTrip|TestV5_TombstoneToExpandRoundTrip|TestV5_EliminationThroughEveryFourSurfaces)$ --count 3 --timeout 30m -- ./test/e2e
+host_finished_utc=2026-09-26T01:56:53Z
+container_exit=0
