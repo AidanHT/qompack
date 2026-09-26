@@ -111,3 +111,39 @@ func TestPublicationDirs_KeepsEachDirectoryOnceInTheOrderFirstReached(t *testing
 	volume := filepath.VolumeName(outside) + string(filepath.Separator)
 	require.Equal(t, volume, d.order[len(d.order)-1], "and its walk ends at the volume root")
 }
+
+// TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce pins WHICH directories a pass fsyncs,
+// where the count above pins only how many: each closure object's fanout leaf and first-level
+// fanout directory, the objects/ root and index/, each exactly once, with index/ last, after its two
+// index files. A pass that dropped a directory an object needs and fsynced another twice would keep
+// the count and fail here. Both passes fsync the same set: each is a whole re-proof (D20).
+func TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	root, objects := putBarrierFixture(t, tp)
+	objectsDir, indexDir := tp.Store.l.Objects, tp.Store.l.Index
+	want := map[string]bool{objectsDir: true, indexDir: true}
+	for h := range objects {
+		hx := hexOf(h)
+		fanout := filepath.Join(objectsDir, hx[:fanoutWidth])
+		want[fanout] = true
+		want[filepath.Join(fanout, hx[fanoutWidth:2*fanoutWidth])] = true
+	}
+
+	var synced []string
+	tp.Store.pubSyncDir = func(dir string) error {
+		synced = append(synced, dir)
+		return nil
+	}
+	for pass := 1; pass <= 2; pass++ {
+		synced = synced[:0]
+		require.NoError(t, tp.Store.SyncPublication(ctx, root))
+		got := make(map[string]bool, len(synced))
+		for _, dir := range synced {
+			require.False(t, got[dir], "pass %d: %s is fsynced twice", pass, dir)
+			got[dir] = true
+		}
+		require.Equal(t, want, got, "pass %d: every directory a closure object needs, and index/", pass)
+		require.Equal(t, indexDir, synced[len(synced)-1], "pass %d: index/ is fsynced last", pass)
+	}
+}
