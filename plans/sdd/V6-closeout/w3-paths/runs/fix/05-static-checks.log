@@ -1,0 +1,28 @@
+# static checks at 34ddb55 (working tree identical), Windows host
+fmt-check exit=0
+vet exit=0
+## GOOS=windows golangci-lint run ./internal/paths/...
+exit=0
+## GOOS=windows go vet ./internal/paths
+exit=0
+## GOOS=linux golangci-lint run ./internal/paths/...
+exec: "C:\\Users\\Quant\\AppData\\Local\\go-build\\76\\76f92b22881dc602d0c16d5faa36e5da96078f14520da1e8bff11b0522a8791a-d\\golangci-lint": executable file not found in %PATH%
+exit=1
+## GOOS=linux go vet ./internal/paths
+exit=0
+## GOOS=darwin golangci-lint run ./internal/paths/...
+exec: "C:\\Users\\Quant\\AppData\\Local\\go-build\\02\\02c3d07e9f36a2d32b036f16aebada40cc44e8907ec1cd8fb2eff86ebf9eda0d-d\\golangci-lint": executable file not found in %PATH%
+exit=1
+## GOOS=darwin go vet ./internal/paths
+exit=0
+## nomagic ./internal/paths/...
+exit=0
+## devtool lint --only=sleepcheck
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+exit=0
+## GOOS=linux golangci-lint (host-built pinned v1.64.8) run ./internal/paths/...
+exit=0
+## GOOS=darwin golangci-lint (host-built pinned v1.64.8) run ./internal/paths/...
+exit=0

@@ -1,0 +1,41 @@
+# red: the new relative-spelling rows against the unfixed OpenFile (working tree = ef2f98c + test only), Windows host
+# go test -count=1 -run 'TestWriteAtomic_RefusesAProtectedPathNamedRelatively' -v ./internal/paths/
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_the_project_root
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_checkpoints/
+    atomic_owner_test.go:223: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:252
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:223
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: "open 0001.json: Access is denied."
+        	            		"Access is denied."
+        	Test:       	TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_checkpoints/
+        	Messages:   	OpenFile("0001.json", 0x201)
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_pins/
+    atomic_owner_test.go:224: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:252
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:224
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_pins/
+        	Messages:   	OpenFile("invariants.jsonl", 0x201)
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_below_pins/_through_..
+    atomic_owner_test.go:224: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:252
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:224
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_below_pins/_through_..
+        	Messages:   	OpenFile("..\\invariants.jsonl", 0x201)
+--- FAIL: TestWriteAtomic_RefusesAProtectedPathNamedRelatively (0.13s)
+    --- PASS: TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_the_project_root (0.05s)
+    --- FAIL: TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_checkpoints/ (0.02s)
+    --- FAIL: TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_inside_pins/ (0.03s)
+    --- FAIL: TestWriteAtomic_RefusesAProtectedPathNamedRelatively/from_below_pins/_through_.. (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.325s
+FAIL
+exit=1

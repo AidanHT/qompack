@@ -1,0 +1,3 @@
+# go test -count=1 -timeout=30m ./internal/paths/ at 34ddb55, Windows host
+ok  	github.com/qompack/qompack/internal/paths	6.973s
+exit=0

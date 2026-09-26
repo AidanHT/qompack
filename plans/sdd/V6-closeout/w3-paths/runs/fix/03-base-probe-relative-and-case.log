@@ -1,0 +1,16 @@
+# base probe: git archive 54a4334 (d660423^, before any w3-paths change) + probes/zz_probe_base_test.go.txt, Windows host
+# go test -count=1 -run 'TestZZProbeBase' -v ./internal/paths/   (probe-only test, not committed as code)
+=== RUN   TestZZProbeBase
+=== RUN   TestZZProbeBase/relative_from_inside_pins
+    zz_probe_test.go:26: base OpenFile(invariants.jsonl, O_TRUNC) from pins/: err=<nil>; pins now ""
+=== RUN   TestZZProbeBase/relative_from_the_project_root
+    zz_probe_test.go:37: base OpenFile(.qompack\pins\invariants.jsonl, O_TRUNC) from root: err=<nil>; pins now ""
+=== RUN   TestZZProbeBase/case_variant
+    zz_probe_test.go:43: base WriteAtomic(C:\Users\Quant\AppData\Local\Temp\TestZZProbeBase2071579976\001\.qompack\CHECKPOINTS\0001.json) err=<nil>; checkpoint now "{\"seq\":1,\"tampered\":true}"
+--- PASS: TestZZProbeBase (0.04s)
+    --- PASS: TestZZProbeBase/relative_from_inside_pins (0.00s)
+    --- PASS: TestZZProbeBase/relative_from_the_project_root (0.00s)
+    --- PASS: TestZZProbeBase/case_variant (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.416s
+exit=0

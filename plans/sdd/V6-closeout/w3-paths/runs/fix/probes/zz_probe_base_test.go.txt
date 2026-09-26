@@ -1,0 +1,45 @@
+package paths_test
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+func TestZZProbeBase(t *testing.T) {
+	l := newLayout(t)
+	cp := paths.CheckpointPath(l, 1)
+	if err := paths.CreateNew(cp, []byte(`{"seq":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	pins := filepath.Join(l.Pins, "invariants.jsonl")
+	_ = paths.AppendJSONL(pins, map[string]string{"id": "x"})
+	t.Run("relative from inside pins", func(t *testing.T) {
+		t.Chdir(l.Pins)
+		f, err := paths.OpenFile("invariants.jsonl", os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err == nil {
+			_ = f.Close()
+		}
+		got, _ := os.ReadFile(pins)
+		t.Logf("base OpenFile(invariants.jsonl, O_TRUNC) from pins/: err=%v; pins now %q", err, got)
+	})
+	t.Run("relative from the project root", func(t *testing.T) {
+		_ = paths.AppendJSONL(pins, map[string]string{"id": "y"})
+		t.Chdir(l.Root)
+		rel, _ := filepath.Rel(l.Root, pins)
+		f, err := paths.OpenFile(rel, os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err == nil {
+			_ = f.Close()
+		}
+		got, _ := os.ReadFile(pins)
+		t.Logf("base OpenFile(%s, O_TRUNC) from root: err=%v; pins now %q", rel, err, got)
+	})
+	t.Run("case variant", func(t *testing.T) {
+		variant := filepath.Join(l.Dot, "CHECKPOINTS", filepath.Base(cp))
+		err := paths.WriteAtomic(variant, []byte(`{"seq":1,"tampered":true}`), 0o600)
+		got, _ := os.ReadFile(cp)
+		t.Logf("base WriteAtomic(%s) err=%v; checkpoint now %q", variant, err, got)
+	})
+}
