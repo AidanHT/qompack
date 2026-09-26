@@ -27,12 +27,14 @@ as a short-lived subcommand:
 
 The host does not apply that last timeout: Claude Code gives the `SessionEnd` hooks of every plugin
 one shared 1.5 s budget, and a timeout set on a plugin-provided hook does not raise it. So
-`qompack flush` does not wait for the session's end (C1.15). The daemon acknowledges it as soon as
-the flush is durable — its line in the session's write-ahead log and leased, as an observed event's
-acknowledgement promises — with the session recorded as needing recovery, and then ends the session
-on its own: after every earlier delivery of the session, it runs the observer's end of session,
-writes the terminal-hook marker, saves the sketches and clears the recovery record. A daemon that
-stops first leaves the flush in its log for the next drain to replay.
+`qompack flush` does not wait for the session's end (C1.15). It waits at most half a second for the
+daemon's acknowledgement, which comes as soon as the flush is durable — its line in the session's
+write-ahead log and leased, as an observed event's acknowledgement promises — with the session
+recorded as needing recovery. The daemon then ends the session on its own: after every earlier
+delivery of the session, it runs the observer's end of session, writes the terminal-hook marker,
+saves the sketches and clears the recovery record. A daemon that stops first leaves the flush in its
+log for the next drain to replay, and a flush a drain replays while the daemon serves is ended the
+same way, on its own rather than inside the drain.
 
 Every entry is exec form: `command` is exactly the bundled executable —
 `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, or `bin/qompack.exe` in a windows bundle — and `args` is the
