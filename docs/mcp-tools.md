@@ -9,7 +9,7 @@ Qompack exposes these tools over the Model Context Protocol, on stdio, from
 it speaks JSON-RPC 2.0 to the host and forwards every `tools/call` to the resident
 daemon, which holds the warm store handles and is the single writer.
 
-Two behaviours apply to every tool here.
+These behaviours apply to every tool here.
 
 **Ephemeral metadata describes Qompack records.** Retrieval responses expose
 `_meta.qompack.ephemeral`; this is not a host eviction control or proof of native
@@ -25,6 +25,12 @@ Unavailable or unrecognized states never establish absence or prohibit an approa
 chunk-aligned span that covers what you asked for, widened to a symbol boundary where
 one is known. Pass `full: true` when you genuinely need the whole object; the response
 carries a `next_span` when there is more to page through.
+
+**A session in the home directory is refused.** When a session's project root is the
+user's home directory, Qompack records nothing (owner decision D18), and `qompack mcp`
+answers every call with this tool error without starting a daemon:
+
+> qompack is inactive in this session: its project root is the user's home directory, so nothing is recorded and there is nothing to retrieve. Retrying will not help; the user can open a project directory (one with its own .git) to use qompack's tools.
 
 A model should call `already_tried` before committing to an approach: Before committing to an approach, call already_tried.
 
