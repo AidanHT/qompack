@@ -57,21 +57,25 @@ type LiveEvalReport struct {
 	Trials       TrialCounts `json:"trials"`
 	// Confidence and Margin are the pre-registered interval level and non-inferiority margin.
 	// MarginKnown is false for a summary written before it carried its analysis.
-	Confidence          float64                      `json:"confidence"`
-	Margin              float64                      `json:"non_inferiority_margin"`
-	MarginKnown         bool                         `json:"non_inferiority_margin_known"`
-	Arms                []eval.ArmSummary            `json:"arms"`
-	TaskSuccessDiff     *eval.Difference             `json:"task_success_diff,omitempty"`
-	ConstraintCleanDiff *eval.Difference             `json:"constraint_clean_diff,omitempty"`
-	RecoveryDiff        *eval.Difference             `json:"recovery_diff,omitempty"`
-	Decision            eval.LiveDecision            `json:"decision"`
-	Regression          string                       `json:"constraint_regression,omitempty"`
-	Failed              []string                     `json:"failed,omitempty"`
-	Notes               []string                     `json:"notes,omitempty"`
-	RateTableDate       string                       `json:"rate_table_date,omitempty"`
-	Analysis            eval.LiveAnalysis            `json:"analysis"`
-	ByVariant           map[string][]eval.ArmSummary `json:"by_variant,omitempty"`
-	TaskSigns           map[string]int               `json:"task_signs,omitempty"`
+	Confidence          float64           `json:"confidence"`
+	Margin              float64           `json:"non_inferiority_margin"`
+	MarginKnown         bool              `json:"non_inferiority_margin_known"`
+	Arms                []eval.ArmSummary `json:"arms"`
+	TaskSuccessDiff     *eval.Difference  `json:"task_success_diff,omitempty"`
+	ConstraintCleanDiff *eval.Difference  `json:"constraint_clean_diff,omitempty"`
+	RecoveryDiff        *eval.Difference  `json:"recovery_diff,omitempty"`
+	Decision            eval.LiveDecision `json:"decision"`
+	Regression          string            `json:"constraint_regression,omitempty"`
+	// Failed names every failed trial, and FailedTreatment says how the decision counted them: under
+	// intention to treat (preregistration section 8) each is in every denominator, a harness failure
+	// scored as a failure on every outcome and any other trial graded by its checks.
+	Failed          []string                     `json:"failed,omitempty"`
+	FailedTreatment string                       `json:"failed_treatment,omitempty"`
+	Notes           []string                     `json:"notes,omitempty"`
+	RateTableDate   string                       `json:"rate_table_date,omitempty"`
+	Analysis        eval.LiveAnalysis            `json:"analysis"`
+	ByVariant       map[string][]eval.ArmSummary `json:"by_variant,omitempty"`
+	TaskSigns       map[string]int               `json:"task_signs,omitempty"`
 }
 
 // buildLiveReport qualifies one run and carries its summary over.
@@ -114,6 +118,9 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 		r.Trials.Skipped = r.Trials.Planned - r.Trials.Ran
 	}
 	r.Trials.Failed = len(s.Failed)
+	if r.Trials.Failed > 0 {
+		r.FailedTreatment = liveFailedTreatment
+	}
 	r.NotConfirmatory = notConfirmatory(p, s, r)
 	r.Confirmatory = len(r.NotConfirmatory) == 0
 	if contingencyRun(p) && len(s.HostModels) > 0 {
@@ -125,6 +132,13 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 	}
 	return r
 }
+
+// liveFailedTreatment says how a live run's decision counted its failed trials. The summary's
+// decision applies preregistration section 8's intention-to-treat rule itself (eval.SummarizeLive,
+// eval.DecideLive), so the command reports that decision and does not override it for them.
+const liveFailedTreatment = "each is in every denominator of the decision (intention to treat, preregistration " +
+	"section 8): a harness failure is scored as a failure on every outcome, any other failed trial is graded by " +
+	"its checks, and a trial whose plugin state contradicted its arm makes the decision not-applicable"
 
 // notConfirmatory lists every way the run departs from a confirmatory run of its pre-registered
 // design: its frozen materials and install path (sections 2 and 3, amendment A1), its model (section
@@ -292,6 +306,9 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 		Detail: fmt.Sprintf("%s; decision %s — %s", diffText(r.TaskSuccessDiff, r.Confidence), r.Decision.Verdict,
 			r.Decision.Reason),
 	}
+	if r.Trials.Failed > 0 {
+		primary.Detail += fmt.Sprintf("; %d failed trial(s) counted under intention to treat", r.Trials.Failed)
+	}
 	switch {
 	case notJudged != "":
 		primary.Detail = notJudged + "; " + primary.Detail
@@ -373,6 +390,9 @@ func renderLive(rw *errWriter, r *LiveEvalReport) {
 	for _, as := range r.Arms {
 		rw.printf("    %-8s mean estimate %d micros (%d of %d trial(s) a lower bound), mean host-reported %.4f USD, "+
 			"mean wall %d ms\n", as.Arm, as.MeanEstimateMc, as.EstimateIncomplete, as.Trials, as.MeanHostCost, as.MeanWallMS)
+	}
+	if len(r.Failed) > 0 {
+		rw.printf("  failed trials: %d, %s\n", len(r.Failed), r.FailedTreatment)
 	}
 	for _, f := range r.Failed {
 		rw.printf("  failed trial: %s\n", f)
