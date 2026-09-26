@@ -235,7 +235,7 @@ func (l *Lock) finishFrozenLegacyRotation(stateDir string, seg *deliverySegments
 		return nil, err
 	}
 	l.journal = j // ownership retains even an uncertain close on a failed finish
-	if err := j.doRotate(ctx); err != nil {
+	if err := j.rotateAtOpen(ctx); err != nil {
 		_ = j.poison(err)
 		_ = j.closeLocked()
 		return nil, err

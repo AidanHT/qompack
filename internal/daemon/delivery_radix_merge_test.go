@@ -80,10 +80,12 @@ var mergeDecisions = []mergeDecision{
 // decisions say. It runs every digest shape radixMergeHash offers, batches that add, replace, keep and
 // skip, and a batch split into several sorted merges.
 func TestDeliveryRadix_MergeEqualsSequentialUpdates(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	for seed := int64(1); seed <= 48; seed++ {
 		mode := int(seed % 4)
 		t.Run(fmt.Sprintf("seed%02d-mode%d", seed, mode), func(t *testing.T) {
+			t.Parallel()
 			rng := rand.New(rand.NewSource(seed))
 			r := newTestRadix(t)
 			r.hashKey = radixMergeHash(r, mode)

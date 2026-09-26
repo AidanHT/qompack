@@ -48,8 +48,8 @@ func openWiredJournal(t *testing.T) (*deliveryJournal, context.Context) {
 // window, not the store, until its segment rotates; the rotation archives it exactly (the writer half
 // of the wiring).
 func TestDeliveryJournal_GenerationArchivesAdmittedLeaseWithItsWindow(t *testing.T) {
-	setRollover(t, 1)
-	j := openRolloverJournal(t, t.TempDir())
+	roll := parallelRollover(t, 1)
+	j := roll.open(t, t.TempDir())
 	ctx := context.Background()
 	const sess core.SessionID = "sess-wire"
 	nonce := genNonce(0)
@@ -111,8 +111,8 @@ func TestDeliveryJournal_GenerationContinuesArrivalsForAnArchivedSession(t *test
 // active-window lease is archived with its window, and the store's per-session settled frontier then
 // says exactly which arrivals are settled; an acknowledgement of an archived lease advances it at once.
 func TestDeliveryJournal_GenerationAckArchivesWithItsWindowAndSettlesTheFrontier(t *testing.T) {
-	setRollover(t, 3)
-	j := openRolloverJournal(t, t.TempDir())
+	roll := parallelRollover(t, 3)
+	j := roll.open(t, t.TempDir())
 	ctx := context.Background()
 	const sess core.SessionID = "sess-ack"
 

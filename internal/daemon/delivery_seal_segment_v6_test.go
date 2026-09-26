@@ -22,15 +22,16 @@ import (
 // authority, every committed segment and the generation store — read-only — instead of checking only
 // the legacy segment 0 and reporting the whole store fine while the active segment is corrupt.
 
-// buildRotatedStore leases n deliveries through a live journal with the rollover seam on (threshold 1,
-// so every lease after the first rotates), acknowledging the first if ackFirst, then releases the lock
-// so the offline tool can take it. It returns the active segment and the first lease.
+// buildRotatedStore leases n deliveries through a live journal whose lock rotates it after every lease
+// (threshold 1 on the lock, so the caller may run in parallel), acknowledging the first if ackFirst,
+// then releases the lock so the offline tool can take it. It returns the active segment and the first
+// lease.
 func buildRotatedStore(t *testing.T, root string, sess core.SessionID, n int, ackFirst bool) (uint64, deliveryLease) {
 	t.Helper()
-	setRollover(t, 1)
 	ctx := context.Background()
 	lock, err := acquireTestDeliveryLock(root)
 	require.NoError(t, err)
+	lock.rolloverEntries = 1
 	j, err := lock.openDeliveryJournal()
 	require.NoError(t, err)
 	var first deliveryLease
@@ -97,6 +98,7 @@ func join(lines []string) string {
 // would report the whole store "checked") but whose ACTIVE segment's lease journal is corrupt. The old
 // behavior is demonstrated by loading segment 0 alone successfully; the corrected tool refuses.
 func TestDeliverySealSegment_RefusesCorruptActiveSegmentThatLegacyOnlyAccepts(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	active, _ := buildRotatedStore(t, root, "s", 6, false)
 	require.GreaterOrEqual(t, active, uint64(2), "the store rotated to a real active segment")
@@ -135,6 +137,7 @@ func TestDeliverySealSegment_RefusesCorruptActiveSegmentThatLegacyOnlyAccepts(t 
 // TestDeliverySealSegment_ValidMultiSegmentTreePasses: a complete, valid rotated store passes the
 // read-only check across all segments and the generation store.
 func TestDeliverySealSegment_ValidMultiSegmentTreePasses(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	active, _ := buildRotatedStore(t, root, "s", 6, false)
 	require.GreaterOrEqual(t, active, uint64(2))
@@ -152,6 +155,7 @@ func TestDeliverySealSegment_ValidMultiSegmentTreePasses(t *testing.T) {
 // TestDeliverySealSegment_ArchivedAckExactJoinPasses: an ack for a lease archived into an earlier
 // segment is validated against its original generation identity during the read-only check.
 func TestDeliverySealSegment_ArchivedAckExactJoinPasses(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	active, first := buildRotatedStore(t, root, "s", 6, true) // acks the archived arrival-1 lease
 	require.GreaterOrEqual(t, active, uint64(2))
@@ -165,6 +169,7 @@ func TestDeliverySealSegment_ArchivedAckExactJoinPasses(t *testing.T) {
 // TestDeliverySealSegment_MissingActiveSegmentFilesRefused: an authority naming a segment whose files
 // are missing is refused (never read as an empty store).
 func TestDeliverySealSegment_MissingActiveSegmentFilesRefused(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	active, _ := buildRotatedStore(t, root, "s", 6, false)
 	state := paths.Of(root).State
@@ -177,6 +182,7 @@ func TestDeliverySealSegment_MissingActiveSegmentFilesRefused(t *testing.T) {
 // TestDeliverySealSegment_MissingHeadRefused: an authority log surviving without its head is head loss
 // and is refused, never checked as a legacy tree.
 func TestDeliverySealSegment_MissingHeadRefused(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	buildRotatedStore(t, root, "s", 6, false)
 	state := paths.Of(root).State
@@ -188,6 +194,7 @@ func TestDeliverySealSegment_MissingHeadRefused(t *testing.T) {
 
 // TestDeliverySealSegment_NewerAuthoritySchemaRefused: a head at an unknown version is refused.
 func TestDeliverySealSegment_NewerAuthoritySchemaRefused(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	buildRotatedStore(t, root, "s", 6, false)
 	state := paths.Of(root).State
@@ -209,6 +216,7 @@ func TestDeliverySealSegment_NewerAuthoritySchemaRefused(t *testing.T) {
 // TestDeliverySealSegment_ConversionRefusedPreservesBytes: --to v1 on a segmented store is refused and
 // writes nothing.
 func TestDeliverySealSegment_ConversionRefusedPreservesBytes(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	buildRotatedStore(t, root, "s", 6, false)
 
@@ -299,13 +307,12 @@ func corruptGenRootPage(t *testing.T, state, rootHex string) {
 // segment's base root hits a corrupt page. Swallowing that error into "new session" would let the
 // density check (1 == 0+1) pass; propagating it refuses. This is the case the old closure got wrong.
 func TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused(t *testing.T) {
+	roll := parallelRollover(t, 1)
 	root := t.TempDir()
 	state := paths.Of(root).State
-	setRollover(t, 1)
 	ctx := context.Background()
 
-	lock, err := acquireTestDeliveryLock(root)
-	require.NoError(t, err)
+	lock := roll.lock(t, root)
 	j, err := lock.openDeliveryJournal()
 	require.NoError(t, err)
 	for i := 0; i < 3; i++ { // session A: arrivals 1,2,3 across segments 0,1,2
@@ -336,6 +343,7 @@ func TestDeliverySealSegment_CorruptPredecessorPageWithFirstArrivalRefused(t *te
 // TestDeliverySealSegment_TornGenerationManifestRefused is the fix for main's #2: a torn trailing record
 // in the generation manifest refuses (the bounded stream reader detects the partial line).
 func TestDeliverySealSegment_TornGenerationManifestRefused(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	buildRotatedStore(t, root, "s", 6, false)
 	state := paths.Of(root).State
@@ -395,6 +403,7 @@ func TestDeliverySealSegment_NonDenseActiveAuthorityRefused(t *testing.T) {
 // path that is not a directory (a regular file swapped in) is rejected by the pinned-child identity
 // check before any reader runs.
 func TestDeliverySealSegment_SegmentDirNotADirectoryRefused(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	active, _ := buildRotatedStore(t, root, "s", 6, false)
 	state := paths.Of(root).State

@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
@@ -62,8 +63,9 @@ const deliveryRotateAttempts = 64
 // 64 MiB per journal file — so rotation replaces the ErrBudget refusal exactly where it used to begin,
 // and every segment's files stay within the bounds every reader (this loader, the offline tool, store
 // GC, fsck) already enforces. A focused test sets them low to force rotation across the capacity seam
-// without writing 65,536 leases; they are package vars for that seam only and no configuration key
-// exposes them.
+// without writing 65,536 leases, either here or, to run beside other tests, on the one Lock it opens a
+// journal through (Lock.rolloverEntries); they are package vars for that seam only and no configuration
+// key exposes them. A journal reads them once, when it is made (newDeliveryJournal).
 var (
 	deliveryRolloverEntries = deliveryLeaseMaxEntries
 	deliveryRolloverBytes   = int64(deliveryLeaseMaxBytes)
@@ -142,6 +144,17 @@ type deliveryJournal struct {
 	// blocked enters and closeLocked when a rotation ends. Guarded by st.
 	rotating   bool
 	rotateDone sync.Cond
+	// rotation is what the running rotation's doRotate recorded about its window, for the report that
+	// follows it (delivery_diagnostics.go). It is written and read only with the barrier held.
+	rotation rotationStats
+	// rolloverEntries and rolloverBytes are the thresholds this journal rotates at, fixed when it is
+	// made (Lock.deliveryRollover): the package's deliveryRolloverEntries and deliveryRolloverBytes in
+	// production.
+	rolloverEntries int
+	rolloverBytes   int64
+	// firstRotationAdvised is set once this journal has warned that the store's first rotation is
+	// near (delivery_diagnostics.go), so it warns at most once. Guarded by st.
+	firstRotationAdvised bool
 
 	// st guards fault, closed, closing and inflight, and every write of the admitted state: bytes,
 	// chain, leases and arrivals, and ackBytes, ackChain and acks. It is taken below Lock.mu and
@@ -154,7 +167,9 @@ type deliveryJournal struct {
 	// closing is set by closeLocked before it waits and is never cleared, so no operation passes
 	// enter once a close has begun, and Release waits only for the operations already in flight.
 	closing bool
-	// inflight counts the operations between enter and leave: each one may write, sync or seal.
+	// inflight counts the operations between enter and leave, each of which may write, sync or seal,
+	// and the generation-store reads between beginArchiveReadLocked and endArchiveRead. A rotation and
+	// a close both wait for it to reach zero.
 	inflight int
 
 	// leaseQ group-commits lease (design §2.6): lease enqueues its request and waits, and the
@@ -436,6 +451,9 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 			return nil, err
 		}
 	}
+	// A store that has never rotated and already holds most of a window (a restart, or an upgrade of a
+	// store written before rollover) is told now, not only when its next admission crosses the point.
+	j.adviseFirstRotationIfDue()
 	l.journalOpenFault = false
 	return j, nil
 }
@@ -460,7 +478,7 @@ func (j *deliveryJournal) recoverGenerations(ctx context.Context) error {
 			return err
 		}
 		if found {
-			return j.doRotate(ctx)
+			return j.rotateAtOpen(ctx)
 		}
 	}
 	var archived []deliveryAck
@@ -590,6 +608,7 @@ func newDeliveryJournal(l *Lock, p string) *deliveryJournal {
 	if l != nil {
 		j.sealFormat = l.deliverySealFormat()
 	}
+	j.rolloverEntries, j.rolloverBytes = l.deliveryRollover()
 	j.sealLease = j.savePosition
 	j.sealAck = j.saveAckPosition
 	return j
@@ -729,7 +748,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 	// Rollover trigger: at the (seam-configurable) threshold, signal that the active segment must roll
 	// rather than refusing. lease() drains, rotates to a fresh segment, and retries; earlier mints in
 	// this batch still commit. Below the boundary this never fires and behaviour is exactly as before.
-	if j.rolloverArmed() && b.count >= deliveryRolloverEntries {
+	if j.rolloverArmed() && b.count >= j.rolloverEntries {
 		return leasePending{err: j.signalRotate()}
 	}
 	if b.count >= deliveryLeaseMaxEntries || prev == math.MaxUint64 {
@@ -751,7 +770,7 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 	if len(line) > deliveryLeaseMaxLine {
 		return leasePending{err: core.ErrBudget}
 	}
-	if j.rolloverArmed() && b.size+int64(len(line)) > deliveryRolloverBytes && b.count > 0 {
+	if j.rolloverArmed() && b.size+int64(len(line)) > j.rolloverBytes && b.count > 0 {
 		return leasePending{err: j.signalRotate()} // roll before the byte limit; a lone oversize line still refuses
 	}
 	if b.size+int64(len(line)) > deliveryLeaseMaxBytes {
@@ -866,10 +885,14 @@ func (j *deliveryJournal) appendLeases(b *leaseBatch) error {
 	// Only synced and sealed bytes enter the identity maps. An uncertain write poisons this handle
 	// and requires a reload, and a complete surviving row then keeps its identity on retry.
 	j.st.Lock()
-	defer j.st.Unlock()
 	j.bytes, j.chain = b.size, b.chain
 	for _, l := range b.order {
 		j.leases[l.Delivery], j.arrivals[l.Session] = l, l.ArrivalSeq
+	}
+	advise, window := j.firstRotationAdviceDueLocked(), len(j.leases)
+	j.st.Unlock()
+	if advise {
+		j.adviseFirstRotation(window)
 	}
 	return nil
 }
@@ -1344,6 +1367,35 @@ func (j *deliveryJournal) leave() {
 	}
 }
 
+// beginArchiveReadLocked admits one read of the generation store into the section a rotation and a
+// close both wait out, and returns the store. The caller holds st, has found the journal neither
+// closing, closed, rotating nor faulted, and ends the read with endArchiveRead. It never waits: the
+// ordering gate and the drain's lease probe (delivery_order.go) call it with Lock.mu held, and a
+// rotation in progress is a deferral for them, not something to wait for.
+//
+// Holding a slot, not a lock, is what lets the read itself run with neither Lock.mu nor st held (V6
+// close-out rollover review, finding 5), while still seeing one history with the window the caller
+// read under st: a rotation is the only writer that moves a lease out of the window and into the store,
+// and it cannot begin archiving until every slot is given back. The store meanwhile only gains
+// settlements of archived leases (their acknowledgement and terminal mirrors), never loses a record.
+func (j *deliveryJournal) beginArchiveReadLocked() *deliveryGenerations {
+	j.inflight++
+	return j.gen
+}
+
+// endArchiveRead ends a read beginArchiveReadLocked admitted, and reports whether the journal is still
+// usable — neither closing, closed nor faulted — so an answer read while a close began or a fault struck
+// is not given (fail closed).
+func (j *deliveryJournal) endArchiveRead() bool {
+	j.st.Lock()
+	defer j.st.Unlock()
+	j.inflight--
+	if j.inflight == 0 {
+		j.idle.Broadcast()
+	}
+	return !j.closing && !j.closed && j.fault == nil
+}
+
 // poison records err as the journal's fault unless it already has one, and returns the fault it
 // holds. There is one fault for the whole handle, lease and acknowledgement sides alike, so an
 // uncertain write on either side refuses every later operation on both until the lock is released
@@ -1477,6 +1529,9 @@ func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 		return deliveryJournalError()
 	}
 	j.rotating = true
+	// The pause every lease and acknowledgement sees starts here, when new work begins to wait, and
+	// includes the drain of the work already in flight (delivery_diagnostics.go reports it).
+	started := time.Now()
 	for j.inflight > 0 {
 		j.idle.Wait()
 	}
@@ -1489,6 +1544,7 @@ func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 		err = j.doRotate(ctx)
 	}
 	j.st.Lock()
+	to, stats := j.segment, j.rotation // read before the barrier lifts; doRotate wrote them under it
 	j.rotating = false
 	if err != nil && j.fault == nil {
 		j.fault = deliveryJournalError()
@@ -1496,6 +1552,9 @@ func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 	j.rotateDone.Broadcast()
 	j.idle.Broadcast()
 	j.st.Unlock()
+	if !down {
+		j.reportRotation(from, to, time.Since(started), stats, false, err)
+	}
 	return err
 }
 
@@ -1504,6 +1563,7 @@ func (j *deliveryJournal) rotate(ctx context.Context, from uint64) error {
 // durable state it leaves is always consistent for the next open (the transition is atomic and the
 // outgoing window is archived before it).
 func (j *deliveryJournal) doRotate(ctx context.Context) error {
+	j.rotation = rotationStats{leases: len(j.leases), acks: len(j.acks), terminals: len(j.terminal), carried: -1, carryBytes: -1}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -1535,6 +1595,14 @@ func (j *deliveryJournal) doRotate(ctx context.Context) error {
 	carry, err := encodeDeliveryCarry(next, carried)
 	if err != nil {
 		return err
+	}
+	j.rotation.carried, j.rotation.carryBytes = len(carried), len(carry)
+	// A carry past deliveryCarryMaxBytes would be refused by every reader of it — the next rotation,
+	// the offline check and fsck — so it is refused here instead, before anything is staged: the
+	// rotation fails closed (the journal refuses every lease and acknowledgement, and hooks keep their
+	// deliveries in the durable spool) rather than commit a segment its own readers cannot open.
+	if int64(len(carry)) > deliveryCarryMaxBytes {
+		return errCarryOverBound
 	}
 	if err := createFreshSegment(j.stateDir, next, carry); err != nil {
 		return err
@@ -1931,7 +1999,7 @@ func (b *ackBatch) decide(j *deliveryJournal, r *ackReq) ackPending {
 	// Rollover trigger, as in the lease batch: the acknowledgement journal of a segment can fill before
 	// its lease journal (it also settles leases archived before the segment opened), so it rolls at its
 	// own threshold rather than refusing.
-	if j.rolloverArmed() && b.count >= deliveryRolloverEntries {
+	if j.rolloverArmed() && b.count >= j.rolloverEntries {
 		return ackPending{err: j.signalRotate()}
 	}
 	if b.count >= deliveryLeaseMaxEntries {
@@ -1943,7 +2011,7 @@ func (b *ackBatch) decide(j *deliveryJournal, r *ackReq) ackPending {
 		return ackPending{err: core.ErrContract}
 	}
 	line = append(line, '\n')
-	if j.rolloverArmed() && b.size+int64(len(line)) > deliveryRolloverBytes && b.count > 0 {
+	if j.rolloverArmed() && b.size+int64(len(line)) > j.rolloverBytes && b.count > 0 {
 		return ackPending{err: j.signalRotate()}
 	}
 	if len(line) > deliveryLeaseMaxLine || b.size+int64(len(line)) > deliveryLeaseMaxBytes {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -35,12 +36,20 @@ const (
 	deliveryCarryFile    = "delivery-carried-leases.jsonl"
 	deliveryCarryFormat  = "qompack.delivery.carried-leases.v1"
 	deliveryCarryVersion = 1
-	// deliveryCarryMaxBytes bounds the carry a rotation reads back (the per-journal byte bound, about
-	// 200,000 carried leases). Past it the rotation refuses — the journal fails closed as at its cap —
-	// rather than holding an unbounded history in memory. Store GC stops harvesting far earlier, at
-	// 65,536 carried leases, where it halts its pass and collects nothing.
-	deliveryCarryMaxBytes = deliveryLeaseMaxBytes
 )
+
+// deliveryCarryMaxBytes bounds a carry (the per-journal byte bound, about 200,000 carried leases). A
+// rotation whose carry would pass it refuses before staging anything, and every reader refuses a carry
+// that does pass it: the journal fails closed as at its cap, rather than hold an unbounded history in
+// memory or commit a segment its own readers cannot open. Store GC stops harvesting far earlier, at
+// 65,536 carried leases, where it halts its pass and collects nothing. It is a package var only so a
+// focused test can reach the bound without 200,000 leases; no configuration key exposes it.
+var deliveryCarryMaxBytes int64 = deliveryLeaseMaxBytes
+
+// errCarryOverBound is a carry past deliveryCarryMaxBytes: the rotation that would write one refuses
+// with it, and so does a reader that finds one. It is errSegmentUnavailable to every caller that asks,
+// and the rotation's diagnostic names the bound (delivery_diagnostics.go).
+var errCarryOverBound = fmt.Errorf("%w: carried leases over their byte bound", errSegmentUnavailable)
 
 // deliveryCarryHeader is the carry's first line. Field order is the wire order.
 type deliveryCarryHeader struct {
@@ -150,8 +159,11 @@ func readSegmentCarry(stateDir string, seq uint64) ([]byte, error) {
 // opened, within deliveryCarryMaxBytes.
 func readCarryConfined(segment *os.Root) ([]byte, error) {
 	before, err := segment.Lstat(deliveryCarryFile)
-	if err != nil || !before.Mode().IsRegular() || before.Size() > deliveryCarryMaxBytes {
+	if err != nil || !before.Mode().IsRegular() {
 		return nil, errSegmentUnavailable
+	}
+	if before.Size() > deliveryCarryMaxBytes {
+		return nil, errCarryOverBound
 	}
 	f, err := segment.Open(deliveryCarryFile)
 	if err != nil {

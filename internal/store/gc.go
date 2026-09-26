@@ -121,6 +121,10 @@ type GCReport struct {
 	// RetentionRootsError reports that a retention-root source failed, so this pass deliberately
 	// collected nothing: an unreadable lease set is indistinguishable from a full one.
 	RetentionRootsError bool
+	// DeliveryCarryOverBound narrows RetentionRootsError to its one cause that is not damage: the
+	// active delivery segment carries more archived, unacknowledged leases than a pass harvests
+	// (65,536). Such a pass halts and collects nothing exactly as for any unreadable source.
+	DeliveryCarryOverBound bool
 	// RetentionRootsShed is how many duplicate lines this pass compacted out of
 	// retention-roots.jsonl. The file gains a line per declaration and removes nothing, so without
 	// a compaction it grows once per delivery forever; the number is how much of that growth was

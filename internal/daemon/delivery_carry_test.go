@@ -73,9 +73,9 @@ func TestDeliveryCarry_RoundTripAndRefusals(t *testing.T) {
 // whichever later segment that acknowledgement lands. A lease denied by a terminal disposition but never
 // acknowledged stays carried, because store GC never released on a terminal disposition.
 func TestDeliveryRollover_CarryNamesEveryArchivedUnacknowledgedLease(t *testing.T) {
-	setRollover(t, 3)
+	roll := parallelRollover(t, 3)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	var leases []deliveryLease
 	lease := func(i int) deliveryLease {
 		t.Helper()
@@ -127,7 +127,7 @@ func TestDeliveryRollover_CarryNamesEveryArchivedUnacknowledgedLease(t *testing.
 	// A reopen resumes from the committed carry, and the next rotation builds on it.
 	stateDir := j.stateDir
 	require.NoError(t, j.owner.Release())
-	j = openRolloverJournal(t, filepath.Dir(filepath.Dir(stateDir)))
+	j = roll.open(t, filepath.Dir(filepath.Dir(stateDir)))
 	require.Equal(t, uint64(3), j.segment)
 	ack(leases[8])
 	lease(10)
@@ -141,9 +141,9 @@ func TestDeliveryRollover_CarryNamesEveryArchivedUnacknowledgedLease(t *testing.
 // segment's, so a carry that no longer matches its header stops the rotation (the journal fails closed)
 // rather than dropping the leases it named.
 func TestDeliveryRollover_DamagedCarryRefusesTheNextRotation(t *testing.T) {
-	setRollover(t, 2)
+	roll := parallelRollover(t, 2)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	for i := 0; i < 3; i++ {
 		_, err := j.lease(ctx, genNonce(i), "damaged", testDeliveryRequest(genNonce(i)))
 		require.NoError(t, err)
@@ -168,6 +168,7 @@ func TestDeliveryRollover_DamagedCarryRefusesTheNextRotation(t *testing.T) {
 // lease against the generation store at the segment's base root — and refuses a carry that was altered,
 // that names a lease the store does not hold, or that carries a lease already acknowledged there.
 func TestDeliverySealSegment_CarryIsCheckedAgainstTheBaseRoot(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	active, _ := buildRotatedStore(t, root, "carry-check", 4, false)
 	require.Equal(t, uint64(3), active)
@@ -203,6 +204,7 @@ func TestDeliverySealSegment_CarryIsCheckedAgainstTheBaseRoot(t *testing.T) {
 	require.NoError(t, os.WriteFile(paths.Long(carryPath), good, 0o600))
 	lock, err := acquireTestDeliveryLock(root)
 	require.NoError(t, err)
+	lock.rolloverEntries = 1 // as buildRotatedStore's: the next lease rotates to segment 4
 	j, err := lock.openDeliveryJournal()
 	require.NoError(t, err)
 	ctx := context.Background()
