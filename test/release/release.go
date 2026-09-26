@@ -727,24 +727,6 @@ func waitUntil(bound time.Duration, cond func() bool) bool {
 	}
 }
 
-// daemonHoldingLock reports the pid recorded in root's daemon.lock and whether a live process
-// still holds it. The lock is read with paths.ReadFileShared, whose handle carries
-// FILE_SHARE_DELETE, so polling it cannot make the daemon's own Release fail on Windows and
-// thereby CAUSE the abandoned lock it is checking for.
-func daemonHoldingLock(root string) (pid int, held bool) {
-	b, err := paths.ReadFileShared(daemon.LockPath(root))
-	if err != nil {
-		return 0, false
-	}
-	var info daemon.LockInfo
-	if err := json.Unmarshal(b, &info); err != nil {
-		// paths.CreateNew creates the file and only then writes the body, so an unparseable lock
-		// is one a process finished creating microseconds ago — the most alive a daemon ever is.
-		return 0, true
-	}
-	return info.PID, testutil.ProcessAlive(info.PID)
-}
-
 // lockPath is the daemon lock file this package asks about, named once so every message agrees.
 func lockPath(root string) string { return daemon.LockPath(root) }
 
@@ -755,12 +737,13 @@ func lockFileExists(root string) bool {
 	return err == nil
 }
 
-// shutdownIfReachable sends admin.shutdown until the daemon lets go of the lock.
+// shutdownIfReachable sends admin.shutdown until the daemon is gone.
 //
-// This is test/platform's helper, cloned rather than imported because both packages are
-// composition roots. "Gone" is the LOCK disappearing rather than the address going unreachable:
-// Stop closes the listener first and then goes on writing under .qompack/ for the rest of its
-// unwind, and a daemon that is still coming up holds the lock while answering no dial at all.
+// What "gone" means is testutil.ShutdownDaemonUntilGone's one definition, shared with every other
+// shutdown helper under test/: no live process holds the lock, every process seen holding it during
+// the call has exited, and no holder went unidentified. This helper keeps only what is this
+// package's own: a daemon that is still coming up holds the lock while answering no dial at all, so
+// a live lock holder counts as something to shut down even when nothing answers.
 func shutdownIfReachable(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
@@ -768,35 +751,15 @@ func shutdownIfReachable(t *testing.T, root string) {
 		return
 	}
 	if !ipc.Probe(addr, probeTimeout) {
-		if _, held := daemonHoldingLock(root); !held {
+		if _, held := testutil.DaemonHoldingLock(root); !held {
 			return
 		}
 	}
-	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
-		ProjectRoot: root, ConnectDeadline: roundTripDL, AckDeadline: roundTripDL,
+	out := testutil.ShutdownDaemonUntilGone(root, addr, testutil.ShutdownWait{
+		Tick: daemonPollTick, Bound: daemonDownBound, RoundTrip: roundTripDL,
 	})
-	defer func() { _ = c.Close() }()
-
-	shutdownPID, _ := daemonHoldingLock(root)
-	ticker := time.NewTicker(daemonPollTick)
-	defer ticker.Stop()
-	timeout := time.NewTimer(daemonDownBound)
-	defer timeout.Stop()
-	for {
-		_, _ = c.Send(context.Background(), ipc.Request{
-			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
-		}, roundTripDL)
-		if _, held := daemonHoldingLock(root); !held && processSettled(shutdownPID) {
-			return
-		}
-		select {
-		case <-ticker.C:
-		case <-timeout.C:
-			t.Logf("release: a daemon (pid %d) still held %s after %s of retried admin.shutdown",
-				shutdownPID, daemon.LockPath(root), daemonDownBound)
-			return
-		}
+	if !out.Gone {
+		t.Logf("release: %s", out.Describe(daemon.LockPath(root), daemonDownBound))
 	}
 }
 
@@ -811,14 +774,6 @@ func stopDaemonAndWait(t *testing.T, root string) bool {
 	t.Helper()
 	shutdownIfReachable(t, root)
 	return waitUntil(daemonGoneBound, func() bool { return !lockFileExists(root) })
-}
-
-// processSettled reports whether the pid that held the lock can no longer write inside the tree.
-func processSettled(shutdownPID int) bool {
-	if shutdownPID == 0 || shutdownPID == os.Getpid() {
-		return true
-	}
-	return !testutil.ProcessAlive(shutdownPID)
 }
 
 // storeSurfaces lists the files under .qompack/objects and .qompack/index, which together are

@@ -863,7 +863,7 @@ func waitDaemonUpFor(t *testing.T, root string, bound time.Duration) bool {
 		case <-deadline.C:
 			// Every expiry says what it was waiting for and for how long: a bound that expires
 			// silently is barely better than none.
-			pid, held := daemonHoldingLock(root)
+			pid, held := testutil.DaemonHoldingLock(root)
 			t.Logf("fault: no daemon answered %s within %s (lock pid %d, held=%v)", root, bound, pid, held)
 			return false
 		}
@@ -907,21 +907,20 @@ func requireIndexed(t *testing.T, root, id string) {
 	if fi, statErr := os.Stat(paths.Long(path)); statErr == nil {
 		size = fi.Size()
 	}
-	pid, held := daemonHoldingLock(root)
+	pid, held := testutil.DaemonHoldingLock(root)
 	t.Fatalf("fault: the observer never indexed %s into %s within %s "+
 		"(index size %d bytes, daemon lock pid %d held=%v)", id, path, indexBound, size, pid, held)
 }
 
 // shutdownIfReachable dials root's resolved address and, if anything answers or a live process still
-// holds the lock, sends admin.shutdown until the daemon goes away.
+// holds the lock, sends admin.shutdown until the daemon is gone.
 //
-// This is test/e2e's e2eShutdownIfReachable reduced to what this package needs, cloned rather than
-// imported because test/e2e is a composition root. The two properties worth keeping are the ones its
-// own comments were written around: "gone" is the LOCK disappearing rather than the address going
-// unreachable, because Stop closes the listener first and then goes on writing under .qompack/ for
-// the rest of its unwind; and a daemon that is still COMING UP holds the lock while answering no
-// dial at all, so liveness of the lock holder — not reachability — decides whether there is anything
-// to wait for.
+// What "gone" means is testutil.ShutdownDaemonUntilGone's one definition, shared with every other
+// shutdown helper under test/: no live process holds the lock, every process seen holding it during
+// the call has exited, and no holder went unidentified. This helper keeps only what is this
+// package's own: a daemon that is still COMING UP holds the lock while answering no dial at all, so
+// liveness of the lock holder — not reachability alone — decides whether there is anything to wait
+// for; and a daemon that never goes is terminated, if it serves one of this package's fixtures.
 //
 // It never signals a process on the ordinary path: shutdown is requested over the daemon's own admin
 // channel. terminateOwnDaemon is the last resort and it is guarded to this package's own fixtures.
@@ -932,43 +931,19 @@ func shutdownIfReachable(t *testing.T, root string) {
 		return
 	}
 	if !ipc.Probe(addr, probeTimeout) {
-		if _, held := daemonHoldingLock(root); !held {
+		if _, held := testutil.DaemonHoldingLock(root); !held {
 			return
 		}
 	}
 
-	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
-		ProjectRoot:     root,
-		ConnectDeadline: roundTripDeadline,
-		AckDeadline:     roundTripDeadline,
+	out := testutil.ShutdownDaemonUntilGone(root, addr, testutil.ShutdownWait{
+		Tick: daemonPollTick, Bound: daemonDownBound, RoundTrip: roundTripDeadline,
 	})
-	defer func() { _ = c.Close() }()
-
-	shutdownPID, _ := daemonHoldingLock(root)
-
-	ticker := time.NewTicker(daemonPollTick)
-	defer ticker.Stop()
-	timeout := time.NewTimer(daemonDownBound)
-	defer timeout.Stop()
-	for {
-		_, _ = c.Send(context.Background(), ipc.Request{
-			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
-		}, roundTripDeadline)
-
-		lockPID, held := daemonHoldingLock(root)
-		if !held && processSettled(shutdownPID) {
-			return
-		}
-		select {
-		case <-ticker.C:
-		case <-timeout.C:
-			t.Logf("fault: a daemon (lock pid %d, shutdown pid %d) still held %s after %s of "+
-				"retried admin.shutdown", lockPID, shutdownPID, daemon.LockPath(root), daemonDownBound)
-			terminateOwnDaemon(t, root, lockPID)
-			return
-		}
+	if out.Gone {
+		return
 	}
+	t.Logf("fault: %s", out.Describe(daemon.LockPath(root), daemonDownBound))
+	terminateOwnDaemon(t, root, out.LockPID)
 }
 
 // killDaemon is this package's daemon-side cut: it takes the pid out of root's daemon.lock and kills
@@ -988,7 +963,7 @@ func shutdownIfReachable(t *testing.T, root string) {
 // as the observation it is rather than as a silent pass.
 func killDaemon(t *testing.T, root string) bool {
 	t.Helper()
-	pid, held := daemonHoldingLock(root)
+	pid, held := testutil.DaemonHoldingLock(root)
 	if !held || pid <= 0 {
 		t.Logf("fault: no live daemon held %s; there was nothing to cut", daemon.LockPath(root))
 		return false
@@ -1069,36 +1044,12 @@ func terminateOwnDaemon(t *testing.T, root string, pid int) {
 // its daemon down (lock gone, pid dead)" made checkable rather than assumed.
 func requireNoOrphan(t *testing.T, root string) {
 	t.Helper()
-	if pid, held := daemonHoldingLock(root); held {
+	if pid, held := testutil.DaemonHoldingLock(root); held {
 		t.Errorf("fault: daemon pid %d still holds %s after the case finished", pid, daemon.LockPath(root))
 	}
 	if addr, err := ipc.Resolve(root); err == nil && ipc.Probe(addr, probeTimeout) {
 		t.Errorf("fault: something still answers %s after the case finished", root)
 	}
-}
-
-// processSettled reports whether the pid that held the lock can no longer write inside the tree.
-func processSettled(shutdownPID int) bool {
-	if shutdownPID == 0 || shutdownPID == os.Getpid() {
-		return true
-	}
-	return !testutil.ProcessAlive(shutdownPID)
-}
-
-// daemonHoldingLock reports the pid recorded in root's daemon.lock and whether a live process still
-// holds it. The lock is read with paths.ReadFileShared, whose handle carries FILE_SHARE_DELETE, so
-// polling it cannot make the daemon's own Release fail on Windows and thereby CAUSE the abandoned
-// lock it is checking for.
-func daemonHoldingLock(root string) (pid int, held bool) {
-	b, err := paths.ReadFileShared(daemon.LockPath(root))
-	if err != nil {
-		return 0, false
-	}
-	var info daemon.LockInfo
-	if err := json.Unmarshal(b, &info); err != nil {
-		return 0, true
-	}
-	return info.PID, testutil.ProcessAlive(info.PID)
 }
 
 // ---------------------------------------------------------------------------
