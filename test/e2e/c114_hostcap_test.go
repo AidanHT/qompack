@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -98,12 +97,10 @@ func TestE2E_SessionStartCompactFitsTheHostCap(t *testing.T) {
 	require.Less(t, named, c114LargeRules, "and at least one rule must still have been restored whole")
 }
 
-// c114ReadState decodes the rehydration state file the daemon persisted for scSession.
+// c114ReadState decodes the rehydration state file the daemon persisted for scSession. It waits
+// for the file, which lands after the compact answer, and reads it with delete sharing; see
+// scAwaitState for both.
 func c114ReadState(t *testing.T, root string) rehydrate.State {
 	t.Helper()
-	b, err := os.ReadFile(paths.Long(scStatePath(root)))
-	require.NoError(t, err, "the compact rehydration must persist its state file")
-	var st rehydrate.State
-	require.NoError(t, json.Unmarshal(b, &st))
-	return st
+	return scAwaitState(t, scStatePath(root))
 }

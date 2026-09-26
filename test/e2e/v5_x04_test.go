@@ -299,13 +299,15 @@ func x4v5StatePath(root string, sess core.SessionID) string {
 }
 
 // x4v5ReadState reads the persisted rehydration record the `dropped` tool answers from.
+//
+// It waits for the record rather than reading it the instant the compact SessionStart returns: the
+// rehydrate service writes it after it has handed the answer over (C1.16), and it reads through
+// paths.ReadFileShared so that the read cannot collide with the writer's replace. scAwaitState
+// gives both reasons in full; together they were this row's co-load red, a Windows sharing
+// violation opening this file.
 func x4v5ReadState(t *testing.T, root string, sess core.SessionID) rehydrate.State {
 	t.Helper()
-	b, err := os.ReadFile(paths.Long(x4v5StatePath(root, sess)))
-	require.NoError(t, err, "the rehydrate service must persist state/rehydrate-%s.json", sess)
-	var st rehydrate.State
-	require.NoError(t, json.Unmarshal(b, &st), "state/rehydrate-%s.json: %s", sess, b)
-	return st
+	return scAwaitState(t, x4v5StatePath(root, sess))
 }
 
 // x4v5RequireHeadingOrder asserts every §8.6 heading present in ac appears in normative order.
