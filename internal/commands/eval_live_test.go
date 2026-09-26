@@ -300,6 +300,57 @@ func TestEval_ReplayAndLiveAreReportedTogether(t *testing.T) {
 		"the qualification comes before the numbers")
 }
 
+// TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision: a confirmatory live run is the
+// pre-registered evaluation, so when its rule reaches no verdict on the primary outcome — a trial
+// whose plugin state contradicted its arm makes the decision not-applicable, an interval that
+// straddles the margin makes it inconclusive — the verdict is inconclusive, and a passing replay read
+// beside it (plain `qompack eval` reads both) cannot turn that into a pass. A constraint regression
+// still fails such a run: it is failed whatever the primary verdict.
+func TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision(t *testing.T) {
+	withQompackTrials := func(stockK int, mutate func([]eval.LiveTrial)) commands.LiveEvalInput {
+		run := confirmatoryRun(stockK, 20)
+		q := liveTrials(eval.ArmQompack, 20, 20)
+		mutate(q)
+		run.Summary = eval.SummarizeLive(run.Plan.RunID, liveAnalysis(),
+			append(liveTrials(eval.ArmStock, 20, stockK), q...))
+		return run
+	}
+	mismatch := withQompackTrials(19, func(q []eval.LiveTrial) { q[0].PluginLoaded = false })
+	require.Equal(t, "not-applicable", mismatch.Summary.Decision.Verdict, mismatch.Summary.Decision.Reason)
+	straddles := confirmatoryRun(20, 16)
+	require.Equal(t, "inconclusive", straddles.Summary.Decision.Verdict, straddles.Summary.Decision.Reason)
+	regressed := withQompackTrials(19, func(q []eval.LiveTrial) {
+		q[0].PluginLoaded = false
+		for i := range q[:15] {
+			q[i].ConstraintViolations = 1
+		}
+	})
+	require.Equal(t, "not-applicable", regressed.Summary.Decision.Verdict, regressed.Summary.Decision.Reason)
+	require.NotEmpty(t, regressed.Summary.ConstraintRegression)
+
+	for name, c := range map[string]struct {
+		run  commands.LiveEvalInput
+		want commands.EvalVerdict
+	}{
+		"plugin mismatch":       {mismatch, commands.VerdictInconclusive},
+		"interval straddles":    {straddles, commands.VerdictInconclusive},
+		"regression, no ruling": {regressed, commands.VerdictFail},
+	} {
+		for _, replayed := range []bool{false, true} {
+			in := liveOnly(c.run)
+			if replayed {
+				in = inputWith(goodScore(), ranTrials(), nil)
+				in.Live = &c.run
+			}
+			out, _ := runWith(t, evalDeps(in, nil), "eval", "--json")
+			rep := decodeEval(t, out)
+			require.True(t, rep.Live.Confirmatory, "%s: %v", name, rep.Live.NotConfirmatory)
+			require.Nil(t, liveGate(t, rep.Task, "LIVE-T01").Passed, name)
+			require.Equal(t, c.want, rep.Verdict, "%s (replay read: %t)", name, replayed)
+		}
+	}
+}
+
 // ── the file-backed provider ─────────────────────────────────────────────────────────────────────
 
 // writeLiveRun writes run as <dir>/plan.json and <dir>/summary.json.
