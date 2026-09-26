@@ -172,4 +172,128 @@ A change to a task after any of its outcomes exists requires a new task-set id.
 
 ### Amendments
 
-None.
+**A1 — 2026-09-25, by the C5.4 independent-review seat (an Opus 5.5 workflow subagent, branch
+`closeout/w2-eval2`), before any confirmatory trial.** No task, fixture, hidden test, rate or
+analysis parameter changes; only the recipe that names the fixture tree does.
+
+*Reason.* The §2 row "Fixtures + hidden tests" records `071d9d1d…` as computed with Git Bash on
+Windows, where `sha256sum` writes its binary-mode ` *` marker and `sort` ordered the paths by the
+`en_US` locale's collation (`fixtures/svc/README.md` sorts after the lowercase names). The same
+37 files hash differently under GNU coreutils in text mode or under a byte-order sort, so the
+recorded value cannot be reproduced on Linux, by a program, or by anyone who does not know the
+recipe's accidents. The bytes are unchanged: the tree still gives `071d9d1d…` under that exact
+Windows recipe, and `tasks.json`, `rates.json` and `pilot.json` still match their §2 hashes.
+
+*Amendment.* The fixture tree's identity for every run of this pre-registration is the
+locale- and platform-independent manifest hash
+
+`30cf769d243776645506eb43b7e0b336d2fed9a6e2ea29b4fb70a1f2b4054276`
+
+— `find fixtures hidden -type f | LC_ALL=C sort | xargs sha256sum | sha256sum` run in
+`testdata/eval/live` with GNU coreutils (one `<sha256>  <path>` line per file, paths in byte
+order), implemented as `eval.TreeManifestSHA256`. `devtool live-eval` records it in every run's
+`plan.json` as `fixture_tree_sha256` (with `fixture_tree_dirs`) and prints it in `summary.md`; a run
+whose value differs is not a run of this pre-registration. `TestLiveTaskSet_FrozenMaterialsMatchThePreregistration`
+(internal/eval) reads the §2 hashes and this value out of this document and fails if any frozen
+material stops matching, or if the §4 task table stops naming exactly the task set.
+
+The same review brought the harness into line with §8 as written — a harness failure now fails
+every outcome (recovery included, so it stays in that denominator), and the H2 regression, the
+per-variant results, the per-task signs and the clustering limitation are now reported. Those are
+corrections of the code to this document, not changes to it.
+
+**A2 — 2026-09-25, by the C5.4 independent-review seat (an Opus 5.5 workflow subagent, branch
+`closeout/w2-eval2`), before any confirmatory trial.** No task, fixture, hidden test, rate or
+analysis parameter changes; the §8 not-applicable rule is made precise.
+
+*Reason.* §8 makes the whole verdict not-applicable when "any trial's plugin state contradicted its
+arm", and scores a trial the harness could not run as designed as a failure on every outcome. The
+code read a qompack trial whose host never started (a failed install, a process that died before
+its first line) as "the plugin failed to load", so one such infrastructure failure voided the whole
+comparison, while the same failure on a stock trial counted as a stock failure. That asymmetry can
+only ever spare the plugin a counted failure.
+
+*Amendment.* A trial's plugin state is the plugin list its host reported at start-up (its `init`
+line, recorded as `host_reported_plugins`). Only a trial whose host reported one can contradict its
+arm. A trial whose host reported none is a harness failure and is scored under §8's intention-to-treat
+rule, as a failure on every outcome and listed by name (`eval.SummarizeLive`,
+`TestSummarizeLive_NoPluginStateIsAHarnessFailureNotAMismatch`).
+
+**A3 — 2026-09-25, by the same seat, before any confirmatory trial.** No task, fixture, hidden test,
+rate or analysis parameter changes; what a `tool_not_used_after` check counts is made precise.
+
+*Reason.* §4's "no tool call after the compaction matched" checks (`no-rerun` in
+`tool-output-recall` and `seed-recall`) exist to catch a fact that was re-derived instead of
+recovered: the program run again, its source read, the hash recomputed. The code matched the
+pattern against every tool call, the Qompack plugin's own MCP tools included, so a qompack-arm
+model that looked the earlier output up in the plugin's archive with a query naming the command
+(`recall` for "go run ./cmd/probe") failed the constraint for doing exactly the recovery the plugin
+exists to provide. The stock arm has no such tools, so the error could only ever count against the
+plugin, in H2.
+
+*Amendment.* A `tool_not_used_after` check ignores calls to the Qompack plugin's own MCP tools
+(names beginning `mcp__plugin_qompack_qompack__`): they look up what the plugin archived and run no
+program and read no file from disk. Every other tool call still counts, a Bash or PowerShell run of
+the same command and a `Read` or `Grep` of the program's source included
+(`eval.ToolUsesAfterSteps`, `TestToolUsesAfterSteps_TheArchiveIsRecoveryNotRederivation`).
+
+**A4 — 2026-09-25, by the same seat, before any confirmatory trial.** No task, fixture, hidden test,
+rate or analysis parameter changes; a second not-applicable case is made explicit.
+
+*Reason.* `devtool live-eval` stops a run when its guard finds the operator's Claude Code
+configuration changed, and still wrote a verdict computed from the trials that had run, with only a
+note that the run stopped. §8 analyses every planned trial; trials that never ran cannot be, so a
+verdict over the rest is not the pre-registered analysis.
+
+*Amendment.* A run that stopped before every planned trial ran is **not-applicable**, with the reason
+naming how many of the planned trials ran; its per-arm intervals are still reported as a description
+(`eval.LiveSummary.StopEarly`, `TestRunLiveEval_StoppedRunReachesNoVerdict`). `qompack eval` already
+calls such a run not confirmatory.
+
+**A5 — 2026-09-25, by the C5.4 fix seat (an Opus 5.5 workflow subagent, branch `closeout/w2-eval2`),
+before any confirmatory trial.** No task, fixture, hidden test, rate or analysis parameter changes;
+how §9's known-defect precondition is recorded and read is made precise.
+
+*Reason.* §9 makes the candidate's defect state part of what the confirmatory run is, and nothing
+recorded it: a bundle's identity carries its commit and dirty flag, not which defects it fixes, and
+`qompack eval` called a run confirmatory without asking, so a 40-trial run on a bundle with C1.12
+still open would have been judged. §9 names C1.12 and C1.1 as the defects that must be fixed, then
+sets aside "a run on a candidate with a known open defect"; the second clause is read in its plain
+sense, as any known open defect, which also covers the first.
+
+*Amendment.* `devtool live-eval` refuses to plan a run with the qompack arm, dry run included,
+unless `--known-open-defects` states which known defects the bundle still carries: `none`, or their
+checklist IDs. `plan.json` records the statement as the operator's (`known_defects`). A run is the
+confirmatory run only if its plan attests that the bundle carries no known open defect — C1.12 and
+C1.1 fixed and no other open; a plan with no statement, or one that names an open defect, is
+labelled with it and is not the confirmatory run (`eval.LivePreregistration.RequiredFixed`,
+`TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation`). The statement is the operator's
+and cannot be machine-checked; `qompack eval` and `summary.md` say so beside every run that carries
+one. §9's command gains the flag:
+
+```
+QOMPACK_LIVE_EVAL=1 go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks.json \
+  --include-held-out --arms stock,qompack --install plugin-dir --known-open-defects none \
+  --bundle dist/live-bundle/qompack-plugin-<v>-windows-amd64 --max-sessions 40
+```
+
+**A6 — 2026-09-25, by the same seat, before any confirmatory trial.** No task, fixture, hidden test,
+rate or analysis parameter changes; how a run on §3's model contingency is recognised is made
+precise.
+
+*Reason.* §3 lets the run restart on the host alias `sonnet` if the host rejects `claude-sonnet-5`,
+with the resolved model recorded. The code knew no such path: every trial of that run was recorded
+as off the pre-registered model and `qompack eval` called the run not confirmatory, so the one model
+change §3 permits could never produce the confirmatory run. Nor did anything record what the alias
+resolved to.
+
+*Amendment.* The pre-registration's model and its one contingency alias `sonnet` are recorded in code
+(`eval.LivePreregistration.Model`, `.ModelContingency`, pinned to §3 by
+`TestLivePreregistrations_MatchTheDocumentAndTheMaterials`). Each trial records the model its host
+reported at start-up (`host_model`), and the summary the distinct set (`host_models`). A run on the
+alias `sonnet` is on the pre-registered model only when every trial's host reported one and the same
+resolved model; `qompack eval` names it and states that §3's own preconditions — the host rejected
+`claude-sonnet-5` in the first confirmatory session before any turn completed, and the change was
+appended to §9 before the restart — are not machine-checked. A run on the alias with no resolved
+model recorded, or with more than one, and a run on any other model, is not the confirmatory run
+(`TestEval_LiveTheSection3ModelContingencyCanBeConfirmatory`).

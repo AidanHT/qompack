@@ -1,0 +1,25 @@
+# 2026-09-25T23:13:23Z at c2e6b1b + uncommitted red test
+# go test ./tools/devtool -run TestWriteJSONFile_ReplacesTheFileNeverRewritesIt -count=1 -v
+=== RUN   TestWriteJSONFile_ReplacesTheFileNeverRewritesIt
+    liveeval_test.go:976: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/tools/devtool/liveeval_test.go:976
+        	Error:      	Not equal: 
+        	            	expected: "old\n"
+        	            	actual  : "{\n  \"a\": 1\n}\n"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,4 @@
+        	            	-old
+        	            	+{
+        	            	+  "a": 1
+        	            	+}
+        	            	 
+        	Test:       	TestWriteJSONFile_ReplacesTheFileNeverRewritesIt
+        	Messages:   	the file was rewritten in place, so a reader could see a prefix of it
+--- FAIL: TestWriteJSONFile_ReplacesTheFileNeverRewritesIt (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	1.565s
+FAIL
+exit=1

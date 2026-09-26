@@ -1,0 +1,7 @@
+# github.com/qompack/qompack/internal/eval_test [github.com/qompack/qompack/internal/eval.test]
+internal\eval\live_summary_test.go:282:35: sum.Arms[eval.ArmQompack].HostHookMS undefined (type eval.ArmSummary has no field or method HostHookMS)
+internal\eval\live_summary_test.go:283:24: undefined: eval.HookLatency
+internal\eval\live_summary_test.go:284:24: undefined: eval.HookLatency
+FAIL	github.com/qompack/qompack/internal/eval [build failed]
+FAIL
+exit=1

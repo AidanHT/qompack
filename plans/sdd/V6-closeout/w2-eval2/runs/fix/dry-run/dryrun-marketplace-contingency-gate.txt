@@ -1,0 +1,30 @@
+# 2026-09-25T23:32:00Z at b22a075: marketplace install flow, dry run, with an attested open defect (labels the run)
+# go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks.json --include-held-out --arms stock,qompack --install marketplace --known-open-defects C1.11 --bundle dist/live-bundle-fix/qompack-plugin-0.3.0-eval2fix.dryrun-windows-amd64 --only seed-recall --trials 1 --dry-run
+live-eval: run 20260925T233200Z-d0963d: 2 trial(s) of task set qompack-live-v1 (14e9ee33ccff, fixture tree 30cf769d2437) on claude-sonnet-5, arms stock,qompack, install marketplace
+live-eval: known open defects: C1.11 (the operator, by live-eval --known-open-defects when the run was planned; preregistration section 9)
+  plan: seed-recall/stock/1
+  plan: seed-recall/qompack/1
+  host (stock, task seed-recall): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model claude-sonnet-5 --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack
+  install (qompack, per trial): C:\Users\Quant\AppData\Roaming\npm\claude.cmd plugin marketplace add <trial>/marketplace --scope local (a copy of C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w2-eval2\dist\live-bundle-fix\qompack-plugin-0.3.0-eval2fix.dryrun-windows-amd64)
+  install (qompack, per trial): C:\Users\Quant\AppData\Roaming\npm\claude.cmd plugin install qompack@qompack-live-eval --scope local -y
+  host (qompack, task seed-recall): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model claude-sonnet-5 --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack
+live-eval: --dry-run: no session started
+exit=0
+
+# the contingency alias, dry run (no model is called)
+# go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks.json --include-held-out --arms stock,qompack --install plugin-dir --known-open-defects none --model sonnet --bundle dist/live-bundle-fix/qompack-plugin-0.3.0-eval2fix.dryrun-windows-amd64 --only seed-recall --trials 1 --dry-run
+live-eval: run 20260925T233201Z-dd8824: 2 trial(s) of task set qompack-live-v1 (14e9ee33ccff, fixture tree 30cf769d2437) on sonnet, arms stock,qompack, install plugin-dir
+live-eval: known open defects: none (the operator, by live-eval --known-open-defects when the run was planned; preregistration section 9)
+  plan: seed-recall/stock/1
+  plan: seed-recall/qompack/1
+  host (stock, task seed-recall): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model sonnet --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack
+  host (qompack, task seed-recall): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model sonnet --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack --plugin-dir C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w2-eval2\dist\live-bundle-fix\qompack-plugin-0.3.0-eval2fix.dryrun-windows-amd64
+live-eval: --dry-run: no session started
+exit=0
+
+# the gate, QOMPACK_LIVE_EVAL unset and no --dry-run: must refuse before any session or output directory
+live-eval: run 20260925T233202Z-84a373: 1 trial(s) of task set qompack-live-pilot-v1 (4da30ddf165a, fixture tree 30cf769d2437) on claude-haiku-4-5-20251001, arms stock, install none
+devtool: live-eval: live-eval: refusing to start real sessions without QOMPACK_LIVE_EVAL=1 (CI never sets it); use --dry-run to validate
+exit status 1
+exit=1
+no output directory was created

@@ -18,7 +18,7 @@ malformed invocation, `1` anything else.
 | `/qompack:checkpoint` | **not yet routed** | `[--reason <text>]` | Write an immutable checkpoint now |
 | `/qompack:why` | `qompack why` | `<decision-id>` | Explain a recorded decision and the evidence behind it |
 | `/qompack:dropped` | `qompack dropped` | `[--json]` | Report what the last compaction dropped and how to get it back |
-| `/qompack:eval` | `qompack eval` | `[--corpus <dir>]` | Run the replay harness and report the score against the baseline |
+| `/qompack:eval` | `qompack eval` | `[--corpus <path>]` | Report the latest replay and live evaluation results |
 
 ## `/qompack:status`
 
@@ -133,17 +133,17 @@ Allowed tools: `Bash(qompack dropped:*)`
 
 ## `/qompack:eval`
 
-Run the replay harness and report the score against the baseline
+Report the latest replay and live evaluation results
 
 ```
-qompack eval — Run the replay harness and report the score against the baseline
+qompack eval — Report the latest replay and live evaluation results
 
-usage: qompack eval [--corpus <dir>]
-       /qompack:eval [--corpus <dir>]
+usage: qompack eval [--corpus <path>]
+       /qompack:eval [--corpus <path>]
 
 flags:
   --json                 emit the stable JSON envelope instead of text
-  --corpus <dir>         read replay trials from this directory
+  --corpus <path>        read a live-eval run, a directory of runs, or a replay report
 ```
 
 Allowed tools: `Bash(qompack eval:*)`

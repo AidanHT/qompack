@@ -1,0 +1,10 @@
+--- FAIL: TestGradeLiveTrial_FileLinesCountsEveryLine (0.07s)
+    live_task_test.go:311: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_task_test.go:311
+        	Error:      	Should be true
+        	Test:       	TestGradeLiveTrial_FileLinesCountsEveryLine
+        	Messages:   	four non-empty lines: 1 non-empty line(s), want 4
+FAIL
+FAIL	github.com/qompack/qompack/internal/eval	0.359s
+FAIL
+exit=1

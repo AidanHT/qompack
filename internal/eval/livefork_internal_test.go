@@ -31,3 +31,30 @@ func TestSpliceForks_WindowStopsAtTheNextCompaction(t *testing.T) {
 	require.Equal(t, []string{"log", "log", "log", "a", "a", "a", "b", "log"}, tools,
 		"event 2's window is (2, 5]; event 5's is (5, 10]; turn 11 is outside both")
 }
+
+// TestSpliceForks_WindowIsTheDivergenceHorizon pins the live window to what divergence scores:
+// for an event at `at` with horizon k, the fork replaces exactly the turns horizonActions scores,
+// (at, at+k], so every action inside the scored horizon is the model's and every one outside it
+// is the log's. (The deterministic demand window, Demands(s, at, at+k), is [at+1, at+k) — one
+// turn shorter; see the note in Replay.)
+func TestSpliceForks_WindowIsTheDivergenceHorizon(t *testing.T) {
+	const at, k = core.TurnIndex(3), 5
+	var logged, forked []Action
+	for i := range 14 {
+		logged = append(logged, Action{Turn: core.TurnIndex(i), Tool: "log"})
+	}
+	for i := range k + 3 {
+		forked = append(forked, Action{Turn: at + core.TurnIndex(i+1), Tool: "fork"})
+	}
+	got := spliceForks(logged, []core.TurnIndex{at}, map[core.TurnIndex][]Action{at: forked}, k)
+
+	scored := horizonActions(got, at, k)
+	require.Len(t, scored, k)
+	for _, a := range scored {
+		require.Equal(t, "fork", a.Tool, "turn %d inside the horizon is the model's action", a.Turn)
+	}
+	for _, a := range got {
+		inside := a.Turn > at && a.Turn <= at+core.TurnIndex(k)
+		require.Equal(t, inside, a.Tool == "fork", "turn %d", a.Turn)
+	}
+}

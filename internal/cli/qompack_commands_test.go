@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -111,6 +112,7 @@ func TestSlashCommands_ReadOnlyCommandsCreateNoProject(t *testing.T) {
 		{"qompack", "pin", "--list"},
 		{"qompack", "dropped"},
 		{"qompack", "recall", "anything"},
+		{"qompack", "eval"},
 	} {
 		dir := t.TempDir()
 		var out, errw bytes.Buffer
@@ -206,4 +208,37 @@ func TestSlashCommands_EvalImportStillResolves(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "eval", bare.Name)
 	require.Equal(t, []string{"--json"}, rest)
+}
+
+// TestSlashCommands_EvalReportsTheLatestLiveRun is the C5.4 wiring end to end: in a project whose
+// dist/live-eval holds a run `devtool live-eval` wrote — here the committed pilot1 run — `qompack
+// eval --json` reads it and reports it, qualified as a non-confirmatory, agent-executed run, instead
+// of exiting 1 because no artifact provider was installed. It only reads.
+func TestSlashCommands_EvalReportsTheLatestLiveRun(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	run := filepath.Join(dir, "dist", "live-eval", "pilot1-plugin-dir")
+	require.NoError(t, os.MkdirAll(run, 0o755))
+	pilot := filepath.Join("..", "..", "plans", "sdd", "V6-closeout", "eval", "runs", "pilot1-plugin-dir")
+	for _, f := range []string{"plan.json", "summary.json"} {
+		raw, err := os.ReadFile(filepath.Join(pilot, f))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(run, f), raw, 0o600))
+	}
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), All(), []string{"qompack", "eval", "--json"}, rootedEnv(dir, ""), &out, &errw)
+	require.Equal(t, ExitOK, code, "stderr: %s", errw.String())
+	env, err := commands.DecodeEnvelope(out.Bytes())
+	require.NoError(t, err)
+	var rep commands.EvalReport
+	require.NoError(t, json.Unmarshal(env.Data, &rep))
+	require.NotNil(t, rep.Live)
+	require.False(t, rep.Live.Confirmatory)
+	require.Contains(t, rep.Live.Qualification, "agent-executed")
+	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+
+	_, statErr := os.Stat(filepath.Join(dir, ".qompack"))
+	require.True(t, os.IsNotExist(statErr), "reading an evaluation created a .qompack directory")
 }

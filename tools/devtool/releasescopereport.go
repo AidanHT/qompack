@@ -49,11 +49,16 @@ func buildScopeReport(ev scopeEvidence) scopeReport {
 	for _, row := range acceptanceTitles {
 		rep.Acceptance = append(rep.Acceptance, acceptanceRow(ev, row.id))
 	}
+	// Ruling R7-2 excluded the live-task layer when no live runner existed. V6 close-out C5.4 built
+	// one for the developer harness, so the reason changed while the status did not: the release
+	// still runs no model, and no live run is attached here as a record.
 	rep.Acceptance = append(rep.Acceptance, scopeAcceptanceRow{
 		ID:     "SP17-M7-07 / live-task layer",
 		Status: scopeExcluded,
-		Note: "no live model runs are executed by this repository's tests; eval.LiveRunner is nil in " +
-			"every shipped build and is deliberately left unwired (ruling R7-2)",
+		Note: "no live model runs are executed by this repository's tests or its shipped build, which " +
+			"installs no eval.LiveRunner; real-host trials run only through `devtool live-eval` " +
+			"(QOMPACK_LIVE_EVAL=1, agent-executed under owner decision D3), and no live run is attached " +
+			"here as a record",
 	})
 	return rep
 }

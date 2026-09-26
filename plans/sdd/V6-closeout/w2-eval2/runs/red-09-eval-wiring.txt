@@ -1,0 +1,24 @@
+=== RUN   TestSlashCommands_ReadOnlyCommandsCreateNoProject
+=== PAUSE TestSlashCommands_ReadOnlyCommandsCreateNoProject
+=== RUN   TestSlashCommands_UnavailableExitsOne
+=== PAUSE TestSlashCommands_UnavailableExitsOne
+=== RUN   TestSlashCommands_EvalReportsTheLatestLiveRun
+=== PAUSE TestSlashCommands_EvalReportsTheLatestLiveRun
+=== CONT  TestSlashCommands_ReadOnlyCommandsCreateNoProject
+=== CONT  TestSlashCommands_EvalReportsTheLatestLiveRun
+=== CONT  TestSlashCommands_UnavailableExitsOne
+--- PASS: TestSlashCommands_UnavailableExitsOne (0.96s)
+=== NAME  TestSlashCommands_EvalReportsTheLatestLiveRun
+    qompack_commands_test.go:232: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/cli/qompack_commands_test.go:232
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestSlashCommands_EvalReportsTheLatestLiveRun
+        	Messages:   	stderr: qompack eval: qompack: unavailable: no evaluation artifacts are readable in this build
+--- FAIL: TestSlashCommands_EvalReportsTheLatestLiveRun (1.75s)
+--- PASS: TestSlashCommands_ReadOnlyCommandsCreateNoProject (4.48s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	4.784s
+FAIL
+exit=1

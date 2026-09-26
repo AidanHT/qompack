@@ -715,6 +715,45 @@ func (s HostStream) HookLatencies() map[string][]int64 {
 	return out
 }
 
+// PluginFrom returns the plugin of this name the host listed as loaded from source ("<name>@<where>",
+// e.g. "qompack@inline" for a --plugin-dir load). An empty source accepts any.
+func (s HostStream) PluginFrom(name, source string) (HostPlugin, bool) {
+	if s.Init == nil {
+		return HostPlugin{}, false
+	}
+	for _, pl := range s.Init.Plugins {
+		if strings.EqualFold(pl.Name, name) && (source == "" || pl.Source == source) {
+			return pl, true
+		}
+	}
+	return HostPlugin{}, false
+}
+
+// builtinPluginSuffix ends the source of every plugin the host ships itself ("agents-md@builtin").
+const builtinPluginSuffix = "@builtin"
+
+// ForeignPlugins lists, sorted, the source of every non-builtin plugin the host loaded other than
+// own (a source; "" means the session was meant to load none). A trial is meant to run with nothing
+// but its arm's own plugin, so a non-empty result is a contamination to report.
+func (s HostStream) ForeignPlugins(own string) []string {
+	if s.Init == nil {
+		return nil
+	}
+	var out []string
+	for _, pl := range s.Init.Plugins {
+		if strings.HasSuffix(pl.Source, builtinPluginSuffix) || (own != "" && pl.Source == own) {
+			continue
+		}
+		src := pl.Source
+		if src == "" {
+			src = pl.Name
+		}
+		out = append(out, src)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // PluginLoaded reports whether the host listed a plugin of this name as loaded.
 func (s HostStream) PluginLoaded(name string) bool {
 	if s.Init == nil {

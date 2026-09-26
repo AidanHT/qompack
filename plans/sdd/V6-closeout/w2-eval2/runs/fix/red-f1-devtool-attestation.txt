@@ -1,0 +1,17 @@
+# 2026-09-25T23:19:29Z at 96c8e0f + uncommitted red tests (compile red: the fields do not exist yet)
+# go test ./tools/devtool -run 'TestParseLiveFlags|TestRunLiveEval_TheQompackArmNeedsADefectAttestation' -count=1
+# github.com/qompack/qompack/tools/devtool [github.com/qompack/qompack/tools/devtool.test]
+tools\devtool\liveeval_test.go:56:21: o.defectsAttested undefined (type liveOptions has no field or method defectsAttested)
+tools\devtool\liveeval_test.go:60:20: o.defectsAttested undefined (type liveOptions has no field or method defectsAttested)
+tools\devtool\liveeval_test.go:61:21: o.openDefects undefined (type liveOptions has no field or method openDefects)
+tools\devtool\liveeval_test.go:65:20: o.defectsAttested undefined (type liveOptions has no field or method defectsAttested)
+tools\devtool\liveeval_test.go:66:48: o.openDefects undefined (type liveOptions has no field or method openDefects)
+tools\devtool\liveeval_test.go:84:4: o.defectsAttested undefined (type liveOptions has no field or method defectsAttested)
+tools\devtool\liveeval_test.go:84:23: o.openDefects undefined (type liveOptions has no field or method openDefects)
+tools\devtool\liveeval_test.go:89:12: o.defectsAttested undefined (type liveOptions has no field or method defectsAttested)
+tools\devtool\liveeval_test.go:89:31: o.openDefects undefined (type liveOptions has no field or method openDefects)
+tools\devtool\liveeval_test.go:98:81: unknown field defectsAttested in struct literal of type liveOptions
+tools\devtool\liveeval_test.go:98:81: too many errors
+FAIL	github.com/qompack/qompack/tools/devtool [build failed]
+FAIL
+exit=1

@@ -1,0 +1,46 @@
+=== RUN   TestSummarizeLive_NewcombeMatchesThePublishedExample
+--- PASS: TestSummarizeLive_NewcombeMatchesThePublishedExample (0.00s)
+=== RUN   TestSummarizeLive_ConstraintRegressionIsReported
+    live_summary_test.go:183: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_summary_test.go:183
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestSummarizeLive_ConstraintRegressionIsReported
+--- FAIL: TestSummarizeLive_ConstraintRegressionIsReported (0.00s)
+=== RUN   TestSummarizeLive_ReportsByVariantAndPerTaskSign
+    live_summary_test.go:207: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_summary_test.go:207
+        	Error:      	Not equal: 
+        	            	expected: map[string]int{"a":-1, "b":1, "c":0}
+        	            	actual  : map[string]int(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,6 +1,2 @@
+        	            	-(map[string]int) (len=3) {
+        	            	- (string) (len=1) "a": (int) -1,
+        	            	- (string) (len=1) "b": (int) 1,
+        	            	- (string) (len=1) "c": (int) 0
+        	            	-}
+        	            	+(map[string]int) <nil>
+        	            	 
+        	Test:       	TestSummarizeLive_ReportsByVariantAndPerTaskSign
+--- FAIL: TestSummarizeLive_ReportsByVariantAndPerTaskSign (0.00s)
+=== RUN   TestSummarizeLive_InconsistentAccountsAreNamed
+    live_summary_test.go:232: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_summary_test.go:232
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestSummarizeLive_InconsistentAccountsAreNamed
+--- FAIL: TestSummarizeLive_InconsistentAccountsAreNamed (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/eval	0.225s
+FAIL
+exit=1
+=== render test before the summary.md change (liveeval.go at HEAD, eval summary already implemented)
+--- FAIL: TestRenderLiveSummary_ShowsEveryPreregisteredReport (0.00s)
+  ... does not contain "**Regression (H2):**"
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	1.257s
+FAIL

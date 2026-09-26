@@ -49,10 +49,10 @@ Two things are true of all seven, per that page's preamble:
 - Exit codes are `0` success, `2` a malformed invocation, `1` anything else — except a hook entry
   point, which is the only kind of subcommand that always exits `0` (`internal/cli/dispatch.go`).
 
-A third rule holds where a frontend's source of answers is left unbound rather than everywhere: it
-reports that it is unavailable and exits `1` instead of inventing one. In this build that is
-`/qompack:eval`, whose artifact seam is nil. It is not how `/qompack:checkpoint` behaves — see
-below — because that name resolves to a hook, not to a frontend (`internal/commands`,
+A third rule holds where a frontend finds nothing to answer from: it reports that it is unavailable
+and exits `1` instead of inventing an answer. `/qompack:eval` in a project with no evaluation
+artifacts is the everyday case. It is not how `/qompack:checkpoint` behaves — see below — because
+that name resolves to a hook, not to a frontend (`internal/commands`,
 `internal/cli/qompack_commands.go`).
 
 ### `/qompack:status`
@@ -146,24 +146,61 @@ everything even when the injected payload showed a counted line. Exit `2` on an 
 
 ### `/qompack:eval`
 
-Runs the replay harness and reports the score against the baseline: `[--corpus <dir>]`
+Reports the latest replay and live evaluation results: `[--corpus <path>]`
 ([schema](commands.md#qompackeval)).
 
-The **baseline** is a named policy in the evaluation artifact — `eval.Report.Baseline`, "the Policy
-every Regression is measured against" (`internal/eval/types.go`). The command reports the primary
-policy's score beside it; it does not itself re-run the corpus, because running the harness is
-`test/replay`'s job and a second driver would bring its own corpus selection
-(`internal/commands/cmd_eval.go`).
+It reads what the two evaluation producers left on disk and never runs either of them
+(`internal/commands/evalartifacts.go`):
+
+- the newest finished real-host run `devtool live-eval` wrote under `dist/live-eval/<run-id>/` —
+  its `plan.json` and `summary.json`, the newest by the plan's creation time; a newer run that has
+  a plan and no summary yet (still running, or stopped before writing one) is named in a note. Only
+  the newest run's summary is read, so an older run's unreadable summary does not stop the report,
+  while the newest run's own must be readable (`live-eval` writes both files whole, by a rename);
+- the deterministic replay report the replay driver writes to `testdata/bench-replay.json`.
+
+Both paths are relative to the project root and are build outputs of a Qompack source checkout.
+`--corpus <path>` reads one artifact from anywhere instead: a single run directory, a directory of
+runs, or a replay report file. With nothing to read the command says where it looked, reports
+unavailable and exits `1`; an artifact that is there but unreadable is an error, never an empty
+result.
+
+The **baseline** is a named policy in the replay artifact — `eval.Report.Baseline`, "the Policy
+every Regression is measured against" (`internal/eval/types.go`). The command's replay gates are
+Qompack's own policies' — every scored policy whose name begins `qompack`, each judged:
+`qompack-rehydrate`, the driver's default, leads with the plain gate IDs (`TASK-01`, `REC-02`, …),
+and each further one (`qompack-l3`, when `--policies` asks for it) carries its name after `@`
+(`TASK-01@qompack-l3`), so no Qompack policy the report scored can fail unseen. The other policies
+a replay scores are references that bound the metric — `stock` is the baseline, `null` keeps
+nothing, `oracle` is the Belady ceiling — and are named in a note, never judged; a report that scored no
+Qompack policy is inconclusive. The command does not itself re-run the corpus, because running the
+harness is `test/replay`'s job and a second driver would bring its own corpus selection
+(`internal/commands/cmd_eval.go`). A replay is deterministic and model-free: it estimates what a
+keep-set is worth, not what a model did.
+
+A **live run** is reported with its qualification before any of its numbers: who executed it (the
+run's own statement — agent-executed on the real installed host, never human UAT), the model and the
+pre-registered model, the Claude Code version, the plugin bundle, the task set and fixture-tree
+hashes, and the sample size. Each arm's task success, constraint-clean and recovery proportions carry
+their confidence intervals, and cost is a list-price-equivalent **estimate** beside the host's own
+figure. Its gates are `LIVE-T01` (task success, qompack − stock, under the pre-registered
+non-inferiority rule), `LIVE-T02` (constraint-clean trials, failed only as a regression) and
+`LIVE-R01` (recovery, reported and never judged). They are judged **only for a confirmatory run** —
+a pre-registered task set whose file and fixture tree hash to the values its pre-registration froze
+(`eval.LivePreregistrations`), the plugin loaded by `--plugin-dir`, both arms with no other plugin
+loaded on either, the pre-registered model (or the pre-registration's one contingency alias with the
+single model the hosts resolved it to recorded), every task including the held-out ones, every
+planned trial, a bundle built from a clean tree, and a plan that attests the bundle carries no known
+open defect (`devtool live-eval --known-open-defects none`, the pre-registration's section 9). That
+attestation is the operator's word — a bundle cannot prove which defects it fixes — and the report
+says so beside every run that carries one, so `confirmatory: yes` is never printed unqualified. Any
+other run prints why it is not confirmatory and its gates read `not judged`
+(`internal/commands/cmd_eval_live.go`).
 
 What it can report: a verdict of `pass`, `fail`, or `inconclusive` — a distinct outcome for a run
-whose trials were skipped, "because a gate that passes on an evaluation which did not run is not a
-gate". A metric with no declared threshold is printed and explicitly **not judged**, and cost never
-contributes to the verdict.
-
-In this build the artifact seam is left unbound on purpose — "no committed convention for where a
-completed evaluation's artifacts live" (`internal/cli/qompack_commands.go`) — so the command
-reports that no evaluation artifacts are readable and exits `1`. `plans/V5-report.md` §29 item 3
-records `Deps.EvalArtifacts` as open by design.
+whose trials were skipped or failed, "because a gate that passes on an evaluation which did not run
+is not a gate". A metric with no declared threshold is printed and explicitly **not judged**, and
+cost never contributes to the verdict.
 
 ## MCP tools
 
