@@ -219,30 +219,43 @@ func (d *daemon) awaitSessionEnds(ctx context.Context) bool {
 	return d.ends.wait(ctx)
 }
 
-// stopSessionEnds is Stop's join for every session end startSessionEnd launched. It closes the gate
-// first, so nothing joins the group behind the wait. The ends in flight then get stopDrainBound of
-// their own to finish on their merits: each one's work is a flush the host has already been told is
-// done, and a clean shutdown should not leave it to the next start. Only then is whatever remains
-// cancelled, which every step of an end answers promptly; one that ignores even that is abandoned with
-// a Loud line after sessionEndAbandonAfter rather than wedging the shutdown. Either way its flush is
-// still unacknowledged in the WAL, and Stop's own drain, which runs next, or the next daemon's startup
-// drain replays it.
-func (d *daemon) stopSessionEnds(ctx context.Context) {
+// stopSessionEnds is Stop's join for every session end startSessionEnd launched, in two halves. Stop
+// calls it first, before it joins Run's own goroutines: it closes the gate, so nothing joins the group
+// behind the wait, and it starts the ends' grace (sessionEndGrace), their window to finish on their
+// merits — each one's work is a flush the host has already been told is done, and a clean shutdown
+// should not leave it to the next start. Once the grace is over, whatever remains is cancelled, which
+// every step of an end answers promptly.
+//
+// The grace runs from Stop's start, not from the join, because Stop's join of Run's goroutines can
+// wait on an end: an end's last step is a drain, a drain holds the drainer's mutex for its whole
+// pass, and two of Run's goroutines — the drains the lanes ask for and the client-spool watcher —
+// take that mutex without watching any context. Started only after that join, the grace could not
+// begin while the join waited, and nothing but the drain's own per-line deadline, line after line,
+// ended the wait.
+//
+// The returned join waits for the ends until the grace is over, cancels them, and abandons one that
+// ignores even that with a Loud line after sessionEndAbandonAfter rather than wedging the shutdown.
+// Either way its flush is still unacknowledged in the WAL, and Stop's own drain, which runs next, or
+// the next daemon's startup drain replays it.
+func (d *daemon) stopSessionEnds(ctx context.Context) (join func()) {
 	e := d.ends
 	e.close()
-	defer e.cancel()
-
-	grace, cancel := context.WithTimeout(ctx, stopDrainBound)
-	defer cancel()
-	if d.awaitSessionEnds(grace) {
-		return
-	}
-	e.cancel()
-	abandon, stop := context.WithTimeout(context.Background(), sessionEndAbandonAfter)
-	defer stop()
-	if !d.awaitSessionEnds(abandon) {
-		d.log.Loud("daemon: stop: a session end ignored cancellation; abandoning it, its flush stays in the WAL",
-			"bound", sessionEndAbandonAfter.String())
+	grace, cancelGrace := context.WithTimeout(ctx, d.sessionEndGrace)
+	stopAfter := context.AfterFunc(grace, e.cancel)
+	return func() {
+		defer e.cancel()
+		defer stopAfter()
+		defer cancelGrace()
+		if d.awaitSessionEnds(grace) {
+			return
+		}
+		e.cancel()
+		abandon, stop := context.WithTimeout(context.Background(), sessionEndAbandonAfter)
+		defer stop()
+		if !d.awaitSessionEnds(abandon) {
+			d.log.Loud("daemon: stop: a session end ignored cancellation; abandoning it, its flush stays in the WAL",
+				"bound", sessionEndAbandonAfter.String())
+		}
 	}
 }
 

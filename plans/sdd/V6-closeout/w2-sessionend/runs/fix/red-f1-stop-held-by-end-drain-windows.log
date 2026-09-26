@@ -1,0 +1,11 @@
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:434: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:434
+        	Error:      	"10.0850855s" is not less than "2.45s"
+        	Test:       	TestStop_IsNotHeldBehindASessionEndsDrain
+        	Messages:   	Stop waited 10.0850855s behind a session end's drain: the grace must run from Stop's start, not after runWG
+--- FAIL: TestStop_IsNotHeldBehindASessionEndsDrain (10.44s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	10.679s
+FAIL
+exit=1

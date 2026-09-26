@@ -3,6 +3,7 @@ package daemon
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -358,4 +359,78 @@ func TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery(t *testing.T)
 	require.Contains(t, sr.Sessions, sess,
 		"an acknowledged flush whose end has not run is on record as needing recovery")
 	require.Equal(t, recoveryStageBegin, sr.Sessions[sess].Stage)
+}
+
+// TestStop_IsNotHeldBehindASessionEndsDrain: a session end's last step is a drain, and a drain holds
+// the drainer's mutex for its whole pass. Stop joins Run's own goroutines (runWG) before it joins the
+// session ends, and two of those goroutines — the drains the lanes ask for and the client-spool
+// watcher — take that mutex without watching any context. So one of them waiting on an end's drain
+// held Stop's join until the drain finished on its own: its session end is cancelled only once Stop
+// reaches them, and a drain line is bounded only by its own drainLineDeadline, line after line. Stop
+// must give the ends their grace from the moment it begins, so the drain it waits behind is cancelled
+// once the grace is over, and Stop stays inside its bound however long the drain had left to run.
+func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
+	dd, hold, root := flushAsyncDaemon(t)
+	hold.open()
+	dd.sessionEndGrace = stopJoinProbe
+
+	// Another session's spooled line whose publication holds the drain until the drain's context ends.
+	// Once a cancellation has reached it — the grace is over — it publishes at once, as a handler does.
+	const stuck core.SessionID = "sess-stop-held-by-drain"
+	entered := make(chan struct{}, 8)
+	released := make(chan struct{})
+	var releaseOnce sync.Once
+	cfg := dd.drainConfig()
+	real := cfg.Dispatch
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Session == stuck {
+			select {
+			case <-released:
+			default:
+				entered <- struct{}{}
+				<-ctx.Done()
+				if errors.Is(ctx.Err(), context.Canceled) {
+					releaseOnce.Do(func() { close(released) })
+				}
+				return ipc.Response{Err: ctx.Err().Error()}
+			}
+		}
+		return real(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	writeSpoolLines(t, root, "client-9191.ndjson", spD3Prompt(dd, root, stuck, orderNonce(60), "p0"))
+
+	const sess core.SessionID = "sess-stop-drain-end"
+	resp := flushAsyncDispatch(t, dd, flushAsyncRequest(dd, root, sess, orderNonce(61)))
+	require.True(t, resp.OK, resp.Err)
+	select {
+	case <-entered: // the session end's final drain is publishing the stuck line, holding the mutex
+	case <-time.After(liveOrderBound):
+		require.FailNow(t, "the session end's final drain never reached the spooled line")
+	}
+
+	// Run's client-spool watcher, a runWG member under Run's context, waiting for its own pass.
+	runCtx, runCancel := context.WithCancel(context.Background())
+	defer runCancel()
+	dd.runCancelMu.Lock()
+	dd.runCancel = runCancel
+	dd.runCancelMu.Unlock()
+	dd.goRun(func() { _, _ = dd.drain.Load().DrainClientSpools(runCtx) })
+
+	// The grace, the abandon window, and room for a loaded machine: well short of the drain line's
+	// own deadline, which is all that ended the wait before.
+	bound := dd.sessionEndGrace + sessionEndAbandonAfter + 2*time.Second
+	require.Less(t, bound, drainLineDeadline, "precondition: the bound tells the two outcomes apart")
+	began := time.Now()
+	stopped := make(chan error, 1)
+	go func() { stopped <- dd.Stop(context.Background()) }()
+	select {
+	case err := <-stopped:
+		require.NoError(t, err)
+	case <-time.After(liveOrderBound):
+		require.FailNow(t, "Stop never returned")
+	}
+	took := time.Since(began)
+	require.Less(t, took, bound,
+		"Stop waited %s behind a session end's drain: the grace must run from Stop's start, not after runWG", took)
 }
