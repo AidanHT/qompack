@@ -243,7 +243,19 @@ type DrainConfig struct {
 	// forever. It is called with the drain's mutex held, so it must not block or drain. A nil
 	// Released tells nobody.
 	Released func(sess core.SessionID)
+	// EndSession, when set, may take a leased flush line off the pass instead of Dispatch: it is
+	// asked once the line has passed the ordering gate and the pass holds its in-process ownership
+	// (Seen), and it reports true when it has started the line's session end on a goroutine of its
+	// own. That end then owns the line's Seen entry and acknowledges the flush once SessionEnd has
+	// run, and the pass leaves the line for a later pass, which absorbs it (deferSessionEnd). false
+	// replays the line through Dispatch as before. The daemon wires endDrainedFlush (session_end.go).
+	// It is called with the drain's mutex held, so it must not block or drain. A nil EndSession, or a
+	// nil Seen, replays every flush through Dispatch.
+	EndSession func(ctx context.Context, req ipc.Request, key core.Hash, lease deliveryLease) bool
 }
+
+// errSessionEndStarted is dispatchPending's answer for a leased flush EndSession took off the pass.
+var errSessionEndStarted = errors.New("daemon: drain: the flush's session end runs on its own")
 
 // drainer is a standalone drain engine (task-3-spec.md drain.go's algorithm), independent of the
 // Daemon interface: Task 4 wires it into Daemon.Drain by constructing one from the running
@@ -581,7 +593,12 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				return false, deferNot, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
 			}
 		}
-		blob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased)
+		blob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased, dl.key)
+		if errors.Is(dispatchErr, errSessionEndStarted) {
+			// The flush's session end runs on its own now, and owns the line's Seen entry: it is not
+			// the pass's to finish. A later pass absorbs the line once the end has acknowledged it.
+			return false, deferSessionEnd, false, false, nil
+		}
 		if dr.cfg.Seen != nil {
 			dr.cfg.Seen.finish(dl.key, dispatchErr == nil)
 		}
@@ -1218,8 +1235,11 @@ func (dr *drainer) unpersisted(gaps *gapRecorder, err error) (int, error) {
 // It enforces publication order for a drained record exactly as the ingest worker does for a live
 // one: durable capture, then the reference the dispatch writes, then the committed frontier. The
 // offset in drainFile advances only when this returns nil, so a delivery that did not reach the
-// frontier is redelivered rather than silently released.
-func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease deliveryLease, leased bool) (blob string, err error) {
+// frontier is redelivered rather than silently released. A leased flush EndSession takes off the pass
+// answers errSessionEndStarted, with its Seen entry (key) handed to the session end it started.
+func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease deliveryLease, leased bool,
+	key core.Hash,
+) (blob string, err error) {
 	defer func() {
 		if recover() != nil {
 			err = fmt.Errorf("daemon: drain: handler panicked")
@@ -1242,6 +1262,10 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 		return "", core.ErrDegraded
 	}
 	resolved = verdict.Request
+	if leased && resolved.Op == ipc.OpFlush && dr.cfg.Seen != nil && dr.cfg.EndSession != nil &&
+		dr.cfg.EndSession(ctx, resolved, key, lease) {
+		return "", errSessionEndStarted
+	}
 	// Only an observation has a capture to publish. A control line — a session start, checkpoint or
 	// SessionEnd flush whose hook fell back to its client spool, or a flush the daemon accepted into
 	// its WAL — is leased like any delivery (the hook client mints a nonce for every hook) and reaches

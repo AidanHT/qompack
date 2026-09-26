@@ -267,6 +267,10 @@ type daemon struct {
 	// ends is the set of session ends the flush route started on goroutines of their own (C1.15,
 	// session_end.go); New creates it, and Stop joins it (stopSessionEnds).
 	ends *sessionEnds
+	// drainsEndSessions is set once Run's startup drain is done: from then on a drain that replays a
+	// leased flush hands it to a session end of its own rather than ending the session inside its pass
+	// (endDrainedFlush, session_end.go).
+	drainsEndSessions atomic.Bool
 	// sessionEndGrace is how long Stop lets the session ends in flight finish on their merits before
 	// it cancels them. New sets it to stopDrainBound and nothing in production changes it; it is a
 	// field only so a test can prove what Stop does once the grace is over without waiting it out.
@@ -666,6 +670,10 @@ func (d *daemon) Run(ctx context.Context) error {
 	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
 		d.log.Warn("daemon: startup drain failed", "err", err)
 	}
+	// The startup drain replays a flush inside its own pass, before the daemon serves anything. From
+	// here on a drain hands a leased flush to a session end of its own (endDrainedFlush), as the flush
+	// route does.
+	d.drainsEndSessions.Store(true)
 	d.sweepCheckpointIntegrity(runCtx)
 	// Account for crash residues even when no operator has invoked fsck. This
 	// bounded startup snapshot may be incomplete; counters and LOUD preserve that
@@ -859,6 +867,8 @@ func (d *daemon) drainConfig() DrainConfig {
 		HoldsWAL:  d.ing.holdsWAL,
 		SyncedWAL: d.ing.syncedWAL,
 		Released:  d.ing.wakeSession,
+		// A leased flush a drain replays while the daemon serves is ended on its own (C1.15).
+		EndSession: d.endDrainedFlush,
 	}
 }
 
@@ -959,7 +969,9 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 // already holding, permanently. That deadlock is not a rare interleaving: ipc.client.Send spools
 // EVERY op on EVERY connect failure (no hot-path filter), so a SessionEnd hook firing while the
 // daemon is down leaves exactly this line for the very next daemon's STARTUP drain — before Serve
-// has accepted a single connection — to trip over.
+// has accepted a single connection — to trip over. A LEASED flush reaches here only when no session
+// end of its own could take it (drainer.dispatchPending asks endDrainedFlush first, C1.15): during
+// the startup drain, during Stop's drain, and in a drain a session end runs itself.
 //
 // admin.* is skipped entirely: an admin op replayed from a stale spool file has no operator
 // waiting on its reply, admin.drain would hit the identical re-entrancy hazard as flush, and

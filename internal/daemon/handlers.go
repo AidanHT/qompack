@@ -987,12 +987,15 @@ func (d *daemon) handleFlush(ctx context.Context, req ipc.Request) ipc.Response 
 }
 
 // flushRoute is a session's end with no accepted flush of its own to finish: the form drainDispatch
-// replays a spooled or WAL flush line through (drain=false: a flush replayed BY Drain must never call
-// back into Drain on the same goroutine — drainer.Drain holds a plain, non-reentrant sync.Mutex for the
-// whole replay, so a re-entrant call would deadlock the daemon on the very first drained flush line,
-// including the startup drain that runs before Serve ever accepts a connection, Critical C-1, fix
-// round 1). The drain that replays such a line acknowledges it itself, and hands its lease over on the
-// context, so the end still settles only the arrivals before it (sessionEndArrival).
+// replays a spooled or WAL flush line through when no session end of its own could take it
+// (endDrainedFlush: Run's startup drain, Stop's drain, a drain a session end runs itself). drain is
+// false: a flush replayed BY Drain must never call back into Drain on the same goroutine —
+// drainer.Drain holds a plain, non-reentrant sync.Mutex for the whole replay, so a re-entrant call
+// would deadlock the daemon on the very first drained flush line, including the startup drain that
+// runs before Serve ever accepts a connection (Critical C-1, fix round 1). The drain that replays such
+// a line acknowledges it itself when this answers OK, which it does not when the end's context cut it
+// short, and hands its lease over on the context, so the end still settles only the arrivals before
+// it (sessionEndArrival).
 func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ipc.Response {
 	return d.endSession(ctx, req, drain, nil)
 }
@@ -1027,6 +1030,9 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 	// because SessionEnd is SP-08's L1 flush semantics (store.Flush and friends), which is
 	// recording work, not acting work, so it belongs behind the same predicate row 1's
 	// ingest.Accept uses, not behind MayAct() (M-3).
+	// cut is set when the end's context ended before SessionEnd had finished: the session was not
+	// ended, whatever SessionEnd returned, since every step of it answers its context.
+	cut := false
 	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
 		// SessionEnd is the session's last arrival: its earlier deliveries publish first (C1.1).
 		d.settleSession(ctx, ev.SessionID, drain, sessionEndArrival(ctx, own))
@@ -1034,6 +1040,7 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
 			d.log.Warn("daemon: SessionEnd failed", "err", err)
 		}
+		cut = ctx.Err() != nil
 		// What the settle left parked is the WAL's now; the ended session's lane stops holding it.
 		if n := d.ing.lanes.forget(ev.SessionID); n > 0 {
 			d.log.Debug("daemon: flush: released the ended session's parked deliveries to the WAL",
@@ -1056,6 +1063,12 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 	}
 
 	if !drain {
+		if cut {
+			// A flush a drain replays inline is acknowledged by that drain when this answers OK. One
+			// whose end its context cut short has not ended its session: it stays unacknowledged for
+			// a later drain to replay, and not acknowledged with SessionEnd never having run.
+			return ipc.Response{OK: false, Err: "daemon: session end cut short: " + ctx.Err().Error()}
+		}
 		// The drained-flush path does not run the replay, so it is not the step that finishes the
 		// flush; the marker stays until a route that does run it clears it.
 		return ipc.Response{OK: true}
