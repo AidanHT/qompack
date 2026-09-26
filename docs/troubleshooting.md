@@ -525,7 +525,9 @@ project's delivery journal will rotate for the first time soon`, or `qompack doc
 three quarters of the rotation threshold (49,152 deliveries or 48 MiB). The first rotation is the
 one step that cannot be undone: after it, a Qompack build older than segmented rollover refuses the
 journal. The daemon warns once per run, at the point it is crossed or at the start of a run that
-finds the project already past it, and counts it in `delivery_first_rotation_backup_advised`.
+finds the project already past it, and counts it in `delivery_first_rotation_backup_advised`. The
+warning is per run, not per project: every restart before the rotation warns again, so each run's
+`delivery.rollover` row, which reads only that run's counters, still names the coming rotation.
 
 **Action.** If you may want to run an older build on this project again, stop the daemon and take a
 backup now (`qompack backup create`, [Backup and restore](backup.md)). A backup taken before the
