@@ -115,6 +115,34 @@ func TestRunLiveEval_TheQompackArmNeedsADefectAttestation(t *testing.T) {
 	require.Contains(t, string(md), "known open defects: none")
 }
 
+// TestRunLiveEval_ASupersededTaskSetIsNeverPlanned: qompack-live-v1 was superseded before any trial
+// of it (preregistration amendment A7). Its file stays in the tree as the record, and a run of it
+// could never be the confirmatory run, so the driver refuses to plan one — dry run included, since a
+// dry run exists to validate the real run's command — and names the set to run instead. The default
+// task set is the current one.
+func TestRunLiveEval_ASupersededTaskSetIsNeverPlanned(t *testing.T) {
+	env := fakeLiveEnv(t, nil)
+	var out bytes.Buffer
+	o := liveOptions{tasksFile: liveTestTasksV1, rates: liveTestRates, arms: []string{"stock"}, out: t.TempDir(), dryRun: true}
+	err := runLiveEval(context.Background(), o, env, &out)
+	require.ErrorContains(t, err, "task set qompack-live-v1 was superseded before any trial of it")
+	require.ErrorContains(t, err, "amendment A7")
+	require.ErrorContains(t, err, "testdata/eval/live/tasks-v2.json")
+	require.Empty(t, out.String(), "nothing is planned")
+
+	o.tasksFile = liveTestTasks
+	require.NoError(t, runLiveEval(context.Background(), o, env, &out))
+	require.Contains(t, out.String(), "task set qompack-live-v2")
+
+	d, err := parseLiveFlags(nil)
+	require.NoError(t, err)
+	require.Equal(t, "testdata/eval/live/tasks-v2.json", d.tasksFile)
+	ts, _, err := eval.LoadLiveTaskSet(filepath.Join("..", "..", filepath.FromSlash(d.tasksFile)))
+	require.NoError(t, err)
+	require.Contains(t, eval.LivePreregistrations, ts.ID, "the default task set is pre-registered")
+	require.Empty(t, eval.LivePreregistrations[ts.ID].SupersededBy, "and current")
+}
+
 // TestPlanLiveTrials_AlternatesArmOrder: across tasks and trials each arm goes first half the time.
 func TestPlanLiveTrials_AlternatesArmOrder(t *testing.T) {
 	tasks := []eval.LiveTask{{ID: "a"}, {ID: "b"}}
