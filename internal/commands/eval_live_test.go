@@ -183,24 +183,68 @@ func TestEval_LiveInferiorOrRegressedFails(t *testing.T) {
 	require.False(t, *g.Passed)
 }
 
-// TestEval_LiveFailedTrialsKeepTheVerdictInconclusive: failed trials are counted as failures in the
-// pre-registered analysis (intention to treat), and the command's own rule still refuses to call a
-// run with failed trials a pass.
-func TestEval_LiveFailedTrialsKeepTheVerdictInconclusive(t *testing.T) {
-	run := confirmatoryRun(19, 20)
-	var trials []eval.LiveTrial
-	trials = append(trials, liveTrials(eval.ArmStock, 20, 19)...)
-	q := liveTrials(eval.ArmQompack, 20, 20)
-	q[0].HarnessError = "step 3 of 4: no result within 10m0s"
-	trials = append(trials, q...)
-	run.Summary = eval.SummarizeLive(run.Plan.RunID, liveAnalysis(), trials)
+// TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed: preregistration section 8 analyses every
+// planned trial (intention to treat): a trial the harness could not run as designed is scored as a
+// failure on every outcome and listed by name, nothing is dropped. The run's decision already counts
+// its failed trials, so the command reports that decision — here non-inferior, with the harness
+// failure costing the qompack arm a task success — rather than overriding it with "inconclusive"
+// because a trial failed, and it names each failed trial and how it was counted. When the failures
+// move the interval, the verdict moves with the decision.
+func TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed(t *testing.T) {
+	withHarnessFailures := func(stockK, qompackFailures int) commands.LiveEvalInput {
+		run := confirmatoryRun(stockK, 20)
+		trials := liveTrials(eval.ArmStock, 20, stockK)
+		q := liveTrials(eval.ArmQompack, 20, 20)
+		for i := range q[:qompackFailures] {
+			q[i].HarnessError = "step 3 of 4: no result within 10m0s"
+			q[i].Completed = false
+		}
+		run.Summary = eval.SummarizeLive(run.Plan.RunID, liveAnalysis(), append(trials, q...))
+		return run
+	}
 
+	run := withHarnessFailures(19, 1)
+	require.Equal(t, "non-inferior", run.Summary.Decision.Verdict, run.Summary.Decision.Reason)
 	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
 	require.NoError(t, err)
 	rep := decodeEval(t, out)
-	require.True(t, rep.Live.Confirmatory)
-	require.Equal(t, 1, rep.Live.Trials.Failed)
+	require.True(t, rep.Live.Confirmatory, "%v", rep.Live.NotConfirmatory)
+	require.Equal(t, commands.TrialCounts{Planned: 40, Ran: 40, Failed: 1}, rep.Live.Trials)
+	require.Equal(t, commands.VerdictPass, rep.Verdict, "the pre-registered decision stands")
+	g := liveGate(t, rep.Task, "LIVE-T01")
+	require.NotNil(t, g.Passed)
+	require.True(t, *g.Passed)
+	require.Contains(t, g.Detail, "1 failed trial(s) counted under intention to treat")
+	var q eval.ArmSummary
+	for _, as := range rep.Live.Arms {
+		if as.Arm == eval.ArmQompack {
+			q = as
+		}
+	}
+	require.Equal(t, [2]int{19, 20}, [2]int{q.TaskSuccess.K, q.TaskSuccess.N}, "the failed trial is a failure, not dropped")
+	require.Len(t, rep.Live.Failed, 1)
+	require.True(t, strings.HasPrefix(rep.Live.Failed[0], "t00/qompack/1: "), rep.Live.Failed[0])
+	require.Contains(t, rep.Live.FailedTreatment, "intention to treat")
+	require.Contains(t, rep.Live.FailedTreatment, "failure on every outcome")
+
+	text, err := runWith(t, evalDeps(liveOnly(run), nil), "eval")
+	require.NoError(t, err)
+	require.Contains(t, text, "eval: PASS")
+	require.Contains(t, text, "failed trials: 1, "+rep.Live.FailedTreatment)
+	require.Contains(t, text, "failed trial: t00/qompack/1: ")
+
+	// Four harness failures leave the interval straddling the margin: the decision is inconclusive,
+	// and so is the verdict, because the rule reached no verdict.
+	run = withHarnessFailures(20, 4)
+	require.Equal(t, "inconclusive", run.Summary.Decision.Verdict, run.Summary.Decision.Reason)
+	out, err = runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep = decodeEval(t, out)
 	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+	g = liveGate(t, rep.Task, "LIVE-T01")
+	require.Nil(t, g.Passed)
+	require.Contains(t, g.Detail, "the pre-registered rule reached no verdict")
+	require.Len(t, rep.Live.Failed, 4)
 }
 
 // TestEval_LiveNotConfirmatoryOnASupersededTaskSet: qompack-live-v1 was superseded before any trial
