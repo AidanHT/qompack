@@ -34,10 +34,14 @@ type ordinaryRead struct {
 const (
 	whyAppendOnlyIndex = "an append-only index log (index/*.jsonl): an append needs no delete access, and " +
 		"nothing replaces or removes the log while a store is open"
-	whyBackupTree = "a file of a backup tree, written once by TakeBackup and never replaced; every " +
-		"`qompack backup` action holds the writer lease, so none overlaps the TakeBackup that wrote it"
-	whyMigrateFiles = "a state/migrate file, which only the Migrator writes; the Migrator runs only inside " +
-		"`qompack backup` under the writer lease, and fsck reads these files shared"
+	whyBackupTree = "a file of a backup tree, or of a restore's private staged copy of one: created " +
+		"once under a fresh backup id (TakeBackup refuses an existing id before it writes) and never " +
+		"replaced afterwards. The one removal, TakeBackup's ErrBackupMoved cleanup, runs before the " +
+		"manifest exists, and these readers reach tree files only through that manifest. No lease is " +
+		"assumed: fsck's VerifyBackupAt reads backups without one"
+	whyMigrateFiles = "a state/migrate file, which only the Migrator writes, and only inside `qompack " +
+		"backup` under the writer lease (fsck's VerifyBackupAt builds a bare Migrator that reads no " +
+		"migrate file); fsck reads these files shared"
 	whyDeliveryJournal = "a delivery journal or seal, which only the holder of the daemon lock writes (this " +
 		"daemon, or the offline delivery-seal tool, which takes the same lock); every other process " +
 		"reads them shared (backup, doctor, fsck)"
