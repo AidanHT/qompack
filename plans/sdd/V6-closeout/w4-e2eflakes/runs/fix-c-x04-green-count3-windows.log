@@ -1,0 +1,31 @@
+# green: the whole x04 row with the fixed negative control, product unmodified (c488456 + test edit)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops
+    v5_x04_test.go:528: bounded arm: tokens=572 budget=600 degraded=false dropped=41 item7_rendered=true
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (13.66s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (6.30s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (5.22s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (2.14s)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops
+    v5_x04_test.go:528: bounded arm: tokens=572 budget=600 degraded=false dropped=41 item7_rendered=true
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (12.55s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (5.26s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (5.14s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (2.15s)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops
+    v5_x04_test.go:528: bounded arm: tokens=572 budget=600 degraded=false dropped=41 item7_rendered=true
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (12.52s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (5.27s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (5.12s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (2.13s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	38.941s
+exit=0

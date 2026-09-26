@@ -1,0 +1,23 @@
+# red: the FIXED negative control against the same late-record diagnostic daemon (diag-fix-c-x04-late-record.patch.txt applied)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+    v5_x04_test.go:607: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v5_x04_test.go:607
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestV5_PreCompactToRehydrateToDroppedRoundTripnegative_control_4256242193\\001\\project\\.qompack\\state\\rehydrate-sess-e2e-v5-x04-control.json" exists
+        	Test:       	TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+        	Messages:   	NEGATIVE CONTROL: with injection off no rehydration may be recorded, not even after the answer
+--- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip (5.00s)
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (5.00s)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+    v5_x04_test.go:607: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v5_x04_test.go:607
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestV5_PreCompactToRehydrateToDroppedRoundTripnegative_control_4274068495\\001\\project\\.qompack\\state\\rehydrate-sess-e2e-v5-x04-control.json" exists
+        	Test:       	TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+        	Messages:   	NEGATIVE CONTROL: with injection off no rehydration may be recorded, not even after the answer
+--- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip (4.00s)
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (4.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	9.213s
+FAIL
+exit=1

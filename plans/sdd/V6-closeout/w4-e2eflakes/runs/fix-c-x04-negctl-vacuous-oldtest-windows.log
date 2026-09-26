@@ -1,0 +1,12 @@
+# vacuity: the CURRENT negative control (c488456) against a daemon that records a rehydration 2 s after answering {} with injection off (diag-fix-c-x04-late-record.patch.txt)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (5.06s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (5.06s)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (4.00s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (4.00s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	9.285s
+exit=0
