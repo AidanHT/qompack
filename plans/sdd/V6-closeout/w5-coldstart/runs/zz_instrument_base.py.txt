@@ -1,0 +1,98 @@
+"""TEMPORARY: instrument a scratch export of the tree with zzdiag marks (w5-coldstart diagnostic).
+
+Usage: python apply.py <tree-root>. Each edit is anchored on exact text; an anchor that is missing
+is reported and skipped so the same script serves the before and after trees.
+"""
+import os
+import shutil
+import sys
+
+root = sys.argv[1]
+here = os.path.dirname(os.path.abspath(__file__))
+os.makedirs(os.path.join(root, "internal", "zzdiag"), exist_ok=True)
+shutil.copy(os.path.join(here, "zzdiag.go"), os.path.join(root, "internal", "zzdiag", "zzdiag.go"))
+
+IMPORT = '\t"github.com/qompack/qompack/internal/zzdiag"\n'
+
+
+def edit(rel, pairs):
+    p = os.path.join(root, rel)
+    s = open(p, encoding="utf-8").read()
+    if IMPORT not in s:
+        s = s.replace("import (\n", "import (\n" + IMPORT, 1)
+    for mode, anchor, text in pairs:
+        if anchor not in s:
+            print(f"MISSING anchor in {rel}: {anchor[:70]!r}")
+            continue
+        if mode == "after":
+            s = s.replace(anchor, anchor + text, 1)
+        else:
+            s = s.replace(anchor, text + anchor, 1)
+    open(p, "w", encoding="utf-8").write(s)
+
+
+edit("internal/daemon/daemon.go", [
+    ("after", "func (d *daemon) Run(ctx context.Context) error {\n",
+     '\tzzdiag.Mark("run-enter")\n\tzzServed := make(chan struct{})\n\tvar zzOnce sync.Once\n'
+     '\tzzServe := func() { zzOnce.Do(func() { close(zzServed) }) }\n\tdefer zzServe()\n'
+     '\tzzdiag.Watchdog(zzServed, 2*time.Second, 4*time.Second, 7*time.Second, 12*time.Second, 20*time.Second)\n'),
+    ("after", "\td.setLock(lock)\n", '\tzzdiag.Mark("lock-ok")\n'),
+    ("before", "\t\t\treturn nil // another daemon owns this project: success, not failure.\n",
+     '\t\t\tzzdiag.Mark("run-lockheld")\n'),
+    ("after", "\td.ing.Start(runCtx, 0, d.runIngested)\n", '\tzzdiag.Mark("ing-started")\n'),
+    ("before", "\tserver, err := ipc.NewServer(addr, d.log, d.m, ipc.MaxLineBytes)\n", '\tzzdiag.Mark("listen-start")\n'),
+    ("after", "\td.setServer(server)\n", '\tzzdiag.Mark("listening")\n'),
+    ("before", "\tremoveSpawnLockFile(d.root)\n\t// On Windows", '\tzzdiag.Mark("state-written")\n'),
+    ("before", "\tif _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {\n",
+     '\tzzdiag.Mark("drain-start")\n'),
+    ("after", "\td.drainsEndSessions.Store(true)\n", '\tzzdiag.Mark("drain-end")\n'),
+    ("after", "\td.sweepCheckpointIntegrity(runCtx)\n", '\tzzdiag.Mark("sweep-end")\n'),
+    ("after", "\tauditCancel()\n", '\tzzdiag.Mark("audit-end")\n'),
+    ("before", "\tserveErrCh := make(chan error, 1)\n", '\tzzdiag.Mark("serving")\n\tzzServe()\n'),
+])
+
+edit("internal/daemon/drain.go", [
+    ("before", "\t\tblob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased, dl.key)\n",
+     '\t\tzzT := time.Now()\n'),
+    ("after", "\t\tblob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased, dl.key)\n",
+     '\t\tzzdiag.Mark("drain-line", "file", base, "op", dl.req.Op, "sess", dl.req.Session, "ms", time.Since(zzT).Milliseconds(), "err", dispatchErr)\n'),
+])
+
+edit("internal/cli/daemon.go", [
+    ("after", "func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer) error {\n",
+     '\tzzdiag.Mark("daemon-enter")\n\tdefer zzdiag.Mark("daemon-exit")\n'),
+    ("before", "\tleaseCtx, lease, releaseLease, err := acquireWriterLease(ctx, root)\n", '\tzzdiag.Mark("lease-try")\n'),
+    ("after", "\tleaseCtx, lease, releaseLease, err := acquireWriterLease(ctx, root)\n", '\tzzdiag.Mark("lease-result", "err", err)\n'),
+    ("before", "\td, err := daemon.NewWithLease(opts, lease)\n", '\tzzdiag.Mark("wired")\n'),
+    ("before", "\trunErr := d.Run(runCtx)\n", '\tzzdiag.Mark("run-call")\n'),
+    ("after", "\trunErr := d.Run(runCtx)\n", '\tzzdiag.Mark("run-returned", "err", runErr)\n'),
+])
+
+edit("internal/daemon/spawn.go", [
+    ("after", "\tif ipc.Probe(addr, ensureRunningDialTimeout) {\n\t\treturn false, nil\n\t}\n",
+     '\tzzdiag.Mark("ensure-probe-miss")\n'),
+    ("before", "\tdeadline := time.Now().Add(ensureRunningPollBound)\n", '\tzzdiag.Mark("ensure-spawned")\n'),
+    ("before", "\t\t\treturn true, nil\n", '\t\t\tzzdiag.Mark("ensure-up")\n'),
+    ("before", "\t\t\treturn true, core.ErrNotFound\n", '\t\t\tzzdiag.Mark("ensure-timeout")\n'),
+    ("before", "\tprogram, stageErr := daemonProgram(", '\tzzdiag.Mark("stage-start")\n'),
+    ("before", "\tcmd := buildSpawnCommand(program, projectRoot, os.Environ())\n", '\tzzdiag.Mark("stage-end", "err", stageErr)\n'),
+    ("before", "\tif err := cmd.Start(); err != nil {\n", '\tzzdiag.Mark("spawn-start", "program", program)\n'),
+    ("before", "\treturn cmd.Process.Release()\n", '\tzzdiag.Mark("spawn-started", "child", cmd.Process.Pid)\n'),
+])
+
+edit("internal/cli/hookclient.go", [
+    ("after", "\t\tts := clk.Now().UnixMilli() // FIRST statement — the B-A origin.\n", '\t\tzzdiag.Mark("hook-start", "op", spec.op)\n'),
+    ("before", "\t\tif spec.preSend != nil {\n", '\t\tzzdiag.Mark("presend-start")\n'),
+    ("before", "\t\taddr, aerr := ipc.Resolve(root)\n", '\t\tzzdiag.Mark("presend-end")\n'),
+    ("before", "\t\tresp, _ := c.Send(ctx, req, deadline)\n", '\t\tzzdiag.Mark("send-start")\n'),
+    ("after", "\t\tresp, _ := c.Send(ctx, req, deadline)\n", '\t\tzzdiag.Mark("send-end", "ok", resp.OK, "out", resp.Output != nil)\n'),
+    ("before", "\t\treturn hookio.WriteOutput(out, conformed)\n\t}\n}\n", '\t\tzzdiag.Mark("hook-end")\n'),
+])
+
+edit("internal/ipc/client.go", [
+    ("after", "\tconn, err := c.connect(ctx)\n", '\tzzdiag.Mark("connect", "err", err)\n'),
+    ("before", "\t\t_ = c.o.Spawn(c.o.ProjectRoot, c.o.Self)\n", '\t\tzzdiag.Mark("lazyspawn-spawn")\n'),
+    ("before", "\t\t\t\treturn // another client is already spawning\n", '\t\t\t\tzzdiag.Mark("lazyspawn-locked")\n'),
+    ("after", "\tline, err := NewLineReader(conn, c.o.MaxLine).ReadLine()\n", '\tzzdiag.Mark("reply", "err", err)\n'),
+])
+print("done")

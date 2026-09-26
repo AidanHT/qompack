@@ -1,0 +1,36 @@
+package ipc
+
+// TEMPORARY DIAGNOSTIC (w5-coldstart, the NOUP row): what a dial meets at an endpoint that is
+// listening but whose accept loop has not started yet — the state daemon.Run left its endpoint in
+// for the whole of its startup before D17. Scratch export only; kept as .go.txt evidence.
+
+import (
+	"context"
+	"testing"
+	"time"
+)
+
+func TestZZPreServeDial(t *testing.T) {
+	a, err := Resolve(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, err := NewServer(a, nil, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	for i := range 4 {
+		t0 := time.Now()
+		ok := Probe(a, 250*time.Millisecond)
+		t.Logf("listening, no accept loop: probe %d ok=%v in %v", i, ok, time.Since(t0))
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = srv.Serve(ctx, func(context.Context, Request) Response { return Response{OK: true} }) }()
+	for i := range 3 {
+		t0 := time.Now()
+		ok := Probe(a, 250*time.Millisecond)
+		t.Logf("accept loop running: probe %d ok=%v in %v", i, ok, time.Since(t0))
+	}
+}

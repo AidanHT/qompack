@@ -1,0 +1,54 @@
+"""TEMPORARY (w5-coldstart): summarize cold-start diagnostic logs.
+
+Per run: spooled rows per source and mode, multi-daemon rows, NOUP rows, whole-hook (session-start
+process) wall-time distribution, and process-creation stalls seen in the printed timelines.
+"""
+import re
+import sys
+
+
+def pct(xs, q):
+    if not xs:
+        return 0
+    s = sorted(xs)
+    return s[int((len(s) - 1) * q)]
+
+
+for f in sys.argv[1:]:
+    txt = open(f, encoding='utf-8', errors='replace').read().splitlines()
+    rows = []
+    for l in txt:
+        if ' ROW mode=' not in l:
+            continue
+        d = {}
+        for k, v in re.findall(r'(\w[\w-]*)=\s*([^\s]+)', l):
+            d.setdefault(k, v)  # the row's own mode=, not the daemon mode= at the end
+        rows.append(d)
+    starts, stalls = {}, []
+    for l in txt:
+        m = re.match(r'\s+\+(\d+)ms pid=(\d+) .* spawn-started ', l)
+        if m:
+            if m.group(2) in starts:
+                stalls.append(int(m.group(1)) - starts.pop(m.group(2)))
+            continue
+        m = re.match(r'\s+\+(\d+)ms pid=(\d+) .* spawn-start ', l)
+        if m:
+            starts[m.group(2)] = int(m.group(1))
+
+    def ms(v):
+        return int(re.sub(r'ms.*', '', v))
+
+    walls = [ms(r['sswall']) for r in rows]
+    print(f"== {f}: rows={len(rows)} spooled={sum(r['spooled']=='true' for r in rows)} "
+          f"noup={sum('ok=false' in r.get('up','') for r in rows)} "
+          f"multi-daemon={sum(int(r['daemons'])>1 for r in rows)} "
+          f"sswall p50={pct(walls,.5)} p90={pct(walls,.9)} p99={pct(walls,.99)} max={max(walls) if walls else 0} "
+          f"timelined-spawns={len(stalls)} stalls>1s={sum(s>1000 for s in stalls)} max-stall={max(stalls) if stalls else 0}")
+    for src in ('startup', 'resume', 'compact'):
+        for mode in ('unstaged', 'staged-cold', 'staged-warm', 'prespawned'):
+            g = [r for r in rows if r['mode'] == mode and r['source'] == src]
+            if not g:
+                continue
+            w = [ms(r['sswall']) for r in g]
+            print(f"   {src:8s} {mode:12s} n={len(g)} spooled={sum(r['spooled']=='true' for r in g)} "
+                  f"multi={sum(int(r['daemons'])>1 for r in g)} sswall p50={pct(w,.5)} max={max(w)}")
