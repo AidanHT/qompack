@@ -1,0 +1,16 @@
+# base b070bbe (git archive), Windows: the two short e2e reds of the full-package run, to classify them
+# go test ./test/e2e -run '^TestV4_TombstoneToRecallToExpandRoundTrip$' -count=1 -v  AND  -run '^TestV5_EliminationThroughEveryFourSurfaces$'
+        	Error:      	Received unexpected error:
+        	            	qompack: append-only violation: observation sha256:e0e30336ccfd6f319ddd78fe60896ccf0d963cc2dcffa3d7d3dfb0a84a7a40e7 already reserved for a different intent
+        	Messages:   	the store must accept the record; authorization is a RETRIEVAL-time gate, not a write gate
+--- FAIL: TestV4_TombstoneToRecallToExpandRoundTrip (4.17s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	4.421s
+FAIL
+        	Error:      	Expected value not to be nil.
+        	Messages:   	a full-mode PreCompact answers through hookSpecificOutput
+--- FAIL: TestV5_EliminationThroughEveryFourSurfaces (3.97s)
+    --- FAIL: TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces (2.65s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	4.207s
+FAIL

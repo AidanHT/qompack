@@ -1,0 +1,36 @@
+# Windows test/integration contract-monitor rows after awaitSessionEnded (uncommitted, on 1d7578b), co-loaded host
+# go test ./test/integration -run '^TestIntegration_(ContractMonitorRunsAgainstRealStore|DegradedPassiveStillWritesToTheRealStore)$' -count=3 -v -timeout=30m
+=== RUN   TestIntegration_ContractMonitorRunsAgainstRealStore
+--- PASS: TestIntegration_ContractMonitorRunsAgainstRealStore (0.12s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+    contractmonitor_test.go:531: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/test/integration/contractmonitor_test.go:565
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/test/integration/contractmonitor_test.go:531
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_DegradedPassiveStillWritesToTheRealStore
+        	Messages:   	the daemon never finished ending session sess-degraded-passive after its flush hook
+--- FAIL: TestIntegration_DegradedPassiveStillWritesToTheRealStore (31.05s)
+=== RUN   TestIntegration_ContractMonitorRunsAgainstRealStore
+--- PASS: TestIntegration_ContractMonitorRunsAgainstRealStore (0.08s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+    contractmonitor_test.go:531: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/test/integration/contractmonitor_test.go:565
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/test/integration/contractmonitor_test.go:531
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_DegradedPassiveStillWritesToTheRealStore
+        	Messages:   	the daemon never finished ending session sess-degraded-passive after its flush hook
+--- FAIL: TestIntegration_DegradedPassiveStillWritesToTheRealStore (30.67s)
+=== RUN   TestIntegration_ContractMonitorRunsAgainstRealStore
+--- PASS: TestIntegration_ContractMonitorRunsAgainstRealStore (0.10s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+    contractmonitor_test.go:531: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/test/integration/contractmonitor_test.go:565
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/test/integration/contractmonitor_test.go:531
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_DegradedPassiveStillWritesToTheRealStore
+        	Messages:   	the daemon never finished ending session sess-degraded-passive after its flush hook
+--- FAIL: TestIntegration_DegradedPassiveStillWritesToTheRealStore (30.77s)
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	93.048s
+FAIL
+exit=1

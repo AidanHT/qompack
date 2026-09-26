@@ -1,0 +1,3 @@
+# go test ./test/docs -count=1 (docs/architecture.md changed)
+ok  	github.com/qompack/qompack/test/docs	2.016s
+exit=0

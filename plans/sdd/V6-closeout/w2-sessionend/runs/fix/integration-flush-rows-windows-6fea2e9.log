@@ -1,0 +1,9 @@
+# Windows test/integration flush-bearing rows at 6fea2e9 (co-loaded host)
+# go test ./test/integration -run '^TestIntegration_(ContractMonitorRunsAgainstRealStore|DegradedPassiveStillWritesToTheRealStore)$' -count=1 -v -timeout=30m
+=== RUN   TestIntegration_ContractMonitorRunsAgainstRealStore
+--- PASS: TestIntegration_ContractMonitorRunsAgainstRealStore (0.10s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+--- PASS: TestIntegration_DegradedPassiveStillWritesToTheRealStore (1.31s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	1.653s
+exit=0

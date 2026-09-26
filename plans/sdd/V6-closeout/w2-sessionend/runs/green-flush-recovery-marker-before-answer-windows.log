@@ -1,0 +1,71 @@
+# green: recovery marker written before the answer, c4d27e2 + working tree
+# go test ./internal/daemon -run '^(TestFlush_|TestStop_FinishesAnAcceptedSessionEnd|TestSessionRecovery_)' -count=3 -v
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (3.76s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (1.88s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (1.88s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (0.65s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.60s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (0.60s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (0.73s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (0.93s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (0.95s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.61s)
+=== RUN   TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery
+--- PASS: TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery (0.41s)
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (3.64s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (1.83s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (1.80s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (0.68s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.62s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (0.77s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (0.75s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (0.84s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (1.06s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (2.04s)
+=== RUN   TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery
+--- PASS: TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery (2.07s)
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+--- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (9.02s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (7.30s)
+    --- PASS: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (1.72s)
+=== RUN   TestFlush_AnswersOnceDurableNotAfterSessionEnd
+--- PASS: TestFlush_AnswersOnceDurableNotAfterSessionEnd (1.05s)
+=== RUN   TestFlush_AReplyCallerStillWaitsForTheSessionEnd
+--- PASS: TestFlush_AReplyCallerStillWaitsForTheSessionEnd (0.98s)
+=== RUN   TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd
+--- PASS: TestFlush_AnAcceptedFlushSurvivesACrashBeforeTheEnd (1.66s)
+=== RUN   TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce
+--- PASS: TestFlush_TheHookSpooledCopyOfAnAcceptedFlushEndsTheSessionOnce (1.44s)
+=== RUN   TestFlush_ADrainedFlushSettlesUpToItsOwnArrival
+--- PASS: TestFlush_ADrainedFlushSettlesUpToItsOwnArrival (1.61s)
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (2.91s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (2.52s)
+=== RUN   TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery
+--- PASS: TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery (0.39s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	44.658s
+exit=0

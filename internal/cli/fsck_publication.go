@@ -35,6 +35,9 @@ func (s *fsckScan) checkPublication() fsckCheck {
 			"their publication is not certified by this build, a support gap rather than damage",
 			audit.NewerSchemaCaptures)
 	}
+	if audit.LegacyControlCaptures > 0 {
+		row.note("%s", fsckLegacyControlCapturesNote(audit.LegacyControlCaptures))
+	}
 	if audit.HasGaps() {
 		row.defect("publication evidence includes %d unlinked captures and %d unindexed object candidates",
 			audit.UnpublishedCaptures, audit.UnindexedObjectCandidates)

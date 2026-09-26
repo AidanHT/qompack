@@ -1,0 +1,238 @@
+# Windows e2e focused at 6fea2e9 (co-loaded host)
+# go test ./test/e2e -run '^(TestE2E_ObserverThroughDaemon|TestE2E_ThinSliceDropsControlOnlyEdges|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently|TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting|TestV5_HookEventToTombstoneToRetrievalAfterRestart|TestV3_LiveSessionWriteSetAndAppendOnly|TestV3_DegradedPassiveStillRecordsEverything|TestE2E_AllSixHooksExitZero|TestV1_HookLifecycleThroughRealBinary|TestHooksExitZeroUnderFaults|TestE2E_HooksExitZeroUnderFaultInjection|TestE2EIdleExit)$' -count=1 -v -timeout=30m
+=== RUN   TestE2EIdleExit
+--- PASS: TestE2EIdleExit (4.29s)
+=== RUN   TestHooksExitZeroUnderFaults
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/oversize
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/oversize
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/Stop/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/Stop/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/Stop/oversize
+=== RUN   TestHooksExitZeroUnderFaults/Stop/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/Stop/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/Stop/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/Stop/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/Stop/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/Stop/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/Stop/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/Stop/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/oversize
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/oversize
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/oversize
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/panic:client
+=== NAME  TestHooksExitZeroUnderFaults
+    faultinject_test.go:99: TestHooksExitZeroUnderFaults: 6 hooks x 11 sites = 66 combinations run
+--- PASS: TestHooksExitZeroUnderFaults (51.23s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/stdin-eof (0.44s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/stdin-garbage (0.41s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/oversize (0.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/daemon-down (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/spool-readonly (0.28s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/spool-full:0 (0.25s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/disk-full (0.26s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/state-corrupt (0.48s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/config-corrupt (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/panic:hook (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/panic:client (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-eof (0.42s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-garbage (0.41s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/oversize (0.50s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/daemon-down (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-readonly (0.32s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-full:0 (0.27s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/disk-full (0.25s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/state-corrupt (0.45s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/config-corrupt (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:hook (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:client (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/stdin-eof (0.40s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/stdin-garbage (0.39s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/oversize (0.44s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/daemon-down (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/spool-readonly (0.30s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/spool-full:0 (0.26s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/disk-full (0.27s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/state-corrupt (0.41s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/config-corrupt (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/panic:hook (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/panic:client (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/stdin-eof (0.31s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/stdin-garbage (0.29s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/oversize (0.35s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/daemon-down (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/spool-readonly (0.32s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/spool-full:0 (0.29s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/disk-full (0.31s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/state-corrupt (0.31s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/config-corrupt (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/panic:hook (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/panic:client (0.26s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/stdin-eof (0.41s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/stdin-garbage (0.39s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/oversize (0.49s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/daemon-down (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/spool-readonly (0.31s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/spool-full:0 (0.28s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/disk-full (0.26s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/state-corrupt (0.48s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/config-corrupt (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/panic:hook (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/panic:client (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/stdin-eof (0.46s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage (0.48s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/oversize (0.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/daemon-down (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/spool-readonly (0.27s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/spool-full:0 (0.26s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/disk-full (0.26s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/state-corrupt (0.53s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/config-corrupt (1.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/panic:hook (1.55s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/panic:client (1.55s)
+=== RUN   TestE2E_AllSixHooksExitZero
+=== RUN   TestE2E_AllSixHooksExitZero/PostToolUse
+=== RUN   TestE2E_AllSixHooksExitZero/UserPromptSubmit
+=== RUN   TestE2E_AllSixHooksExitZero/Stop
+=== RUN   TestE2E_AllSixHooksExitZero/SessionStart
+=== RUN   TestE2E_AllSixHooksExitZero/PreCompact
+=== RUN   TestE2E_AllSixHooksExitZero/SessionEnd
+--- PASS: TestE2E_AllSixHooksExitZero (1.15s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PostToolUse (0.03s)
+    --- PASS: TestE2E_AllSixHooksExitZero/UserPromptSubmit (0.03s)
+    --- PASS: TestE2E_AllSixHooksExitZero/Stop (0.07s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionStart (0.31s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PreCompact (0.14s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionEnd (0.04s)
+=== RUN   TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting
+    install_test.go:537: install: marketplace qompack-rehearsal publishes ./qompack-plugin-0.1.0-windows-amd64
+        {
+          "description": "Disposable local marketplace for the SP-17 installation rehearsal",
+          "name": "qompack-rehearsal",
+          "owner": {
+            "name": "Qompack"
+          },
+          "plugins": [
+            {
+              "description": "Cache-aware, retrieval-backed context compaction",
+              "name": "qompack",
+              "source": "./qompack-plugin-0.1.0-windows-amd64"
+            }
+          ]
+        }
+    install_test.go:537: install: claude plugin marketplace add C:\Users\Quant\AppData\Local\Temp\qompack-install-bundle-92683241 -> exit 0
+        Adding marketplace…✔ Successfully added marketplace: qompack-rehearsal (declared in user settings)
+    install_test.go:537: install: claude plugin install qompack@qompack-rehearsal -s user -y -> exit 0
+        Installing plugin "qompack@qompack-rehearsal"...✔ Successfully installed plugin: qompack@qompack-rehearsal (scope: user)
+    install_test.go:694: install unknown_schema_config_settings_version: verified — runtime.migration.settingsVersion 2 with experiments.enabled true (gated; Validate restores false on any build) and reinjection.sessionStartCompact false (ungated, default true; build reads settingsVersion 1): LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); state/config-violations.json names the reset; the effective block is defaults (sessionStartCompact true); hooks exit 0; a daemon comes up; config print --provenance still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting3028420528\003\unknown_schema_config_settings_version.json
+    install_test.go:703: install unknown_schema_checkpoint_artifact: verified — a checkpoints/ artifact declaring schema version 2 (build reads 1): a whole session still records, fsck's checkpoints row stays ok and names it "written by a newer plugin", and the artifact's bytes are unchanged
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting3028420528\003\unknown_schema_checkpoint_artifact.json
+    install_test.go:708: install unknown_schema_capture_sidecar: verified — a records/captures sidecar at v2 (build reads v1): readable and degraded — fsck's captures row stays ok and names it, and the sidecar is never repaired or swept
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting3028420528\003\unknown_schema_capture_sidecar.json
+    install_test.go:712: install unknown_schema_delivery_seal_v2: verified — a v2 delivery position seal: fsck's delivery row classifies it by its declared version and leaves the bytes alone; an OLDER binary's refusal of a v2 seal is internal/daemon's own rollback row (delivery_seal_format2_test.go), cited here rather than duplicated
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting3028420528\003\unknown_schema_delivery_seal_v2.json
+    install_helpers_test.go:910: install: claude plugin uninstall qompack -s user -y -> exit 0
+        ✔ Successfully uninstalled plugin: qompack (scope: user)
+--- PASS: TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (26.79s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (4.52s)
+=== RUN   TestE2E_HooksExitZeroUnderFaultInjection
+--- PASS: TestE2E_HooksExitZeroUnderFaultInjection (1.57s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (5.30s)
+=== RUN   TestV1_HookLifecycleThroughRealBinary
+--- PASS: TestV1_HookLifecycleThroughRealBinary (1.26s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (6.16s)
+=== RUN   TestV3_LiveSessionWriteSetAndAppendOnly
+    v3_x09_test.go:383: x9: 00/df/00df6df17411ab1b9735b4f3f2b64e4fcd7f71ba771bf33fe1f95e151f7e4dcd.zst appeared during flush; published by index/roots.jsonl line (root=sha256:eb880bd8f84021f16515e86fce665d22b01536a09203a5b2bf2221d97d11c28f eph=false)
+    v3_x09_test.go:383: x9: 09/1b/091bb2759ec84d071b3856f1807cbb96edd418da931fae1ac0b6e15d819a7cf4.zst appeared during flush; published by index/roots.jsonl line (root=sha256:2e008f5634f080239d5e2f10c4b439c87cb4a7c15a167bbd82dbaa52b3992ab1 eph=false)
+    v3_x09_test.go:383: x9: 10/19/1019afcf28f3d219ca0bd2e529378cb49bc6905f016f1695d1506730589fe1bc.zst appeared during flush; published by index/roots.jsonl line (root=sha256:57fe953f086dbbc03ce378d9d9005ad1ab42297c85141f9157cdb8fa740c716f eph=true)
+    v3_x09_test.go:383: x9: 10/c9/10c9961e240ac272f5717b7b0ef252a807219293eee59fe5e712c5233cc1a4e7.zst appeared during flush; published by index/roots.jsonl line (root=sha256:30ac5132428545f4179650a1d2fbeba365fef08706ed90781d6963d69a2f2346 eph=true)
+    v3_x09_test.go:383: x9: 25/74/257452ee0c83698679c07f077f6bfca00015cd1a50ab8efbde9fcc63cf3192f5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:42634d5457006995f45bfe30dc3aed2992ccf69bcbf6d82acc0bb94b21b68559 eph=true)
+    v3_x09_test.go:383: x9: 33/3a/333a16a57508b1fc0f59379e9a2c8250bd75ce7a0bb323fefbc4c0978df607bf.zst appeared during flush; published by index/roots.jsonl line (root=sha256:d744f135ee6bca51d80371f553b5baa21d260d92f86ba91368b475107ce0e64d eph=false)
+    v3_x09_test.go:383: x9: 47/6f/476fac1915db0c06b98097781b444f4e4b20204e974770ff4272a520ddfd002e.zst appeared during flush; published by index/roots.jsonl line (root=sha256:b4e39ffeaad50c7af19d07c69c22be492061ec4eb283f32e37265253951c1abb eph=true)
+    v3_x09_test.go:383: x9: 49/f9/49f936ad488eba482bdca295835ce089630e407a46c2354a553c9481d969a0b8.zst appeared during flush; published by index/roots.jsonl line (root=sha256:5371a166b72a681a0dc9d390ef3dcc1ff3cbaa3c8e181d7e86c372d567fa1401 eph=true)
+    v3_x09_test.go:383: x9: 4a/f2/4af27fae252b366fab453a04454cfd630aa0d9fd7c8f4b754b3e59b01d9829fe.zst appeared during flush; published by index/roots.jsonl line (root=sha256:bf435857f1af556c8f5c0532e0ba015527db5e235316bee51716fd30180186a6 eph=false)
+    v3_x09_test.go:383: x9: 62/3f/623f35a901cbe46b43bbe08871bf44a4d42028a102e0e517b0e02cab1181a85b.zst appeared during flush; published by index/roots.jsonl line (root=sha256:51ad7013e5c777ae743d5ce83a0462e28dbb6612d9e29534fbc8578f760867eb eph=false)
+    v3_x09_test.go:383: x9: 68/f5/68f508fe12a945b948de9db35f49a9364332b2b865386bb594147ccb9bf5aacc.zst appeared during flush; published by index/roots.jsonl line (root=sha256:b3fae3949f008585bbe2c13a61ec9597172295d0063ac0c50702939c74c78cb8 eph=false)
+    v3_x09_test.go:383: x9: 70/16/7016de58e0694b2ab76ec1551beff223f961cab88bcfe3e904ca0157c1c51bfb.zst appeared during flush; published by index/roots.jsonl line (root=sha256:c222e2995706299bc6d1e5d5bed201d7ea358c72be4ed5afdb6b8ab033600ec0 eph=true)
+    v3_x09_test.go:383: x9: 73/1c/731ccde03581a48a82117dafcd74e95eee6c088839ee3c23d59c01a8ada82432.zst appeared during flush; published by index/roots.jsonl line (root=sha256:737a312003554c38a5993e37d982d1c52223dc9f4b300d410803e4cc8711ef5a eph=false)
+    v3_x09_test.go:383: x9: 7d/36/7d36701baea7915e2d6e91aca06f4d70f95f18dbec47eb2008c628368d260a81.zst appeared during flush; published by index/roots.jsonl line (root=sha256:334d209973f5548a270508a025e8a9ee63eb9fe85dbba41a68b0486e8112adc0 eph=true)
+    v3_x09_test.go:383: x9: 85/11/8511287a6f992787f6a698da8f78ff9d5f830c1a50010da1818361a7b9b90110.zst appeared during flush; published by index/roots.jsonl line (root=sha256:68035e7c6da15141fba7b5c612816a7f58577c289c3cbc9941e980140bd50171 eph=true)
+    v3_x09_test.go:383: x9: 87/d4/87d49836cc5cbce1188321b21fae43472cc33665cb57f88654295e60d02cf5ad.zst appeared during flush; published by index/roots.jsonl line (root=sha256:61744640ded1027e31e46346d323817504d6102c5a02bb2f8be0ca6d8a0f7d83 eph=true)
+    v3_x09_test.go:383: x9: 89/64/8964a0b8535abb494ad668fee223ee2e2433ca20eceb596e2d339f2add83ddc5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:237f5293c93624f20683ac4420f2be9ec5d5a85cfcc22712d4e66b83faf68652 eph=false)
+    v3_x09_test.go:383: x9: 8c/46/8c463572270df39eb6eef17b57cdf113c2ed2e4b41a9b175a216196ca8c8a019.zst appeared during flush; published by index/roots.jsonl line (root=sha256:9e73fa1eb17364ae951ba7af251f43b0f68e8bee3aa9056e6a3eeee5a82370bb eph=false)
+    v3_x09_test.go:383: x9: 8e/1d/8e1d6e5405b3ce74f2d004076adc3cddf50075c2a3be31c9a554d56892df5a95.zst appeared during flush; published by index/roots.jsonl line (root=sha256:78ba1cddb2278a2d195ce733265306ef293ca155c944bfcb073cd60fbd43d8c8 eph=true)
+    v3_x09_test.go:383: x9: 99/e1/99e1b8623330e0bcb522ca45fa8fa699f30ec41d1a297ea00b4e10a87a0232f4.zst appeared during flush; published by index/roots.jsonl line (root=sha256:a81efb90bbbcfaab86780ee1bb66f182d88bf1d886bf27590c4450e5dcc6b63f eph=false)
+    v3_x09_test.go:383: x9: b1/8b/b18b8cccd6544269657b170716c2f9683234590d5b41797d8100d70bcfc08376.zst appeared during flush; published by index/roots.jsonl line (root=sha256:849bf9c8e92b9db8d8649288bb7537df91aae80dfc646ea41f83f11288a8cc4e eph=true)
+    v3_x09_test.go:383: x9: b2/e3/b2e3d31a9be084a9ece08d1ea8e748d0e8776942cb054d910a8b5de8f4da76f5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:1a7badf79a7f2ad5062a341c49740d63582536a6ef3d3703c163eff080e2b211 eph=true)
+    v3_x09_test.go:383: x9: d0/a6/d0a601be43b09b444ad6873320e0efdb1ae4600f1f9478755a8437601dba6894.zst appeared during flush; published by index/roots.jsonl line (root=sha256:f011f48073c6c94b1e41cea65a94b06b67784801d2cccf18380aff39696cc48d eph=true)
+    v3_x09_test.go:383: x9: d1/a8/d1a8d0c27259e60d2fb0ad5a548691a3736ed2143ece72a5a01581376c18bf31.zst appeared during flush; published by index/roots.jsonl line (root=sha256:a1083e766f68c878e9fb80aeed12ba55119d6f56c16addaa7da871f409358348 eph=true)
+    v3_x09_test.go:383: x9: d5/e1/d5e12ca397d226e4d9e23123b5e658f89d98c220a1b3b1ea89fad0f96dbf2d8b.zst appeared during flush; published by index/roots.jsonl line (root=sha256:73c5d62833d10bd6d5296baaef3c7bf55b655c6126fa6065229cfd6d68659172 eph=false)
+    v3_x09_test.go:383: x9: e1/94/e1948c52934243dbf8ca46972299c85e0a2211e9b1581000f5d0102c2098c0c3.zst appeared during flush; published by index/roots.jsonl line (root=sha256:8e1a8ea21602a71ed4faef4c3be8b92cd4fd59c7abcce8b14246cde88dc4e95e eph=true)
+    v3_x09_test.go:383: x9: e6/41/e641339872fd77787254195a47edac2dd329a1eff165ff26c4970afea48346c8.zst appeared during flush; published by index/roots.jsonl line (root=sha256:97293f05a5a2a30e62995f58bc8dde834408b85d752918e1c685c7f4c1372783 eph=true)
+    v3_x09_test.go:383: x9: ef/d2/efd2176dbd1202132d1214051485188dc111998ef874c0e8e00af32f3d56a3df.zst appeared during flush; published by index/roots.jsonl line (root=sha256:00b27eb3ab7bb8667e6fede28dd885ea6d8fcfbe3db5302b800c460481fa2932 eph=true)
+    v3_x09_test.go:383: x9: f2/07/f2073b26f38ca38584efed10e239c383b845f5eb4a709a3d251568e10400fac9.zst appeared during flush; published by index/roots.jsonl line (root=sha256:ce58217fe231f2874c97d924d106e584f4e89f43fe0fcdad3e33dbd2fe79eb3d eph=true)
+    v3_x09_test.go:383: x9: fc/70/fc70887949bac5f76760fea634813b47491e0b21a473b9fbe353e18956dc9584.zst appeared during flush; published by index/roots.jsonl line (root=sha256:25f0eeaaf5fa503a61271c10c0ac4affae87ac4cf36be183c0fb474b0d5c8faa eph=true)
+    v3_x09_test.go:383: x9: fd/e1/fde17080b83014f9b702c20637240c7e48ae707efdb627ea22b0e231b424d63a.zst appeared during flush; published by index/roots.jsonl line (root=sha256:e037737d3ee05041e2244a8e4244b8e3c4e6cf811d86e271ec8cbd0424a5ad1e eph=true)
+--- PASS: TestV3_LiveSessionWriteSetAndAppendOnly (20.89s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:369: x10Restart: attempt 1/3: no daemon became reachable at \\.\pipe\qompack.d10a831924cc
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (15.92s)
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (7.44s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (2.46s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	146.712s
+exit=0

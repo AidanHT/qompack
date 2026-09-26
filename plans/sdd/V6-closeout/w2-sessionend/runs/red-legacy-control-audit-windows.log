@@ -1,0 +1,8 @@
+# github.com/qompack/qompack/internal/store [github.com/qompack/qompack/internal/store.test]
+internal\store\publication_audit_control_test.go:35:25: a.LegacyControlCaptures undefined (type PublicationAudit has no field or method LegacyControlCaptures)
+internal\store\publication_audit_control_test.go:50:25: a.LegacyControlCaptures undefined (type PublicationAudit has no field or method LegacyControlCaptures)
+internal\store\publication_audit_control_test.go:61:19: undefined: IsControlCaptureOp
+internal\store\publication_audit_control_test.go:67:20: undefined: IsControlCaptureOp
+FAIL	github.com/qompack/qompack/internal/store [build failed]
+FAIL
+exit=1

@@ -71,3 +71,40 @@ next scheduled drain".
   full publication latency. Under co-load the close-out measured about 0.07–0.17 s per delivery
   on Windows and up to about 0.85 s in the Linux container. On a quiet container, the observer
   e2e's 44 events finished in 5 to 19 s. The report puts this to the owner.
+
+## Addendum 2026-09-25 — V6 close-out C1.15 and C1.13 (asynchronous SessionEnd, client-spool watcher)
+
+Recorded by the `w2-sessionend` close-out (branch `closeout/w2-sessionend`). It extends this decision
+and the C1.1 addendum above and relaxes none of their rules.
+
+- **The flush is a leased arrival.** Claude Code gives the `SessionEnd` hooks of every plugin one
+  shared 1.5 s budget, and a timeout on a plugin-provided hook does not raise it, so the flush hook
+  no longer waits for the session's end: it is fire-and-forget, answered by the ACK. The daemon makes
+  the flush durable exactly as it makes an observe event durable (WAL line synced, then leased;
+  `ingest.acceptDurable`) and records the session as needing recovery before it answers. The end
+  then runs on a goroutine of its own (`session_end.go`) and is the old route's body: the settle
+  above, SessionEnd, the marker, the sketches, then the flush reaches the committed frontier, then
+  the final drain. Because the flush is itself a leased arrival, a later arrival of the same session
+  waits for it at the gate like any predecessor.
+- **Settle up to the flush's own arrival.** The settle waits only for the session's leased arrivals
+  before the flush's own. A drained flush passes its lease to the handler on the context, so a
+  replayed flush no longer counts itself as unsettled.
+- **Exactly once.** The end holds the flush's in-process ownership (the seen set) from before the
+  answer until it has finished. A drain meeting that line meanwhile defers it (`deferSessionEnd`) and
+  does not fail the file. The hook's spooled copy of an accepted flush is absorbed through the
+  flush's lease. Stop joins the ends in flight for `stopDrainBound`, then cancels them. A flush that
+  arrives once Stop is joining starts no end (`l0_session_end_refused`) and is left, durable and
+  marked, for Stop's drain or the next daemon's.
+- **Client-spool watcher.** A delivery that reached only a hook's client spool holds no lease, so no
+  lane parks behind it and no drain was requested for it. Every served request now kicks a watcher
+  (`spool_watch.go`). It looks at the spool once per `spoolCheckInterval` (= `idleRunBudget`) while
+  kicks keep coming and once more after they stop. A client spool that has stood unchanged for an
+  interval gets a client-spool-only pass (`drainer.DrainClientSpools`) under the drain's mutex, gate
+  and frontier. The pass reads no WAL segment. A spool the pass could not consume is passed again
+  after 2, 4, 8 ... intervals, until it has waited the idle drain's `DetectAfterSeconds`. After that
+  it belongs, as before, to the idle drain, a requested drain (the pass leased it, so the session's
+  next arrival parks behind it and asks) or the flush.
+- **In-flight copies.** A client spool can hold the hook's late-ACK copy of a delivery a worker is
+  publishing right now. A drain now defers that copy (`deferInFlight`) instead of failing the file
+  with "delivery still in progress". Only client-spool lines get this. A WAL line in flight still
+  ends its file's pass, as before.

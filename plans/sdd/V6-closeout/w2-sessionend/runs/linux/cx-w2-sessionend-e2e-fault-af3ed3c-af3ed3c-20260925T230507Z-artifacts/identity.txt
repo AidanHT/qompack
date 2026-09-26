@@ -1,0 +1,21 @@
+run_id=cx-w2-sessionend-e2e-fault-af3ed3c-af3ed3c-20260925T230507Z
+commit=af3ed3c3f7a7310b9c5285d74e9f3b707c770345
+tree=69884ff6928f32a2bd21c8042ec1dceb7277c555
+bundle_sha256=180a39a5fa663fc8bde6f67d38688b665bcd9de55b47d27d7c1de26398e227a7
+started_utc=2026-09-25T23:05:20Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=2 timeout=30m gomaxprocs=4 coload=0
+run=^(TestE2E_ObserverThroughDaemon|TestE2E_ThinSliceDropsControlOnlyEdges|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently|TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting|TestV5_HookEventToTombstoneToRetrievalAfterRestart|TestFault_AuditSeesADeletedObjectUnderALiveIndex|TestFault_MCPChildKilledMidRequest|TestFault_DaemonKilledMidIngest|TestFault_UnavailableHistoricalObject|TestFault_CheckpointDropsAnUnresolvablePointer|TestFault_CheckpointResolvabilityIsBlindToADeletedObject|TestFault_Lifecycle)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-25T23:07:44Z

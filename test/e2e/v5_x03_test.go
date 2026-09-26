@@ -528,11 +528,20 @@ func TestV5_HookEventToTombstoneToRetrievalAfterRestart(t *testing.T) {
 
 	// SessionEnd through the real binary against the restarted daemon: a flush whose replay is
 	// complete clears its recovery marker, so a marker that survives is a real interruption.
-	obsRunHook(t, second.Bin, []string{"flush"}, obsFlushPayload(t, p.Root, x3v5Session), env)
-	sr, err := daemon.LoadSessionRecovery(p.Root)
-	require.NoError(t, err)
-	require.NotContains(t, sr.Sessions, x3v5Session,
-		"a completed flush must not leave the session marked as needing recovery: %+v", sr)
+	//
+	// Since C1.15 the hook answers once the flush is durable, with the session already marked as
+	// needing recovery, and the daemon ends the session on its own. obsRunFlush waits for that end to
+	// get past SessionEnd; the marker is cleared at its very end, after the end's replay, so it is
+	// waited for as well rather than read at an instant the end may not have reached.
+	obsRunFlush(t, second.Bin, p.Root, x3v5Session, env)
+	var sr daemon.SessionRecovery
+	require.Eventually(t, func() bool {
+		var lerr error
+		sr, lerr = daemon.LoadSessionRecovery(p.Root)
+		_, marked := sr.Sessions[x3v5Session]
+		return lerr == nil && !marked
+	}, obsProcessBound, obsProcessTick,
+		"a completed flush must not leave the session marked as needing recovery: %+v", &sr)
 
 	p.AssertAppendOnly(t)
 

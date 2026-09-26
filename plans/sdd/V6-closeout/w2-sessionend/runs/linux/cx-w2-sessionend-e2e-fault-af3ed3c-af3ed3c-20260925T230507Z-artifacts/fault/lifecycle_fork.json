@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_fork",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "792fa4bc184a0f7f40ab3f360c9e8ac3bd90bd5ea800d10dea6ade71d2d99518"
+  },
+  "boundary": "SessionStart source: fork (a source the observer's own set does not name)",
+  "seed_method": "SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on",
+  "outcome": "failed",
+  "reason": "the event sequence left 1 dangling reference(s): capture_unpublished(sha256:f691594f088e924a8f4346e333685888ac3c4e067ddd1d32b683fbf4bd7ba950): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes c6f3c49f4bed durable and no reference joined to it (root 000000000000). Owner: internal/daemon.",
+  "detail": "audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:1}; after {tool_uses:8 roots:7 sidecars:11 checkpoints:0 dangling:1 reported:1}; newly dangling: capture_unpublished(sha256:f691594f088e924a8f4346e333685888ac3c4e067ddd1d32b683fbf4bd7ba950): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes c6f3c49f4bed durable and no reference joined to it (root 000000000000); duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 0,
+  "dangling_after": 1
+}

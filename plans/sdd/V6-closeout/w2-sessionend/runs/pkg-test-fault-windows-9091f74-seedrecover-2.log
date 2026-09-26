@@ -1,0 +1,4 @@
+# Windows full package test/fault at 9091f74 + uncommitted seed/recover waits (recovery wait reports, does not fail), co-loaded host
+# go test ./test/fault -count=1 -timeout=60m
+ok  	github.com/qompack/qompack/test/fault	257.423s
+exit=0

@@ -1,0 +1,11 @@
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+--- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar (1.85s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/flush (0.69s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint (0.54s)
+    --- PASS: TestDrain_ControlLinesPublishNoCaptureSidecar/session.start (0.62s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	2.146s
+exit=0

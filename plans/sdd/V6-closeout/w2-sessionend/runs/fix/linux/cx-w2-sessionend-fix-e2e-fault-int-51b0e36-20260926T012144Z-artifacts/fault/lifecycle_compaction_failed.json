@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_compaction_failed",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "721af7689f8e64131bb83024870d1c954f98679037d9b2e6b87fb5523e556c04"
+  },
+  "boundary": "PreCompact with no compact SessionStart at all",
+  "seed_method": "turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -33,8 +33,27 @@ const (
 	sessionStartReplyDeadline = 10 * time.Second
 	// checkpointReplyDeadline is checkpoint's reply deadline (manifest hook timeout 20s). §2.4.
 	checkpointReplyDeadline = 15 * time.Second
-	// flushReplyDeadline is flush's reply deadline (manifest hook timeout 20s). §2.4.
-	flushReplyDeadline = 15 * time.Second
+)
+
+// flush has no reply deadline since C1.15. Claude Code gives a plugin's SessionEnd hooks one SHARED
+// 1.5 s budget, which a timeout set on a plugin-provided hook does not raise, and cancels a hook still
+// running when it runs out; the flush used to wait up to 15 s for the daemon to end the session, and
+// the host cancelled it every time. The flush is now fire-and-forget: the daemon ACKs it once its
+// line is in the WAL and leased, within flushAckDeadline, and ends the session on its own
+// (internal/daemon/session_end.go). A missed ACK spools the flush like any hook; its nonce makes the
+// spooled copy a duplicate the daemon absorbs.
+const (
+	// sessionEndHostBudget is the one budget Claude Code shares among a plugin's SessionEnd hooks
+	// (the hooks reference; plans/sdd/V6-closeout/packaging/evidence/live-s{1,2}-*/stderr.txt).
+	sessionEndHostBudget = 1500 * time.Millisecond
+	// flushAckDeadline is how long the flush waits for its ACK. The observe hot path's AckDeadline
+	// (17/73/45 ms by platform) is sized for an observe event, which the daemon acknowledges after a
+	// WAL append and a lease; before it acknowledges a flush it also takes the flush's in-process
+	// ownership and rewrites the session recovery record, and a missed ACK leaves a spooled duplicate
+	// for every session that ends. The dial (hookConnectDeadlineFloor) and the ACK together get half
+	// of the host's budget; the other half is the process's own start-up, its input read and, when the
+	// ACK is missed after all, its spool append.
+	flushAckDeadline = sessionEndHostBudget/2 - hookConnectDeadlineFloor
 )
 
 // newHookMetrics returns the obs.Registry every hook body's ipc.Client is constructed with: a
@@ -199,11 +218,11 @@ func (l *hookLogger) Loud(msg string, kv ...any) {
 // every shipped value and this floor can only ever bind on a record carrying no deadline at all.
 const hookSendDeadlineFloor = 8 * time.Millisecond
 
-// hookConnectDeadlineFloor is the minimum dial budget doHook ever gives a non-hot-path op that
-// carries its own fixed spec.deadline (session-start, checkpoint, flush) — as opposed to any
-// ipc.Op.HotPath() op (observe.tool, observe.prompt, observe.stop). observe.prompt also carries
-// its own fixed spec.deadline (promptReplyDeadline), so "carries a fixed deadline" alone is not
-// the test that selects a widened op — see doHook's own connectDeadline comment; observe.prompt
+// hookConnectDeadlineFloor is the minimum dial budget doHook ever gives a non-hot-path op
+// (session-start, checkpoint, flush) — as opposed to any ipc.Op.HotPath() op (observe.tool,
+// observe.prompt, observe.stop). observe.prompt also carries its own fixed spec.deadline
+// (promptReplyDeadline), so "carries a fixed deadline" was never the test that selects a widened op
+// — see hookConnectDeadline; observe.prompt
 // keeps State.ConnectDeadlineMs's tight, tuned-for-a-warm-daemon budget untouched, same as
 // observe.tool and observe.stop.
 //
@@ -220,10 +239,11 @@ const hookSendDeadlineFloor = 8 * time.Millisecond
 // never surfaced: NewClientWithOptions unconditionally re-read state.bin for itself whenever
 // ProjectRoot was set, and that incidental extra disk round trip happened to burn just enough wall
 // clock between EnsureRunning's return and the real dial to dodge the race in practice — an
-// accident of the very double-read I-1 correctly removed, not a real guarantee. session-start,
-// checkpoint and flush all carry their own generous, manifest-derived spec.deadline (10s/15s/15s)
-// precisely because they are not expected to complete in hot-path time (§2.4), so widening only
-// their dial budget — never observe.tool/prompt/stop's, which stays exactly what state.bin says —
+// accident of the very double-read I-1 correctly removed, not a real guarantee. session-start and
+// checkpoint carry their own generous, manifest-derived spec.deadline (10s/15s) precisely because
+// they are not expected to complete in hot-path time (§2.4), and the flush — fire-and-forget since
+// C1.15 — is the last hook of a session, sent to a daemon that may be busy ending another. Widening
+// only their dial budget — never observe.tool/prompt/stop's, which stays exactly what state.bin says —
 // costs nothing in the steady-state (a genuinely absent daemon still fails the dial almost
 // instantly: a nonexistent named pipe/socket is a fast connection-refused, not a wait for this
 // timeout to elapse) while giving a freshly-spawned or momentarily-busy daemon real room to answer.
@@ -233,15 +253,17 @@ const hookConnectDeadlineFloor = 250 * time.Millisecond
 // hookConnectDeadline computes the ConnectDeadline doHook hands to ipc.ClientOptions: State.
 // ConnectDeadlineMs as-is for every ipc.Op.HotPath() op (observe.tool, observe.prompt,
 // observe.stop), regardless of whether the op also happens to carry its own fixed spec.deadline
-// the way observe.prompt does (promptReplyDeadline); only a non-hot-path Reply op with a fixed
-// spec.deadline (session-start, checkpoint, flush) gets widened to at least
-// hookConnectDeadlineFloor. Fix round 2, Important N-2: the original predicate (spec.deadline > 0
-// alone) missed that observe.prompt also carries a fixed spec.deadline despite being squarely on
-// the hot path, and would have widened its connect budget along with it. Factored out of doHook so
-// it is directly unit-testable without a real client or connection.
+// the way observe.prompt does (promptReplyDeadline); every op off the hot path (session-start,
+// checkpoint, flush) gets widened to at least hookConnectDeadlineFloor. Fix round 2, Important N-2:
+// the original predicate (spec.deadline > 0 alone) missed that observe.prompt also carries a fixed
+// spec.deadline despite being squarely on the hot path, and would have widened its connect budget
+// along with it. The widening no longer asks for a fixed spec.deadline at all: since C1.15 the flush
+// is fire-and-forget and carries none, yet it is exactly the op whose dial must not lose a race with a
+// momentarily busy daemon at the end of a session. Factored out of doHook so it is directly
+// unit-testable without a real client or connection.
 func hookConnectDeadline(spec hookSpec, st ipc.State) time.Duration {
 	connectDeadline := time.Duration(st.ConnectDeadlineMs) * time.Millisecond
-	if spec.deadline > 0 && !spec.op.HotPath() && connectDeadline < hookConnectDeadlineFloor {
+	if !spec.op.HotPath() && connectDeadline < hookConnectDeadlineFloor {
 		connectDeadline = hookConnectDeadlineFloor
 	}
 	return connectDeadline
@@ -255,6 +277,10 @@ type hookSpec struct {
 	// hot-path state record's AckDeadlineMs" — observe.tool's and observe.stop's row in the wiring
 	// table, both fire-and-forget ops with no fixed deadline of their own.
 	deadline time.Duration
+	// ackDeadline bounds writing a fire-and-forget request and waiting for its ACK. Zero means the
+	// hot-path state record's AckDeadlineMs, which is every observe op's; only the flush, off the hot
+	// path and with the host's SessionEnd budget to spend, sets its own (flushAckDeadline).
+	ackDeadline time.Duration
 	// preSend runs once, after the project root/state are final and before the client is
 	// constructed. Only session-start uses it, to call daemon.EnsureRunning (§2.4: session-start is
 	// the designated daemon starter, off the hot path, with a generous hook timeout). self is
@@ -448,7 +474,7 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			// ProjectRoot still matters on its own: lazySpawn's lock file and externalize()'s blob
 			// directory both need it independently of where State came from.
 			ProjectRoot: root, State: st, Self: env.Self, Clock: clk, Spawn: spawn,
-			ConnectDeadline: connectDeadline,
+			ConnectDeadline: connectDeadline, AckDeadline: spec.ackDeadline,
 		})
 		c = wrapFaultClient(c)
 		defer func() { _ = c.Close() }()

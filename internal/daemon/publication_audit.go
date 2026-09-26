@@ -51,6 +51,9 @@ type PublicationGapReport struct {
 	LegitimatelyUnpublished   int
 	UnindexedObjectCandidates int
 	PendingObjects            int
+	// LegacyControlCaptures counts the sidecars builds before the V6 close-out published for drained
+	// control lines (store.IsControlCaptureOp): known legacy evidence, kept, neither gap nor damage.
+	LegacyControlCaptures int
 
 	CapturesScanned int
 	ObjectsScanned  int
@@ -91,6 +94,7 @@ func (d *daemon) AccountPublicationGaps(ctx context.Context) PublicationGapRepor
 		LegitimatelyUnpublished:   a.LegitimatelyUnpublished,
 		UnindexedObjectCandidates: a.UnindexedObjectCandidates,
 		PendingObjects:            a.PendingObjects,
+		LegacyControlCaptures:     a.LegacyControlCaptures,
 		CapturesScanned:           a.CapturesScanned,
 		ObjectsScanned:            a.ObjectsScanned,
 		Incomplete:                a.Incomplete,
@@ -154,6 +158,7 @@ func (d *daemon) LoudPublicationGaps(ctx context.Context) PublicationGapReport {
 		d.log.Debug("daemon: publication accounting clean",
 			"captures_scanned", rep.CapturesScanned,
 			"objects_scanned", rep.ObjectsScanned,
+			"legacy_control_captures", rep.LegacyControlCaptures,
 		)
 	}
 	return rep

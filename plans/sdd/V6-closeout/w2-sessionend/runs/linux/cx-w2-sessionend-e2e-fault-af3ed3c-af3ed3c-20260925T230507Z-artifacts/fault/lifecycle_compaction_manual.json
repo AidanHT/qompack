@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_compaction_manual",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "792fa4bc184a0f7f40ab3f360c9e8ac3bd90bd5ea800d10dea6ade71d2d99518"
+  },
+  "boundary": "PreCompact trigger: manual, then SessionStart source: compact",
+  "seed_method": "turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)",
+  "outcome": "failed",
+  "reason": "the event sequence left 1 dangling reference(s): capture_unpublished(sha256:26636d47cd44bd44325ebaef8d0c3e0fbba78965afd3b9cfb5d87f2d80778279): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes fe92de471c66 durable and no reference joined to it (root 000000000000). Owner: internal/daemon.",
+  "detail": "audit before {tool_uses:12 roots:10 sidecars:17 checkpoints:0 dangling:0 reported:3}; after {tool_uses:16 roots:13 sidecars:23 checkpoints:0 dangling:1 reported:1}; newly dangling: capture_unpublished(sha256:26636d47cd44bd44325ebaef8d0c3e0fbba78965afd3b9cfb5d87f2d80778279): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes fe92de471c66 durable and no reference joined to it (root 000000000000); duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2",
+  "dangling_before": 0,
+  "dangling_after": 1
+}

@@ -1,0 +1,72 @@
+run_id=cx-w2-sessionend-daemon-race2-3edc200-3edc200-20260926T002559Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend
+rev=3edc200
+commit=3edc200e51fbd1302a6148f109ecc5484be556c1
+bundle_sha256=6b8fda7cd18c238832aa2bf269012a4783854eecdcf94e9807c238c7b6932291
+host_started_utc=2026-09-26T00:26:03Z
+inner_args=--run ^(TestFlush_|TestStop_FinishesAnAcceptedSessionEnd|TestSessionRecovery_|TestSpoolWatch_|TestDrainClientSpools_|TestSpoolRetryAfter_|TestDeliveryOrder_Flush|TestDrain_ControlLinesPublishNoCaptureSidecar|TestDrainOfSpooledFlushLineDoesNotDeadlock|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun) --count 2 -- ./internal/daemon
+/work/cx-w2-sessionend-daemon-race2-3edc200-3edc200-20260926T002559Z.bundle: OK
+run_id=cx-w2-sessionend-daemon-race2-3edc200-3edc200-20260926T002559Z
+commit=3edc200e51fbd1302a6148f109ecc5484be556c1
+tree=d5bc4c1ad72c5605c6621edbe120841e68f8b357
+bundle_sha256=6b8fda7cd18c238832aa2bf269012a4783854eecdcf94e9807c238c7b6932291
+started_utc=2026-09-26T00:26:05Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=2 timeout=30m gomaxprocs=4 coload=0
+run=^(TestFlush_|TestStop_FinishesAnAcceptedSessionEnd|TestSessionRecovery_|TestSpoolWatch_|TestDrainClientSpools_|TestSpoolRetryAfter_|TestDeliveryOrder_Flush|TestDrain_ControlLinesPublishNoCaptureSidecar|TestDrainOfSpooledFlushLineDoesNotDeadlock|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=60 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/plans/sdd/V6-closeout/w2-sessionend/runs/linux/cx-w2-sessionend-daemon-race2-3edc200-3edc200-20260926T002559Z-artifacts
+exit=0
+gate1 exit=0
+run_id=cx-w2-sessionend-e2e-fault-int-3edc200-3edc200-20260926T002710Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend
+rev=3edc200
+commit=3edc200e51fbd1302a6148f109ecc5484be556c1
+bundle_sha256=6b8fda7cd18c238832aa2bf269012a4783854eecdcf94e9807c238c7b6932291
+host_started_utc=2026-09-26T00:27:13Z
+inner_args=--run ^(TestE2E_ObserverThroughDaemon|TestE2E_ThinSliceDropsControlOnlyEdges|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently|TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting|TestV5_HookEventToTombstoneToRetrievalAfterRestart|TestV3_LiveSessionWriteSetAndAppendOnly|TestV3_DegradedPassiveStillRecordsEverything|TestFault_AuditSeesADeletedObjectUnderALiveIndex|TestFault_MCPChildKilledMidRequest|TestFault_DaemonKilledMidIngest|TestFault_UnavailableHistoricalObject|TestFault_CheckpointDropsAnUnresolvablePointer|TestFault_CheckpointResolvabilityIsBlindToADeletedObject|TestFault_Lifecycle|TestFault_PublicationBoundaries|TestIntegration_ContractMonitorRunsAgainstRealStore|TestIntegration_DegradedPassiveStillWritesToTheRealStore)$ --no-race --count 1 -- ./test/e2e ./test/fault ./test/integration
+/work/cx-w2-sessionend-e2e-fault-int-3edc200-3edc200-20260926T002710Z.bundle: OK
+run_id=cx-w2-sessionend-e2e-fault-int-3edc200-3edc200-20260926T002710Z
+commit=3edc200e51fbd1302a6148f109ecc5484be556c1
+tree=d5bc4c1ad72c5605c6621edbe120841e68f8b357
+bundle_sha256=6b8fda7cd18c238832aa2bf269012a4783854eecdcf94e9807c238c7b6932291
+started_utc=2026-09-26T00:27:15Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^(TestE2E_ObserverThroughDaemon|TestE2E_ThinSliceDropsControlOnlyEdges|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently|TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting|TestV5_HookEventToTombstoneToRetrievalAfterRestart|TestV3_LiveSessionWriteSetAndAppendOnly|TestV3_DegradedPassiveStillRecordsEverything|TestFault_AuditSeesADeletedObjectUnderALiveIndex|TestFault_MCPChildKilledMidRequest|TestFault_DaemonKilledMidIngest|TestFault_UnavailableHistoricalObject|TestFault_CheckpointDropsAnUnresolvablePointer|TestFault_CheckpointResolvabilityIsBlindToADeletedObject|TestFault_Lifecycle|TestFault_PublicationBoundaries|TestIntegration_ContractMonitorRunsAgainstRealStore|TestIntegration_DegradedPassiveStillWritesToTheRealStore)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/test/e2e  (pass=7 fail=0 skip=1)
+PASS      github.com/qompack/qompack/test/fault  (pass=36 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/integration  (pass=2 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/plans/sdd/V6-closeout/w2-sessionend/runs/linux/cx-w2-sessionend-e2e-fault-int-3edc200-3edc200-20260926T002710Z-artifacts
+exit=0
+gate2 exit=0

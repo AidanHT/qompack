@@ -71,6 +71,33 @@ const (
 	auditOpObservePrompt = "observe.prompt"
 )
 
+// The CONTROL ops a hook client sends with a delivery nonce besides the three observations:
+// ipc.OpSessionStart / ipc.OpCheckpoint / ipc.OpFlush's wire forms, spelled as literals for the same
+// reason as the three above. Only the hook client mints nonces, and these six are every op it sends.
+const (
+	auditOpSessionStart = "session.start"
+	auditOpCheckpoint   = "checkpoint"
+	auditOpFlush        = "flush"
+)
+
+// IsControlCaptureOp reports whether op names a control line (a session start, a checkpoint or a
+// SessionEnd flush) rather than an observation.
+//
+// No current build writes a capture sidecar for one. Builds before the V6 close-out did: their drain
+// published a sidecar for every LEASED line it replayed, and a control hook that had fallen back to
+// its client spool reached the drain leased, because the hook client mints a nonce for every hook. A
+// control line is not an observation and nothing ever references its sidecar, so such a file is a
+// known legacy artifact: evidence of a delivery, kept exactly as written, and neither a publication
+// gap nor damage. Every other op the accounting does not name stays unrecognized.
+func IsControlCaptureOp(op string) bool {
+	switch op {
+	case auditOpSessionStart, auditOpCheckpoint, auditOpFlush:
+		return true
+	default:
+		return false
+	}
+}
+
 // publicationScanDefaults are applied to any non-positive cap field. They are a bound on WORK, not a
 // configuration default (§11.6 D11): a project that has accumulated more than this in one unswept
 // lifetime is exactly the case where a startup pass must stop and say it was truncated.
@@ -168,6 +195,13 @@ type PublicationAudit struct {
 	// PendingObjects is the count of unindexed objects a pending-write marker DOES cover — an in-flight
 	// Put whose root line has not landed. Not a gap; drain/GC owns it.
 	PendingObjects int
+
+	// LegacyControlCaptures counts unpublished sidecars of a CONTROL line (IsControlCaptureOp): the
+	// known artifact builds before the V6 close-out left for a drained session start, checkpoint or
+	// flush. They are classified, so they do not make the pass incomplete; they are not gaps, because a
+	// control line needs no reference; and they are counted so a consumer can say they were seen and
+	// kept rather than silently skipped.
+	LegacyControlCaptures int
 
 	// NewerSchemaCaptures counts sidecars declaring a schema NEWER than this build. They are written by
 	// a newer plugin — a support gap (Qompack.md §7.1), never damage — and are not classified, so they
@@ -425,6 +459,10 @@ func (s *FSStore) classifyCaptureView(v captureAuditView, a *PublicationAudit) {
 	if v.Published {
 		return
 	}
+	if IsControlCaptureOp(v.Op) {
+		a.LegacyControlCaptures++
+		return
+	}
 	if v.Op != auditOpObserveTool && v.Op != auditOpObservePrompt && v.Op != auditOpObserveStop {
 		a.note("capture sidecar with an unrecognized op")
 		return
@@ -651,11 +689,14 @@ func (s *FSStore) readPublicationFile(name string, limit int64) ([]byte, error) 
 // CaptureRequiresReference describes the current observer contract. Ordinary Stop
 // has no derived record; SubagentStop does. An unreadable retained event cannot
 // establish that distinction. Old prompt records may predate reference capture;
-// their missing link is unverified under today's contract, not repaired here.
+// their missing link is unverified under today's contract, not repaired here. A
+// control line (IsControlCaptureOp) is not an observation and never needs one.
 func CaptureRequiresReference(op string, retained []byte) (required, known bool) {
 	switch op {
 	case auditOpObserveTool, auditOpObservePrompt:
 		return true, true
+	case auditOpSessionStart, auditOpCheckpoint, auditOpFlush:
+		return false, true
 	case auditOpObserveStop:
 		var event struct {
 			Name     string `json:"hook_event_name"`

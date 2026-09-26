@@ -29,13 +29,18 @@ import (
 // turn at turn 0); it is independent of the gate's stranding (C1.1), which only widens the window.
 //
 // The property: a flush may finish the session only after every accepted leased arrival of that
-// session has been dispatched or drained, and it must still answer inside the hook client's flush
-// reply deadline, after which the client spools the flush instead.
+// session has been dispatched or drained, and a caller that waits for its answer must still get it
+// inside the bound the hook client used to wait.
+//
+// These arms send the flush as a Reply request, which asks for the session end's own answer. Since
+// C1.15 the hook client sends it fire-and-forget and the daemon ends the session asynchronously
+// (session_end.go); a Reply flush still waits for that end, so "the flush answered" still means "the
+// session has ended" here, which is what the assertions below read.
 
-// flushOrderReplyBound is cli.flushReplyDeadline (internal/cli/hookclient.go), restated because
-// internal/daemon cannot import internal/cli. A flush that has not answered by then is spooled by
-// the hook client and replayed later without its drain, so it is the bound every settle step must
-// fit inside.
+// flushOrderReplyBound is the 15 s the hook client waited for a flush's answer before C1.15
+// (cli.flushReplyDeadline then), restated because internal/daemon cannot import internal/cli. It is
+// kept as the bound a Reply flush must answer within, the one this acceptance test was written
+// against.
 const flushOrderReplyBound = 15 * time.Second
 
 // flushOrderTool is one leased observe.tool delivery: a Read of an in-project file, the shape the
