@@ -43,7 +43,7 @@ Qompack itself is MIT-licensed. The full text, as it appears in `LICENSE`:
 | --- | --- | --- |
 | `github.com/Microsoft/go-winio` | `v0.6.2` | MIT |
 | `github.com/klauspost/compress` | `v1.18.0` | BSD-3-Clause, with Apache-2.0 and MIT components (the module's own LICENSE carries all three; see the text below) |
-| `golang.org/x/sys` | `v0.33.0` | BSD-3-Clause |
+| `golang.org/x/sys` | `v0.44.0` | BSD-3-Clause |
 
 ### github.com/Microsoft/go-winio v0.6.2
 
@@ -793,7 +793,7 @@ Reproduced from `zstd/internal/xxhash/LICENSE.txt`:
     OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
     WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### golang.org/x/sys v0.33.0
+### golang.org/x/sys v0.44.0
 
 Licence: BSD-3-Clause
 
