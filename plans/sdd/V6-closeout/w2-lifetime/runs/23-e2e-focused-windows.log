@@ -1,0 +1,24 @@
+# Focused e2e rows at 9217a64, Windows 11, co-loaded by the other wave-2 lanes, run alone:
+# go test ./test/e2e/ -run '^(TestE2E_SessionStart|TestE2E_ContractSentinelIsAppendedByTheDaemon|TestE2E_AdditionalContextProducerIsDeclared|TestE2E_DropReporterSatisfiesMCP|TestE2E_DaemonLeavesThePluginDirectoryRemovable|TestE2EHookRoundTrip|TestE2ELazySpawn|TestE2EIdleExit|TestE2E_CheckpointHookWritesImmutableArtifact|TestV4_PreCompactToCheckpointToRehydrateRoundTrip|TestV5_PreCompactToRehydrateToDroppedRoundTrip|TestV1_HookLifecycleThroughRealBinary)' -count=1 -v -timeout=30m
+# C:\Users\Quant\.qompack did not exist afterwards.
+--- PASS: TestE2E_SessionStartCompactFitsTheHostCap (7.29s)
+--- PASS: TestE2E_CheckpointHookWritesImmutableArtifact (15.56s)
+--- PASS: TestE2EHookRoundTrip (17.17s)
+--- PASS: TestE2ELazySpawn (1.29s)
+--- PASS: TestE2EIdleExit (3.17s)
+--- PASS: TestE2E_DaemonLeavesThePluginDirectoryRemovable (1.34s)
+--- PASS: TestE2E_SessionStartCompact (0.82s)
+--- PASS: TestE2E_SessionStartCompactRestoresCheckpointItems (0.48s)
+--- PASS: TestE2E_ContractSentinelIsAppendedByTheDaemon (0.52s)
+--- PASS: TestE2E_AdditionalContextProducerIsDeclared (0.09s)
+--- PASS: TestE2E_SessionStartCompactUnderBudget (0.56s)
+--- PASS: TestE2E_SessionStartClear (0.70s)
+--- PASS: TestE2E_SessionStartCompactNoStore (0.85s)
+--- PASS: TestE2E_SessionStartCompactAfterFailedSummary (0.66s)
+--- PASS: TestE2E_DropReporterSatisfiesMCP (0.02s)
+--- PASS: TestE2E_SessionStartLatency (4.19s)
+--- PASS: TestV1_HookLifecycleThroughRealBinary (2.33s)
+--- PASS: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (3.46s)
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (19.70s)
+ok  	github.com/qompack/qompack/test/e2e	80.760s
+exit=0

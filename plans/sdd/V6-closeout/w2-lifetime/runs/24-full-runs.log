@@ -1,0 +1,12 @@
+# Touched packages in full, Windows 11, co-loaded by the other wave-2 lanes.
+# go test ./internal/daemon/ -count=1 -timeout=30m at 3e86409:
+ok  	github.com/qompack/qompack/internal/daemon	714.031s
+exit=0
+# go test ./internal/daemon/ -count=1 -timeout=30m at 9217a64 (final code):
+ok  	github.com/qompack/qompack/internal/daemon	503.533s
+exit=0
+# internal/cli and internal/ipc at 3e86409 failed only on the real-home .qompack (runs/21); rerun: runs/22.
+# Linux non-root -race: runs/linux/*w2-touched-race-3e86409* (daemon 1409, cli 360, ipc 143 pass) and
+# runs/linux/*w2-compact-stage-race20* (every new row x20 incl. test/guards seal row: daemon 860, cli 240, ipc 100, guards 60 pass).
+# N1 on Linux -race x50: runs/linux/*n1-inflight-race50-7a10f71* (ipc 250, daemon 50 pass).
+# C:\Users\Quant\.qompack: ls: cannot access 'C:/Users/Quant/.qompack': No such file or directory

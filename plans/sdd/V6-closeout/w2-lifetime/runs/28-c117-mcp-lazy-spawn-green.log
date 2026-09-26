@@ -1,0 +1,14 @@
+# After pluginDirOf (CLAUDE_PLUGIN_ROOT or the plugin layout: bin/ with .claude-plugin/plugin.json beside it).
+# go test ./test/e2e/ -run '^(TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable|TestE2E_DaemonLeavesThePluginDirectoryRemovable|TestE2ELazySpawn|TestE2EIdleExit|TestStdioServerEndToEnd)$' -count=1 -v -timeout=30m
+=== RUN   TestE2ELazySpawn
+--- PASS: TestE2ELazySpawn (2.56s)
+=== RUN   TestE2EIdleExit
+--- PASS: TestE2EIdleExit (3.18s)
+=== RUN   TestStdioServerEndToEnd
+--- PASS: TestStdioServerEndToEnd (1.22s)
+=== RUN   TestE2E_DaemonLeavesThePluginDirectoryRemovable
+--- PASS: TestE2E_DaemonLeavesThePluginDirectoryRemovable (1.35s)
+=== RUN   TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable
+--- PASS: TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable (1.25s)
+ok  	github.com/qompack/qompack/test/e2e	9.795s
+exit=0

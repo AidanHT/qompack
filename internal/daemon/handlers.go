@@ -711,6 +711,25 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event) {
 	}
 }
 
+// The session.start route's phase histograms (C1.16). route is the whole handler; contract is
+// phase 1 including the wait for historyMu; seam is phase 2 — the observer's SessionStart, or for
+// source=compact the wait for the rehydration phase 1 started (session_start.compact_wait times
+// that wait alone); finish is phase 3. A slow answer is attributable from metrics/latency.json
+// alone, without a debugger on the host that saw it.
+const (
+	histSessionStartRoute    = "session_start.route"
+	histSessionStartContract = "session_start.contract"
+	histSessionStartSeam     = "session_start.seam"
+	histSessionStartFinish   = "session_start.finish"
+)
+
+// observePhase records the wall time since start under name.
+func (d *daemon) observePhase(name string, start time.Time) {
+	if d.m != nil {
+		d.m.Hist(name).Observe(time.Since(start))
+	}
+}
+
 // handleSessionStart is the session.start warm path (task-5-spec.md handlers.go, normative
 // ordering): the contract monitor runs before any other work (§5.21), the sentinel is minted only
 // when the mode MayAct(), and the session_start.fires marker is deliberately never written here
@@ -718,6 +737,8 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event) {
 func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
+	routeStart := time.Now()
+	defer d.observePhase(histSessionStartRoute, routeStart)
 
 	d.maybeReloadConfig(ctx, d.cfgEnv)
 
@@ -738,6 +759,7 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	// behind historyMu is safe and keeps its history reads/writes atomic with respect to any
 	// concurrent route. Saved and unlocked immediately after — never held across the seam call
 	// below (fix round 1, I-5).
+	contractStart := time.Now()
 	d.historyMu.Lock()
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
 	env := contract.Env{
@@ -750,6 +772,13 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 		History:     h,
 	}
 	results, mode := d.monitor.RunAll(ctx, env)
+	// A compact SessionStart's rehydration starts here, as soon as the contract run has said the
+	// mode may act and before this phase's own durable writes, so the two overlap; the route
+	// collects it where the seam call would be (session_start_compact.go, C1.16).
+	var compact *compactAnswer
+	if ev.Source == sessionSourceCompact && mode.MayAct() {
+		compact = d.startCompactAnswer(ctx, *ev, routeStart)
+	}
 	justDegraded := d.recordContractObservability(results, mode)
 	_ = ipc.WriteState(d.root, d.currentState())
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
@@ -758,14 +787,22 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	// The same nine results, read as per-capability evidence (SP-19 commit 3; observations.go).
 	d.recordCapabilityObservations(results, ev.SessionID, now)
 	d.historyMu.Unlock()
+	d.observePhase(histSessionStartContract, contractStart)
 
 	// Phase 2 (unlocked): the wave-3 seam call. A seam's own budget (B-E is 2s) or, in principle,
 	// a re-entrant call back into the daemon via DaemonFrom(ctx) must never be serialized behind
 	// historyMu — every other history-touching route (checkpoint, the observe.prompt sentinel
 	// scan) would otherwise queue behind one slow or misbehaving seam, and a re-entrant call would
 	// self-deadlock on a non-reentrant mutex (fix round 1, I-5).
+	//
+	// A compact SessionStart does not call the seam here: its rehydration and the observer's
+	// bookkeeping were started in phase 1, and only the rehydration is waited for, within
+	// compactAnswerBudget of the request's arrival (session_start_compact.go).
+	seamStart := time.Now()
 	var out hookio.Output
-	if mode.MayAct() && d.svc.SessionStart != nil {
+	if compact != nil {
+		out = d.awaitCompactAnswer(ctx, compact)
+	} else if mode.MayAct() && d.svc.SessionStart != nil {
 		if o, err := d.svc.SessionStart(ctx, *ev); err == nil {
 			out = o
 		} else {
@@ -775,10 +812,13 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	} else {
 		out = hookio.Empty()
 	}
+	d.observePhase(histSessionStartSeam, seamStart)
 
 	// Phase 3 (re-locked): re-load — a concurrent route may have saved its own changes while
 	// phase 2 ran unlocked — then apply this route's remaining mutations on top of the fresh copy
 	// and save.
+	finishStart := time.Now()
+	defer d.observePhase(histSessionStartFinish, finishStart)
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 	h = contract.LoadHistory(contract.HistoryPath(d.root))
@@ -1206,8 +1246,11 @@ func (d *daemon) handleAdminIdle(ctx context.Context, req ipc.Request) ipc.Respo
 	return ipc.Response{OK: true, Data: data}
 }
 
-// handleAdminShutdown replies first, then stops the daemon asynchronously so the reply write
-// itself is never racing the shutdown it announces.
+// handleAdminShutdown stops the daemon asynchronously and answers OK. The Stop goroutine can reach
+// ipc's Close (through runCancel and Serve's context.AfterFunc) before this handler's reply is
+// written, so the reply's delivery rests on Close leaving a connection with a request in flight open
+// for that reply, under a bounded write deadline (internal/ipc server.go; the V6 close-out's N1,
+// where the reply was lost in one Linux -race run in 100 before Close did).
 func (d *daemon) handleAdminShutdown(ctx context.Context, req ipc.Request) ipc.Response {
 	go func() { _ = d.Stop(context.Background()) }()
 	return ipc.Response{OK: true}

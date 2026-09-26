@@ -1,0 +1,35 @@
+=== RUN   TestMCPOpFixture_TheMachinesHostRulesDoNotReachIt
+--- PASS: TestMCPOpFixture_TheMachinesHostRulesDoNotReachIt (0.09s)
+=== RUN   TestInstallMCPOpRegistersOp
+=== PAUSE TestInstallMCPOpRegistersOp
+=== RUN   TestInstallMCPOpRejectsANilOptions
+=== PAUSE TestInstallMCPOpRejectsANilOptions
+=== RUN   TestMCPInitializedSeamFlipsAfterInitialize
+--- PASS: TestMCPInitializedSeamFlipsAfterInitialize (0.05s)
+=== RUN   TestInitializedWritesContractHistory
+--- PASS: TestInitializedWritesContractHistory (0.09s)
+=== RUN   TestInitializedSurvivesHistoryWriteFailure
+--- PASS: TestInitializedSurvivesHistoryWriteFailure (0.05s)
+=== RUN   TestDaemonMCPOpDispatchesToolCall
+--- PASS: TestDaemonMCPOpDispatchesToolCall (0.08s)
+=== RUN   TestDaemonMCPOpUnknownToolIsPayloadError
+--- PASS: TestDaemonMCPOpUnknownToolIsPayloadError (0.04s)
+=== RUN   TestDaemonMCPOpMalformedPayloadIsTransportError
+--- PASS: TestDaemonMCPOpMalformedPayloadIsTransportError (0.04s)
+=== RUN   TestDaemonMCPOpResolvesSessionFromRegistry
+--- PASS: TestDaemonMCPOpResolvesSessionFromRegistry (0.16s)
+=== RUN   TestDaemonMCPOpEmptyRegistryDegrades
+--- PASS: TestDaemonMCPOpEmptyRegistryDegrades (0.12s)
+=== RUN   TestDaemonMCPOpResolvesTurnFromCurrentSegment
+--- PASS: TestDaemonMCPOpResolvesTurnFromCurrentSegment (0.11s)
+=== RUN   TestDaemonMCPOpHonoursAnExplicitTurn
+--- PASS: TestDaemonMCPOpHonoursAnExplicitTurn (0.09s)
+=== RUN   TestDaemonMCPOpUnknownKindIsRefused
+--- PASS: TestDaemonMCPOpUnknownKindIsRefused (0.05s)
+=== CONT  TestInstallMCPOpRegistersOp
+=== CONT  TestInstallMCPOpRejectsANilOptions
+--- PASS: TestInstallMCPOpRejectsANilOptions (0.00s)
+--- PASS: TestInstallMCPOpRegistersOp (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.246s
+exit=0

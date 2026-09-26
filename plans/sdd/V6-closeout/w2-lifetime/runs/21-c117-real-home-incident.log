@@ -1,0 +1,42 @@
+# C1.17 incident, recorded as found (2026-09-25, this workstream's own runs).
+#
+# At 938dd9f the Windows daemon was staged whenever a hook spawned it, whatever the hook's location.
+# A 'go run ./tools/devtool lint --only=sleepcheck,stubskips' started at ~18:20 local runs
+# 'go test -json ./internal/... ./cmd/... ./test/...' (stubskips inspects the whole tree's skip
+# reasons) — a whole-tree run this lane is not supposed to make. One of its real-binary tests spawned a
+# daemon with the REAL USERPROFILE, so the staged copy landed in the real home:
+#
+#   C:\Users\Quant\.qompack           created 2026-09-25 6:23:14 PM (did not exist before)
+#   C:\Users\Quant\.qompack\bin\34e5eb2490769440996513157ab890866d77857b3db979c1e951f8d4ab3af173\qompack.exe  13,432,320 B
+#   C:\Users\Quant\.qompack\bin\734d7f07946c62d7d8c4820208f756a8531720889c94810449f894314649ee82\qompack.exe  13,404,672 B
+#   C:\Users\Quant\.qompack\tmp       created 6:24:53 PM, last written 6:32:23 PM (empty when inspected)
+#
+# No process was running from it. Its existence broke unrelated tests that write state into a temp
+# directory with no .qompack layout: paths.WriteAtomic's root walk climbs to the nearest ancestor holding
+# a .qompack, found C:\Users\Quant, and staged in C:\Users\Quant\.qompack\tmp, whose rename into the
+# unmade <tmp>\.qompack\run then fails. This lane's own full runs of internal/cli (2 rows) and
+# internal/ipc (6 rows) failed that way, for example:
+#
+--- FAIL: TestStateRoundTrip (0.22s)
+    state_test.go:34: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/internal/ipc/state_test.go:34
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\.qompack\tmp\wa-801437475 C:\Users\Quant\AppData\Local\Temp\TestStateRoundTrip7006488\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateRoundTrip
+#
+# Tests of OTHER workstreams on this machine between about 6:23 PM and 6:40 PM that write state into a
+# temp directory under C:\Users\Quant without its layout may have failed the same way.
+#
+# Actions: this lane's whole-tree run (its own process tree only, found by parent chain from its own
+# shell) was stopped; the C:\Users\Quant\.qompack tree this lane's code created was removed; staging
+# was narrowed to a hook running from inside CLAUDE_PLUGIN_ROOT (the only case that pins a plugin
+# directory), so a test that runs the binary from a build or temp directory writes nothing into any
+# home; TestDaemonProgram_StagesOnlyWhereEnabled pins that. Reruns after removal:
+#   go test ./internal/cli/ -count=1   -> ok (exit 0)
+#   go test ./internal/ipc/ -count=1   -> ok (exit 0)
+# and C:\Users\Quant\.qompack does not exist after them or after the C1.17 e2e rerun.
+#
+# The WriteAtomic walk escaping to a home's .qompack is pre-existing and not this lane's to change
+# (internal/paths); it is reported as an open item: once a real user's home holds .qompack (the
+# user-global config layer, calibration.json, the fallback log, and now the Windows staged daemon),
+# those unit tests fail on that machine.

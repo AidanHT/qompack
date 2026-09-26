@@ -69,7 +69,7 @@ type server struct {
 	// under the same lock, so nothing accepted concurrently with Close can be missed by either its
 	// close sweep or by never having been Added in the first place.
 	connsMu sync.Mutex
-	conns   map[net.Conn]struct{}
+	conns   map[net.Conn]*connState
 	closing bool
 
 	closeOnce sync.Once
@@ -89,8 +89,23 @@ func NewServer(a Addr, log logging.Logger, m obs.Registry, maxLine int) (Server,
 	if err != nil {
 		return nil, err
 	}
-	return &server{addr: a, ln: ln, log: log, m: m, maxLine: maxLine, conns: make(map[net.Conn]struct{})}, nil
+	return &server{addr: a, ln: ln, log: log, m: m, maxLine: maxLine, conns: make(map[net.Conn]*connState)}, nil
 }
+
+// connState is what Close needs to know about one tracked connection: whether a request on it is
+// in flight — read and decoded, and its reply (a response line, or the one-byte ACK/NAK) not yet
+// written. It is only ever read or written under connsMu.
+type connState struct {
+	inFlight bool
+}
+
+// closeReplyWait bounds the write of a reply that was in flight when Close began. Close lets such a
+// reply finish rather than closing the connection underneath it (the V6 close-out's N1: the
+// admin.shutdown reply was lost when the shutdown it announced closed its own connection), but the
+// write happens under this deadline so a peer that stops reading cannot hold the connection open. It
+// is serverCloseWait itself, because that is how long Close waits for the connection anyway: a
+// reply written after Close stopped waiting would be racing the process's exit.
+const closeReplyWait = serverCloseWait
 
 // Addr reports the endpoint this Server is bound to. It is stable for the Server's lifetime.
 func (s *server) Addr() Addr { return s.addr }
@@ -229,27 +244,64 @@ func (s *server) handleConn(ctx context.Context, conn net.Conn, h Handler) {
 			continue
 		}
 
-		resp := s.dispatch(ctx, h, req)
-
-		if req.Reply {
-			out, encErr := EncodeResponse(resp)
-			if encErr != nil {
-				return
-			}
-			if _, werr := conn.Write(out); werr != nil {
-				return
-			}
-			continue
-		}
-
-		b := NAK
-		if resp.OK {
-			b = ACK
-		}
-		if !s.writeByte(conn, b) {
+		// From here until its reply is written the request is in flight, and Close leaves the
+		// connection open for it (see Close). A request that arrives after Close began is not
+		// dispatched at all: Close has already closed this connection, so no reply could reach the
+		// caller, and a caller that gets none spools or retries rather than losing the event.
+		if !s.beginRequest(conn) {
 			return
 		}
+		if !s.reply(conn, req, s.dispatch(ctx, h, req)) {
+			return
+		}
+		if !s.endRequest(conn) {
+			return // Close began while this request was in flight: its reply was the last.
+		}
 	}
+}
+
+// reply writes resp for req — the full response line for a Reply request, the one-byte ACK/NAK
+// otherwise — and reports whether the write succeeded.
+func (s *server) reply(conn net.Conn, req Request, resp Response) bool {
+	if req.Reply {
+		out, encErr := EncodeResponse(resp)
+		if encErr != nil {
+			return false
+		}
+		_, werr := conn.Write(out)
+		return werr == nil
+	}
+	b := NAK
+	if resp.OK {
+		b = ACK
+	}
+	return s.writeByte(conn, b)
+}
+
+// beginRequest marks conn's request in flight, or reports false when Close has already begun, in
+// which case Close has already closed conn.
+func (s *server) beginRequest(conn net.Conn) bool {
+	s.connsMu.Lock()
+	defer s.connsMu.Unlock()
+	if s.closing {
+		return false
+	}
+	if st := s.conns[conn]; st != nil {
+		st.inFlight = true
+	}
+	return true
+}
+
+// endRequest clears conn's in-flight mark once its reply is written, and reports false when Close
+// began meanwhile: Close left the connection open only for that reply, so the caller must now close
+// it rather than read another request.
+func (s *server) endRequest(conn net.Conn) bool {
+	s.connsMu.Lock()
+	defer s.connsMu.Unlock()
+	if st := s.conns[conn]; st != nil {
+		st.inFlight = false
+	}
+	return !s.closing
 }
 
 // dispatch calls h, containing a panic so one hostile or buggy handler invocation never brings
@@ -295,7 +347,7 @@ func (s *server) registerConn(conn net.Conn) bool {
 	if s.closing {
 		return false
 	}
-	s.conns[conn] = struct{}{}
+	s.conns[conn] = &connState{}
 	s.wg.Add(1)
 	return true
 }
@@ -312,10 +364,17 @@ func (s *server) unregisterConn(conn net.Conn) {
 
 // Close stops Serve (by closing the listener, which unblocks a pending Accept — though not a
 // connection Accept has already returned, which is what registerConn's refusal path exists for),
-// closes every connection registered before this call began (which unblocks any handleConn
+// closes every idle connection registered before this call began (which unblocks any handleConn
 // goroutine blocked reading from a peer that never sends and never disconnects), and waits up to
 // serverCloseWait for those goroutines to finish. It is idempotent: a second call replays the
 // first call's result rather than closing an already-closed listener again.
+//
+// A connection with a request IN FLIGHT is the exception: it is left open for that request's reply,
+// which is written under a closeReplyWait deadline, and handleConn closes it straight after. Closing
+// it here instead lost the reply of exactly the request that asked for the shutdown — admin.shutdown
+// starts Stop before its handler returns, and Stop's cancel reaches this method through Serve's
+// context.AfterFunc while the reply is still unwritten (the V6 close-out's N1). An ACK lost the same
+// way makes a client spool an event the daemon had already taken.
 //
 // Setting closing and closing every tracked connection happen inside one connsMu critical
 // section — the same lock registerConn takes — which is what makes "has shutdown begun" and
@@ -334,7 +393,12 @@ func (s *server) Close() error {
 	s.closeOnce.Do(func() {
 		s.connsMu.Lock()
 		s.closing = true
-		for conn := range s.conns {
+		replyBy := time.Now().Add(closeReplyWait)
+		for conn, st := range s.conns {
+			if st.inFlight {
+				_ = conn.SetWriteDeadline(replyBy)
+				continue
+			}
 			_ = conn.Close()
 		}
 		s.connsMu.Unlock()

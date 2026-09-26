@@ -1,0 +1,21 @@
+run_id=cx-w2-lifetime-fixseat-rows-race20-59629b0-20260925T232844Z
+commit=59629b0b8da7bac01d93f26c23153664813bebce
+tree=0f4b006bfe49e0f58e7cf8b5a4b5efb4f98fe2ab
+bundle_sha256=cc462c0d647e8cdbed37fae380d113132b9525b418ba4528d1c0973de7adb64f
+started_utc=2026-09-25T23:28:54Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=30m gomaxprocs=4 coload=0
+run=^(TestSessionStartCompact_|TestService_|TestDaemonWorkingDir|TestDaemonProgram|TestRunningFromPluginRoot|TestStageBinary|TestCompactDeferredNote|TestRun_ReportsRunningFromThePluginDirectory|TestBuildSpawn)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-25T23:31:18Z

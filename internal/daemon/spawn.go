@@ -96,7 +96,7 @@ func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock)
 		return false, nil
 	}
 
-	if serr := SpawnDetached(projectRoot, self); serr != nil {
+	if serr := spawnDetached(projectRoot, self, userHomeDir(), log); serr != nil {
 		log.Warn("daemon: spawn failed", "err", serr)
 		return false, serr
 	}
@@ -120,8 +120,26 @@ func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock)
 // redirected to the null device, and Process.Release()d immediately so the spawning client can
 // exit without leaving a zombie behind — the spawning client never waits for the daemon it just
 // started.
+//
+// On Windows, when self lies inside CLAUDE_PLUGIN_ROOT, the program it starts is a verified copy of
+// self under the per-user data directory, not self (spawn_stage.go, C1.17): a daemon running from
+// the plugin's own binary would keep the plugin directory from being removed or updated for as
+// long as it lives.
 func SpawnDetached(projectRoot, self string) error {
-	cmd := buildSpawnCommand(self, projectRoot, os.Environ())
+	return spawnDetached(projectRoot, self, userHomeDir(), nil)
+}
+
+// spawnDetached is SpawnDetached with the home directory the binary is staged under, and a logger
+// for a staging failure — which is reported and never stops the spawn: the daemon is started from
+// self instead, as it was before staging existed, and reports that itself (Run).
+func spawnDetached(projectRoot, self, home string, log logging.Logger) error {
+	program, stageErr := daemonProgram(self, home, os.Getenv(pluginRootEnv), stagingEnabled)
+	if stageErr != nil && log != nil {
+		log.Warn("daemon: could not stage the daemon binary; starting it from the plugin binary",
+			"err", stageErr)
+	}
+	cmd := buildSpawnCommand(program, projectRoot, os.Environ())
+	cmd.Dir = daemonWorkingDir(self, program)
 
 	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 	if err != nil {
@@ -139,7 +157,7 @@ func SpawnDetached(projectRoot, self string) error {
 // buildSpawnCommand assembles the *exec.Cmd SpawnDetached starts, apart from its I/O redirection
 // (kept in SpawnDetached itself, since that owns the devNull handle's lifetime). environ is
 // injected so the env-stripping/adding logic is testable without touching the real process
-// environment.
+// environment. The working directory is spawnDetached's to choose (daemonWorkingDir).
 func buildSpawnCommand(self, projectRoot string, environ []string) *exec.Cmd {
 	cmd := exec.Command(self, daemonSubcommand, projectFlag, projectRoot) //nolint:gosec // G204: self is the plugin's own executable path (os.Executable()), not attacker input
 	cmd.Env = buildSpawnEnv(environ, projectRoot)

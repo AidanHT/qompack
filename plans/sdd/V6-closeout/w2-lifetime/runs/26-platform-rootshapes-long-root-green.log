@@ -1,0 +1,27 @@
+# Same command after the fix (daemonWorkingDir: a staged daemon runs in its own directory,
+# an unstaged one inherits the hook's; never the project root). Windows 11, co-loaded.
+=== RUN   TestPlatform_ProjectRootShapes
+=== RUN   TestPlatform_ProjectRootShapes/plain
+    paths_test.go:58: platform path-root-plain: verified — an ordinary ASCII project root (the control)
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1221477296\\plain-project" (75 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-1221477296\plain-project\.qompack exists; daemon reachable at \\.\pipe\qompack.8a6668322b97; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-1221477296\plain-project\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-1221477296\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesplain2807008204\001\path-root-plain.json
+=== RUN   TestPlatform_ProjectRootShapes/spaces
+    paths_test.go:58: platform path-root-spaces: verified — a project root containing spaces
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-3191053962\\my proj ect" (73 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-3191053962\my proj ect\.qompack exists; daemon reachable at \\.\pipe\qompack.3527e2c4de1e; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-3191053962\my proj ect\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-3191053962\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesspaces3093784271\001\path-root-spaces.json
+=== RUN   TestPlatform_ProjectRootShapes/unicode
+    paths_test.go:58: platform path-root-unicode: verified — a project root containing non-ASCII characters
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-719630474\\prøjekt-日本-ünï" (82 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-719630474\prøjekt-日本-ünï\.qompack exists; daemon reachable at \\.\pipe\qompack.cec0c875aac0; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-719630474\prøjekt-日本-ünï\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-719630474\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesunicode3657665444\001\path-root-unicode.json
+=== RUN   TestPlatform_ProjectRootShapes/long
+    paths_test.go:58: platform path-root-long: verified — a project root whose absolute path exceeds MAX_PATH
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-457061283\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd" (372 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-457061283\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\.qompack exists; daemon reachable at \\.\pipe\qompack.6daa784a1337; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-457061283\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\ddddddddddddddddddddddddd\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-457061283\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapeslong1644908328\001\path-root-long.json
+--- PASS: TestPlatform_ProjectRootShapes (18.56s)
+    --- PASS: TestPlatform_ProjectRootShapes/plain (3.32s)
+    --- PASS: TestPlatform_ProjectRootShapes/spaces (2.43s)
+    --- PASS: TestPlatform_ProjectRootShapes/unicode (2.44s)
+    --- PASS: TestPlatform_ProjectRootShapes/long (3.02s)
+PASS
+ok  	github.com/qompack/qompack/test/platform	19.791s
+exit=0

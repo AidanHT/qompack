@@ -1,0 +1,21 @@
+run_id=cx-w2-lifetime-n1-inflight-race50-7a10f71-20260925T213315Z
+commit=7a10f71630b1d4bbc73f4c5115fcc34ac1b5c82f
+tree=799079411760648e938bd92d8f6954ad5113f297
+bundle_sha256=aac87af1721897b69694eb946bb2d604bb2dbcd42a1099ae8ef146a0d67d82bb
+started_utc=2026-09-25T21:33:24Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=50 timeout=30m gomaxprocs=4 coload=0
+run=^(TestServerClose|TestAdminShutdownReplyReachesTheCallerOverTheTransport$)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-25T21:35:17Z

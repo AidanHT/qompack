@@ -1,0 +1,11 @@
+=== RUN   TestServerCloseLetsAnInFlightReplyFinish
+--- PASS: TestServerCloseLetsAnInFlightReplyFinish (0.02s)
+=== RUN   TestServerCloseLetsAnInFlightACKFinish
+--- PASS: TestServerCloseLetsAnInFlightACKFinish (0.01s)
+=== RUN   TestServerCloseStillClosesIdleConnections
+--- PASS: TestServerCloseStillClosesIdleConnections (0.02s)
+=== RUN   TestServerCloseBoundsAReplyNobodyReads
+--- PASS: TestServerCloseBoundsAReplyNobodyReads (2.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	3.501s
+exit=0
