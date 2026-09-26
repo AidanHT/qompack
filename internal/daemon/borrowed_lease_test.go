@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -67,7 +66,7 @@ func TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease(t *testing.T) {
 	root, lease, journal := newFormatTwoJournal(t)
 	_, err := journal.lease(context.Background(), leaseToken(1), "borrowed-residual", testDeliveryRequest("residual"))
 	require.NoError(t, err)
-	journal.seal.path = filepath.Join(root, "missing-directory", deliveryPositionFile)
+	journal.seal.path = unwritableSealPath(t, root)
 	log := newRecordingLogger()
 	d := newStoppableTestDaemon(t, root, log)
 	d.borrowedLease = true
