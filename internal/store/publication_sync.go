@@ -28,6 +28,18 @@ const (
 // host load cannot move (carried defect SP08-D1). The observer's publication tests pin it.
 const CounterPublicationSync = "store.publication.sync"
 
+// CounterPublicationSyncFile and CounterPublicationSyncDir count the barriers one pass issues: a
+// file fsync of each verified object and of the root and tool-use indices, and a directory fsync
+// (paths.SyncDir) of each directory whose entries the pass makes durable, the index directory
+// included. A barrier is counted when it is issued, whether or not it then succeeds. A directory
+// barrier is counted on every platform, although paths.SyncDir is a no-op on Windows, so the counts
+// are the same on every host. Barriers per pass times passes per capture is SP08-D1's fsync cost in
+// a unit host load cannot move.
+const (
+	CounterPublicationSyncFile = "store.publication.sync.file"
+	CounterPublicationSyncDir  = "store.publication.sync.dir"
+)
+
 func (s *FSStore) publicationObjects(ctx context.Context, root core.Hash) (map[core.Hash]bool, error) {
 	if root.IsZero() {
 		return nil, ctx.Err() // metadata-only capture; its index still needs syncing
@@ -99,14 +111,15 @@ func (s *FSStore) SyncPublication(ctx context.Context, hash core.Hash) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := syncPublicationIndex(writer); err != nil {
+		if err := s.syncPublicationIndex(writer); err != nil {
 			return err
 		}
 	}
+	s.count(CounterPublicationSyncDir, 1)
 	return paths.SyncDir(s.l.Index)
 }
 
-func syncPublicationIndex(writer *appendFile) error {
+func (s *FSStore) syncPublicationIndex(writer *appendFile) error {
 	if writer == nil {
 		return core.ErrDegraded
 	}
@@ -116,6 +129,7 @@ func syncPublicationIndex(writer *appendFile) error {
 	if !ok {
 		return core.ErrDegraded
 	}
+	s.count(CounterPublicationSyncFile, 1)
 	return sync.Sync()
 }
 
@@ -145,11 +159,13 @@ func (s *FSStore) syncPublicationObject(root *os.Root, h core.Hash) error {
 			_ = f.Close()
 			return core.ErrDegraded
 		}
+		s.count(CounterPublicationSyncFile, 1)
 		err = errors.Join(f.Sync(), f.Close())
 		if err != nil {
 			return err
 		}
 		for dir := filepath.Dir(path); ; dir = filepath.Dir(dir) {
+			s.count(CounterPublicationSyncDir, 1)
 			if err := paths.SyncDir(dir); err != nil {
 				return err
 			}
