@@ -123,9 +123,11 @@ cold-start diagnostic, while each hook that failed to reach it spooled and start
 `hookBudget`). Counted from the hook's first statement, 1.5 s at the end is kept for the process's
 own start and exit, which the host's clock includes; before that come the 10 s reply wait and the
 250 ms dial; and the 3.25 s before those cover reading and admitting the payload and starting the
-daemon, whose poll for a listening daemon stops there. Preparing a Windows staged copy is never cut
-short: when it, or the admission before it, runs over, the reply wait is shortened by as much, and
-with no time left the request is spooled without a dial. A start cut short is answered as any
+daemon, whose poll for a listening daemon stops there. Preparing a Windows staged copy and creating
+the process are never cut short — the close-out's cold-start diagnostic saw process creation alone
+stall for 4 to 5 s on a loaded Windows machine — and a daemon started that late still gets the
+1.5 s to come up that `EnsureRunning` has always given it. Whatever runs over comes out of the reply
+wait, and with no time left the request is spooled without a dial. A start cut short is answered as any
 unanswered one — `{}`, or for a compaction the deferred note (§7) — and the daemon replays it from
 the spool, recording the session without the §12.1 probe.
 
