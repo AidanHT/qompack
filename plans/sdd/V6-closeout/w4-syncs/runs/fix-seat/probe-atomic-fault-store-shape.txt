@@ -1,0 +1,11 @@
+=== RUN   TestW4Probe_AtomicFaultStoreDeliveryShape
+    zz_w4probe_test.go:34: atomicFaultStore forwards: PublicationSync=false ObservationRecovery=false DurableObservationPublisher=false
+    zz_w4probe_test.go:50: job leased=false nonce=""
+    zz_w4probe_test.go:57: first attempt: ObservationFrom(ctx)="" passes=0
+    zz_w4probe_test.go:69: drain replayed 1; ObservationFrom(ctx)=""; total passes=0
+--- PASS: TestW4Probe_AtomicFaultStoreDeliveryShape (0.21s)
+=== RUN   TestW4Probe_AtomicFaultStoreCannotPublishALeasedDelivery
+    zz_w4probe_test.go:96: leased=true obs="sha256:c0471d7d993e3b3f4489088f29cbc6cd0a98fad5cb8396b872df1f02a382d906" resp.OK=false resp.Err="observation handling failed" passes=0 legacyCalls=0 lookupErr=qompack: not found: tool_use toolu_probe_leased
+--- PASS: TestW4Probe_AtomicFaultStoreCannotPublishALeasedDelivery (0.27s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.735s

@@ -1,0 +1,5 @@
+container=qompack-v6-linux-verification /work/cx-w4-syncs-ab-20260926T161758Z-{base,new,bin,artifacts}
+base = git archive 31255da + internal/observer/tooluse_leased_bench_test.go
+new  = git archive f133c9c495aad247564c4b0443a2a0cfa9a0163d (2f4ebbb differs only in internal/store/readonly_test.go)
+binaries built in the container: go test -c ./internal/observer, GOMAXPROCS=4, run as root
+driver: linux_ab.sh cx-w4-syncs-ab-20260926T161758Z 10 3x; a first 10x run was stopped after one sample (aborted-10x-base-partial.txt, not used)

@@ -1,0 +1,4 @@
+base = git archive 31255da + internal/observer/tooluse_leased_bench_test.go (from 3d1c6b1)
+new  = git archive f133c9c495aad247564c4b0443a2a0cfa9a0163d (2f4ebbb differs only in internal/store/readonly_test.go, not compiled into observer.test)
+binaries: go test -c ./internal/observer on the Windows host (Core Ultra 7 155H, 22 threads), GOMAXPROCS default (22)
+driver: ab_win.sh 10 <dir> 10x

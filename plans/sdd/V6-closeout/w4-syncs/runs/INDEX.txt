@@ -1,0 +1,83 @@
+w4-syncs evidence (C2.3 / SP08-D1: redundant publication passes). Review base 6aff949.
+Every log here was produced by the resumed seat on 2026-09-26. The earlier seat's logs from the
+killed runs were moved out of the tree and are not evidence.
+
+Builds
+  base      31255da (identical to 6aff949 outside eval files), git archive
+  71803ec   the pass counter alone (no fix): the RED commit for the pass-count tests
+  f133c9c   product code of the final head; 2f4ebbb only adds a readonly_test.go allowlist entry
+  2f4ebbb   final head of the code (the evidence commit follows it)
+
+RED (failing first, on git archive 71803ec with the new test files copied in)
+  red-observer-passes-71803ec.txt   fresh leased tool/prompt/subagent capture: 4 passes, want 2;
+                                    redelivery 3 (unchanged baseline, passes)
+  red-store-71803ec.txt             TestObservationPublish_UnverifiableRootWritesNoIntent fails:
+                                    the base store writes an intent naming an unproven root
+  win-full-store-f133c9c-readonly-RED.txt
+                                    full store run at f133c9c: TestReadOnly_EveryExportedMethodIsClassified
+                                    fails on the unclassified PublishesObservationsDurably (fixed 2f4ebbb)
+  base-sweep-71803ec.txt            the new every-check sweep on the pre-change tree: passes, 22/23 checks
+
+Context-check maps (probe ctxmap_probe_test.go.txt, run once in each tree, not committed as a test)
+  ctxmap-base-31255da.txt           22 read / 23 stop checks: four SyncPublication passes per capture
+  ctxmap-f133c9c.txt                14 / 15 checks: two passes
+
+GREEN, Windows (host co-loaded by three other workstreams)
+  win-store-new-tests-focused.txt, win-observer-new-tests-focused.txt, win-readonly-classify-green.txt
+  win-full-store-2f4ebbb.txt        go test ./internal/store -count=1 -v: PASS (844 PASS lines, 1 platform skip)
+  win-full-observer-2f4ebbb.txt     go test ./internal/observer -count=1 -v: PASS (557 PASS lines)
+  win-daemon-publication-focused.txt, win-fault-publication-focused.txt,
+  win-integration-publication-focused.txt, win-e2e-publication-focused.txt: PASS
+  win-devtool-lint-subset.txt       golangci-lint fails on two internal/daemon findings this branch does
+                                    not touch; nomagic/importgraph/testdeps/bindeps/sleepcheck pass
+  win-golangci-touched.txt          golangci-lint on ./internal/store/... ./internal/observer/...: clean
+
+GREEN, Linux (linux-nonroot-gate.sh, non-root, -race; artifacts under linux/)
+  linux-gate-host-touched-full-2f4ebbb.txt    observer PASS 557; store 844 pass, 1 fail:
+                                              TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+  linux-gate-host-gc-overshoot-alone-2f4ebbb.txt / -base-6aff949.txt
+                                              that test fails alone on the head AND on 6aff949 in the
+                                              same window ("a finding about the HOST")
+  linux-gate-host-publication-focused-2f4ebbb.txt
+                                              daemon 29, fault 17, integration 6 pass; e2e 4 pass,
+                                              TestV3_LiveSessionWriteSetAndAppendOnly fails
+  linux-gate-host-x09-alone-2f4ebbb.txt / -base-6aff949.txt
+                                              x09 fails 3/3 on the head AND 3/3 on 6aff949 (the SessionEnd
+                                              "observer: gc" line never appears); pre-existing
+
+Load-independent measurements
+  syscount/     strace -f syscall counts per OnToolUse (N=5 after a warm-up), base vs new, leased and
+                unleased, three fixtures; summary.txt, builds.txt, harness and script
+  win-ab/, linux-ab/
+                paired ABBA A/B, 10 rounds per side; summary.txt = per-round ratios + exact sign test
+                (ab_pairs.py); benchstat.txt supplementary. Absolute times are co-loaded and are not
+                budget evidence.
+  ab_win.sh, linux_ab.sh, ab_pairs.py   the drivers and the analysis
+
+Fix seat (review finding: daemon fault wrapper and the durable-publisher capability), 2026-09-26
+  Code: 61baf28 adds internal/daemon/observer_durable_publication_test.go only; no product change.
+  fix-seat/probe-atomic-fault-store-shape.txt, fix-seat/probe_atomic_fault_store_test.go.txt
+      scratch probe, run once with the file temporarily in internal/daemon and then removed:
+      the existing atomicFaultStore row is UNLEASED (no nonce; job.leased=false,
+      ObservationFrom=""), pays 0 SyncPublication passes on both attempts, and the wrapper
+      forwards neither PublicationSync nor ObservationRecovery nor the declaration; handed a
+      LEASED delivery with no fault armed it NAKs with 0 passes and publishes nothing
+  fix-seat/win-daemon-durable-focused-61baf28.txt   the two new rows plus the two existing
+      atomicFaultStore rows, -count=5: 20 PASS
+  fix-seat/mutation-*.txt   the new row against four one-line mutations, each reverted after:
+      M1  FSStore declares false            -> fails at the fixture's declaration check
+      M1b observer ignores the declaration  -> fails: 1 pass before the write, want 0
+      M2  declaring branch skips the link   -> fails: capture link not written
+      M3  store skips its post-write sync   -> fails: 1 pass after repair, want 2
+  fix-seat/win-full-daemon-61baf28.txt   go test ./internal/daemon -count=1 -v -timeout=30m:
+      ok, 720 PASS lines, 1 platform skip (TestService_StateWriteFailureStillEmits). It ran on
+      fcaea14 with the new file present but not yet committed; that blob (3d3d3a5a) is the one
+      61baf28 committed
+  fix-seat/win-golangci-daemon.txt   the same two internal/daemon findings as
+      win-devtool-lint-subset.txt above (spawn_stage_test.go errcheck, handlers.go gocritic),
+      in files this branch does not touch; nothing in the new file
+  fix-seat/win-devtool-lint-subset.txt   nomagic, importgraph, testdeps, sleepcheck: PASS
+  fix-seat/win-fmt-check.txt   devtool fmt-check: exit 0
+  fix-seat/linux-gate-host-daemon-durable-61baf28.txt,
+  linux/cx-w4-syncs-fixseat-daemon-durable-61baf28-20260926T174737Z-artifacts/
+      the same four rows at 61baf28, non-root, -race, -count=5: pass=20 fail=0

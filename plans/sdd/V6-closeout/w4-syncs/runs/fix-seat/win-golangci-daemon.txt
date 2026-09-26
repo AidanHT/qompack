@@ -1,0 +1,8 @@
+internal\daemon\spawn_stage_test.go:312:27: Error return value is not checked (errcheck)
+	addr, err := ipc.Resolve(d.(*daemon).root)
+	                         ^
+internal\daemon\handlers.go:803:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if compact != nil {
+	^
+exit status 1
+exit=1

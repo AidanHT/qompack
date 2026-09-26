@@ -1,0 +1,4 @@
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/test/fault
+github.com/qompack/qompack/test/integration
+github.com/qompack/qompack/test/e2e

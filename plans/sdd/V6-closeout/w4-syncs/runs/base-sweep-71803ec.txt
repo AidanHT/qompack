@@ -1,0 +1,291 @@
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun
+    publication_sweep_test.go:59: a complete fresh leased read makes 22 context checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_0_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_1_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_2_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_3_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_4_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_5_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_6_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_7_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_8_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_9_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_10_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_11_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_12_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_13_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_14_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_15_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_16_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_17_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_18_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_19_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_20_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_21_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_22_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_0_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_1_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_2_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_3_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_4_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_5_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_6_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_7_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_8_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_9_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_10_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_11_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_12_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_13_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_14_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_15_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_16_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_17_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_18_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_19_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_20_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_21_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_22_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_0_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_1_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_2_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_3_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_4_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_5_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_6_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_7_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_8_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_9_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_10_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_11_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_12_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_13_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_14_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_15_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_16_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_17_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_18_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_19_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_20_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_21_of_22_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_22_of_22_checks
+--- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun (14.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_0_of_22_checks (0.17s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_1_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_2_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_3_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_4_of_22_checks (0.11s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_5_of_22_checks (0.11s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_6_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_7_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_8_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_9_of_22_checks (0.11s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_10_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_11_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_12_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_13_of_22_checks (0.13s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_14_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_15_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_16_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_17_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_18_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_19_of_22_checks (0.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_20_of_22_checks (0.14s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_21_of_22_checks (0.15s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_22_of_22_checks (0.19s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_0_of_22_checks (0.32s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_1_of_22_checks (0.22s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_2_of_22_checks (0.31s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_3_of_22_checks (0.24s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_4_of_22_checks (0.27s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_5_of_22_checks (0.21s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_6_of_22_checks (0.22s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_7_of_22_checks (0.27s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_8_of_22_checks (0.22s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_9_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_10_of_22_checks (0.23s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_11_of_22_checks (0.23s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_12_of_22_checks (0.22s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_13_of_22_checks (0.21s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_14_of_22_checks (0.29s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_15_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_16_of_22_checks (0.21s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_17_of_22_checks (0.24s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_18_of_22_checks (0.27s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_19_of_22_checks (0.23s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_20_of_22_checks (0.31s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_21_of_22_checks (0.25s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_22_of_22_checks (0.25s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_0_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_1_of_22_checks (0.21s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_2_of_22_checks (0.21s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_3_of_22_checks (0.19s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_4_of_22_checks (0.21s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_5_of_22_checks (0.31s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_6_of_22_checks (0.30s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_7_of_22_checks (0.21s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_8_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_9_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_10_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_11_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_12_of_22_checks (0.22s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_13_of_22_checks (0.19s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_14_of_22_checks (0.24s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_15_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_16_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_17_of_22_checks (0.20s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_18_of_22_checks (0.62s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_19_of_22_checks (0.19s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_20_of_22_checks (0.24s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_21_of_22_checks (0.23s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_22_of_22_checks (0.22s)
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun
+    publication_sweep_test.go:107: a complete fresh leased subagent capture makes 23 context checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_0_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_1_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_2_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_3_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_4_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_5_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_6_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_7_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_8_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_9_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_10_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_11_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_12_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_13_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_14_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_15_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_16_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_17_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_18_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_19_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_20_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_21_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_22_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_23_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_0_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_1_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_2_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_3_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_4_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_5_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_6_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_7_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_8_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_9_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_10_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_11_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_12_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_13_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_14_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_15_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_16_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_17_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_18_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_19_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_20_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_21_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_22_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_23_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_0_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_1_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_2_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_3_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_4_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_5_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_6_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_7_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_8_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_9_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_10_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_11_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_12_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_13_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_14_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_15_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_16_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_17_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_18_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_19_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_20_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_21_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_22_of_23_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_23_of_23_checks
+--- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun (15.61s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_0_of_23_checks (0.18s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_1_of_23_checks (0.17s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_2_of_23_checks (0.24s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_3_of_23_checks (0.25s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_4_of_23_checks (0.20s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_5_of_23_checks (0.20s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_6_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_7_of_23_checks (0.22s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_8_of_23_checks (0.22s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_9_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_10_of_23_checks (0.16s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_11_of_23_checks (0.16s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_12_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_13_of_23_checks (0.17s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_14_of_23_checks (0.16s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_15_of_23_checks (0.18s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_16_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_17_of_23_checks (0.22s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_18_of_23_checks (0.18s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_19_of_23_checks (0.22s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_20_of_23_checks (0.17s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_21_of_23_checks (0.18s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_22_of_23_checks (0.17s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_23_of_23_checks (0.35s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_0_of_23_checks (0.26s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_1_of_23_checks (0.18s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_2_of_23_checks (0.17s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_3_of_23_checks (0.18s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_4_of_23_checks (0.30s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_5_of_23_checks (0.23s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_6_of_23_checks (0.23s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_7_of_23_checks (0.23s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_8_of_23_checks (0.23s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_9_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_10_of_23_checks (0.24s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_11_of_23_checks (0.24s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_12_of_23_checks (0.20s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_13_of_23_checks (0.25s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_14_of_23_checks (0.25s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_15_of_23_checks (0.21s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_16_of_23_checks (0.30s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_17_of_23_checks (0.27s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_18_of_23_checks (0.24s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_19_of_23_checks (0.21s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_20_of_23_checks (0.27s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_21_of_23_checks (0.22s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_22_of_23_checks (0.26s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_23_of_23_checks (0.24s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_0_of_23_checks (0.21s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_1_of_23_checks (0.27s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_2_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_3_of_23_checks (0.16s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_4_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_5_of_23_checks (0.26s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_6_of_23_checks (0.23s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_7_of_23_checks (0.22s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_8_of_23_checks (0.27s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_9_of_23_checks (0.18s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_10_of_23_checks (0.17s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_11_of_23_checks (0.18s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_12_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_13_of_23_checks (0.24s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_14_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_15_of_23_checks (0.20s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_16_of_23_checks (0.20s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_17_of_23_checks (0.20s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_18_of_23_checks (0.23s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_19_of_23_checks (0.20s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_20_of_23_checks (0.19s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_21_of_23_checks (0.29s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_22_of_23_checks (0.20s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_23_of_23_checks (0.20s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	30.016s
+exit=0

@@ -1,0 +1,5 @@
+PASS      github.com/qompack/qompack/internal/daemon  (pass=29 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/fault  (pass=17 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/integration  (pass=6 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/e2e  (pass=4 fail=1 skip=0)
+    FAIL TestV3_LiveSessionWriteSetAndAppendOnly

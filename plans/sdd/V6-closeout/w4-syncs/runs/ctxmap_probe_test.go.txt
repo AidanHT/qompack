@@ -1,0 +1,63 @@
+package observer
+
+import (
+	"context"
+	"fmt"
+	"runtime"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+type zzCtxMap struct {
+	context.Context
+	mu    sync.Mutex
+	sites []string
+}
+
+func (c *zzCtxMap) Err() error {
+	pcs := make([]uintptr, 12)
+	n := runtime.Callers(2, pcs)
+	frames := runtime.CallersFrames(pcs[:n])
+	var chain []string
+	for {
+		f, more := frames.Next()
+		name := f.Function[strings.LastIndex(f.Function, "/")+1:]
+		if strings.Contains(name, "testing.") || strings.Contains(name, "ZZ") {
+			break
+		}
+		chain = append(chain, name)
+		if !more || len(chain) >= 3 {
+			break
+		}
+	}
+	c.mu.Lock()
+	c.sites = append(c.sites, strings.Join(chain, " <- "))
+	c.mu.Unlock()
+	return nil
+}
+
+func TestZZCtxMap(t *testing.T) {
+	r := newRdxRig(t)
+	_, err := r.o.OnToolUse(context.Background(), readOf("toolu_A", supersedePath, rdxBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.clock.Advance(time.Second)
+	c := &zzCtxMap{Context: context.Background()}
+	if _, err := r.o.OnToolUse(WithObservation(c, r.sidecar(2, rdxOpTool)), readOf("toolu_B", supersedePath, rdxBody)); err != nil {
+		t.Fatal(err)
+	}
+	for i, s := range c.sites {
+		fmt.Printf("READ check %2d: %s\n", i+1, s)
+	}
+	r2 := newRdxRig(t)
+	c2 := &zzCtxMap{Context: context.Background()}
+	if _, err := r2.o.OnStop(WithObservation(c2, r2.sidecar(1, rdxOpStop)), stopOf(true), true); err != nil {
+		t.Fatal(err)
+	}
+	for i, s := range c2.sites {
+		fmt.Printf("STOP check %2d: %s\n", i+1, s)
+	}
+}
