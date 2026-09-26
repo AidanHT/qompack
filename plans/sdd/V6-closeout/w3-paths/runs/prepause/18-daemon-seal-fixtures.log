@@ -1,0 +1,34 @@
+# the three seal-downgrade rows: RED at 91db668 in runs/15 (Windows full) and the Linux pkgs-full run; now with unwritableSealPath (uncommitted), Windows, alone
+=== RUN   TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease
+--- PASS: TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease (0.21s)
+=== RUN   TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases
+--- PASS: TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases (0.22s)
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_clean_stop_says_nothing
+--- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop (0.40s)
+    --- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair (0.21s)
+    --- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_clean_stop_says_nothing (0.19s)
+=== RUN   TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease
+--- PASS: TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease (0.21s)
+=== RUN   TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases
+--- PASS: TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases (0.19s)
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_clean_stop_says_nothing
+--- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop (0.59s)
+    --- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair (0.19s)
+    --- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_clean_stop_says_nothing (0.40s)
+=== RUN   TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease
+--- PASS: TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease (0.22s)
+=== RUN   TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases
+--- PASS: TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases (0.26s)
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair
+=== RUN   TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_clean_stop_says_nothing
+--- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop (0.48s)
+    --- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair (0.24s)
+    --- PASS: TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_clean_stop_says_nothing (0.24s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	3.084s
+exit=0

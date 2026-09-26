@@ -1,0 +1,25 @@
+#!/bin/sh
+# w3-paths: re-run the other Linux daemon reds of pkgs-final ALONE at HEAD and at the base, after
+# classify.sh has finished (so they never overlap this lane's other timing runs).
+W=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work
+WT=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+cd "$WT" || exit 2
+G=plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh
+O=$WT/plans/sdd/V6-closeout/w3-paths/runs/linux
+LOG=$W/classify2.log
+HEADREV=$1
+until grep -q "^ALL-DONE" "$W/classify.log"; do sleep 20; done
+run() {
+	t=$(date -u +%H:%M:%SZ)
+	echo "== $t start: $*" >> "$LOG"
+	sh "$G" --prefix cx-w3-paths --out "$O" "$@" >> "$LOG" 2>&1
+	rc=$?
+	echo "== gate exit=$rc: $*" >> "$LOG"
+}
+for rev in "$HEADREV" 6aff949; do
+	tag=head
+	test "$rev" = 6aff949 && tag=base
+	run "$rev" spoolwatch-alone-$tag --run '^TestSpoolWatch_' --count 3 -- ./internal/daemon
+	run "$rev" sessionstart-compact-alone-$tag --run '^TestSessionStartCompact_' --count 3 -- ./internal/daemon
+done
+echo "DONE $(date -u +%H:%M:%SZ)" >> "$LOG"

@@ -1,0 +1,40 @@
+#!/bin/sh
+# w3-paths: classify the reds of the final package runs. Waits for linux-final.sh, then re-runs each
+# red row ALONE at HEAD and at the base on Linux, then the Windows hot-path row at base and HEAD.
+W=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work
+WT=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+cd "$WT" || exit 2
+G=plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh
+O=$WT/plans/sdd/V6-closeout/w3-paths/runs/linux
+LOG=$W/classify.log
+HEADREV=$1
+until grep -q "^DONE" "$W/linux-final.log"; do sleep 20; done
+run() {
+	t=$(date -u +%H:%M:%SZ)
+	echo "== $t start: $*" >> "$LOG"
+	sh "$G" --prefix cx-w3-paths --out "$O" "$@" >> "$LOG" 2>&1
+	rc=$?
+	echo "== gate exit=$rc: $*" >> "$LOG"
+}
+run "$HEADREV" lane-overflow-alone-head --run '^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$' --count 10 -- ./internal/daemon
+run 6aff949 lane-overflow-alone-base --run '^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$' --count 10 -- ./internal/daemon
+run "$HEADREV" budgetbf-alone-head --run '^TestBudgetBF$' -- ./internal/mcp
+run 6aff949 budgetbf-alone-base --run '^TestBudgetBF$' -- ./internal/mcp
+echo "LINUX-DONE $(date -u +%H:%M:%SZ)" >> "$LOG"
+
+L=$WT/plans/sdd/V6-closeout/w3-paths/runs/17-hotpath-row-alone.log
+{
+	echo "# test/integration TestIntegration_HotPathWarmWithRealResidentState failed in the earlier seat's runs/19 (B-A/B-B"
+	echo "# uncertifiable: 593 of 2130 requests deferred to the spool under co-load). Re-run ALONE: base (git archive 6aff949)"
+	echo "# then HEAD $HEADREV, Windows, after this lane's Linux runs finished; other workstreams still load the machine."
+	echo "# QOMPACK_UNDER_COLOAD not set."
+} > "$L"
+rm -rf "$W/base-hot" && mkdir -p "$W/base-hot" && git archive 6aff949 | tar -x -C "$W/base-hot"
+echo "## base 6aff949: go test ./test/integration -run '^TestIntegration_HotPathWarmWithRealResidentState\$' -count=1 -timeout=30m -v" >> "$L"
+(cd "$W/base-hot" && go test ./test/integration -run '^TestIntegration_HotPathWarmWithRealResidentState$' -count=1 -timeout=30m -v >> "$L" 2>&1)
+echo "exit=$?" >> "$L"
+echo "## HEAD $HEADREV: same command" >> "$L"
+go test ./test/integration -run '^TestIntegration_HotPathWarmWithRealResidentState$' -count=1 -timeout=30m -v >> "$L" 2>&1
+echo "exit=$?" >> "$L"
+echo "DONE" >> "$L"
+echo "ALL-DONE $(date -u +%H:%M:%SZ)" >> "$LOG"

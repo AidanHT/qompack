@@ -1,0 +1,145 @@
+== 17:22:06Z start: c3e3519 lane-overflow-again1-head --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+run_id=cx-w3-paths-lane-overflow-again1-head-c3e3519-20260926T172207Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=c8210b72edba76f125659db930ad7810e515f6d81084471dc5ef51e6b97bc39a
+host_started_utc=2026-09-26T17:22:14Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+/work/cx-w3-paths-lane-overflow-again1-head-c3e3519-20260926T172207Z.bundle: OK
+run_id=cx-w3-paths-lane-overflow-again1-head-c3e3519-20260926T172207Z
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+tree=aa9a82c23d06049c19920d553be863698f7bba30
+bundle_sha256=c8210b72edba76f125659db930ad7810e515f6d81084471dc5ef51e6b97bc39a
+started_utc=2026-09-26T17:22:18Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=30m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=20 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-lane-overflow-again1-head-c3e3519-20260926T172207Z-artifacts
+exit=0
+== gate exit=0: c3e3519 lane-overflow-again1-head --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+== 17:23:35Z start: 6aff949 lane-overflow-again1-base --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+run_id=cx-w3-paths-lane-overflow-again1-base-6aff949-20260926T172335Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=6aff949
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+bundle_sha256=b52958553e17f25049234ffed610e0eac9f243ef52d22f697007aa40fdbb5e4e
+host_started_utc=2026-09-26T17:23:42Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+/work/cx-w3-paths-lane-overflow-again1-base-6aff949-20260926T172335Z.bundle: OK
+run_id=cx-w3-paths-lane-overflow-again1-base-6aff949-20260926T172335Z
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+tree=a1bf55eca79a86f701f143562d00a101804bc299
+bundle_sha256=b52958553e17f25049234ffed610e0eac9f243ef52d22f697007aa40fdbb5e4e
+started_utc=2026-09-26T17:23:45Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=30m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=20 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-lane-overflow-again1-base-6aff949-20260926T172335Z-artifacts
+exit=0
+== gate exit=0: 6aff949 lane-overflow-again1-base --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+== 17:24:53Z start: c3e3519 lane-overflow-again2-head --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+run_id=cx-w3-paths-lane-overflow-again2-head-c3e3519-20260926T172453Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=64b925bc7934c7a059782fe5187e25b69ea822bfbf13a5eb746554bb9bb53e09
+host_started_utc=2026-09-26T17:24:59Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+/work/cx-w3-paths-lane-overflow-again2-head-c3e3519-20260926T172453Z.bundle: OK
+run_id=cx-w3-paths-lane-overflow-again2-head-c3e3519-20260926T172453Z
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+tree=aa9a82c23d06049c19920d553be863698f7bba30
+bundle_sha256=64b925bc7934c7a059782fe5187e25b69ea822bfbf13a5eb746554bb9bb53e09
+started_utc=2026-09-26T17:25:03Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=30m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=20 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-lane-overflow-again2-head-c3e3519-20260926T172453Z-artifacts
+exit=0
+== gate exit=0: c3e3519 lane-overflow-again2-head --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+== 17:25:49Z start: 6aff949 lane-overflow-again2-base --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+run_id=cx-w3-paths-lane-overflow-again2-base-6aff949-20260926T172549Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=6aff949
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+bundle_sha256=b52958553e17f25049234ffed610e0eac9f243ef52d22f697007aa40fdbb5e4e
+host_started_utc=2026-09-26T17:25:57Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+/work/cx-w3-paths-lane-overflow-again2-base-6aff949-20260926T172549Z.bundle: OK
+run_id=cx-w3-paths-lane-overflow-again2-base-6aff949-20260926T172549Z
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+tree=a1bf55eca79a86f701f143562d00a101804bc299
+bundle_sha256=b52958553e17f25049234ffed610e0eac9f243ef52d22f697007aa40fdbb5e4e
+started_utc=2026-09-26T17:26:06Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=30m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=20 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-lane-overflow-again2-base-6aff949-20260926T172549Z-artifacts
+exit=0
+== gate exit=0: 6aff949 lane-overflow-again2-base --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 20 -- ./internal/daemon
+DONE 17:27:23Z

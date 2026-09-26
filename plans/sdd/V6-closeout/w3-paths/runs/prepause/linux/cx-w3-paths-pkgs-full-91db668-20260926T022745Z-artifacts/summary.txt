@@ -1,0 +1,12 @@
+PASS      github.com/qompack/qompack/internal/paths  (pass=149 fail=0 skip=19)
+FAIL      github.com/qompack/qompack/internal/store  (pass=836 fail=1 skip=4)
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=1468 fail=5 skip=1)
+    FAIL TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease
+    FAIL TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases
+    FAIL TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair
+    FAIL TestDeliverySeal_AResidualReachesTheOperatorFromStop
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+PASS      github.com/qompack/qompack/internal/ipc  (pass=144 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=371 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/tokens  (pass=119 fail=0 skip=0)

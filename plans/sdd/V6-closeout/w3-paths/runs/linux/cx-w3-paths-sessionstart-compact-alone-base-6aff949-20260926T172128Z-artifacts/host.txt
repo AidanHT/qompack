@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-sessionstart-compact-alone-base-6aff949-20260926T172128Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=6aff949
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+bundle_sha256=12d13bd757e372bf00f9c7066dd9ab054d2a92d62a74dd29960f887127406cbe
+host_started_utc=2026-09-26T17:21:35Z
+inner_args=--run ^TestSessionStartCompact_ --count 3 -- ./internal/daemon
+host_finished_utc=2026-09-26T17:22:03Z
+container_exit=0

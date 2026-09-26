@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-gc-overshoot-alone-f679892-20260926T020415Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=f679892
+commit=f679892bfd5570947fd77aa7bcf0e0fd9ae14bdf
+bundle_sha256=c40e149dcbb03662bde865b7fa6bcff75192c3904694dbcf79e2eee3c5b64469
+host_started_utc=2026-09-26T02:04:20Z
+inner_args=--run ^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$ -- ./internal/store
+host_finished_utc=2026-09-26T02:06:42Z
+container_exit=1

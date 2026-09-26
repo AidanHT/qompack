@@ -1,0 +1,21 @@
+run_id=cx-w3-paths-gc-overshoot-alone-dd24a58-20260926T025511Z
+commit=dd24a58fa480cd18934dc6a2e2bebbd0a8afcb6d
+tree=6a80204840c31ef186308e05438e66b7ba6eb6d2
+bundle_sha256=892c9f7d9758b169c33b678c107cd09f4dd1f6b35c3cf30e763ea3736463bc45
+started_utc=2026-09-26T02:55:22Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T03:04:43Z

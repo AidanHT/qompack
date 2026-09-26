@@ -1,0 +1,112 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/store": {
+   "result": "NO RESULT",
+   "passed": 193,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "NO RESULT",
+   "passed": 397,
+   "failed": [
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/paths": {
+   "result": "pass",
+   "passed": 149,
+   "failed": [],
+   "skipped": [
+    "TestOpenFile_HandlesUnresolvableRootGracefully",
+    "TestRestoreLog_UnstatablePathIsNotCreated",
+    "TestReplaceBloom_PruneSurvivesUnreadableSketchesDir",
+    "TestHighestBloomBackupSeq_UnreadableDirIsAnError",
+    "TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows",
+    "TestReplacePinsView_DeniedStagingCreatePreservesView",
+    "TestTerminatePartialTail_UnreadablePathIsLeftAlone",
+    "TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows",
+    "TestWriteAtomic_CreateTempFailureLeavesNoStaging",
+    "TestEnsureLayout_WriteAtomicFailureIsPropagated",
+    "TestLong_IdentityWhenAbsFails",
+    "TestLong_PrefixesOverThreshold",
+    "TestLong_IdempotentOnAlreadyPrefixed",
+    "TestLong_UNCGetsUNCPrefix",
+    "TestManifest_ReadPropagatesNonNotExistOpenError",
+    "TestNorm_RejectsDifferentVolume",
+    "TestNorm_LeavesUNCVolumeMismatchUnresolved",
+    "TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved",
+    "TestResolve_PropagatesAbsFailure"
+   ]
+  },
+  "github.com/qompack/qompack/internal/contract": {
+   "result": "pass",
+   "passed": 158,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/checkpoint": {
+   "result": "pass",
+   "passed": 405,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/observer": {
+   "result": "NO RESULT",
+   "passed": 197,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/obs": {
+   "result": "pass",
+   "passed": 25,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/rehydrate": {
+   "result": "pass",
+   "passed": 196,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/sketch": {
+   "result": "pass",
+   "passed": 380,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/dag": {
+   "result": "pass",
+   "passed": 171,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/mcp": {
+   "result": "NO RESULT",
+   "passed": 13,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/negknow": {
+   "result": "NO RESULT",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/testutil": {
+   "result": "NO RESULT",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": [
+  "github.com/qompack/qompack/internal/store",
+  "github.com/qompack/qompack/internal/daemon",
+  "github.com/qompack/qompack/internal/observer",
+  "github.com/qompack/qompack/internal/mcp",
+  "github.com/qompack/qompack/internal/negknow",
+  "github.com/qompack/qompack/internal/testutil"
+ ]
+}

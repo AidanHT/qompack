@@ -1,0 +1,145 @@
+== 17:19:17Z start: c3e3519 spoolwatch-alone-head --run ^TestSpoolWatch_ --count 3 -- ./internal/daemon
+run_id=cx-w3-paths-spoolwatch-alone-head-c3e3519-20260926T171917Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=95052c43dc0accb82e0af4a85c5f7d8cbb56e3ea01039bed4a7c0c0398670194
+host_started_utc=2026-09-26T17:19:23Z
+inner_args=--run ^TestSpoolWatch_ --count 3 -- ./internal/daemon
+/work/cx-w3-paths-spoolwatch-alone-head-c3e3519-20260926T171917Z.bundle: OK
+run_id=cx-w3-paths-spoolwatch-alone-head-c3e3519-20260926T171917Z
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+tree=aa9a82c23d06049c19920d553be863698f7bba30
+bundle_sha256=95052c43dc0accb82e0af4a85c5f7d8cbb56e3ea01039bed4a7c0c0398670194
+started_utc=2026-09-26T17:19:27Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^TestSpoolWatch_
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=15 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-spoolwatch-alone-head-c3e3519-20260926T171917Z-artifacts
+exit=0
+== gate exit=0: c3e3519 spoolwatch-alone-head --run ^TestSpoolWatch_ --count 3 -- ./internal/daemon
+== 17:20:04Z start: c3e3519 sessionstart-compact-alone-head --run ^TestSessionStartCompact_ --count 3 -- ./internal/daemon
+run_id=cx-w3-paths-sessionstart-compact-alone-head-c3e3519-20260926T172004Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=4541d412e30dc773e1ce019ba47a0c80bf9e6cb7dd098d982a7367b3fe6422ca
+host_started_utc=2026-09-26T17:20:13Z
+inner_args=--run ^TestSessionStartCompact_ --count 3 -- ./internal/daemon
+/work/cx-w3-paths-sessionstart-compact-alone-head-c3e3519-20260926T172004Z.bundle: OK
+run_id=cx-w3-paths-sessionstart-compact-alone-head-c3e3519-20260926T172004Z
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+tree=aa9a82c23d06049c19920d553be863698f7bba30
+bundle_sha256=4541d412e30dc773e1ce019ba47a0c80bf9e6cb7dd098d982a7367b3fe6422ca
+started_utc=2026-09-26T17:20:16Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^TestSessionStartCompact_
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=30 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-sessionstart-compact-alone-head-c3e3519-20260926T172004Z-artifacts
+exit=0
+== gate exit=0: c3e3519 sessionstart-compact-alone-head --run ^TestSessionStartCompact_ --count 3 -- ./internal/daemon
+== 17:20:40Z start: 6aff949 spoolwatch-alone-base --run ^TestSpoolWatch_ --count 3 -- ./internal/daemon
+run_id=cx-w3-paths-spoolwatch-alone-base-6aff949-20260926T172041Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=6aff949
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+bundle_sha256=0c826e933e32c7322144adad5c6cf0201d8216b85dbbc372de2cf967180c50c7
+host_started_utc=2026-09-26T17:20:47Z
+inner_args=--run ^TestSpoolWatch_ --count 3 -- ./internal/daemon
+/work/cx-w3-paths-spoolwatch-alone-base-6aff949-20260926T172041Z.bundle: OK
+run_id=cx-w3-paths-spoolwatch-alone-base-6aff949-20260926T172041Z
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+tree=a1bf55eca79a86f701f143562d00a101804bc299
+bundle_sha256=0c826e933e32c7322144adad5c6cf0201d8216b85dbbc372de2cf967180c50c7
+started_utc=2026-09-26T17:20:50Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^TestSpoolWatch_
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=15 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-spoolwatch-alone-base-6aff949-20260926T172041Z-artifacts
+exit=0
+== gate exit=0: 6aff949 spoolwatch-alone-base --run ^TestSpoolWatch_ --count 3 -- ./internal/daemon
+== 17:21:28Z start: 6aff949 sessionstart-compact-alone-base --run ^TestSessionStartCompact_ --count 3 -- ./internal/daemon
+run_id=cx-w3-paths-sessionstart-compact-alone-base-6aff949-20260926T172128Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=6aff949
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+bundle_sha256=12d13bd757e372bf00f9c7066dd9ab054d2a92d62a74dd29960f887127406cbe
+host_started_utc=2026-09-26T17:21:35Z
+inner_args=--run ^TestSessionStartCompact_ --count 3 -- ./internal/daemon
+/work/cx-w3-paths-sessionstart-compact-alone-base-6aff949-20260926T172128Z.bundle: OK
+run_id=cx-w3-paths-sessionstart-compact-alone-base-6aff949-20260926T172128Z
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+tree=a1bf55eca79a86f701f143562d00a101804bc299
+bundle_sha256=12d13bd757e372bf00f9c7066dd9ab054d2a92d62a74dd29960f887127406cbe
+started_utc=2026-09-26T17:21:38Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^TestSessionStartCompact_
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=30 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-sessionstart-compact-alone-base-6aff949-20260926T172128Z-artifacts
+exit=0
+== gate exit=0: 6aff949 sessionstart-compact-alone-base --run ^TestSessionStartCompact_ --count 3 -- ./internal/daemon
+DONE 17:22:04Z

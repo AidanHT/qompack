@@ -1,0 +1,22 @@
+# GREEN: the same internal/paths rows after the rootOf fix (committed as d660423), Windows
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_beside_a_project_store_but_outside_it
+--- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget (0.08s)
+    --- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists (0.02s)
+    --- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all (0.02s)
+    --- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_beside_a_project_store_but_outside_it (0.05s)
+=== RUN   TestWriteAtomic_AProjectStoreBelowAUserStoreIsItsOwnOwner
+--- PASS: TestWriteAtomic_AProjectStoreBelowAUserStoreIsItsOwnOwner (0.05s)
+=== RUN   TestWriteAtomic_TheUserGlobalLayerWritesInItsOwnStore
+--- PASS: TestWriteAtomic_TheUserGlobalLayerWritesInItsOwnStore (0.04s)
+=== RUN   TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt
+--- PASS: TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt (0.06s)
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively
+--- PASS: TestWriteAtomic_RefusesAProtectedPathNamedRelatively (0.04s)
+=== RUN   TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows
+--- PASS: TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.609s
+exit=0

@@ -1,0 +1,17 @@
+#!/bin/sh
+# w3-paths: Windows full runs at the final HEAD of the packages runs/07 compiled before it
+# (paths and ipc at 4316e06; tokens, cli and store at 891f429), then the incident repro.
+cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths || exit 2
+R=plans/sdd/V6-closeout/w3-paths/runs
+L=$R/14-windows-pkgs-final.log
+{
+	echo "# Windows full package runs at $(git rev-parse --short HEAD), go test -count=1 -timeout=30m, one package at a time;"
+	echo "# the machine is co-loaded by three other workstreams and this lane's Linux container runs; QOMPACK_UNDER_COLOAD not set"
+} > "$L"
+for p in ./internal/paths ./internal/ipc ./internal/tokens ./internal/cli ./internal/store; do
+	echo "## go test $p -count=1 -timeout=30m  (start $(date -u +%H:%M:%SZ))" >> "$L"
+	go test "$p" -count=1 -timeout=30m >> "$L" 2>&1
+	echo "exit=$? (end $(date -u +%H:%M:%SZ))" >> "$L"
+done
+echo "DONE" >> "$L"
+sh C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/fakehome.sh

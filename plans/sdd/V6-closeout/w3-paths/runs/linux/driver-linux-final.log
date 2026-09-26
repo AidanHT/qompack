@@ -1,0 +1,133 @@
+== 16:01:14Z start: c3e3519 gc-overshoot-alone-final --run ^(TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestGCHashOrder_IsTheTextOrder|TestRecordOutcomes_SortingAllocatesNothingPerComparison)$ --count 5 -- ./internal/store
+run_id=cx-w3-paths-gc-overshoot-alone-final-c3e3519-20260926T160115Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=8adfc3e6867aefbe86677aecf31c04e4941673262e470894518e6e43e7acae18
+host_started_utc=2026-09-26T16:01:27Z
+inner_args=--run ^(TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestGCHashOrder_IsTheTextOrder|TestRecordOutcomes_SortingAllocatesNothingPerComparison)$ --count 5 -- ./internal/store
+/work/cx-w3-paths-gc-overshoot-alone-final-c3e3519-20260926T160115Z.bundle: OK
+run_id=cx-w3-paths-gc-overshoot-alone-final-c3e3519-20260926T160115Z
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+tree=aa9a82c23d06049c19920d553be863698f7bba30
+bundle_sha256=8adfc3e6867aefbe86677aecf31c04e4941673262e470894518e6e43e7acae18
+started_utc=2026-09-26T16:01:33Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^(TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestGCHashOrder_IsTheTextOrder|TestRecordOutcomes_SortingAllocatesNothingPerComparison)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/store  (pass=15 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-gc-overshoot-alone-final-c3e3519-20260926T160115Z-artifacts
+exit=0
+== gate exit=0: c3e3519 gc-overshoot-alone-final --run ^(TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestGCHashOrder_IsTheTextOrder|TestRecordOutcomes_SortingAllocatesNothingPerComparison)$ --count 5 -- ./internal/store
+== 16:25:18Z start: c3e3519 drain-replayed-flush-final --run ^TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget$ --count 5 -- ./internal/daemon
+run_id=cx-w3-paths-drain-replayed-flush-final-c3e3519-20260926T162519Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=739db21d9e60b8f8b020e43f7f80fffb2e2e68aa0e331bbfaa5eacf5abc1f568
+host_started_utc=2026-09-26T16:25:32Z
+inner_args=--run ^TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget$ --count 5 -- ./internal/daemon
+/work/cx-w3-paths-drain-replayed-flush-final-c3e3519-20260926T162519Z.bundle: OK
+run_id=cx-w3-paths-drain-replayed-flush-final-c3e3519-20260926T162519Z
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+tree=aa9a82c23d06049c19920d553be863698f7bba30
+bundle_sha256=739db21d9e60b8f8b020e43f7f80fffb2e2e68aa0e331bbfaa5eacf5abc1f568
+started_utc=2026-09-26T16:25:38Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=5 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-drain-replayed-flush-final-c3e3519-20260926T162519Z-artifacts
+exit=0
+== gate exit=0: c3e3519 drain-replayed-flush-final --run ^TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget$ --count 5 -- ./internal/daemon
+== 16:26:16Z start: c3e3519 pkgs-final -- ./internal/paths ./internal/store ./internal/daemon ./internal/ipc ./internal/cli ./internal/tokens ./internal/contract ./internal/checkpoint ./internal/observer ./internal/obs ./internal/rehydrate ./internal/sketch ./internal/dag ./internal/mcp ./internal/eval ./internal/testutil
+run_id=cx-w3-paths-pkgs-final-c3e3519-20260926T162616Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=dc984edf43341f7204f95574f525279dda57ce2540687ee8e98cf59b2a96c61b
+host_started_utc=2026-09-26T16:26:24Z
+inner_args=-- ./internal/paths ./internal/store ./internal/daemon ./internal/ipc ./internal/cli ./internal/tokens ./internal/contract ./internal/checkpoint ./internal/observer ./internal/obs ./internal/rehydrate ./internal/sketch ./internal/dag ./internal/mcp ./internal/eval ./internal/testutil
+/work/cx-w3-paths-pkgs-final-c3e3519-20260926T162616Z.bundle: OK
+run_id=cx-w3-paths-pkgs-final-c3e3519-20260926T162616Z
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+tree=aa9a82c23d06049c19920d553be863698f7bba30
+bundle_sha256=dc984edf43341f7204f95574f525279dda57ce2540687ee8e98cf59b2a96c61b
+started_utc=2026-09-26T16:26:28Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/paths  (pass=158 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/store  (pass=837 fail=0 skip=4)
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=1465 fail=8 skip=1)
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping
+    FAIL TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered
+    FAIL TestSessionStartCompact_LiveRequestIsNotAReplay
+    FAIL TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+    FAIL TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+    FAIL TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+    FAIL TestSpoolWatch_DoesNothingWithoutAKick
+PASS      github.com/qompack/qompack/internal/ipc  (pass=144 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=371 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/tokens  (pass=120 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/contract  (pass=158 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=405 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/observer  (pass=454 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/obs  (pass=25 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/rehydrate  (pass=196 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/sketch  (pass=380 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/dag  (pass=171 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/internal/mcp  (pass=386 fail=1 skip=0)
+    FAIL TestBudgetBF
+PASS      github.com/qompack/qompack/internal/eval  (pass=407 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/testutil  (pass=40 fail=0 skip=0)
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-pkgs-final-c3e3519-20260926T162616Z-artifacts
+exit=1
+== gate exit=1: c3e3519 pkgs-final -- ./internal/paths ./internal/store ./internal/daemon ./internal/ipc ./internal/cli ./internal/tokens ./internal/contract ./internal/checkpoint ./internal/observer ./internal/obs ./internal/rehydrate ./internal/sketch ./internal/dag ./internal/mcp ./internal/eval ./internal/testutil
+DONE 16:55:56Z

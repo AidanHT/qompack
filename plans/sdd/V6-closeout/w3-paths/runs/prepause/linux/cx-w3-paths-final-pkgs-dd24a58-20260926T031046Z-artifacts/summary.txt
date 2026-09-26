@@ -1,0 +1,15 @@
+NO RESULT github.com/qompack/qompack/internal/store  (pass=193 fail=0 skip=0)
+NO RESULT github.com/qompack/qompack/internal/daemon  (pass=397 fail=1 skip=0)
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+PASS      github.com/qompack/qompack/internal/paths  (pass=149 fail=0 skip=19)
+PASS      github.com/qompack/qompack/internal/contract  (pass=158 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=405 fail=0 skip=0)
+NO RESULT github.com/qompack/qompack/internal/observer  (pass=197 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/obs  (pass=25 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/rehydrate  (pass=196 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/sketch  (pass=380 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/dag  (pass=171 fail=0 skip=0)
+NO RESULT github.com/qompack/qompack/internal/mcp  (pass=13 fail=0 skip=0)
+NO RESULT github.com/qompack/qompack/internal/negknow  (pass=0 fail=0 skip=0)
+NO RESULT github.com/qompack/qompack/internal/testutil  (pass=0 fail=0 skip=0)
+UNREPORTED (no package result): github.com/qompack/qompack/internal/store github.com/qompack/qompack/internal/daemon github.com/qompack/qompack/internal/observer github.com/qompack/qompack/internal/mcp github.com/qompack/qompack/internal/negknow github.com/qompack/qompack/internal/testutil

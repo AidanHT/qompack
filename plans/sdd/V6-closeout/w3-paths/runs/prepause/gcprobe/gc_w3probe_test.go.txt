@@ -1,0 +1,114 @@
+package store
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestW3Probe_GCPhaseCosts is a throwaway diagnostic (w3-paths item 3), never merged: it times, on
+// the overshoot test's own fixture, (A) the path the overshoot test prices its FirstCheck end from,
+// (B) GC() itself with an expired deadline, (C) GC()'s own sequence phase by phase, stopping at the
+// sweep's first check, and (D) an unbounded GC(), to find what the judged pass pays that (A) omits.
+func TestW3Probe_GCPhaseCosts(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	for i := 0; i < gcOvershootSeeds; i++ {
+		gcSeed(t, tp, fmt.Sprintf("src/f%04d.ts", i), fmt.Sprintf("overshoot body %d, unique\n", i))
+	}
+	cursor := filepath.Join(paths.Of(tp.Root).State, gcStateFile)
+	drop := func() { _ = os.Remove(paths.Long(cursor)) }
+	rows := map[string][]time.Duration{}
+	var order []string
+	add := func(k string, d time.Duration) {
+		if _, ok := rows[k]; !ok {
+			order = append(order, k)
+		}
+		rows[k] = append(rows[k], d)
+	}
+	const rounds = 6
+	for i := 0; i < rounds; i++ {
+		drop()
+		st := time.Now()
+		live, _, _, mt, err := tp.Store.mark(ctx, -1, -1, time.Time{})
+		require.NoError(t, err)
+		require.False(t, mt)
+		add("A1 mark", time.Since(st))
+		t0 := time.Now()
+		require.NoError(t, tp.Store.writeLiveSet(live))
+		add("A2 writeLiveSet", time.Since(t0))
+		var ra GCReport
+		t0 = time.Now()
+		_, tr, err := tp.Store.sweep(ctx, sweepArgs{live: live, dryRun: true, deadline: time.Now().Add(-time.Nanosecond), started: st, rep: &ra})
+		require.NoError(t, err)
+		require.True(t, tr)
+		add("A3 sweep to first check", time.Since(t0))
+		add("A  total = the test's FirstCheck sample", time.Since(st))
+
+		drop()
+		st = time.Now()
+		rb, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, DryRun: true, Deadline: time.Nanosecond})
+		require.NoError(t, err)
+		add("B  GC(Deadline 1ns) wall clock", time.Since(st))
+		add("B  GC(Deadline 1ns) rep.Duration", rb.Duration)
+		t.Logf("round %d: GC(1ns) scanned=%d truncated=%v expired=%d outcomes=%d", i, rb.ScannedObjects, rb.Truncated, rb.Expired, len(rb.Outcomes))
+
+		drop()
+		st = time.Now()
+		m, err := tp.Store.markPass(ctx, -1, -1, time.Time{})
+		require.NoError(t, err)
+		add("C1 markPass", time.Since(st))
+		var rc GCReport
+		oc := newOutcomeLog(GCPolicy{DryRun: true}, &rc)
+		t0 = time.Now()
+		tp.Store.applyQuota(&m, 0, &rc, oc)
+		add("C2 applyQuota", time.Since(t0))
+		t0 = time.Now()
+		tp.Store.recordOutcomes(&m, &rc, oc)
+		add("C3 recordOutcomes", time.Since(t0))
+		t0 = time.Now()
+		dg := liveDigest(m.liveChunks)
+		add("C4 liveDigest", time.Since(t0))
+		t0 = time.Now()
+		_ = tp.Store.writeLiveSet(m.liveChunks)
+		add("C5 writeLiveSet", time.Since(t0))
+		t0 = time.Now()
+		_, _ = tp.Store.loadGCState(dg)
+		add("C6 loadGCState", time.Since(t0))
+		t0 = time.Now()
+		cur, _, err := tp.Store.sweep(ctx, sweepArgs{live: m.liveChunks, dryRun: true, deadline: time.Now().Add(-time.Nanosecond), started: st, rep: &rc})
+		require.NoError(t, err)
+		add("C7 sweep to first check", time.Since(t0))
+		t0 = time.Now()
+		tp.Store.expirePendingMarkers(-1, true, &rc, oc)
+		add("C8 expirePendingMarkers", time.Since(t0))
+		t0 = time.Now()
+		require.NoError(t, tp.Store.saveGCState(dg, cur, rc))
+		add("C9 saveGCState (cursor write)", time.Since(t0))
+		add("C  total", time.Since(st))
+		t.Logf("round %d: dead=%d hard=%d soft=%d live=%d", i, len(m.deadRoots), len(m.hard), len(m.soft), len(m.liveChunks))
+
+		drop()
+		st = time.Now()
+		rd, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, DryRun: true})
+		require.NoError(t, err)
+		add("D  GC(unbounded) wall clock", time.Since(st))
+		add("D  GC(unbounded) rep.Duration", rd.Duration)
+	}
+	var b strings.Builder
+	for _, k := range order {
+		v := append([]time.Duration(nil), rows[k]...)
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+		fmt.Fprintf(&b, "\n%-42s min %-12v median %-12v max %-12v all %v", k, v[0], v[len(v)/2], v[len(v)-1], rows[k])
+	}
+	t.Logf("phase costs over %d rounds:%s", rounds, b.String())
+}

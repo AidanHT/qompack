@@ -1,0 +1,93 @@
+# runs/21 incident reproduced without the real home: TMP=TEMP=<fakehome>\tmp with an empty <fakehome>\.qompack above it
+# fakehome=C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome; base = git archive 54a4334, head = git archive 91db668; Windows, co-loaded
+## base-54a4334: go test ./internal/ipc ./internal/cli -count=1 -timeout=30m
+--- FAIL: TestServerCloseWithLiveConnection (1.01s)
+    server_test.go:286: Close did not return within 1s with a live, silent connection open
+--- FAIL: TestStateRoundTrip (0.03s)
+    state_test.go:34: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3/base-54a4334/internal/ipc/state_test.go:34
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\.qompack\tmp\wa-1712986408 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestStateRoundTrip1244859431\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateRoundTrip
+--- FAIL: TestStateBadCRCFallsBack (0.02s)
+    state_test.go:65: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3/base-54a4334/internal/ipc/state_test.go:65
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\.qompack\tmp\wa-3127215327 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestStateBadCRCFallsBack1789292531\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateBadCRCFallsBack
+--- FAIL: TestStateWriteIsAtomic (0.02s)
+    state_test.go:133: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3/base-54a4334/internal/ipc/state_test.go:133
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\.qompack\tmp\wa-2423668729 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestStateWriteIsAtomic600731290\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateWriteIsAtomic
+--- FAIL: TestRemoveState_IsIdempotent (0.02s)
+    state_test.go:183: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3/base-54a4334/internal/ipc/state_test.go:183
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\.qompack\tmp\wa-2165654071 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestRemoveState_IsIdempotent1363160082\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestRemoveState_IsIdempotent
+--- FAIL: TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk (0.02s)
+    state_test.go:271: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3/base-54a4334/internal/ipc/state_test.go:271
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\.qompack\tmp\wa-3349327646 \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk4076708839\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk
+        	Messages:   	the record every reader below must see has to be on disk before any of them starts
+--- FAIL: TestWriteStateLandsWhileAHookClientHoldsTheRecordOpen (0.02s)
+    state_contention_test.go:156: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3/base-54a4334/internal/ipc/state_contention_test.go:156
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\.qompack\tmp\wa-501016829 \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestWriteStateLandsWhileAHookClientHoldsTheRecordOpen4239668112\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestWriteStateLandsWhileAHookClientHoldsTheRecordOpen
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	20.922s
+--- FAIL: TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord (0.02s)
+    fault_test.go:302: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3/base-54a4334/internal/cli/fault_test.go:302
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\.qompack\tmp\wa-800446269 \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord3261195767\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord
+qompack: cannot write the project log for C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestHookLogger_FallsBackToTheUserLevelLogDirectory4114774836\001 (logging: New: open day log in C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestHookLogger_FallsBackToTheUserLevelLogDirectory4114774836\001\.qompack\logs: open \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestHookLogger_FallsBackToTheUserLevelLogDirectory4114774836\001\.qompack\logs\qompack-20260926.log: is a directory); degradation for this session is being recorded under C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestHookLogger_FallsBackToTheUserLevelLogDirectory4114774836\002\.qompack\logs instead
+--- FAIL: TestHooks_ModeOffShortCircuits (0.02s)
+    hooks_test.go:67: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3/base-54a4334/internal/cli/hooks_test.go:67
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\.qompack\tmp\wa-1359186789 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome\tmp\TestHooks_ModeOffShortCircuits1885146193\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestHooks_ModeOffShortCircuits
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	36.549s
+FAIL
+exit=1
+## head-91db668: go test ./internal/ipc ./internal/cli -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/ipc	25.832s
+ok  	github.com/qompack/qompack/internal/cli	30.643s
+exit=0
+## fakehome/.qompack after both runs:
+total 0
+drwxr-xr-x 1 Quant 197609 0 Sep 25 22:34 .
+drwxr-xr-x 1 Quant 197609 0 Sep 25 22:28 ..
+drwxr-xr-x 1 Quant 197609 0 Sep 25 22:34 tmp
+
+## head-91db668 again against a FRESH fake home (C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w3\fakehome2), so the listing after it is head's alone
+ok  	github.com/qompack/qompack/internal/ipc	34.788s
+ok  	github.com/qompack/qompack/internal/cli	33.896s
+exit=0
+## fakehome2/.qompack after head's run (find):
+.qompack
+## base-54a4334: TestServerCloseWithLiveConnection re-run alone x5 (it failed once above: 'Close did not return within 1s', a wall-clock row, not a rename)
+=== RUN   TestServerCloseWithLiveConnection
+    server_test.go:286: Close did not return within 1s with a live, silent connection open
+--- FAIL: TestServerCloseWithLiveConnection (1.02s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+=== RUN   TestServerCloseWithLiveConnection
+--- PASS: TestServerCloseWithLiveConnection (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	2.723s
+FAIL
+exit=1

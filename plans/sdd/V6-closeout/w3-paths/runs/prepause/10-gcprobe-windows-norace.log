@@ -1,0 +1,37 @@
+# go test ./internal/store -run '^TestW3Probe_GCPhaseCosts$' -count=1 -v at c02b67b (throwaway probe commit on local branch w3-paths-gcprobe; source in gcprobe/), Windows, no -race, co-loaded
+=== RUN   TestW3Probe_GCPhaseCosts
+    gc_w3probe_test.go:63: round 0: GC(1ns) scanned=255 truncated=true expired=3072 outcomes=1024
+    gc_w3probe_test.go:98: round 0: dead=3072 hard=0 soft=0 live=0
+    gc_w3probe_test.go:63: round 1: GC(1ns) scanned=255 truncated=true expired=3072 outcomes=1024
+    gc_w3probe_test.go:98: round 1: dead=3072 hard=0 soft=0 live=0
+    gc_w3probe_test.go:63: round 2: GC(1ns) scanned=255 truncated=true expired=3072 outcomes=1024
+    gc_w3probe_test.go:98: round 2: dead=3072 hard=0 soft=0 live=0
+    gc_w3probe_test.go:63: round 3: GC(1ns) scanned=255 truncated=true expired=3072 outcomes=1024
+    gc_w3probe_test.go:98: round 3: dead=3072 hard=0 soft=0 live=0
+    gc_w3probe_test.go:63: round 4: GC(1ns) scanned=255 truncated=true expired=3072 outcomes=1024
+    gc_w3probe_test.go:98: round 4: dead=3072 hard=0 soft=0 live=0
+    gc_w3probe_test.go:63: round 5: GC(1ns) scanned=255 truncated=true expired=3072 outcomes=1024
+    gc_w3probe_test.go:98: round 5: dead=3072 hard=0 soft=0 live=0
+    gc_w3probe_test.go:113: phase costs over 6 rounds:
+        A1 mark                                    min 3.4154ms     median 5.2018ms     max 5.9013ms     all [5.2018ms 5.0689ms 3.4154ms 5.9013ms 5.6117ms 4.5141ms]
+        A2 writeLiveSet                            min 4.373ms      median 6.7045ms     max 7.1357ms     all [4.9947ms 6.7424ms 5.467ms 6.7045ms 7.1357ms 4.373ms]
+        A3 sweep to first check                    min 34.4447ms    median 41.6745ms    max 54.6779ms    all [36.7608ms 54.6779ms 37.7524ms 34.4447ms 41.6745ms 54.2933ms]
+        A  total = the test's FirstCheck sample    min 46.6348ms    median 54.4219ms    max 66.4892ms    all [46.9573ms 66.4892ms 46.6348ms 47.0505ms 54.4219ms 63.1804ms]
+        B  GC(Deadline 1ns) wall clock             min 70.785ms     median 110.0661ms   max 117.6144ms   all [108.0216ms 114.3984ms 117.6144ms 70.785ms 93.7454ms 110.0661ms]
+        B  GC(Deadline 1ns) rep.Duration           min 64.1253ms    median 89.8787ms    max 110.3663ms   all [78.0178ms 101.8228ms 110.3663ms 64.1253ms 85.3916ms 89.8787ms]
+        C1 markPass                                min 3.4447ms     median 7.7628ms     max 23.6376ms    all [23.6376ms 9.0275ms 7.7628ms 3.4447ms 4.4506ms 7.7122ms]
+        C2 applyQuota                              min 0s           median 0s           max 0s           all [0s 0s 0s 0s 0s 0s]
+        C3 recordOutcomes                          min 20.3098ms    median 28.8331ms    max 81.0602ms    all [81.0602ms 23.7888ms 28.8331ms 26.5728ms 20.3098ms 33.5889ms]
+        C4 liveDigest                              min 0s           median 0s           max 0s           all [0s 0s 0s 0s 0s 0s]
+        C5 writeLiveSet                            min 4.4708ms     median 6.7507ms     max 9.8194ms     all [4.4708ms 9.8194ms 6.7507ms 7.6429ms 5.5973ms 5.8582ms]
+        C6 loadGCState                             min 0s           median 0s           max 554.4µs      all [0s 0s 0s 0s 0s 554.4µs]
+        C7 sweep to first check                    min 35.7845ms    median 55.4427ms    max 70.2686ms    all [70.2686ms 55.4427ms 43.7692ms 39.0858ms 55.4429ms 35.7845ms]
+        C8 expirePendingMarkers                    min 0s           median 0s           max 665.9µs      all [0s 0s 665.9µs 0s 0s 0s]
+        C9 saveGCState (cursor write)              min 6.7995ms     median 8.3078ms     max 8.592ms      all [8.592ms 7.5322ms 7.8976ms 6.7995ms 8.3078ms 8.5517ms]
+        C  total                                   min 83.5457ms    median 95.6793ms    max 188.0292ms   all [188.0292ms 105.6106ms 95.6793ms 83.5457ms 94.1084ms 92.0499ms]
+        D  GC(unbounded) wall clock                min 418.2401ms   median 634.0036ms   max 2.2209172s   all [2.2209172s 634.0036ms 600.6704ms 719.2615ms 633.416ms 418.2401ms]
+        D  GC(unbounded) rep.Duration              min 418.2401ms   median 634.0036ms   max 2.2209172s   all [2.2209172s 634.0036ms 600.6704ms 719.2615ms 633.416ms 418.2401ms]
+--- PASS: TestW3Probe_GCPhaseCosts (65.52s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	65.796s
+exit=0

@@ -1,0 +1,21 @@
+# RED: two new internal/paths rows against the draft ownership walk (HEAD 80deba0 = dd24a58 + merge of 6aff949; new test file edits only, code unchanged), Windows, co-loaded
+# go test ./internal/paths -run '^(TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt|TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself)$' -count=1 -v
+=== RUN   TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt
+    atomic_owner_test.go:228: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:228
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt
+--- FAIL: TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt (0.04s)
+=== RUN   TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself
+    atomic_owner_test.go:253: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:253
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBe3783447940\001\.qompack\tmp\wa-2607035531 C:\Users\Quant\AppData\Local\Temp\TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBe3783447940\001\.qompack\eval\replay\project\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself
+--- FAIL: TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.761s
+FAIL
+exit=1

@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-pkgs-final-c3e3519-20260926T162616Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=dc984edf43341f7204f95574f525279dda57ce2540687ee8e98cf59b2a96c61b
+host_started_utc=2026-09-26T16:26:24Z
+inner_args=-- ./internal/paths ./internal/store ./internal/daemon ./internal/ipc ./internal/cli ./internal/tokens ./internal/contract ./internal/checkpoint ./internal/observer ./internal/obs ./internal/rehydrate ./internal/sketch ./internal/dag ./internal/mcp ./internal/eval ./internal/testutil
+host_finished_utc=2026-09-26T16:55:51Z
+container_exit=1

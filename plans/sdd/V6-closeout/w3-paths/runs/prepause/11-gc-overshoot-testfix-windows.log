@@ -1,0 +1,13 @@
+# TestGC_DeadlineOvershootIsBoundedByTheCheckInterval alone, Windows, test fix uncommitted on 4355fe3, co-loaded machine (no QOMPACK_UNDER_COLOAD)
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1503: calibration 362.4348ms…409.5461ms over 3072 objects (fastest of 4); first check 67.2233ms (measured 67.2233ms); window 5.39x, slack 2.32x; check interval 35.440896ms; budget 156.08992ms; overshoot 20.97658ms after 1279 objects on attempt 1 of 5; limit 70.881792ms
+--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (75.35s)
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1503: calibration 337.1024ms…493.0725ms over 3072 objects (fastest of 4); first check 73.5867ms (measured 73.5867ms); window 4.58x, slack 2.14x; check interval 35.588864ms; budget 157.50001ms; overshoot 20.30619ms after 1279 objects on attempt 1 of 5; limit 71.177728ms
+--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (65.15s)
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1503: calibration 288.8985ms…307.3265ms over 3072 objects (fastest of 4); first check 59.6466ms (measured 59.6466ms); window 4.84x, slack 2.20x; check interval 80.078592ms; budget 131.270001ms; overshoot 28.574499ms after 511 objects on attempt 1 of 5; limit 160.157184ms
+--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (65.67s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	206.423s
+exit=0

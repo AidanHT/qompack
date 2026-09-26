@@ -1,0 +1,19 @@
+#!/bin/sh
+# w3-paths: Linux (non-root, -race, GOMAXPROCS=4) evidence at the final HEAD, run sequentially.
+cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths || exit 2
+G=plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh
+O=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux
+LOG=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/linux-final.log
+REV=$1
+mkdir -p "$O"
+run() {
+	t=$(date -u +%H:%M:%SZ)
+	echo "== $t start: $*" >> "$LOG"
+	sh "$G" --prefix cx-w3-paths --out "$O" "$@" >> "$LOG" 2>&1
+	rc=$?
+	echo "== gate exit=$rc: $*" >> "$LOG"
+}
+run "$REV" gc-overshoot-alone-final --run '^(TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestGCHashOrder_IsTheTextOrder|TestRecordOutcomes_SortingAllocatesNothingPerComparison)$' --count 5 -- ./internal/store
+run "$REV" drain-replayed-flush-final --run '^TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget$' --count 5 -- ./internal/daemon
+run "$REV" pkgs-final -- ./internal/paths ./internal/store ./internal/daemon ./internal/ipc ./internal/cli ./internal/tokens ./internal/contract ./internal/checkpoint ./internal/observer ./internal/obs ./internal/rehydrate ./internal/sketch ./internal/dag ./internal/mcp ./internal/eval ./internal/testutil
+echo "DONE $(date -u +%H:%M:%SZ)" >> "$LOG"
