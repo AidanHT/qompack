@@ -25,9 +25,17 @@ start; hosted-runner fsync figures never become constants.
 | D6 | Rollover residuals **accepted and documented**: a bounded rotation pause of 2.3–6.8 s every 65,536 deliveries (hooks fall back to the durable spool), and GC halts safely once the carry passes 65,536 unacknowledged archived leases. Both get a loud diagnostic and counter, a Warn before the first rotation recommends a backup to keep a downgrade path, and incremental archiving is deferred past the release | C1.10 closes with these residuals documented |
 | D7 | V6-HOST-1 **closes with the residual documented**: saved-settings Read deny/ask rules are honoured and fail closed. Session-only rules, CLI flags and hook policies stay invisible to a plugin. This supersedes the older rejection of settings parsing (authority-review.md §6) | C1.9 |
 | D8 | Config: an unappliable `runtime.redact` or `runtime.mode` **fails closed** (stops recording, reported loudly); every other invalid key still falls back and warns | C1.8; docs state the exception |
+| D9 | (2026-09-25) Compact SessionStart: a **5 s bound** on the daemon's wait for the rehydration (`compactAnswerBudget`, one third of the 15 s manifest timeout) and an explicit **"rehydration deferred" note** instead of `{}` when it is late, the daemon is stopping, or the daemon never answers | C1.16 (`closeout/w2-lifetime`) |
+| D10 | (2026-09-25) C1.17 policy: on Windows the daemon runs from a SHA-256-verified, read-only **staged copy** under `~/.qompack/bin/<sha256>/`, only when the hook runs from inside the plugin root. Idle exit is unchanged | C1.17; the uninstall docs must cover the staged copies |
+| D11 | (2026-09-25) An unreadable checkpoint store or a failed rehydration build also answers with the deferred note, never silence | follow-up to C1.16 (wave 3) |
+| D12 | (2026-09-25) Live eval: the weak task checks in `tool-output-recall` and `seed-recall` (only `go vet`, which the untouched fixture passes) are **fixed before any confirmatory trial**, under a new task-set id and hash with a logged amendment | C5.5 (wave 3) |
 
 Defaults taken without a separate question (owner may overrule): C1.9 host deny-rule honoring;
-C7.2 hosted runners report-only for fsync-bound rows (Q1 third option).
+C7.2 hosted runners report-only for fsync-bound rows (Q1 third option); pre-registration amendments
+A2–A4 (appended by `w2-eval2` before any confirmatory trial) accepted; `qompack eval` reports the
+pre-registered intention-to-treat decision (failed trials already counted as failures) and lists the
+failed trials, rather than forcing "inconclusive"; `test/fault`'s two slow absence waits stay
+as they are (test time only; no hook is slow).
 
 **Routing.** On 2026-09-22 the user asked for parallel "ultracode" workflow subagents. Children
 therefore run as workflow subagents inheriting the coordinator's model (Opus 5.5), not the
