@@ -1,6 +1,6 @@
 """Render a workstream report from a workflow journal.
 
-usage: python wfreport.py <journal.jsonl> <ws> <run-id> <title> <out.md>
+usage: python wfreport.py <journal.jsonl> <ws> <run-id> <title> <out.md> [branch]
 """
 import json
 import os
@@ -18,7 +18,7 @@ for line in open(journal, encoding="utf-8"):
 
 by = {}
 for aid, lab in labels.items():
-    if aid in results and (lab == f"impl:{ws}" or lab == f"fix:{ws}" or lab.startswith(f"review:{ws}:") or lab == f"review:{ws}"):
+    if aid in results and (lab == f"impl:{ws}" or lab == f"fix:{ws}" or lab.startswith(f"review:{ws}:") or lab == f"review:{ws}" or lab == f"verify:{ws}"):
         by.setdefault(lab.split(":")[0], []).append((lab, results[aid]))
 
 L = [f"# {title}", "",
@@ -67,6 +67,17 @@ for lab, r in by.get("fix", []):
     result_block("Fix seat (review resolution)", r)
 if not by.get("fix"):
     L.extend(["## Fix seat", "", "Not run: the reviews returned no actionable (non-nit) findings.", ""])
+for lab, r in by.get("verify", []):
+    if not isinstance(r, dict):
+        continue
+    L.extend([f"## Independent verification of the fix seat: {r.get('verdict')}", ""])
+    if not r.get("findings"):
+        L.extend(["Every non-nit review finding was resolved or soundly rebutted; nothing new was introduced.", ""])
+    for f in r.get("findings", []):
+        L.append(f"- **{f['severity']}** `{f['location']}` — {f['issue']}")
+        L.append(f"  - Evidence: {f['evidence']}")
+        L.append(f"  - Fix: {f['fix']}")
+    L.append("")
 
 os.makedirs(os.path.dirname(out), exist_ok=True)
 with open(out, "w", encoding="utf-8", newline="\n") as fh:
