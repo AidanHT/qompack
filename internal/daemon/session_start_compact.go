@@ -52,7 +52,8 @@ import (
 // spool by the drain (drainDispatch): the client spools a request no answer reached in time — the
 // daemon unreachable, or its reply past the client's deadline — after the hook has already answered
 // without it, with the client's own deferred note (DeferredNoAnswer) or {}. Whatever the replay
-// builds therefore never reaches the model. The replay still runs the route's side effects and the
+// builds therefore never reaches the model, and the route puts nothing into a replay's answer — no
+// note, no §12.1 probe (handleSessionStart). The replay still runs the route's side effects and the
 // rehydration, but abandons the rehydration's ticket before it starts, so the drop report is
 // recorded as undelivered, and says why (undeliveredReplayed). That also replaces the report a late
 // live answer left behind, which described as delivered a rehydration the client had given up on.
@@ -453,9 +454,10 @@ func (d *daemon) awaitCompactAnswer(ctx context.Context, a *compactAnswer) hooki
 	defer d.observePhase(histSessionStartCompactWait, start)
 
 	if a.replayed {
-		// Nobody waits for a replay's answer, and the hook it came from already answered: this is
-		// what that hook's client said, not a deferral the daemon made, so it is not counted.
-		return compactDeferredOutput(a.sess, DeferredNoAnswer)
+		// Nobody waits for a replay's answer, and the hook it came from already answered without it,
+		// so there is nothing to answer with: handleSessionStart puts nothing into a replay's answer.
+		// It is not a deferral the daemon made, so it is not counted either.
+		return hookio.Empty()
 	}
 	if !a.started {
 		return d.deferCompactAnswer(a, DeferredStopping)
