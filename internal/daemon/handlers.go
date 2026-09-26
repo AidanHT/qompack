@@ -708,8 +708,11 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // looked for. A find always counts, because a transcript that holds the sentinel is evidence of its
 // delivery whichever prompt read it.
 //
-// promptTS is the prompt hook's own first-statement time (ipc.Request.TS).
-func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli) {
+// promptTS is the prompt hook's own first-statement time (ipc.Request.TS), and nonce its delivery
+// nonce (ipc.Request.Nonce): the same for every copy of one delivery, so a delivery the daemon handles
+// more than once — a retry after a capture that failed, a redelivery after a restart — is one chance
+// (contract.SessionHistory.RecordSentinelScanOf), not one per attempt.
+func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli, nonce string) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 
@@ -721,7 +724,7 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli
 	if !found && !sentinelMissCounts(h.Sentinel, ev.SessionID, promptTS) {
 		return
 	}
-	h.RecordSentinelScan(found)
+	h.RecordSentinelScanOf(found, nonce)
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history after sentinel scan", "err", err)
 	}
@@ -897,11 +900,13 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 			// proven itself (contract/history.go), so a session.start that mints a fresh token must
 			// leave it exactly as RecordSentinelScan last left it (fix round 1, I-2). Chances DOES
 			// reset to 0 here, deliberately: it counts consecutive scans that missed THIS token, and a
-			// freshly minted token has had zero chances to be found yet.
+			// freshly minted token has had zero chances to be found yet — and so does MissedBy, the
+			// deliveries those chances were spent by.
 			h.Sentinel.Token = s.Token
 			h.Sentinel.Session = ev.SessionID
 			h.Sentinel.MintedAt = now
 			h.Sentinel.Chances = 0
+			h.Sentinel.MissedBy = nil
 			if out.HookSpecificOutput == nil {
 				out.HookSpecificOutput = &hookio.HSO{HookEventName: hookEventNameSessionStart}
 			}
@@ -958,6 +963,7 @@ func (d *daemon) withdrawLostStartAnswer(h *contract.SessionHistory, nonce strin
 	d.lastStartAnswer = startAnswer{}
 	if lost.token != "" && h.Sentinel.Token == lost.token {
 		h.Sentinel.Token, h.Sentinel.Session, h.Sentinel.MintedAt, h.Sentinel.Chances = "", "", 0, 0
+		h.Sentinel.MissedBy = nil
 	}
 	if lost.banner {
 		d.modeMu.Lock()
