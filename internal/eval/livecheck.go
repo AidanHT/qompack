@@ -7,7 +7,6 @@ package eval
 // driver (this package does not start processes) and handed back as CommandOutcome values.
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -17,6 +16,7 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -263,11 +263,13 @@ func describeReadErr(p string, err error) string {
 	return fmt.Sprintf("%s unreadable: %v", p, err)
 }
 
+// nonEmptyLines counts the lines of data that hold anything but whitespace. It splits the bytes
+// itself rather than using a bufio.Scanner, whose token limit would stop the count at the first
+// line longer than 64 KiB and under-count a file the grader has already bounded by size.
 func nonEmptyLines(data []byte) int {
 	n := 0
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	for sc.Scan() {
-		if strings.TrimSpace(sc.Text()) != "" {
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) > 0 {
 			n++
 		}
 	}
@@ -278,3 +280,56 @@ func nonEmptyLines(data []byte) int {
 const clipRunes = 160
 
 func clip(s string) string { return boundRunes(s, clipRunes) }
+
+// TreeManifestSHA256 hashes the regular files under each of dirs (slash paths relative to root) the
+// way `find <dirs> -type f | LC_ALL=C sort | xargs sha256sum | sha256sum` does with GNU coreutils in
+// text mode: one "<sha256>  <path>\n" line per file, paths relative to root and in byte order, and
+// the SHA-256 of that manifest. It is the fixture tree's identity in a run's plan and in the
+// pre-registration, and it is deliberately independent of the platform and the locale — a
+// manifest sorted by a locale's collation, or written with sha256sum's binary-mode "*" marker,
+// hashes differently for the same bytes. A directory that does not exist, or that is not beneath
+// root, is an error, not an empty tree.
+func TreeManifestSHA256(root string, dirs ...string) (string, error) {
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return "", fmt.Errorf("eval: opening %s: %w", root, err)
+	}
+	defer func() { _ = r.Close() }()
+	type entry struct{ path, sum string }
+	var entries []entry
+	for _, dir := range dirs {
+		if err := cleanRelative(dir); err != nil {
+			return "", fmt.Errorf("eval: tree manifest directory: %w", err)
+		}
+		info, err := r.Stat(dir)
+		if err != nil {
+			return "", fmt.Errorf("eval: tree manifest directory %s: %w", dir, err)
+		}
+		if !info.IsDir() {
+			return "", fmt.Errorf("eval: tree manifest directory %s is not a directory", dir)
+		}
+		err = fs.WalkDir(r.FS(), dir, func(p string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if !d.Type().IsRegular() {
+				return nil
+			}
+			sum, herr := hashRootFile(r, p)
+			if herr != nil {
+				return herr
+			}
+			entries = append(entries, entry{path: p, sum: sum})
+			return nil
+		})
+		if err != nil {
+			return "", fmt.Errorf("eval: hashing %s: %w", dir, err)
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].path < entries[j].path })
+	h := sha256.New()
+	for _, e := range entries {
+		_, _ = io.WriteString(h, e.sum+"  "+e.path+"\n")
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}

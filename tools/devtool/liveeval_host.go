@@ -28,10 +28,13 @@ import (
 
 // liveProcSpec is one host session to run.
 type liveProcSpec struct {
-	Bin            string        `json:"bin"`
-	Args           []string      `json:"args"`
-	Dir            string        `json:"dir"`
-	Env            []string      `json:"env"`
+	Bin  string   `json:"bin"`
+	Args []string `json:"args"`
+	Dir  string   `json:"dir"`
+	Env  []string `json:"env"`
+	// Unset names the inherited environment variables removed before the host starts. Only the
+	// names are recorded: an operator's environment is never written into a trial record.
+	Unset          []string      `json:"unset,omitempty"`
 	Messages       []string      `json:"messages"`
 	StepTimeout    time.Duration `json:"step_timeout"`
 	SessionTimeout time.Duration `json:"session_timeout"`
@@ -65,7 +68,10 @@ func (r liveCLIResult) combined() string {
 type liveEnv struct {
 	claudeBin string
 	// home is the Claude Code configuration directory: CLAUDE_CONFIG_DIR, else ~/.claude.
-	home       string
+	home string
+	// workRoot is where each trial's disposable work directory (its project, and the marketplace
+	// copy of the bundle) is made: "" for the system temporary directory.
+	workRoot   string
 	now        func() time.Time
 	run        func(ctx context.Context, spec liveProcSpec) liveProcResult
 	cli        func(ctx context.Context, dir string, args ...string) liveCLIResult
@@ -118,7 +124,7 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	defer cancel()
 	cmd := exec.CommandContext(sctx, spec.Bin, spec.Args...)
 	cmd.Dir = spec.Dir
-	cmd.Env = append(os.Environ(), spec.Env...)
+	cmd.Env = liveProcessEnv(os.Environ(), spec)
 	cmd.WaitDelay = liveExitGrace
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -222,6 +228,56 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	res.Stderr = stderr.Bytes()
 	res.EndedAt = time.Now()
 	return res
+}
+
+// liveInheritedPrefix is the prefix of the environment variables Qompack reads its configuration
+// and kill switches from (QOMPACK_RUNTIME__MODE, say). A session must not inherit the operator's.
+const liveInheritedPrefix = "QOMPACK_"
+
+// liveUnsetNames names, sorted, every variable of base that a session must not inherit: each
+// QOMPACK_* variable the driver does not set itself. The host passes its environment to every hook
+// and to the trial daemon, so an inherited one would change the plugin under test on the qompack arm
+// alone and the arms would differ by more than the plugin.
+func liveUnsetNames(base, set []string) []string {
+	own := map[string]bool{}
+	for _, kv := range set {
+		name, _, _ := strings.Cut(kv, "=")
+		own[strings.ToUpper(name)] = true
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, kv := range base {
+		name, _, _ := strings.Cut(kv, "=")
+		upper := strings.ToUpper(name)
+		if strings.HasPrefix(upper, liveInheritedPrefix) && !own[upper] && !seen[upper] {
+			seen[upper] = true
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// liveProcessEnv is the environment a session starts with: base without the variables spec.Unset
+// names or spec.Env sets (compared case-insensitively, as Windows does), then spec.Env, so each
+// variable appears once with the driver's value.
+func liveProcessEnv(base []string, spec liveProcSpec) []string {
+	drop := map[string]bool{}
+	for _, name := range spec.Unset {
+		drop[strings.ToUpper(name)] = true
+	}
+	for _, kv := range spec.Env {
+		name, _, _ := strings.Cut(kv, "=")
+		drop[strings.ToUpper(name)] = true
+	}
+	out := make([]string, 0, len(base)+len(spec.Env))
+	for _, kv := range base {
+		name, _, _ := strings.Cut(kv, "=")
+		if !drop[strings.ToUpper(name)] {
+			out = append(out, kv)
+		}
+	}
+	return append(out, spec.Env...)
 }
 
 // waitForResults waits until at least want result lines have arrived. It returns "" when they
@@ -461,7 +517,8 @@ func (e *liveEnv) readTranscript(requested, reported string) (string, eval.HostT
 
 // liveGuardSnap fingerprints the operator's Claude Code configuration files a trial could touch:
 // user settings, the installed-plugin and known-marketplace registries (hashed), and the presence
-// of every plugin data, cache or marketplace directory a Qompack trial could create. Host
+// of every plugins/{cache,marketplaces,data}/qompack* directory, whichever name a Qompack trial's
+// copy would be filed under. Host
 // bookkeeping every session rewrites — ~/.claude.json, projects/, the plugin catalog cache and the
 // .in_use markers — is deliberately not guarded: any Claude Code session changes those, including
 // the other sessions sharing this machine, and guarding them would fail every run for a change
@@ -496,15 +553,20 @@ var liveGuardedFiles = []string{
 	"plugins/known_marketplaces.json",
 }
 
+// liveGuardedStores are the three plugin stores under <home>/plugins in which a trial could leave a
+// Qompack directory behind: the installed-plugin cache, the marketplace clones and the per-plugin
+// data directories. Every entry of each whose name starts with livePluginName is guarded, the
+// disposable marketplace's own name (liveMarketplaceName) included.
+var liveGuardedStores = []string{"cache", "marketplaces", "data"}
+
 func (e *liveEnv) liveGuardedDirs() []string {
-	dirs := []string{
-		"plugins/cache/" + liveMarketplaceName,
-		"plugins/marketplaces/" + liveMarketplaceName,
-	}
-	entries, _ := os.ReadDir(filepath.Join(e.home, "plugins", "data"))
-	for _, d := range entries {
-		if strings.HasPrefix(d.Name(), livePluginName) {
-			dirs = append(dirs, "plugins/data/"+d.Name())
+	var dirs []string
+	for _, store := range liveGuardedStores {
+		entries, _ := os.ReadDir(filepath.Join(e.home, "plugins", store))
+		for _, d := range entries {
+			if strings.HasPrefix(d.Name(), livePluginName) {
+				dirs = append(dirs, "plugins/"+store+"/"+d.Name())
+			}
 		}
 	}
 	return dirs

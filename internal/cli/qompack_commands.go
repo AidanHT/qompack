@@ -85,6 +85,11 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 	deps := commands.Deps{Clock: clk, Cfg: config.Defaults()}
 
 	root := resolveProjectRoot(env, nil)
+	// The eval command reads a completed evaluation's artifacts from disk — the newest
+	// `devtool live-eval` run under dist/live-eval and the replay report at
+	// testdata/bench-replay.json, or whatever --corpus names — and never runs a harness. It needs
+	// no project layout, so it is bound before the early return below.
+	deps.EvalArtifacts = commands.FileEvalArtifacts(root)
 	if root == "" {
 		return deps, noop
 	}
@@ -130,9 +135,8 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 	deps.MCP = buildCommandMCPProxy(deps.Cfg, client, log)
 	deps.Status = commandStatusSources(ctx, root, client)
 
-	// CheckpointNow and EvalArtifacts are deliberately left nil. There is no local-seal route
-	// (H3), and no committed convention for where a completed evaluation's artifacts live, so both
-	// commands report unavailable rather than this file inventing one.
+	// CheckpointNow is deliberately left nil: there is no local-seal route (H3), so the checkpoint
+	// command reports unavailable rather than this file inventing one.
 
 	return deps, func() {
 		_ = client.Close()

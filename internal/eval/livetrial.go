@@ -23,6 +23,10 @@ const (
 	ArmQompack = "qompack"
 )
 
+// LiveQompackToolPrefix begins the name the host gives every tool of the Qompack plugin's own MCP
+// server ("mcp__plugin_qompack_qompack__recall", say).
+const LiveQompackToolPrefix = "mcp__plugin_qompack_qompack__"
+
 // LiveTrial is one trial's record.
 type LiveTrial struct {
 	Schema   int    `json:"schema"`
@@ -49,9 +53,13 @@ type LiveTrial struct {
 	Completed bool `json:"completed"`
 	// PluginExpected and PluginLoaded are the arm's intent and what the host reported. A qompack
 	// trial whose plugin did not load is not a qompack trial, and the summary says so.
-	PluginExpected bool              `json:"plugin_expected"`
-	PluginLoaded   bool              `json:"plugin_loaded"`
-	Checks         []LiveCheckResult `json:"checks"`
+	PluginExpected bool `json:"plugin_expected"`
+	PluginLoaded   bool `json:"plugin_loaded"`
+	// HostReportedPlugins reports that the host printed its start-up line listing the plugins it
+	// loaded. Only then does the trial have a plugin state that can contradict its arm; a trial
+	// whose host never got that far is a harness failure, not a plugin mismatch.
+	HostReportedPlugins bool              `json:"host_reported_plugins"`
+	Checks              []LiveCheckResult `json:"checks"`
 	// TaskSuccess is every task check passing. An incomplete trial is graded on whatever state it
 	// left, and counts in the denominator.
 	TaskSuccess bool `json:"task_success"`
@@ -87,9 +95,15 @@ type LiveTrial struct {
 	Plugin *LivePluginIdentity `json:"plugin,omitempty"`
 	// HomeGuard is the operator-configuration guard's verdict around this trial.
 	HomeGuard *LiveHomeGuard `json:"home_guard,omitempty"`
-	// PreregisteredModel reports whether Model is the task set's pre-registered model.
-	PreregisteredModel bool     `json:"preregistered_model"`
-	Notes              []string `json:"notes,omitempty"`
+	// ForeignPlugins names every non-builtin plugin the host loaded beyond the arm's own (on the
+	// stock arm, every non-builtin plugin). Both arms are meant to run with nothing else.
+	ForeignPlugins []string `json:"foreign_plugins,omitempty"`
+	// PreregisteredModel reports whether Model is the task set's pre-registered model, or the one
+	// alias its pre-registration permits in that model's place (section 3's contingency).
+	PreregisteredModel bool `json:"preregistered_model"`
+	// HostModel is the model the host reported at start-up (its init line): what Model resolved to.
+	HostModel string   `json:"host_model,omitempty"`
+	Notes     []string `json:"notes,omitempty"`
 }
 
 // LiveQompackEvidence is what a qompack-arm trial shows the plugin did.
@@ -124,6 +138,11 @@ type LivePluginIdentity struct {
 	BundleSHA256 string `json:"bundle_json_sha256"`
 	// HostVersion is the plugin version the host reported loading.
 	HostVersion string `json:"host_version,omitempty"`
+	// HostSource and HostPath are where the host said it loaded the plugin from: the source must be
+	// the arm's own install ("qompack@inline" for --plugin-dir, "qompack@<marketplace>" for the
+	// marketplace flow) for the trial to count as having its plugin.
+	HostSource string `json:"host_source,omitempty"`
+	HostPath   string `json:"host_path,omitempty"`
 }
 
 // LiveHomeGuard is the verdict of the guard over the operator's real Claude Code configuration.
@@ -142,6 +161,12 @@ type LiveHomeGuard struct {
 // ToolUsesAfterSteps maps every compaction step of task that the session reached to every tool
 // call made in the turns after it, subagents' included: a fact re-derived by a subagent was not
 // recovered either. A compaction step the stream never produced a result for is absent.
+//
+// Calls to the Qompack plugin's own MCP tools (LiveQompackToolPrefix) are left out. They look up
+// what the plugin archived before the compaction — they run no program and read no file from disk —
+// so a lookup is the recovery a tool_not_used_after check asks for, not the re-derivation it
+// forbids, and only the qompack arm has such tools to be penalised for (preregistration amendment
+// A3). Every other tool, a Bash run of the same command included, still counts.
 func ToolUsesAfterSteps(task LiveTask, s HostStream) map[string][]HostToolUse {
 	out := map[string][]HostToolUse{}
 	for i, step := range task.Steps {
@@ -151,7 +176,11 @@ func ToolUsesAfterSteps(task LiveTask, s HostStream) map[string][]HostToolUse {
 		uses := []HostToolUse{}
 		for _, t := range s.Turns[i+1:] {
 			for _, r := range t.Requests {
-				uses = append(uses, r.ToolUses...)
+				for _, u := range r.ToolUses {
+					if !strings.HasPrefix(u.Name, LiveQompackToolPrefix) {
+						uses = append(uses, u)
+					}
+				}
 			}
 		}
 		out[step.ID] = uses
@@ -281,6 +310,34 @@ func (t *LiveTrial) ApplyGrades(results []LiveCheckResult) {
 	}
 }
 
+// ApplyHarnessFailure scores a trial the harness could not run as designed — HarnessError is set —
+// as a failure on every pre-registered outcome (preregistration §8, intention to treat): not a task
+// success, not complete, and, when the task declares recovery checks, not recovered, so the trial
+// stays in the recovery denominator even when nothing was graded. It does nothing to a trial with no
+// harness error. SummarizeLive applies the same rule to task success and constraint-cleanness on its
+// own; this is what puts a never-graded trial into the recovery denominator.
+func (t *LiveTrial) ApplyHarnessFailure(task LiveTask) {
+	if t.HarnessError == "" {
+		return
+	}
+	t.TaskSuccess = false
+	t.Completed = false
+	for _, c := range task.Checks {
+		if c.Outcome == OutcomeRecovery {
+			failed := false
+			t.Recovered = &failed
+			break
+		}
+	}
+}
+
+// pluginMismatch reports that the host's own list of loaded plugins contradicted the arm: the
+// arm's plugin absent on a qompack trial, or present on a stock trial. A trial whose host never
+// reported its plugins has no such list and is not a mismatch; its harness error scores it.
+func (t LiveTrial) pluginMismatch() bool {
+	return t.HostReportedPlugins && t.PluginExpected != t.PluginLoaded
+}
+
 // ── summary ─────────────────────────────────────────────────────────────────────────────────────
 
 // Proportion is k successes of n with a Wilson score interval.
@@ -319,19 +376,48 @@ type ArmSummary struct {
 	MeanHostCost   float64     `json:"mean_host_cost_usd"`
 	MeanEstimateMc int64       `json:"mean_estimate_micros"`
 	// EstimateIncomplete counts trials whose estimate is a lower bound.
-	EstimateIncomplete int     `json:"estimate_incomplete"`
-	MeanWallMS         int64   `json:"mean_wall_ms"`
-	MeanStoreBytes     int64   `json:"mean_store_bytes,omitempty"`
-	HookP50MS          float64 `json:"hook_p50_ms,omitempty"`
-	HookP95MS          float64 `json:"hook_p95_ms,omitempty"`
+	EstimateIncomplete int   `json:"estimate_incomplete"`
+	MeanWallMS         int64 `json:"mean_wall_ms"`
+	MeanStoreBytes     int64 `json:"mean_store_bytes,omitempty"`
+	// HookP50MS and HookP95MS pool the pipe-observed latency of every hook (hook_started to
+	// hook_response as the driver received them): an approximation, kept for continuity. The
+	// pre-registered measure is HostHookMS.
+	HookP50MS float64 `json:"hook_p50_ms,omitempty"`
+	HookP95MS float64 `json:"hook_p95_ms,omitempty"`
+	// HostHookMS is, per hook name, the durations the host itself measured and recorded in its
+	// transcript (durationMs), over every trial of the arm: preregistration section 6's hook latency.
+	HostHookMS map[string]HookLatency `json:"host_hook_ms,omitempty"`
 	// HookProblemTrials counts trials whose host reported at least one hook failure.
 	HookProblemTrials int `json:"hook_problem_trials"`
+	// AccountInconsistent counts trials whose usage account broke one of its own rules
+	// (SessionAccount.Consistent false, with the problems named): their outcomes count, but their
+	// category sums and estimate are not reliable.
+	AccountInconsistent int `json:"account_inconsistent"`
+	// ForeignPluginTrials counts trials whose host loaded a plugin other than the arm's own, and
+	// ForeignPlugins names them (sorted): preregistration section 3 makes the arms identical except
+	// for the plugin, so a run with any is not the pre-registered comparison.
+	ForeignPluginTrials int      `json:"foreign_plugin_trials"`
+	ForeignPlugins      []string `json:"foreign_plugins,omitempty"`
 	// Categories sums every trial's per-category usage, evidence counts included.
 	Categories map[UsageCategory]CategorySum `json:"categories,omitempty"`
 }
 
+// HookLatency is one hook's host-measured durations over an arm's trials, in milliseconds, with
+// nearest-rank percentiles.
+type HookLatency struct {
+	N   int   `json:"n"`
+	P50 int64 `json:"p50"`
+	P95 int64 `json:"p95"`
+	Max int64 `json:"max"`
+}
+
+// LiveSummarySchema is the summary document's format version. A summary written before the field
+// existed decodes as 0 and is read as version 1, whose shape it has.
+const LiveSummarySchema = 1
+
 // LiveSummary is the whole run's report.
 type LiveSummary struct {
+	Schema     int                     `json:"schema"`
 	RunID      string                  `json:"run_id"`
 	Confidence float64                 `json:"confidence"`
 	Arms       map[string]ArmSummary   `json:"arms"`
@@ -346,7 +432,25 @@ type LiveSummary struct {
 	Failed []string `json:"failed"`
 	// Notes carries what a reader must know before reading the verdict.
 	Notes []string `json:"notes,omitempty"`
+	// Analysis is the pre-registered rule the summary was decided under, so a summary read on its own
+	// says which confidence level and margin its verdict used.
+	Analysis LiveAnalysis `json:"analysis"`
+	// ConstraintRegression is set when the constraint-clean difference's interval lies wholly below
+	// -margin: preregistration section 8 reports that as a regression whatever the primary verdict is.
+	ConstraintRegression string `json:"constraint_regression,omitempty"`
+	// ByVariant is each arm's outcomes per task variant ("base", "changing-requirement") and over the
+	// held-out tasks (VariantHeldOut); reported, not decided (preregistration section 8).
+	ByVariant map[string][]ArmSummary `json:"by_variant,omitempty"`
+	// TaskSigns is, for each task both arms ran, the sign of qompack's task-success rate minus
+	// stock's: 1, 0 or -1. Reported, not decided.
+	TaskSigns map[string]int `json:"task_signs,omitempty"`
+	// HostModels is every distinct model the trials' hosts reported at start-up, sorted: what the run
+	// actually ran on, which an alias leaves to the host (preregistration section 3's contingency).
+	HostModels []string `json:"host_models,omitempty"`
 }
+
+// VariantHeldOut is the ByVariant key that groups the held-out tasks, whatever their variant.
+const VariantHeldOut = "held-out"
 
 // LiveDecision is the pre-registered rule's verdict on the primary outcome.
 type LiveDecision struct {
@@ -360,20 +464,32 @@ type LiveDecision struct {
 func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary {
 	z := normalQuantile(1 - (1-a.Confidence)/2)
 	sum := LiveSummary{
+		Schema:     LiveSummarySchema,
 		RunID:      runID,
 		Confidence: a.Confidence,
+		Analysis:   a,
 		Arms:       map[string]ArmSummary{},
 		ByTask:     map[string][]ArmSummary{},
 	}
 	byArm := map[string][]LiveTrial{}
 	byTaskArm := map[string]map[string][]LiveTrial{}
+	byVariantArm := map[string]map[string][]LiveTrial{}
+	group := func(g map[string]map[string][]LiveTrial, key string, t LiveTrial) {
+		if g[key] == nil {
+			g[key] = map[string][]LiveTrial{}
+		}
+		g[key][t.Arm] = append(g[key][t.Arm], t)
+	}
 	for _, t := range trials {
 		byArm[t.Arm] = append(byArm[t.Arm], t)
-		if byTaskArm[t.TaskID] == nil {
-			byTaskArm[t.TaskID] = map[string][]LiveTrial{}
+		group(byTaskArm, t.TaskID, t)
+		if t.Variant != "" {
+			group(byVariantArm, t.Variant, t)
 		}
-		byTaskArm[t.TaskID][t.Arm] = append(byTaskArm[t.TaskID][t.Arm], t)
-		if !t.Completed || t.PluginExpected != t.PluginLoaded || t.HarnessError != "" {
+		if t.HeldOut {
+			group(byVariantArm, VariantHeldOut, t)
+		}
+		if !t.Completed || t.pluginMismatch() || t.HarnessError != "" {
 			sum.Failed = append(sum.Failed, fmt.Sprintf("%s/%s/%d: completed=%t plugin_expected=%t "+
 				"plugin_loaded=%t harness_error=%q", t.TaskID, t.Arm, t.Trial, t.Completed,
 				t.PluginExpected, t.PluginLoaded, t.HarnessError))
@@ -382,19 +498,16 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 	for arm, ts := range byArm {
 		sum.Arms[arm] = summarizeArm(arm, ts, z)
 	}
-	tasks := make([]string, 0, len(byTaskArm))
-	for id := range byTaskArm {
-		tasks = append(tasks, id)
+	sum.ByTask = summarizeGroups(byTaskArm, z)
+	if len(byVariantArm) > 0 {
+		sum.ByVariant = summarizeGroups(byVariantArm, z)
 	}
-	sort.Strings(tasks)
-	for _, id := range tasks {
-		arms := make([]string, 0, len(byTaskArm[id]))
-		for arm := range byTaskArm[id] {
-			arms = append(arms, arm)
-		}
-		sort.Strings(arms)
-		for _, arm := range arms {
-			sum.ByTask[id] = append(sum.ByTask[id], summarizeArm(arm, byTaskArm[id][arm], z))
+	for id, arms := range sum.ByTask {
+		if sign, ok := taskSign(arms); ok {
+			if sum.TaskSigns == nil {
+				sum.TaskSigns = map[string]int{}
+			}
+			sum.TaskSigns[id] = sign
 		}
 	}
 	sort.Strings(sum.Failed)
@@ -407,11 +520,37 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 		sum.ConstraintCleanDiff = newcombe(q.ConstraintClean, s.ConstraintClean)
 	}
 	sum.Decision = DecideLive(a, sum)
+	if d := sum.ConstraintCleanDiff; d != nil && d.High < -a.NonInferiorityMargin {
+		sum.ConstraintRegression = fmt.Sprintf("constraint-clean difference %.3f, interval [%.3f, %.3f], lies "+
+			"wholly below -%.3f: a regression, whatever the primary verdict", d.Estimate, d.Low, d.High,
+			a.NonInferiorityMargin)
+		sum.Notes = append(sum.Notes, "REGRESSION (preregistration section 8, H2): "+sum.ConstraintRegression)
+	}
+	if sum.TaskSuccessDiff != nil {
+		sum.Notes = append(sum.Notes, "trials are clustered within tasks; the pooled intervals treat them as "+
+			"independent, which overstates their precision (preregistration section 8)")
+	}
 	for _, arm := range []string{ArmQompack, ArmStock} {
-		if as, ok := sum.Arms[arm]; ok && as.HookProblemTrials > 0 {
+		as, ok := sum.Arms[arm]
+		if !ok {
+			continue
+		}
+		if as.HookProblemTrials > 0 {
 			sum.Notes = append(sum.Notes, fmt.Sprintf(
 				"%d of %d %s trial(s) ran with a hook failure the host reported; they are counted, "+
 					"not dropped, and each trial record names the failure", as.HookProblemTrials, as.Trials, arm))
+		}
+		if as.ForeignPluginTrials > 0 {
+			sum.Notes = append(sum.Notes, fmt.Sprintf(
+				"%d of %d %s trial(s) loaded a plugin other than the arm's own: %s; both arms are meant to "+
+					"run with nothing else (preregistration section 3)", as.ForeignPluginTrials, as.Trials, arm,
+				strings.Join(foreignPlugins(trials, arm), ", ")))
+		}
+		if as.AccountInconsistent > 0 {
+			sum.Notes = append(sum.Notes, fmt.Sprintf(
+				"%d of %d %s trial(s) have an inconsistent usage account; their outcomes count, but their "+
+					"per-category token sums and cost estimate are not reliable (each trial record's account "+
+					"names the problem)", as.AccountInconsistent, as.Trials, arm))
 		}
 	}
 	for _, t := range trials {
@@ -422,7 +561,36 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 			break
 		}
 	}
+	seen := map[string]bool{}
+	for _, t := range trials {
+		if t.HostModel != "" && !seen[t.HostModel] {
+			seen[t.HostModel] = true
+			sum.HostModels = append(sum.HostModels, t.HostModel)
+		}
+	}
+	sort.Strings(sum.HostModels)
+	for _, t := range trials {
+		if t.PreregisteredModel && t.Model != "" && t.Model != a.Model {
+			sum.Notes = append(sum.Notes, fmt.Sprintf(
+				"the trials ran on %s, the pre-registration's contingency alias for %s, which the hosts resolved "+
+					"to %s (preregistration section 3)", t.Model, a.Model, orNone(sum.HostModels)))
+			break
+		}
+	}
 	return sum
+}
+
+// StopEarly records that the run stopped after ran of its planned trials, and why. The
+// pre-registered rule analyses every planned trial (intention to treat); the ones that never ran
+// cannot be analysed, so a stopped run reaches no verdict whatever its partial numbers say
+// (preregistration amendment A4). Its intervals stay in the summary, as a description.
+func (s *LiveSummary) StopEarly(ran, planned int, why string) {
+	s.Decision = LiveDecision{
+		Verdict: "not-applicable",
+		Reason: fmt.Sprintf("the run stopped after %d of the %d planned trials; the pre-registered rule analyses "+
+			"every planned trial", ran, planned),
+	}
+	s.Notes = append(s.Notes, "the run was stopped early: "+why)
 }
 
 // DecideLive applies the pre-registered decision rule to the primary outcome, task success after
@@ -434,7 +602,9 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 //   - inconclusive otherwise.
 //
 // Any trial whose plugin state contradicted its arm makes the verdict not-applicable: the arms
-// were not the arms the rule is about.
+// were not the arms the rule is about. A trial's plugin state is the plugin list its host reported
+// at start-up; a trial whose host reported none is a harness failure, scored as a failure on every
+// outcome like any other (preregistration section 8 and amendment A2), not a mismatch.
 func DecideLive(a LiveAnalysis, s LiveSummary) LiveDecision {
 	for _, arm := range s.Arms {
 		if arm.PluginMismatch > 0 {
@@ -472,6 +642,71 @@ func DecideLive(a LiveAnalysis, s LiveSummary) LiveDecision {
 	}
 }
 
+// foreignPlugins is the sorted union of the foreign plugins one arm's trials loaded.
+func foreignPlugins(trials []LiveTrial, arm string) []string {
+	seen := map[string]bool{}
+	for _, t := range trials {
+		if t.Arm != arm {
+			continue
+		}
+		for _, p := range t.ForeignPlugins {
+			seen[p] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// summarizeGroups summarizes each group's arms, arms in name order.
+func summarizeGroups(g map[string]map[string][]LiveTrial, z float64) map[string][]ArmSummary {
+	out := make(map[string][]ArmSummary, len(g))
+	for key, byArm := range g {
+		arms := make([]string, 0, len(byArm))
+		for arm := range byArm {
+			arms = append(arms, arm)
+		}
+		sort.Strings(arms)
+		for _, arm := range arms {
+			out[key] = append(out[key], summarizeArm(arm, byArm[arm], z))
+		}
+	}
+	return out
+}
+
+// taskSign is the sign of qompack's task-success rate minus stock's, compared as exact fractions,
+// when both arms ran the task.
+func taskSign(arms []ArmSummary) (int, bool) {
+	var q, s *Proportion
+	for i := range arms {
+		switch arms[i].Arm {
+		case ArmQompack:
+			q = &arms[i].TaskSuccess
+		case ArmStock:
+			s = &arms[i].TaskSuccess
+		}
+	}
+	if q == nil || s == nil || q.N == 0 || s.N == 0 {
+		return 0, false
+	}
+	l, r := q.K*s.N, s.K*q.N
+	switch {
+	case l > r:
+		return 1, true
+	case l < r:
+		return -1, true
+	default:
+		return 0, true
+	}
+}
+
+// summarizeArm aggregates one arm's trials. A trial the harness could not run as designed is a
+// failure on every outcome (preregistration §8): it never counts as a task success or as
+// constraint-clean, and it counts as not recovered wherever it carries a recovery verdict, whatever
+// state it left behind.
 func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 	out := ArmSummary{Arm: arm, Trials: len(ts)}
 	var taskK, cleanK, recK, recN int
@@ -480,24 +715,26 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 	var est, wall, store int64
 	var storeN int
 	var hooks []float64
+	hostHooks := map[string][]int64{}
 	for _, t := range ts {
 		// A trial the harness could not run as designed is never complete, whatever its steps say.
 		if t.Completed && t.HarnessError == "" {
 			out.Completed++
 		}
-		if t.PluginExpected != t.PluginLoaded {
+		if t.pluginMismatch() {
 			out.PluginMismatch++
 		}
-		if t.TaskSuccess {
+		harness := t.HarnessError != ""
+		if t.TaskSuccess && !harness {
 			taskK++
 		}
-		if t.ConstraintViolations == 0 {
+		if t.ConstraintViolations == 0 && !harness {
 			cleanK++
 		}
 		out.ConstraintViolations += t.ConstraintViolations
 		if t.Recovered != nil {
 			recN++
-			if *t.Recovered {
+			if *t.Recovered && !harness {
 				recK++
 			}
 		}
@@ -514,6 +751,14 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		wall += t.WallMS
 		if len(t.HookProblems) > 0 {
 			out.HookProblemTrials++
+		}
+		// A trial that never produced a stream has a zero account with no problems: it has no usage
+		// to be wrong about, and is not counted here.
+		if !t.Account.Consistent && len(t.Account.Problems) > 0 {
+			out.AccountInconsistent++
+		}
+		if len(t.ForeignPlugins) > 0 {
+			out.ForeignPluginTrials++
 		}
 		for c, cs := range t.Categories {
 			if out.Categories == nil {
@@ -534,6 +779,21 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 				hooks = append(hooks, float64(v))
 			}
 		}
+		for name, ms := range t.TranscriptHookMS {
+			hostHooks[name] = append(hostHooks[name], ms...)
+		}
+	}
+	for name, ms := range hostHooks {
+		if len(ms) == 0 {
+			continue
+		}
+		sort.Slice(ms, func(i, j int) bool { return ms[i] < ms[j] })
+		if out.HostHookMS == nil {
+			out.HostHookMS = map[string]HookLatency{}
+		}
+		out.HostHookMS[name] = HookLatency{
+			N: len(ms), P50: nearestRank(ms, 50), P95: nearestRank(ms, 95), Max: ms[len(ms)-1],
+		}
 	}
 	out.TaskSuccess = wilson(taskK, len(ts), z)
 	out.ConstraintClean = wilson(cleanK, len(ts), z)
@@ -550,6 +810,9 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 	if storeN > 0 {
 		out.MeanStoreBytes = store / int64(storeN)
 	}
+	if out.ForeignPluginTrials > 0 {
+		out.ForeignPlugins = foreignPlugins(ts, arm)
+	}
 	if len(hooks) > 0 {
 		sort.Float64s(hooks)
 		out.HookP50MS = percentile(hooks, 50)
@@ -562,6 +825,14 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 // all report them.
 func stripSplit(u UsageTotals) UsageTotals {
 	return UsageTotals{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite}
+}
+
+// nearestRank is the nearest-rank percentile of a non-empty ascending slice.
+func nearestRank(sorted []int64, p float64) int64 {
+	rank := int(math.Ceil(p / 100 * float64(len(sorted))))
+	rank = max(rank, 1)
+	rank = min(rank, len(sorted))
+	return sorted[rank-1]
 }
 
 // percentile is the nearest-rank percentile of an ascending slice.
@@ -647,4 +918,12 @@ func normalQuantile(p float64) float64 {
 		return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r + a[5]) * q /
 			(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r + 1)
 	}
+}
+
+// orNone joins the models the hosts reported, or says that none was recorded.
+func orNone(models []string) string {
+	if len(models) == 0 {
+		return "a model no trial recorded"
+	}
+	return strings.Join(models, ", ")
 }

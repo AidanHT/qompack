@@ -923,12 +923,13 @@ and keeps its uncertainty visible instead of rounding it into a verdict.
   `cache_write_1h` and `thinking_output`, in that canonical order, and a volume that was not reported
   is *unknown*, not zero — an unknown count serializes as `{"known":false}` and the category is
   listed under `missing` (`internal/eval/ledger.go`). They are reported beside an evaluation's
-  verdict. **In this build they are unreachable:** `qompack eval` has no artifact seam bound, so it
-  reports `no evaluation artifacts are readable in this build` and exits `1` (read from
-  `internal/commands/cmd_eval.go`; `plans/V5-report.md` §29 item 3 carries the seam as open by
-  design). Step 4's expected result is therefore exactly that message and that exit status — **not**
-  a usage table. Recording the message is the pass; a usage table appearing here would mean the seam
-  was bound and the row needs rewriting.
+  verdict, and only where an evaluation's artifacts exist: `qompack eval` reads a `devtool
+  live-eval` run under `dist/live-eval/` or the replay report at `testdata/bench-replay.json`, both
+  build outputs of a Qompack source checkout (`internal/commands/evalartifacts.go`). In a user
+  project neither exists, so step 4 reports `unavailable` — `no evaluation artifacts`, naming both
+  paths it looked in — and exits `1`. Recording that message and exit status is the pass; a report
+  appearing here means the project holds evaluation artifacts, and the evidence must then record
+  which run it read and whether it says `confirmatory: yes`.
 - Steps 3 and 5: the drop report is Qompack's recorded omissions with coverage attached, and it does
   not establish what remains in native context ([docs/mcp-tools.md](mcp-tools.md#dropped)).
 - Step 6 is the uncertainty check, and it carries a **known gap, not a pass**:

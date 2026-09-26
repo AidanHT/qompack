@@ -67,7 +67,7 @@ var flagSpecs = map[string][]FlagSpec{
 		{Name: "reason", Summary: "record why this checkpoint was taken", Arg: "text"},
 	},
 	"eval": {
-		{Name: "corpus", Summary: "read replay trials from this directory", Arg: "dir"},
+		{Name: "corpus", Summary: "read a live-eval run, a directory of runs, or a replay report", Arg: "path"},
 	},
 }
 
