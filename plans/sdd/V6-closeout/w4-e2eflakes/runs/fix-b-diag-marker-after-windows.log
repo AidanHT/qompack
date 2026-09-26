@@ -1,0 +1,8 @@
+# diag after the fix: obsSessionEndMarker reads through paths.ReadFileShared; throwaway zz_diag_marker_test.go
+=== RUN   TestDiagMarkerReaderBlocksWriteMarker
+    zz_diag_marker_test.go:47: os.ReadFile reader: 152 of 400 WriteMarker replaces failed
+    zz_diag_marker_test.go:49: obsSessionEndMarker reader: 0 of 400 WriteMarker replaces failed
+--- PASS: TestDiagMarkerReaderBlocksWriteMarker (4.21s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	4.428s
+exit=0

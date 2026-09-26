@@ -1,0 +1,34 @@
+# red: guard rows added, e2e marker helper still on os.ReadFile (dc41e2d + guard rows)
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+    sharedreaders_test.go:166: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/guards/sharedreaders_test.go:166
+        	Error:      	Should be empty, but was [os.ReadFile]
+        	Test:       	TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+        	Messages:   	obsSessionEndMarker reads run/marker.json with os.ReadFile. On Windows that handle carries no FILE_SHARE_DELETE, so while the read is in flight it blocks the daemon's contract.WriteMarker, a paths.WriteAtomic made once per SessionEnd and not retried. obsAwaitSessionEnded polls through this helper for exactly that write, so a replace its read made fail leaves the old marker in place and the wait times out (obsRunFlush's rows and V3 x08).
+        	            	
+        	            	Use paths.ReadFileShared (or paths.OpenShared) instead: same bytes, same *os.PathError shapes, plus delete sharing — see internal/paths/shared.go.
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing (0.05s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.275s
+FAIL
+exit=1
