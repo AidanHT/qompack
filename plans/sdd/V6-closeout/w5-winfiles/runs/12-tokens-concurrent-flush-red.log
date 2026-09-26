@@ -1,0 +1,30 @@
+## flush does its file I/O outside cmu (pre-fix); new test only
+## go test ./internal/tokens -run '^TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk$' -count=3 -v
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+    chunkcache_test.go:165: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/tokens/chunkcache_test.go:165
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk1621539225\001\wa-620982157 C:\Users\Quant\AppData\Local\Temp\TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk1621539225\001\chunktokens.bin: Access is denied.
+        	Test:       	TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+        	Messages:   	a flush must never fail because another flush was writing the same file
+--- FAIL: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.06s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+    chunkcache_test.go:165: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/tokens/chunkcache_test.go:165
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk2902761642\001\wa-3240717717 C:\Users\Quant\AppData\Local\Temp\TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk2902761642\001\chunktokens.bin: Access is denied.
+        	Test:       	TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+        	Messages:   	a flush must never fail because another flush was writing the same file
+--- FAIL: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (0.84s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+    chunkcache_test.go:165: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/tokens/chunkcache_test.go:165
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk1350557523\001\wa-4287584060 C:\Users\Quant\AppData\Local\Temp\TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk1350557523\001\chunktokens.bin: Access is denied.
+        	Test:       	TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+        	Messages:   	a flush must never fail because another flush was writing the same file
+--- FAIL: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (0.58s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/tokens	3.865s
+FAIL
+exit=1

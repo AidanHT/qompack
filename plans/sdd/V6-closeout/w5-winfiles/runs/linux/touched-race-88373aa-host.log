@@ -1,0 +1,52 @@
+run_id=cx-w5-winfiles-touched-race-88373aa-20260926T230840Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles
+rev=88373aa
+commit=88373aaf54485acd058dd5b8e6a41a5f90a7ac71
+bundle_sha256=215cd66788d351863730f805a582237533c7eadfa5d65a980caff6030375c3c1
+host_started_utc=2026-09-26T23:08:49Z
+inner_args=-- ./internal/paths ./internal/contract ./internal/tokens ./internal/sketch ./internal/config ./internal/checkpoint ./internal/store ./internal/cli ./internal/daemon ./test/guards
+/work/cx-w5-winfiles-touched-race-88373aa-20260926T230840Z.bundle: OK
+run_id=cx-w5-winfiles-touched-race-88373aa-20260926T230840Z
+commit=88373aaf54485acd058dd5b8e6a41a5f90a7ac71
+tree=8d211f92dd5be49f3b5c942dfa35b524d8aa68e9
+bundle_sha256=215cd66788d351863730f805a582237533c7eadfa5d65a980caff6030375c3c1
+started_utc=2026-09-26T23:08:52Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/paths  (pass=174 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/contract  (pass=160 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/tokens  (pass=121 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/sketch  (pass=380 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/config  (pass=311 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=405 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/store  (pass=849 fail=0 skip=4)
+PASS      github.com/qompack/qompack/internal/cli  (pass=376 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=1499 fail=1 skip=1)
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+FAIL      github.com/qompack/qompack/test/guards  (pass=183 fail=7 skip=0)
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/plans/sdd/V6-closeout/w5-winfiles/runs/linux/cx-w5-winfiles-touched-race-88373aa-20260926T230840Z-artifacts
+exit=1
+gate exit=1

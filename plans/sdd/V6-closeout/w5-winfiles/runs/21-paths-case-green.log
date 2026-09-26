@@ -1,0 +1,55 @@
+## guard folds case (DefaultFold) and strips NTFS stream suffixes
+## go test ./internal/paths -run '^(TestIsProtected_CaseVariantsFollowThePlatformsFold|TestIsProtected_FoldingRefusesNoOrdinaryPath|TestAppendOnlyGuard_RefusesCaseVariantsOnWindows|TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows|TestMayBeProtected_NeverHidesAProtectedPath|TestMayBeProtected_EveryProtectedLocationTakesTheWalk)$' -count=1 -v
+=== RUN   TestMayBeProtected_EveryProtectedLocationTakesTheWalk
+--- PASS: TestMayBeProtected_EveryProtectedLocationTakesTheWalk (0.00s)
+=== RUN   TestMayBeProtected_NeverHidesAProtectedPath
+--- PASS: TestMayBeProtected_NeverHidesAProtectedPath (0.59s)
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_checkpoints_directory
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_checkpoints_directory
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_pins_directory
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_bloom_name
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_sketches_directory
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_store_directory
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/every_element_folded_at_once
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/the_project_root_spelled_in_another_case
+--- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold (0.06s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_checkpoints_directory (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_checkpoints_directory (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_pins_directory (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_bloom_name (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_sketches_directory (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_store_directory (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/every_element_folded_at_once (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/the_project_root_spelled_in_another_case (0.00s)
+=== RUN   TestIsProtected_FoldingRefusesNoOrdinaryPath
+--- PASS: TestIsProtected_FoldingRefusesNoOrdinaryPath (0.02s)
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_checkpoints_directory
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_O_TRUNC_through_an_upper-case_pins_directory
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_non-append_write_through_a_mixed-case_pins_directory
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenSharedRW_through_an_upper-case_pins_directory
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_bloom_name
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_through_every_element_in_another_case
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/AppendJSONL_through_an_upper-case_pins_directory_still_appends
+--- PASS: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows (0.08s)
+    --- PASS: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_checkpoints_directory (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_O_TRUNC_through_an_upper-case_pins_directory (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_non-append_write_through_a_mixed-case_pins_directory (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenSharedRW_through_an_upper-case_pins_directory (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_bloom_name (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_through_every_element_in_another_case (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/AppendJSONL_through_an_upper-case_pins_directory_still_appends (0.01s)
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom::$DATA
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/TRIED.BLOOM::$data
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom:extra
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/a_checkpoint's_data_stream
+--- PASS: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows (0.04s)
+    --- PASS: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom::$DATA (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/TRIED.BLOOM::$data (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom:extra (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/a_checkpoint's_data_stream (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	2.022s
+exit=0

@@ -1,0 +1,9 @@
+## HEAD 88373aa, Windows; the e2e row that polls daemon.LoadSessionRecovery from its own process
+## go test ./test/e2e -run '^TestV5_HookEventToTombstoneToRetrievalAfterRestart$' -count=1 -timeout=30m -v
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart
+=== RUN   TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap
+--- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart (11.41s)
+    --- PASS: TestV5_HookEventToTombstoneToRetrievalAfterRestart/corrupt_spool_line_is_recorded_as_a_gap (3.06s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	11.629s
+exit=0

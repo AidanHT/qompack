@@ -1,0 +1,4 @@
+## tree: git archive 8f57907 in scratch; TMP=C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\winfiles\deeptmp\deep-tmp-segment-to-push-every-t-tempdir-past-legacy-max-path (224 chars)
+## go test ./internal/daemon -run ^(TestDeliveryRollover_|TestDeliveryGeneration_|TestDeliveryReaders_|TestDeliveryPath_|TestDeliveryRadix_|TestDeliveryDiagnostics_|TestDeliverySegment) -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/daemon	96.188s
+exit=0
