@@ -104,7 +104,7 @@ W3-E2EREDS report. Branch closeout/w3-e2ereds, cut from 54a4334. HEAD is 36c4fe9
 
 ### Tests
 
-- `go test ./test/e2e -run '^(TestV4_TombstoneToRecallToExpandRoundTrip|TestV5_TombstoneToExpandRoundTrip|TestV5_EliminationThroughEveryFourSurfaces)$' -count=1 -v -timeout=30m (Windows, base 54a4334)` — V4 x05 FAIL (append-only violation), V5 x02 PASS (quiet moment), Elimination PASS; runs/repro-three-base-54a4334-windows.log
+- `go test ./test/e2e -run '^(TestV4_TombstoneToRecallToExpandRoundTrip|TestV5_TombstoneToExpandRoundTrip|TestV5_EliminationThroughEveryFourSurfaces)$' -count=1 -v -timeout=30m (Windows, base 54a4334)` — V4 x05 FAIL (append-only violation), V5 x02 PASS (quiet moment), Elimination PASS; runs/repro-three-base-54a4334-windows.log <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line -->
 - `go test ./test/e2e -run '^TestV5_TombstoneToExpandRoundTrip$' -count=6 / -count=4 -v (Windows, base 54a4334)` — PASS 6/6, then FAIL 4/4 later under load; runs/repro-v5x02-count6-base-54a4334-windows.log, runs/repro-v5x02-count4-base-54a4334-windows-2.log
 - `sh plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh --prefix cx-w3-e2ereds --out .../w3-e2ereds/runs/linux 54a4334 base-three-reds --run '<three>' --count 3 --timeout 30m -- ./test/e2e` — FAIL: V4 x05 3/3 fail, V5 x02 3/3 fail, Elimination 3/3 pass (non-root, -race)
 - `V4 x05 on git-archive exports: cf31e01, 99108a2^ (c95b7af), 99108a2 (Windows)` — cf31e01 FAIL; c95b7af PASS; 99108a2 FAIL, so the break is 99108a2
@@ -116,7 +116,7 @@ W3-E2EREDS report. Branch closeout/w3-e2ereds, cut from 54a4334. HEAD is 36c4fe9
 - `corrected V5 x02 with injected 3 s step-7 delay / with rec2's file version suppressed (diagnostic, reverted)` — delay: PASS 2/2; suppressed: FAIL at x02WaitFileVersion (the wait is not vacuous)
 - `sh plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh --prefix cx-w3-e2ereds --out .../w3-e2ereds/runs/linux 797b674 fixed-three-reds --run '<three>' --count 3 --timeout 30m -- ./test/e2e` — PASS pass=27 fail=0 (non-root, -race)
 - `go test ./test/e2e -count=1 -v -timeout=75m (Windows, 797b674, whole package alone, co-loaded host)` — FAIL 4 of 99 top-level (95 PASS, 1877 s); all three target tests PASS; reds: ShutdownIfReachable_WaitsForASpawnStillInFlight, V3_HotPathUnchangedWithLedgerResident, V4_HotPathUnchangedWithTheFullWave3ResidentSet, V5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
-- `each of the four reds re-run alone: go test ./test/e2e -run '^<name>$' -count=1 -v` — ShutdownIfReachable PASS (3.92 s); V4 HotPath full wave-3 PASS (10.3 s); V5 PreCompactToRehydrate PASS (17.5 s); V3 HotPath FAIL alone too (B-A p50 30.7 ms vs 15 ms; known co-load row)
+- `each of the four reds re-run alone: go test ./test/e2e -run '^<name>$' -count=1 -v` — ShutdownIfReachable PASS (3.92 s); V4 HotPath full wave-3 PASS (10.3 s); V5 PreCompactToRehydrate PASS (17.5 s); V3 HotPath FAIL alone too (B-A p50 30.7 ms vs 15 ms; known co-load row) <!-- runpatterns: the -run argument is a placeholder for each of the four named reds, which the result column names; not a runnable pattern -->
 - `go run ./tools/devtool fmt-check; go vet ./test/e2e; go run -modfile=tools/pinned/go.mod golangci-lint run ./test/e2e/...; go run ./tools/lint/nomagic ./test/e2e/...` — all exit 0 (runs/lint-touched-windows.log)
 
 ### Criterion changes

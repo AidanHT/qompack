@@ -320,10 +320,10 @@ None new from this round. Treating a cancelled rehydration as `DeferredStopping`
 
 ### Tests
 
-- `go test -count=1 -timeout=30m ./internal/daemon -v with -run alternating '^TestService_BuildFailureAnswersWithTheDeferredNote$', '^TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping$', '^TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping$' (pre-fix tree)` — exit 1: all three FAIL for the predicted reason (runs/60)
+- `go test -count=1 -timeout=30m ./internal/daemon -v with -run alternating '^TestService_BuildFailureAnswersWithTheDeferredNote$', '^TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping$', '^TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping$' (pre-fix tree)` — exit 1: all three FAIL for the predicted reason (runs/60) <!-- runpatterns: the word after -run describes how the three quoted anchored names were run in turn; each is a real test in ./internal/daemon -->
 - `same three rows after the fix` — exit 0, 3/3 PASS (runs/61)
 - `same three rows, -count=20` — exit 0, 60/60 PASS (runs/67)
-- `go test -count=1 -timeout=30m ./internal/daemon -v with -run prefixes '^TestService_', '^TestSessionStartCompact_', '^TestCompactDeferredNote_', '^TestRehydrate' alternated` — exit 0, 42 PASS (runs/63)
+- `go test -count=1 -timeout=30m ./internal/daemon -v with -run prefixes '^TestService_', '^TestSessionStartCompact_', '^TestCompactDeferredNote_', '^TestRehydrate' alternated` — exit 0, 42 PASS (runs/63) <!-- runpatterns: the word after -run describes how the four quoted prefixes were combined; each prefix names real tests in ./internal/daemon -->
 - `go test -count=1 -timeout=30m ./internal/daemon` — ok 292.251s, exit 0 (runs/64)
 - `go run ./tools/devtool fmt-check; go vet ./internal/daemon; go test -count=1 ./test/docs` — all exit 0 (runs/62)
 - `go run ./tools/devtool lint --only=runpatterns,docmarkers,sleepcheck` — sleepcheck PASS, docmarkers PASS; runpatterns FAIL only on plans/sdd/V6-closeout/w3-e2ereds/report.md:107,119, same as runs/58 on eeec278, not this lane (runs/65)
