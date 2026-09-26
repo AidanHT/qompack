@@ -1,0 +1,7 @@
+# started: 2026-09-26T00:06:13Z
+# head: e5180a2 + uncommitted review-fix edits (test + comment + docs)
+# command: go test -count=1 -timeout=30m ./internal/daemon
+ok  	github.com/qompack/qompack/internal/daemon	161.122s
+# finished: 2026-09-26T00:08:56Z
+# exit: 0
+# note: the uncommitted edits run here were committed unchanged as fa95d49 (test+comment) and aa15636 (docs)
