@@ -369,9 +369,10 @@ func TestV5_NoPackageWritesOutsideDotQompack(t *testing.T) {
 		// Unlike that arm's, this daemon is IN-PROCESS (v4StartRig), so daemon.lock records the test
 		// binary's own pid (internal/daemon/lock.go), and "has that pid exited?" could never be
 		// answered yes from inside the test that is asking. The helper therefore counts our own pid
-		// as settled once the lock is gone (e2eShutdownProcessSettled says why), and the settle lands
-		// in milliseconds: admin.shutdown runs daemon.Stop, whose LAST act is Lock.Release, so the
-		// lock's disappearance already proves every cleanup step above it has run.
+		// as settled once the lock is gone (internal/testutil's lockHolderExited says why), and the
+		// settle lands in milliseconds: admin.shutdown runs daemon.Stop, whose LAST act is
+		// Lock.Release, so the lock's disappearance already proves every cleanup step above it has
+		// run.
 		e2eShutdownIfReachable(t, p.Root)
 
 		after := x16v5Snapshot(t, roots)
