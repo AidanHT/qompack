@@ -174,6 +174,10 @@ type deliveryGenerations struct {
 	chain    radixHash
 	logBytes int64
 	fault    error // once set, every operation refuses (preserve, never fresh identity)
+
+	// syncDir is paths.SyncDir. It is a field so a test can count the directory barriers a
+	// generation issues.
+	syncDir func(string) error
 }
 
 // openDeliveryGenerations opens (creating if absent) the generation store rooted at dir and recovers
@@ -206,6 +210,7 @@ func openDeliveryGenerations(dir string) (*deliveryGenerations, error) {
 		radix:    rx,
 		seq:      -1,
 		chain:    genChainSeed,
+		syncDir:  paths.SyncDir,
 	}
 	if err := g.recover(); err != nil {
 		_ = rx.close()
@@ -983,8 +988,12 @@ func isSettledIn(ctx context.Context, rd radixReader, root radixHash, nonce stri
 	return found, err
 }
 
-// appendGeneration writes the new generation durably: log record + fsync, then the atomic head, then a
-// directory fsync. The record's fsync is the commit; the head is the checkpoint written after it.
+// appendGeneration writes the new generation durably: log record + fsync, then the atomic head, whose
+// directory fsync is the generation's only one. The record's fsync is the commit; the head is the
+// checkpoint written after it. The head's directory fsync runs after its rename, the last entry the
+// generation creates in dir, and after the log file's own creation at open, so it makes durable every
+// entry the generation depends on; a second fsync of dir after it made nothing more durable (SP08-D1,
+// owner decision D20).
 func (g *deliveryGenerations) appendGeneration(root radixHash) error {
 	seq := g.seq + 1
 	chain := genChain(g.chain, root)
@@ -1010,7 +1019,7 @@ func (g *deliveryGenerations) appendGeneration(root radixHash) error {
 		g.seq, g.root, g.chain, g.logBytes = prevSeq, prevRoot, prevChain, prevBytes
 		return err
 	}
-	return paths.SyncDir(g.dir)
+	return nil
 }
 
 func (g *deliveryGenerations) writeHead(lastLen int64) error {
@@ -1055,7 +1064,7 @@ func (g *deliveryGenerations) writeConfinedAtomic(name string, data []byte) erro
 		_ = g.confine.Remove(tmp)
 		return err
 	}
-	return paths.SyncDir(g.dir)
+	return g.syncDir(g.dir)
 }
 
 // ── queries ──────────────────────────────────────────────────────────────────────────────────────

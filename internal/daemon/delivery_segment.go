@@ -125,6 +125,10 @@ type deliverySegments struct {
 	baseRoot string
 	chain    radixHash
 	logBytes int64
+
+	// syncDir is paths.SyncDir. It is a field so a test can count the directory barriers a
+	// transition issues.
+	syncDir func(string) error
 }
 
 // openDeliverySegments opens (confined) the authority under stateDir and recovers it. authorityExists is
@@ -142,6 +146,7 @@ func openDeliverySegments(stateDir string) (handle *deliverySegments, authorityE
 		headPath: filepath.Join(stateDir, deliverySegmentHeadFile),
 		seq:      -1,
 		chain:    segChainSeed,
+		syncDir:  paths.SyncDir,
 	}
 	exists, err := s.recover()
 	if err != nil {
@@ -263,6 +268,10 @@ func (s *deliverySegments) commitTransition(active uint64, baseRoot string) erro
 }
 
 // appendTransition writes the record durably (append + fsync = the commit), then WriteAtomic-s the head.
+// The head's directory fsync is the transition's only one, and it is enough: it runs after the head's
+// rename, the last entry the transition creates in stateDir, and after the log file's own creation at
+// open, so it makes durable every entry the transition depends on. A second fsync of stateDir after it
+// made nothing more durable (SP08-D1, owner decision D20).
 func (s *deliverySegments) appendTransition(active uint64, baseRoot string) error {
 	seq := s.seq + 1
 	chain := segChain(s.chain, seq, active, baseRoot)
@@ -288,7 +297,7 @@ func (s *deliverySegments) appendTransition(active uint64, baseRoot string) erro
 		s.seq, s.active, s.baseRoot, s.chain, s.logBytes = prev.seq, prev.active, prev.baseRoot, prev.chain, prev.logBytes
 		return err
 	}
-	return paths.SyncDir(s.stateDir)
+	return nil
 }
 
 func (s *deliverySegments) writeHead(lastLen int64) error {
@@ -329,7 +338,7 @@ func (s *deliverySegments) writeConfinedAtomic(name string, data []byte) error {
 		_ = s.confine.Remove(tmp)
 		return errSegmentUnavailable
 	}
-	return paths.SyncDir(s.stateDir)
+	return s.syncDir(s.stateDir)
 }
 
 // ── head/log IO (confined, bounded, SameFile-guarded) ──────────────────────────────────────────────
