@@ -306,10 +306,12 @@ func TestRun_ReportsRunningFromThePluginDirectory(t *testing.T) {
 	log := newRecordingLogger()
 	d, err := New(Options{ProjectRoot: t.TempDir(), Cfg: testConfig(), Log: log, Clock: core.SystemClock()})
 	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
-	addr, err := ipc.Resolve(d.(*daemon).root)
+	addr, err := ipc.Resolve(dd.root)
 	require.NoError(t, err)
 	require.Eventually(t, func() bool { return ipc.Probe(addr, ensureRunningDialTimeout) },
 		stopCleanupBound, 20*time.Millisecond, "the daemon never came up")
