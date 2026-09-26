@@ -22,20 +22,24 @@ import (
 // (which is where checkpoints/MANIFEST.jsonl lives too, deliberately, so only AppendOnly can
 // write it), and everything under pins/. A p that is not under root's .qompack tree at all is
 // never protected.
+//
+// Names are compared as the filesystem resolves them (protected_names.go): case-folded where
+// DefaultFold holds, and on Windows with every NTFS stream suffix removed first, so neither
+// CHECKPOINTS\0001.json nor sketches\tried.bloom::$DATA escapes the guard where it names the
+// protected file.
 func IsProtected(root, p string) bool {
-	l := Of(root)
-	rel, err := filepath.Rel(l.Dot, filepath.Clean(p))
-	if err != nil || strings.HasPrefix(rel, "..") {
+	dot := filepath.Clean(streamless(Of(root).Dot))
+	rel, ok := relUnderDot(dot, filepath.Clean(streamless(p)))
+	if !ok {
 		return false
 	}
-	rel = filepath.ToSlash(rel)
+	first, rest := cutElem(rel)
 	switch {
-	case rel == protectedSketchesDir+"/"+protectedBloomName:
-		return true
-	case strings.HasPrefix(rel, protectedCheckpointsDir+"/"):
-		return true
-	case strings.HasPrefix(rel, protectedPinsDir+"/"):
-		return true
+	case sameName(first, protectedCheckpointsDir), sameName(first, protectedPinsDir):
+		return rest != ""
+	case sameName(first, protectedSketchesDir):
+		second, more := cutElem(rest)
+		return more == "" && sameName(second, protectedBloomName)
 	}
 	return false
 }
@@ -51,12 +55,14 @@ const (
 
 // mayBeProtected reports whether p, an ABSOLUTE path, could be a protected path under ANY project
 // root, from p's text alone. False is a proof, not a guess. ownerOf asks each store about
-// filepath.Abs(p); IsProtected matches only a path whose position relative to <root>/.qompack
-// begins with checkpoints/ or pins/ or is sketches/tried.bloom; filepath.Rel returns that relative
-// position as a literal suffix of the cleaned path it is given; and for an absolute p, Abs only
-// cleans — on Windows after full-path normalization, which converts separators, drops "." and ".."
-// elements and strips trailing dots and spaces (Long's comment has the list) — so every element of
-// its result appears within p's text. A p containing none of the three names therefore cannot be
+// filepath.Abs(p) with its stream suffixes removed; IsProtected matches only a path whose position
+// relative to <root>/.qompack begins with an element spelling checkpoints or pins, or is an element
+// spelling sketches followed by one spelling tried.bloom, "spelling" meaning sameName's comparison;
+// relUnderDot returns that relative position as a suffix of the cleaned path it is given; and for an
+// absolute p, Abs only cleans — on Windows after full-path normalization, which converts separators,
+// drops "." and ".." elements and strips trailing dots and spaces (Long's comment has the list) —
+// while streamless only removes text, so every element of the path judged appears within p's text.
+// containsName compares as sameName does, so a p in which it finds none of the three names cannot be
 // protected, whatever stores ownerOf would find, and OpenFile need not walk p's ancestors to find
 // out. True means only that the walk must run.
 //
@@ -64,8 +70,8 @@ const (
 // its text, and "invariants.jsonl" opened from inside pins/ is the pins log. OpenFile makes a
 // relative p absolute before asking.
 func mayBeProtected(p string) bool {
-	return strings.Contains(p, protectedCheckpointsDir) || strings.Contains(p, protectedPinsDir) ||
-		strings.Contains(p, protectedBloomName)
+	return containsName(p, protectedCheckpointsDir) || containsName(p, protectedPinsDir) ||
+		containsName(p, protectedBloomName)
 }
 
 // OpenFile is the only opener this package exposes for a path that may live under .qompack, and
