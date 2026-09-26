@@ -696,7 +696,14 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // and records what it found. It is a no-op once the sentinel has already been observed, or if
 // none was ever minted this session (an act.-suppressed SessionStart, or a session that predates
 // this mechanism).
-func (d *daemon) scanSentinelForPrompt(ev *hookio.Event) {
+//
+// promptTS is the prompt hook's own first-statement time (ipc.Request.TS). A prompt submitted
+// before the sentinel was minted — one replayed from a spool or deferred to a drain, or another
+// window's — was never a chance to find it, so its miss is not counted: two such misses would
+// otherwise degrade the project for a probe no prompt after it has looked for yet. Its find still
+// counts, because the transcript holds the sentinel whichever prompt read it. A zero promptTS (a
+// request from before the field was stamped) is treated as current, as it always was.
+func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 
@@ -705,6 +712,9 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event) {
 		return
 	}
 	found, _ := contract.ScanTranscriptTail(ev.TranscriptPath, h.Sentinel.Token, sentinelScanTailBytes)
+	if !found && promptTS > 0 && promptTS < h.Sentinel.MintedAt {
+		return
+	}
 	h.RecordSentinelScan(found)
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history after sentinel scan", "err", err)
