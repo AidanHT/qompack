@@ -21,6 +21,10 @@ import (
 // Adding a row is the deliberate act of making that judgement; the guard's job is only to stop the
 // answer silently reverting afterwards.
 //
+// For product code the inventory is complete, not a sample: productreads_test.go's ordinaryReads
+// classifies every other product function that opens a file the ordinary way, and
+// TestGuard_EveryProductReadIsClassified fails on any product open that is in neither list.
+//
 // A test helper earns a row when its read can break the product write it is waiting for. The
 // daemon's replace fails while the helper's ordinary handle is open, nothing retries it, and the
 // helper's wait then times out on a write its own read prevented: a load-sensitive red with no
@@ -118,6 +122,132 @@ var sharedReaders = []sharedReader{
 		holds: "every copied file under .qompack, the two delivery-seal sidecars among them",
 		why: "the same two WriteAtomics, plus every other writer the copy walk passes; the walk reads " +
 			"the whole tree, so it is the wider of this file's two read windows",
+	},
+	// The V6 close-out's audit (w5-winfiles) of every product read of a file some writer replaces or
+	// removes. Each reader below took an ordinary handle on a file that another process, or another
+	// goroutine no lock of its own orders, replaces or removes; each was os.ReadFile or os.Open until
+	// that audit. Every other product read is classified in ordinaryReaders below, with the reason
+	// an ordinary handle is safe there, and TestGuard_EveryProductReadIsClassified keeps that true.
+	{
+		file:  "internal/contract/marker.go",
+		fn:    "readMarker",
+		holds: "run/marker.json",
+		why: "the daemon's contract.WriteMarker, a paths.WriteAtomic made once per SessionEnd and " +
+			"PreCompact and never retried. checkSessionStartFires reads the marker in the daemon while " +
+			"another session's terminal hook writes it (session ends run concurrently since C1.15), and " +
+			"`qompack selftest` reads it from its own process. A replace this read made fail leaves the " +
+			"previous marker in place, and a read refused by a finishing replace counted as an absence " +
+			"toward the SevCritical §12.1 degradation although the hook had fired",
+	},
+	{
+		file:  "internal/cli/qompack_commands.go",
+		fn:    "readPersistedMetrics",
+		holds: "metrics/latency.json",
+		why: "the daemon's obs.Registry.Persist, a paths.WriteAtomic, while `qompack doctor` reads " +
+			"the snapshot from its own process, and the /qompack status command falls back to it when " +
+			"a live daemon does not answer inside its call deadline",
+	},
+	{
+		file:  "internal/store/flush.go",
+		fn:    "loadStoreState",
+		holds: "state/store.json",
+		why: "the daemon store's persistStoreState, a paths.WriteAtomic of the cumulative counters, " +
+			"while `qompack doctor` and `qompack fsck` open the same store read-only from their own " +
+			"process, and every store open runs this load",
+	},
+	{
+		file:  "internal/store/capture_sidecar.go",
+		fn:    "ReadCaptureSidecar",
+		holds: "records/captures/**/<observation>.json",
+		why: "the paths.WriteAtomic of the same sidecar by the daemon's ingest (publishCapture, " +
+			"through WriteCaptureSidecar) and by the observer (LinkCaptureReference). A lost-ACK " +
+			"duplicate reaches ingest on two paths, live and drain, and no lock this reader takes " +
+			"orders them. A read refused by an in-flight replace also drops the prior sidecar's " +
+			"Published record, which WriteCaptureSidecar would then write back as open",
+	},
+	{
+		file:  "internal/store/lifecycle.go",
+		fn:    "CompactRetentionRoots",
+		holds: "state/retention-roots.jsonl",
+		why: "another GC pass's compaction, a paths.WriteAtomic of the same file: GC passes are not " +
+			"serialized, and each concurrent session end runs one (C1.15), as does the idle scheduler",
+	},
+	{
+		file:  "internal/store/gcrun.go",
+		fn:    "loadGCState",
+		holds: "state/gc.json",
+		why: "another GC pass's saveGCState (paths.WriteAtomic) and clearGCState (os.Remove), for " +
+			"CompactRetentionRoots' reason: nothing serializes two passes",
+	},
+	{
+		file:  "internal/store/gcrun.go",
+		fn:    "pendingMarkerRoot",
+		holds: "state/pending/<marker>.json",
+		why: "the os.Remove of the same expired marker by a concurrent GC pass's " +
+			"expirePendingMarkers, or by the late Put's own pendingWrite.done",
+	},
+	{
+		file:  "internal/tokens/calibrate.go",
+		fn:    "loadCalibEntry",
+		holds: "~/.qompack/calibration.json",
+		why: "every other project's daemon, and every store open, persisting into the one " +
+			"user-global calibration document with paths.WriteAtomic: cross-process by design",
+	},
+	{
+		file:  "internal/tokens/calibrate.go",
+		fn:    "persist",
+		holds: "~/.qompack/calibration.json",
+		why: "the same user-global document: persist reads it to merge this scope's factor in while " +
+			"any other process's persist replaces it, and a refused read made it write back this " +
+			"scope's entry alone, dropping every other project's factor",
+	},
+	{
+		file:  "internal/sketch/io.go",
+		fn:    "LoadWithLog",
+		holds: "sketches/*",
+		why: "the daemon's sketch.Save (paths.WriteAtomic) and ReplaceBloom's renames of tried.bloom, " +
+			"while `qompack fsck`, and the negknow ledger it opens, load every sketch from its own process",
+	},
+	{
+		file:  "internal/daemon/scheduler_state.go",
+		fn:    "readStateFile",
+		holds: "state/bocd.json and state/scheduler.json",
+		why: "schedRuntime.Persist, which writes both files with paths.WriteAtomic under persistMu " +
+			"only, after releasing r.mu, while a session bind reads them under r.mu: the two are not " +
+			"ordered, and both paths are shared by every session",
+	},
+	{
+		file:  "internal/daemon/handlers.go",
+		fn:    "LoadSessionRecovery",
+		holds: "state/session-recovery.json",
+		why: "the daemon's writeSessionRecovery, a paths.WriteAtomic that nothing retries. The " +
+			"daemon's own callers hold recoveryMu with it, but the function is exported and polled " +
+			"from another process (test/e2e's V5 x03 while the daemon settles a session end), and a " +
+			"replace that poll made fail leaves a stale recovery marker behind",
+	},
+	{
+		file:  "internal/daemon/blob.go",
+		fn:    "readBlob",
+		holds: "spool/blob-*.bin",
+		why: "the drain's cleanupAcknowledged, whose os.Remove of a consumed blob runs under the " +
+			"drainer's lock while the live ingest reads blobs without it; a lost-ACK duplicate is read " +
+			"live while the drain retires its other copy, and a refused remove fails that drain pass",
+	},
+	{
+		file:  "internal/checkpoint/gitindex.go",
+		fn:    "readGitState",
+		holds: "<gitdir>/HEAD and <gitdir>/index",
+		why: "git itself, which replaces both by renaming a .lock file over them: a checkout rewrites " +
+			"HEAD, and add, commit and the index-refreshing status editors run in the background " +
+			"rewrite an index of up to 64 MiB. The rename fails while this read holds an ordinary handle",
+	},
+	{
+		file:  "test/fault/fault.go",
+		fn:    "flushAndAwaitEnd",
+		holds: "run/marker.json",
+		why: "the daemon's contract.WriteMarker, made once per session end and never retried, which " +
+			"this poll waits for: a replace its own read made fail would time the wait out, as " +
+			"obsSessionEndMarker's did (w4-e2eflakes)",
 	},
 }
 
