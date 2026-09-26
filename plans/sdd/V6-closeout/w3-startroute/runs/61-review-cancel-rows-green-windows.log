@@ -1,0 +1,8 @@
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.04s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.374s

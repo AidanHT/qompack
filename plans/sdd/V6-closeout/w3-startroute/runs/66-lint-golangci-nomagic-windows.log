@@ -1,0 +1,11 @@
+== devtool lint: golangci-lint ==
+internal\daemon\spawn_stage_test.go:312:27: Error return value is not checked (errcheck)
+	addr, err := ipc.Resolve(d.(*daemon).root)
+	                         ^
+exit status 1
+FAIL golangci-lint: exit status 1
+== devtool lint: nomagic ==
+PASS nomagic
+devtool: lint: lint: failed sub-check(s): golangci-lint
+exit status 1
+exit=1
