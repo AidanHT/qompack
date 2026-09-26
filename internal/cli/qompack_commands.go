@@ -251,9 +251,13 @@ func fetchDaemonStatus(ctx context.Context, client ipc.Client) (commands.DaemonS
 
 // readPersistedMetrics reads the snapshot obs.Registry.Persist last wrote. Its own TS is what
 // gives the fallback reading its age.
+//
+// It reads from this CLI process while the daemon replaces the file with paths.WriteAtomic, so the
+// read goes through paths.ReadFileShared: on Windows an ordinary handle would fail that replace and
+// would itself be refused while one is finishing (test/guards' sharedReaders).
 func readPersistedMetrics(l paths.Layout) (obs.Snapshot, error) {
 	p := filepath.Join(l.Metrics, latencyFile)
-	b, err := os.ReadFile(p) //nolint:gosec // a path this process derives from the project root
+	b, err := paths.ReadFileShared(p)
 	if err != nil {
 		return obs.Snapshot{}, fmt.Errorf("reading %s: %w", p, err)
 	}
