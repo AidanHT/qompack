@@ -317,9 +317,14 @@ func (s *FSStore) persistStoreState() error {
 // loadStoreState seeds the cumulative counters from state/store.json, recomputing what it can when
 // the file is absent: Bytes by walking objects/, RawBytes by summing the roots index. Neither
 // recovery is exact — that is precisely why the file exists — but both beat starting at zero.
+//
+// The read is shared (paths.ReadFileShared): every store open runs it, including the read-only
+// opens of `qompack doctor` and `qompack fsck` in their own processes while the daemon's
+// persistStoreState replaces the file with paths.WriteAtomic, and on Windows an ordinary handle
+// would fail that replace (test/guards' sharedReaders).
 func (s *FSStore) loadStoreState() {
 	p := filepath.Join(s.l.State, storeStateFile)
-	if b, err := os.ReadFile(paths.Long(p)); err == nil {
+	if b, err := paths.ReadFileShared(p); err == nil {
 		var st storeState
 		if err := json.Unmarshal(b, &st); err == nil {
 			s.bytesOnDisk, s.rawBytes = st.Bytes, st.RawBytes
