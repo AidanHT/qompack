@@ -29,13 +29,22 @@ start; hosted-runner fsync figures never become constants.
 | D10 | (2026-09-25) C1.17 policy: on Windows the daemon runs from a SHA-256-verified, read-only **staged copy** under `~/.qompack/bin/<sha256>/`, only when the hook runs from inside the plugin root. Idle exit is unchanged | C1.17; the uninstall docs must cover the staged copies |
 | D11 | (2026-09-25) An unreadable checkpoint store or a failed rehydration build also answers with the deferred note, never silence | follow-up to C1.16 (wave 3) |
 | D12 | (2026-09-25) Live eval: the weak task checks in `tool-output-recall` and `seed-recall` (only `go vet`, which the untouched fixture passes) are **fixed before any confirmatory trial**, under a new task-set id and hash with a logged amendment | C5.5 (wave 3) |
+| D13 | (2026-09-25) SessionEnd contract: the flush hook answers once the request is **durably accepted** (WAL + lease), and the daemon settles and ends the session **asynchronously**; a killed hook loses nothing because the request is replayed. Drain-replayed flushes must take the same async end, so drain budgets cannot truncate SessionEnd | C1.15 (`closeout/w2-sessionend`) + wave-3 follow-up |
+| D14 | (2026-09-25) 00-ARCHITECTURE.md §2.5 amendment **ratified**: `golang.org/x/sys/unix` (exact path) joins the closed runtime-dependency list | C1.19 |
+| D15 | (2026-09-25) Hook-field size ceilings **confirmed**: degrade banner 200 host chars per quoted value, 64 for the id, whole banner under 1,000; thrash warning at most 5 warnings × 360 chars plus a counted tail, under 2,000 | C1.20 |
+| D16 | (2026-09-25) The pre-first-rotation backup Warn fires **once per daemon run** from 3/4 of the window until the first rotation. This supersedes D6's "once per store"; no new durable marker | C1.10/D6 |
 
 Defaults taken without a separate question (owner may overrule): C1.9 host deny-rule honoring;
 C7.2 hosted runners report-only for fsync-bound rows (Q1 third option); pre-registration amendments
 A2–A4 (appended by `w2-eval2` before any confirmatory trial) accepted; `qompack eval` reports the
 pre-registered intention-to-treat decision (failed trials already counted as failures) and lists the
 failed trials, rather than forcing "inconclusive"; `test/fault`'s two slow absence waits stay
-as they are (test time only; no hook is slow).
+as they are (test time only; no hook is slow); pre-registration amendments A5 (any known open defect
+disqualifies a confirmatory run) and A6 (the `sonnet` contingency may be confirmatory if every trial
+reports one resolved model) accepted; the retired PreCompact focus-text renderer and the
+compatibility-only decoders stay through 0.3.x (debug record only); staged daemon copies under
+`~/.qompack/bin` are removed by hand after uninstall (documented); carry-bound repair beyond
+"preserve and report" is post-0.3.0 work.
 
 **Routing.** On 2026-09-22 the user asked for parallel "ultracode" workflow subagents. Children
 therefore run as workflow subagents inheriting the coordinator's model (Opus 5.5), not the
