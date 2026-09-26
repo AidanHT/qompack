@@ -1,0 +1,71 @@
+# run: 05-ordering-gate-red-windows
+# base: dfbfca09d103caf603bd9daddffc05d0f29fee3e + uncommitted delivery_order_archive_test.go ONLY; delivery_order.go unchanged (store reads under Lock.mu and st)
+# platform: windows/amd64 go version go1.26.6 windows/amd64
+# command: go test ./internal/daemon -run 'TestDeliveryOrder_ArchiveReads' -count=1 -v -timeout 60s
+# expected: HoldNeitherJournalLock FAILS (store reads under Lock.mu and st); FailClosed DEADLOCKS: a fault injected inside the store read takes st, which the gate already holds
+=== RUN   TestDeliveryOrder_ArchiveReadsHoldNeitherJournalLock
+    delivery_order_archive_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_order_archive_test.go:77
+        	Error:      	Should be zero, but was 6
+        	Test:       	TestDeliveryOrder_ArchiveReadsHoldNeitherJournalLock
+        	Messages:   	no store read ran under Lock.mu
+--- FAIL: TestDeliveryOrder_ArchiveReadsHoldNeitherJournalLock (0.75s)
+=== RUN   TestDeliveryOrder_ArchiveReadsFailClosed
+panic: test timed out after 1m0s
+	running tests:
+		TestDeliveryOrder_ArchiveReadsFailClosed (59s)
+
+goroutine 50 [running]:
+testing.(*M).startAlarm.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2802 +0x354
+created by time.goFunc
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0x1826000ac000, {0x7ff643c0183a?, 0x7ff64335618e?}, 0x7ff643c43f40)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2109 +0x4c7
+testing.runTests.func1(0x1826000ac000)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2585 +0x3e
+testing.tRunner(0x1826000ac000, 0x1825ffdf9c58)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+testing.runTests({0x7ff643beb7f3, 0x1a}, {0x7ff643c050b4, 0x2a}, 0x1825ffe740c0, {0x7ff6442b0e80, 0x293, 0x293}, {0xc2a5dc1799c526b4, 0xdf9fe741d, ...})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(0x1825fff6a460)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2443 +0x6ac
+main.main()
+	_testmain.go:1396 +0x9b
+
+goroutine 26 [sync.Mutex.Lock]:
+internal/sync.runtime_SemacquireMutex(0x1825ffdb0460?, 0xc0?, 0x18260007c680?)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/sema.go:95 +0x25
+internal/sync.(*Mutex).lockSlow(0x1825ffdc2724)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/sync/mutex.go:149 +0x15d
+internal/sync.(*Mutex).Lock(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/sync/mutex.go:70
+sync.(*Mutex).Lock(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/sync/mutex.go:46
+github.com/qompack/qompack/internal/daemon.(*deliveryJournal).poison(0x6a?, {0x7ff643c58f80, 0x1825ffdb0460})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_lease.go:1366 +0x65
+github.com/qompack/qompack/internal/daemon.TestDeliveryOrder_ArchiveReadsFailClosed.func1({0x1825ffd7e5f8, 0x8, 0x8})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_order_archive_test.go:107 +0x5f
+github.com/qompack/qompack/internal/daemon.(*deliveryRadix).lookupIn(0x1825ffd221e0, {0x7ff643c5d2c8, 0x7ff644301220}, 0x0, {0x37, 0xf9, 0x8b, 0xd6, 0x44, 0x57, ...}, ...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_radix.go:269 +0xcd
+github.com/qompack/qompack/internal/daemon.(*deliveryRadix).lookup(0x1825ffc079a8?, {0x7ff643c5d2c8?, 0x7ff644301220?}, {0x37, 0xf9, 0x8b, 0xd6, 0x44, 0x57, 0xca, ...}, ...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_radix.go:258 +0x50
+github.com/qompack/qompack/internal/daemon.arrivalIn({0x7ff643c5d2c8, 0x7ff644301220}, {0x7ff643c58bc0, 0x1825ffd221e0}, {0x37, 0xf9, 0x8b, 0xd6, 0x44, 0x57, ...}, ...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_generation.go:1154 +0x106
+github.com/qompack/qompack/internal/daemon.(*deliveryGenerations).arrivalAtRoot(...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_generation.go:1149
+github.com/qompack/qompack/internal/daemon.(*deliveryGenerations).sessionFrontier(0x1825ffc0e370, {0x7ff643c5d2c8, 0x7ff644301220}, {0x7ff643bd3e51, 0x6})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_generation.go:1207 +0xd4
+github.com/qompack/qompack/internal/daemon.(*deliveryJournal).predecessorsAcknowledged(0x1825ffdc2588, {0x7ff643bd3e51, 0x6}, 0x2)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_order.go:88 +0x1cb
+github.com/qompack/qompack/internal/daemon.TestDeliveryOrder_ArchiveReadsFailClosed(0x1826000ac400)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_order_archive_test.go:111 +0x806
+testing.tRunner(0x1826000ac400, 0x7ff643c43f40)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+FAIL	github.com/qompack/qompack/internal/daemon	60.350s
+FAIL
+# exit: 1

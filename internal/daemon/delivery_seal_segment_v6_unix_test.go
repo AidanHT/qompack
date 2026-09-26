@@ -17,6 +17,7 @@ import (
 // the pinned-child identity check (its ModeSymlink guard) before any reader follows it, even though the
 // alias target holds a valid-looking segment.
 func TestDeliverySealSegment_SymlinkedSegmentDirRefused(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	active, _ := buildRotatedStore(t, root, "s", 6, false)
 	state := paths.Of(root).State

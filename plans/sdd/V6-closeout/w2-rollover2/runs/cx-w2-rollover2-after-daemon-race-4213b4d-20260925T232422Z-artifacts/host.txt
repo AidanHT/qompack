@@ -1,0 +1,10 @@
+run_id=cx-w2-rollover2-after-daemon-race-4213b4d-20260925T232422Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2
+rev=4213b4d
+commit=4213b4d1f771ad5010447b99957992bf110b9d34
+bundle_sha256=df6366215a8af9b0080d1095068ef01b18969830dd2f8d6afb0770310c2363ee
+host_started_utc=2026-09-25T23:24:27Z
+inner_args=--timeout 120m --coload -- ./internal/daemon
+host_finished_utc=2026-09-25T23:34:12Z
+container_exit=0

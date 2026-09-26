@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/qompack/qompack/internal/core"
@@ -68,6 +69,19 @@ type Lock struct {
 	// exercise both formats, and it lives on the lock rather than in a package variable so that
 	// tests running beside each other cannot see one another's choice.
 	sealFormat int
+	// rolloverEntries and rolloverBytes, when positive, replace deliveryRolloverEntries and
+	// deliveryRolloverBytes for the journal this lock opens. Zero, the only value production ever
+	// has, means the package thresholds. They are sealFormat's kind of seam: a test sets them before
+	// openDeliveryJournal to rotate after a few leases, and they live on the lock so that rollover
+	// tests can run beside each other (t.Parallel), each at its own threshold.
+	rolloverEntries int
+	rolloverBytes   int64
+	// deliveryDiag is where the journal this lock opens reports its rollover diagnostics
+	// (delivery_diagnostics.go). The daemon attaches its logger and metrics before its first
+	// journal open; nil — the offline tools, and tests that build a bare lock — reports nothing.
+	// It is atomic because the journal reads it at the moment it reports, from whichever goroutine
+	// that is, with or without Lock.mu held.
+	deliveryDiag atomic.Pointer[deliveryDiagnostics]
 }
 
 // deliverySealFormat is the seal format the journal this lock opens writes: the build's constant,
@@ -77,6 +91,22 @@ func (l *Lock) deliverySealFormat() int {
 		return deliverySealWriteFormat
 	}
 	return l.sealFormat
+}
+
+// deliveryRollover is the rotation thresholds the journal this lock opens uses: the package's, unless
+// a test set its own on this lock.
+func (l *Lock) deliveryRollover() (entries int, bytes int64) {
+	entries, bytes = deliveryRolloverEntries, deliveryRolloverBytes
+	if l == nil {
+		return entries, bytes
+	}
+	if l.rolloverEntries > 0 {
+		entries = l.rolloverEntries
+	}
+	if l.rolloverBytes > 0 {
+		bytes = l.rolloverBytes
+	}
+	return entries, bytes
 }
 
 // AcquireLock takes .qompack/run/daemon.lock for the current process at addr, resolving

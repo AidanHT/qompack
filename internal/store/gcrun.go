@@ -98,9 +98,17 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 			// one, so the pass collects nothing rather than reading a failure as "nothing is held"
 			// (SP-20 invariant 9). The report says so; it is not a silent no-op.
 			s.log.Warn("store: a gc retention-root source failed; collecting nothing this pass", "err", err)
-			return GCReport{RetentionRootsError: true, Duration: time.Since(started)}, nil
+			rep := GCReport{RetentionRootsError: true, Duration: time.Since(started)}
+			if errors.Is(err, errDeliveryCarryOverBound) {
+				rep.DeliveryCarryOverBound = true
+				s.noteDeliveryCarryHalt(err)
+			}
+			return rep, nil
 		}
 		return GCReport{}, err
+	}
+	if !m.truncated {
+		s.carryHaltAnnounced.Store(false) // the harvest completed, so the carry was within its bound
 	}
 	if m.truncated {
 		// A truncated mark produced an incomplete live set, and sweeping against one would delete
@@ -292,6 +300,33 @@ var errRetentionRootsUnavailable = errors.New("qompack: gc retention roots unava
 // RetentionRootsError rather than reading a failed read as an empty retention set.
 func retentionUnavailable(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", errRetentionRootsUnavailable, fmt.Sprintf(format, args...))
+}
+
+// errDeliveryCarryOverBound is the one retention halt that is not damage: the active delivery segment
+// carries more archived, unacknowledged leases than a pass harvests (dcarryMaxLeases). The pass halts
+// and collects nothing exactly as for any unreadable source — it is errRetentionRootsUnavailable — and
+// it is also named, because owner decision D6 (2026-09-23) accepted this bound as a documented residual
+// on the condition that hitting it is loud and counted (noteDeliveryCarryHalt).
+var errDeliveryCarryOverBound = fmt.Errorf("%w: delivery carry over its harvest bound", errRetentionRootsUnavailable)
+
+// CounterGCDeliveryCarryOverBound counts the GC passes that halted on errDeliveryCarryOverBound. It is
+// exported for the doctor row that reads it back from the metrics the daemon persisted (internal/cli).
+const CounterGCDeliveryCarryOverBound = "store.gc.delivery_carry_over_bound"
+
+// noteDeliveryCarryHalt counts one pass halted on the carry bound, and says so Loud on the first pass
+// of a run of them: GC runs on every idle tick, and one Loud line per tick would bury LOUD.log in one
+// repeated fact. A pass whose harvest completes ends the run (GC).
+func (s *FSStore) noteDeliveryCarryHalt(err error) {
+	s.count(CounterGCDeliveryCarryOverBound, 1)
+	if s.carryHaltAnnounced.Swap(true) {
+		return
+	}
+	s.log.Loud("store: gc halted: the delivery journal carries more archived leases without an "+
+		"acknowledgement than a pass can hold, so this pass and every later one collect nothing and disk "+
+		"use grows; nothing is deleted, the carry shrinks only at a later rotation by the leases "+
+		"acknowledged meanwhile, and a delivery retired by a policy denial is never acknowledged, so the "+
+		"halt may not end (docs/troubleshooting.md)",
+		"bound", dcarryMaxLeases, "err", err.Error())
 }
 
 // rootedLstat Lstats base inside dir through an os.Root, symlink-non-following. The FileInfo it returns
@@ -1290,8 +1325,8 @@ func (s *FSStore) harvestCarry(r io.Reader, f gcRootFile, into map[core.Hash]Ret
 		return false, retentionUnavailable("carried-lease file %s has a malformed digest", f.path)
 	}
 	if h.Count > dcarryMaxLeases {
-		return false, retentionUnavailable("carried-lease file %s carries %d leases, over the %d-lease harvest bound",
-			f.path, h.Count, dcarryMaxLeases)
+		return false, fmt.Errorf("%w: carried-lease file %s carries %d leases, over the %d-lease harvest bound",
+			errDeliveryCarryOverBound, f.path, h.Count, dcarryMaxLeases)
 	}
 	digest := sha256.New()
 	_, _ = digest.Write([]byte(dcarryFormat))

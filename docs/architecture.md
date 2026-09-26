@@ -161,19 +161,34 @@ per-session frontier keys, stored as one pack file and one root pointer per gene
 window's keys in the radix's own key order so each page is read and written about once; then it
 stages the next segment, with a carried-lease file naming every archived lease that has no
 acknowledgement, and commits the switch as one fsynced record in the segment authority's chained
-log. Leases and acknowledgements wait while a window is archived: about 2 to 7 s for a full window
-in the V6 close-out's measurements on loaded Windows and Linux hosts. The hot path never writes the
-generation store: the active segment's journals are the record of the active window, and only a
-settlement of an already-archived lease is mirrored at once. A new delivery is checked against the
-active window first and the archive second, so a redelivery of any archived nonce returns its
-original identity and a dormant session continues its arrivals densely. The original four files stay
-in place as segment 0; its two seals are frozen when the first rotation has archived the window and
-before its transition commits, so a build that predates segments refuses the journal instead of
-re-minting arrivals. The daemon's memory and every lookup are bounded by the active window; disk
-grows with history. Store GC reads the active segment's journals and its carried leases, never the
-archived segments' journals, so a GC pass is bounded by the active window and the carried leases (a
-carry beyond 65,536 leases halts the pass, which then collects nothing). Backup, the offline
-delivery-seal check and `fsck --seal-check` read every segment.
+log. Leases and acknowledgements wait while a window is archived: 2.3 to 6.8 s for a full window in
+the V6 close-out's measurements on loaded Windows and Linux hosts, once every 65,536 deliveries.
+Owner decision D6 accepted that pause as a documented residual; each rotation is a Loud line and
+adds to the `delivery_rotations` and `delivery_rotation_pause_ms` counters, and a store's first
+rotation, which a build that predates segments cannot read past, is announced beforehand with a Warn
+([Backup and restore](backup.md)). The hot path never writes the generation store: the active
+segment's journals are the record of the active window, and only a settlement of an already-archived
+lease is mirrored at once. A new delivery is checked against the active window first and the archive
+second, so a redelivery of any archived nonce returns its original identity and a dormant session
+continues its arrivals densely. The original four files stay in place as segment 0; its two seals
+are frozen when the first rotation has archived the window and before its transition commits, so a
+build that predates segments refuses the journal instead of re-minting arrivals.
+
+Between rotations the daemon holds only the journals' active window in memory, with bounded caches
+of the generation store (32,768 decoded branch pages and 64 open pack files), and a lookup reads one
+path from the store's root, whose depth grows with the logarithm of the history. A rotation also
+holds, while it runs, the outgoing window's archive plan and the carried leases it rewrites (at most
+64 MiB of them): about 225 to 235 MiB of peak heap at a full window in the close-out's measurements.
+Disk grows with history. Store GC reads the active segment's journals and its carried leases, never
+the archived segments' journals, so a GC pass holds at most the active window and 65,536 carried
+leases. A carried lease leaves the carry only when an acknowledgement settles it before a later
+rotation; a delivery retired by a policy denial never is acknowledged, and neither is a leased
+delivery that is never published, so those accumulate. A carry beyond 65,536 leases halts every GC pass,
+which then collects nothing (`store.gc.delivery_carry_over_bound`, Loud once per run of halted
+passes), and a rotation whose carry would pass 64 MiB (about 200,000 leases) refuses before it
+stages anything, so the journal fails closed (`delivery_rotation_carry_over_bound`). Both bounds are
+accepted residuals under D6; [Troubleshooting](troubleshooting.md#7-daemon-problems) says what each
+looks like. Backup, the offline delivery-seal check and `fsck --seal-check` read every segment.
 
 Checkpoint durability is `internal/checkpoint`: the L4 checkpointer owns the immutable,
 importance-ordered checkpoint artifact, the incrementally advancing draft that encodes closed

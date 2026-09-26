@@ -23,9 +23,9 @@ func TestDeliveryPath_V6_ExtraStagedEvidenceRefusesAdoption(t *testing.T) {
 }
 
 func TestDeliveryPath_V6_RotationCloseFailureStopsTheLiveSwitch(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	root := t.TempDir()
-	j := openRolloverJournal(t, root)
+	j := roll.open(t, root)
 	_, err := j.lease(context.Background(), genNonce(0), "s", testDeliveryRequest("first"))
 	require.NoError(t, err)
 	oldPath := j.path
@@ -40,7 +40,7 @@ func TestDeliveryPath_V6_RotationCloseFailureStopsTheLiveSwitch(t *testing.T) {
 	require.False(t, j.usable())
 	// The durable transition can be recovered by a new owner, with no second delivery assigned.
 	require.NoError(t, j.owner.Release())
-	reopened := openRolloverJournal(t, root)
+	reopened := roll.open(t, root)
 	l, err := reopened.lease(context.Background(), genNonce(1), "s", testDeliveryRequest("second"))
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), l.ArrivalSeq)

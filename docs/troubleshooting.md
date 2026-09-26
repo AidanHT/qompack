@@ -491,21 +491,101 @@ expected answer beside a running daemon, not an exceptional one.
 
 **Symptom.** For a while, hooks fall back to the spool although nothing failed.
 
-**Diagnose.** Look for a new directory under `.qompack/state/delivery-segments/` and a new record at
-the end of `.qompack/state/delivery-journal-log.jsonl` from the same time.
+**Diagnose.** `qompack status` lists `daemon: delivery journal rotated; leases and acknowledgements
+waited for the archive` among its recent loud lines, with the segments it moved between and the
+pause in `pause_ms`, and its counters include `delivery_rotations` and `delivery_rotation_pause_ms`
+(the pause's distribution is the `delivery_rotation_pause` histogram). `LOUD.log` keeps a line for
+every rotation. After the daemon stops, `qompack doctor`'s `delivery.rollover` row carries the same
+totals from `metrics/latency.json`. On disk, a rotation leaves a new directory under
+`.qompack/state/delivery-segments/` and a new record at the end of
+`.qompack/state/delivery-journal-log.jsonl`.
 
 **Meaning.** The delivery journal rotated. Every 65,536 deliveries (or 64 MiB of journal) the daemon
 archives the full window into `.qompack/state/delivery-generations/` before it assigns the next
-identity, and leases and acknowledgements wait for it: about 2 to 7 s per rotation of a full window
-in the V6 close-out's measurements on loaded hosts (`plans/V2-WAVE1-carried-defects.md`, SP20-D4). A
-hook that cannot get its ACK within its deadline spools the delivery, and the drain leases it
-afterwards under the same nonce, so nothing is lost or duplicated.
+identity, and leases and acknowledgements wait for it: 2.3 to 6.8 s per rotation of a full window in
+the V6 close-out's measurements on loaded Windows and Linux hosts
+(`plans/V2-WAVE1-carried-defects.md`, SP20-D4). The owner accepted this pause as a documented
+residual (decision D6); moving the archive off the pause is deferred past this release. A hook that
+cannot get its ACK within its deadline spools the delivery, and the drain leases it afterwards under
+the same nonce, so nothing is lost or duplicated.
 
 **Action.** None. Do not stop the daemon mid-rotation to "unstick" it: an interrupted rotation is
-finished on the next start before anything else is assigned. If the first rotation stopped between
-freezing the original seals and committing the switch, then until the daemon starts again a store GC
-pass halts rather than collect, and `qompack fsck` reports a frozen legacy-segment seal with no
-later segment named.
+finished on the next start before anything else is assigned, and reported with `at_open=true`. If
+the first rotation stopped between freezing the original seals and committing the switch, then until
+the daemon starts again a store GC pass halts rather than collect, and `qompack fsck` reports a
+frozen legacy-segment seal with no later segment named.
+
+---
+
+**Symptom.** The daemon log (`.qompack/logs/qompack-YYYYMMDD.log`) has a warning that `this
+project's delivery journal will rotate for the first time soon`, or `qompack doctor`'s
+`delivery.rollover` row says `the last daemon warned that this store's first rotation is near`.
+
+**Meaning.** The project has never rotated its delivery journal and its lease journal has reached
+three quarters of the rotation threshold (49,152 deliveries or 48 MiB). The first rotation is the
+one step that cannot be undone: after it, a Qompack build older than segmented rollover refuses the
+journal. The daemon warns once per run, at the point it is crossed or at the start of a run that
+finds the project already past it, and counts it in `delivery_first_rotation_backup_advised`. The
+warning is per run, not per project: every restart before the rotation warns again, so each run's
+`delivery.rollover` row, which reads only that run's counters, still names the coming rotation.
+
+**Action.** If you may want to run an older build on this project again, stop the daemon and take a
+backup now (`qompack backup create`, [Backup and restore](backup.md)). A backup taken before the
+first rotation is the only way back to such a build. Otherwise, nothing: the rotation happens on its
+own.
+
+---
+
+**Symptom.** `LOUD.log` or `qompack status` shows `store: gc halted: the delivery journal carries
+more archived leases without an acknowledgement than a pass can hold`, and `.qompack/` keeps
+growing.
+
+**Diagnose.** The status counter `store.gc.delivery_carry_over_bound` counts every halted pass, and
+`qompack doctor`'s `delivery.rollover` row reads `degraded` with the number of halted passes. The
+Loud line's `err` names the carried-lease file and how many leases it carries. The file is the
+active segment's `delivery-carried-leases.jsonl` under `.qompack/state/delivery-segments/`; its
+first line's `count` is the same number.
+
+**Meaning.** Each rotation carries into the new segment every archived lease that has no
+acknowledgement, so store GC can retain what those leases reference without reading old segments.
+A GC pass harvests at most 65,536 carried leases; past that it halts and collects nothing, exactly
+as for any retention source it cannot read, so nothing is deleted and disk use grows. The carry
+shrinks only at a later rotation, by the carried leases an acknowledgement settled meanwhile. A
+delivery retired by a policy denial is never acknowledged, and neither is a leased delivery that is
+never published, so a project with many of those can stay halted. The line is Loud once per run of
+halted passes, not on every idle tick; the counter counts every pass. The owner accepted this bound
+as a documented residual (decision D6).
+
+**Action.** There is no repair for it in this build. Do not edit or delete the carried-lease file or
+any journal: that would release content a delivery may still need, or recycle observation
+identities. Keep disk headroom, and keep `LOUD.log` and the doctor output for the report.
+
+---
+
+**Symptom.** Capture stops, and `LOUD.log` or `qompack status` shows `daemon: delivery journal
+rotation refused: the archived leases without an acknowledgement would pass the carried-lease file's
+bound`.
+
+**Diagnose.** The status counters `delivery_rotation_failures` and
+`delivery_rotation_carry_over_bound` each read at least 1, and `qompack doctor`'s
+`delivery.rollover` row reads `degraded`, naming the 64 MiB bound. The Loud line carries
+`carried_leases`, `carry_bytes` and `carry_bound_bytes`. Every later delivery also logs `daemon:
+delivery identity unavailable; durable WAL retained for recovery`.
+
+**Meaning.** The carry the rotation would have written (the store GC entry above) passes 64 MiB,
+about 200,000 leases, which every reader of the file refuses. So the rotation refuses before it
+stages anything, and the journal refuses every lease and acknowledgement from then on. A restart
+finishes the same rotation at the open, meets the same bound, and refuses again (the Loud line then
+reads `at_open=true`). Deliveries are kept in durable input (the ingest WAL, or the hook spool when
+the daemon does not answer), so disk grows while it lasts, and nothing new is captured. Nothing is
+half-written: the offline delivery check (`qompack admin delivery-seal --check` on the stopped
+project, and the delivery row of `qompack fsck --seal-check`) still passes. The owner accepted this
+bound as a documented residual (decision D6).
+
+**Action.** There is no repair for it in this build. Stop the daemon and take a backup
+(`qompack backup create`) to preserve the state, then report it with `LOUD.log` and the doctor
+output. Do not delete or edit journals, carried-lease files or segments, and do not delete the WAL
+or spool files: they are the only copy of the deliveries made since the refusal.
 
 ---
 

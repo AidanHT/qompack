@@ -85,6 +85,10 @@ type daemon struct {
 	m    obs.Registry
 	clk  core.Clock
 
+	// deliveryDiag is this daemon's logger and metrics as the delivery journal reports to them
+	// (delivery_diagnostics.go), attached to the lock on every journal access. Set once in New.
+	deliveryDiag *deliveryDiagnostics
+
 	cfgMu        sync.RWMutex
 	cfg          config.Config
 	cfgEnv       config.Env
@@ -346,6 +350,7 @@ func New(o Options) (Daemon, error) {
 	d.ing = newIngest(o.ProjectRoot, o.Cfg, o.Log, o.Metrics, o.Clock)
 	// The delivery journal belongs to the singleton Lock Run acquires later, so both the ingest
 	// queue and the drainer reach it through this accessor rather than holding it.
+	d.deliveryDiag = &deliveryDiagnostics{log: o.Log, m: o.Metrics}
 	d.ing.journal = d.deliveryJournal
 	d.ing.admit = d.admitDelivery
 
@@ -1123,6 +1128,9 @@ func (d *daemon) deliveryJournal() (*deliveryJournal, error) {
 	if lock == nil {
 		return nil, deliveryJournalError()
 	}
+	// The journal reports its rollover diagnostics through this daemon's logger and metrics
+	// (delivery_diagnostics.go); after the first access this is one atomic load.
+	lock.attachDeliveryDiagnostics(d.deliveryDiag)
 	return lock.openDeliveryJournal()
 }
 

@@ -1,0 +1,36 @@
+# run: 01-carry-bound-red-windows
+# base: b070bbe + uncommitted diagnostics (delivery_diagnostics.go, rotate/doRotate instrumentation) WITHOUT the doRotate carry-bound refusal
+# platform: windows/amd64 go version go1.26.6 windows/amd64
+# command: go test ./internal/daemon -run 'TestDeliveryDiagnostics_|TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation|TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch' -count=1 -v
+# expected: TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation FAILS (the rotation writes and commits a carry past its bound)
+=== RUN   TestDeliveryDiagnostics_EveryRotationIsLoudAndCounted
+--- PASS: TestDeliveryDiagnostics_EveryRotationIsLoudAndCounted (0.68s)
+=== RUN   TestDeliveryDiagnostics_RotationFinishedAtOpenIsReported
+--- PASS: TestDeliveryDiagnostics_RotationFinishedAtOpenIsReported (0.54s)
+=== RUN   TestDeliveryDiagnostics_FailedRotationIsLoudAndCounted
+--- PASS: TestDeliveryDiagnostics_FailedRotationIsLoudAndCounted (0.40s)
+=== RUN   TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation
+    delivery_diagnostics_test.go:190: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_diagnostics_test.go:190
+        	Error:      	Target error should be in err chain:
+        	            	expected: "delivery segments: authority unavailable: carried leases over their byte bound"
+        	            	in chain: 
+        	Test:       	TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation
+        	Messages:   	the rotation refuses rather than write a carry past its bound
+--- FAIL: TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation (0.32s)
+=== RUN   TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch
+--- PASS: TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch (0.37s)
+=== RUN   TestDeliveryDiagnostics_FirstRotationIsAdvisedOnceBeforeItHappens
+--- PASS: TestDeliveryDiagnostics_FirstRotationIsAdvisedOnceBeforeItHappens (0.92s)
+=== RUN   TestDeliveryDiagnostics_FirstRotationAdviceByBytes
+--- PASS: TestDeliveryDiagnostics_FirstRotationAdviceByBytes (0.20s)
+=== RUN   TestDeliveryDiagnostics_FirstRotationAdviceAtOpen
+--- PASS: TestDeliveryDiagnostics_FirstRotationAdviceAtOpen (0.37s)
+=== RUN   TestDeliveryDiagnostics_AdviceWaitsForSomewhereToReport
+--- PASS: TestDeliveryDiagnostics_AdviceWaitsForSomewhereToReport (0.22s)
+=== RUN   TestDeliveryDiagnostics_StatusShowsTheRotationCounters
+--- PASS: TestDeliveryDiagnostics_StatusShowsTheRotationCounters (0.75s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	5.112s
+FAIL
+# exit: 1

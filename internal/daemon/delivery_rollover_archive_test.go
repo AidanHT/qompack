@@ -41,9 +41,9 @@ func countJournalLines(t *testing.T, path string) int {
 // TestDeliveryRollover_HotPathLeavesTheGenerationStoreUntouched: below the rollover threshold, leases
 // and acknowledgements commit exactly what the legacy journal always committed — no generation, no pack.
 func TestDeliveryRollover_HotPathLeavesTheGenerationStoreUntouched(t *testing.T) {
-	setRollover(t, 1000)
+	roll := parallelRollover(t, 1000)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	require.NotNil(t, j.gen)
 	for i := 0; i < 20; i++ {
 		l, err := j.lease(ctx, genNonce(i), "hot", testDeliveryRequest(genNonce(i)))
@@ -60,9 +60,9 @@ func TestDeliveryRollover_HotPathLeavesTheGenerationStoreUntouched(t *testing.T)
 // every lease, acknowledgement and terminal disposition of the outgoing window, and the per-session
 // frontier it records is exact.
 func TestDeliveryRollover_RotationArchivesTheWholeOutgoingWindow(t *testing.T) {
-	setRollover(t, 4)
+	roll := parallelRollover(t, 4)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	var window []deliveryLease
 	for i := 0; i < 4; i++ {
 		l, err := j.lease(ctx, genNonce(i), "window", testDeliveryRequest(genNonce(i)))
@@ -103,9 +103,9 @@ func TestDeliveryRollover_RotationArchivesTheWholeOutgoingWindow(t *testing.T) {
 // lease settles the store's frontier immediately, so a later arrival of the same session is never held
 // behind a predecessor that is in fact settled.
 func TestDeliveryRollover_ArchivedSettlementIsMirroredAtOnce(t *testing.T) {
-	setRollover(t, 2)
+	roll := parallelRollover(t, 2)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	var leases []deliveryLease
 	for i := 0; i < 3; i++ {
 		l, err := j.lease(ctx, genNonce(i), "settle", testDeliveryRequest(genNonce(i)))
@@ -128,9 +128,9 @@ func TestDeliveryRollover_ArchivedSettlementIsMirroredAtOnce(t *testing.T) {
 // journal can fill before its lease journal does (it also settles leases archived before the segment
 // opened). Reaching the threshold rotates rather than refusing the acknowledgement.
 func TestDeliveryRollover_AcknowledgementJournalRotatesAtItsOwnThreshold(t *testing.T) {
-	setRollover(t, 3)
+	roll := parallelRollover(t, 3)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	var leases []deliveryLease
 	for i := 0; i < 4; i++ { // three fill segment 0; the fourth opens segment 1
 		l, err := j.lease(ctx, genNonce(i), "acks", testDeliveryRequest(genNonce(i)))
@@ -152,9 +152,9 @@ func TestDeliveryRollover_AcknowledgementJournalRotatesAtItsOwnThreshold(t *test
 // that already carries an acknowledgement answers a redelivered one from the store, idempotently,
 // instead of appending a second acknowledgement line into the active segment.
 func TestDeliveryRollover_RedeliveredAcknowledgementOfArchivedDeliveryAppendsNothing(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	first, err := j.lease(ctx, genNonce(0), "dup", testDeliveryRequest(genNonce(0)))
 	require.NoError(t, err)
 	require.NoError(t, j.acknowledge(ctx, first.Delivery, first.ObservationID, core.Hash{}))
@@ -174,10 +174,10 @@ func TestDeliveryRollover_RedeliveredAcknowledgementOfArchivedDeliveryAppendsNot
 // next open finishes that rotation before assigning anything, so the window's later settlements can
 // never be stranded behind a stale archived frontier.
 func TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen(t *testing.T) {
-	setRollover(t, 100)
+	roll := parallelRollover(t, 100)
 	ctx := context.Background()
 	root := t.TempDir()
-	j := openRolloverJournal(t, root)
+	j := roll.open(t, root)
 	var leases []deliveryLease
 	for i := 0; i < 3; i++ {
 		l, err := j.lease(ctx, genNonce(i), "interrupted", testDeliveryRequest(genNonce(i)))
@@ -188,7 +188,7 @@ func TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen(t *testing.T) {
 	require.NoError(t, j.reconcileGenerations(ctx))
 	require.NoError(t, j.owner.Release())
 
-	reopened := openRolloverJournal(t, root)
+	reopened := roll.open(t, root)
 	require.Equal(t, uint64(1), reopened.segment, "the interrupted rotation is finished at open")
 	require.NoError(t, reopened.acknowledge(ctx, leases[0].Delivery, leases[0].ObservationID, core.Hash{}))
 	require.NoError(t, reopened.acknowledge(ctx, leases[1].Delivery, leases[1].ObservationID, core.Hash{}))
@@ -210,9 +210,9 @@ func TestDeliveryRollover_InterruptedRotationRollsForwardAtOpen(t *testing.T) {
 // observation identity is distinct, every nonce re-leases to the identical lease once its segment has
 // been archived, and acknowledgements of leases archived in different segments are all admitted.
 func TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal(t *testing.T) {
-	setRollover(t, 1) // every lease after the first in a segment rotates
+	roll := parallelRollover(t, 1) // every lease after the first in a segment rotates
 	ctx := context.Background()
-	j := openRolloverJournal(t, t.TempDir())
+	j := roll.open(t, t.TempDir())
 	const callers, each = 8, 6
 	errs := make(chan error, callers*each)
 	got := make([][]deliveryLease, callers)

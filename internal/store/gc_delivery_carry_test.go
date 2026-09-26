@@ -162,9 +162,49 @@ func TestGCSegments_UnreadableCarryHalts(t *testing.T) {
 			rep, err := tp.Store.GC(ctx, forceCollect)
 			require.NoError(t, err)
 			require.True(t, rep.RetentionRootsError, "an unreadable carry halts the pass")
+			require.Equal(t, tc.max > 0, rep.DeliveryCarryOverBound,
+				"only a carry past the harvest bound is reported as that bound; damage is not")
 			require.Zero(t, rep.DeletedObjects)
 			_, err = tp.Store.GetRoot(ctx, doomed.Hash)
 			require.NoError(t, err)
 		})
 	}
+}
+
+// TestGCSegments_CarryOverTheBoundIsLoudOnceAndCountedEveryPass: owner decision D6 accepted the
+// harvest bound as a documented residual on the condition that reaching it shows. Every pass that
+// halts on it is counted; the halt is Loud on the first pass of a run of them, not on every idle tick;
+// and a pass whose harvest completes ends the run, so a later halt is Loud again.
+func TestGCSegments_CarryOverTheBoundIsLoudOnceAndCountedEveryPass(t *testing.T) {
+	prev := dcarryMaxLeases
+	dcarryMaxLeases = 1
+	t.Cleanup(func() { dcarryMaxLeases = prev })
+	ctx := context.Background()
+	log := &loudCountingLogger{}
+	tp := newTestStore(t, withLog(log))
+	installSegAuthority(t, tp, []segSpec{{0, ""}, {1, segBaseRoot("seg1")}})
+	lease := func(label string) string { return carryLine(deliveryNonce("9"), obsIDText(label), obsIDText(label)) }
+	over, within := renderCarry(1, lease("x"), lease("y")), renderCarry(1, lease("x"))
+
+	writeCarry(t, tp, 1, over)
+	for pass := 1; pass <= 3; pass++ {
+		rep, err := tp.Store.GC(ctx, forceCollect)
+		require.NoError(t, err)
+		require.True(t, rep.DeliveryCarryOverBound)
+		require.Equal(t, int64(pass), tp.counter(CounterGCDeliveryCarryOverBound), "every halted pass is counted")
+		require.Equal(t, 1, log.count(), "the halt is Loud once for the run of halted passes")
+	}
+
+	writeCarry(t, tp, 1, within)
+	rep, err := tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+	require.False(t, rep.RetentionRootsError, "a carry within the bound is harvested")
+	require.False(t, rep.DeliveryCarryOverBound)
+
+	writeCarry(t, tp, 1, over)
+	rep, err = tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+	require.True(t, rep.DeliveryCarryOverBound)
+	require.Equal(t, 2, log.count(), "a new run of halted passes is Loud again")
+	require.Equal(t, int64(4), tp.counter(CounterGCDeliveryCarryOverBound))
 }

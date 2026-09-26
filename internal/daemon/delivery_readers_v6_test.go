@@ -20,13 +20,14 @@ import (
 // Exercise store readers using the daemon's actual writer bytes. Literal store
 // fixtures alone cannot catch drift in the duplicated, cycle-free wire readers.
 func TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases(t *testing.T) {
+	roll := parallelRollover(t, 1)
 	for _, missing := range []string{"", deliveryPositionFile, deliveryAckFile} {
 		name := missing
 		if name == "" {
 			name = "complete"
 		}
 		t.Run(name, func(t *testing.T) {
-			setRollover(t, 1)
+			t.Parallel()
 			ctx := context.Background()
 			root := t.TempDir()
 			s, err := store.Open(root, config.Defaults(), store.Deps{})
@@ -38,7 +39,7 @@ func TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases(t *testing.T) {
 				require.NoError(t, err)
 				roots = append(roots, put.Root.Hash)
 			}
-			j := openRolloverJournal(t, root)
+			j := roll.open(t, root)
 			var leases []deliveryLease
 			for i := 0; i < 3; i++ {
 				// A root in the request field is a structural retention reference;
@@ -79,7 +80,7 @@ func TestDeliveryReaders_V6_GCRetainsActiveAndArchivedLeases(t *testing.T) {
 }
 
 func TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	ctx := context.Background()
 	root := t.TempDir()
 	cfg := config.Defaults()
@@ -89,7 +90,7 @@ func TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites(t *testin
 	payload := []byte("content preserved alongside segmented delivery history\n")
 	put, err := s.PutBytes(ctx, payload, store.PutOptions{})
 	require.NoError(t, err)
-	j := openRolloverJournal(t, root)
+	j := roll.open(t, root)
 	var first deliveryLease
 	for i := 0; i < 3; i++ {
 		l, err := j.lease(ctx, genNonce(i), "backup-session", put.Root.Hash)
@@ -143,7 +144,7 @@ func TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites(t *testin
 	require.NoError(t, lock.Release())
 	_, err = checkSeal(t, restoreRoot)
 	require.NoError(t, err, "offline integrity must inspect all copied segments")
-	restored := openRolloverJournal(t, restoreRoot)
+	restored := roll.open(t, restoreRoot)
 	got, err := restored.lease(ctx, first.Delivery, first.Session, first.RequestHash)
 	require.NoError(t, err)
 	require.Equal(t, first, got)
@@ -172,7 +173,7 @@ func TestDeliveryReaders_V6_BackupRestoresHistoryAndAcceptsLaterWrites(t *testin
 // plans/sdd/V6-closeout/rollover/gc-negative-control.sh (segment 0 only, run 06, against the harvest
 // before the carry) and gc-carry-negative-control.sh (carried leases ignored).
 func TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot(t *testing.T) {
-	setRollover(t, 1) // every lease after the first in a segment rotates
+	roll := parallelRollover(t, 1) // every lease after the first in a segment rotates
 	ctx := context.Background()
 	root := t.TempDir()
 	s, err := store.Open(root, config.Defaults(), store.Deps{})
@@ -180,7 +181,7 @@ func TestDeliveryReaders_V6_GCDuringLiveRotationsKeepsEveryArchivedUnsettledRoot
 	t.Cleanup(func() { _ = s.Close() })
 	const n = 14
 	roots := make([]core.Hash, n)
-	j := openRolloverJournal(t, root)
+	j := roll.open(t, root)
 	policy := store.GCPolicy{RetainDays: -1, RetainSessions: -1}
 	leases := make([]deliveryLease, n)
 	settled := map[int]bool{}

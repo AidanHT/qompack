@@ -1,0 +1,35 @@
+run_id=cx-w2-rollover2-store-cli-focused-race-651a8fb-20260925T235139Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2
+rev=651a8fb
+commit=651a8fb220859d8becfd6505c0dad91fe8a89f44
+bundle_sha256=9f3a078e4b2bb5361a070648d7c28016fc27a659cc4c530e30e704e38393b73b
+host_started_utc=2026-09-25T23:51:42Z
+inner_args=--run TestGCSegments_|TestDoctor_|TestFsck_ --timeout 30m --coload -- ./internal/store ./internal/cli
+/work/cx-w2-rollover2-store-cli-focused-race-651a8fb-20260925T235139Z.bundle: OK
+run_id=cx-w2-rollover2-store-cli-focused-race-651a8fb-20260925T235139Z
+commit=651a8fb220859d8becfd6505c0dad91fe8a89f44
+tree=5d0a35f7d5b8b74b01de4a908fb57098db15778e
+bundle_sha256=9f3a078e4b2bb5361a070648d7c28016fc27a659cc4c530e30e704e38393b73b
+started_utc=2026-09-25T23:51:44Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=1
+run=TestGCSegments_|TestDoctor_|TestFsck_
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/store  (pass=33 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=107 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/plans/sdd/V6-closeout/w2-rollover2/runs/cx-w2-rollover2-store-cli-focused-race-651a8fb-20260925T235139Z-artifacts
+exit=0

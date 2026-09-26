@@ -42,6 +42,7 @@ const sp20d4LeaseCap = 1 << 16
 // The acceptance in plans/V2-WAVE1-carried-defects.md §SP20-D4 asked for exactly these: a project
 // past 65,536 leases leases its next delivery, and a late copy of a retired delivery is still skipped.
 func TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart(t *testing.T) {
+	t.Parallel()
 	require.True(t, enableDeliveryGenerations, "segmented rollover is enabled by default")
 	ctx := context.Background()
 	root := t.TempDir()

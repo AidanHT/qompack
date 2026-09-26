@@ -1,0 +1,22 @@
+# run: 04-carry-bound-red-windows
+# base: 4d3b00b190dcdfee6e3e4d08f73a4ce8386d5803 (feat(daemon): report every delivery rotation) + uncommitted delivery_carry.go bound var/error, the carry-bound diagnostic and its two tests, WITHOUT the doRotate carry-bound refusal
+# platform: windows/amd64 go version go1.26.6 windows/amd64
+# command: go test ./internal/daemon -run 'TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation|TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch|TestDeliveryDiagnostics_FailedRotation' -count=1 -v
+# expected: CarryPastItsBoundRefusesTheRotation FAILS: the rotation writes and commits a carry past its bound
+=== RUN   TestDeliveryDiagnostics_FailedRotationIsLoudAndCounted
+--- PASS: TestDeliveryDiagnostics_FailedRotationIsLoudAndCounted (4.17s)
+=== RUN   TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation
+    delivery_diagnostics_test.go:188: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/internal/daemon/delivery_diagnostics_test.go:188
+        	Error:      	Target error should be in err chain:
+        	            	expected: "delivery segments: authority unavailable: carried leases over their byte bound"
+        	            	in chain: 
+        	Test:       	TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation
+        	Messages:   	the rotation refuses rather than write a carry past its bound
+--- FAIL: TestDeliveryRollover_CarryPastItsBoundRefusesTheRotation (1.06s)
+=== RUN   TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch
+--- PASS: TestDeliveryRollover_ACarryAlreadyPastItsBoundIsNamedAsSuch (1.12s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	6.733s
+FAIL
+# exit: 1
