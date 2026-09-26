@@ -1206,22 +1206,24 @@ func TestGC_DeadlineBudgetRepricesAfterAMissedWindow(t *testing.T) {
 //
 // A fifth run failed it because the window's FirstCheck end was priced from a different call than
 // the one it bounded. The Linux verification container (non-root, -race, GOMAXPROCS=4) failed it
-// alone on b070bbe and 8116d69 with "this host could not be measured": calibration 514…707 ms
-// (a 1.37x spread, so a steady host), first check 59.7 ms, window 8.61x, and five attempts that
+// alone on b070bbe and 8116d69 with "this host could not be measured": calibration 514…707 ms (a
+// 1.37x spread, so a steady host), first check 59.7 ms, window 8.61x, and five attempts that
 // alternated between stopping at the first check (budgets 175, 191 and 167 ms, each 266…295 ms
-// elapsed) and sweeping the whole tree (859 and 780 ms, 561 and 489 ms elapsed). The first check was
-// timed over the mark, the live-set write and the sweep alone, but GC also runs recordOutcomes
-// before its sweep, and on that host, over this fixture's 3 072 dead roots, it cost 171…292 ms (a
-// probe of every phase, w3-paths runs/linux). So a GC call needed 222…449 ms of its own clock to
-// reach a check the window placed at 41…92 ms, and the real window was about 1.8x. The retry cannot
-// repair that, because it re-prices both ends by a common factor and an omitted phase is an
-// additive cost; so its budgets swung between the two misses. The first check is now read from a
-// GC call's own GCReport.Duration, and the retry re-prices on that clock too (the wall clock also
-// held the cursor write, which comes after the check that stops a pass and cannot move where a
-// budget expires). Pre-sweep work the deadline never consults is a real gap of its own, like the
-// tombstoning above: recordOutcomes cost 10…18 ms without -race on the same host. Its sorts built
-// two String() forms per comparison, 222 108 allocations for those roots; they compare the bytes
-// now (gcHashLess, same order), which is what gives that host a window wide enough to measure.
+// elapsed) and sweeping the whole tree (859 and 780 ms, 561 and 489 ms elapsed). The first check
+// was timed over the mark, the live-set write and the sweep alone, but GC also runs recordOutcomes
+// before its sweep, and on that host, over this fixture's 3 072 dead roots, it cost 104…292 ms (two
+// probes of every phase, plans/sdd/V6-closeout/w3-paths gcprobe runs). So a GC call needed
+// 167…449 ms of its own clock to reach a check the window placed at 41…92 ms, and the real window
+// was about 1.8x. The retry cannot repair that, because it re-prices both ends by a common factor
+// and an omitted phase is an additive cost; so its budgets swung between the two misses (6aff949
+// failed the same way, three runs of three). The first check is now read from a GC call's own
+// GCReport.Duration, and the retry re-prices on that clock too (the wall clock also held the cursor
+// write, which comes after the check that stops a pass and cannot move where a budget expires).
+// Pre-sweep work the deadline never consults is a real gap of its own, like the tombstoning above:
+// recordOutcomes cost 10…18 ms without -race on the same host. Its sorts built two String() forms
+// per comparison, 222 108 allocations for those roots; they compare the bytes now (gcHashLess, same
+// order), and it costs 10…15 ms under -race there, which is what gives that host a window wide
+// enough to measure.
 //
 // Every assertion about what the collector DID is hard in both modes: the calibration passes
 // complete and sweep the whole tree, an already-expired deadline stops the sweep at its first
