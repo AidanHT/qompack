@@ -125,13 +125,21 @@ type daemon struct {
 	lastBudgets []obs.BudgetBreach
 
 	// historyMu serializes every access to the SessionHistory value: it carries no lock of its
-	// own (contract.SessionHistory's own doc comment), and routes run concurrently.
+	// own (contract.SessionHistory's own doc comment), and routes run concurrently. It also guards
+	// lastStartAnswer, which the session.start route reads and writes beside the history.
 	historyMu sync.Mutex
+	// lastStartAnswer is what the last live session.start's answer carried that is true only once
+	// the host has it (handlers.go startAnswer): a replay of that same request withdraws it.
+	lastStartAnswer startAnswer
 
-	// modeMu guards lastReportedMode, used both for the §12.1 SystemMessage-on-just-degraded
-	// check and for the contract_mode_change counter (ruling #26).
-	modeMu           sync.Mutex
-	lastReportedMode contract.Mode
+	// modeMu guards lastReportedMode, the mode the contract_mode_change counter (ruling #26)
+	// compares against, and lastAnnouncedMode, the mode the host was last told about, which the
+	// §12.1 SystemMessage-on-just-degraded check compares against. They differ only after a start
+	// whose answer reached no host (a replay from a spool): its transition is counted at once, and
+	// announced by the next live start.
+	modeMu            sync.Mutex
+	lastReportedMode  contract.Mode
+	lastAnnouncedMode contract.Mode
 
 	// startMu guards the three fields Run publishes while starting up and another goroutine reads:
 	// lock, server and addr. The admin.shutdown route answers the client and then runs the whole
@@ -399,6 +407,7 @@ func New(o Options) (Daemon, error) {
 
 	d.startTS = core.NowMilli(o.Clock)
 	d.lastReportedMode = monitor.Mode()
+	d.lastAnnouncedMode = d.lastReportedMode
 
 	return d, nil
 }

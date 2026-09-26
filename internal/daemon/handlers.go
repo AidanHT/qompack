@@ -694,8 +694,8 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // scanSentinelForPrompt is the §12.1 hook.additional_context_delivered probe's other half: a
 // worker (never the reply path) scans the transcript tail for the sentinel SessionStart minted,
 // and records what it found. It is a no-op once the sentinel has already been observed, or if
-// none was ever minted this session (an act.-suppressed SessionStart, or a session that predates
-// this mechanism).
+// none was ever minted this session (an act.-suppressed SessionStart, a replayed one, or a session
+// that predates this mechanism).
 //
 // promptTS is the prompt hook's own first-statement time (ipc.Request.TS). A prompt submitted
 // before the sentinel was minted — one replayed from a spool or deferred to a drain, or another
@@ -744,11 +744,23 @@ func (d *daemon) observePhase(name string, start time.Time) {
 // ordering): the contract monitor runs before any other work (§5.21), the sentinel is minted only
 // when the mode MayAct(), and the session_start.fires marker is deliberately never written here
 // — see contract.WriteMarker's own doc comment for why.
+//
+// A request drainDispatch replays from a hook client's spool (spoolReplay) is one no answer from
+// this daemon reached in time: the daemon was down or not yet listening, or its reply missed the
+// client's deadline, and the hook has already answered the host without it. The replay does the
+// start's durable bookkeeping — the registry, the contract run and its observations, the session
+// count, the observer's SessionStart, a compact start's undelivered drop report — because the host
+// did start the session. It puts nothing into an answer, because no answer reaches the host: it
+// mints no §12.1 probe (one nobody received would run out its two chances and degrade the project,
+// blaming the host for a reply Qompack lost), and it leaves the degrade banner to the next live start
+// (recordContractObservability). And when the request's own live answer was the one that was lost,
+// the replay withdraws what that answer carried (withdrawLostStartAnswer).
 func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
 	routeStart := time.Now()
 	defer d.observePhase(histSessionStartRoute, routeStart)
+	replayed := spoolReplay(ctx)
 
 	d.maybeReloadConfig(ctx, d.cfgEnv)
 
@@ -789,7 +801,7 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	if ev.Source == sessionSourceCompact && mode.MayAct() {
 		compact = d.startCompactAnswer(ctx, *ev, routeStart)
 	}
-	justDegraded := d.recordContractObservability(results, mode)
+	justDegraded := d.recordContractObservability(results, mode, !replayed)
 	_ = ipc.WriteState(d.root, d.currentState())
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history after RunAll", "err", err)
@@ -833,31 +845,42 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	defer d.historyMu.Unlock()
 	h = contract.LoadHistory(contract.HistoryPath(d.root))
 
-	if mode.MayAct() {
-		s := contract.MintSentinel(ev.SessionID, now)
-		// Only the token's own identifying fields are assigned — never the whole struct.
-		// SentinelState.Observed is documented as "never resets to false" once the mechanism has
-		// proven itself (contract/history.go), so a session.start that mints a fresh token must
-		// leave it exactly as RecordSentinelScan last left it (fix round 1, I-2). Chances DOES
-		// reset to 0 here, deliberately: it counts consecutive scans that missed THIS token, and a
-		// freshly minted token has had zero chances to be found yet.
-		h.Sentinel.Token = s.Token
-		h.Sentinel.Session = ev.SessionID
-		h.Sentinel.MintedAt = now
-		h.Sentinel.Chances = 0
-		if out.HookSpecificOutput == nil {
-			out.HookSpecificOutput = &hookio.HSO{HookEventName: hookEventNameSessionStart}
+	if replayed {
+		// Nothing below reaches the host (see the doc comment), so nothing is minted or shown; what
+		// this request's own live answer carried, if it was the one that was lost, is withdrawn.
+		d.withdrawLostStartAnswer(h, req.Nonce)
+		out = hookio.Empty()
+	} else {
+		answer := startAnswer{nonce: req.Nonce}
+		if mode.MayAct() {
+			s := contract.MintSentinel(ev.SessionID, now)
+			// Only the token's own identifying fields are assigned — never the whole struct.
+			// SentinelState.Observed is documented as "never resets to false" once the mechanism has
+			// proven itself (contract/history.go), so a session.start that mints a fresh token must
+			// leave it exactly as RecordSentinelScan last left it (fix round 1, I-2). Chances DOES
+			// reset to 0 here, deliberately: it counts consecutive scans that missed THIS token, and a
+			// freshly minted token has had zero chances to be found yet.
+			h.Sentinel.Token = s.Token
+			h.Sentinel.Session = ev.SessionID
+			h.Sentinel.MintedAt = now
+			h.Sentinel.Chances = 0
+			if out.HookSpecificOutput == nil {
+				out.HookSpecificOutput = &hookio.HSO{HookEventName: hookEventNameSessionStart}
+			}
+			sentinelText := contract.RenderSentinel(s)
+			if out.HookSpecificOutput.AdditionalContext == "" {
+				out.HookSpecificOutput.AdditionalContext = sentinelText
+			} else {
+				out.HookSpecificOutput.AdditionalContext += "\n" + sentinelText
+			}
+			answer.token = s.Token
 		}
-		sentinelText := contract.RenderSentinel(s)
-		if out.HookSpecificOutput.AdditionalContext == "" {
-			out.HookSpecificOutput.AdditionalContext = sentinelText
-		} else {
-			out.HookSpecificOutput.AdditionalContext += "\n" + sentinelText
-		}
-	}
 
-	if justDegraded {
-		out.SystemMessage = degradeBanner(results)
+		if justDegraded {
+			out.SystemMessage = degradeBanner(results)
+			answer.banner = true
+		}
+		d.lastStartAnswer = answer
 	}
 
 	h.SessionCount++
@@ -868,11 +891,52 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	return ipc.Response{OK: true, Output: &out}
 }
 
+// startAnswer is what one live session.start put into its answer that is true only once the host
+// has that answer: the §12.1 probe token it minted, and whether it carried the degrade banner. The
+// daemon keeps the last one (daemon.lastStartAnswer, under historyMu) with the request's delivery
+// nonce, the identity the hook client gives a delivery and keeps across its spooled copy.
+type startAnswer struct {
+	nonce  string
+	token  string
+	banner bool
+}
+
+// withdrawLostStartAnswer is a replayed session.start's correction of its own live answer. The hook
+// client spools a request only when no answer reached it in time, so a replay whose nonce is the
+// last live start's proves that live answer was lost: the probe it minted was never delivered, and
+// the banner it carried was never shown. The probe is withdrawn — while it is still the current one —
+// so the session's prompts cannot run out its chances and degrade the project for a reply Qompack
+// lost; Observed, which never resets, is left alone. The banner is owed again to the next live start.
+// A replay of any other request, or one without a nonce, changes nothing: that answer may well have
+// been delivered. The record is in memory only, so a daemon that restarts between the live answer
+// and its replay cannot make this correction.
+//
+// h is the history phase 3 loaded, under historyMu, which also guards lastStartAnswer.
+func (d *daemon) withdrawLostStartAnswer(h *contract.SessionHistory, nonce string) {
+	lost := d.lastStartAnswer
+	if nonce == "" || lost.nonce != nonce {
+		return
+	}
+	d.lastStartAnswer = startAnswer{}
+	if lost.token != "" && h.Sentinel.Token == lost.token {
+		h.Sentinel.Token, h.Sentinel.Session, h.Sentinel.MintedAt, h.Sentinel.Chances = "", "", 0, 0
+	}
+	if lost.banner {
+		d.modeMu.Lock()
+		d.lastAnnouncedMode = contract.ModeFull
+		d.modeMu.Unlock()
+	}
+}
+
 // recordContractObservability is ruling #26's obligation: a per-failing-assertion counter and a
 // mode-transition counter, both underscore-idiom. It returns whether THIS RunAll is the one that
 // transitioned into ModeDegradedPassive, which is what the session.start route's SystemMessage
 // banner and nothing else consults.
-func (d *daemon) recordContractObservability(results []contract.Result, mode contract.Mode) bool {
+//
+// announce is false for a start whose answer reaches no host (a replay from a spool): its mode
+// change is counted, but the host has not been told, so the transition is announced by the next
+// live start instead — lastAnnouncedMode, not lastReportedMode, is what the banner compares against.
+func (d *daemon) recordContractObservability(results []contract.Result, mode contract.Mode, announce bool) bool {
 	if d.m != nil {
 		for _, r := range results {
 			if !r.OK {
@@ -882,10 +946,13 @@ func (d *daemon) recordContractObservability(results []contract.Result, mode con
 	}
 
 	d.modeMu.Lock()
-	prev := d.lastReportedMode
-	changed := prev != mode
-	justDegraded := prev != contract.ModeDegradedPassive && mode == contract.ModeDegradedPassive
+	changed := d.lastReportedMode != mode
 	d.lastReportedMode = mode
+	justDegraded := false
+	if announce {
+		justDegraded = d.lastAnnouncedMode != contract.ModeDegradedPassive && mode == contract.ModeDegradedPassive
+		d.lastAnnouncedMode = mode
+	}
 	d.modeMu.Unlock()
 
 	if changed && d.m != nil {
