@@ -108,3 +108,36 @@ func TestSentinelScan_APromptFromBeforeTheMintIsNoMiss(t *testing.T) {
 	promptScan(dd, sess, transcript, before)
 	require.True(t, history(t, dd).Sentinel.Observed, "a find is evidence whenever the prompt was sent")
 }
+
+// TestSentinelScan_APromptOfAnotherSessionIsNoMiss: the probe is minted into one session's answer,
+// so only that session's transcript can carry it. A prompt of another session — a second window, or
+// a session whose own start was replayed from a spool and minted nothing, which leaves an earlier
+// session's probe current — scans a transcript the probe was never sent to, so its miss is no chance
+// to find it. Its find still counts: a resumed session's transcript can carry an earlier one's probe.
+func TestSentinelScan_APromptOfAnotherSessionIsNoMiss(t *testing.T) {
+	dd := replayProbeDaemon(t)
+	const minted, other = core.SessionID("sess-probe-owner"), core.SessionID("sess-other-window")
+	transcript := replayTranscript(t, dd.root)
+	otherTranscript := filepath.Join(dd.root, "other-transcript.jsonl")
+	require.NoError(t, os.WriteFile(paths.Long(otherTranscript), []byte(`{"type":"user"}`+"\n"), 0o600))
+
+	dd.dispatchOp(context.Background(), startRequest(dd, minted, "startup", transcript, "nonce-owner"))
+	h := history(t, dd)
+	require.Equal(t, minted, h.Sentinel.Session, "fixture: the probe belongs to the session that started")
+	after := h.Sentinel.MintedAt + 1
+
+	promptScan(dd, other, otherTranscript, after)
+	promptScan(dd, other, otherTranscript, after)
+	require.Zero(t, history(t, dd).Sentinel.Chances, "another session's prompts are no chances to find this probe")
+
+	promptScan(dd, minted, transcript, after)
+	require.Equal(t, 1, history(t, dd).Sentinel.Chances, "the session it was minted for still counts its miss")
+
+	f, err := os.OpenFile(paths.Long(otherTranscript), os.O_WRONLY|os.O_APPEND, 0o600)
+	require.NoError(t, err)
+	_, err = f.WriteString(`{"type":"system","content":"` + h.Sentinel.Token + `"}` + "\n")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	promptScan(dd, other, otherTranscript, after)
+	require.True(t, history(t, dd).Sentinel.Observed, "a find is evidence in whichever transcript it is made")
+}

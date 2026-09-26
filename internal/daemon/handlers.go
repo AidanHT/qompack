@@ -702,12 +702,12 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // none was ever minted this session (an act.-suppressed SessionStart, a replayed one, or a session
 // that predates this mechanism).
 //
-// promptTS is the prompt hook's own first-statement time (ipc.Request.TS). A prompt submitted
-// before the sentinel was minted — one replayed from a spool or deferred to a drain, or another
-// window's — was never a chance to find it, so its miss is not counted: two such misses would
-// otherwise degrade the project for a probe no prompt after it has looked for yet. Its find still
-// counts, because the transcript holds the sentinel whichever prompt read it. A zero promptTS (a
-// request from before the field was stamped) is treated as current, as it always was.
+// A miss is counted only from a prompt that had a chance to find the sentinel (sentinelMissCounts):
+// two misses that were never chances would degrade the project for a probe no prompt has really
+// looked for. A find always counts, because a transcript that holds the sentinel is evidence of its
+// delivery whichever prompt read it.
+//
+// promptTS is the prompt hook's own first-statement time (ipc.Request.TS).
 func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
@@ -717,13 +717,32 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli
 		return
 	}
 	found, _ := contract.ScanTranscriptTail(ev.TranscriptPath, h.Sentinel.Token, sentinelScanTailBytes)
-	if !found && promptTS > 0 && promptTS < h.Sentinel.MintedAt {
+	if !found && !sentinelMissCounts(h.Sentinel, ev.SessionID, promptTS) {
 		return
 	}
 	h.RecordSentinelScan(found)
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history after sentinel scan", "err", err)
 	}
+}
+
+// sentinelMissCounts reports whether a prompt of sess, sent at promptTS, that did not find sentinel s
+// in its transcript was a chance to find it — one of the two §12.1 allows before
+// hook.additional_context_delivered fails. It was not:
+//
+//   - when sess is not the session s was minted for. Only that session's transcript was sent the
+//     probe; another session's — a second window's, or one whose own start was replayed from a spool
+//     and minted nothing, which leaves an earlier session's probe current — never had it.
+//   - when the prompt was sent before s was minted: one replayed from a spool or deferred to a drain
+//     after a later start. Its transcript could not have held a probe that did not exist yet.
+//
+// An unknown side of either comparison — a sentinel minted before Session was recorded, a prompt
+// with no session id, a request from before TS was stamped — counts, as every miss always did.
+func sentinelMissCounts(s contract.SentinelState, sess core.SessionID, promptTS core.UnixMilli) bool {
+	if s.Session != "" && sess != "" && sess != s.Session {
+		return false
+	}
+	return promptTS <= 0 || promptTS >= s.MintedAt
 }
 
 // The session.start route's phase histograms (C1.16). route is the whole handler; contract is
