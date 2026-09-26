@@ -48,11 +48,22 @@ import (
 // goes on: a rehydration that finishes later records its drop report as undelivered, so dropped()
 // says so rather than describing a payload the model never saw.
 //
+// A rehydration that cannot be built at all is answered with the same note, never with silence
+// (owner decision D11): the checkpoint store cannot be read, the build fails, or it panics. The
+// rehydration service fails the ticket with the reason (DeferredCheckpointUnreadable,
+// DeferredFailed) as soon as it knows, so the route answers at once rather than at the bound, and
+// counts and Louds it like any deferral; the service then records the drop report as never built
+// (rehydrate_service.go notBuilt). A rehydration Stop cuts short — its context cancelled mid-read or
+// mid-build — is answered DeferredStopping the same way: its reader or build reports the context's
+// end, which is no fault of the store or the build (rehydrate_service.go cutShort). Degraded-passive
+// and the reinjection kill switch still answer nothing: nothing was due.
+//
 // A compact SessionStart can also reach the route a second time, replayed from a hook client's
 // spool by the drain (drainDispatch): the client spools a request no answer reached in time — the
 // daemon unreachable, or its reply past the client's deadline — after the hook has already answered
 // without it, with the client's own deferred note (DeferredNoAnswer) or {}. Whatever the replay
-// builds therefore never reaches the model. The replay still runs the route's side effects and the
+// builds therefore never reaches the model, and the route puts nothing into a replay's answer — no
+// note, no §12.1 probe (handleSessionStart). The replay still runs the route's side effects and the
 // rehydration, but abandons the rehydration's ticket before it starts, so the drop report is
 // recorded as undelivered, and says why (undeliveredReplayed). That also replaces the report a late
 // live answer left behind, which described as delivered a rehydration the client had given up on.
@@ -81,7 +92,8 @@ func compactAnswerBudget() time.Duration {
 const defaultCompactAnswerBudget = 5 * time.Second
 
 // counterCompactDeferred counts compact SessionStarts answered with the deferred note because the
-// rehydration was not ready in time (or could not be started, the daemon stopping).
+// rehydration was not ready in time, could not be started or finished (the daemon stopping), or
+// could not be built (an unreadable checkpoint store, a failed or panicking build — D11).
 const counterCompactDeferred = "session_start_compact_deferred"
 
 // histSessionStartCompactWait is the route's wait for the compact rehydration, beside the other
@@ -93,10 +105,15 @@ const (
 	// DeferredNotReady is the daemon's own: the rehydration was still being built when the answer
 	// was due.
 	DeferredNotReady = "it was not ready when the answer was due"
-	// DeferredStopping is the daemon's own too: the daemon was shutting down.
+	// DeferredStopping is the daemon's own too: the daemon was shutting down, before the rehydration
+	// could start or while Stop's cancellation cut it short.
 	DeferredStopping = "the Qompack daemon was shutting down"
-	// DeferredFailed is the daemon's own: building it failed outright (a recovered panic).
+	// DeferredFailed is the daemon's own: building it failed outright (a recovered panic, or a
+	// Rehydrate seam that returned an error). A build cut short by Stop is DeferredStopping.
 	DeferredFailed = "building it failed"
+	// DeferredCheckpointUnreadable is the daemon's own too: the checkpoint store could not be read, so
+	// nothing was built (owner decision D11).
+	DeferredCheckpointUnreadable = "the checkpoint store could not be read"
 	// DeferredNoAnswer is the hook client's: the daemon did not answer the SessionStart hook at all.
 	DeferredNoAnswer = "the Qompack daemon did not answer in time"
 )
@@ -153,11 +170,14 @@ type compactTicket struct {
 
 // Why an abandoned rehydration never reached the model, as its drop report's first entry says.
 const (
+	// undeliveredPrefix opens every such entry, and every entry of a rehydration that was never built
+	// (rehydrate_service.go recordNotBuilt): dropped() reads it as "the model never had this".
+	undeliveredPrefix = "not delivered: "
 	// undeliveredLate is the route's own: it answered with the deferred note at compactAnswerBudget.
-	undeliveredLate = "not delivered: the SessionStart answer was due before this rehydration was ready, " +
+	undeliveredLate = undeliveredPrefix + "the SessionStart answer was due before this rehydration was ready, " +
 		"so the model received a deferred note instead"
 	// undeliveredReplayed is a replay's (drainDispatch): the hook had answered without the daemon.
-	undeliveredReplayed = "not delivered: no answer from the daemon reached the SessionStart hook in time, " +
+	undeliveredReplayed = undeliveredPrefix + "no answer from the daemon reached the SessionStart hook in time, " +
 		"so the hook answered without it (the model received a deferred note, or nothing); this report " +
 		"was recorded when the daemon replayed that request from the hook's spool"
 )
@@ -317,8 +337,11 @@ func (d *daemon) startCompactAnswer(ctx context.Context, ev hookio.Event, arrive
 		defer answerDone()
 		out, err := answer(c)
 		if err != nil {
+			// A rehydration that reports failure built nothing to deliver, so the answer is the
+			// deferred note naming why (owner decision D11), never the empty output.
 			d.log.Warn("daemon: SessionStart failed", "err", err)
-			out = hookio.Empty()
+			ticket.fail(DeferredFailed)
+			return
 		}
 		ticket.offer(out)
 	}, func() { ticket.fail(DeferredFailed) })
@@ -453,9 +476,10 @@ func (d *daemon) awaitCompactAnswer(ctx context.Context, a *compactAnswer) hooki
 	defer d.observePhase(histSessionStartCompactWait, start)
 
 	if a.replayed {
-		// Nobody waits for a replay's answer, and the hook it came from already answered: this is
-		// what that hook's client said, not a deferral the daemon made, so it is not counted.
-		return compactDeferredOutput(a.sess, DeferredNoAnswer)
+		// Nobody waits for a replay's answer, and the hook it came from already answered without it,
+		// so there is nothing to answer with: handleSessionStart puts nothing into a replay's answer.
+		// It is not a deferral the daemon made, so it is not counted either.
+		return hookio.Empty()
 	}
 	if !a.started {
 		return d.deferCompactAnswer(a, DeferredStopping)
