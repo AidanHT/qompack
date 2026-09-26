@@ -1831,8 +1831,14 @@ func sessionRecoveryPath(root string) string {
 // LoadSessionRecovery reads the recovery-needed set. A missing file is an empty set — no session is
 // mid-flush — while an unreadable one is an error, because "we cannot tell" must not be rendered as
 // "nothing to recover".
+//
+// The daemon's own two callers hold recoveryMu with the writer, but the function is exported and
+// read from other processes too (test/e2e polls it while the daemon settles a session end), so the
+// read is shared (paths.ReadFileShared): on Windows an ordinary handle would fail
+// writeSessionRecovery's paths.WriteAtomic, which nothing retries, and leave a stale recovery
+// marker behind (test/guards' sharedReaders).
 func LoadSessionRecovery(root string) (SessionRecovery, error) {
-	b, err := os.ReadFile(paths.Long(sessionRecoveryPath(root)))
+	b, err := paths.ReadFileShared(sessionRecoveryPath(root))
 	if os.IsNotExist(err) {
 		return SessionRecovery{Version: core.EvidenceVersion, Sessions: map[core.SessionID]RecoveryEntry{}}, nil
 	}
