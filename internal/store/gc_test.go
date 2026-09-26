@@ -888,6 +888,10 @@ func (m gcSweepModel) scaled(f float64) gcSweepModel {
 // Past the landing test there are only two outcomes left — the pass finished, or it truncated at
 // the first check — so `truncated` IS gcSweepWindow.next's stoppedAtFirstCheck there, exactly as
 // in the loop this mirrors.
+//
+// It prices and re-prices on run()'s clock, which counts Save in a truncated pass, while the loop
+// does both on GCReport.Duration, which does not. Each is consistent with itself, and the model's
+// window is the narrower of the two, which is the conservative direction (see gcSweepModel).
 func gcSimulateAttempts(win gcSweepWindow, hosts []gcSweepModel) (landedOn int, scanned []int) {
 	for i, h := range hosts {
 		got, truncated, elapsed := h.run(win.budget())
