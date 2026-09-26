@@ -234,12 +234,12 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 	switch {
 	case notJudged != "":
 		primary.Detail = notJudged + "; " + primary.Detail
-	case r.Decision.Verdict == "superior" || r.Decision.Verdict == "non-inferior":
-		primary.Passed = boolPtr(true)
+	case !liveDecisionReached(r.Decision):
+		primary.Detail = "not judged: the pre-registered rule reached no verdict; " + primary.Detail
 	case r.Decision.Verdict == "inferior":
 		primary.Passed = boolPtr(false)
 	default:
-		primary.Detail = "not judged: the pre-registered rule reached no verdict; " + primary.Detail
+		primary.Passed = boolPtr(true)
 	}
 
 	constraint := EvalGate{
@@ -265,6 +265,17 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 			"(preregistration section 8)",
 	}
 	return []EvalGate{primary, constraint}, []EvalGate{rec}
+}
+
+// liveDecisionReached reports that the pre-registered rule reached a verdict on the primary outcome:
+// superior or non-inferior, which pass it, or inferior, which fails it. Inconclusive and
+// not-applicable reach none, and neither does anything else a summary might carry.
+func liveDecisionReached(d eval.LiveDecision) bool {
+	switch d.Verdict {
+	case "superior", "non-inferior", "inferior":
+		return true
+	}
+	return false
 }
 
 // renderLive prints the live half of the report, the run's qualification before any of its numbers.
