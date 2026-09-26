@@ -1640,8 +1640,12 @@ func (s *FSStore) expirePendingMarkers(days int, dryRun bool, rep *GCReport, out
 
 // pendingMarkerRoot reads the root a pending marker names, reporting the zero hash for a marker
 // that is unreadable or was torn by the very crash it records.
+//
+// The read is shared (paths.ReadFileShared): a concurrent GC pass's expiry, or the late Put's own
+// done(), may remove the marker while it is read, and on Windows an ordinary handle would fail that
+// os.Remove (test/guards' sharedReaders).
 func pendingMarkerRoot(p string) core.Hash {
-	b, err := os.ReadFile(paths.Long(p))
+	b, err := paths.ReadFileShared(p)
 	if err != nil {
 		return core.Hash{}
 	}
@@ -1695,8 +1699,13 @@ func (s *FSStore) writeLiveSet(live map[core.Hash]struct{}) error {
 // recorded. Otherwise new roots have appeared since, and continuing from the old cursor would sweep
 // the tail of the object tree against a stale live set — the one way this collector could delete
 // something reachable.
+//
+// The read is shared (paths.ReadFileShared): GC passes are not serialized against each other (each
+// concurrent session end runs one, since C1.15), so another pass's saveGCState or clearGCState may
+// replace or remove the file while it is read, and on Windows an ordinary handle would fail either
+// (test/guards' sharedReaders).
 func (s *FSStore) loadGCState(digest string) (gcState, bool) {
-	b, err := os.ReadFile(paths.Long(filepath.Join(s.l.State, gcStateFile)))
+	b, err := paths.ReadFileShared(filepath.Join(s.l.State, gcStateFile))
 	if err != nil {
 		return gcState{}, false
 	}
