@@ -2,6 +2,8 @@ package daemon_test
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -96,4 +98,30 @@ func TestService_ReplayedRehydrationRecordsWhyItWasNotDelivered(t *testing.T) {
 	require.Equal(t, daemon.UndeliveredDropKind, first.Kind)
 	require.Contains(t, first.Detail, daemon.UndeliveredReplayed, "the report says the hook answered without the daemon")
 	require.Contains(t, first.Detail, "restore: Read .qompack/checkpoints/0001.json")
+}
+
+// TestService_ReplayedUnbuildableRehydrationSaysWhatTheHookAnswered: a compact SessionStart replayed
+// from a hook's spool whose rehydration cannot be built (D11: here the checkpoint store is
+// unreadable) records it as never built — and says what the hook answered, which the daemon does not
+// know: a note from the hook client, or nothing. The report of a live compaction says the model
+// received the daemon's note (TestService_CheckpointErrorAnswersWithTheDeferredNote); a replay's must
+// not, because no answer of the daemon's reached the model.
+func TestService_ReplayedUnbuildableRehydrationSaysWhatTheHookAnswered(t *testing.T) {
+	f := rsNewFixture(t)
+	f.reader.err = errors.New("io")
+
+	_, err := f.svc.OnCompact(daemon.ReplayedCompactContext(context.Background()), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+
+	st := rsReadState(t, f.proj.Root)
+	require.True(t, st.Degraded)
+	require.Empty(t, st.Items, "nothing was built, so nothing was emitted")
+	require.NotEmpty(t, st.Dropped)
+	lead := st.Dropped[0]
+	require.Equal(t, daemon.UndeliveredDropKind, lead.Kind)
+	require.True(t, strings.HasPrefix(lead.Detail, "not delivered: the checkpoint store could not be read"), "%q", lead.Detail)
+	require.Contains(t, lead.Detail, "(the model received a deferred note, or nothing)",
+		"the report says the hook answered without the daemon")
+	require.NotContains(t, lead.Detail, "the model received a deferred note instead",
+		"and never that the daemon's own note reached the model")
 }
