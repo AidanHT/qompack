@@ -970,7 +970,7 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 		}
 	case ipc.OpObservePrompt:
 		// The sentinel scan is independent of capture and runs regardless.
-		d.scanSentinelForPrompt(ev, req.TS)
+		d.scanSentinelForPrompt(ev, req.TS, req.Nonce)
 		// SP08-D3 (Option A): the AUTHORITATIVE verbatim capture. Both the live worker (ingest) and
 		// the drain replay reach here with the leased observation identity on ctx (WithObservation),
 		// so ObservePrompt records under it — idempotent for a redelivery via the sidecar join, and
