@@ -283,7 +283,10 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 		Root: res.Root.Hash, Bytes: int64(len(blob)), Tokens: tok,
 		Status: store.StatusOK, Subagent: agent, Observation: obs,
 	}
-	if obs != "" {
+	// The same §0.2.2 barriers the tool path owes; a recorder that declares them makes both inside
+	// RecordToolUse (SP08-D1).
+	storeSynced := obs != "" && recorderPublishesDurably(o.opt.Store)
+	if obs != "" && !storeSynced {
 		if err := o.syncObservation(ctx, rec.Root); err != nil {
 			return err
 		}
@@ -293,7 +296,7 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 			return o.unpublished(stageIndex)
 		}
 		o.soft(stageIndex, err)
-	} else if err := o.finishObservation(ctx, obs, rec); err != nil {
+	} else if err := o.linkPublished(ctx, obs, rec, storeSynced); err != nil {
 		return err
 	}
 

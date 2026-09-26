@@ -105,8 +105,47 @@ func recordMatchesObservationOp(rec store.ToolUseRecord, op string) bool {
 	}
 }
 
+// recorderPublishesDurably reports whether recorder — the value an observation-bearing record is about
+// to be written through — carries the publication's durability barriers itself
+// (store.DurableObservationPublisher): the root proven durable before the intent and the record, and
+// the index synced after the write, both inside the call. Only then may a FRESH publication drop its
+// own SyncPublication passes around the write (carried defect SP08-D1: they repeated the store's two
+// passes on the same root, four per capture). A recorder that does not declare it keeps them, and a
+// redelivery keeps finishObservation's pass whatever the recorder, because it must re-prove a
+// publication an earlier process made.
+func recorderPublishesDurably(recorder any) bool {
+	d, ok := recorder.(store.DurableObservationPublisher)
+	return ok && d.PublishesObservationsDurably()
+}
+
+// toolRecorder is the value publishRecord writes a tool record through: the atomic capability when
+// the observer holds one, the plain Store otherwise.
+func (o *observer) toolRecorder() any {
+	if o.idx != nil {
+		return o.idx
+	}
+	return o.opt.Store
+}
+
+// linkPublished is a FRESH publication's last stage. storeSynced says the recorder has just made the
+// record and its index durable on the root the link names (recorderPublishesDurably), so the link is
+// all that remains; otherwise it is finishObservation, sync included.
+func (o *observer) linkPublished(ctx context.Context, obs core.ObservationID, rec store.ToolUseRecord,
+	storeSynced bool,
+) error {
+	if !storeSynced {
+		return o.finishObservation(ctx, obs, rec)
+	}
+	if err := o.linkObservation(obs, rec); err != nil {
+		return o.unpublished(stageLink)
+	}
+	return nil
+}
+
 // finishObservation makes the referent and index durable before linking them to
 // the accepted delivery. A failed or unavailable stage must retain that delivery.
+// Every redelivery takes it, so a restarted process re-proves the original
+// publication before it links it.
 func (o *observer) finishObservation(ctx context.Context, obs core.ObservationID, rec store.ToolUseRecord) error {
 	if obs == "" {
 		return nil
