@@ -1,0 +1,10 @@
+run_id=cx-w2-lifetime-fixseat-rows-race20-59629b0-20260925T232844Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime
+rev=HEAD
+commit=59629b0b8da7bac01d93f26c23153664813bebce
+bundle_sha256=cc462c0d647e8cdbed37fae380d113132b9525b418ba4528d1c0973de7adb64f
+host_started_utc=2026-09-25T23:28:51Z
+inner_args=--run ^(TestSessionStartCompact_|TestService_|TestDaemonWorkingDir|TestDaemonProgram|TestRunningFromPluginRoot|TestStageBinary|TestCompactDeferredNote|TestRun_ReportsRunningFromThePluginDirectory|TestBuildSpawn) --count 20 -- ./internal/daemon
+host_finished_utc=2026-09-25T23:31:18Z
+container_exit=0

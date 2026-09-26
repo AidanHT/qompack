@@ -1,0 +1,61 @@
+# C1.16 rig after the fix seat's bookkeeping gate (c1efe8b) and replay change (50080f0), tree 657a31c.
+# Same parameters as run 17 (after the implementer's fix, no extra co-load): the machine was co-loaded by
+# this lane's own Linux -race run of ./internal/daemon ./internal/cli and the other wave-2 lanes.
+# QOMPACK_C116_ROUNDS=30 QOMPACK_C116_WORKERS=8 QOMPACK_C116_READ_BYTES=262144 go test ./internal/cli/ -run '^TestSessionStartCompact_UnderSameSessionIngest$' -count=1 -v -timeout=30m
+# Reading: all 30 answers are rehydrations; compact_wait p99 0.64 ms and seam p99 1.28 ms, so the gate put
+# nothing on the answer path; the route's time is the fsync-bound contract phase (p99 524 ms under this load).
+=== RUN   TestSessionStartCompact_UnderSameSessionIngest
+    sessionstart_compact_load_test.go:328: round 0: 137.4488ms rehydration
+    sessionstart_compact_load_test.go:328: round 1: 208.6121ms rehydration
+    sessionstart_compact_load_test.go:328: round 2: 207.1772ms rehydration
+    sessionstart_compact_load_test.go:328: round 3: 152.0344ms rehydration
+    sessionstart_compact_load_test.go:328: round 4: 179.0657ms rehydration
+    sessionstart_compact_load_test.go:328: round 5: 281.2964ms rehydration
+    sessionstart_compact_load_test.go:328: round 6: 186.6277ms rehydration
+    sessionstart_compact_load_test.go:328: round 7: 189.4138ms rehydration
+    sessionstart_compact_load_test.go:328: round 8: 172.4072ms rehydration
+    sessionstart_compact_load_test.go:328: round 9: 216.7107ms rehydration
+    sessionstart_compact_load_test.go:328: round 10: 268.2271ms rehydration
+    sessionstart_compact_load_test.go:328: round 11: 292.0853ms rehydration
+    sessionstart_compact_load_test.go:328: round 12: 312.924ms rehydration
+    sessionstart_compact_load_test.go:328: round 13: 617.5864ms rehydration
+    sessionstart_compact_load_test.go:328: round 14: 257.5981ms rehydration
+    sessionstart_compact_load_test.go:328: round 15: 409.2748ms rehydration
+    sessionstart_compact_load_test.go:328: round 16: 303.2549ms rehydration
+    sessionstart_compact_load_test.go:328: round 17: 242.048ms rehydration
+    sessionstart_compact_load_test.go:328: round 18: 348.1854ms rehydration
+    sessionstart_compact_load_test.go:328: round 19: 249.8553ms rehydration
+    sessionstart_compact_load_test.go:328: round 20: 192.0048ms rehydration
+    sessionstart_compact_load_test.go:328: round 21: 331.3802ms rehydration
+    sessionstart_compact_load_test.go:328: round 22: 227.517ms rehydration
+    sessionstart_compact_load_test.go:328: round 23: 234.802ms rehydration
+    sessionstart_compact_load_test.go:328: round 24: 163.1102ms rehydration
+    sessionstart_compact_load_test.go:328: round 25: 216.9272ms rehydration
+    sessionstart_compact_load_test.go:328: round 26: 235.5404ms rehydration
+    sessionstart_compact_load_test.go:328: round 27: 211.5438ms rehydration
+    sessionstart_compact_load_test.go:328: round 28: 271.725ms rehydration
+    sessionstart_compact_load_test.go:328: round 29: 160.9657ms rehydration
+    sessionstart_compact_load_test.go:335: compact SessionStart wall (n=30): p50=227.517ms p95=409.2748ms p99=617.5864ms max=617.5864ms answers=map[rehydration:30]
+    sessionstart_compact_load_test.go:335:   checkpoint.precompact              n=30    p50=212.992ms  p95=360.448ms  p99=393.216ms  max=385.288ms
+    sessionstart_compact_load_test.go:335:   checkpoint_finalize                n=30    p50=212.992ms  p95=360.448ms  p99=393.216ms  max=385.865ms
+    sessionstart_compact_load_test.go:335:   l0_ingest                          n=332   p50=28.672ms   p95=53.248ms   p99=163.84ms   max=241.588ms
+    sessionstart_compact_load_test.go:335:   l0_process                         n=56    p50=360.448ms  p95=524.288ms  p99=655.36ms   max=621.691ms
+    sessionstart_compact_load_test.go:335:   negknow.rebuild                    n=1     p50=28.672ms   p95=28.672ms   p99=28.672ms   max=28.649ms
+    sessionstart_compact_load_test.go:335:   negknow.refresh                    n=1     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   observer.prompt                    n=2     p50=640µs      p95=294.912ms  p99=294.912ms  max=283.682ms
+    sessionstart_compact_load_test.go:335:   observer.session_start             n=31    p50=122.88ms   p95=294.912ms  p99=294.912ms  max=281.562ms
+    sessionstart_compact_load_test.go:335:   observer.stop                      n=76    p50=262.144ms  p95=458.752ms  p99=524.288ms  max=492.367ms
+    sessionstart_compact_load_test.go:335:   rehydrate.build                    n=30    p50=2.048ms    p95=7.68ms     p99=18.432ms   max=18.22ms
+    sessionstart_compact_load_test.go:335:   rehydrate.deps                     n=30    p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   rehydrate.latest                   n=30    p50=896µs      p95=2.304ms    p99=3.584ms    max=3.372ms
+    sessionstart_compact_load_test.go:335:   rehydrate.record                   n=30    p50=36.864ms   p95=180.224ms  p99=180.224ms  max=179.537ms
+    sessionstart_compact_load_test.go:335:   rehydrate.selection                n=30    p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   session_start.compact_wait         n=30    p50=2µs        p95=2µs        p99=640µs      max=637µs
+    sessionstart_compact_load_test.go:335:   session_start.contract             n=31    p50=180.224ms  p95=327.68ms   p99=524.288ms  max=495.471ms
+    sessionstart_compact_load_test.go:335:   session_start.finish               n=31    p50=49.152ms   p95=81.92ms    p99=106.496ms  max=103.396ms
+    sessionstart_compact_load_test.go:335:   session_start.route                n=31    p50=212.992ms  p95=425.984ms  p99=655.36ms   max=598.868ms
+    sessionstart_compact_load_test.go:335:   session_start.seam                 n=31    p50=2µs        p95=640µs      p99=1.28ms     max=1.163ms
+--- PASS: TestSessionStartCompact_UnderSameSessionIngest (26.45s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	26.735s
+exit=0
