@@ -71,12 +71,20 @@ func runSelfTest(ctx context.Context, env Env, args []string, out, errw io.Write
 		clk = core.SystemClock()
 	}
 
-	// config-corrupt fault site (fix round 1, Minor M-12): inert for every hook subcommand, but
-	// self-test DOES call config.Load (selfTestConfigLoad, below) — this is where the site
-	// actually engages for real, before that call, exactly as task-6-spec.md's fault table says.
-	faultCorruptConfigIfNeeded(root)
-
-	checks, mode := runSelfTestChecks(ctx, root, env, clk)
+	var checks []selfTestCheck
+	var mode contract.Mode
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		// D18: every other check would lay out, probe, lock or spawn for the root, and this root's
+		// .qompack is the user-global layer. The refusal is the one critical result, and the report
+		// still renders, so a --json caller reads why instead of a bare exit code.
+		checks, mode = []selfTestCheck{selfTestHomeRootCheck(refused)}, contract.ModeOff
+	} else {
+		// config-corrupt fault site (fix round 1, Minor M-12): inert for every hook subcommand, but
+		// self-test DOES call config.Load (selfTestConfigLoad, below) — this is where the site
+		// actually engages for real, before that call, exactly as task-6-spec.md's fault table says.
+		faultCorruptConfigIfNeeded(root)
+		checks, mode = runSelfTestChecks(ctx, root, env, clk)
+	}
 
 	critical := false
 	for _, c := range checks {
@@ -105,6 +113,18 @@ func runSelfTest(ctx context.Context, env Env, args []string, out, errw io.Write
 		return fmt.Errorf("%w: self-test found a critical failure", errAlreadyReported)
 	}
 	return nil
+}
+
+// selfTestHomeRootCheck is the one check a refused root gets (D18): critical, because Qompack
+// records nothing in such a session, with the refusal — which names the root and the fix — as what
+// was observed.
+func selfTestHomeRootCheck(refused error) selfTestCheck {
+	return selfTestCheck{
+		ID: "project.root", Severity: contract.SevCritical,
+		Expected: "a project directory", Observed: refused.Error(),
+		Detail: "owner decision D18: a session whose project root is the home directory records " +
+			"nothing, because the home directory's .qompack holds only the user-global layer",
+	}
 }
 
 // runSelfTestChecks runs every check in order and returns them together with the contract mode
