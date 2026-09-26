@@ -48,7 +48,7 @@ const (
 
 	// e2eRoundTripDeadline is the Send deadline for this file's admin/status round trips against a
 	// daemon already known to be reachable. Basis: internal/cli's own reply budgets for real hooks
-	// span promptReplyDeadline (250ms) to flushReplyDeadline (15s); this sits between them, three
+	// span promptReplyDeadline (250ms) to checkpointReplyDeadline (15s); this sits between them, three
 	// orders of magnitude above the sub-millisecond cost of a local round trip.
 	e2eRoundTripDeadline = 5 * time.Second
 
@@ -370,8 +370,8 @@ func TestE2ELazySpawn(t *testing.T) {
 		}
 		return true
 	}, e2eSpoolDrainBound, e2eSpoolDrainTick,
-		"the spool the first call left behind was not drained within %s of a served request; only the %s idle-tick fallback would still take it",
-		e2eSpoolDrainBound, daemon.IdleTickMax)
+		"the spool the first call left behind was not drained within %s of a served request; only the client-spool watcher (a %s check interval) or the idle drain would still take it",
+		e2eSpoolDrainBound, daemon.ClientSpoolWatchInterval)
 }
 
 // TestE2EIdleExit is task-6-spec.md's e2e table row: with a fast idle-exit configured, the daemon

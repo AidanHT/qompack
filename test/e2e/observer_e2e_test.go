@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/dag"
@@ -41,16 +42,24 @@ import (
 //     obsProcessAllowance covers.
 //   - Client.Send missed its deadline and SPOOLED instead. Every failure route in
 //     internal/ipc/client.go ends in a spool append and a hook that still exits 0 — degrade rather
-//     than block — and the entry is then replayed by the daemon's FALLBACK drain, since
-//     redrainOnceServing fires only on the first served request and that is long past. The
-//     fallback's cadence is daemon.IdleTickMax.
+//     than block — and the daemon then replays the entry from the hook's client spool. While the
+//     session is active that is the client-spool watcher (internal/daemon/spool_watch.go, C1.13):
+//     every served request kicks it, a client spool that has stood unchanged for one
+//     daemon.ClientSpoolWatchInterval gets a drain pass, and one that pass could not yet publish is
+//     passed again after 2, 4, 8 ... intervals — a few seconds, not tens.
 //
-// The bound used to be obsProcessAllowance alone, and so exactly EQUAL to daemon.IdleTickMax: an
-// event spooled just after a tick could not be indexed before the wait expired. CI run
-// 34052269275 (windows-latest, whole tree, -count=2, heavily co-loaded) failed both iterations
-// that way, at 40 and 43 of 44 lines — the shape of one-or-a-few spooled events, not of a broken
-// index, and the count was exact once the drain landed. Summing the two makes the bound exceed the
-// drain cadence by construction, which is the property any bound racing a fallback must have.
+// This comment used to say the spooled entry waited on a fallback drain whose cadence was
+// daemon.IdleTickMax (30 s). That was never the mechanism: redrainOnceServing fires only on the
+// first served request, and the idle tick runs its drain only after DetectAfterSeconds (120 s) of
+// project-wide idleness, which a test driving hooks never reaches. Until C1.13 a spooled event of an
+// active session therefore waited for its session's flush, or for two idle minutes.
+//
+// The bound's value is kept, IdleTickMax + obsProcessAllowance: it was raised above the old
+// obsProcessAllowance-only bound after CI run 34052269275 (windows-latest, whole tree, -count=2,
+// heavily co-loaded) failed both iterations at 40 and 43 of 44 lines — the shape of one-or-a-few
+// spooled events, not of a broken index, and the count was exact once a drain landed. The watcher's
+// few intervals now sit far inside the IdleTickMax term, which stays as headroom for a co-loaded
+// host rather than as the name of a mechanism.
 const (
 	// obsProcessAllowance is the processing half: each event is the B-C budget class (single-digit
 	// milliseconds of store work), so even 44 events are sub-second on a quiet host, and this is
@@ -88,8 +97,8 @@ func (d obsWaitDiag) String() string {
 	if len(pending) == 0 {
 		return fmt.Sprintf("index holds %d lines; no undrained client spool, so every event reached the daemon live and this waited on the processing behind its ACK", lines)
 	}
-	return fmt.Sprintf("index holds %d lines; undrained client spool %v, so at least one event degraded to the spool and this waited on the %s idle-tick drain",
-		lines, pending, daemon.IdleTickMax)
+	return fmt.Sprintf("index holds %d lines; undrained client spool %v, so at least one event degraded to the spool and this waited on the daemon's client-spool watcher (a pass once a spool has stood for one %s check interval, retried after 2, 4, 8 ... intervals while it cannot publish)",
+		lines, pending, daemon.ClientSpoolWatchInterval)
 }
 
 // obsRunHook runs one hook subcommand and asserts the two §2.3 invariants every hook owes the
@@ -166,6 +175,32 @@ func obsFlushPayload(t *testing.T, root string, sess core.SessionID) []byte {
 	return b
 }
 
+// obsRunFlush runs the SessionEnd flush hook for sess and returns once the daemon has ended the
+// session. Since C1.15 the hook answers as soon as the flush is durable — Claude Code gives a
+// plugin's SessionEnd hooks one shared 1.5 s budget and cancels a hook still running when it runs
+// out — and the daemon ends the session on a goroutine of its own (internal/daemon/session_end.go).
+// So the hook's exit no longer means the end has happened. The end writes the terminal-hook marker
+// (contract.MarkerPath) right after SessionEnd has returned — after its DAG flush, its store flush and
+// its sketch save — so a marker naming sess, and not the one that was there before the hook ran, is
+// the daemon's own record that that work is done.
+func obsRunFlush(t *testing.T, bin, root string, sess core.SessionID, env map[string]string) {
+	t.Helper()
+	before, _ := os.ReadFile(paths.Long(contract.MarkerPath(root)))
+	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, root, sess), env)
+	require.Eventually(t, func() bool {
+		b, err := os.ReadFile(paths.Long(contract.MarkerPath(root)))
+		if err != nil || bytes.Equal(b, before) {
+			return false
+		}
+		var m struct {
+			Session core.SessionID `json:"session"`
+		}
+		return json.Unmarshal(b, &m) == nil && m.Session == sess
+	}, obsProcessBound, obsProcessTick,
+		"the daemon never ended session %s after its flush hook returned (no terminal-hook marker naming it): %s",
+		sess, obsWaitDiag{root})
+}
+
 // obsToolUseLines returns index/tool_use.jsonl's non-empty lines, or nil before the file exists.
 func obsToolUseLines(root string) []string {
 	b, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).Index, "tool_use.jsonl")))
@@ -214,7 +249,9 @@ func TestE2E_ObserverThroughDaemon(t *testing.T) {
 		obsProcessBound, obsProcessTick,
 		"index/tool_use.jsonl never reached %d lines: %s", wantRecords, obsWaitDiag{p.Root})
 
-	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
+	// The hook answers once the flush is durable and the daemon ends the session on its own (C1.15);
+	// the assertions below are about that end's work, so they wait for it.
+	obsRunFlush(t, bin, p.Root, sess, env)
 
 	require.Len(t, obsToolUseLines(p.Root), wantRecords,
 		"distinct ids, paths and content must yield exactly one record per event")

@@ -25,6 +25,17 @@ as a short-lived subcommand:
 | `PreCompact` | `qompack checkpoint` | 20 s |
 | `SessionEnd` | `qompack flush` | 20 s |
 
+The host does not apply that last timeout: Claude Code gives the `SessionEnd` hooks of every plugin
+one shared 1.5 s budget, and a timeout set on a plugin-provided hook does not raise it. So
+`qompack flush` does not wait for the session's end (C1.15). It waits at most half a second for the
+daemon's acknowledgement, which comes as soon as the flush is durable — its line in the session's
+write-ahead log and leased, as an observed event's acknowledgement promises — with the session
+recorded as needing recovery. The daemon then ends the session on its own: after every earlier
+delivery of the session, it runs the observer's end of session, writes the terminal-hook marker,
+saves the sketches and clears the recovery record. A daemon that stops first leaves the flush in its
+log for the next drain to replay, and a flush a drain replays while the daemon serves is ended the
+same way, on its own rather than inside the drain.
+
 Every entry is exec form: `command` is exactly the bundled executable —
 `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, or `bin/qompack.exe` in a windows bundle — and `args` is the
 subcommand, so the host spawns the binary directly on every platform and no shell ever parses the
@@ -103,6 +114,12 @@ network access: on Windows a named pipe ACL'd to the current user's SID, on POSI
 Unix domain socket, mode 0600 in a 0700 directory. Decision D10 — no network I/O, ever — is enforced
 mechanically by CI's `security` job, which greps the import graph for `net/http`, `net/url` and
 `crypto/tls` outside `internal/ipc`.
+
+A hook that cannot reach the daemon, or whose acknowledgement comes too late, appends its delivery to
+its own client spool and still exits 0. While requests keep arriving, the daemon's client-spool
+watcher replays such a spool about two check intervals after it was written and retries one that
+must still wait for an earlier delivery of its session (C1.13); the startup, flush, idle and
+operator drains replay whatever is left.
 
 ## 2. Write set and retention
 

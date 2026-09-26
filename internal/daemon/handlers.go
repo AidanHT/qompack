@@ -1072,24 +1072,67 @@ func manifestHookTimeoutMs(event string) int64 {
 	return int64(groups[0].Hooks[0].Timeout) * msPerSecond
 }
 
-// handleFlush is the flush (SessionEnd) route: registry.End, ingest.CloseSession, svc.SessionEnd
-// when bound and the mode MayRecord(), the terminal-hook marker, SketchSet.Save, then Drain.
+// handleFlush is the flush (SessionEnd) route (C1.15, session_end.go). It answers as soon as the flush
+// is durable — its line in the session's WAL and leased, what an observe event's ACK promises — and
+// ends the session on a goroutine of its own, because the host gives every plugin SessionEnd hook one
+// shared 1.5 s budget and cancels a hook still running when it runs out. The registry learns at once
+// that the host ended the session; everything else is endSession's, which the goroutine runs. A Reply
+// request (an older hook client, an operator, a test) asks for the end's own answer and waits for it.
 func (d *daemon) handleFlush(ctx context.Context, req ipc.Request) ipc.Response {
-	return d.flushRoute(ctx, req, true)
+	ev := resolveEvent(req)
+	d.registry.End(ev.SessionID, core.NowMilli(d.clk))
+
+	own, durable, err := d.acceptSessionEnd(req)
+	if err != nil {
+		// Not durable, so not acknowledged: the hook client spools the flush, and a drain replays it.
+		return ipc.Response{OK: false, Err: err.Error()}
+	}
+	done := d.startSessionEnd(ctx, req, own, durable)
+	if !req.Reply {
+		return ipc.Response{OK: true}
+	}
+	select {
+	case resp := <-done:
+		return resp
+	case <-ctx.Done():
+		return ipc.Response{OK: false, Err: ctx.Err().Error()}
+	}
 }
 
-// flushRoute is handleFlush's body, with the trailing Drain call made optional. drainDispatch
-// passes false: a flush line replayed BY Drain must never call back into Drain on the same
-// goroutine — drainer.Drain holds a plain, non-reentrant sync.Mutex for the whole replay
-// (drain.go's dr.mu), so a re-entrant call would deadlock the daemon permanently on the very
-// first drained flush line, including the startup drain that runs before Serve ever accepts a
-// connection (Critical C-1, fix round 1).
+// flushRoute is a session's end with no accepted flush of its own to finish: the form drainDispatch
+// replays a spooled or WAL flush line through when no session end of its own could take it
+// (endDrainedFlush: Run's startup drain, Stop's drain, a drain a session end runs itself). drain is
+// false: a flush replayed BY Drain must never call back into Drain on the same goroutine —
+// drainer.Drain holds a plain, non-reentrant sync.Mutex for the whole replay, so a re-entrant call
+// would deadlock the daemon on the very first drained flush line, including the startup drain that
+// runs before Serve ever accepts a connection (Critical C-1, fix round 1). The drain that replays such
+// a line acknowledges it itself when this answers OK, which it does not when the end's context cut it
+// short, and hands its lease over on the context, so the end still settles only the arrivals before
+// it (sessionEndArrival).
 func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ipc.Response {
+	return d.endSession(ctx, req, drain, nil)
+}
+
+// endSession is the work a session's end has always been: registry.End, ingest.CloseSession, the
+// settle of the session's earlier deliveries, svc.SessionEnd when bound and the mode MayRecord(), the
+// terminal-hook marker, SketchSet.Save, then — unless drain is false — a drain. own is the accepted
+// flush this end was started for (startSessionEnd), or nil: when there is one, the end settles only the
+// arrivals before it and, once SessionEnd, the marker and the sketches are done, finishes it
+// (finishOwnFlush) before its final drain, which would otherwise meet the flush's own line still owned.
+func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, own *job) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
+	released := own == nil
+	release := func(done bool) {
+		if !released {
+			released = true
+			d.ing.seen.finish(own.key, done)
+		}
+	}
+	defer release(false) // an end that does not get as far as finishing its flush leaves it pending
 
 	// A recovery-needed state, recorded BEFORE anything is finalized. Everything below this line
-	// can be interrupted, and until the marker is cleared the session'''s flush is unfinished — which
+	// can be interrupted, and until the marker is cleared the session's flush is unfinished — which
 	// is what SessionEnd must record rather than declaring work final that was never acknowledged.
 	d.markRecoveryNeeded(ev.SessionID, recoveryStageBegin, d.DrainGaps().PendingBytes)
 
@@ -1100,13 +1143,18 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 	// because SessionEnd is SP-08's L1 flush semantics (store.Flush and friends), which is
 	// recording work, not acting work, so it belongs behind the same predicate row 1's
 	// ingest.Accept uses, not behind MayAct() (M-3).
+	//
+	// cut is set when the end's context ended before SessionEnd had finished: the session was not
+	// ended, whatever SessionEnd returned, since every step of it answers its context.
+	cut := false
 	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
 		// SessionEnd is the session's last arrival: its earlier deliveries publish first (C1.1).
-		d.settleSession(ctx, ev.SessionID, drain)
+		d.settleSession(ctx, ev.SessionID, drain, sessionEndArrival(ctx, own))
 		d.markRecoveryNeeded(ev.SessionID, recoveryStageSessionEnd, 0)
 		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
 			d.log.Warn("daemon: SessionEnd failed", "err", err)
 		}
+		cut = ctx.Err() != nil
 		// What the settle left parked is the WAL's now; the ended session's lane stops holding it.
 		if n := d.ing.lanes.forget(ev.SessionID); n > 0 {
 			d.log.Debug("daemon: flush: released the ended session's parked deliveries to the WAL",
@@ -1124,7 +1172,17 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 		d.svc.Sketches.Save(d.root, d.log)
 	}
 
+	if own != nil {
+		d.finishOwnFlush(ctx, own, release)
+	}
+
 	if !drain {
+		if cut {
+			// A flush a drain replays inline is acknowledged by that drain when this answers OK. One
+			// whose end its context cut short has not ended its session: it stays unacknowledged for
+			// a later drain to replay, and not acknowledged with SessionEnd never having run.
+			return ipc.Response{OK: false, Err: "daemon: session end cut short: " + ctx.Err().Error()}
+		}
 		// The drained-flush path does not run the replay, so it is not the step that finishes the
 		// flush; the marker stays until a route that does run it clears it.
 		return ipc.Response{OK: true}
@@ -1660,8 +1718,11 @@ func (d *daemon) writeSessionRecovery(sr SessionRecovery) error {
 }
 
 // markRecoveryNeeded records that sess entered stage. Every call rewrites the whole file, which is
-// what makes the marker's presence the fact and its stage merely the detail.
+// what makes the marker's presence the fact and its stage merely the detail. recoveryMu makes each
+// rewrite see the one before it: session ends run concurrently since C1.15.
 func (d *daemon) markRecoveryNeeded(sess core.SessionID, stage string, unacknowledged int64) {
+	d.recoveryMu.Lock()
+	defer d.recoveryMu.Unlock()
 	sr, err := LoadSessionRecovery(d.root)
 	if err != nil {
 		// Unreadable recovery state is itself a recovery-needed condition; replace it rather than
@@ -1678,6 +1739,8 @@ func (d *daemon) markRecoveryNeeded(sess core.SessionID, stage string, unacknowl
 // clearRecoveryNeeded removes sess's marker. It runs only after every flush step has returned, so a
 // marker that survives is a genuine interruption and not a slow step.
 func (d *daemon) clearRecoveryNeeded(sess core.SessionID) {
+	d.recoveryMu.Lock()
+	defer d.recoveryMu.Unlock()
 	sr, err := LoadSessionRecovery(d.root)
 	if err != nil {
 		return

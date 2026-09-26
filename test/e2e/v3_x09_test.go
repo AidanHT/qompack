@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"io/fs"
@@ -714,15 +715,27 @@ func (c x9Crossing) String() string {
 // flush may publish records for. Each is described by its capture sidecar, which the daemon wrote
 // before it could acknowledge anything (publication order's first stage). Lifecycle deliveries
 // (the flush itself, session-start) cross the frontier too but publish no index record.
+//
+// A lifecycle delivery has no capture sidecar since the V6 close-out: a drained control line used to
+// publish one, which nothing referenced and the publication audit could only call an unrecognized
+// op (internal/daemon/drain.go dispatchPending). A crossing with no sidecar is therefore counted
+// rather than described, and at most one may cross in this window - the flush's own, the only
+// lifecycle hook the row sends after acksBefore was taken. A content delivery acknowledged without
+// its sidecar would be a second one, and fails here as it always did.
 func x9ContentDeliveriesCrossed(t *testing.T, root string, acksBefore map[string]core.ObservationID) []x9Crossing {
 	t.Helper()
 	var out []x9Crossing
+	var withoutSidecar []string
 	for delivery, id := range x9AckedDeliveries(t, root) {
 		if _, was := acksBefore[delivery]; was {
 			continue
 		}
 		sc, err := store.ReadCaptureSidecar(root, id)
-		require.NoError(t, err, "delivery %s crossed the frontier during flush with no capture sidecar for %s", delivery, id)
+		if errors.Is(err, fs.ErrNotExist) {
+			withoutSidecar = append(withoutSidecar, fmt.Sprintf("%s (observation %s)", delivery, id))
+			continue
+		}
+		require.NoError(t, err, "delivery %s crossed the frontier during flush with an unreadable capture sidecar for %s", delivery, id)
 		if !strings.HasPrefix(sc.Op, "observe.") {
 			continue
 		}
@@ -730,6 +743,9 @@ func x9ContentDeliveriesCrossed(t *testing.T, root string, acksBefore map[string
 			Delivery: delivery, Op: sc.Op, Arrival: sc.Arrival, Session: sc.Session, ToolUseID: sc.ToolUseID,
 		})
 	}
+	require.LessOrEqual(t, len(withoutSidecar), 1,
+		"only the flush's own lifecycle delivery may cross the frontier during flush with no capture sidecar; "+
+			"these did: %v", withoutSidecar)
 	return out
 }
 
