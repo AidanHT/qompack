@@ -1,0 +1,41 @@
+=== RUN   TestLazySpawn_CalledOnceAcrossManyFailedSends
+--- PASS: TestLazySpawn_CalledOnceAcrossManyFailedSends (0.04s)
+=== RUN   TestLazySpawn_SpoolIsDurableBeforeSpawn
+--- PASS: TestLazySpawn_SpoolIsDurableBeforeSpawn (0.03s)
+=== RUN   TestLazySpawn_SkippedWithoutSelfOrSpawn
+--- PASS: TestLazySpawn_SkippedWithoutSelfOrSpawn (0.00s)
+=== RUN   TestLazySpawn_StaleLockIsReclaimed
+--- PASS: TestLazySpawn_StaleLockIsReclaimed (0.04s)
+=== RUN   TestLazySpawn_FreshLockFromAnotherClientIsHonoured
+--- PASS: TestLazySpawn_FreshLockFromAnotherClientIsHonoured (0.02s)
+=== RUN   TestLazySpawn_ALockStillBeingWrittenIsInFlight
+    spawnlock_test.go:45: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/red/internal/ipc/spawnlock_test.go:45
+        	Error:      	Not equal: 
+        	            	expected: int(0)
+        	            	actual  : int64(1)
+        	Test:       	TestLazySpawn_ALockStillBeingWrittenIsInFlight
+        	Messages:   	an empty spawn.lock created just now is a claim still being written
+--- FAIL: TestLazySpawn_ALockStillBeingWrittenIsInFlight (0.02s)
+=== RUN   TestLazySpawn_AnOldUnreadableLockIsReclaimed
+--- PASS: TestLazySpawn_AnOldUnreadableLockIsReclaimed (0.03s)
+=== RUN   TestLazySpawn_AFutureStampDoesNotHoldSpawnsOff
+    spawnlock_test.go:77: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/red/internal/ipc/spawnlock_test.go:77
+        	Error:      	Not equal: 
+        	            	expected: int(1)
+        	            	actual  : int64(0)
+        	Test:       	TestLazySpawn_AFutureStampDoesNotHoldSpawnsOff
+        	Messages:   	a future stamp on a lock older than the freshness window must be reclaimed
+--- FAIL: TestLazySpawn_AFutureStampDoesNotHoldSpawnsOff (0.02s)
+=== RUN   TestLazySpawn_ReleasesTheClaimWhenSpawnFails
+    spawnlock_test.go:90: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/red/internal/ipc/spawnlock_test.go:90
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestLazySpawn_ReleasesTheClaimWhenSpawnFails362092812\\001\\.qompack\\run\\spawn.lock" exists
+        	Test:       	TestLazySpawn_ReleasesTheClaimWhenSpawnFails
+        	Messages:   	a failed spawn must release its spawn.lock
+--- FAIL: TestLazySpawn_ReleasesTheClaimWhenSpawnFails (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	1.503s
+FAIL
+exit=1
