@@ -1,0 +1,17 @@
+# V6 close-out coordinator tooling
+
+The coordinator's own scripts, kept here so a later session can resume without the original
+session's scratchpad. None of them ships; they drive the close-out.
+
+| File | What it does |
+|---|---|
+| `wave1.js`, `wave2b.js`, `wave3.js`, `wave4.js` | The Workflow scripts for each dispatch wave. Each is implement → adversarial review → fix seat, one worktree per workstream (`../qompack-cx-<wN>-<ws>`, branch `closeout/<wN>-<ws>`). |
+| `live-uat.js` | **Draft, not yet run.** The Phase 4 live lane: three sequential agents (install, sessions, retrieval) running UAT-01…12 as real `claude -p` sessions on the owner's host (D3: agent-executed, never human UAT), then an independent evidence audit. Before launch, replace `__CANDIDATE__` and `__BUNDLE__`, and create worktree `../qompack-cx-live` (branch `closeout/live`) at the frozen candidate. |
+| `wfreport.py` | Renders a workstream's `report.md` from a workflow journal: `python wfreport.py <journal.jsonl> <ws-label> <run-id> <title> <out.md> [branch]`. Subagents cannot write report files, so the coordinator commits these. |
+| `recrun.sh` | Records a run the V6 way: `sh recrun.sh <repo> <evidence-dir> <run-id> -- <command…>` writes `<id>.json` (argv, head, dirty, env, times, exit, log sha256) and `<id>.log`, and refuses to overwrite. |
+| `shacheck.sh` | `sh shacheck.sh <worktree> <file>`: every quoted SHA must be reachable from HEAD (report-SHA reachability). |
+| `rpwaive.py` | Applies `runpatterns` inline waivers from `devtool lint --only=runpatterns` output. It auto-handles alternations the checker splits at a bare pipe and `<placeholder>` patterns, and takes an explicit `file:line=reason` for anything else. Correct a quote instead when its only problem is trailing punctuation. |
+
+Conventions: Linux gates use `plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh` with Windows-style
+paths for `--repo` and `--out` (a POSIX `/c/...` path is refused). Never SendMessage a running
+workflow agent: it resumes a duplicate in the same worktree.
