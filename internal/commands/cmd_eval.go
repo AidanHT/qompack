@@ -17,11 +17,14 @@ const EvalSchema = 1
 type EvalVerdict string
 
 const (
-	// VerdictPass: every decidable gate passed and every planned trial ran.
+	// VerdictPass: every decidable gate passed and every planned trial ran. A live run's failed
+	// trials are already counted as failures in its decision (intention to treat), so they are part
+	// of what its gate decided, not a reason to withhold the pass.
 	VerdictPass EvalVerdict = "pass"
 	// VerdictFail: at least one decidable gate failed.
 	VerdictFail EvalVerdict = "fail"
-	// VerdictInconclusive: nothing failed, and not enough ran to say it passed. It is a distinct
+	// VerdictInconclusive: nothing failed, and not enough ran to say it passed — or a confirmatory
+	// live run's pre-registered rule reached no verdict, which no replay can supply. It is a distinct
 	// outcome because a run whose trials were skipped has not demonstrated anything, and calling
 	// that a pass is how a gate stops gating.
 	VerdictInconclusive EvalVerdict = "inconclusive"
@@ -225,9 +228,18 @@ func addReplayGates(rep *EvalReport, score eval.Score, suffix string) {
 //
 // Cost is not consulted. That is the SP14-M7-03 rule in its operational form: a run that was cheap
 // and got the wrong answer must not pass, so the cheapness cannot enter the decision at any
-// weight. Trials that were skipped or failed cannot produce a pass either, because a gate that
-// passes on an evaluation which did not run is not a gate — the replay's (when one was read) and
-// the live run's alike.
+// weight. Trials that were skipped cannot produce a pass either, because a gate that passes on an
+// evaluation which did not run is not a gate — the replay's (when one was read) and the live run's
+// alike. A replay's failed trials withhold the pass too: its scores do not count them. A live run's
+// failed trials do not: its pre-registered decision already counts every one of them in every
+// denominator (intention to treat, preregistration section 8), a harness failure as a failure on
+// every outcome, so its gate is that decision and the report lists each failed trial by name.
+//
+// A confirmatory live run is the pre-registered evaluation, so the verdict cannot pass it where its
+// decision does not: when the rule reached no verdict on the primary outcome (inconclusive, or
+// not-applicable because a trial's plugin state contradicted its arm), the verdict is inconclusive
+// however the replay read beside it fared. A failing gate — a constraint regression among them —
+// still fails it.
 func verdictOf(rep EvalReport, replayed bool) EvalVerdict {
 	var decided int
 	for _, g := range append(append([]EvalGate{}, rep.Task...), rep.Recovery...) {
@@ -242,7 +254,9 @@ func verdictOf(rep EvalReport, replayed bool) EvalVerdict {
 	switch {
 	case replayed && (rep.Trials.Failed > 0 || rep.Trials.Skipped > 0 || rep.Trials.Ran == 0):
 		return VerdictInconclusive
-	case rep.Live != nil && (rep.Live.Trials.Failed > 0 || rep.Live.Trials.Skipped > 0 || rep.Live.Trials.Ran == 0):
+	case rep.Live != nil && (rep.Live.Trials.Skipped > 0 || rep.Live.Trials.Ran == 0):
+		return VerdictInconclusive
+	case rep.Live != nil && rep.Live.Confirmatory && !liveDecisionReached(rep.Live.Decision):
 		return VerdictInconclusive
 	case decided == 0:
 		return VerdictInconclusive

@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/commands	1.654s
+internal/commands @0a7b320 exit=0

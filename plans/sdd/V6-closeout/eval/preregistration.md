@@ -297,3 +297,90 @@ resolved model; `qompack eval` names it and states that §3's own preconditions 
 appended to §9 before the restart — are not machine-checked. A run on the alias with no resolved
 model recorded, or with more than one, and a run on any other model, is not the confirmatory run
 (`TestEval_LiveTheSection3ModelContingencyCanBeConfirmatory`).
+
+**A7 — 2026-09-25, by the V6 close-out wave-3 eval workstream (an Opus 5.5 workflow subagent, branch
+`closeout/w3-eval3`), before any trial of `qompack-live-v2` and before any confirmatory trial.** Task
+set `qompack-live-v2` supersedes `qompack-live-v1` before use, under owner decision D12 (2026-09-25):
+the weak task checks are fixed before any confirmatory trial, under a new task-set id and hash. At the
+time of writing no trial of either set exists; the only real host sessions of this study are still
+the smoke and pilot sessions named at the top of this document.
+
+*Reason.* Two grading defects in `qompack-live-v1`, found by review (w2-eval2), not by any outcome:
+
+1. `tool-output-recall` and `seed-recall` had `go vet ./...` as their only task check, and the
+   untouched fixture passes it. A session that did nothing after the compaction scored a task
+   success, so 4 of every 20 trials per arm passed the primary outcome (section 6, H1) whatever the
+   session did, pushing both arms' task-success rates towards 1 and making a non-inferior verdict
+   easier to reach. Section 2's gradeability test did not catch it: it required the untouched fixture
+   to fail some check, and both tasks' untouched fixtures failed only a recovery check.
+2. `regression-guard`'s constraint check `pinned` ran `go test ./list -run ^TestHiddenEvalParseListPinned$`,
+   which compiles every test file in `list/`, the hidden JoinList test included. A trial that never
+   wrote JoinList failed `pinned` on a compile error although it never touched ParseList, so one
+   omission counted twice: in H1 (the task) and in H2 (a constraint).
+
+*Amendment.* The confirmatory task set is `qompack-live-v2`, in `testdata/eval/live/tasks-v2.json`. It
+is `qompack-live-v1` with exactly these changes and no other
+(`TestLiveTaskSetV2_DiffersFromV1OnlyAsAmendmentA7States`, internal/eval):
+
+- `tool-output-recall` gains the hidden fixture `hidden-v2/tool-output-recall` and the task check
+  `behaviour` (`go test ./...`): a hidden test that passes only when `TOKEN`, the file the last step
+  asks for, holds the probe's build token and nothing but whitespace besides.
+- `seed-recall` (held out) gains the hidden fixture `hidden-v2/seed-recall` and the task check
+  `behaviour` (`go test ./...`): a hidden test that compiles only when `config.Seed` is a string
+  constant, as the last step asks, and passes only when it holds the program's seed.
+- `regression-guard` takes its hidden tests from `hidden-v2/regression-guard`: the JoinList test stays
+  in `list/`, the ParseList pinned test (the same cases) moves alone into a package `pinned/`, and the
+  constraint check `pinned` runs `go test ./pinned -run ^TestHiddenEvalParseListPinned$`, which
+  compiles it against the list package without the JoinList test. A trial that never wrote JoinList
+  now fails the task checks `join` and `all` and passes `pinned`; a ParseList whose result changed on
+  a pinned input still fails it. A list package that does not build at all still fails `pinned`:
+  the teams relying on ParseList could not build against it either.
+- The set's id and description.
+
+Every step and prompt, every fixture, every other check, the defaults (turn limit, allow-list), the
+analysis parameters (`claude-sonnet-5`, 95% confidence, margin 0.20, 2 trials per arm), the section 4
+table (ids, categories, variants, held-out flags), the rate table and the sample size (section 7, 40
+sessions) are unchanged. The task checks that were there (`builds`, `vets`) stay; no check was removed
+or loosened. Sections 3, 5, 6, 8 and 9 and amendments A1–A6 apply to `qompack-live-v2` as written,
+A1's manifest recipe taken over the directories the set's fixtures and hidden fixtures live under
+(`eval.LiveTaskSet.FixtureTreeDirs`: `fixtures`, `hidden` and `hidden-v2`).
+
+Every task is gradeable and none can be passed by doing nothing (tools/devtool):
+`TestLiveTaskSet_ReferenceSolutionsPassEveryCheck` still requires the unchanged reference solutions
+(`testdata/eval/live/reference/`) to pass every check; `TestLiveTaskSet_AnUntouchedFixtureFailsTheTaskOutcome`
+requires, for every task, that the untouched fixture fail at least one **task** check, which
+`qompack-live-v1` did not meet; `TestLiveTaskSet_ToolResultTasksGradeTheDeliverable` and
+`TestLiveTaskSet_RegressionGuardPinnedGradesOnlyParseList` pin the three changed checks. They grade
+fixtures offline, as section 2's test always has; no held-out task was run in a session.
+
+Frozen materials of `qompack-live-v2` (`rates.json` and `pilot.json` keep their section 2 hashes):
+
+| Item | Path | SHA-256 |
+|---|---|---|
+| Task set `qompack-live-v2` | `testdata/eval/live/tasks-v2.json` | `d59dc09d15edb04acb567dd97ac620c41eaf00206093bdc59a5162607619af83` |
+| Fixtures + hidden tests (A1's manifest over `fixtures`, `hidden`, `hidden-v2`) | `testdata/eval/live/{fixtures,hidden,hidden-v2}/` | `a5f57b1e2045378d1b38a629f75f830755e95e3582513ea8e3d3fb0d452ec3d2` |
+
+`qompack-live-v1` is **superseded before use**. Its files stay byte-identical at their section 2
+paths — `tasks.json`, and the `fixtures` and `hidden` tree amendment A1 names, which
+`qompack-live-v2` adds a directory beside but does not change — so section 2 and A1 still describe
+them and `TestLiveTaskSet_FrozenMaterialsMatchThePreregistration` still checks them.
+`eval.LivePreregistrations` records it as superseded by `qompack-live-v2`: `devtool live-eval`
+refuses to plan a run of it, dry run included, and `qompack eval` never calls a run of it
+confirmatory. Section 9's command becomes:
+
+```
+go run ./tools/devtool bundle --target windows/amd64 --version <v> --out dist/live-bundle
+QOMPACK_LIVE_EVAL=1 go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks-v2.json \
+  --include-held-out --arms stock,qompack --install plugin-dir --known-open-defects none \
+  --bundle dist/live-bundle/qompack-plugin-<v>-windows-amd64 --max-sessions 40
+```
+
+Not a change to this document, recorded here because it concerns reading the result: `qompack eval`
+now reports section 8's intention-to-treat decision for a confirmatory run whose trials include
+failures (a harness failure scored as a failure on every outcome, every other trial graded by its
+checks), and lists each failed trial by name, instead of overriding that decision with its own
+"inconclusive" (coordinator default of 2026-09-25, which the owner may overrule). Planned trials that
+never ran still leave the run without a verdict (A4). When that decision is inconclusive or
+not-applicable, `qompack eval`'s verdict is inconclusive even with a passing replay read beside
+it: a replay cannot supply the pre-registered verdict the live rule did not reach (C5.5 review
+seat, 2026-09-25).

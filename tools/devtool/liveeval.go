@@ -48,7 +48,7 @@ const liveEvalGateEnv = "QOMPACK_LIVE_EVAL"
 
 // Defaults, relative to the repository root.
 const (
-	liveDefaultTasks = "testdata/eval/live/tasks.json"
+	liveDefaultTasks = "testdata/eval/live/tasks-v2.json"
 	liveDefaultRates = "testdata/eval/live/rates.json"
 	liveDefaultOut   = "dist/live-eval"
 )
@@ -114,6 +114,9 @@ type liveOptions struct {
 	// (empty for "none").
 	defectsAttested bool
 	openDefects     []string
+	// confirmatory refuses to plan a run that departs, at plan time, from its task set's
+	// pre-registered confirmatory design (eval.LivePlanDepartures).
+	confirmatory bool
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -151,6 +154,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 	fs.BoolVar(&o.keepRaw, "keep-raw-transcripts", false,
 		"also copy the host's raw transcript into the trial directory (it carries the operator's identity and system prompt: never commit it)")
 	fs.BoolVar(&o.dryRun, "dry-run", false, "validate the task set, bundle and plan; start nothing")
+	fs.BoolVar(&o.confirmatory, "confirmatory", false,
+		"refuse to plan, dry run included, unless the plan is the task set's pre-registered confirmatory design")
 	defects := fs.String("known-open-defects", "",
 		"the operator's statement of which known defects the bundle still carries: none, or their checklist IDs "+
 			"comma-separated (required with the qompack arm; preregistration section 9)")
@@ -251,6 +256,12 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if err != nil {
 		return err
 	}
+	if pre, ok := eval.LivePreregistrations[ts.ID]; ok && pre.SupersededBy != "" {
+		// A dry run is refused too: it exists to validate the real run's command.
+		next := eval.LivePreregistrations[pre.SupersededBy]
+		return fmt.Errorf("live-eval: task set %s was %s; no run of it can be the confirmatory run, so none is "+
+			"planned. Run %s (%s) instead", ts.ID, pre.SupersededWhy, pre.SupersededBy, next.TaskSetFile)
+	}
 	rates, err := loadLiveRates(o.rates)
 	if err != nil {
 		return err
@@ -265,7 +276,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if err != nil {
 		return err
 	}
-	treeDirs := liveFixtureTreeDirs(ts)
+	treeDirs := ts.FixtureTreeDirs()
 	tree, err := eval.TreeManifestSHA256(filepath.Dir(o.tasksFile), treeDirs...)
 	if err != nil {
 		return fmt.Errorf("live-eval: hashing the fixture tree: %w", err)
@@ -317,6 +328,27 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if plan.KnownDefects != nil {
 		fmt.Fprintf(w, "live-eval: known open defects: %s (%s; preregistration section 9)\n",
 			knownDefectsText(plan.KnownDefects), liveDefectSource)
+	}
+	if p := plan.Plugin; p != nil {
+		fmt.Fprintf(w, "live-eval: bundle %s at commit %s (dirty=%t), %s sha256 %s, at %s\n",
+			p.Version, p.Commit, p.Dirty, identityFileName, p.BundleSHA256, p.BundleDir)
+	}
+	// What makes this the confirmatory run is mostly fixed now; say it before any session is spent.
+	departures := eval.LivePlanDepartures(plan, ts.Analysis.TrialsPerArm)
+	if len(departures) == 0 {
+		fmt.Fprintln(w, "live-eval: confirmatory preconditions at plan time: met. Still to be shown by the trials: "+
+			"every planned trial runs, no plugin but the arm's own loads on either arm, and a contingency alias "+
+			"resolves to one model; the section 9 known-defect statement is the operator's, not machine-checked")
+	} else {
+		fmt.Fprintf(w, "live-eval: not the confirmatory design: %s\n", strings.Join(departures, "; "))
+		if o.confirmatory {
+			doc := "its task set has no pre-registration"
+			if pre, ok := eval.LivePreregistrations[ts.ID]; ok {
+				doc = pre.Document
+			}
+			return fmt.Errorf("live-eval: --confirmatory: this plan is not the pre-registered confirmatory design "+
+				"(%s), so no session is planned: %s", doc, strings.Join(departures, "; "))
+		}
 	}
 	if o.dryRun {
 		for _, p := range plan.Trials {
@@ -412,23 +444,6 @@ func liveDryRunHost(o liveOptions, env *liveEnv, d eval.LiveTaskDefaults, t eval
 		out = append(out, fmt.Sprintf("host (%s, task %s): %s %s", arm, t.ID, bin, strings.Join(args, " ")))
 	}
 	return out
-}
-
-// liveFixtureTreeDirs is the sorted set of top-level directories, relative to the task file, that
-// the task set's fixtures and hidden fixtures live under. For qompack-live-v1 it is fixtures and
-// hidden: exactly the tree the pre-registration's amendment A1 hashes.
-func liveFixtureTreeDirs(ts eval.LiveTaskSet) []string {
-	seen := map[string]bool{}
-	for _, t := range ts.Tasks {
-		for _, dir := range []string{t.Fixture, t.HiddenFixture} {
-			if dir == "" {
-				continue
-			}
-			top, _, _ := strings.Cut(dir, "/")
-			seen[top] = true
-		}
-	}
-	return liveSortedKeys(seen)
 }
 
 // selectLiveTasks applies --only and the held-out rule.

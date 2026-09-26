@@ -1,0 +1,20 @@
+$ env -u QOMPACK_LIVE_EVAL go run ./tools/devtool live-eval --arms stock --dry-run
+live-eval: run 20260926T022554Z-633039: 14 trial(s) of task set qompack-live-v2 (d59dc09d15ed, fixture tree a5f57b1e2045) on claude-sonnet-5, arms stock, install none
+live-eval: not the confirmatory design: its qompack arm was installed by none, not the pre-registered --plugin-dir; its plan does not attest which known defects its bundle carries, and preregistration section 9 counts only a run on a candidate where C1.12 and C1.1 are fixed and no known defect is open as the confirmatory run; it did not run both arms (arms: stock); it excluded the held-out tasks; it planned 7 of the task set's 10 tasks; its plan names no plugin bundle
+  plan: constraint-verbatim/stock/1
+  plan: recall-user-fact/stock/1
+  plan: eliminated-approach/stock/1
+  plan: changing-requirement-format/stock/1
+  plan: tool-output-recall/stock/1
+  plan: decision-rationale/stock/1
+  plan: regression-guard/stock/1
+  plan: constraint-verbatim/stock/2
+  plan: recall-user-fact/stock/2
+  plan: eliminated-approach/stock/2
+  plan: changing-requirement-format/stock/2
+  plan: tool-output-recall/stock/2
+  plan: decision-rationale/stock/2
+  plan: regression-guard/stock/2
+  host (stock, task constraint-verbatim): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model claude-sonnet-5 --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack
+live-eval: --dry-run: no session started
+exit=0

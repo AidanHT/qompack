@@ -1,0 +1,10 @@
+=== RUN   TestRunLiveEval_ASupersededTaskSetIsNeverPlanned
+    liveeval_test.go:128: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3/tools/devtool/liveeval_test.go:128
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestRunLiveEval_ASupersededTaskSetIsNeverPlanned
+--- FAIL: TestRunLiveEval_ASupersededTaskSetIsNeverPlanned (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	1.377s
+FAIL
+exit=1
