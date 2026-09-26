@@ -23,6 +23,12 @@ const gitMarker = ".git"
 //
 // getenv is injected so Resolve never reads the process environment directly: tests, the CLI and
 // the daemon's per-project cache each hand it whatever lookup is appropriate.
+//
+// Resolve answers "which directory", not "may Qompack use it". Every step can name the user's home
+// directory — the override, a session started there, or a walk from below it that stops at a home
+// that is itself a git work tree — and owner decision D18 refuses that root, because its store
+// would be the user-global layer's own directory. Every entry point asks IsHome (home.go) about
+// the root this returns before it reads, writes, locks or spawns anything for it.
 func Resolve(getenv func(string) string, payloadCWD string) (string, error) {
 	if v := getenv("QOMPACK_PROJECT_ROOT"); v != "" {
 		return filepath.Abs(v)
