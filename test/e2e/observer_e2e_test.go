@@ -185,8 +185,23 @@ func obsFlushPayload(t *testing.T, root string, sess core.SessionID) []byte {
 // the daemon's own record that that work is done.
 func obsRunFlush(t *testing.T, bin, root string, sess core.SessionID, env map[string]string) {
 	t.Helper()
-	before, _ := os.ReadFile(paths.Long(contract.MarkerPath(root)))
+	before := obsSessionEndMarker(root)
 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, root, sess), env)
+	obsAwaitSessionEnded(t, root, sess, before)
+}
+
+// obsSessionEndMarker returns the terminal-hook marker's bytes as they stand, or nil before it
+// exists: what obsAwaitSessionEnded must see change.
+func obsSessionEndMarker(root string) []byte {
+	b, _ := os.ReadFile(paths.Long(contract.MarkerPath(root)))
+	return b
+}
+
+// obsAwaitSessionEnded waits, within obsProcessBound, for the daemon to have ended sess: for a
+// terminal-hook marker that names sess and is not the before the caller read ahead of its flush hook.
+// See obsRunFlush for why that marker is the daemon's own record that the end's work is done.
+func obsAwaitSessionEnded(t *testing.T, root string, sess core.SessionID, before []byte) {
+	t.Helper()
 	require.Eventually(t, func() bool {
 		b, err := os.ReadFile(paths.Long(contract.MarkerPath(root)))
 		if err != nil || bytes.Equal(b, before) {

@@ -275,7 +275,17 @@ func TestV3_DegradedPassiveStillRecordsEverything(t *testing.T) {
 	require.NotEqual(t, rec1.ID, rec2.ID)
 
 	// ── flush ────────────────────────────────────────────────────────────────────────────────────
+	// Since C1.15 the flush hook answers once the flush is durable and the daemon ends the session
+	// on a goroutine of its own, so the hook's exit does not mean the end has happened. The
+	// observer's SessionEnd is what writes sketches/touch.cms and explore.hll (the daemon's own
+	// SketchSet.Save is dirty-guarded and a no-op for them; see WireObserver), and the assertions
+	// below read both files. So this waits for the end, as obsRunFlush does: under co-load the
+	// idle pass below finished before the end had started, and touch.cms was not there yet
+	// (w4-e2eflakes runs/pkg-test-e2e-windows-a893e5d.log; 1 of 5 alone even at 6aff949), and a
+	// 3 s delay injected at the start of the observer's SessionEnd fails the row 3 of 3.
+	markerBefore := obsSessionEndMarker(p.Root)
 	x8RunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, x8Session), env)
+	obsAwaitSessionEnded(t, p.Root, x8Session, markerBefore)
 
 	// ── Idle enforcement: acting tasks skipped, recording/maintenance tasks run ──────────────────
 	ran, err := d.Idle().RunOnce(ctx, 5*time.Second)
