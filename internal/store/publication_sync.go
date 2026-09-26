@@ -21,6 +21,13 @@ const (
 	publicationObjectLimit = 65536
 )
 
+// CounterPublicationSync counts SyncPublication passes: one per call that gets past the write guard,
+// whether or not the pass then succeeds. A pass re-reads and verifies every object of the root's
+// recovery closure and fsyncs each of them, their directories, the root and tool-use indices and the
+// index directory, so passes per capture is the publication path's durability cost in a unit that
+// host load cannot move (carried defect SP08-D1). The observer's publication tests pin it.
+const CounterPublicationSync = "store.publication.sync"
+
 func (s *FSStore) publicationObjects(ctx context.Context, root core.Hash) (map[core.Hash]bool, error) {
 	if root.IsZero() {
 		return nil, ctx.Err() // metadata-only capture; its index still needs syncing
@@ -70,6 +77,7 @@ func (s *FSStore) SyncPublication(ctx context.Context, hash core.Hash) error {
 	if err := s.mutate(); err != nil {
 		return err
 	}
+	s.count(CounterPublicationSync, 1)
 	objects, err := s.publicationObjects(ctx, hash)
 	if err != nil {
 		return err
