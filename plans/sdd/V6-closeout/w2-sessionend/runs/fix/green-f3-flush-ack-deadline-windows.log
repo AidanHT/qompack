@@ -1,0 +1,23 @@
+=== RUN   TestFlushHook_IsFireAndForgetWithItsNonce
+--- PASS: TestFlushHook_IsFireAndForgetWithItsNonce (0.04s)
+=== RUN   TestFlushHook_ASlowAckInsideTheHostBudgetLeavesNoSpool
+--- PASS: TestFlushHook_ASlowAckInsideTheHostBudgetLeavesNoSpool (0.23s)
+=== RUN   TestHookConnectDeadline
+=== RUN   TestHookConnectDeadline/observe.tool_(hot_path,_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/observe.prompt_(hot_path,_DOES_carry_a_fixed_deadline)
+=== RUN   TestHookConnectDeadline/observe.stop_(hot_path,_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/session-start_(not_hot_path,_fixed_deadline)
+=== RUN   TestHookConnectDeadline/checkpoint_(not_hot_path,_fixed_deadline)
+=== RUN   TestHookConnectDeadline/flush_(not_hot_path,_fire-and-forget_since_C1.15:_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/a_non-hot-path_op's_own_State.ConnectDeadlineMs_is_kept_when_it_already_exceeds_the_floor
+--- PASS: TestHookConnectDeadline (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.tool_(hot_path,_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.prompt_(hot_path,_DOES_carry_a_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.stop_(hot_path,_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/session-start_(not_hot_path,_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/checkpoint_(not_hot_path,_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/flush_(not_hot_path,_fire-and-forget_since_C1.15:_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/a_non-hot-path_op's_own_State.ConnectDeadlineMs_is_kept_when_it_already_exceeds_the_floor (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.503s
+exit=0

@@ -38,10 +38,23 @@ const (
 // flush has no reply deadline since C1.15. Claude Code gives a plugin's SessionEnd hooks one SHARED
 // 1.5 s budget, which a timeout set on a plugin-provided hook does not raise, and cancels a hook still
 // running when it runs out; the flush used to wait up to 15 s for the daemon to end the session, and
-// the host cancelled it every time. The flush is now fire-and-forget: the daemon ACKs it within the
-// hot path's AckDeadline, once its line is in the WAL and leased, and ends the session on its own
+// the host cancelled it every time. The flush is now fire-and-forget: the daemon ACKs it once its
+// line is in the WAL and leased, within flushAckDeadline, and ends the session on its own
 // (internal/daemon/session_end.go). A missed ACK spools the flush like any hook; its nonce makes the
 // spooled copy a duplicate the daemon absorbs.
+const (
+	// sessionEndHostBudget is the one budget Claude Code shares among a plugin's SessionEnd hooks
+	// (the hooks reference; plans/sdd/V6-closeout/packaging/evidence/live-s{1,2}-*/stderr.txt).
+	sessionEndHostBudget = 1500 * time.Millisecond
+	// flushAckDeadline is how long the flush waits for its ACK. The observe hot path's AckDeadline
+	// (17/73/45 ms by platform) is sized for an observe event, which the daemon acknowledges after a
+	// WAL append and a lease; before it acknowledges a flush it also takes the flush's in-process
+	// ownership and rewrites the session recovery record, and a missed ACK leaves a spooled duplicate
+	// for every session that ends. The dial (hookConnectDeadlineFloor) and the ACK together get half
+	// of the host's budget; the other half is the process's own start-up, its input read and, when the
+	// ACK is missed after all, its spool append.
+	flushAckDeadline = sessionEndHostBudget/2 - hookConnectDeadlineFloor
+)
 
 // newHookMetrics returns the obs.Registry every hook body's ipc.Client is constructed with: a
 // real, freshly-constructed SP-01 registry (obs.New), per task-6-spec.md's own skeleton comment
@@ -264,6 +277,10 @@ type hookSpec struct {
 	// hot-path state record's AckDeadlineMs" — observe.tool's and observe.stop's row in the wiring
 	// table, both fire-and-forget ops with no fixed deadline of their own.
 	deadline time.Duration
+	// ackDeadline bounds writing a fire-and-forget request and waiting for its ACK. Zero means the
+	// hot-path state record's AckDeadlineMs, which is every observe op's; only the flush, off the hot
+	// path and with the host's SessionEnd budget to spend, sets its own (flushAckDeadline).
+	ackDeadline time.Duration
 	// preSend runs once, after the project root/state are final and before the client is
 	// constructed. Only session-start uses it, to call daemon.EnsureRunning (§2.4: session-start is
 	// the designated daemon starter, off the hot path, with a generous hook timeout). self is
@@ -457,7 +474,7 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			// ProjectRoot still matters on its own: lazySpawn's lock file and externalize()'s blob
 			// directory both need it independently of where State came from.
 			ProjectRoot: root, State: st, Self: env.Self, Clock: clk, Spawn: spawn,
-			ConnectDeadline: connectDeadline,
+			ConnectDeadline: connectDeadline, AckDeadline: spec.ackDeadline,
 		})
 		c = wrapFaultClient(c)
 		defer func() { _ = c.Close() }()

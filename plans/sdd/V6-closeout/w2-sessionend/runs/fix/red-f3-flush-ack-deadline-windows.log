@@ -1,0 +1,14 @@
+=== RUN   TestFlushHook_IsFireAndForgetWithItsNonce
+--- PASS: TestFlushHook_IsFireAndForgetWithItsNonce (0.05s)
+=== RUN   TestFlushHook_ASlowAckInsideTheHostBudgetLeavesNoSpool
+    flush_hook_test.go:91: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/cli/flush_hook_test.go:101
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/cli/flush_hook_test.go:91
+        	Error:      	Should be false
+        	Test:       	TestFlushHook_ASlowAckInsideTheHostBudgetLeavesNoSpool
+        	Messages:   	a flush the daemon acknowledged inside the host's budget was spooled as if it had been lost: found client-54068.ndjson
+--- FAIL: TestFlushHook_ASlowAckInsideTheHostBudgetLeavesNoSpool (0.24s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.507s
+FAIL
+exit=1
