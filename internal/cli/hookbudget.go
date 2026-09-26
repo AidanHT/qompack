@@ -18,11 +18,13 @@ const hookExitReserve = 1500 * time.Millisecond
 // hookBudget is one hook invocation's share-out of its manifest timeout (D17b). doneBy is the
 // instant the hook's own work has to end by — the timeout less hookExitReserve, counted from
 // doHook's first statement — and preSendBy the instant preSend has to return by for the dial and the
-// full reply deadline to still fit before doneBy. The zero hookBudget bounds nothing: a hook with no
-// hostTimeout keeps its fixed deadlines.
+// full reply deadline to still fit before doneBy. latestPoll is the last instant a pre-send step may
+// still be waiting for a daemon: past it not even the dial fits before doneBy, let alone a reply. The
+// zero hookBudget bounds nothing: a hook with no hostTimeout keeps its fixed deadlines.
 type hookBudget struct {
-	preSendBy time.Time
-	doneBy    time.Time
+	preSendBy  time.Time
+	latestPoll time.Time
+	doneBy     time.Time
 }
 
 // newHookBudget shares hostTimeout out from began: hookExitReserve at the end, before it the reply
@@ -33,7 +35,7 @@ func newHookBudget(began time.Time, hostTimeout, reply, connect time.Duration) h
 		return hookBudget{}
 	}
 	doneBy := began.Add(hostTimeout - hookExitReserve)
-	return hookBudget{preSendBy: doneBy.Add(-reply - connect), doneBy: doneBy}
+	return hookBudget{preSendBy: doneBy.Add(-reply - connect), latestPoll: doneBy.Add(-connect), doneBy: doneBy}
 }
 
 // replyDeadline is how long a hook that dials at now may wait for its answer: reply, or what is

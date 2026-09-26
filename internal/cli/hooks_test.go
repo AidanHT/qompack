@@ -330,7 +330,7 @@ func TestEnsureDaemonRunning_GatedOnDaemonEnabled(t *testing.T) {
 	t.Run("disabled: EnsureRunning is never attempted", func(t *testing.T) {
 		root := newRoot(t)
 
-		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: false}, testClock(), time.Time{})
+		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: false}, testClock(), hookBudget{})
 
 		matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
 		require.NoError(t, err)
@@ -345,7 +345,7 @@ func TestEnsureDaemonRunning_GatedOnDaemonEnabled(t *testing.T) {
 	t.Run("enabled: EnsureRunning is attempted", func(t *testing.T) {
 		root := newRoot(t)
 
-		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: true}, testClock(), time.Time{})
+		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: true}, testClock(), hookBudget{})
 
 		matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
 		require.NoError(t, err)
