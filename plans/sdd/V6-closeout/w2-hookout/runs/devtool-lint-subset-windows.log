@@ -1,0 +1,68 @@
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (72 package(s) checked)
+PASS importgraph
+== devtool lint: testdeps ==
+testdeps: OK (74 package(s) checked)
+PASS testdeps
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+== devtool lint: runpatterns ==
+runpatterns: plans/V2-VERIFY-primitives-store-dag-and-baseline.md:530: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: plans/sdd/V5-VERIFY/inventory-SP-05.md:70: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed|TestListenReturnsErrAddrInUse" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: 1028 -run patterns parsed, 840 of 840 checkable resolved against 73 packages, 2 skipped (package not in tree yet), 7 skipped (unlanded wave and the package's test set is not settled), 2 platform-excluded, 20 waived
+runpatterns: waivers in force:
+  plans/V2-SP02-handoff.md:52: "TestImports" — the transcript below demonstrates the unsatisfiable command this section reports
+  plans/V2-VERIFY-primitives-store-dag-and-baseline.md:318: "TestImports" — quotes the unsatisfiable command this finding is about; the corrected row is below
+  plans/sdd/V3-SP-08-observer-l0/global-constraints.md:65: "<pattern>" — the -run argument is a placeholder metavariable in an iteration recipe, not a row to verify
+  plans/sdd/V3-SP-08-observer-l0/task-0-report.md:221: "<the seven new/extended tests>" — metavariable summarizing the report's per-test runs above, not a command to verify
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:422: "TestGraphEdges" — quotes the defective V6 command this finding documents
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:467: "TestGraphEdges" — left side quotes the defective V6 command being corrected
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:467: "TestGraph_" — left side quotes the defective V6 command being corrected
+  plans/sdd/V5-SP-15/report-E.md:84: "…" — the -run argument in this column header is a placeholder for the per-row test names below, not a command to verify
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:72: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:89: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:89: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:71: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:87: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:87: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-14.md:103: "TestRenderStatus_DegradedIsLoud" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-14.md:105: "TestE2E_EverySubcommandResolves|TestE2E_StatusAgainstRealDaemon|TestE2E_StatusWithDaemonStopped|TestE2E_CheckpointNowThenStatus" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-15.md:138: "TestCodecSizeBudget" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-15.md:139: "TestBuildActionHistory|TestRenderActionHistory|TestFold|TestFinalizeIncludesActionHistory|TestTruncateDropsActionHistoryFirst" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:151: "^(TestGoreleaserBuildsNothingAndDraftsTheRelease" — the alternation is split at the shell-pipeline character by this checker's parser; every branch is named in the PASS lines below
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:338: "^(TestBackup_RestoreOpensAsARealStore" — the alternation is split at the shell-pipeline character by this checker's parser; the -list output directly below names every branch
+FAIL runpatterns: runpatterns: 26 unsatisfiable -run pattern(s):
+  plans/sdd/V6-closeout/config/report.md:203: -run "...same" matches no test in ./internal/config; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/config/report.md:204: -run "...same three..." matches no test in ./internal/config; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/e2e/report.md:203: -run "TestFsck_ToolUse:" matches no test in ./internal/cli; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/e2e/report.md:204: -run "TestAuditPublication_:" matches no test in ./internal/store; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/e2e/report.md:205: pattern "TestFsck_(NewerCaptureSchema" is not a valid regexp: error parsing regexp: missing closing ): `TestFsck_(NewerCaptureSchema`
+  plans/sdd/V6-closeout/e2e/report.md:206: -run "TestV1_ConfigPrecedenceReachesHookBehaviour:" matches no test in ./test/e2e; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/e2e/report.md:207: -run "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting:" matches no test in ./test/e2e; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/e2e/report.md:312: -run "TestReviewRepro_DrainedControlLineWritesNoCaptureSidecar" matches no test in ./internal/daemon; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/e2e/report.md:94: pattern "^(TestV1_ConfigPrecedenceReachesHookBehaviour" is not a valid regexp: error parsing regexp: missing closing ): `^(TestV1_ConfigPrecedenceReachesHookBehaviour`
+  plans/sdd/V6-closeout/hostperm/report.md:122: -run "HostDenyRed" matches no test in ./internal/mcp; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/hostperm/report.md:124: -run "TestHostPolicy_ALinkSpellingIsJudgedToo," matches no test in ./internal/mcp; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/hostperm/report.md:277: -run "<4" matches no test in ./internal/hostperm; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/ingest/report.md:104: -run "<the six TestFault_* cases>" matches no test in ./test/fault; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/ingest/report.md:106: pattern "^(TestDeliveryOrder" is not a valid regexp: error parsing regexp: missing closing ): `^(TestDeliveryOrder`
+  plans/sdd/V6-closeout/ingest/report.md:356: pattern "TestDeliveryOrder_(AStuckSessionCannotTakeTheOtherSessionsLanes" is not a valid regexp: error parsing regexp: missing closing ): `TestDeliveryOrder_(AStuckSessionCannotTakeTheOtherSessionsLanes`
+  plans/sdd/V6-closeout/ingest/report.md:360: pattern "^(TestDeliveryOrder" is not a valid regexp: error parsing regexp: missing closing ): `^(TestDeliveryOrder`
+  plans/sdd/V6-closeout/ingest/report.md:362: pattern "^(TestE2E_ObserverThroughDaemon" is not a valid regexp: error parsing regexp: missing closing ): `^(TestE2E_ObserverThroughDaemon`
+  plans/sdd/V6-closeout/ingest/report.md:366: pattern "^(TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing" is not a valid regexp: error parsing regexp: missing closing ): `^(TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing`
+  plans/sdd/V6-closeout/linux/report.md:106: pattern "^(TestV6_ArchivedReadRetainsItsAuthorizationBoundary" is not a valid regexp: error parsing regexp: missing closing ): `^(TestV6_ArchivedReadRetainsItsAuthorizationBoundary`
+  plans/sdd/V6-closeout/linux/report.md:107: -run "<322 remainder>" matches no test in ./internal/daemon; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/linux/report.md:417: pattern "^(TestSwitch_ModePassiveStopsActingAndKeepsRecording" is not a valid regexp: error parsing regexp: missing closing ): `^(TestSwitch_ModePassiveStopsActingAndKeepsRecording`
+  plans/sdd/V6-closeout/linux/report.md:93: pattern "^(TestRunReturnsOnlyAfterAsyncStopHasFinished" is not a valid regexp: error parsing regexp: missing closing ): `^(TestRunReturnsOnlyAfterAsyncStopHasFinished`
+  plans/sdd/V6-closeout/linux/report.md:94: pattern "^(TestListRetentionDir_" is not a valid regexp: error parsing regexp: missing closing ): `^(TestListRetentionDir_`
+  plans/sdd/V6-closeout/packaging/report.md:123: -run "<16 PreCompact/IT rows>" matches no test in ./test/e2e; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+  plans/sdd/V6-closeout/packaging/report.md:317: pattern "^(TestE2E_CheckpointHookWritesImmutableArtifact" is not a valid regexp: error parsing regexp: missing closing ): `^(TestE2E_CheckpointHookWritesImmutableArtifact`
+  plans/sdd/V6-closeout/rehydrate-cap/report.md:94: -run "<21 compact-rehydration cases incl. TestE2E_SessionStartCompactFitsTheHostCap>" matches no test in ./test/e2e; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+== devtool lint: docmarkers ==
+docmarkers: 277 plan document(s) scanned
+PASS docmarkers
+devtool: lint: lint: failed sub-check(s): runpatterns
+exit status 1

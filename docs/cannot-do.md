@@ -133,9 +133,11 @@ host change could lift — as prepared proposals, none of which has been filed.
   read for compatibility only.
 - **What Qompack does instead.** It writes its own checkpoint at PreCompact, which is Qompack's
   artifact and does not depend on what the summarizer produces, and it answers the PreCompact hook
-  with the empty object — the only response the host accepts from it. The daemon still renders the
-  focus instruction and records it (`precompact.custom_instructions_accepted` is attributed to an
-  unsupported capability), but the hook client strips it before anything reaches the host
+  with the empty object — the only response the host accepts from it. The focus instruction is
+  retired (C1.18): the daemon neither returns nor records one, and
+  `precompact.custom_instructions_accepted` reports `retired`, attributed to an unsupported
+  capability, instead of probing the transcript for text the host never received. The hook client
+  still strips any PreCompact output an older, still-resident daemon might send
   (`internal/hookio` `ConformOutput`).
 - **Recorded at.** `Qompack.md` v1.5 §12, §7.3 and §8.5 ("Retire O1's output setter");
   [docs/config-reference.md](config-reference.md#retired-meaning-keys);

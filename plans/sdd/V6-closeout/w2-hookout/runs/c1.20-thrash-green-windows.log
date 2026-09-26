@@ -1,0 +1,20 @@
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/many_long_rules
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_enormous_rule
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/astral_tool_names
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/invalid_UTF-8_names
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/exactly_the_most_lines,_all_short
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_more_than_the_most_lines
+--- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap (0.05s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/many_long_rules (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_enormous_rule (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/astral_tool_names (0.00s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/invalid_UTF-8_names (0.00s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/exactly_the_most_lines,_all_short (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_more_than_the_most_lines (0.01s)
+=== RUN   TestBoundThrashWarning_OrdinaryWarningsRenderWhole
+--- PASS: TestBoundThrashWarning_OrdinaryWarningsRenderWhole (0.00s)
+=== RUN   TestBoundThrashWarning_WorstCaseFitsItsCeiling
+--- PASS: TestBoundThrashWarning_WorstCaseFitsItsCeiling (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	0.261s

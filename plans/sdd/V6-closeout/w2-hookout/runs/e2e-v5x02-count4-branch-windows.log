@@ -1,0 +1,67 @@
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:537: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v5_x02_test.go:537
+        	Error:      	Not equal: 
+        	            	expected: "sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9"
+        	            	actual  : "sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+        	            	+sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	an unpinned re_read is the newest capture
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (4.13s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:537: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v5_x02_test.go:537
+        	Error:      	Not equal: 
+        	            	expected: "sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9"
+        	            	actual  : "sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+        	            	+sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	an unpinned re_read is the newest capture
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (3.38s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:537: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v5_x02_test.go:537
+        	Error:      	Not equal: 
+        	            	expected: "sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9"
+        	            	actual  : "sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+        	            	+sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	an unpinned re_read is the newest capture
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (3.91s)
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+    v5_x02_test.go:537: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/v5_x02_test.go:537
+        	Error:      	Not equal: 
+        	            	expected: "sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9"
+        	            	actual  : "sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-sha256:38aa18e0b232c5e9c30d49b95fc5f293a80cb0f4d1e4c77ea9016d39794b4db9
+        	            	+sha256:5fbaba0b4900e540b4ad0c3dcf73f2deb10b9618c25b65be1c79ff806da4d8a7
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	an unpinned re_read is the newest capture
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (3.70s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	15.355s
+FAIL

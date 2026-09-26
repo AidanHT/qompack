@@ -250,18 +250,18 @@ func x4v5SeedSession(t *testing.T, r *v4Rig, sess core.SessionID) {
 	require.Contains(t, r.RunIdle(t), "advance_frontier", "the advancing idle task must have run")
 }
 
-// x4v5Seal drives the real PreCompact hook and asserts the SP-10 half of the row: the artifact
+// x4v5Seal drives the real PreCompact route and asserts the SP-10 half of the row: the artifact
 // sealed, verifying against its MANIFEST line, belonging to sess, carrying the file pointer item
-// 6a will match against, and described by a span paragraph that names the LOCAL frontier the
-// advancer committed.
+// 6a will match against, and recording the LOCAL frontier the advancer committed.
+//
+// Criterion change (C1.18): the row also used to read a span paragraph naming that frontier from
+// the route's reply. The paragraph was a PreCompact customInstructions, which no host accepts, so
+// its producer is retired: the reply is the empty object, and the frontier is read from the seal's
+// own record (state/precompact.json).
 func x4v5Seal(t *testing.T, r *v4Rig, sess core.SessionID) checkpoint.Checkpoint {
 	t.Helper()
 
-	// The span paragraph's CONTENT is asserted below, so the instruction is read on the IPC hop where
-	// it still exists (v4Rig.PreCompactReply); the host never receives it.
-	out, instr := r.PreCompactReply(t, sess)
-	require.NotNil(t, out.HookSpecificOutput, "a full-mode checkpoint route answers through hookSpecificOutput")
-	require.NotEmpty(t, instr, "a full-mode checkpoint route must render the focus instruction")
+	cpRequireNoInstructionReply(t, r.PreCompactReply(t, sess))
 
 	require.Equal(t, []string{"0001.json"}, cpCheckpointArtifacts(t, r.P.Root),
 		"the PreCompact hook must have sealed exactly one artifact")
@@ -271,11 +271,6 @@ func x4v5Seal(t *testing.T, r *v4Rig, sess core.SessionID) checkpoint.Checkpoint
 
 	art := x3v4ReadPreCompactArtifact(t, r.P.Root)
 	require.Equal(t, x4v5SealedSeq, art.Seq)
-	require.True(t, art.SpanInstruction, "IncrementalSpanInstruction is on by default")
-	require.Contains(t, instr,
-		fmt.Sprintf("A durable checkpoint (`.qompack/checkpoints/%04d.json`) fully covers the "+
-			"session through turn %d", int(art.Seq), int(art.Frontier)),
-		"the span paragraph must name the sealed artifact and the LOCAL frontier: %s", instr)
 	require.Greater(t, int(art.Frontier), 0,
 		"three closed and encoded segments must have advanced the frontier past turn 0")
 

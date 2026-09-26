@@ -102,11 +102,14 @@ const (
 //	not-yet-observed                          — checkAdditionalContextDelivered: fewer than two chances
 //	timeout-unknown                           — checkPreCompactTiming: no manifest timeout recorded
 //	no-samples                                — checkPreCompactTiming: no wall-time samples yet
-//	no-instructions-emitted                   — checkPreCompactCustomInstr: nothing was emitted to look for
-//	no-transcript-path                        — checkPreCompactCustomInstr, checkTranscriptReadable
-//	no probe phrase long enough               — checkPreCompactCustomInstr: phrase too generic to scan for
-//	transcript unreadable, no observation yet  — checkPreCompactCustomInstr: unreadable proves nothing
+//	no-transcript-path                        — checkTranscriptReadable
+//	retired                                   — checkPreCompactCustomInstr: the mechanism is retired (C1.18)
 //	unset                                     — checkPluginRootResolves: CLAUDE_PLUGIN_ROOT not set
+//
+// Three more are kept although no check emits them any more: checkPreCompactCustomInstr's spellings
+// from before C1.18 retired it — no-instructions-emitted, no probe phrase long enough, and
+// transcript unreadable, no observation yet. An observation ledger an older build wrote still
+// carries them, and it must go on classifying the way it did.
 var noObservationSpellings = map[string]bool{
 	"no observation yet":                        true,
 	"first-session":                             true,
@@ -116,6 +119,7 @@ var noObservationSpellings = map[string]bool{
 	"not-yet-observed":                          true,
 	"timeout-unknown":                           true,
 	"no-samples":                                true,
+	"retired":                                   true,
 	"no-instructions-emitted":                   true,
 	"no-transcript-path":                        true,
 	"no probe phrase long enough":               true,
@@ -134,7 +138,7 @@ var noObservationSpellings = map[string]bool{
 var observedSpellings = map[string]bool{
 	"marker-found":      true, // checkSessionStartFires
 	"sentinel-observed": true, // checkAdditionalContextDelivered
-	"instruction phrase found in transcript tail": true, // checkPreCompactCustomInstr (unsupported mechanism)
+	"instruction phrase found in transcript tail": true, // checkPreCompactCustomInstr before C1.18 (unsupported mechanism)
 	"payload shape valid":                         true, // checkHookPayloadShape
 	"initialize-received":                         true, // checkMCPServerRegistered
 	"transcript readable":                         true, // checkTranscriptReadable
@@ -143,7 +147,7 @@ var observedSpellings = map[string]bool{
 	// they are literals in the same file, so the guard needs them accounted for here.
 	"no marker from a prior terminal hook across two consecutive sessions": true,
 	"sentinel not found after two chances":                                 true,
-	"instruction phrase not found in transcript tail":                      true,
+	"instruction phrase not found in transcript tail":                      true, // before C1.18
 	"missing hook_event_name":                                              true,
 	"missing session_id":                                                   true,
 	"missing both cwd and transcript_path":                                 true,

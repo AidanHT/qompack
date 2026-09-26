@@ -1,0 +1,72 @@
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_history_at_all
+    assertions_test.go:520: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/contract/assertions_test.go:520
+        	Error:      	Not equal: 
+        	            	expected: "retired"
+        	            	actual  : "no observation yet"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-retired
+        	            	+no observation yet
+        	Test:       	TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_history_at_all
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_absent_from_the_transcript
+    assertions_test.go:518: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/contract/assertions_test.go:518
+        	Error:      	Should be true
+        	Test:       	TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_absent_from_the_transcript
+        	Messages:   	a retired row can never fail: it probes nothing
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_replayed_into_the_transcript
+    assertions_test.go:520: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/contract/assertions_test.go:520
+        	Error:      	Not equal: 
+        	            	expected: "retired"
+        	            	actual  : "instruction phrase found in transcript tail"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-retired
+        	            	+instruction phrase found in transcript tail
+        	Test:       	TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_replayed_into_the_transcript
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_unreadable_transcript
+    assertions_test.go:520: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/contract/assertions_test.go:520
+        	Error:      	Not equal: 
+        	            	expected: "retired"
+        	            	actual  : "transcript unreadable, no observation yet"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-retired
+        	            	+transcript unreadable, no observation yet
+        	Test:       	TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_unreadable_transcript
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_instruction_ever_recorded
+    assertions_test.go:520: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/contract/assertions_test.go:520
+        	Error:      	Not equal: 
+        	            	expected: "retired"
+        	            	actual  : "no-instructions-emitted"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-retired
+        	            	+no-instructions-emitted
+        	Test:       	TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_instruction_ever_recorded
+--- FAIL: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns (0.43s)
+    --- FAIL: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_history_at_all (0.00s)
+    --- FAIL: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_absent_from_the_transcript (0.01s)
+    --- FAIL: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_replayed_into_the_transcript (0.02s)
+    --- FAIL: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_unreadable_transcript (0.00s)
+    --- FAIL: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_instruction_ever_recorded (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/contract	1.639s
+FAIL

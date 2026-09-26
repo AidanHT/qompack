@@ -1,0 +1,16 @@
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1401 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/observer  (pass=454 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/contract  (pass=158 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/hookio  (pass=112 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/config  (pass=311 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=348 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/integration  (pass=69 fail=1 skip=0)
+    FAIL TestIntegration_HotPathWarmWithRealResidentState
+FAIL      github.com/qompack/qompack/test/guards  (pass=162 fail=7 skip=0)
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution

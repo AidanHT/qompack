@@ -1,0 +1,230 @@
+--- FAIL: TestIntegration_DegradedPassiveStillWritesToTheRealStore (106.63s)
+    contractmonitor_test.go:431: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/contractmonitor_test.go:431
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_DegradedPassiveStillWritesToTheRealStore
+        	Messages:   	daemon never came up on {1 \\.\pipe\qompack.6394a6afd7e2}
+--- FAIL: TestIntegration_HookEventThroughDaemonToStore (121.41s)
+    hookflow_test.go:725: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hookflow_test.go:500
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hookflow_test.go:725
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_HookEventThroughDaemonToStore
+        	Messages:   	in-process daemon never became reachable at \\.\pipe\qompack.e0b8ded52a58 within 12s (8×daemon.SpawnPollBound)
+--- FAIL: TestIntegration_SpooledEventsSurviveToTheStore (133.90s)
+    hookflow_test.go:1046: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hookflow_test.go:500
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hookflow_test.go:1046
+        	Error:      	Condition never satisfied
+        	Test:       	TestIntegration_SpooledEventsSurviveToTheStore
+        	Messages:   	in-process daemon never became reachable at \\.\pipe\qompack.004927e7e7a5 within 12s (8×daemon.SpawnPollBound)
+    hookflow_test.go:494: daemon.Run returned context canceled
+--- FAIL: TestIntegration_HotPathWarmWithRealResidentState (598.17s)
+    hotpath_test.go:652: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:662: §4.6 resident sketch set on disk: tried.bloom=12072B touch.cms=54474B explore.hll=2102B
+    hotpath_test.go:766: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-521181517\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-13164-8112b4602c4acbe2)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+        hotpath: measuring B-E (50 x qompack checkpoint)...
+        hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+        
+        hotpath bench summary (windows/amd64, n=2000)
+          spawn floor: p50=42.090ms p99=61.859ms (n=200)
+          b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+        
+          B-A                 n=1536  p50=  53.248ms p95= 196.608ms p99=1703.936ms p999=3145.728ms max= 2975.000ms limit=15.000ms   [FAIL]
+          B-B                 n=1536  p50=  24.576ms p95=  73.728ms p99=1179.648ms p999=2883.584ms max= 2952.206ms limit=50.000ms   [FAIL]
+          B-D                 n=2000  p50=  88.475ms p95= 215.980ms p99= 999.460ms p999=2137.709ms max= 2737.898ms limit=n/a        [reported]
+          B-E                 n=50    p50= 309.583ms p95= 675.155ms p99= 807.800ms p999= 807.800ms max=  807.800ms limit=2000.000ms [PASS]
+          B-E_cpu             n=50    p50=  31.250ms p95=  62.500ms p99=  78.125ms p999=  78.125ms max=   78.125ms limit=2000.000ms [PASS]
+          B-A_spawn_estimate  n=2000  p50=  46.385ms p95= 173.889ms p99= 957.370ms p999=2095.619ms max= 2695.807ms limit=n/a        [reported]
+          hook_ack_rtt        n=64    p50=   0.000ms p95=   0.000ms p99=   0.565ms p999=   0.565ms max=    0.565ms limit=n/a        [reported]
+        
+          note: B-C not measured in wave 1: the processing seams are stubs
+          note: delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped
+          note: B-A's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+          note: B-B's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+          note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=13.312ms p99=163.840ms n=1536 — informational cross-check against the gated B-A row above, which adds the tail allowance
+          note: B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+          note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+        
+    hotpath_test.go:768: bench artifact C:\Users\Quant\AppData\Local\Temp\TestIntegration_HotPathWarmWithRealResidentState578282693\003\v2-bench-hotpath.json:
+        {
+          "platform": "windows/amd64",
+          "n": 2000,
+          "b_a_method": "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)",
+          "spawn_floor_ms": {
+            "n": 200,
+            "p50": 42.09,
+            "p99": 61.859
+          },
+          "notes": [
+            "B-C not measured in wave 1: the processing seams are stubs",
+            "delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped",
+            "B-A's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+            "B-B's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+            "hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=13.312ms p99=163.840ms n=1536 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+            "B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
+            "B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)"
+          ],
+          "budgets": [
+            {
+              "budget_id": "B-A",
+              "n": 1536,
+              "p50": 53.248,
+              "p95": 196.608,
+              "p99": 1703.936,
+              "p999": 3145.728,
+              "max": 2975,
+              "limit_ms": 15,
+              "pass": false
+            },
+            {
+              "budget_id": "B-B",
+              "n": 1536,
+              "p50": 24.576,
+              "p95": 73.728,
+              "p99": 1179.648,
+              "p999": 2883.584,
+              "max": 2952.206,
+              "limit_ms": 50,
+              "pass": false
+            },
+            {
+              "budget_id": "B-D",
+              "n": 2000,
+              "p50": 88.475,
+              "p95": 215.98,
+              "p99": 999.46,
+              "p999": 2137.709,
+              "max": 2737.898,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-E",
+              "n": 50,
+              "p50": 309.583,
+              "p95": 675.155,
+              "p99": 807.8,
+              "p999": 807.8,
+              "max": 807.8,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-E_cpu",
+              "n": 50,
+              "p50": 31.25,
+              "p95": 62.5,
+              "p99": 78.125,
+              "p999": 78.125,
+              "max": 78.125,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-A_spawn_estimate",
+              "n": 2000,
+              "p50": 46.385,
+              "p95": 173.889,
+              "p99": 957.37,
+              "p999": 2095.619,
+              "max": 2695.807,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "hook_ack_rtt",
+              "n": 64,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.565,
+              "p999": 0.565,
+              "max": 0.565,
+              "limit_ms": null,
+              "pass": null
+            }
+          ]
+        }
+    hotpath_test.go:770: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hotpath_test.go:770
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestIntegration_HotPathWarmWithRealResidentState
+        	Messages:   	bench-hotpath exited non-zero (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<15ms and B-E's wall row p99<2000ms) breached against the real resident state, or the harness itself failed (its own delivery-integrity guard included)
+        	            	stderr:
+        	            	hotpath: a gated budget breached its limit — see the summary above
+panic: test timed out after 30m0s
+	running tests:
+		TestIntegration_HotPathDegradesRatherThanBlocks (2m37s)
+
+goroutine 9437 [running]:
+testing.(*M).startAlarm.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2802 +0x354
+created by time.goFunc
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive, 2 minutes]:
+testing.(*T).Run(0x36d55fa66e00, {0x7ff774b898f0?, 0x7ff77454100e?}, 0x7ff774bb07c0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2109 +0x4c7
+testing.runTests.func1(0x36d55fa66e00)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2585 +0x3e
+testing.tRunner(0x36d55fa66e00, 0x36d55fa1fc58)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+testing.runTests({0x7ff774b73ef8, 0x1a}, {0x7ff774b85ea6, 0x2b}, 0x36d55f8e21b0, {0x7ff775061080, 0x20, 0x20}, {0xc2a5db8200a5d584, 0x1a319428dcd, ...})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(0x36d55fad26e0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2443 +0x6ac
+main.main()
+	_testmain.go:110 +0x9b
+
+goroutine 9461 [runnable]:
+internal/sync.newEntryNode[...](...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/sync/hashtriemap.go:572
+internal/sync.(*HashTrieMap[...]).Swap(0x7ff774bd0c60, {0x7ff774a92fc0, 0x36d561317a20}, {0x7ff774aa9de0, 0x7ff7750b20c0})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/sync/hashtriemap.go:263 +0x2f8
+internal/sync.(*HashTrieMap[...]).Store(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/sync/hashtriemap.go:200
+sync.(*Map).Store(...)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/sync/map.go:53
+github.com/qompack/qompack/internal/store.ensureDir({0x36d5609c1180, 0x7e})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/store/objects.go:173 +0x151
+github.com/qompack/qompack/internal/store.(*FSStore).putObject(0x36d56076e008, {0xbf, 0x52, 0xb3, 0x12, 0xb1, 0x9b, 0xc2, 0x1a, 0x78, ...}, ...)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/store/objects.go:259 +0x158
+github.com/qompack/qompack/internal/store.(*FSStore).PutBytes(_, {_, _}, {_, _, _}, {{0x7ff774b64255, 0x8}, {0x36d560b19188, 0x14}, ...})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/store/put.go:172 +0x1086
+github.com/qompack/qompack/test/integration.(*hookflowPipeline).observeTool(0x36d55fd98000, {0x7ff774bbfae8, 0x7ff7750b20c0}, {{0x7ff774b66350, 0xb}, {0x7ff774b6b04f, 0x11}, {0x0, 0x0}, {0x0, ...}, ...})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hookflow_test.go:343 +0x254
+github.com/qompack/qompack/test/integration.(*hookflowPipeline).ObserveTool(0x36d55fd98000, {0x7ff774bbfae8?, 0x7ff7750b20c0?}, {{0x7ff774b66350, 0xb}, {0x7ff774b6b04f, 0x11}, {0x0, 0x0}, {0x0, ...}, ...})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hookflow_test.go:329 +0x85
+github.com/qompack/qompack/test/integration.hotpathPopulate(0x36d56009e800, {0x7ff774bbfae8, 0x7ff7750b20c0}, 0x36d55fd98000, 0x0)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hotpath_test.go:316 +0x2c9
+github.com/qompack/qompack/test/integration.TestIntegration_HotPathDegradesRatherThanBlocks(0x36d56009e800)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/integration/hotpath_test.go:989 +0x231
+testing.tRunner(0x36d56009e800, 0x7ff774bb07c0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 85 [syscall, 8 minutes]:
+syscall.syscalln(0x0?, 0x0?, {0x36d5601c7f08?, 0x36d55fa38690?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x3e3?, {0x36d5601c7f08?, 0x0?, 0x36d55f8127d8?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+github.com/Microsoft/go-winio.getQueuedCompletionStatus(0x284, 0x36d5601c7f8c?, 0x36d5601c7f90?, 0x36d5601c7f98?, 0xffffffff)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/zsyscall_windows.go:327 +0xac
+github.com/Microsoft/go-winio.ioCompletionProcessor(0x284)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:162 +0x85
+created by github.com/Microsoft/go-winio.initIO in goroutine 82
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:58 +0x5d
+FAIL	github.com/qompack/qompack/test/integration	1800.287s
+FAIL
+exit=1

@@ -3,7 +3,6 @@ package observer
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
@@ -121,7 +120,7 @@ func (o *observer) promptReplyOutput(st *sessionState) Output {
 	if lines := o.pendingThrashAt(st, st.WarningTurn); len(lines) > 0 {
 		out.HookSpecificOutput = &hookio.HSO{
 			HookEventName:     userPromptSubmit,
-			AdditionalContext: strings.Join(lines, thrashLineSep),
+			AdditionalContext: boundThrashWarning(lines),
 		}
 	}
 	return out

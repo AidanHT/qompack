@@ -451,8 +451,12 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		// seal time. It is what lets the digest after the flip show the stale record at all: the
 		// rehydrator unions Active() with the checkpoint's copy and re-reads each frozen record's
 		// CURRENT status through Get.
+		// Criterion change (C1.12, C1.18): this used to read a hookSpecificOutput on the hook's stdout
+		// as the full-mode signal. The host rejects any PreCompact hookSpecificOutput and the focus
+		// instruction it carried is retired, so the host-facing answer is held to the host's
+		// PreCompact contract and the seal is proven by the artifact that follows.
 		out := cpRunCheckpointHook(t, bin, p, x5v5Session)
-		require.NotNil(t, out.HookSpecificOutput, "a full-mode PreCompact answers through hookSpecificOutput")
+		cpRequireHostConformingPreCompact(t, out)
 		require.Equal(t, []string{"0001.json"}, cpCheckpointArtifacts(t, p.Root))
 		raw, err := os.ReadFile(paths.Long(paths.CheckpointPath(paths.Of(p.Root), core.CheckpointSeq(1))))
 		require.NoError(t, err)

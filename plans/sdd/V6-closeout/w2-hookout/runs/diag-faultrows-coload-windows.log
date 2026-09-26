@@ -1,0 +1,274 @@
+=== RUN   TestZZDiag_FaultRowCleanup
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/disk-full
+    zz_diag_hookout_test.go:146: LATE DAEMON: r0/PostToolUse/disk-full hook=2.062s helper=1.504s lock appeared 4.237s after the helper returned (heldAtReturn=false spawnLockAtReturn=true)
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PostToolUse/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r0/Stop/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionStart/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r0/PreCompact/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r0/SessionEnd/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PostToolUse/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/disk-full
+    zz_diag_hookout_test.go:146: LATE DAEMON: r1/Stop/disk-full hook=813ms helper=1.501s lock appeared 619ms after the helper returned (heldAtReturn=false spawnLockAtReturn=true)
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/state-corrupt
+    zz_diag_hookout_test.go:146: LATE DAEMON: r1/Stop/state-corrupt hook=1.17s helper=1.501s lock appeared 1.843s after the helper returned (heldAtReturn=false spawnLockAtReturn=true)
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r1/Stop/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionStart/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r1/PreCompact/panic:client
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/stdin-eof
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/stdin-garbage
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/oversize
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/daemon-down
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/spool-readonly
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/spool-full:0
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/disk-full
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/state-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/config-corrupt
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/panic:hook
+=== RUN   TestZZDiag_FaultRowCleanup/r1/SessionEnd/panic:client
+=== NAME  TestZZDiag_FaultRowCleanup
+    zz_diag_hookout_test.go:157: SUMMARY: 3 of 132 rows had a daemon take the project's lock after e2eShutdownIfReachable returned
+--- PASS: TestZZDiag_FaultRowCleanup (2731.60s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/stdin-eof (17.60s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/stdin-garbage (17.20s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/oversize (16.89s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/daemon-down (16.97s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/spool-readonly (16.80s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/spool-full:0 (18.65s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/disk-full (13.24s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/state-corrupt (20.03s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/config-corrupt (18.56s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/panic:hook (17.88s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PostToolUse/panic:client (16.94s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/stdin-eof (18.89s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/stdin-garbage (21.50s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/oversize (16.24s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/daemon-down (16.63s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/spool-readonly (15.65s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/spool-full:0 (15.79s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/disk-full (15.71s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/state-corrupt (16.32s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/config-corrupt (16.68s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/panic:hook (16.61s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/UserPromptSubmit/panic:client (16.61s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/stdin-eof (16.10s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/stdin-garbage (16.24s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/oversize (16.54s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/daemon-down (16.67s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/spool-readonly (15.55s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/spool-full:0 (15.68s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/disk-full (15.56s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/state-corrupt (16.09s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/config-corrupt (16.60s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/panic:hook (16.60s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/Stop/panic:client (16.60s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/stdin-eof (16.52s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/stdin-garbage (16.17s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/oversize (15.80s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/daemon-down (16.64s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/spool-readonly (15.78s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/spool-full:0 (15.99s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/disk-full (15.57s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/state-corrupt (18.43s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/config-corrupt (550.96s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/panic:hook (20.99s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionStart/panic:client (15.88s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/stdin-eof (15.74s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/stdin-garbage (15.65s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/oversize (15.99s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/daemon-down (16.59s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/spool-readonly (15.39s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/spool-full:0 (15.44s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/disk-full (15.47s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/state-corrupt (15.64s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/config-corrupt (16.57s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/panic:hook (16.58s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/PreCompact/panic:client (16.58s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/stdin-eof (15.67s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/stdin-garbage (15.72s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/oversize (16.74s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/daemon-down (16.59s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/spool-readonly (15.31s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/spool-full:0 (15.38s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/disk-full (15.51s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/state-corrupt (16.08s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/config-corrupt (16.57s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/panic:hook (16.59s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r0/SessionEnd/panic:client (16.59s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/stdin-eof (16.45s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/stdin-garbage (19.17s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/oversize (17.55s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/daemon-down (16.82s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/spool-readonly (16.73s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/spool-full:0 (16.28s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/disk-full (16.31s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/state-corrupt (23.14s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/config-corrupt (17.60s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/panic:hook (16.75s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PostToolUse/panic:client (16.70s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/stdin-eof (16.58s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/stdin-garbage (16.63s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/oversize (17.26s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/daemon-down (16.83s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/spool-readonly (18.26s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/spool-full:0 (17.24s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/disk-full (18.65s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/state-corrupt (16.47s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/config-corrupt (16.61s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/panic:hook (16.63s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/UserPromptSubmit/panic:client (16.64s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/stdin-eof (16.41s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/stdin-garbage (16.42s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/oversize (16.83s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/daemon-down (16.64s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/spool-readonly (15.72s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/spool-full:0 (16.86s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/disk-full (13.24s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/state-corrupt (15.31s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/config-corrupt (16.77s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/panic:hook (16.63s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/Stop/panic:client (16.61s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/stdin-eof (16.19s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/stdin-garbage (16.31s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/oversize (15.90s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/daemon-down (16.65s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/spool-readonly (16.18s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/spool-full:0 (16.04s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/disk-full (15.98s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/state-corrupt (15.89s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/config-corrupt (16.68s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/panic:hook (16.60s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionStart/panic:client (16.02s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/stdin-eof (16.27s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/stdin-garbage (16.16s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/oversize (17.08s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/daemon-down (17.67s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/spool-readonly (19.13s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/spool-full:0 (15.82s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/disk-full (15.89s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/state-corrupt (17.02s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/config-corrupt (16.64s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/panic:hook (16.69s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/PreCompact/panic:client (17.98s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/stdin-eof (16.98s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/stdin-garbage (17.34s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/oversize (16.15s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/daemon-down (16.63s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/spool-readonly (15.50s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/spool-full:0 (15.41s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/disk-full (15.43s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/state-corrupt (15.75s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/config-corrupt (16.60s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/panic:hook (16.59s)
+    --- PASS: TestZZDiag_FaultRowCleanup/r1/SessionEnd/panic:client (16.60s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	2726.100s
+exit=0

@@ -74,7 +74,10 @@ The other three are in a table this repository maintains for exactly this purpos
 `internal/contract/observation.go`'s `noObservationSpellings`, "every Observed string in
 assertions.go that means 'nothing was seen', as opposed to 'something was seen' or 'the contract was
 broken'". `first-session`, `no-precompact-pending`, `no-transcript-path` and `unset` are all in it,
-alongside `no-samples`, `not-yet-observed` and others you may meet. **In every one of those cases
+alongside `no-samples`, `not-yet-observed` and others you may meet — including `retired`, which is
+what `precompact.custom_instructions_accepted` reports wherever a daemon has declared its producer:
+the PreCompact instruction it once probed for is retired, because no host accepts one (C1.18,
+[docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution)). **In every one of those cases
 `ok` means "no assertion was made", not "the host contract holds."** Only a row whose `OBSERVED`
 column describes a real observation is evidence.
 
@@ -208,9 +211,11 @@ monitor degrades the session and says so loudly; two consecutive clean runs rest
 (`internal/contract/monitor.go`, `RunAll`). `internal/contract/mode.go` defines what the degraded
 mode is: L0 and L1 keep running — "observe, chunk, store, sketches, DAG, verbatim capture,
 elimination records — the store stays correct and the session's data is not lost" — and everything
-that *acts* is off: no `additionalContext` injection, no `customInstructions`, no
-scheduler-initiated checkpoints, no drop report. `qompack status` prints the mode as
-`degraded-passive`.
+that *acts* is off: no `additionalContext` injection, no scheduler-initiated checkpoints, no drop
+report. (The PreCompact focus instruction, `customInstructions`, is not on that list any more
+because no mode emits it: no host accepts one, so it is retired — C1.18,
+[docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution).) `qompack status` prints the
+mode as `degraded-passive`.
 
 **Meaning — `unavailable` latency rows.** Observed on this tree, every per-hook row in a fresh
 project read `unavailable` with its own reason, for example:
@@ -671,7 +676,8 @@ This forces the mode the contract monitor would otherwise reach on a critical fa
 
 **What keeps being written.** Per `internal/contract/mode.go`: L0 and L1 keep recording — observe,
 chunk, store, sketches, DAG, verbatim capture, elimination records. What stops is everything that
-acts: injection, `customInstructions`, scheduler-initiated checkpoints, the drop report.
+acts: injection, scheduler-initiated checkpoints, the drop report. (No mode emits a PreCompact
+focus instruction; it is retired — C1.18.)
 
 ### Step 3 — `runtime.mode = off`
 

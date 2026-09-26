@@ -1,0 +1,23 @@
+=== RUN   TestE2E_AllSixHooksExitZero
+=== RUN   TestE2E_AllSixHooksExitZero/PostToolUse
+=== RUN   TestE2E_AllSixHooksExitZero/UserPromptSubmit
+=== RUN   TestE2E_AllSixHooksExitZero/Stop
+=== RUN   TestE2E_AllSixHooksExitZero/SessionStart
+    hooks_test.go:90: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/hooks_test.go:90
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestE2E_AllSixHooksExitZero/SessionStart
+        	Messages:   	SessionStart answers through hookSpecificOutput
+=== RUN   TestE2E_AllSixHooksExitZero/PreCompact
+=== RUN   TestE2E_AllSixHooksExitZero/SessionEnd
+--- FAIL: TestE2E_AllSixHooksExitZero (28.37s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PostToolUse (2.95s)
+    --- PASS: TestE2E_AllSixHooksExitZero/UserPromptSubmit (0.19s)
+    --- PASS: TestE2E_AllSixHooksExitZero/Stop (0.23s)
+    --- FAIL: TestE2E_AllSixHooksExitZero/SessionStart (1.82s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PreCompact (0.07s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionEnd (0.09s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	28.956s
+FAIL
+exit=1

@@ -1,0 +1,10 @@
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+    shutdown_spawn_inflight_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/test/e2e/shutdown_spawn_inflight_test.go:97
+        	Error:      	Should be false
+        	Test:       	TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+        	Messages:   	e2eShutdownIfReachable returned 2.5507586s before the late daemon exited: it handed a tree a live daemon was still writing to to the caller's RemoveAll
+--- FAIL: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (5.59s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	5.828s
+FAIL

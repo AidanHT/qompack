@@ -108,8 +108,11 @@ type SessionHistory struct {
 	// precompact.has_time_to_write computes a p99 over.
 	PrecompactWallMs    []int64 `json:"precompact_wall_ms"`
 	PrecompactTimeoutMs int64   `json:"precompact_timeout_ms"`
-	// PrecompactInstr is the most recently emitted custom_instructions text, truncated to
-	// maxPrecompactInstrChars, that precompact.custom_instructions_accepted probes for.
+	// PrecompactInstr is RETIRED (C1.18). A daemon before C1.18 recorded the focus instruction it
+	// last emitted here, truncated to maxPrecompactInstrChars, for
+	// precompact.custom_instructions_accepted to probe for. No host accepts a PreCompact
+	// instruction, so nothing writes this field any more and nothing reads it; it stays so that a
+	// history an older daemon wrote still loads and round-trips.
 	PrecompactInstr string `json:"precompact_instr"`
 	// AwaitingCompactStart is set when a PreCompact has been observed for the current session id
 	// and cleared by session_start.source_compact on the FOLLOWING SessionStart, whichever way
@@ -191,7 +194,8 @@ func (h *SessionHistory) AddPrecompactWallSample(ms int64) {
 // SetPrecompactInstr truncates instr to maxPrecompactInstrChars runes (not bytes — task-4-spec.md
 // says "≤256 chars", and a byte-boundary cut can split a multi-byte UTF-8 rune, which json.Marshal
 // would then replace with U+FFFD and break the SaveHistory/LoadHistory round trip) before storing
-// it. A nil receiver is a no-op.
+// it. A nil receiver is a no-op. Since C1.18 its only production caller is applyCaps, which keeps a
+// retired PrecompactInstr an older daemon wrote within its cap.
 func (h *SessionHistory) SetPrecompactInstr(instr string) {
 	if h == nil {
 		return

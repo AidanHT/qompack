@@ -1,0 +1,57 @@
+=== RUN   TestFocusStandingTemplateVerbatim
+--- PASS: TestFocusStandingTemplateVerbatim (0.00s)
+=== RUN   TestFocusStandingOnlyWhenAllOptionsOff
+--- PASS: TestFocusStandingOnlyWhenAllOptionsOff (0.00s)
+=== RUN   TestFocusIncrementalSpanNamesPathAndTurn
+--- PASS: TestFocusIncrementalSpanNamesPathAndTurn (0.00s)
+=== RUN   TestFocusOmitsSpanWhenFrontierZero
+--- PASS: TestFocusOmitsSpanWhenFrontierZero (0.00s)
+=== RUN   TestFocusOmitsSpanWhenConfigDisabled
+--- PASS: TestFocusOmitsSpanWhenConfigDisabled (0.00s)
+=== RUN   TestFocusContainsSentinel
+--- PASS: TestFocusContainsSentinel (0.00s)
+=== RUN   TestFocusForwardSlashesOnWindows
+--- PASS: TestFocusForwardSlashesOnWindows (0.00s)
+=== RUN   TestFocusCappedAtFourThousandBytes
+--- PASS: TestFocusCappedAtFourThousandBytes (0.00s)
+=== RUN   TestFocusFirstLineIsAProbePhrase
+--- PASS: TestFocusFirstLineIsAProbePhrase (0.00s)
+=== RUN   TestFocusTrimsTrailingWhitespace
+--- PASS: TestFocusTrimsTrailingWhitespace (0.00s)
+=== RUN   TestFocusTemplatesAreVerbatimConstants
+--- PASS: TestFocusTemplatesAreVerbatimConstants (0.00s)
+=== RUN   TestPreCompactUsesTheLiveDraftWhenOneIsOpen
+--- PASS: TestPreCompactUsesTheLiveDraftWhenOneIsOpen (0.30s)
+=== RUN   TestNoForbiddenImports
+--- PASS: TestNoForbiddenImports (0.00s)
+=== RUN   TestPreCompactSealsACheckpointAndReturnsInstructions
+--- PASS: TestPreCompactSealsACheckpointAndReturnsInstructions (0.24s)
+=== RUN   TestPreCompactInstructionsCarryTheIncrementalSpan
+--- PASS: TestPreCompactInstructionsCarryTheIncrementalSpan (0.30s)
+=== RUN   TestPreCompactOmitsTheSpanWhenDisabled
+--- PASS: TestPreCompactOmitsTheSpanWhenDisabled (0.31s)
+=== RUN   TestPreCompactWritesTheDebugArtifact
+--- PASS: TestPreCompactWritesTheDebugArtifact (0.30s)
+=== RUN   TestPreCompactFinalizesEvenWhenTheDeadlineHasPassed
+--- PASS: TestPreCompactFinalizesEvenWhenTheDeadlineHasPassed (0.31s)
+=== RUN   TestPreCompactOnAColdSessionBeginsAndSeals
+--- PASS: TestPreCompactOnAColdSessionBeginsAndSeals (0.65s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (3.62s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.39s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.31s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.64s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (2.28s)
+=== RUN   TestPreCompactReportsTruncationButNotPointerDrops
+--- PASS: TestPreCompactReportsTruncationButNotPointerDrops (0.36s)
+=== RUN   TestPreCompactExtraDropsAndOpenQuestionsReachTheArtifact
+--- PASS: TestPreCompactExtraDropsAndOpenQuestionsReachTheArtifact (0.42s)
+=== RUN   TestPreCompactNamesTheContiguousFrontierInTheSpan
+--- PASS: TestPreCompactNamesTheContiguousFrontierInTheSpan (0.33s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	7.410s
+exit=0

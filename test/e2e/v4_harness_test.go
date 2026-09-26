@@ -206,15 +206,15 @@ func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) hookio.Output {
 
 // PreCompactReply sends the PreCompact a host would deliver straight to the daemon's checkpoint
 // route over the real IPC transport — the hop between the hook client and the daemon — and returns
-// the daemon's own reply with the focus instruction in it ("" when the daemon suppressed it).
+// the daemon's own reply.
 //
-// It exists because that instruction no longer travels any further. The daemon still renders
-// Qompack.md §8.5's O1 focus paragraphs and records them (contract.History.PrecompactInstr), but
-// the hook client reduces the reply to what the host accepts for PreCompact, which is nothing. The
-// rows that pin the instruction's CONTENT — the span paragraph, the sentinel, what must never leak
-// into it — therefore read it on the hop where it still exists. Every other row, and the seal
-// itself, goes through the real binary via PreCompact.
-func (r *v4Rig) PreCompactReply(t *testing.T, sess core.SessionID) (hookio.Output, string) {
+// It exists because that hop is where the rows used to read Qompack.md §8.5's O1 focus
+// instruction: the hook client reduces every PreCompact reply to what the host accepts, which is
+// nothing (C1.12). C1.18 retired the instruction itself — no host accepts one — so the daemon no
+// longer returns or records it, and a row calls this to prove exactly that
+// (cpRequireNoInstructionReply) one hop before the host. The seal is read from the artifact, and
+// the host-facing answer from the real binary via PreCompact.
+func (r *v4Rig) PreCompactReply(t *testing.T, sess core.SessionID) hookio.Output {
 	t.Helper()
 	return cpPreCompactReply(t, r.P.Root, sess)
 }

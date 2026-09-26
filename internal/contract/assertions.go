@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
@@ -212,51 +211,30 @@ func checkPreCompactTiming(ctx context.Context, e Env) Result {
 	}
 }
 
-// customInstrScanTailBytes bounds how much of the transcript's tail
-// precompact.custom_instructions_accepted scans for the probe phrase (task-4-spec.md: 256<<10).
-const customInstrScanTailBytes = 256 << 10
+// retiredCustomInstrDetail is why precompact.custom_instructions_accepted observes nothing.
+const retiredCustomInstrDetail = "retired (C1.18): no host accepts a PreCompact instruction and Qompack " +
+	"no longer emits one; custom_instructions is PreCompact input, not a summarizer setter (see docs/cannot-do.md)"
 
-// customInstrMinPhraseChars is the minimum length task-4-spec.md expects the emitted instruction's
-// first line to have, so the probe phrase is specific enough not to false-positive against
-// unrelated transcript text.
-const customInstrMinPhraseChars = 24
-
-// checkPreCompactCustomInstr is CPreCompactCustomInstr's real observation: the emitted
-// custom_instructions' first line, searched for in the transcript tail. Advisory by design (§8.5):
-// its declared severity is SevWarn, never SevCritical.
+// checkPreCompactCustomInstr is CPreCompactCustomInstr's observation since C1.18: none, by design.
+//
+// The row used to search the transcript tail for the first line of the focus instruction the
+// daemon last emitted (History.PrecompactInstr) and warn when it was absent. No host accepts that
+// instruction — Claude Code has no PreCompact hookSpecificOutput variant, 2.1.280 rejected the whole
+// response over one (C1.12), and custom_instructions is PreCompact INPUT (Qompack.md §7.3, §8.5
+// "Retire O1's output setter") — so the probe could only warn about a mechanism that does not
+// exist, or pass on a false positive: 2.1.280 replayed the rejected output, instruction included,
+// into the post-compaction context. The producer is retired, so this row reports that and nothing
+// else. It is OK because it can never fail and SevInfo because it is never a warning, and its
+// Observed spelling is one noObservationSpellings lists: an `ok` here means "no assertion was made",
+// never "the host accepted it". Its evidence is attributed to compaction_request, which the
+// register calls unsupported (observation.go), so ClassifyResult reports `unsupported` either way.
+//
+// A History written by a pre-C1.18 daemon still carries an instruction; it is not read.
 func checkPreCompactCustomInstr(ctx context.Context, e Env) Result {
-	const desc = "custom_instructions accepted"
-	h, ok := historyOf(e)
-	if !ok {
-		return noObservationYet(CPreCompactCustomInstr, desc, e)
+	return Result{
+		OK: true, Severity: SevInfo, Expected: "custom_instructions accepted",
+		Observed: "retired", Detail: retiredCustomInstrDetail, TS: now(e),
 	}
-	if h.PrecompactInstr == "" {
-		return Result{OK: true, Expected: desc, Observed: "no-instructions-emitted", TS: now(e)}
-	}
-	if e.Event.TranscriptPath == "" {
-		return Result{OK: true, Expected: desc, Observed: "no-transcript-path", TS: now(e)}
-	}
-	phrase, ok := probePhrase(h.PrecompactInstr)
-	if !ok {
-		// A first line shorter than customInstrMinPhraseChars (including empty — an instruction
-		// beginning with a newline) is not specific enough to scan for: bytes.Contains against ""
-		// is vacuously true, which would make this assertion unable to ever fail, and a short
-		// phrase (a heading, a bullet marker) would false-positive against unrelated transcript
-		// text. Neither is an observation; both report "no probe possible", not an automatic pass
-		// dressed up as one.
-		return Result{OK: true, Expected: desc, Observed: "no probe phrase long enough", TS: now(e)}
-	}
-	found, err := ScanTranscriptTail(e.Event.TranscriptPath, phrase, customInstrScanTailBytes)
-	if err != nil {
-		// An unreadable transcript proves nothing about whether the phrase was ever written —
-		// sentinel.go's own doc comment states this rule and every caller in this package follows
-		// it.
-		return Result{OK: true, Expected: desc, Observed: "transcript unreadable, no observation yet", TS: now(e)}
-	}
-	if !found {
-		return Result{OK: false, Expected: desc, Observed: "instruction phrase not found in transcript tail", TS: now(e)}
-	}
-	return Result{OK: true, Expected: desc, Observed: "instruction phrase found in transcript tail", TS: now(e)}
 }
 
 // hookEventKnownFields is the set of JSON keys hookio.Event's own struct tags claim, built once by
@@ -376,28 +354,6 @@ func checkPluginRootResolves(ctx context.Context, e Env) Result {
 		}
 	}
 	return Result{OK: false, Expected: desc, Observed: "CLAUDE_PLUGIN_ROOT set but no plugin binary found beneath it", TS: now(e)}
-}
-
-// firstLine returns s up to its first newline, or the whole of s if it contains none.
-func firstLine(s string) string {
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return s[:i]
-	}
-	return s
-}
-
-// probePhrase selects instr's probe phrase for precompact.custom_instructions_accepted: its first
-// line, but only when that line is at least customInstrMinPhraseChars RUNES long (task-4-spec.md:
-// "first line of >= 24 characters" — a character count, matching SetPrecompactInstr's own 256-char
-// cap, which is likewise measured in runes, not bytes). ok is false when no qualifying phrase
-// exists — a short or empty first line — so the caller can report "no probe possible" instead of
-// scanning for a phrase too generic (or empty) to mean anything.
-func probePhrase(instr string) (phrase string, ok bool) {
-	line := firstLine(instr)
-	if utf8.RuneCountInString(line) < customInstrMinPhraseChars {
-		return "", false
-	}
-	return line, true
 }
 
 // lastNonEmptyLine returns the last non-blank line within the final transcriptReadableTailBytes of
