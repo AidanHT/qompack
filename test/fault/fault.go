@@ -479,6 +479,17 @@ func runHookWithEnv(t *testing.T, bin string, p project, argv []string, payload 
 // finding its record must still carry.
 func runFlush(t *testing.T, b bundle, p project, sess core.SessionID) {
 	t.Helper()
+	if !flushAndAwaitEnd(t, b, p, sess) {
+		t.Errorf("fault: the daemon did not end session %s within %s of its flush hook "+
+			"(no terminal-hook marker naming it)", sess, indexBound)
+	}
+}
+
+// flushAndAwaitEnd is runFlush's body without the verdict: it drives the flush hook and reports
+// whether the daemon ended the session within indexBound. A caller whose cut may legitimately leave
+// the product unable to take the flush at all (recoverSession) reads the answer as a measurement.
+func flushAndAwaitEnd(t *testing.T, b bundle, p project, sess core.SessionID) bool {
+	t.Helper()
 	before, _ := os.ReadFile(paths.Long(contract.MarkerPath(p.Root)))
 	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
 
@@ -492,15 +503,13 @@ func runFlush(t *testing.T, b bundle, p project, sess core.SessionID) {
 				Session core.SessionID `json:"session"`
 			}
 			if json.Unmarshal(raw, &m) == nil && m.Session == sess {
-				return
+				return true
 			}
 		}
 		select {
 		case <-ticker.C:
 		case <-deadline.C:
-			t.Errorf("fault: the daemon did not end session %s within %s of its flush hook "+
-				"(no terminal-hook marker naming it)", sess, indexBound)
-			return
+			return false
 		}
 	}
 }
@@ -1123,7 +1132,9 @@ func seedSession(t *testing.T, b bundle, p project, sess core.SessionID) {
 		readToolPayload(t, p.Root, sess, second, "src/beta.ts", seedContent("beta", 64)))
 	requireIndexed(t, p.Root, second)
 
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	// The flush's end runs in the daemon after the hook answers (C1.15); the seed is complete, and
+	// the baseline the caller takes next is comparable, only once that end has finished.
+	runFlush(t, b, p, sess)
 	// The daemon is deliberately LEFT UP. The caller takes its pre-cut degradation baseline while
 	// something can still answer `status --json` — `StatusReport.Snapshot` is the daemon's, and a
 	// baseline taken with the daemon down would not be comparable with the post-recovery reading,
@@ -1150,7 +1161,15 @@ func recoverSession(t *testing.T, b bundle, p project, sess core.SessionID) bool
 		readToolPayload(t, p.Root, sess, id, "src/gamma.ts", seedContent("gamma", 40)))
 	indexed := up && waitIndexed(t, p.Root, id, indexBound)
 
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	// The recovery session's end runs in the daemon after the hook answers (C1.15), and what it
+	// does — its GC over the cut state among them — is part of what the degradation reading taken
+	// next must see. A cut can leave the product unable to take the flush at all (a refused
+	// configuration, an unavailable delivery identity), and then there is no end to wait for: that
+	// is part of what the row measures, so it is logged, not failed.
+	if !flushAndAwaitEnd(t, b, p, sess) {
+		t.Logf("fault: the recovery session %s was not ended within %s of its flush hook; the "+
+			"degradation reading is taken without that end", sess, indexBound)
+	}
 	return indexed
 }
 
