@@ -366,7 +366,9 @@ func TestCompactDeferredNote_FitsTheHostCap(t *testing.T) {
 		core.SessionID(strings.Repeat("\U0001F600", deferredNoteMaxSessionRunes)),
 		core.SessionID(strings.Repeat("x", 100_000)),
 	} {
-		for _, reason := range []string{DeferredNotReady, DeferredStopping, DeferredFailed, DeferredNoAnswer} {
+		for _, reason := range []string{
+			DeferredNotReady, DeferredStopping, DeferredFailed, DeferredCheckpointUnreadable, DeferredNoAnswer,
+		} {
 			note := CompactDeferredNote(sess, reason)
 			require.True(t, strings.HasPrefix(note, DeferredNoteTag))
 			require.Contains(t, note, reason)
