@@ -1,0 +1,73 @@
+== devtool lint: runpatterns ==
+runpatterns: plans/V2-VERIFY-primitives-store-dag-and-baseline.md:530: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: plans/sdd/V5-VERIFY/inventory-SP-05.md:70: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed|TestListenReturnsErrAddrInUse" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: 1153 -run patterns parsed, 912 of 912 checkable resolved against 72 packages, 7 skipped (package not in tree yet), 7 skipped (unlanded wave and the package's test set is not settled), 2 platform-excluded, 60 waived
+runpatterns: waivers in force:
+  plans/V2-SP02-handoff.md:52: "TestImports" — the transcript below demonstrates the unsatisfiable command this section reports
+  plans/V2-VERIFY-primitives-store-dag-and-baseline.md:318: "TestImports" — quotes the unsatisfiable command this finding is about; the corrected row is below
+  plans/sdd/V3-SP-08-observer-l0/global-constraints.md:65: "<pattern>" — the -run argument is a placeholder metavariable in an iteration recipe, not a row to verify
+  plans/sdd/V3-SP-08-observer-l0/task-0-report.md:221: "<the seven new/extended tests>" — metavariable summarizing the report's per-test runs above, not a command to verify
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:422: "TestGraphEdges" — quotes the defective V6 command this finding documents
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:467: "TestGraphEdges" — left side quotes the defective V6 command being corrected
+  plans/sdd/V3-SP-08-observer-l0/task-2-report.md:467: "TestGraph_" — left side quotes the defective V6 command being corrected
+  plans/sdd/V5-SP-15/report-E.md:84: "…" — the -run argument in this column header is a placeholder for the per-row test names below, not a command to verify
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:72: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:89: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-12.md:89: "TestSchedulerNotOnHotPath" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:71: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:87: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-13.md:87: "TestCmdMCP" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-14.md:103: "TestRenderStatus_DegradedIsLoud" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-14.md:105: "TestE2E_EverySubcommandResolves|TestE2E_StatusAgainstRealDaemon|TestE2E_StatusWithDaemonStopped|TestE2E_CheckpointNowThenStatus" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-15.md:138: "TestCodecSizeBudget" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V5-VERIFY/inventory-SP-15.md:139: "TestBuildActionHistory|TestRenderActionHistory|TestFold|TestFinalizeIncludesActionHistory|TestTruncateDropsActionHistoryFirst" — quotes a historical or corrected command whose test does not exist on this tree; the row is scored MISSING/RETIRED/NOT-RUN in this report, never PASS
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:151: "^(TestGoreleaserBuildsNothingAndDraftsTheRelease" — the alternation is split at the shell-pipeline character by this checker's parser; every branch is named in the PASS lines below
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:338: "^(TestBackup_RestoreOpensAsARealStore" — the alternation is split at the shell-pipeline character by this checker's parser; the -list output directly below names every branch
+  plans/sdd/V6-closeout/config/report.md:203: "...same" — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/config/report.md:204: "...same three..." — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/e2e/report.md:205: "TestFsck_(NewerCaptureSchema" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/e2e/report.md:312: "TestReviewRepro_DrainedControlLineWritesNoCaptureSidecar" — names the review's repro test, kept as evidence in runs/review-repro-drained-control-sidecar_test.go.txt and run on a scratch archive, not a test in this tree
+  plans/sdd/V6-closeout/e2e/report.md:94: "^(TestV1_ConfigPrecedenceReachesHookBehaviour" — the alternation is split at the shell-pipeline character by this checker's parser, and its second branch is abbreviated with an ellipsis; the full names are in the evidence log
+  plans/sdd/V6-closeout/hostperm/report.md:122: "HostDenyRed" — historical red-before-fix run on cf31e01 plus the then-new tests, whose names changed before commit; the alternation is also split at the shell-pipeline character by this checker's parser
+  plans/sdd/V6-closeout/hostperm/report.md:277: "<4" — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/ingest/report.md:104: "<the six TestFault_* cases>" — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/ingest/report.md:106: "^(TestDeliveryOrder" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/ingest/report.md:356: "TestDeliveryOrder_(AStuckSessionCannotTakeTheOtherSessionsLanes" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/ingest/report.md:360: "^(TestDeliveryOrder" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/ingest/report.md:362: "^(TestE2E_ObserverThroughDaemon" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/ingest/report.md:366: "^(TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/linux/report.md:106: "^(TestV6_ArchivedReadRetainsItsAuthorizationBoundary" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/linux/report.md:107: "<322 remainder>" — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/linux/report.md:417: "^(TestSwitch_ModePassiveStopsActingAndKeepsRecording" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/linux/report.md:93: "^(TestRunReturnsOnlyAfterAsyncStopHasFinished" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/linux/report.md:94: "^(TestListRetentionDir_" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/packaging/report.md:123: "<16 PreCompact/IT rows>" — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/packaging/report.md:317: "^(TestE2E_CheckpointHookWritesImmutableArtifact" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/rehydrate-cap/report.md:94: "<21 compact-rehydration cases incl. TestE2E_SessionStartCompactFitsTheHostCap>" — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/w2-hookout/report.md:150: "^TestPromptReply_ThrashWarningStaysUnderTheHostCap$" — temporary red-only test; the committed test is TestPromptReply_ThrashWarningStaysFarUnderTheHostCap
+  plans/sdd/V6-closeout/w2-hookout/report.md:161: "^TestZZDiag_SessionStartUnderLoad$" — diagnostic kept as runs/zz_diag_hookout_test.go.txt, not in the tree
+  plans/sdd/V6-closeout/w2-hookout/report.md:162: "^TestZZDiag_FaultRowCleanup$" — diagnostic kept as runs/zz_diag_hookout_test.go.txt, not in the tree
+  plans/sdd/V6-closeout/w2-hookout/report.md:163: "^TestZZDiag_SpooledSessionStartMintsAnUndeliveredProbe$" — diagnostic kept as runs/zz_diag_hookout_test.go.txt, not in the tree
+  plans/sdd/V6-closeout/w2-lifetime/report.md:104: "TestRedC116_" — names the pre-fix regression row, run from an uncommitted file copy on the pre-fix daemon (runs/10); the committed row carries a different name
+  plans/sdd/V6-closeout/w2-lifetime/report.md:113: "^(TestE2E_SessionStart" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-lifetime/report.md:289: "^(TestE2E_MCPLazySpawn..." — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line; branches abbreviated with an ellipsis are named in full in the evidence log
+  plans/sdd/V6-closeout/w2-lifetime/report.md:341: "^(TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-lifetime/report.md:342: "^TestSessionStartCompact_(SessionsNextEventWaitsForTheBookkeeping" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-lifetime/report.md:343: "^(TestSessionStartCompact_" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-lifetime/report.md:352: "^(TestGuard_AReleasedLockReportsItsSealResidual" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-lint/report.md:68: "<the 4 tests>" — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/w2-sessionend/report.md:416: "^(TestFlushHook_" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-sessionend/report.md:418: "^(TestStop_IsNotHeldBehindASessionEndsDrain" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-sessionend/report.md:419: "^(TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-sessionend/report.md:425: "<new concurrency paths>" — the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern
+  plans/sdd/V6-closeout/w2-sessionend/report.md:426: "^(TestE2E_ObserverThroughDaemon" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-sessionend/report.md:427: "^(TestFault_AuditSeesADeletedObjectUnderALiveIndex" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+  plans/sdd/V6-closeout/w2-sessionend/report.md:428: "^TestIntegration_(ContractMonitorRunsAgainstRealStore" — the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line
+FAIL runpatterns: runpatterns: 2 unsatisfiable -run pattern(s):
+  plans/sdd/V6-closeout/w3-e2ereds/report.md:107: pattern "^(TestV4_TombstoneToRecallToExpandRoundTrip" is not a valid regexp: error parsing regexp: missing closing ): `^(TestV4_TombstoneToRecallToExpandRoundTrip`
+  plans/sdd/V6-closeout/w3-e2ereds/report.md:119: -run "^<name>$" matches no test in ./test/e2e; `go test` prints ok and exits 0 for this command, so the row it documents verifies nothing.
+== devtool lint: docmarkers ==
+docmarkers: 288 plan document(s) scanned
+PASS docmarkers
+devtool: lint: lint: failed sub-check(s): runpatterns
+exit status 1
