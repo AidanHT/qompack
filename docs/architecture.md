@@ -135,8 +135,10 @@ replayed `PreCompact` still seals its checkpoint, but re-arms that obligation on
 of the session has arrived since the hook fired. A prompt counts as a miss for the current probe
 only if it is a prompt of the session the probe was minted for, sent after it was minted: a replayed
 prompt from before the probe, another window's prompt, or a prompt of a session whose own start was
-replayed and minted nothing never had a chance to find it. Each time comparison is between the hooks'
-own timestamps. A replay is not a served request either, so it does not release the daemon's one
+replayed and minted nothing never had a chance to find it. A prompt is one chance however often its
+delivery is handled — a retry after a capture that failed, or a redelivery after a restart, carries
+the same delivery nonce and spends nothing more. Each time comparison is between the hooks' own
+timestamps. A replay is not a served request either, so it does not release the daemon's one
 re-drain after its first served request (`internal/daemon/handlers.go`, `handleSessionStart`,
 `handleCheckpoint` and `sentinelMissCounts`).
 
