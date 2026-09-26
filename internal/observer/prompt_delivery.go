@@ -155,7 +155,11 @@ func (o *observer) recordPromptDurable(ctx context.Context, st *sessionState, e 
 		Root: res.Root.Hash, Bytes: int64(len(body)), Tokens: tok, Status: store.StatusOK,
 		Observation: obs,
 	}
-	if obs != "" {
+	// The §0.2.2 barriers around a leased write: root durable before the record, record durable
+	// before the link. A recorder that declares them makes both inside RecordToolUse, and repeating
+	// them here would only re-sync the same root (SP08-D1).
+	storeSynced := obs != "" && recorderPublishesDurably(o.opt.Store)
+	if obs != "" && !storeSynced {
 		if err := o.syncObservation(ctx, rec.Root); err != nil {
 			return err
 		}
@@ -167,7 +171,7 @@ func (o *observer) recordPromptDurable(ctx context.Context, st *sessionState, e 
 		o.soft(stageIndex, err)
 		return nil
 	}
-	if obs != "" {
+	if obs != "" && !storeSynced {
 		if err := o.syncObservation(ctx, rec.Root); err != nil {
 			return err
 		}
