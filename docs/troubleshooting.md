@@ -220,7 +220,8 @@ mode as `degraded-passive`.
 A `SessionStart` whose hook could not reach the daemon in time — a cold daemon on a loaded machine is
 enough — is spooled and replayed later, after the hook has answered without it. The replay mints no
 `hook.additional_context_delivered` probe, and withdraws the probe of an answer that reached its hook
-too late, so such a start cannot produce "sentinel not found after two chances". Nor can a replay
+too late, so such a start cannot produce "sentinel not found after two chances"; and only the
+prompts of the session a probe was minted for, sent after it, count as its chances. Nor can a replay
 fail `session_start.source_compact`: a replayed `SessionStart` fired before a pending `PreCompact` is
 not taken for the start it announced, and a replayed `PreCompact` whose compact `SessionStart` has
 already arrived does not re-arm it. If a replay is what degrades the project, its banner appears on the
