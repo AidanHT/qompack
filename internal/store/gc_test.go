@@ -728,12 +728,12 @@ func gcCalibratedSweep(passes []GCReport) GCReport {
 // gcSweepWindow is the pair of measurements that bracket every deadline the overshoot measurement
 // can use on this host.
 //
-// FirstCheck is what a pass costs when it stops at the sweep's FIRST deadline check: the mark
-// phase, the per-root outcome records, the live-set write, gcCheckEvery-1 object visits and the
-// cursor write. A budget at or below it expires before the sweep has visited anything worth
-// measuring, and the overshoot then measures the mark phase rather than check granularity. Full
-// is what an unbounded pass over the same tree costs; a budget at or above it never truncates and
-// the deadline goes unasserted.
+// FirstCheck is what a pass costs, on the clock GC arms its deadline on, when it stops at the
+// sweep's FIRST deadline check: the mark phase, the per-root outcome records, the live-set write
+// and gcCheckEvery-1 object visits. A budget at or below it expires before the sweep has visited
+// anything worth measuring, and the overshoot then measures the mark phase rather than check
+// granularity. Full is what an unbounded pass over the same tree costs; a budget at or above it
+// never truncates and the deadline goes unasserted.
 //
 // Both ends are MEASURED rather than derived from the fixture size, because the pass does real
 // work before its first object — a mark phase and a paths.WriteAtomic of the live set, which is
@@ -831,14 +831,15 @@ func (w gcSweepWindow) next(elapsed time.Duration, stoppedAtFirstCheck bool) gcS
 // before its first object (mark, live-set write); Save is the cursor write a truncated pass ends
 // with, which is outside the sweep and inside exactly ONE of the two clocks this file reads.
 //
-// GC takes rep.Duration = time.Since(started) before it calls saveGCState, so GCReport.Duration
-// EXCLUDES Save, while the wall-clock time.Since(start) the attempt loop wraps around the whole GC
-// call includes it. run() models the second, and so does the calibration's FirstCheck end, which
-// times a whole GC call the same way; its Full end reads GCReport.Duration of an unbounded pass,
-// which has no Save to exclude. So the model and the calibration price the same window. (Until the
-// FirstCheck end was timed through GC, the calibration left Save out and the model did not.) The
-// two elapsed times are still not interchangeable, and a future change here must say which clock
-// it means.
+// GC takes rep.Duration = time.Since(started) before it calls saveGCState, so GCReport.Duration --
+// what the calibration reads for both ends, and what the attempt loop re-prices from -- EXCLUDES
+// Save, while the wall-clock time.Since(start) the attempt loop wraps around the whole GC call, and
+// judges the overshoot on, includes it. run() models the second. A window priced from this model is
+// therefore narrower than the one calibration actually measures on the same host: 9.29x against
+// 10.55x with the constants below. That error is conservative in the only direction that matters
+// -- the model claims LESS room than the host has, so a schedule it accepts is one the host also
+// accepts -- but it is why the two elapsed times are not interchangeable, and why a future change
+// here must say which clock it means.
 type gcSweepModel struct {
 	Prefix, Rate, Save time.Duration
 	Objects            int
@@ -1205,17 +1206,18 @@ func TestGC_DeadlineBudgetRepricesAfterAMissedWindow(t *testing.T) {
 // (a 1.37x spread, so a steady host), first check 59.7 ms, window 8.61x, and five attempts that
 // alternated between stopping at the first check (budgets 175, 191 and 167 ms, each 266…295 ms
 // elapsed) and sweeping the whole tree (859 and 780 ms, 561 and 489 ms elapsed). The first check was
-// timed over the mark, the live-set write and the sweep alone. GC also runs recordOutcomes before
-// its sweep and writes the cursor after a truncated one, and on that host, over this fixture's
-// 3 072 dead roots, those cost 171…292 ms and 16…95 ms (a probe of every phase, w3-paths runs/linux).
-// So the judged pass needed 241…469 ms to reach a check the window placed at 41…92 ms, and its real
-// window was about 1.8x. The retry cannot repair that, because it re-prices both ends by a common
-// factor and an omitted phase is an additive cost; so its budgets swung between the two misses.
-// The first check is now timed through GC itself, on the attempts' own clock. Pre-sweep work the
-// deadline never consults is a real gap of its own, like the tombstoning above: recordOutcomes
-// cost 10…18 ms without -race on the same host. Its sorts built two String() forms per
-// comparison, 222 108 allocations for those roots; they compare the bytes now (gcHashLess, same
-// order), which is what gives that host a window wide enough to measure at all.
+// timed over the mark, the live-set write and the sweep alone, but GC also runs recordOutcomes
+// before its sweep, and on that host, over this fixture's 3 072 dead roots, it cost 171…292 ms (a
+// probe of every phase, w3-paths runs/linux). So a GC call needed 222…449 ms of its own clock to
+// reach a check the window placed at 41…92 ms, and the real window was about 1.8x. The retry cannot
+// repair that, because it re-prices both ends by a common factor and an omitted phase is an
+// additive cost; so its budgets swung between the two misses. The first check is now read from a
+// GC call's own GCReport.Duration, and the retry re-prices on that clock too (the wall clock also
+// held the cursor write, which comes after the check that stops a pass and cannot move where a
+// budget expires). Pre-sweep work the deadline never consults is a real gap of its own, like the
+// tombstoning above: recordOutcomes cost 10…18 ms without -race on the same host. Its sorts built
+// two String() forms per comparison, 222 108 allocations for those roots; they compare the bytes
+// now (gcHashLess, same order), which is what gives that host a window wide enough to measure.
 //
 // Every assertion about what the collector DID is hard in both modes: the calibration passes
 // complete and sweep the whole tree, an already-expired deadline stops the sweep at its first
@@ -1271,24 +1273,26 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 
 		dropCursor()
 		// This end of the window is "a pass that reaches the sweep and stops at its FIRST check",
-		// which is Prefix + one check interval + Save in gcSweepModel's terms. It is measured the
-		// way every judged attempt below is measured: the wall clock around one whole GC call, here
-		// with a deadline that is already spent when the sweep first consults it. So it pays for
-		// everything GC does before its sweep — the mark, the per-root outcome records, the
-		// live-set write — and for the cursor write after it, as the judged pass does.
+		// which is Prefix + one check interval in gcSweepModel's terms. It is measured through the
+		// call every judged attempt below makes, one whole GC, here with a deadline that is already
+		// spent when the sweep first consults it, and it is read from GCReport.Duration: the clock
+		// GC arms the deadline on, from the same instant. So it pays for everything GC does before
+		// its sweep — the mark, the per-root outcome records, the live-set write — which is exactly
+		// what a budget has to outlast to reach the sweep. The cursor write a truncated pass ends
+		// with comes after the check that stopped it, so it cannot move where a budget expires and
+		// is left out, as it is of the Full end; it is inside the judged overshoot, which is read
+		// from the wall clock around the call.
 		//
 		// It used to be priced by running only the mark, the live-set write and the sweep, which
-		// omitted recordOutcomes and the cursor write; see the fifth run in the doc comment above
-		// for what that cost on a -race Linux host. The mark phase is deadline-bounded as well, but
-		// its harvest consults the deadline only at its gcCheckEvery-th retention source
+		// omitted recordOutcomes; see the fifth run in the doc comment above for what that cost on
+		// a -race Linux host. The mark phase is deadline-bounded as well, but its harvest consults
+		// the deadline only at its gcCheckEvery-th retention source
 		// (TestGC_MarkPhaseHonoursTheDeadline gives it enough), and this fixture has none, so an
 		// already-spent deadline reaches the sweep. A pass that stopped in the mark instead would
 		// report 0 objects and fail below rather than price the wrong phase.
-		stopStart := time.Now()
 		stopRep, serr := tp.Store.GC(ctx, GCPolicy{
 			RetainDays: -1, RetainSessions: -1, DryRun: true, Deadline: time.Nanosecond,
 		})
-		stopDuration := time.Since(stopStart)
 		require.NoError(t, serr, "an expired deadline is a normal outcome, never an error")
 		require.True(t, stopRep.Truncated,
 			"an already-expired deadline, over %d objects, must truncate", objects)
@@ -1297,8 +1301,8 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 				"consulted once every %d objects and before that object is counted, so this pass "+
 				"can only ever report %d (0 would mean the mark phase stopped it before the sweep)",
 			gcCheckEvery, gcCheckEvery-1)
-		if firstCheck == 0 || stopDuration < firstCheck {
-			firstCheck = stopDuration
+		if firstCheck == 0 || stopRep.Duration < firstCheck {
+			firstCheck = stopRep.Duration
 		}
 	}
 	fastest := gcCalibratedSweep(passes)
@@ -1321,8 +1325,8 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 			"host sanity: a whole pass costs %v and merely reaching the sweep's FIRST check costs %v, "+
 				"so there is no room either side of any budget that could expire inside the sweep. On "+
 				"this host the pass spends most of its time somewhere other than visiting objects — "+
-				"the mark phase and the live-set write before the sweep, the cursor write after it, "+
-				"two fsyncs each — and that is a statement about the host, not about the collector; "+
+				"the mark phase, the per-root outcome records and the live-set write (two fsyncs) "+
+				"before the sweep — and that is a statement about the host, not about the collector; "+
 				"see gcSweepWindow", cal.Full, cal.FirstCheck)
 	}
 
@@ -1405,7 +1409,10 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 						"object, so it may return at most that object late, not %v late",
 					objects, budget, elapsed-budget)
 			}
-			win = win.next(elapsed, rep.Truncated)
+			// Re-priced on the clock the window was priced on, GCReport.Duration, which starts where
+			// GC arms the deadline and leaves out the cursor write; the wall clock around the call is
+			// for judging the overshoot, not for pricing.
+			win = win.next(rep.Duration, rep.Truncated)
 			continue
 		}
 
@@ -1414,7 +1421,7 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 			// pass and nothing was swept or collected. That is a correct outcome and a mispriced
 			// setup, not a broken bound — the same case as the first-check one below, one phase
 			// earlier — so it is re-priced from what this pass measured and retried.
-			win = win.next(elapsed, rep.Truncated)
+			win = win.next(rep.Duration, rep.Truncated)
 			continue
 		}
 
@@ -1447,7 +1454,7 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 			// The budget was gone by the sweep's first check, so the overshoot would measure the
 			// mark phase. That is a mispriced setup, not a broken bound: re-price from what this
 			// pass just measured and try again (see gcOvershootAttempts).
-			win = win.next(elapsed, rep.Truncated)
+			win = win.next(rep.Duration, rep.Truncated)
 			continue
 		}
 
