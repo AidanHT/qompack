@@ -167,11 +167,14 @@ type compactTicket struct {
 
 // Why an abandoned rehydration never reached the model, as its drop report's first entry says.
 const (
+	// undeliveredPrefix opens every such entry, and every entry of a rehydration that was never built
+	// (rehydrate_service.go recordNotBuilt): dropped() reads it as "the model never had this".
+	undeliveredPrefix = "not delivered: "
 	// undeliveredLate is the route's own: it answered with the deferred note at compactAnswerBudget.
-	undeliveredLate = "not delivered: the SessionStart answer was due before this rehydration was ready, " +
+	undeliveredLate = undeliveredPrefix + "the SessionStart answer was due before this rehydration was ready, " +
 		"so the model received a deferred note instead"
 	// undeliveredReplayed is a replay's (drainDispatch): the hook had answered without the daemon.
-	undeliveredReplayed = "not delivered: no answer from the daemon reached the SessionStart hook in time, " +
+	undeliveredReplayed = undeliveredPrefix + "no answer from the daemon reached the SessionStart hook in time, " +
 		"so the hook answered without it (the model received a deferred note, or nothing); this report " +
 		"was recorded when the daemon replayed that request from the hook's spool"
 )

@@ -317,13 +317,15 @@ func (s *rehydrateService) record(ctx context.Context, sess core.SessionID, res 
 const undeliveredDropKind = "rehydration"
 
 // Why a compaction's rehydration was never built, as its drop report's first entry says
-// (recordNotBuilt), and the entry's id.
+// (recordNotBuilt), what the model received instead, and the entry's id.
 const (
 	notBuiltCheckpointUnreadable = "not delivered: the checkpoint store could not be read, so no rehydration " +
-		"was built; the model received a deferred note instead"
-	notBuiltBuildFailed = "not delivered: building the rehydration failed; the model received a deferred " +
-		"note instead"
-	notBuiltDropID = "not-built"
+		"was built"
+	notBuiltBuildFailed = "not delivered: building the rehydration failed"
+	// notBuiltAnswered is what the model received when the daemon answered the compaction itself: its
+	// deferred note, on time or — when the route had already answered at its bound — earlier.
+	notBuiltAnswered = "the model received a deferred note instead"
+	notBuiltDropID   = "not-built"
 )
 
 // notBuilt is the answer to a compaction whose rehydration could not be built — the checkpoint store
@@ -335,11 +337,20 @@ const (
 // report is recorded as never built (recordNotBuilt), off the answer's path, so dropped() does not
 // describe an earlier rehydration as this one. Degraded-passive and the reinjection kill switch are
 // checked before anything that can fail, so neither ever reaches here: they still answer nothing.
+//
+// What the model received instead is the daemon's note, except for a compaction replayed from a hook's
+// spool (its ticket abandoned with undeliveredReplayed): that hook answered without the daemon, with
+// the hook client's own note or with nothing, and the report says so rather than claim a note it
+// cannot know was delivered.
 func (s *rehydrateService) notBuilt(ctx context.Context, sess core.SessionID, reason, why string) hookio.Output {
+	received := notBuiltAnswered
 	if t := compactTicketFrom(ctx); t != nil {
 		t.fail(reason)
+		if t.undeliveredReason() == undeliveredReplayed {
+			received = strings.TrimPrefix(undeliveredReplayed, undeliveredPrefix)
+		}
 	}
-	s.phase(histRehydrateRecord, func() { s.recordNotBuilt(ctx, sess, why) })
+	s.phase(histRehydrateRecord, func() { s.recordNotBuilt(ctx, sess, why+"; "+received) })
 	return compactDeferredOutput(sess, reason)
 }
 
