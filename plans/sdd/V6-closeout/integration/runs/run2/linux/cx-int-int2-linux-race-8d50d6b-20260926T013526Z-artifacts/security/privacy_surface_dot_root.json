@@ -1,0 +1,18 @@
+{
+  "name": "privacy_surface_dot_root",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "00df95ad8569df355d2e92090054646a3ed6a4ed388ad216fdecb1600159da2f"
+  },
+  "outcome": "verified",
+  "reason": "no literal and no \u003e8-byte fragment of any of the 11 planted credential families survives under dot-root.",
+  "detail": "2 files, 135 bytes swept, 0 redaction placeholders",
+  "artifact": "privacy-surface-sweep.json"
+}
