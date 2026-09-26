@@ -200,6 +200,40 @@ func x02WaitIndexed(t *testing.T, root, id string) {
 	}, mcpE2EIndexBound, mcpE2EIndexTick, "the observer never indexed %s", id)
 }
 
+// x02WaitFileVersion polls until index/files.jsonl records want as a version of rel, so an unpinned
+// re_read that follows asks about a version that has been published.
+//
+// x02WaitIndexed cannot stand in for it. The observer appends the tool_use record first and the
+// §8.2 file version afterwards (internal/observer/tooluse.go step 7), behind the publication syncs
+// and the capture-reference link of steps 6a-6b. In that window the new record is visible and
+// re_read still answers the previous version, which is the correct answer for the history
+// published so far. Since 22ff16c added a publication sync to that stretch, the window has passed
+// 0.6 s on a loaded Windows host, and 2ccae0c measured 1.1-2.5 s on Linux. test/security's
+// requireFileVersion (2ccae0c) waits for the same step for the same reason. The log names the path
+// by its store key (paths.Key, case-folded on Windows and macOS), so rel is keyed the same way.
+func x02WaitFileVersion(t *testing.T, root, rel string, want core.Hash) {
+	t.Helper()
+	path := filepath.Join(paths.Of(root).Index, "files.jsonl")
+	key := paths.Key(rel)
+	require.Eventually(t, func() bool {
+		b, err := paths.ReadFileShared(path)
+		if err != nil {
+			return false
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			var v struct {
+				Path string    `json:"path"`
+				Root core.Hash `json:"root"`
+			}
+			if json.Unmarshal([]byte(line), &v) == nil && v.Path == key && v.Root == want {
+				return true
+			}
+		}
+		return false
+	}, mcpE2EIndexBound, mcpE2EIndexTick, "the observer never recorded %s as a version of %s (store key %q)",
+		want, rel, key)
+}
+
 // x02SidecarFor finds the SP-20 capture sidecar the daemon linked to id. The sidecar is keyed by
 // the delivery's observation identity, which the frozen index record does not carry, so the tree
 // is walked and the join is made on the reference LinkCaptureReference wrote.
@@ -498,6 +532,7 @@ func TestV5_TombstoneToExpandRoundTrip(t *testing.T) {
 	require.Contains(t, byID, x02HistoricalMarker)
 	require.NotContains(t, byID, x02CurrentMarker, "expand must never hand back the working tree")
 
+	x02WaitFileVersion(t, p.Root, x02Path, rec.Root)
 	var reRead x02ContentBody
 	mcpE2ECall(t, child, next(), mcp.ToolReRead, map[string]any{"path": x02Path, "full": true}, &reRead)
 	require.True(t, reRead.Found, "re_read must resolve the newest CAPTURED version")
@@ -522,6 +557,7 @@ func TestV5_TombstoneToExpandRoundTrip(t *testing.T) {
 	x02WaitIndexed(t, p.Root, x02SecondToolUseID)
 	rec2 := x02RecordFor(t, p.Root, x02SecondToolUseID)
 	require.NotEqual(t, rec.Root, rec2.Root, "the second capture is a different object")
+	x02WaitFileVersion(t, p.Root, x02Path, rec2.Root)
 
 	var firstAgain, secondNow, newest, pinned x02ContentBody
 	mcpE2ECall(t, child, next(), mcp.ToolExpand, map[string]any{"tool_use_id": x02FirstToolUseID, "full": true}, &firstAgain)

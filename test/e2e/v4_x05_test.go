@@ -177,6 +177,18 @@ func TestV4_TombstoneToRecallToExpandRoundTrip(t *testing.T) {
 	escapedRec := rec
 	escapedRec.ID = "toolu_v4_x05_esc"
 	escapedRec.Path = escaped
+
+	// Criterion change (observation binding, 99108a2): rec was read from the rig's in-process
+	// store, so it still carries the hook capture's delivery identity (ToolUseRecord.Observation).
+	// One accepted host delivery publishes exactly one record (00-ARCHITECTURE.md §0.2.1), so a
+	// copy that keeps that identity under another id and path claims the first capture's delivery
+	// for a second record. The store refuses that as an append-only violation, and this pins it.
+	require.NotEmpty(t, escapedRec.Observation, "a hook capture is published under its delivery identity")
+	require.ErrorIs(t, r.Opts.Store.RecordToolUse(ctx, escapedRec), core.ErrAppendOnly,
+		"a second record may not claim a delivery identity another record already published")
+
+	// The negative control is an in-process write with no delivery behind it, so it carries none.
+	escapedRec.Observation = ""
 	require.NoError(t, r.Opts.Store.RecordToolUse(ctx, escapedRec),
 		"the store must accept the record; authorization is a RETRIEVAL-time gate, not a write gate")
 
