@@ -67,7 +67,7 @@ pays only a connect-write-ack".
 **The daemon's lifetime.** One daemon serves a project, whichever sessions come and go: the
 singleton lock `.qompack/run/daemon.lock` decides which process that is, and a second one started
 for the same project exits 0 without touching it (`internal/daemon/lock.go`). It is started by
-`qompack session-start` (`daemon.EnsureRunning`) or, lazily, by any hook that finds nothing
+`qompack session-start` (`daemon.EnsureRunningUntil`) or, lazily, by any hook that finds nothing
 listening (`internal/ipc/client.go`, `lazySpawn`, serialized by `run/spawn.lock`), and it outlives
 the session that started it by design. It exits by itself once no session has been live for
 `runtime.daemon.idleExitSeconds` ([default `1800`](config-reference.md#runtime)): a session stops
@@ -98,6 +98,36 @@ working directory may be (MAX_PATH). If the copy cannot be made the daemon is st
 plugin binary after all, `session-start` logs why, and the daemon itself reports it Loud when it
 starts. A daemon started before a plugin update keeps running its own version until its idle exit;
 the next spawn runs the new one.
+
+**Starting the daemon.** Everything that starts one — `session-start`, a hook's lazy spawn, the
+`qompack mcp` server's — follows one rule over `.qompack/run/spawn.lock` (`ipc.ClaimSpawn`, V6
+close-out decision D17): it spawns only when it creates the lock, and a lock younger than 10 s means
+another spawn is on its way, which `session-start` waits for and a hook or the MCP server leaves to
+arrive, instead of starting a second daemon. An older lock is presumed left by a spawner that died
+and is reclaimed, so no lock holds spawning off for longer than that; a lock that is empty or
+unparseable (another spawner may be writing it), or stamped later than now, is judged by the file's
+own age. A spawn that fails to start releases its claim, and the daemon deletes the lock once it
+listens. Two processes that reclaim the same stale lock at the same instant can still both spawn; the
+singleton lock then turns the second away.
+
+A daemon takes dials from the moment it listens, before its startup is done. That startup replays
+what hooks spooled while no daemon answered, then sweeps the checkpoint store and audits publication
+gaps, and every request that arrives meanwhile waits until it is done (`serveOp`), so a spooled event
+is always handled before a live one. The caller's own deadline bounds the wait: a hook that runs out
+spools, as it would against any slow daemon. Before D17 the daemon accepted nothing until its startup
+was done, and on Windows, where a named pipe nobody accepts on refuses every dial, a daemon replaying
+its spool on a loaded machine looked absent for as long as that took — up to 30 s in the close-out's
+cold-start diagnostic, while each hook that failed to reach it spooled and started another daemon.
+
+`session-start` fits its whole run inside its 15 s manifest timeout (D17b, `internal/cli`
+`hookBudget`). Counted from the hook's first statement, 1.5 s at the end is kept for the process's
+own start and exit, which the host's clock includes; before that come the 10 s reply wait and the
+250 ms dial; and the 3.25 s before those cover reading and admitting the payload and starting the
+daemon, whose poll for a listening daemon stops there. Preparing a Windows staged copy is never cut
+short: when it, or the admission before it, runs over, the reply wait is shortened by as much, and
+with no time left the request is spooled without a dial. A start cut short is answered as any
+unanswered one — `{}`, or for a compaction the deferred note (§7) — and the daemon replays it from
+the spool, recording the session without the §12.1 probe.
 
 **What runs where.** The hook process parses its event, connects, writes and waits for an ACK. The
 daemon does the work: it is the single writer of the store, and — per `internal/mcp`'s package
