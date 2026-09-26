@@ -60,7 +60,8 @@ close-out by the user's later instruction and every record says so.
 | 1c | `wf_e1d0d082-a01` | `rehydrate-cap` C1.14 (D5), branched from `closeout/packaging` `32e1a37` |
 | int | — | All ten wave-1/1b/1c branches merged `--no-ff` into `closeout/integration` (`../qompack-cx-int`) at `b070bbe`, with no textual conflicts; `go build ./...` and `go vet ./...` are clean. The rollover merge's `git merge` hung for about 2 h after creating its commit (no child process; the likely cause is a Windows file lock over thousands of new evidence files). The coordinator stopped its own process and ran `git merge --quit`, and the merge commit `ecaa08a` stands. Integrated gates `int1-windows-whole-tree` and `int1-linux-race` (non-root, ALL-NON-E2E) started together, with co-load declared |
 | 2 | `wf_0d8775ab-04e` | **Produced nothing.** Every implementer hit the account's weekly usage limit ("resets Sep 25, 7am America/Toronto") after stalling and retrying; results `[null ×6]`, no commits. Planned: off `b070bbe`: `w2-sessionend` C1.15 + C1.13 remainder + drained control-line sidecars · `w2-lifetime` C1.16 + C1.17 + admin.shutdown reply loss + hermetic mcpop tests · `w2-hookout` C1.18 + C1.20 + two unclassified e2e reds · `w2-rollover2` D6 diagnostics, gcrun memory claim, lock-held lookups, race-suite duration · `w2-lint` C1.19 · `w2-eval2` first independent review of the eval harness + `qompack eval` wiring |
-| 2b | `wf_b2b236ea-ef1` | 2026-09-25 re-run of wave 2 in the same worktrees, off `b070bbe`. Each agent was told to inspect the first attempt's leftovers (uncommitted SessionStart/rehydrate phase histograms in `w2-lifetime`; repro logs in `w2-hookout`/`w2-rollover2`) and adopt or discard them deliberately. Plus a new `w2-wintriage` for the one Windows red that reproduces alone (`TestSecurity_ArchivedTextIsDataNeverAnInstruction`) and two slow fault subcases |
+| 2b | `wf_b2b236ea-ef1` | 2026-09-25 re-run of wave 2 in the same worktrees, off `b070bbe`. Each agent was told to inspect the first attempt's leftovers (uncommitted SessionStart/rehydrate phase histograms in `w2-lifetime`; repro logs in `w2-hookout`/`w2-rollover2`) and adopt or discard them deliberately. Plus a new `w2-wintriage` for the one Windows red that reproduces alone (`TestSecurity_ArchivedTextIsDataNeverAnInstruction`) and two slow fault subcases | **Result:** 19 agents, all completed. Model requests stalled for every agent 15:13–17:17 local and each was restarted. Reviews: wintriage, lint and rollover2 sound; lifetime, eval2, hookout and sessionend needs-fixes, each resolved by its fix seat. All seven branches are merged (`dc3649f`…`54a4334`); the only conflict was two additive blocks in `daemon.go`; daemon, cli and ipc pass after the merge |
+| 3 | `wf_eed51aa0-3c3` | off `54a4334`: `w3-startroute` D11 + replayed spooled session.start mints an undelivered probe (false degrade) + cold-start wait evaluation · `w3-e2ereds` three e2e reds that fail on `b070bbe` (V4/V5 tombstone, V5 elimination surfaces) · `w3-paths` `WriteAtomic` ancestor walk escaping into a real `~/.qompack` + x/sys bump for GO-2026-5024 + Linux `TestGC_DeadlineOvershoot…` · `w3-eval3` D12 task set v2 + intention-to-treat verdict + dry run |
 
 Integrated gates run 1 (`b070bbe`; evidence `plans/sdd/V6-closeout/integration/runs/` on
 `closeout/integration` `6b3db32`). Linux non-root `-race`, every non-e2e package: green except
@@ -141,7 +142,7 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
       (`hookSpecificOutput.hookEventName` not accepted), so its instructions never reach the
       summarizer and the validation error is replayed into post-compaction context. Conform every
       hook's output to the current documented schema; pin with contract tests and a real session.
-- [ ] **C1.13** Session end must wait for that session's earlier queued or deferred events
+- [x] **C1.13** *(client-spool watcher replays client spools while their session is active, and a drain defers a spool copy whose worker is still publishing; `closeout/w2-sessionend`, merged into `closeout/integration` `54a4334`; integrated gates pending)* Session end must wait for that session's earlier queued or deferred events
       (from the e2e finding), and the idle drain only runs after 120 s of inactivity
       (`DetectAfterSeconds`), while the e2e tests assume a 30 s drain. Confirm C1.1's fix covers
       both, or follow up.
@@ -153,23 +154,23 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
       10,000-character `additionalContext` cap. When it does, Claude gets a file path and a
       2,000-char preview and is not asked to read the file. Fit the payload under the cap, report
       the rest as overflow with pointers, and revise Qompack.md §8.6 and ADR 0011.
-- [ ] **C1.15** The `SessionEnd` flush hook is reported "Hook cancelled". Plugin hooks share a
+- [x] **C1.15** *(D13: the flush hook answers once durably accepted (65–86 ms after a burst, was 3.5–4.3 s), and the daemon ends the session asynchronously; drain-replayed flushes are handed to the same async end; the flush has its own 500 ms ACK wait, derived from the host's 1.5 s budget; `closeout/w2-sessionend`, merged into `closeout/integration` `54a4334`; integrated gates pending)* The `SessionEnd` flush hook is reported "Hook cancelled". Plugin hooks share a
       1.5 s SessionEnd budget, and the manifest's 20 s timeout does not raise it for plugin hooks.
       The flush hook must answer well inside 1.5 s, and nothing may depend on it (§8.2).
-- [ ] **C1.16** Under load, a `SessionStart(source=compact)` took 10.3 s and answered `{}` at the
+- [x] **C1.16** *(D9: the rehydration now starts before phase-1 writes and runs outside the observer lock; compact SessionStart p99 1,853→661 ms under external fsync load, and an explicit deferred note replaces `{}`; `closeout/w2-lifetime`, merged into `closeout/integration` `54a4334`; integrated gates pending; D11 follow-up in wave 3)* Under load, a `SessionStart(source=compact)` took 10.3 s and answered `{}` at the
       10 s reply deadline, which lost that rehydration. It must answer reliably and fast.
-- [ ] **C1.17** The resident daemon outlives the session and keeps the plugin's `qompack.exe`
+- [x] **C1.17** *(D10: Windows daemon runs from a verified staged copy under `~/.qompack/bin/<sha256>/`, also on MCP lazy spawn; `closeout/w2-lifetime`, merged into `closeout/integration` `54a4334`; integrated gates pending)* The resident daemon outlives the session and keeps the plugin's `qompack.exe`
       open, which left a half-deleted plugin extraction directory. The same thing can break plugin
       update or uninstall on Windows. Fix with idle exit, or by running from a copy outside the plugin root.
-- [ ] **C1.18** The daemon still renders and records PreCompact summarizer instructions that no
+- [x] **C1.18** *(PreCompact instruction producer retired; checkpoint kept; contract row honest; `closeout/w2-hookout`, merged into `closeout/integration` `54a4334`; integrated gates pending)* The daemon still renders and records PreCompact summarizer instructions that no
       host accepts (`precompact.custom_instructions_accepted` warns). Retire the producer and keep
       the checkpoint.
-- [ ] **C1.20** Other hook fields are still unbounded by the host cap: the SessionStart
+- [x] **C1.20** *(D15 ceilings, pinned by `HostChars` tests with pathological inputs; `closeout/w2-hookout`, merged into `closeout/integration` `54a4334`; integrated gates pending)* Other hook fields are still unbounded by the host cap: the SessionStart
       `degradeBanner` systemMessage (`internal/daemon/handlers.go`) quotes contract
       Expected/Observed values with no length limit, and the UserPromptSubmit thrash warning
       (`internal/observer`) joins lines without a count limit. Bound both and pin each with a
       `HostChars <= cap` test.
-- [ ] **C1.19** Pre-existing gate failures on the base: `devtool lint` bindeps
+- [x] **C1.19** *(bindeps ratified by D14; the four skips now run on real junctions; `runpatterns` fixed in the reports; `closeout/w2-lint`, merged into `closeout/integration` `54a4334`; integrated gates pending)* Pre-existing gate failures on the base: `devtool lint` bindeps
       (`golang.org/x/sys/unix` via `internal/paths`), and `stubskips` reports four skips with
       non-permitted reasons in `internal/daemon`, `internal/hookio` and `internal/store` tests.
 
@@ -234,7 +235,7 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
       Finalize, negknow Open, GetChunk) before/after Phase 2.
 - [ ] **C5.3** Deterministic replay evaluation (24-session phase-0 comparison) re-run on the frozen
       candidate; fraction-of-OPT reported as a diagnostic only.
-- [ ] **C5.4** Implement `eval.LiveRunner` (today nil; `qompack eval --json` exits 1): drives real
+- [x] **C5.4** *(`eval.LiveRunner` + `devtool live-eval` delivered on `closeout/eval`; first independent review and fixes in `closeout/w2-eval2`; `qompack eval` wired; merged into `closeout/integration` `54a4334`; integrated gates pending)* Implement `eval.LiveRunner` (today nil; `qompack eval --json` exits 1): drives real
       `claude -p` sessions with and without Qompack under forced compaction, records per-category
       usage from the host's own JSON, completion and constraint outcomes.
 - [ ] **C5.5** Pre-declare the live task set, sample size and margins (before outcomes), then run
