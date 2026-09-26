@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"io"
 	"math"
@@ -10,13 +11,17 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -333,6 +338,101 @@ func TestShutdownDaemonUntilGone_WaitsOutALockHolderItNeverIdentified(t *testing
 	require.True(t, s.out.Unidentified, "outcome %+v", s.out)
 	require.False(t, s.out.LockHeld, "outcome %+v", s.out)
 	require.Contains(t, s.out.Describe(lockPath, stagedUnidentifiedBound), "no readable pid")
+}
+
+// TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown pins the check the helper makes
+// immediately BEFORE each admin.shutdown. It stages the ordinary case every caller meets: a daemon
+// that is fully up, its lock body written and its address listening, whose shutdown releases the
+// lock before the reply reaches the helper. internal/daemon's handleAdminShutdown starts Stop on a
+// goroutine of its own and returns its reply, so Lock.Release, Stop's last act, can land before
+// the helper reads the lock again after its Send. The check after the Send then finds no lock and
+// has read no pid, and only the check before the Send has named the process that may still be
+// unwinding.
+//
+// The stand-in "daemon" is split in two: this test serves the project's address itself, with a
+// handler that removes daemon.lock and only then answers, and the lock names a live stand-in
+// process that exits only when this test closes its stdin. A helper that learned holders only after
+// its Send would find nothing to wait for at its first check and return while the stand-in runs.
+func TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown(t *testing.T) {
+	if os.Getenv(lockHolderChildEnv) != "" {
+		lockHolderChild()
+	}
+	root := t.TempDir()
+	holder, holderIn := startLockHolder(t, "^TestShutdownDaemonUntilGone_ReadsTheHolderBeforeEachShutdown$")
+	holderPID := holder.Process.Pid
+	t.Cleanup(func() {
+		_ = holderIn.Close()
+		reapLockHolder(holder)
+	})
+	lockPath := stageEmptyLock(t, root)
+	stageLockBody(t, lockPath, holderPID)
+
+	// The address listens only once the body is on disk, as a daemon's does (daemon.Run takes the
+	// lock and writes its body before server.Serve).
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+	srv, err := ipc.NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), ipc.MaxLineBytes)
+	require.NoError(t, err)
+	var shutdowns atomic.Int64
+	serveCtx, stopServing := context.WithCancel(context.Background())
+	served := make(chan struct{})
+	go func() {
+		defer close(served)
+		_ = srv.Serve(serveCtx, func(_ context.Context, req ipc.Request) ipc.Response {
+			if req.Op == ipc.OpAdminShutdown {
+				// Released before the reply, as Stop on its own goroutine can release it. A second
+				// shutdown finds the lock already gone, which is not an error for a stopping daemon.
+				if rmErr := os.Remove(paths.Long(lockPath)); rmErr != nil && !os.IsNotExist(rmErr) {
+					return ipc.Response{OK: false, Err: rmErr.Error()}
+				}
+				shutdowns.Add(1)
+			}
+			return ipc.Response{OK: true}
+		})
+	}()
+	// Registered before startStagedShutdown's join, so it runs after it (cleanups run last-registered
+	// first): the address goes on answering until the helper has returned.
+	t.Cleanup(func() {
+		stopServing()
+		_ = srv.Close()
+		<-served
+	})
+
+	s := startStagedShutdown(t, root, ShutdownWait{
+		Tick: stagedShutdownTick, Bound: stagedShutdownBound, RoundTrip: stagedShutdownRoundTrip,
+	})
+
+	// Two shutdowns received: the lock was released by the first, the helper checked after it,
+	// found no lock, and asked again instead of returning.
+	ticker := time.NewTicker(stagedShutdownTick)
+	defer ticker.Stop()
+	deadline := time.NewTimer(stagedShutdownBound)
+	defer deadline.Stop()
+	for shutdowns.Load() < 2 {
+		select {
+		case <-s.done:
+			require.FailNowf(t, "ShutdownDaemonUntilGone returned too early",
+				"it returned after %d received shutdowns, while the lock's holder (pid %d, alive=%v) was "+
+					"still running, with outcome %+v", shutdowns.Load(), holderPID, ProcessAlive(holderPID), s.out)
+		case <-deadline.C:
+			require.FailNowf(t, "ShutdownDaemonUntilGone stalled",
+				"only %d shutdowns received within %s", shutdowns.Load(), stagedShutdownBound)
+		case <-ticker.C:
+		}
+	}
+	require.True(t, ProcessAlive(holderPID), "fixture: the stand-in (pid %d) must still be running", holderPID)
+	_, held := DaemonHoldingLock(root)
+	require.False(t, held, "fixture: the first shutdown released the lock")
+
+	require.NoError(t, holderIn.Close())
+	select {
+	case <-s.done:
+	case <-time.After(stagedShutdownBound):
+		t.Fatalf("ShutdownDaemonUntilGone did not return within %s of the lock's holder exiting", stagedShutdownBound)
+	}
+	require.False(t, ProcessAlive(holderPID),
+		"ShutdownDaemonUntilGone returned while the lock's holder (pid %d) was still running", holderPID)
+	require.True(t, s.out.Gone, "outcome %+v", s.out)
 }
 
 // TestShutdownDaemonUntilGone_AnAbandonedLockIsGoneAtOnce pins the other side of the definition: a
