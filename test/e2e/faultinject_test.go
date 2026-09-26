@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -257,11 +258,12 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 	})
 	defer func() { _ = c.Close() }()
 
-	// The pid holding the lock when the handshake starts. Lock.Release is Stop's LAST act, but the
-	// process still has to unwind after Stop returns — flush its observability sinks, close the day
-	// log, run its deferred closers, exit — and every one of those can write inside <root>/.qompack.
-	// Returning the moment the lock file disappears therefore hands a still-writing process's
-	// directory to the caller's t.TempDir RemoveAll, which is CI run 32932419445's single failure:
+	// Every pid seen holding the lock during this call, starting with the handshake. Lock.Release is
+	// Stop's LAST act, but the process still has to unwind after Stop returns — flush its
+	// observability sinks, close the day log, run its deferred closers, exit — and every one of
+	// those can write inside <root>/.qompack. Returning the moment the lock file disappears therefore
+	// hands a still-writing process's directory to the caller's t.TempDir RemoveAll, which is CI run
+	// 32932419445's single failure:
 	//
 	//	--- FAIL: TestFaultSitesInertWhenUnset
 	//	    TempDir RemoveAll cleanup: unlinkat /tmp/…/001/.qompack: directory not empty
@@ -272,9 +274,19 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 	// can do. (The Windows failure quoted above is the same race seen through a different errno:
 	// there the straggler's open handle is what surfaces, here its next write is.) So process
 	// death, not lock absence, is the condition that makes the tree safe to remove —
-	// e2eProcessAlive's own doc comment already says exactly that, and this loop simply had one
-	// exit that never asked it.
-	shutdownPID, _ := e2eDaemonHoldingLock(root)
+	// e2eProcessAlive's own doc comment already says exactly that.
+	//
+	// It is a SET, observed on every check, and not one read taken as the handshake starts. That
+	// one read is what a daemon's own start defeats: paths.CreateNew creates daemon.lock and only
+	// then writes its body, e2eDaemonHoldingLock counts the empty file as held with no pid, and
+	// e2eAwaitSpawnInFlight returns at the first sighting of a held lock — which can be exactly that
+	// empty file. A pid read then was 0, for which "has it exited?" is always yes, so the lock's
+	// disappearance alone ended the wait while the daemon was still unwinding
+	// (TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit stages it). Collecting every pid
+	// the lock names, on every check, costs nothing when there is one daemon and still covers a
+	// lock that changed hands mid-call.
+	holders := e2eLockHolders{}
+	holders.observe(e2eDaemonHoldingLock(root))
 
 	// Client.Send never propagates an error — a failed connect/write/ACK round trip just spools
 	// the request instead and returns silently (00-ARCHITECTURE.md §2.4/§12.3), so a single
@@ -291,7 +303,7 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
 		}, e2eRoundTripDeadline)
 		// Two things must both be true before this tree is nobody's to write to: no live process
-		// holds the lock now, and the process that held it when we started has actually exited.
+		// holds the lock now, and every process seen holding it has actually exited.
 		//
 		// The first half also covers a daemon that stops mattering by dying. Lock.Release is
 		// Stop's last act, so a process that never reaches it — an injected fault, a crash, a
@@ -301,7 +313,8 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 		// "lock file naming a dead pid" identically, which is why the absent-file check that used
 		// to stand here is not merely moved but subsumed.
 		lockPID, held := e2eDaemonHoldingLock(root)
-		if !held && e2eShutdownProcessSettled(shutdownPID) {
+		holders.observe(lockPID, held)
+		if !held && holders.settled() {
 			return
 		}
 		select {
@@ -312,14 +325,43 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 				t.Logf("e2eShutdownIfReachable: a live daemon (pid %d) still held %s after %s of retried "+
 					"admin.shutdown; the caller's t.TempDir cleanup is about to remove a tree it may still "+
 					"be writing to", lockPID, lockPath, e2eDaemonDownBound)
-			case !e2eShutdownProcessSettled(shutdownPID):
-				t.Logf("e2eShutdownIfReachable: the daemon (pid %d) released %s but was still running after "+
+			case !holders.settled():
+				t.Logf("e2eShutdownIfReachable: daemon pids %v released %s but were still running after "+
 					"%s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to",
-					shutdownPID, lockPath, e2eDaemonDownBound)
+					holders.running(), lockPath, e2eDaemonDownBound)
 			}
 			return
 		}
 	}
+}
+
+// e2eLockHolders is the set of pids e2eShutdownIfReachable has seen holding a project's lock.
+type e2eLockHolders map[int]struct{}
+
+// observe records the holder e2eDaemonHoldingLock reported. A lock with no readable pid adds
+// nothing: it is still counted as held by the caller, so the wait goes on, and the next check reads
+// the body once it lands.
+func (h e2eLockHolders) observe(pid int, held bool) {
+	if held && pid > 0 {
+		h[pid] = struct{}{}
+	}
+}
+
+// settled reports whether every recorded holder can no longer write inside the tree.
+func (h e2eLockHolders) settled() bool {
+	return len(h.running()) == 0
+}
+
+// running lists the recorded holders that can still write inside the tree, in ascending order.
+func (h e2eLockHolders) running() []int {
+	var out []int
+	for pid := range h {
+		if !e2eShutdownProcessSettled(pid) {
+			out = append(out, pid)
+		}
+	}
+	sort.Ints(out)
+	return out
 }
 
 // e2eShutdownProcessSettled reports whether the pid that held the lock can no longer write inside
@@ -328,7 +370,9 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 // For a daemon in its OWN process that is exactly "the process has exited", and the long comment
 // above says why nothing weaker will do: Lock.Release is Stop's last act, but the process still has
 // to unwind afterwards, and CI run 32932419445 caught it creating an entry inside .qompack between
-// RemoveAll emptying the directory and RemoveAll unlinking it.
+// RemoveAll emptying the directory and RemoveAll unlinking it. "Exited" is e2eProcessAlive's, which
+// on Windows waits for the process object to be signaled: an exit code alone is set while the
+// kernel is still closing the process's handles (testutil.ProcessAlive).
 //
 // For a daemon running IN THIS TEST BINARY — v4StartRig and the other in-process rigs — that
 // question is not merely unanswerable but meaningless. internal/daemon/lock.go:103 records the

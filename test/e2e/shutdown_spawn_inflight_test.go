@@ -1,15 +1,19 @@
 package e2e
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -103,4 +107,129 @@ func TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight(t *testing.T) {
 	}
 	_, held := e2eDaemonHoldingLock(dir)
 	require.False(t, held, "no live daemon may hold the project's lock once the helper returns")
+}
+
+// TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit pins what "gone" means to
+// e2eShutdownIfReachable: no live process holds the project's lock, AND every out-of-process daemon
+// the helper saw holding it during this call has exited. The lock is released as Stop's last act,
+// and the process goes on writing under .qompack while it unwinds, so a helper that returns on the
+// lock alone hands its caller's t.TempDir RemoveAll a tree that is still being written to.
+//
+// The helper used to learn that pid from ONE read of daemon.lock, taken as the shutdown handshake
+// began. A lock that did not parse at that instant (paths.CreateNew creates the file and only then
+// writes its body, and e2eDaemonHoldingLock counts that as held with no pid) left it with pid 0,
+// for which "has it exited?" is always yes, so from then on the lock's disappearance alone ended
+// the wait. That is the exact state e2eAwaitSpawnInFlight returns into: it stops at the first
+// sighting of a held lock, which can be the empty file a starting daemon has just created.
+//
+// The test stages that sequence with a process it controls, so both outcomes are decided by
+// causality, not by timing:
+//   - an empty daemon.lock, a lock caught mid-create, is all the helper can read when it starts;
+//   - once its shutdown loop is running, the lock gains a body naming a live stand-in process;
+//   - after the helper has read that body, the lock disappears while the stand-in keeps running.
+//
+// The helper's shutdown attempts land in its own client spool (nothing is listening), and each
+// one precedes that iteration's lock check, so the spool's line count shows which lock state each
+// check saw. A helper that returns while the stand-in runs fails deterministically, because the
+// stand-in exits only when this test closes its stdin. The stand-in is `qompack mcp` over a
+// separate project: it serves stdio until stdin closes and touches nothing in the project under
+// test.
+func TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit(t *testing.T) {
+	bin := Build(t)
+	dir := e2eFaultProject(t)
+	home := t.TempDir()
+
+	// The stand-in is not reaped until the end, so its pid names it and nothing else throughout:
+	// Windows keeps a pid unused while cmd holds the process handle, and on Linux an exited child
+	// stays a zombie, which e2eProcessAlive reports as exited, until it is reaped.
+	holder := exec.Command(bin, "mcp")
+	holder.Dir = filepath.Dir(bin)
+	holder.Env = append(os.Environ(), "QOMPACK_PROJECT_ROOT="+t.TempDir(), "HOME="+home, "USERPROFILE="+home)
+	holderIn, err := holder.StdinPipe()
+	require.NoError(t, err)
+	require.NoError(t, holder.Start(), "fixture: the stand-in lock holder must start")
+	holderPID := holder.Process.Pid
+
+	lockPath := daemon.LockPath(dir)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(lockPath)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(lockPath), nil, 0o600),
+		"fixture: the empty daemon.lock a starting daemon's CreateNew leaves before its body lands")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		e2eShutdownIfReachable(t, dir)
+	}()
+	// Whatever the outcome: the stand-in is told to exit, the helper (which logs through t) has
+	// returned before this test does, and the stand-in is reaped. Every process here is this
+	// test's own child.
+	t.Cleanup(func() {
+		_ = holderIn.Close()
+		select {
+		case <-done:
+		case <-time.After(e2eDaemonDownBound + e2eDaemonDownBound):
+		}
+		reaped := make(chan struct{})
+		go func() {
+			_ = holder.Wait()
+			close(reaped)
+		}()
+		select {
+		case <-reaped:
+		case <-time.After(mcpE2EExitBound):
+			_ = holder.Process.Kill()
+			<-reaped
+		}
+	})
+
+	spool := filepath.Join(paths.Of(dir).Spool, "client-"+strconv.Itoa(os.Getpid())+".ndjson")
+	attempts := func() int {
+		b, _ := paths.ReadFileShared(spool)
+		return strings.Count(string(b), `"`+string(ipc.OpAdminShutdown)+`"`)
+	}
+	// awaitAttempts waits until the helper has made at least n shutdown attempts, and fails if it
+	// returns first. Its bound is e2eDaemonDownBound, after which the helper's own loop gives up.
+	awaitAttempts := func(n int, why string) {
+		t.Helper()
+		ticker := time.NewTicker(e2eDaemonDownTick)
+		defer ticker.Stop()
+		deadline := time.Now().Add(e2eDaemonDownBound)
+		for attempts() < n {
+			select {
+			case <-done:
+				require.True(t, e2eProcessAlive(holderPID),
+					"fixture: the stand-in lock holder (pid %d) exited on its own", holderPID)
+				require.FailNowf(t, "e2eShutdownIfReachable returned too early",
+					"it returned %s, while the stand-in lock holder (pid %d) was still running",
+					why, holderPID)
+			case <-ticker.C:
+			}
+			require.False(t, time.Now().After(deadline), "the helper made no shutdown attempt %s", why)
+		}
+	}
+
+	// The helper's shutdown loop is running, and it began with a lock it could not parse.
+	awaitAttempts(1, "before its shutdown loop started")
+
+	body, err := json.Marshal(daemon.LockInfo{PID: holderPID, Started: time.Now().UnixMilli()})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(paths.Long(lockPath), body, 0o600))
+	// An attempt that starts after the body landed is followed by a check that reads it.
+	awaitAttempts(attempts()+2, "before it read the lock's holder")
+
+	// The holder releases the lock and keeps running, as a daemon does between Stop's last act and
+	// its exit. The helper must go on waiting through at least one check that finds no lock.
+	require.NoError(t, os.Remove(paths.Long(lockPath)))
+	awaitAttempts(attempts()+2, "once the lock was released")
+
+	// The holder exits, and only now may the helper return.
+	require.NoError(t, holderIn.Close())
+	select {
+	case <-done:
+	case <-time.After(e2eDaemonDownBound):
+		t.Fatalf("e2eShutdownIfReachable did not return within %s of the last lock holder exiting",
+			e2eDaemonDownBound)
+	}
+	require.False(t, e2eProcessAlive(holderPID),
+		"e2eShutdownIfReachable returned while the stand-in lock holder (pid %d) was still running", holderPID)
 }
