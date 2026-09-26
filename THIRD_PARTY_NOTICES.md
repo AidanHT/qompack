@@ -43,7 +43,7 @@ Qompack itself is MIT-licensed. The full text, as it appears in `LICENSE`:
 | --- | --- | --- |
 | `github.com/Microsoft/go-winio` | `v0.6.2` | MIT |
 | `github.com/klauspost/compress` | `v1.18.7` | BSD-3-Clause, with Apache-2.0 and MIT components (the module's own LICENSE carries all three; see the text below) |
-| `golang.org/x/sys` | `v0.44.0` | BSD-3-Clause |
+| `golang.org/x/sys` | `v0.47.0` | BSD-3-Clause |
 
 ### github.com/Microsoft/go-winio v0.6.2
 
@@ -793,7 +793,7 @@ Reproduced from `zstd/internal/xxhash/LICENSE.txt`:
     OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
     WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### golang.org/x/sys v0.44.0
+### golang.org/x/sys v0.47.0
 
 Licence: BSD-3-Clause
 
@@ -837,7 +837,7 @@ on all six release targets and fails on any module outside §2's allow-list.
 | --- | --- | --- | --- |
 | `github.com/google/go-cmp` | `v0.7.0` | BSD-3-Clause | test/tooling only, not shipped |
 | `github.com/stretchr/testify` | `v1.10.0` | MIT | test/tooling only, not shipped |
-| `golang.org/x/tools` | `v0.34.0` | BSD-3-Clause | test/tooling only, not shipped |
+| `golang.org/x/tools` | `v0.49.0` | BSD-3-Clause | test/tooling only, not shipped |
 | `pgregory.net/rapid` | `v1.1.0` | MPL-2.0 | test only, not shipped — `devtool lint --only=bindeps` proves it never reaches the binary on any of the six release targets, so its file-level copyleft is never triggered |
 
 The Go standard library ships with the Go toolchain and is not redistributed by this
