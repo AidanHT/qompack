@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,19 +60,23 @@ func TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight(t *testing.T) {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 	started := make(chan error, 1)
-	exited := make(chan time.Time, 1)
-	late := time.AfterFunc(e2eLazySpawnSettleBound+time.Second, func() {
-		err := cmd.Start()
-		started <- err
-		if err == nil {
-			_ = cmd.Wait()
-			exited <- time.Now()
+	late := time.AfterFunc(e2eLazySpawnSettleBound+time.Second, func() { started <- cmd.Start() })
+	// reap waits for this test's own child, killing it if it outlives e2eDaemonDownBound.
+	reap := func() error {
+		waited := make(chan error, 1)
+		go func() { waited <- cmd.Wait() }()
+		select {
+		case err := <-waited:
+			return err
+		case <-time.After(e2eDaemonDownBound):
+			_ = cmd.Process.Kill() // this test's own child, never another process
+			return fmt.Errorf("still running %s later, so it was killed: %w", e2eDaemonDownBound, <-waited)
 		}
-	})
+	}
 	// Whatever the outcome, this test's own child is gone before its TempDir is removed: stopping
-	// the timer means it never started; otherwise wait for the exit the body has not yet consumed.
+	// the timer means it never started; otherwise reap it if the body has not.
 	var startErr error
-	startSeen, exitSeen := false, false
+	startSeen, reaped := false, false
 	t.Cleanup(func() {
 		if late.Stop() {
 			return
@@ -79,15 +84,10 @@ func TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight(t *testing.T) {
 		if !startSeen {
 			startErr = <-started
 		}
-		if startErr != nil || exitSeen {
+		if startErr != nil || reaped {
 			return
 		}
-		select {
-		case <-exited:
-		case <-time.After(e2eDaemonDownBound):
-			_ = cmd.Process.Kill() // this test's own child, never another process
-			<-exited
-		}
+		_ = reap()
 	})
 
 	e2eShutdownIfReachable(t, dir)
@@ -95,16 +95,31 @@ func TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight(t *testing.T) {
 
 	startErr, startSeen = <-started, true
 	require.NoError(t, startErr, "fixture: the late daemon must have been started")
-	select {
-	case exitedAt := <-exited:
-		exitSeen = true
-		require.False(t, exitedAt.After(returned),
-			"e2eShutdownIfReachable returned %s before the late daemon exited: it handed a tree a "+
-				"live daemon was still writing to to the caller's RemoveAll", exitedAt.Sub(returned))
-	case <-time.After(e2eDaemonDownBound):
-		t.Fatalf("e2eShutdownIfReachable returned while the late daemon was still running %s later",
-			e2eDaemonDownBound)
-	}
+	// One definition of "gone", the helper's own, asked of the process this test launched rather
+	// than of the pid the lock file names: e2eProcessAlive says it is no longer running. On Windows
+	// that means its process object is signaled, which the kernel does only after it has closed the
+	// process's handles (testutil.ProcessAlive); on Linux, that it is a zombie or reaped. It is asked
+	// once the helper has returned and before the child is reaped, so the pid cannot name any other
+	// process: Windows keeps a pid unused while cmd still holds the process handle, and on Linux an
+	// exited child stays a zombie until it is reaped.
+	//
+	// This row used to compare the helper's return with the instant a goroutine's cmd.Wait came
+	// back, and under co-load it failed with the helper 2-3 ms ahead (w3-e2ereds, on w2-hookout's
+	// aec178a). Two things were in that gap. The helper's probe was GetExitCodeProcess, and Windows
+	// sets the exit code before it closes the process's handles, up to 151 ms before the process
+	// object is signaled (w4-e2eflakes runs/diag-a-exitcode-vs-signaled-windows.txt): the helper
+	// could return while the daemon still held its files, and that was a real defect, fixed in the
+	// probe. And a goroutine's time.Now after cmd.Wait is not when the process exited but when that
+	// goroutine next ran, so even a helper that waits for the signal can lose that race. The probe
+	// asked at the return has no such lag, and it asks exactly what the helper promises.
+	aliveAtReturn := e2eProcessAlive(cmd.Process.Pid)
+	waitErr := reap()
+	reaped = true
+	require.False(t, aliveAtReturn,
+		"e2eShutdownIfReachable returned while the late daemon (pid %d) was still running (it was reaped "+
+			"%s after the return): it handed a tree a live daemon was still writing to to the caller's "+
+			"RemoveAll", cmd.Process.Pid, time.Since(returned))
+	require.NoError(t, waitErr, "fixture: the late daemon must have run and exited cleanly")
 	_, held := e2eDaemonHoldingLock(dir)
 	require.False(t, held, "no live daemon may hold the project's lock once the helper returns")
 }
