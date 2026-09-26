@@ -1030,6 +1030,7 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 	// because SessionEnd is SP-08's L1 flush semantics (store.Flush and friends), which is
 	// recording work, not acting work, so it belongs behind the same predicate row 1's
 	// ingest.Accept uses, not behind MayAct() (M-3).
+	//
 	// cut is set when the end's context ended before SessionEnd had finished: the session was not
 	// ended, whatever SessionEnd returned, since every step of it answers its context.
 	cut := false
