@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -53,4 +54,60 @@ func TestSyncPublication_CountsAFileBarrierPerObjectAndIndex(t *testing.T) {
 		require.Equal(t, int64(len(objects)+2), tp.counter(CounterPublicationSyncFile)-before,
 			"pass %d: one fsync per closure object and one per index file", pass)
 	}
+}
+
+// TestSyncPublication_SyncsEachDirectoryOncePerPass pins the pass's directory fsyncs at one per
+// distinct directory: each fanout leaf (objects/ab/cd) and first-level fanout directory (objects/ab)
+// holding a closure object, the objects/ root, and index/. A directory fsync makes durable every
+// entry created in that directory before it, and every entry the pass proves exists before the
+// pass's directory fsyncs, so a second fsync of a directory within the pass makes nothing more
+// durable. The count is derived from the closure's hashes, not from the store's own walk.
+func TestSyncPublication_SyncsEachDirectoryOncePerPass(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	root, objects := putBarrierFixture(t, tp)
+	leaves, fanouts := map[string]bool{}, map[string]bool{}
+	for h := range objects {
+		hx := hexOf(h)
+		fanouts[hx[:fanoutWidth]] = true
+		leaves[hx[:2*fanoutWidth]] = true
+	}
+	require.Less(t, len(fanouts), len(objects), "fixture: some objects share a first-level fanout directory")
+	want := int64(len(leaves) + len(fanouts) + 2) // + the objects/ root + index/
+	perObject := int64(3*len(objects) + 1)        // a leaf, a fanout and the root per object, + index/
+	require.Less(t, want, perObject, "fixture: one fsync per directory is fewer than three per object")
+	t.Logf("closure: %d objects in %d leaves under %d fanouts; %d directory fsyncs per pass (%d at three per object)",
+		len(objects), len(leaves), len(fanouts), want, perObject)
+
+	for pass := 1; pass <= 2; pass++ {
+		before := tp.counter(CounterPublicationSyncDir)
+		require.NoError(t, tp.Store.SyncPublication(ctx, root))
+		require.Equal(t, want, tp.counter(CounterPublicationSyncDir)-before,
+			"pass %d: each directory holding a closure object is fsynced once, then index/", pass)
+	}
+}
+
+// TestPublicationDirs_KeepsEachDirectoryOnceInTheOrderFirstReached pins the pass's directory set on
+// the case no fixture root reaches by chance: two objects in one fanout leaf. Their leaf is fsynced
+// once, as are a first-level fanout directory two leaves share and the objects/ root every object
+// shares, and a directory outside the objects/ root ends its walk at the volume root.
+func TestPublicationDirs_KeepsEachDirectoryOnceInTheOrderFirstReached(t *testing.T) {
+	top := filepath.Join(t.TempDir(), "objects")
+	leaf := func(parts ...string) string { return filepath.Join(append([]string{top}, parts...)...) }
+	d := newPublicationDirs(top, 4)
+	d.add(leaf("ab", "cd")) // first object
+	d.add(leaf("ab", "cd")) // a second object in the same leaf
+	d.add(leaf("ab", "ef")) // a sibling leaf under the same first-level directory
+	d.add(leaf("12", "34")) // another first-level directory
+	require.Equal(t, []string{
+		leaf("ab", "cd"), leaf("ab"), top,
+		leaf("ab", "ef"),
+		leaf("12", "34"), leaf("12"),
+	}, d.order)
+
+	outside := filepath.Join(filepath.Dir(top), "elsewhere")
+	d.add(outside)
+	require.Equal(t, outside, d.order[6], "a directory outside the objects/ root is still fsynced")
+	volume := filepath.VolumeName(outside) + string(filepath.Separator)
+	require.Equal(t, volume, d.order[len(d.order)-1], "and its walk ends at the volume root")
 }

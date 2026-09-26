@@ -82,9 +82,27 @@ func (s *FSStore) publicationObjects(ctx context.Context, root core.Hash) (map[c
 }
 
 // SyncPublication uses the existing single-writer/GC ownership contract. It
-// verifies every referenced object, flushes its data and containing directories,
-// then flushes the root and tool-use indices. Missing capabilities fail closed.
-// OS/filesystem power-loss guarantees remain those of paths.SyncDir and File.Sync.
+// verifies every referenced object and flushes its data, then flushes each
+// directory holding one, then the root and tool-use indices and the index directory.
+// Missing capabilities fail closed. OS/filesystem power-loss guarantees remain those
+// of paths.SyncDir and File.Sync.
+//
+// Every pass is a whole re-proof: each call verifies and fsyncs the entire closure,
+// whatever an earlier pass proved (owner decision D20). Within the pass, though, each
+// directory is fsynced ONCE, after every object file has been verified and fsynced,
+// where it used to be fsynced once per object in it: an object's fanout leaf, its
+// first-level fanout directory and the objects/ root, after each object (SP08-D1).
+// The two make the same entries durable before the call returns. A directory fsync
+// makes durable every entry created in that directory before the call. Every entry
+// this pass depends on is in place before the pass fsyncs any directory: the object's
+// rename and its fanout mkdirs happened in the put that came before the pass, and
+// the pass found the object there when it verified it. And nothing the pass guards
+// (the intent line, the record, the capture link, the frontier) runs until the call
+// has returned. So a second fsync of one directory inside a pass made nothing more
+// durable. The order of the directory fsyncs inside the pass carries nothing either,
+// for the same reason: no step depends on a directory until they have all completed.
+// A power loss inside the pass loses nothing the pass promised, because the pass has
+// not returned and its caller has not taken the step it guards.
 func (s *FSStore) SyncPublication(ctx context.Context, hash core.Hash) error {
 	if err := s.mutate(); err != nil {
 		return err
@@ -99,11 +117,20 @@ func (s *FSStore) SyncPublication(ctx context.Context, hash core.Hash) error {
 		return err
 	}
 	defer func() { _ = root.Close() }()
+	dirs := newPublicationDirs(s.l.Objects, len(objects))
 	for h := range objects {
 		if _, err := s.GetChunk(ctx, h); err != nil {
 			return err
 		}
-		if err := s.syncPublicationObject(root, h); err != nil {
+		dir, err := s.syncPublicationObject(root, h)
+		if err != nil {
+			return err
+		}
+		dirs.add(dir)
+	}
+	for _, dir := range dirs.order {
+		s.count(CounterPublicationSyncDir, 1)
+		if err := paths.SyncDir(dir); err != nil {
 			return err
 		}
 	}
@@ -133,46 +160,69 @@ func (s *FSStore) syncPublicationIndex(writer *appendFile) error {
 	return sync.Sync()
 }
 
-func (s *FSStore) syncPublicationObject(root *os.Root, h core.Hash) error {
+// publicationDirs is the set of directories one SyncPublication pass fsyncs: the directory of each
+// object file the pass synced and every ancestor of it up to the objects/ root, each once, in the
+// order first reached.
+type publicationDirs struct {
+	top   string
+	seen  map[string]struct{}
+	order []string
+}
+
+func newPublicationDirs(top string, objects int) *publicationDirs {
+	return &publicationDirs{top: top, seen: make(map[string]struct{}, objects)}
+}
+
+// add records dir and each ancestor of it up to top. A directory only ever enters the set together
+// with all of its ancestors up to top, so the walk stops at the first directory already there. A
+// directory outside top ends its walk at the volume root, whose parent is itself.
+func (d *publicationDirs) add(dir string) {
+	for {
+		if _, ok := d.seen[dir]; ok {
+			return
+		}
+		d.seen[dir] = struct{}{}
+		d.order = append(d.order, dir)
+		if dir == d.top {
+			return
+		}
+		dir = filepath.Dir(dir)
+	}
+}
+
+// syncPublicationObject fsyncs h's object file and returns the directory holding it, which the
+// caller fsyncs once for the pass.
+func (s *FSStore) syncPublicationObject(root *os.Root, h core.Hash) (string, error) {
 	for _, path := range s.objectCandidates(h) {
 		rel, err := filepath.Rel(s.l.Objects, path)
 		if err != nil {
-			return err
+			return "", err
 		}
 		info, err := root.Lstat(rel)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return err
+			return "", err
 		}
 		if !info.Mode().IsRegular() {
-			return core.ErrDegraded
+			return "", core.ErrDegraded
 		}
 		// Windows FlushFileBuffers needs a handle opened for writing.
 		f, err := root.OpenFile(rel, os.O_RDWR, 0)
 		if err != nil {
-			return err
+			return "", err
 		}
 		opened, statErr := f.Stat()
 		if statErr != nil || !os.SameFile(info, opened) {
 			_ = f.Close()
-			return core.ErrDegraded
+			return "", core.ErrDegraded
 		}
 		s.count(CounterPublicationSyncFile, 1)
-		err = errors.Join(f.Sync(), f.Close())
-		if err != nil {
-			return err
+		if err := errors.Join(f.Sync(), f.Close()); err != nil {
+			return "", err
 		}
-		for dir := filepath.Dir(path); ; dir = filepath.Dir(dir) {
-			s.count(CounterPublicationSyncDir, 1)
-			if err := paths.SyncDir(dir); err != nil {
-				return err
-			}
-			if dir == s.l.Objects {
-				return nil
-			}
-		}
+		return filepath.Dir(path), nil
 	}
-	return core.ErrNotFound
+	return "", core.ErrNotFound
 }
