@@ -7,7 +7,7 @@ toolchain go1.26.6
 require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/google/go-cmp v0.7.0
-	github.com/klauspost/compress v1.18.0
+	github.com/klauspost/compress v1.18.7
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.44.0
 	golang.org/x/tools v0.34.0
