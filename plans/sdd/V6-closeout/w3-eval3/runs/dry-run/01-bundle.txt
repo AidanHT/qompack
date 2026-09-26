@@ -1,0 +1,2 @@
+bundle: qompack-plugin-0.3.0-eval3.dryrun-windows-amd64 (11 file(s), version 0.3.0-eval3.dryrun)
+bundle exit=0

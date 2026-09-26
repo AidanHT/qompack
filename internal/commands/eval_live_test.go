@@ -39,9 +39,9 @@ func liveTrials(arm string, n, k int) []eval.LiveTrial {
 func confirmatoryRun(stockK, qompackK int) commands.LiveEvalInput {
 	const n = 20
 	trials := append(liveTrials(eval.ArmStock, n, stockK), liveTrials(eval.ArmQompack, n, qompackK)...)
-	pre := eval.LivePreregistrations["qompack-live-v1"]
+	pre := eval.LivePreregistrations["qompack-live-v2"]
 	plan := eval.LivePlan{
-		RunID: "20260930T120000Z-abcdef", CreatedAt: "2026-09-30T12:00:00Z", TaskSet: "qompack-live-v1",
+		RunID: "20260930T120000Z-abcdef", CreatedAt: "2026-09-30T12:00:00Z", TaskSet: "qompack-live-v2",
 		TaskSetSHA256: pre.TaskSetSHA256, FixtureTreeSHA256: pre.FixtureTreeSHA256,
 		TaskSetTasks: n / 2, Model: "claude-sonnet-5", PreregisteredModel: "claude-sonnet-5",
 		Arms: []string{eval.ArmStock, eval.ArmQompack}, TrialsPerArm: 2, Install: "plugin-dir",
@@ -183,24 +183,90 @@ func TestEval_LiveInferiorOrRegressedFails(t *testing.T) {
 	require.False(t, *g.Passed)
 }
 
-// TestEval_LiveFailedTrialsKeepTheVerdictInconclusive: failed trials are counted as failures in the
-// pre-registered analysis (intention to treat), and the command's own rule still refuses to call a
-// run with failed trials a pass.
-func TestEval_LiveFailedTrialsKeepTheVerdictInconclusive(t *testing.T) {
+// TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed: preregistration section 8 analyses every
+// planned trial (intention to treat): a trial the harness could not run as designed is scored as a
+// failure on every outcome and listed by name, nothing is dropped. The run's decision already counts
+// its failed trials, so the command reports that decision — here non-inferior, with the harness
+// failure costing the qompack arm a task success — rather than overriding it with "inconclusive"
+// because a trial failed, and it names each failed trial and how it was counted. When the failures
+// move the interval, the verdict moves with the decision.
+func TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed(t *testing.T) {
+	withHarnessFailures := func(stockK, qompackFailures int) commands.LiveEvalInput {
+		run := confirmatoryRun(stockK, 20)
+		trials := liveTrials(eval.ArmStock, 20, stockK)
+		q := liveTrials(eval.ArmQompack, 20, 20)
+		for i := range q[:qompackFailures] {
+			q[i].HarnessError = "step 3 of 4: no result within 10m0s"
+			q[i].Completed = false
+		}
+		run.Summary = eval.SummarizeLive(run.Plan.RunID, liveAnalysis(), append(trials, q...))
+		return run
+	}
+
+	run := withHarnessFailures(19, 1)
+	require.Equal(t, "non-inferior", run.Summary.Decision.Verdict, run.Summary.Decision.Reason)
+	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.True(t, rep.Live.Confirmatory, "%v", rep.Live.NotConfirmatory)
+	require.Equal(t, commands.TrialCounts{Planned: 40, Ran: 40, Failed: 1}, rep.Live.Trials)
+	require.Equal(t, commands.VerdictPass, rep.Verdict, "the pre-registered decision stands")
+	g := liveGate(t, rep.Task, "LIVE-T01")
+	require.NotNil(t, g.Passed)
+	require.True(t, *g.Passed)
+	require.Contains(t, g.Detail, "1 failed trial(s) counted under intention to treat")
+	var q eval.ArmSummary
+	for _, as := range rep.Live.Arms {
+		if as.Arm == eval.ArmQompack {
+			q = as
+		}
+	}
+	require.Equal(t, [2]int{19, 20}, [2]int{q.TaskSuccess.K, q.TaskSuccess.N}, "the failed trial is a failure, not dropped")
+	require.Len(t, rep.Live.Failed, 1)
+	require.True(t, strings.HasPrefix(rep.Live.Failed[0], "t00/qompack/1: "), rep.Live.Failed[0])
+	require.Contains(t, rep.Live.FailedTreatment, "intention to treat")
+	require.Contains(t, rep.Live.FailedTreatment, "failure on every outcome")
+
+	text, err := runWith(t, evalDeps(liveOnly(run), nil), "eval")
+	require.NoError(t, err)
+	require.Contains(t, text, "eval: PASS")
+	require.Contains(t, text, "failed trials: 1, "+rep.Live.FailedTreatment)
+	require.Contains(t, text, "failed trial: t00/qompack/1: ")
+
+	// Four harness failures leave the interval straddling the margin: the decision is inconclusive,
+	// and so is the verdict, because the rule reached no verdict.
+	run = withHarnessFailures(20, 4)
+	require.Equal(t, "inconclusive", run.Summary.Decision.Verdict, run.Summary.Decision.Reason)
+	out, err = runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep = decodeEval(t, out)
+	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+	g = liveGate(t, rep.Task, "LIVE-T01")
+	require.Nil(t, g.Passed)
+	require.Contains(t, g.Detail, "the pre-registered rule reached no verdict")
+	require.Len(t, rep.Live.Failed, 4)
+}
+
+// TestEval_LiveNotConfirmatoryOnASupersededTaskSet: qompack-live-v1 was superseded before any trial
+// of it by qompack-live-v2 (preregistration amendment A7, owner decision D12). A run of it on its
+// own frozen materials is still not the confirmatory run, and the report says why and names the set
+// that replaced it.
+func TestEval_LiveNotConfirmatoryOnASupersededTaskSet(t *testing.T) {
 	run := confirmatoryRun(19, 20)
-	var trials []eval.LiveTrial
-	trials = append(trials, liveTrials(eval.ArmStock, 20, 19)...)
-	q := liveTrials(eval.ArmQompack, 20, 20)
-	q[0].HarnessError = "step 3 of 4: no result within 10m0s"
-	trials = append(trials, q...)
-	run.Summary = eval.SummarizeLive(run.Plan.RunID, liveAnalysis(), trials)
+	v1 := eval.LivePreregistrations["qompack-live-v1"]
+	run.Plan.TaskSet, run.Plan.TaskSetSHA256, run.Plan.FixtureTreeSHA256 = "qompack-live-v1", v1.TaskSetSHA256, v1.FixtureTreeSHA256
 
 	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
 	require.NoError(t, err)
 	rep := decodeEval(t, out)
-	require.True(t, rep.Live.Confirmatory)
-	require.Equal(t, 1, rep.Live.Trials.Failed)
-	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+	require.False(t, rep.Live.Confirmatory)
+	require.Len(t, rep.Live.NotConfirmatory, 1, "its materials are its own pre-registered ones: %v", rep.Live.NotConfirmatory)
+	reason := rep.Live.NotConfirmatory[0]
+	for _, want := range []string{"qompack-live-v1", "superseded", "qompack-live-v2", "amendment A7"} {
+		require.Contains(t, reason, want)
+	}
+	require.Nil(t, liveGate(t, rep.Task, "LIVE-T01").Passed)
+	require.NotEqual(t, commands.VerdictPass, rep.Verdict)
 }
 
 // TestEval_ReplayAndLiveAreReportedTogether: with both artifacts the replay gates and the live gates
@@ -232,6 +298,57 @@ func TestEval_ReplayAndLiveAreReportedTogether(t *testing.T) {
 	}
 	require.Less(t, strings.Index(text, "agent-executed"), strings.Index(text, "decision (pre-registered rule)"),
 		"the qualification comes before the numbers")
+}
+
+// TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision: a confirmatory live run is the
+// pre-registered evaluation, so when its rule reaches no verdict on the primary outcome — a trial
+// whose plugin state contradicted its arm makes the decision not-applicable, an interval that
+// straddles the margin makes it inconclusive — the verdict is inconclusive, and a passing replay read
+// beside it (plain `qompack eval` reads both) cannot turn that into a pass. A constraint regression
+// still fails such a run: it is failed whatever the primary verdict.
+func TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision(t *testing.T) {
+	withQompackTrials := func(stockK int, mutate func([]eval.LiveTrial)) commands.LiveEvalInput {
+		run := confirmatoryRun(stockK, 20)
+		q := liveTrials(eval.ArmQompack, 20, 20)
+		mutate(q)
+		run.Summary = eval.SummarizeLive(run.Plan.RunID, liveAnalysis(),
+			append(liveTrials(eval.ArmStock, 20, stockK), q...))
+		return run
+	}
+	mismatch := withQompackTrials(19, func(q []eval.LiveTrial) { q[0].PluginLoaded = false })
+	require.Equal(t, "not-applicable", mismatch.Summary.Decision.Verdict, mismatch.Summary.Decision.Reason)
+	straddles := confirmatoryRun(20, 16)
+	require.Equal(t, "inconclusive", straddles.Summary.Decision.Verdict, straddles.Summary.Decision.Reason)
+	regressed := withQompackTrials(19, func(q []eval.LiveTrial) {
+		q[0].PluginLoaded = false
+		for i := range q[:15] {
+			q[i].ConstraintViolations = 1
+		}
+	})
+	require.Equal(t, "not-applicable", regressed.Summary.Decision.Verdict, regressed.Summary.Decision.Reason)
+	require.NotEmpty(t, regressed.Summary.ConstraintRegression)
+
+	for name, c := range map[string]struct {
+		run  commands.LiveEvalInput
+		want commands.EvalVerdict
+	}{
+		"plugin mismatch":       {mismatch, commands.VerdictInconclusive},
+		"interval straddles":    {straddles, commands.VerdictInconclusive},
+		"regression, no ruling": {regressed, commands.VerdictFail},
+	} {
+		for _, replayed := range []bool{false, true} {
+			in := liveOnly(c.run)
+			if replayed {
+				in = inputWith(goodScore(), ranTrials(), nil)
+				in.Live = &c.run
+			}
+			out, _ := runWith(t, evalDeps(in, nil), "eval", "--json")
+			rep := decodeEval(t, out)
+			require.True(t, rep.Live.Confirmatory, "%s: %v", name, rep.Live.NotConfirmatory)
+			require.Nil(t, liveGate(t, rep.Task, "LIVE-T01").Passed, name)
+			require.Equal(t, c.want, rep.Verdict, "%s (replay read: %t)", name, replayed)
+		}
+	}
 }
 
 // ── the file-backed provider ─────────────────────────────────────────────────────────────────────

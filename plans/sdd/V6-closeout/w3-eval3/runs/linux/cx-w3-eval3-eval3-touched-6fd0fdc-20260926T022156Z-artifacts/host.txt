@@ -1,0 +1,10 @@
+run_id=cx-w3-eval3-eval3-touched-6fd0fdc-20260926T022156Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-eval3
+rev=6fd0fdc
+commit=6fd0fdcccd198b6ba69ddba837753d73c6794e44
+bundle_sha256=ce6c385bcfe9cb03e8bc04bc112266ec5dafa08673c3a0da553d8775fc0d9108
+host_started_utc=2026-09-26T02:22:02Z
+inner_args=--timeout 30m -- ./internal/eval ./internal/commands ./internal/cli ./tools/devtool ./test/docs
+host_finished_utc=2026-09-26T02:23:12Z
+container_exit=0
