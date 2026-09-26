@@ -1,0 +1,13 @@
+# devtool lint subset at 6fea2e9
+# go run ./tools/devtool lint --only=golangci-lint,nomagic,sleepcheck,importgraph
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (72 package(s) checked)
+PASS importgraph
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+exit=0
