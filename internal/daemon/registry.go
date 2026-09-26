@@ -35,6 +35,11 @@ type SessionState struct {
 	// a vanished client. Traffic disproves that and revives it (Touch); SessionEnd's End does not
 	// set it, so a straggler after SessionEnd never revives the session it ended.
 	abandoned bool
+
+	// lastStart is when the host fired the latest SessionStart this daemon has handled for the
+	// session, by the hook's own clock (NoteStart). It is unexported so the status snapshot's JSON is
+	// unchanged.
+	lastStart core.UnixMilli
 }
 
 // SessionRegistry holds per-session live state behind a sync.RWMutex, plus the daemon-wide
@@ -196,6 +201,31 @@ func (r *SessionRegistry) Ensure(e *hookio.Event, now core.UnixMilli) *SessionSt
 
 	r.evictLocked()
 	return s
+}
+
+// NoteStart records that the host fired a SessionStart for id at at — the hook's own timestamp, which
+// for a start replayed from a spool is long before the replay — keeping the latest such instant. It
+// is called by the session.start route after Ensure; an id Ensure has not registered is ignored.
+func (r *SessionRegistry) NoteStart(id core.SessionID, at core.UnixMilli) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if s, ok := r.sessions[id]; ok && at > s.lastStart {
+		s.lastStart = at
+	}
+}
+
+// StartedSince reports whether this daemon has handled a SessionStart for id that the host fired at
+// or after at. An unknown at (zero), an unknown session, or one the registry has since evicted
+// reports false: the checkpoint route then treats a replayed PreCompact as not yet followed by a
+// start, which is what it did before it asked.
+func (r *SessionRegistry) StartedSince(id core.SessionID, at core.UnixMilli) bool {
+	if at <= 0 {
+		return false
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.sessions[id]
+	return ok && s.lastStart >= at
 }
 
 // Touch records hot-path traffic from id: it advances LastActivity and increments Events. Traffic

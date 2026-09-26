@@ -771,6 +771,9 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	// check happens BEFORE Ensure so "new" means what registry.Ensure itself means.
 	_, existedBefore := d.registry.Get(ev.SessionID)
 	d.registry.Ensure(ev, now)
+	// When the host fired this start, which for a replay is long before now: the checkpoint route
+	// asks it whether a PreCompact it replays was already followed by a start (handleCheckpoint).
+	d.registry.NoteStart(ev.SessionID, hookTime(req, now))
 	if !existedBefore {
 		d.breach.Reset()
 	}
@@ -793,7 +796,19 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 		Clock:       d.clk,
 		History:     h,
 	}
+	// A replayed start the host fired BEFORE the pending PreCompact is not the start that PreCompact
+	// announced: its hook had already run when the PreCompact did, and only its replay comes after.
+	// Resolving session_start.source_compact against it would fail the assertion at critical
+	// severity — a startup is no compact — and degrade the project for Qompack's own replay order. So
+	// its contract run does not see the obligation, which stays pending for the start that follows.
+	heldBack := replayed && h.AwaitingCompactStart && hookTime(req, now) < h.LastPrecompactTS
+	if heldBack {
+		h.AwaitingCompactStart = false
+	}
 	results, mode := d.monitor.RunAll(ctx, env)
+	if heldBack {
+		h.AwaitingCompactStart = true
+	}
 	// A compact SessionStart's rehydration starts here, as soon as the contract run has said the
 	// mode may act and before this phase's own durable writes, so the two overlap; the route
 	// collects it where the seam call would be (session_start_compact.go, C1.16).
@@ -926,6 +941,15 @@ func (d *daemon) withdrawLostStartAnswer(h *contract.SessionHistory, nonce strin
 		d.lastAnnouncedMode = contract.ModeFull
 		d.modeMu.Unlock()
 	}
+}
+
+// hookTime is when the host fired the hook req came from: the hook's own first-statement timestamp,
+// or now when the request carries none.
+func hookTime(req ipc.Request, now core.UnixMilli) core.UnixMilli {
+	if req.TS > 0 {
+		return req.TS
+	}
+	return now
 }
 
 // recordContractObservability is ruling #26's obligation: a per-failing-assertion counter and a
@@ -1074,11 +1098,26 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 	// Phase 1 (locked): record the PreCompact observation — this package's own file I/O only,
 	// no seam call — and save immediately, matching the spec's own ordering (history observation,
 	// then the marker, then the seam call).
+	//
+	// The observation arms session_start.source_compact: the session's next start must be a
+	// compact one. A PreCompact replayed from a hook's spool (drainDispatch) can arrive after that
+	// start — the hook spools a request whose reply missed its deadline, which this daemon may
+	// already have handled — and re-arming then would pin the obligation on the session's NEXT start,
+	// a resume, and degrade the project at critical severity for Qompack's own replay order. So a
+	// replay arms it only if no start of the session has been seen since the hook fired
+	// (SessionRegistry.StartedSince); the PreCompact a daemon never saw live, replayed by the
+	// startup drain ahead of its compact start, still arms it.
+	//
+	// LastPrecompactTS is when the host fired the PreCompact (the hook's own timestamp), not when this
+	// route ran: the session.start route compares it with a replayed start's hook time, to tell a start
+	// fired before the PreCompact from the one it announced (handleSessionStart).
 	d.historyMu.Lock()
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
-	h.LastPrecompactTS = now
-	h.LastPrecompactSession = ev.SessionID
-	h.AwaitingCompactStart = true
+	if !spoolReplay(ctx) || !d.registry.StartedSince(ev.SessionID, req.TS) {
+		h.LastPrecompactTS = hookTime(req, now)
+		h.LastPrecompactSession = ev.SessionID
+		h.AwaitingCompactStart = true
+	}
 	if h.PrecompactTimeoutMs == 0 {
 		h.PrecompactTimeoutMs = precompactTimeoutMs()
 	}
