@@ -265,7 +265,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if err != nil {
 		return err
 	}
-	treeDirs := liveFixtureTreeDirs(ts)
+	treeDirs := ts.FixtureTreeDirs()
 	tree, err := eval.TreeManifestSHA256(filepath.Dir(o.tasksFile), treeDirs...)
 	if err != nil {
 		return fmt.Errorf("live-eval: hashing the fixture tree: %w", err)
@@ -412,23 +412,6 @@ func liveDryRunHost(o liveOptions, env *liveEnv, d eval.LiveTaskDefaults, t eval
 		out = append(out, fmt.Sprintf("host (%s, task %s): %s %s", arm, t.ID, bin, strings.Join(args, " ")))
 	}
 	return out
-}
-
-// liveFixtureTreeDirs is the sorted set of top-level directories, relative to the task file, that
-// the task set's fixtures and hidden fixtures live under. For qompack-live-v1 it is fixtures and
-// hidden: exactly the tree the pre-registration's amendment A1 hashes.
-func liveFixtureTreeDirs(ts eval.LiveTaskSet) []string {
-	seen := map[string]bool{}
-	for _, t := range ts.Tasks {
-		for _, dir := range []string{t.Fixture, t.HiddenFixture} {
-			if dir == "" {
-				continue
-			}
-			top, _, _ := strings.Cut(dir, "/")
-			seen[top] = true
-		}
-	}
-	return liveSortedKeys(seen)
 }
 
 // selectLiveTasks applies --only and the held-out rule.
