@@ -511,6 +511,16 @@ func TestE2E_ThinSliceDropsControlOnlyEdges(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return strings.Contains(strings.Join(obsToolUseLines(p.Root), "\n"), lastID)
 	}, obsProcessBound, obsProcessTick, "the last mixed call was never indexed: %s", obsWaitDiag{p.Root})
+	// The index record is publication's second stage, not its end. The observer links it to its
+	// capture sidecar next (tooluse.go step 6b) and only then emits the DAG node (step 10); a
+	// shutdown landing before that link cancels the first run, and the replay that follows takes
+	// the redelivery path, which by design never recomputes a first run's derived DAG (step 6c). So
+	// the shutdown below has to wait for the link, or the last node's absence from the graph is
+	// the test's own race: under -race in the whole-package Linux run the thin slice came back
+	// empty (w4-e2eflakes runs/linux/cx-w4-e2eflakes-e2e-whole-78b33a1-*), and a cancellable 3 s
+	// delay injected before the link reproduces exactly that on Windows. Once the link lands the
+	// DAG step no longer depends on the run's context, and Stop waits for the worker to finish.
+	x02SidecarFor(t, p.Root, lastID)
 
 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
 	e2eShutdownIfReachable(t, p.Root)
