@@ -3,7 +3,6 @@ package paths_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"testing"
 
@@ -207,21 +206,55 @@ func TestWriteAtomic_RefusesAProtectedPathNamedRelatively(t *testing.T) {
 	require.Equal(t, `{"seq":1}`, string(got))
 }
 
-// TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows keeps the guard where it was on a
-// filesystem that folds case: Windows resolves .QOMPACK to the store, and filepath.Rel folds case
-// there too, so the protected files under that spelling were refused before and must still be.
-func TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("platform: only Windows folds both the filesystem's names and filepath.Rel's comparison")
-	}
+// TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt is the other half of the stray
+// .qompack rule. A stray directory inside checkpoints/ or pins/ is the NEAREST store on the path of
+// anything written through it, so it owns such a write; but the real store's checkpoints/ and
+// pins/ still enclose the path, and the §7.4 guard asks every store on the path, not only the
+// owner. Asked of the stray alone, the guard found the write outside its checkpoints/ and let it
+// through.
+func TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt(t *testing.T) {
 	l := newLayout(t)
-	cp := paths.CheckpointPath(l, 1)
-	require.NoError(t, paths.CreateNew(cp, []byte(`{"seq":1}`)))
-	variant := filepath.Join(l.Root, ".QOMPACK", "checkpoints", filepath.Base(cp))
-
-	require.ErrorIs(t, paths.WriteAtomic(variant, []byte(`{"seq":1,"tampered":true}`), 0o600), core.ErrAppendOnly)
-
-	got, err := os.ReadFile(cp)
+	strayCheckpoints := filepath.Join(l.Checkpoints, ".qompack")
+	strayPins := filepath.Join(l.Pins, ".qompack")
+	for _, dir := range []string{strayCheckpoints, strayPins} {
+		require.NoError(t, os.MkdirAll(dir, 0o700))
+	}
+	throughCheckpoints := filepath.Join(strayCheckpoints, "0002.json")
+	throughPins := filepath.Join(strayPins, "invariants.jsonl")
+	require.NoError(t, paths.AppendJSONL(throughPins, map[string]string{"id": "inv-1"}))
+	pinsBefore, err := os.ReadFile(throughPins)
 	require.NoError(t, err)
-	require.Equal(t, `{"seq":1}`, string(got))
+
+	require.ErrorIs(t, paths.WriteAtomic(throughCheckpoints, []byte(`{"seq":2}`), 0o600), core.ErrAppendOnly)
+	_, err = paths.OpenFile(throughPins, os.O_WRONLY|os.O_TRUNC, 0o600)
+	require.ErrorIs(t, err, core.ErrAppendOnly)
+	_, err = paths.OpenSharedRW(throughPins)
+	require.ErrorIs(t, err, core.ErrAppendOnly)
+
+	require.NoFileExists(t, throughCheckpoints, "a refused WriteAtomic must leave nothing behind")
+	got, err := os.ReadFile(throughPins)
+	require.NoError(t, err)
+	require.Equal(t, pinsBefore, got)
+}
+
+// TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself pins that the owner is
+// the NEAREST .qompack on the path, whether or not it exists yet. A project whose own store has not
+// been made is owned by no store, even when its whole tree lies inside another store's, so its first
+// write stages beside itself and makes its directory, exactly as it does with no store above it.
+// Passing over the missing store to the enclosing one staged in that store's tmp/ and then failed
+// the rename, because the project's directory had never been made.
+func TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself(t *testing.T) {
+	outer := newLayout(t)
+	project := filepath.Join(outer.Eval, "replay", "project")
+	require.NoError(t, os.MkdirAll(project, 0o700))
+	outerTmpBefore := storeListing(t, outer.Tmp)
+	target := filepath.Join(paths.Of(project).Run, "state.bin")
+
+	require.NoError(t, paths.WriteAtomic(target, []byte("state"), 0o600))
+
+	got, err := os.ReadFile(target)
+	require.NoError(t, err)
+	require.Equal(t, "state", string(got))
+	require.Equal(t, outerTmpBefore, storeListing(t, outer.Tmp),
+		"a write owned by no store must not stage in the store that encloses it")
 }
