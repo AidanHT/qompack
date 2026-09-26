@@ -219,7 +219,12 @@ func decodeSubagent(raw json.RawMessage) bool {
 func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	recvTS := core.NowMilli(d.clk)
 	// The daemon is provably serving — release Run's spool re-drain (daemon.go, redrainOnceServing).
-	d.noteServed()
+	// A request drainDispatch replays from a spool proves nothing of the kind: Run's startup drain
+	// replays before Serve has accepted a connection, and spending the signal there would run the
+	// re-drain before the cold-start window it exists to cover has closed.
+	if !spoolReplay(ctx) {
+		d.noteServed()
+	}
 	ctx = withServices(ctx, d.svc)
 	ctx = withRegistry(ctx, d.registry)
 	ctx = withDaemon(ctx, d)
