@@ -129,8 +129,7 @@ func (s *FSStore) SyncPublication(ctx context.Context, hash core.Hash) error {
 		dirs.add(dir)
 	}
 	for _, dir := range dirs.order {
-		s.count(CounterPublicationSyncDir, 1)
-		if err := paths.SyncDir(dir); err != nil {
+		if err := s.syncPublicationDir(dir); err != nil {
 			return err
 		}
 	}
@@ -142,8 +141,16 @@ func (s *FSStore) SyncPublication(ctx context.Context, hash core.Hash) error {
 			return err
 		}
 	}
+	return s.syncPublicationDir(s.l.Index)
+}
+
+// syncPublicationDir issues one of the pass's directory fsyncs and counts it.
+func (s *FSStore) syncPublicationDir(dir string) error {
 	s.count(CounterPublicationSyncDir, 1)
-	return paths.SyncDir(s.l.Index)
+	if s.pubSyncDir != nil {
+		return s.pubSyncDir(dir)
+	}
+	return paths.SyncDir(dir)
 }
 
 func (s *FSStore) syncPublicationIndex(writer *appendFile) error {
