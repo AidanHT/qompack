@@ -197,10 +197,18 @@ says so beside every run that carries one, so `confirmatory: yes` is never print
 other run prints why it is not confirmatory and its gates read `not judged`
 (`internal/commands/cmd_eval_live.go`).
 
+A pre-registered task set that its pre-registration superseded before use is never confirmatory:
+`qompack-live-v1` gave way to `qompack-live-v2` (`testdata/eval/live/tasks-v2.json`, amendment A7)
+before any trial of either, because two of its tasks could be passed by doing nothing, and `devtool
+live-eval` refuses to plan a run of it.
+
 What it can report: a verdict of `pass`, `fail`, or `inconclusive` — a distinct outcome for a run
-whose trials were skipped or failed, "because a gate that passes on an evaluation which did not run
-is not a gate". A metric with no declared threshold is printed and explicitly **not judged**, and
-cost never contributes to the verdict.
+whose trials were skipped, or a replay whose trials failed, "because a gate that passes on an
+evaluation which did not run is not a gate". A live run's failed trials do not by themselves make it
+inconclusive: its pre-registered decision already counts every one of them (intention to treat — a
+harness failure is scored as a failure on every outcome), so the verdict is that decision, and the
+report lists each failed trial by name with how it was counted. A metric with no declared threshold
+is printed and explicitly **not judged**, and cost never contributes to the verdict.
 
 ## MCP tools
 
