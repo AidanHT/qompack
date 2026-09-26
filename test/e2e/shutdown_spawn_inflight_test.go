@@ -248,3 +248,85 @@ func TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit(t *testing.T) {
 	require.False(t, e2eProcessAlive(holderPID),
 		"e2eShutdownIfReachable returned while the stand-in lock holder (pid %d) was still running", holderPID)
 }
+
+// TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified pins the one lock history the
+// helper cannot answer by asking a process: a lock it saw held, with no pid it could read, that was
+// gone by its next check.
+//
+// That is what the helper sees when a daemon's whole life after CreateNew falls between two of its
+// checks. paths.CreateNew creates daemon.lock and only then writes the body, so one check can read
+// the empty file. The daemon then writes its body, starts listening, takes the helper's own
+// admin.shutdown, and releases the lock. Stop runs on a goroutine of its own and can release the
+// lock before the reply is even written (handleAdminShutdown), so the next check can find no lock
+// at all. No check ever read a pid, so none can be asked whether it has exited, and the daemon is
+// still unwinding. Before this row the helper counted that as settled, because the set of pids it
+// had to wait for was empty.
+//
+// The test stages that history with no process at all, so the outcome is decided by causality: an
+// empty daemon.lock the helper reads once its shutdown loop runs, then removed without a body ever
+// landing. The helper must not return at the next check. It cannot learn which process held the
+// lock, so the most it can do is wait out its own bound, e2eDaemonDownBound, which covers a
+// daemon's whole Stop cleanup (daemon.StopCleanupBound) with margin. The return is asserted against
+// that bound from below, which no host load can make fail.
+func TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified(t *testing.T) {
+	dir := e2eFaultProject(t)
+
+	lockPath := daemon.LockPath(dir)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(lockPath)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(lockPath), nil, 0o600),
+		"fixture: the empty daemon.lock a starting daemon's CreateNew leaves before its body lands")
+
+	called := time.Now()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		e2eShutdownIfReachable(t, dir)
+	}()
+	// The helper logs through t, so it must have returned before this test does.
+	t.Cleanup(func() {
+		select {
+		case <-done:
+		case <-time.After(e2eDaemonDownBound + e2eDaemonDownBound):
+		}
+	})
+
+	spool := filepath.Join(paths.Of(dir).Spool, "client-"+strconv.Itoa(os.Getpid())+".ndjson")
+	attempts := func() int {
+		b, _ := paths.ReadFileShared(spool)
+		return strings.Count(string(b), `"`+string(ipc.OpAdminShutdown)+`"`)
+	}
+	// awaitAttempts waits until the helper has made at least n shutdown attempts, and fails if it
+	// returns first. Nothing listens, so each attempt lands in the helper's own client spool.
+	awaitAttempts := func(n int, why string) {
+		t.Helper()
+		ticker := time.NewTicker(e2eDaemonDownTick)
+		defer ticker.Stop()
+		deadline := time.Now().Add(e2eDaemonDownBound)
+		for attempts() < n {
+			select {
+			case <-done:
+				require.FailNowf(t, "e2eShutdownIfReachable returned too early",
+					"it returned %s, after %d shutdown attempts, although no check ever read the pid "+
+						"of the process that held the lock", why, attempts())
+			case <-ticker.C:
+			}
+			require.False(t, time.Now().After(deadline), "the helper made no shutdown attempt %s", why)
+		}
+	}
+
+	// The helper's shutdown loop is running. Every attempt is preceded by a check, so the helper has
+	// seen the empty lock by now.
+	awaitAttempts(1, "before its shutdown loop started")
+
+	// The lock goes away with no body ever having been readable.
+	require.NoError(t, os.Remove(paths.Long(lockPath)))
+	awaitAttempts(attempts()+2, "once a lock whose holder it never identified was released")
+
+	select {
+	case <-done:
+	case <-time.After(e2eDaemonDownBound + e2eDaemonDownBound):
+		t.Fatalf("e2eShutdownIfReachable did not return within twice its own bound (%s)", e2eDaemonDownBound)
+	}
+	require.GreaterOrEqual(t, time.Since(called), e2eDaemonDownBound,
+		"with no pid to ask, the helper may only stop waiting at its own bound")
+}

@@ -149,14 +149,18 @@ const (
 // admin.shutdown and waits for it to go away. It is a fast no-op whenever no daemon ever comes up
 // at all (every daemon-down row, and most panic:hook rows, which fault before any spawn attempt).
 //
-// "Gone" is the daemon's LOCK disappearing, not its address going unreachable, and the difference
-// is the whole point of this helper. ipc.Probe stops answering at Stop's FIRST act — the listener
-// closing — while the process goes on to drain, flush and release, every step of which writes
-// under .qompack/. Callers use this from t.Cleanup, immediately before t.TempDir's RemoveAll, so a
-// helper that returns at listener-close hands the directory to RemoveAll with a live writer still
-// in it: on Linux that surfaced as "TempDir RemoveAll cleanup: directory not empty" across most of
-// this file's rows once daemon.Run began waiting for Stop's cleanup to finish. The lock is
-// released last, so its absence is the only signal that means the process is done.
+// "Gone" means no process can still write inside the tree, and the helper has exactly one
+// definition of it: no live process holds root's daemon.lock, AND every process this call saw
+// holding it has exited — on Windows, its process object is signaled, which the kernel does only
+// after it has closed the process's handles (testutil.ProcessAlive). An unreachable address is not
+// that: ipc.Probe stops answering at Stop's FIRST act, the listener closing, while the process goes
+// on to drain, flush and release, every step of which writes under .qompack/. Nor is the lock's
+// absence on its own: Lock.Release is Stop's LAST act, and the process still unwinds after it (the
+// loop below quotes the CI failure that proved it). Callers use this from t.Cleanup, immediately
+// before t.TempDir's RemoveAll, so a helper that returns any earlier hands the directory to
+// RemoveAll with a live writer still in it. A lock seen held whose pid no check could read, and
+// that was gone by the next check, names a process nobody can ask about; the helper then waits out
+// its whole bound rather than count the tree settled (see e2eLockHolders).
 //
 // "Anything to shut down" is reachability OR a lock held by a LIVE process, and the second half
 // is the third state this helper used to miss entirely. A daemon takes the lock and opens its day
@@ -285,8 +289,15 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 	// (TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit stages it). Collecting every pid
 	// the lock names, on every check, costs nothing when there is one daemon and still covers a
 	// lock that changed hands mid-call.
-	holders := e2eLockHolders{}
-	holders.observe(e2eDaemonHoldingLock(root))
+	//
+	// A check runs immediately BEFORE each admin.shutdown as well as after it. A daemon that can
+	// receive a Send is listening, and it wrote its lock body before it listened, so the check just
+	// before the Send reads that body; the check after it may come too late, because Stop runs on a
+	// goroutine of its own and can release the lock before the reply is written
+	// (handleAdminShutdown). What neither check can catch — a lock that was empty at one and gone
+	// at the next — e2eLockHolders records as unidentified, and the helper never counts that as
+	// settled (TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified stages it).
+	holders := newE2ELockHolders()
 
 	// Client.Send never propagates an error — a failed connect/write/ACK round trip just spools
 	// the request instead and returns silently (00-ARCHITECTURE.md §2.4/§12.3), so a single
@@ -299,11 +310,13 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 	timeout := time.NewTimer(e2eDaemonDownBound)
 	defer timeout.Stop()
 	for {
+		holders.observe(e2eDaemonHoldingLock(root))
 		_, _ = c.Send(context.Background(), ipc.Request{
 			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
 		}, e2eRoundTripDeadline)
 		// Two things must both be true before this tree is nobody's to write to: no live process
-		// holds the lock now, and every process seen holding it has actually exited.
+		// holds the lock now, and every process seen holding it has actually exited (with none
+		// having held it under a pid this call could not read).
 		//
 		// The first half also covers a daemon that stops mattering by dying. Lock.Release is
 		// Stop's last act, so a process that never reaches it — an injected fault, a crash, a
@@ -325,37 +338,67 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 				t.Logf("e2eShutdownIfReachable: a live daemon (pid %d) still held %s after %s of retried "+
 					"admin.shutdown; the caller's t.TempDir cleanup is about to remove a tree it may still "+
 					"be writing to", lockPID, lockPath, e2eDaemonDownBound)
-			case !holders.settled():
+			case len(holders.running()) > 0:
 				t.Logf("e2eShutdownIfReachable: daemon pids %v released %s but were still running after "+
 					"%s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to",
 					holders.running(), lockPath, e2eDaemonDownBound)
+			case holders.unidentified:
+				t.Logf("e2eShutdownIfReachable: a process held %s with no readable pid and released it "+
+					"before any check could read one, so whether it has exited cannot be asked; waited "+
+					"out %s instead", lockPath, e2eDaemonDownBound)
 			}
 			return
 		}
 	}
 }
 
-// e2eLockHolders is the set of pids e2eShutdownIfReachable has seen holding a project's lock.
-type e2eLockHolders map[int]struct{}
+// e2eLockHolders is what e2eShutdownIfReachable has seen of a project's lock during one call: the
+// pids it has read holding it, and whether some holder went unread.
+type e2eLockHolders struct {
+	pids map[int]struct{}
+	// unread: the latest check found the lock held with no readable pid (a body not yet written,
+	// per e2eDaemonHoldingLock), and no check since has read one.
+	unread bool
+	// unidentified: a lock last seen unread was gone at a later check. Some process held it and
+	// released it, and nothing names that process, so no check can ask whether it has exited.
+	unidentified bool
+}
 
-// observe records the holder e2eDaemonHoldingLock reported. A lock with no readable pid adds
-// nothing: it is still counted as held by the caller, so the wait goes on, and the next check reads
-// the body once it lands.
-func (h e2eLockHolders) observe(pid int, held bool) {
-	if held && pid > 0 {
-		h[pid] = struct{}{}
+func newE2ELockHolders() *e2eLockHolders {
+	return &e2eLockHolders{pids: map[int]struct{}{}}
+}
+
+// observe records one check's answer from e2eDaemonHoldingLock. A held lock with a readable pid adds
+// that pid to the set. A held lock with none adds nothing yet: the caller still counts it as held,
+// so the wait goes on, and the next check reads the body once it lands. A body naming a process that
+// is no longer alive identifies its holder too, and leaves nothing to wait for. Only a lock that was
+// unread and is then gone (no file, or one that can no longer be read) leaves a holder nobody can
+// name.
+func (h *e2eLockHolders) observe(pid int, held bool) {
+	switch {
+	case held && pid > 0:
+		h.pids[pid] = struct{}{}
+		h.unread = false
+	case held:
+		h.unread = true
+	case pid > 0:
+		h.unread = false
+	case h.unread:
+		h.unidentified = true
+		h.unread = false
 	}
 }
 
-// settled reports whether every recorded holder can no longer write inside the tree.
-func (h e2eLockHolders) settled() bool {
-	return len(h.running()) == 0
+// settled reports whether nothing this call saw holding the lock can still write inside the tree:
+// every recorded holder has exited, and there was no holder the call could not identify.
+func (h *e2eLockHolders) settled() bool {
+	return !h.unread && !h.unidentified && len(h.running()) == 0
 }
 
 // running lists the recorded holders that can still write inside the tree, in ascending order.
-func (h e2eLockHolders) running() []int {
+func (h *e2eLockHolders) running() []int {
 	var out []int
-	for pid := range h {
+	for pid := range h.pids {
 		if !e2eShutdownProcessSettled(pid) {
 			out = append(out, pid)
 		}
