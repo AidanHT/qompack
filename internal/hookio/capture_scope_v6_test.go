@@ -118,9 +118,12 @@ func TestCaptureScope_JunctionSwapDefeatsLexicalContainment(t *testing.T) {
 	root := t.TempDir()
 	target := t.TempDir()
 	link := filepath.Join(root, "link")
-	if err := os.Symlink(target, link); err != nil {
-		t.Skipf("symlink unavailable on this platform/privilege: %v", err)
+	// A symlink where the host allows one, and otherwise the NTFS junction this test is named for,
+	// which an unprivileged Windows process can create.
+	if err := makeDirLink(link, target); err != nil {
+		t.Skip("platform: this host will create neither a directory symlink nor a junction: " + err.Error())
 	}
+	t.Cleanup(func() { _ = os.Remove(link) })
 	// "link/secret.txt" is lexically inside root, so paths.Norm accepts it — the exact case where a
 	// gate built on Norm alone has nothing to refuse. paths.ResolvesInside walks the link to its
 	// out-of-project target and refuses, which is the junction-swap defense the boundary needs.
