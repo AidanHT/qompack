@@ -216,7 +216,10 @@ func (o *observer) onSessionEnd(ctx context.Context, e Event) (Output, error) {
 	o.persistState()
 
 	// 6. §8.2 "Garbage collection. Reference-counted, run on SessionEnd", bounded by gcDeadline
-	//    inside the SessionEnd hook's own 20s timeout.
+	//    inside the SessionEnd hook's own 20s timeout. The store runs one pass at a time
+	//    (store/gcgate.go): when another session's end or the idle scheduler is mid-pass, this call
+	//    waits for it, answering to ctx, and is answered by the one follow-up pass that starts after
+	//    it; gcDeadline bounds that pass, not the wait.
 	rep, err := o.opt.Store.GC(ctx, store.GCPolicy{
 		RetainDays:     o.opt.Cfg.Store.Retention.Days,
 		RetainSessions: o.opt.Cfg.Store.Retention.Sessions,
