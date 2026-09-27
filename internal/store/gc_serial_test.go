@@ -19,6 +19,10 @@ import (
 // GC passes on one store run one at a time (V6 close-out w6-gcserial). Every concurrent session end
 // runs a pass (C1.15) and so does the idle scheduler, and two passes that overlap race on gc.json's
 // resume cursor, gc-live.bin, the tombstone phase and retention-roots.jsonl's compaction.
+//
+// The package-global after-harvest hook (gcAfterHarvest) is installed by the tests here that are not
+// parallel. Go resumes a parallel top-level test only after every sequential one has finished, so no
+// other test's GC pass can reach the hook while one of these holds it.
 
 // gcSerialBound bounds every wait in this file. It is a failure bound only: each wait ends on an
 // event, and the bound is reached only when that event never comes.
@@ -188,6 +192,88 @@ func TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt(t *testing.T
 	require.ErrorIs(t, err, core.ErrNotFound, "the root the removed checkpoint held is collected")
 	require.EqualValues(t, 2, probe.entries.Load(), "two passes ran, one after the other")
 	require.EqualValues(t, 1, probe.most.Load(), "and they never overlapped")
+}
+
+// Test sizing for TestGC_OverlappingCallsCountAResumedCursorOnce. The sweep consults its deadline
+// every gcCheckEvery objects, so a pass with an expired deadline stops after the first such batch and
+// saves a cursor: more than one batch of dead objects leaves some past the cursor for a resumed pass.
+// Every gcRecountLiveStride-th seed stays live, so the store keeps bytes that a double-subtracted
+// freed count cannot hide behind the clamp at zero.
+const (
+	gcRecountSeeds      = gcCheckEvery + gcCheckEvery/2
+	gcRecountLiveStride = 8
+)
+
+// TestGC_OverlappingCallsCountAResumedCursorOnce: a truncated pass leaves a resume cursor in
+// state/gc.json carrying the objects and bytes it already freed. Two GC calls made together must
+// count those once. Before the fix both passes resumed the same cursor, each added its counts to its
+// report and each subtracted its freed bytes from the store's size again, so Stats.Bytes (which
+// state/store.json persists and the quota reads) fell below the bytes actually on disk for good
+// (w6-gcserial runs/04). The hook holds the first pass after its harvest until the second call has
+// either reached the same point beside it (the unfixed store) or queued behind it (the gate).
+func TestGC_OverlappingCallsCountAResumedCursorOnce(t *testing.T) {
+	// Not parallel: the after-harvest hook is package-global.
+	tp := newTestStore(t)
+	ctx := context.Background()
+	var live []string
+	for i := 0; i < gcRecountSeeds; i++ {
+		r := gcSeed(t, tp, fmt.Sprintf("src/resume%04d.ts", i), fmt.Sprintf("resume body %d, unique\n", i))
+		if i%gcRecountLiveStride == 0 {
+			live = append(live, r.Hash.String())
+		}
+	}
+	writeCheckpointJSON(t, tp, "0001.json", live...)
+	objectsBefore := objectCount(t, tp)
+
+	trunc, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, Deadline: time.Nanosecond})
+	require.NoError(t, err)
+	require.True(t, trunc.Truncated, "the expired deadline cut the sweep short")
+	require.Positive(t, trunc.DeletedObjects, "the truncated pass freed a first batch before it stopped")
+	require.FileExists(t, filepath.Join(paths.Of(tp.Root).State, gcStateFile), "and saved its cursor")
+
+	var arrived atomic.Int32
+	release := make(chan struct{})
+	hook := func() {
+		arrived.Add(1)
+		<-release
+	}
+	prev := gcAfterHarvest.Swap(&hook)
+	var once sync.Once
+	open := func() { once.Do(func() { close(release) }) }
+	t.Cleanup(func() {
+		open()
+		gcAfterHarvest.Store(prev)
+	})
+
+	first := gcAsync(ctx, tp.Store, forceCollect)
+	require.Eventually(t, func() bool { return arrived.Load() == 1 }, gcSerialBound, gcSerialTick,
+		"the first pass never reached its after-harvest hook")
+	second := gcAsync(ctx, tp.Store, forceCollect)
+	require.Eventually(t, func() bool { return arrived.Load() == 2 || tp.counter(CounterGCQueued) == 1 },
+		gcSerialBound, gcSerialTick, "the second call neither reached the hook beside the first nor queued")
+	open()
+
+	r1, r2 := awaitGC(t, first), awaitGC(t, second)
+	require.NoError(t, r1.err)
+	require.NoError(t, r2.err)
+	removed := objectsBefore - objectCount(t, tp)
+	require.Equal(t, gcRecountSeeds-len(live), removed, "every unreferenced seed is gone, every held one kept")
+
+	var onDisk int64
+	for _, rel := range tp.objectPaths(t) {
+		info, serr := os.Stat(paths.Long(filepath.Join(paths.Of(tp.Root).Objects, filepath.FromSlash(rel))))
+		require.NoError(t, serr)
+		onDisk += info.Size()
+	}
+	st, err := tp.Store.Stats(ctx)
+	require.NoError(t, err)
+	t.Logf("removed %d objects; the calls reported %d and %d deleted; Stats.Bytes %d, on disk %d",
+		removed, r1.rep.DeletedObjects, r2.rep.DeletedObjects, st.Bytes, onDisk)
+	require.Positive(t, onDisk, "the held seeds keep bytes on disk")
+	require.Equal(t, onDisk, st.Bytes,
+		"the store's size, which store.json persists and the quota reads, is the bytes still on disk")
+	require.Equal(t, removed, r1.rep.DeletedObjects+r2.rep.DeletedObjects,
+		"the two calls' reports count each deleted object once, the cursor's batch included")
 }
 
 // ── the gate, over a scripted pass ─────────────────────────────────────────────────────────────
