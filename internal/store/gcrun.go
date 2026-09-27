@@ -93,10 +93,12 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 }
 
 // gcPass is one GC pass, run only through serializeGC, which guarantees no other pass of this store
-// runs beside it. It re-checks the store and ctx because a waiting call reaches it later than GC's own
-// checks: the store may have been closed, or the caller may have given up, meanwhile.
+// runs beside it. It re-checks the closed-store guard and ctx because a waiting call reaches it later
+// than GC's own checks: the store may have been closed, or the caller may have given up, meanwhile.
+// The read-only refusal is GC's alone (mutate): readOnly is fixed at open, so it cannot have changed,
+// and TestReadOnly_EveryExportedMethodIsClassified keeps mutate() to the swept exported methods.
 func (s *FSStore) gcPass(ctx context.Context, p GCPolicy) (GCReport, error) {
-	if err := s.mutate(); err != nil {
+	if err := s.use(); err != nil {
 		return GCReport{}, err
 	}
 	if err := ctx.Err(); err != nil {
