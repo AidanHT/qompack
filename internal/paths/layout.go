@@ -1,9 +1,12 @@
 package paths
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 // dotDir is the name of the runtime store directory at the root of every project (§3.3).
@@ -64,14 +67,39 @@ func Of(root string) Layout {
 // with 0o700 permissions (eval/replay and eval/opt bring l.Eval itself into existence as their
 // parent). It then writes <root>/.qompack/.gitignore containing exactly "*\n" through
 // WriteAtomic, unless that file already exists, so a repeated call is idempotent.
-func EnsureLayout(l Layout) error {
+//
+// Every directory it creates is made durable before it returns: the parent of each one is synced,
+// deepest first, up to the project root when .qompack itself is new. Every durability promise the
+// store makes is a file inside one of these directories, and on POSIX a file's own sync — or a sync
+// of the directory holding it — does not make that directory's own name durable. A call that creates
+// nothing syncs nothing, so this costs a few directory syncs once per project (and once more when a
+// newer build adds a directory), never per call.
+func EnsureLayout(l Layout) error { return Barriers{}.EnsureLayout(l) }
+
+// EnsureLayout is the package function of the same name, issuing its directory syncs through x.
+func (x Barriers) EnsureLayout(l Layout) error {
 	dirs := []string{
 		l.Objects, l.Index, l.Sketches, l.DAG, l.Grammar, l.Checkpoints, l.Pins,
 		filepath.Join(l.Eval, "replay"), filepath.Join(l.Eval, "opt"),
 		l.Records, l.State, l.Run, l.Spool, l.Logs, l.Metrics, l.Tmp,
 		l.Migrate, l.Backup,
 	}
+	missing := func(p string) bool {
+		_, err := os.Lstat(Long(p))
+		return errors.Is(err, fs.ErrNotExist)
+	}
+	// parents collects the directories whose entries this call adds: the parent of every directory it
+	// creates, including the ones MkdirAll creates on the way (.qompack itself, eval/).
+	parents := map[string]bool{}
+	for _, d := range []string{l.Dot, l.Eval} {
+		if missing(d) {
+			parents[filepath.Dir(d)] = true
+		}
+	}
 	for _, d := range dirs {
+		if missing(d) {
+			parents[filepath.Dir(d)] = true
+		}
 		if err := os.MkdirAll(Long(d), 0o700); err != nil {
 			return fmt.Errorf("paths: EnsureLayout: mkdir %s: %w", d, err)
 		}
@@ -84,6 +112,23 @@ func EnsureLayout(l Layout) error {
 		}
 		if err := WriteAtomic(gitignore, []byte(gitignoreContents), 0o600); err != nil {
 			return fmt.Errorf("paths: EnsureLayout: write %s: %w", gitignore, err)
+		}
+	}
+
+	// Deepest first, so a directory's entry is made durable only after the entries inside it.
+	order := make([]string, 0, len(parents))
+	for p := range parents {
+		order = append(order, p)
+	}
+	sort.Slice(order, func(i, j int) bool {
+		if len(order[i]) != len(order[j]) {
+			return len(order[i]) > len(order[j])
+		}
+		return order[i] < order[j]
+	})
+	for _, p := range order {
+		if err := x.syncDir(p); err != nil {
+			return fmt.Errorf("paths: EnsureLayout: sync %s: %w", p, err)
 		}
 	}
 	return nil
