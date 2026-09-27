@@ -33,10 +33,21 @@ const drainLineDeadline = 5 * time.Second
 // passBudgetKey carries a budgeted pass's budget on its context (withPassBudget).
 type passBudgetKey struct{}
 
-// passBudget is a budgeted pass's end and whether the pass has consumed a line yet.
+// passBudget is a budgeted pass's end, whether the pass has consumed a line yet, and, once the budget
+// has stopped the pass, the spool files it left unfinished (notePassLeft).
 type passBudget struct {
 	end      time.Time
 	consumed atomic.Bool
+	// left holds the base names of the spool files the pass had not finished when its budget stopped
+	// it: the one it stopped in or before, and every one after it. It is written by the pass and read
+	// by whoever made the budget once the pass has returned (leftUnfinished).
+	left map[string]bool
+}
+
+// leftUnfinished reports whether the pass the budget belonged to stopped on it before it had finished
+// the spool file base. A pass that finished, or stopped for any other reason, left none.
+func (b *passBudget) leftUnfinished(base string) bool {
+	return b.left[base]
 }
 
 // errPassBudgetSpent ends a budgeted pass between two lines once its budget is spent. It wraps
@@ -57,7 +68,15 @@ var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: 
 // The budget is on real time, as a context deadline is, never on the daemon's clock. It is the pass's
 // alone: what the pass hands a line to runs without it (withoutPassBudget).
 func withPassBudget(ctx context.Context, budget time.Duration) context.Context {
-	return context.WithValue(ctx, passBudgetKey{}, &passBudget{end: time.Now().Add(budget)})
+	pass, _ := newPassBudget(ctx, budget)
+	return pass
+}
+
+// newPassBudget is withPassBudget that also returns the budget, for a caller that reads what the
+// pass left unfinished once it has returned (passBudget.leftUnfinished: the client-spool watcher).
+func newPassBudget(ctx context.Context, budget time.Duration) (context.Context, *passBudget) {
+	b := &passBudget{end: time.Now().Add(budget)}
+	return context.WithValue(ctx, passBudgetKey{}, b), b
 }
 
 // passStopped reports why a pass must start no further line: ctx's own error, or errPassBudgetSpent
@@ -78,6 +97,20 @@ func passStopped(ctx context.Context) error {
 func notePassConsumed(ctx context.Context) {
 	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil {
 		b.consumed.Store(true)
+	}
+}
+
+// notePassLeft records on the budget ctx carries, when err says that budget stopped the pass, the
+// spool files the pass left unfinished: files, the one it stopped in or before and every one after it
+// in pass order (passBudget.leftUnfinished). Any other stop records nothing.
+func notePassLeft(ctx context.Context, err error, files []string) {
+	b, _ := ctx.Value(passBudgetKey{}).(*passBudget)
+	if b == nil || !errors.Is(err, errPassBudgetSpent) {
+		return
+	}
+	b.left = make(map[string]bool, len(files))
+	for _, path := range files {
+		b.left[filepath.Base(path)] = true
 	}
 }
 
@@ -445,12 +478,13 @@ func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 		return dr.unpersisted(gaps, errors.Join(stopErr, err))
 	}
 
-	for _, path := range files {
+	for i, path := range files {
 		if clientOnly && !isClientSpoolName(filepath.Base(path)) {
 			continue
 		}
 		if err := passStopped(ctx); err != nil {
 			stopErr = errors.Join(stopErr, err)
+			notePassLeft(ctx, err, files[i:])
 			break
 		}
 		n, ferr := dr.drainFile(ctx, path, st, gaps)
@@ -460,6 +494,7 @@ func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 		}
 		if errors.Is(ferr, context.Canceled) || errors.Is(ferr, context.DeadlineExceeded) {
 			stopErr = errors.Join(stopErr, ferr)
+			notePassLeft(ctx, ferr, files[i:])
 			break
 		}
 		if dr.cfg.Metrics != nil {

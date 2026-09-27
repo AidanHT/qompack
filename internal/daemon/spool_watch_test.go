@@ -350,6 +350,62 @@ func TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft(t *testi
 		"a spool a budget-spent pass left is due at the next look, not after %s", spoolRetryAfter(spoolWatchTick, 1))
 }
 
+// TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached: a pass its budget stopped did not
+// judge the spools it never finished, which are due again at the next look, but it did judge the ones
+// it reached and finished: a spool whose line waits on an arrival nothing publishes keeps the doubling
+// wait. The watcher set every due spool due again after such a pass, and under load nearly every pass
+// ends on its budget, so a blocked spool was re-read and its file re-synced at every look until the
+// horizon, the fsync pressure the back-off exists to spare a loaded host. Here a blocked spool comes
+// first, then one whose publication outlasts the pass's budget, then one the pass never reaches.
+func TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	ctx := context.Background()
+	// Session "stuck": arrival 0 is leased and then lost, so its arrival 1, which only a client spool
+	// holds, can never pass the ordering gate.
+	const stuck core.SessionID = "sess-spool-reached-stuck"
+	_, ok := dd.ing.leaseDelivery(ctx, spD3Prompt(dd, root, stuck, orderNonce(0), "lost"))
+	require.True(t, ok)
+	blocked := spD3Prompt(dd, root, stuck, orderNonce(1), "blocked")
+	slowReq := liveOrderTool(dd, root, "sess-spool-reached-slow", 1)
+	behind := liveOrderTool(dd, root, "sess-spool-reached-behind", 2)
+	slow := idleRunBudget + spoolWatchTick // longer than a pass's budget, inside drainLineDeadline
+	require.Less(t, slow, drainLineDeadline, "fixture: the slow line must fit its own deadline")
+	spoolWatchSlowDrain(dd, map[string]bool{slowReq.Nonce: true}, slow)
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	dd.spool.every, dd.spool.horizon = spoolWatchTick, liveOrderBound
+	// Pass order is lexical.
+	writeHookSpool(t, root, "client-8601.ndjson", blocked)
+	writeHookSpool(t, root, "client-8602.ndjson", slowReq)
+	writeHookSpool(t, root, "client-8603.ndjson", behind)
+
+	entries := map[string]*spoolWatchEntry{}
+	now := time.Now()
+	dd.lookAtClientSpools(ctx, entries, true, now) // all seen for the first time: not settled yet
+	// Look until a pass has published the slow one, advancing the watcher's clock a tick per look, as
+	// TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft does and for its reason.
+	deadline := time.Now().Add(liveOrderBound)
+	for !spoolWatchPublished(dd, slowReq.Nonce) {
+		require.True(t, time.Now().Before(deadline), "no pass published the slow spool")
+		now = now.Add(spoolWatchTick)
+		dd.lookAtClientSpools(ctx, entries, false, now)
+	}
+	require.False(t, spoolWatchPublished(dd, behind.Nonce), "fixture: the budget was spent before the last spool")
+	require.False(t, spoolWatchPublished(dd, blocked.Nonce), "fixture: the blocked spool cannot publish")
+
+	reached := entries["client-8601.ndjson"]
+	require.NotNil(t, reached)
+	due, waiting := reached.retryDue(now, dd.spool.horizon)
+	require.True(t, waiting, "the blocked spool is still inside its horizon")
+	require.False(t, due,
+		"a blocked spool the budget-stopped pass reached keeps its back-off (next pass at %s, now %s)",
+		reached.next.Format(time.StampMicro), now.Format(time.StampMicro))
+	left := entries["client-8603.ndjson"]
+	require.NotNil(t, left)
+	due, waiting = left.retryDue(now, dd.spool.horizon)
+	require.True(t, waiting)
+	require.True(t, due, "a spool the budget-stopped pass never reached is due at the next look")
+}
+
 // TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine: a budgeted pass
 // does bookkeeping before its first line — the spool listing, its progress state, and a sync of each
 // spool file it reads — and on a host with a deep fsync queue that alone can outlast the budget.
