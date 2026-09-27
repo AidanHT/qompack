@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/negknow"
@@ -141,10 +142,13 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 
 	// ── the negative-knowledge phase, in-process over the same project ──────────────────────────
 	//
-	// The daemon is shut down first (its shutdown drains the spool before releasing the lock), so
-	// the store's append handles have exactly one owner while the ledger writes, and re-acquired
-	// afterwards by the flush below. This is the seam-composition the §5 preamble prescribes for a
-	// flow whose production driver (internal/mcp) is a wave-3 stub this test may not reference.
+	// The daemon is shut down first (its shutdown drains the spool before releasing the lock, for
+	// as long as daemon.StopDrainBound allows), so the store's append handles have exactly one
+	// owner while the ledger writes, and re-acquired afterwards by the flush below. Whatever that
+	// bounded drain leaves — on a loaded host the live pipeline lags the hooks by most of the
+	// session — is the flush's daemon's to replay first (x9FlushGCBound). This is the
+	// seam-composition the §5 preamble prescribes for a flow whose production driver
+	// (internal/mcp) is a wave-3 stub this test may not reference.
 	e2eShutdownIfReachable(t, p.Root)
 
 	// The in-process phase runs on a clock aligned with the daemon's wall clock, not p.Clock:
@@ -231,6 +235,15 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 
 	// ── flush: the real binary again (its lazy spawn brings the real daemon back up) ────────────
 
+	// The flush is the session's last hook, so its own lazy spawn is the only thing that can bring
+	// a daemon back, and a fresh spawn.lock makes it stand aside (internal/ipc ClaimSpawn: a spawn
+	// in flight). Under load a hook's 5 ms connect deadline expires often enough that some hook of
+	// the session spawns a daemon that loses the lock to the running one and exits, and its claim
+	// stays fresh for e2eSpawnLockStaleAfter. A flush inside that window started nothing, and no
+	// daemon ever ran: Linux, -race, CPU and fsync co-load, "observer: gc" never logged in 300 s.
+	// So the row lets any such claim lapse first; the flush's own spawn is then what it tests.
+	x9AwaitNoSpawnInFlight(t, p.Root)
+	pending := x9UnconsumedSpoolLines(t, p.Root)
 	x9Hook(t, bin, env, []string{"flush"}, x9SessionEndPayload(t, p.Root))
 
 	// store.GC ran on flush with the configured policy and deleted nothing: the observer's
@@ -242,8 +255,9 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 		line, found := x9LastGCLine(p.Root)
 		gcLine = line
 		return found
-	}, e2eHistoryConvergeBound, e2eDaemonDownTick,
-		"flush never produced the observer's \"observer: gc\" log line — store.GC did not run on SessionEnd")
+	}, x9FlushGCBound(pending), e2eDaemonDownTick,
+		"flush never produced the observer's \"observer: gc\" log line — store.GC did not run on SessionEnd "+
+			"(%d spool lines were left for the flush's daemon to replay before it)", pending)
 	// The retention window covers every NON-ephemeral object this young project holds, so those
 	// may never be collected. Ephemeral retrieval results are different by design: an ephemeral
 	// root is never in-window by the age clause (Qompack.md 8.2 - "retrieval spam is reclaimable")
@@ -952,6 +966,70 @@ func x9ListFiles(t *testing.T, dir string) []string {
 	}
 	require.NoError(t, err)
 	return out
+}
+
+// x9FlushGCBound bounds the wait for the flush's "observer: gc" line when pending spool lines were
+// left unconsumed before the flush. The line comes from the SessionEnd of a daemon the flush itself
+// spawns, and that daemon first replays the spool in its startup drain (internal/daemon/daemon.go
+// Run: WAL segments, then the hooks' client spools, the flush's own among them) before it serves
+// anything, one line at a time under daemon.DrainLineDeadline, the daemon's own unit for how long a
+// drain may take. The flush's SessionEnd, GC included, is replayed there as one more line. So the
+// bound is a daemon start-up and shutdown (e2eHistoryConvergeBound, what the row waited under
+// before) plus pending+1 lines at DrainLineDeadline each. With an idle host the pre-flush shutdown
+// drains nearly everything and this is within a few lines of the old bound. Under -race with CPU and
+// fsync co-load on Linux the pre-flush shutdown left about 170 unpublished WAL lines and 185 hooks'
+// client spools, the replay took about 0.75 s a line, and the GC line came 3 m 20 s and 4 m 4 s after
+// the flush, with every other assertion of the row passing: the old 32 s bound was wrong for the work
+// the row waits for, not a symptom of a lost SessionEnd.
+func x9FlushGCBound(pending int) time.Duration {
+	return e2eHistoryConvergeBound + time.Duration(pending+1)*daemon.DrainLineDeadline
+}
+
+// x9UnconsumedSpoolLines counts the lines in root's spool that no drain has consumed yet: every
+// line of a file state/drain.json does not name, and the lines past its recorded offset in one it
+// does. Each is one line a daemon's startup drain replays (x9FlushGCBound).
+func x9UnconsumedSpoolLines(t *testing.T, root string) int {
+	t.Helper()
+	l := paths.Of(root)
+	consumed := map[string]int64{}
+	raw, err := os.ReadFile(paths.Long(filepath.Join(l.State, "drain.json")))
+	if err == nil {
+		var st map[string]struct {
+			Offset int64 `json:"offset"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &st), "state/drain.json must parse")
+		for name, rec := range st {
+			consumed[name] = rec.Offset
+		}
+	} else {
+		require.ErrorIs(t, err, fs.ErrNotExist, "state/drain.json must be readable")
+	}
+	entries, err := os.ReadDir(paths.Long(l.Spool))
+	require.NoError(t, err)
+	n := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".ndjson") {
+			continue
+		}
+		b, readErr := os.ReadFile(paths.Long(filepath.Join(l.Spool, e.Name())))
+		require.NoError(t, readErr)
+		if off := consumed[e.Name()]; off > 0 && off <= int64(len(b)) {
+			b = b[off:]
+		}
+		n += bytes.Count(b, []byte{'\n'})
+	}
+	return n
+}
+
+// x9AwaitNoSpawnInFlight waits until root holds no spawn.lock the product still counts as a spawn in
+// flight (e2eSpawnInFlight). No hook runs while it waits, and only a hook's lazy spawn makes a claim,
+// so a claim present now lapses within e2eSpawnLockStaleAfter of now; the bound adds one tick of
+// polling to that.
+func x9AwaitNoSpawnInFlight(t *testing.T, root string) {
+	t.Helper()
+	require.Eventually(t, func() bool { return !e2eSpawnInFlight(root) },
+		e2eSpawnLockStaleAfter+e2eLazySpawnSettleTick, e2eLazySpawnSettleTick,
+		"a spawn.lock claim stayed fresh past %s with no hook running", e2eSpawnLockStaleAfter)
 }
 
 // x9LastGCLine scans the project's day logs for the observer's SessionEnd GC line
