@@ -147,3 +147,24 @@ func TestAppendLinesDurable_SyncsABatchOnce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "{\"n\":1}\n{\"n\":2}\n{\"n\":3}\n", string(raw), "a refused batch writes nothing")
 }
+
+// TestEnsureLayout_MakesTheDirectoriesItCreatesDurable: every directory EnsureLayout creates has its
+// parent synced, deepest first and up to the project root when .qompack itself is new; a call that
+// creates nothing syncs nothing; a later build that adds one directory syncs only its parent.
+func TestEnsureLayout_MakesTheDirectoriesItCreatesDurable(t *testing.T) {
+	root := t.TempDir()
+	l := paths.Of(root)
+
+	fresh := &barrierLog{}
+	require.NoError(t, fresh.barriers().EnsureLayout(l))
+	require.Equal(t, []string{"dir:eval", "dir:.qompack", "dir:" + filepath.Base(root)}, fresh.steps)
+
+	again := &barrierLog{}
+	require.NoError(t, again.barriers().EnsureLayout(l))
+	require.Empty(t, again.steps, "a layout that already exists costs no barrier")
+
+	require.NoError(t, os.Remove(paths.Long(l.Backup)))
+	added := &barrierLog{}
+	require.NoError(t, added.barriers().EnsureLayout(l))
+	require.Equal(t, []string{"dir:.qompack"}, added.steps, "one new directory: only its parent is synced")
+}
