@@ -174,6 +174,48 @@ func TestPinsAReportedChangeSurvivesAPowerCut(t *testing.T) {
 	}
 }
 
+// TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced: a pin reported kept survives a power
+// cut even when the log already exists but its name was never made durable — the project's first pin
+// whose pins/ sync failed (Add returned the error, and the user pinned again), or a log another
+// process created and exited before syncing (`qompack pin` is one process per pin). The pin that
+// succeeds must sync pins/ itself; taking an existing log's name as durable lost it
+// (w6-ckptsync review finding 1).
+func TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced(t *testing.T) {
+	const first = "the API is versioned under /v2"
+	const text = "tests use the FakeClock, never time.Now"
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T, root string, s pins.Store)
+	}{
+		{name: "the first pin's directory sync failed", setup: func(t *testing.T, root string, s pins.Store) {
+			failing := newPinBarriers(t, root, first, false)
+			failing.failAt = 2 // the log's line syncs, then the pins/ sync fails
+			pins.SetBarriersForTest(s, failing.barriers())
+			require.ErrorIs(t, s.Add(context.Background(), pins.Invariant{Text: first}), errPinPowerCut)
+			require.Equal(t, []string{"file:invariants.jsonl", "dir:pins"}, failing.steps)
+		}},
+		{name: "another process created the log", setup: func(t *testing.T, root string, _ pins.Store) {
+			require.NoError(t, os.WriteFile(paths.Long(filepath.Join(paths.Of(root).Pins, "invariants.jsonl")), nil, 0o600))
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			s := openPins(t, root)
+			tc.setup(t, root, s)
+
+			b := newPinBarriers(t, root, text, false)
+			b.nameDurable = false // the log exists, but no barrier has made its name durable
+			pins.SetBarriersForTest(s, b.barriers())
+			require.NoError(t, s.Add(context.Background(), pins.Invariant{Text: text}))
+			require.Equal(t, []string{"file:invariants.jsonl", "dir:pins"}, b.steps,
+				"the pin syncs the directory whose entry names the log before it is reported kept")
+
+			b.powerCut()
+			require.True(t, liveText(t, openPins(t, root), text), "a pin reported kept is still kept after a power cut")
+		})
+	}
+}
+
 // TestPinsAnAppendWhoseSyncIsCutIsNotReported: a cut at the log's barrier fails the Add, and the view
 // is not regenerated, so nothing derived claims a pin whose line is not durable.
 func TestPinsAnAppendWhoseSyncIsCutIsNotReported(t *testing.T) {

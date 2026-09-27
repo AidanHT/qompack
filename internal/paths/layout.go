@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 )
 
 // dotDir is the name of the runtime store directory at the root of every project (§3.3).
@@ -74,6 +73,15 @@ func Of(root string) Layout {
 // of the directory holding it — does not make that directory's own name durable. A call that creates
 // nothing syncs nothing, so this costs a few directory syncs once per project (and once more when a
 // newer build adds a directory), never per call.
+//
+// The .gitignore doubles as the layout's durability marker, because it is written only AFTER every
+// sync has succeeded (w6-ckptsync review finding 1). A call that finds no .gitignore therefore takes
+// none of the existing directories as durable, and syncs the parent of every one this process has
+// not already made durable itself: the call after one whose sync failed — in this process or in the
+// next one, since an EnsureLayout failure ends the daemon's start — and the first call over a tree
+// some other writer began, such as the .qompack/spool a hook creates with a plain mkdir before any
+// daemon has run. A directory this process created and has not yet synced (the process's entry
+// ledger, entries.go) is synced whatever the marker says.
 func EnsureLayout(l Layout) error { return Barriers{}.EnsureLayout(l) }
 
 // EnsureLayout is the package function of the same name, issuing its directory syncs through x.
@@ -84,51 +92,39 @@ func (x Barriers) EnsureLayout(l Layout) error {
 		l.Records, l.State, l.Run, l.Spool, l.Logs, l.Metrics, l.Tmp,
 		l.Migrate, l.Backup,
 	}
-	missing := func(p string) bool {
-		_, err := os.Lstat(Long(p))
-		return errors.Is(err, fs.ErrNotExist)
+	gitignore := filepath.Join(l.Dot, ".gitignore")
+	_, gerr := os.Stat(Long(gitignore))
+	if gerr != nil && !os.IsNotExist(gerr) {
+		return fmt.Errorf("paths: EnsureLayout: stat %s: %w", gitignore, gerr)
 	}
-	// parents collects the directories whose entries this call adds: the parent of every directory it
-	// creates, including the ones MkdirAll creates on the way (.qompack itself, eval/).
-	parents := map[string]bool{}
-	for _, d := range []string{l.Dot, l.Eval} {
-		if missing(d) {
-			parents[filepath.Dir(d)] = true
+	unmarked := gerr != nil
+
+	// names collects every directory whose entry this call must make durable, including the ones
+	// MkdirAll creates on the way (.qompack itself, eval/).
+	var names []string
+	for _, d := range append([]string{l.Dot, l.Eval}, dirs...) {
+		_, err := os.Lstat(Long(d))
+		st, _ := entries.look(d)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			entries.creating(d)
+			names = append(names, d)
+		case st == entryPending, unmarked && st != entryDurable:
+			names = append(names, d)
 		}
 	}
 	for _, d := range dirs {
-		if missing(d) {
-			parents[filepath.Dir(d)] = true
-		}
 		if err := os.MkdirAll(Long(d), 0o700); err != nil {
 			return fmt.Errorf("paths: EnsureLayout: mkdir %s: %w", d, err)
 		}
 	}
+	if err := x.syncEntries("EnsureLayout", names); err != nil {
+		return err
+	}
 
-	gitignore := filepath.Join(l.Dot, ".gitignore")
-	if _, err := os.Stat(Long(gitignore)); err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("paths: EnsureLayout: stat %s: %w", gitignore, err)
-		}
+	if unmarked {
 		if err := WriteAtomic(gitignore, []byte(gitignoreContents), 0o600); err != nil {
 			return fmt.Errorf("paths: EnsureLayout: write %s: %w", gitignore, err)
-		}
-	}
-
-	// Deepest first, so a directory's entry is made durable only after the entries inside it.
-	order := make([]string, 0, len(parents))
-	for p := range parents {
-		order = append(order, p)
-	}
-	sort.Slice(order, func(i, j int) bool {
-		if len(order[i]) != len(order[j]) {
-			return len(order[i]) > len(order[j])
-		}
-		return order[i] < order[j]
-	})
-	for _, p := range order {
-		if err := x.syncDir(p); err != nil {
-			return fmt.Errorf("paths: EnsureLayout: sync %s: %w", p, err)
 		}
 	}
 	return nil
