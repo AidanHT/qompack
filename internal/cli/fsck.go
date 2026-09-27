@@ -2261,9 +2261,12 @@ func fsckRepairPinsView(ctx context.Context, root string, clk core.Clock) []fsck
 // re-hashes cleanly and parses at a schema version this build reads.
 //
 // It goes through paths.AppendManifest because that is the ONLY legal writer of
-// checkpoints/MANIFEST.jsonl (paths.IsProtected covers the whole checkpoints/ subtree). The
-// artifact itself is never rewritten: finalize.go left it on disk precisely so a session would not
-// be lost, and reconciling it is an append.
+// checkpoints/MANIFEST.jsonl (paths.IsProtected covers the whole checkpoints/ subtree), and because
+// that writer syncs the checkpoints directory before the line and the line before it returns: the
+// orphan was found by listing a directory whose entries a power cut could still take, and a durable
+// line naming an artifact whose name was lost would turn an orphan into a MANIFEST entry without its
+// artifact. The artifact itself is never rewritten: finalize.go left it on disk precisely so a
+// session would not be lost, and reconciling it is an append.
 func fsckRepairOrphanManifestLines(l paths.Layout, clk core.Clock) []fsckRepair {
 	entries, err := paths.ReadManifest(l)
 	if err != nil {

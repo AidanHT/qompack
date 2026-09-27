@@ -36,12 +36,9 @@ type ManifestEntry struct {
 	Created core.UnixMilli     `json:"created"`
 }
 
-// AppendManifest appends e to checkpoints/MANIFEST.jsonl through AppendJSONL, the only legal way
-// to write it: MANIFEST.jsonl lives under checkpoints/, so IsProtected refuses every other write
-// path into it.
-func AppendManifest(l Layout, e ManifestEntry) error {
-	return AppendJSONL(ManifestPath(l), e)
-}
+// AppendManifest (barriers.go) is the only legal writer of checkpoints/MANIFEST.jsonl: the file
+// lives under checkpoints/, so IsProtected refuses every other write path into it. It appends one
+// line through AppendJSONLDurable, after the barriers that make the indexed artifact's name durable.
 
 // ReadManifest reads every entry of checkpoints/MANIFEST.jsonl back, in file order. A manifest
 // that does not exist yet (no checkpoint has ever been written) returns a nil slice and a nil
