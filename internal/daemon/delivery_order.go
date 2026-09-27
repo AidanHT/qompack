@@ -787,9 +787,9 @@ func (ls *dispatchLanes) claimReady() (sess core.SessionID, ok, more bool) {
 // A pass that runs out of its budget, or whose line runs out of its own deadline, has left behind
 // work it was asked for, and nothing else will ask again: a lane that ran dry dropped its overflow
 // when it asked, and the pass's release wakes only lanes that still hold jobs. So such a pass asks
-// for the next one itself, and the drain resumes where it stopped once the rest is over. It is still
-// never back to back, so a spool that keeps outlasting the budget gets at most half of the
-// requester's time, as a head that keeps failing does.
+// for the next one itself while it makes progress (passLeftWork), and the drain resumes where it
+// stopped once the rest is over. It is still never back to back, so a spool that keeps outlasting the
+// budget gets at most half of the requester's time, as a head that keeps failing does.
 func (d *daemon) drainOnRequest(ctx context.Context) {
 	for {
 		select {
@@ -798,14 +798,7 @@ func (d *daemon) drainOnRequest(ctx context.Context) {
 		case <-d.ing.drainKick:
 		}
 		began := time.Now()
-		_, err := d.Drain(withPassBudget(ctx, idleRunBudget))
-		if err != nil && ctx.Err() == nil {
-			d.log.Debug("daemon: a drain the lanes asked for ended early", "err", err)
-		}
-		// Its budget spent, or a line's own deadline passed: the pass stopped with work left.
-		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
-			d.ing.resumeDrain()
-		}
+		d.requestedDrainPass(ctx)
 		rest := time.NewTimer(time.Since(began))
 		select {
 		case <-ctx.Done():
@@ -813,6 +806,40 @@ func (d *daemon) drainOnRequest(ctx context.Context) {
 			return
 		case <-rest.C:
 		}
+	}
+}
+
+// requestedDrainPass is one of drainOnRequest's passes: a drain under a pass budget of idleRunBudget,
+// followed by the requester's own request for the next pass when this one stopped with work left that
+// another pass can make progress on (passLeftWork).
+func (d *daemon) requestedDrainPass(ctx context.Context) {
+	n, err := d.Drain(withPassBudget(ctx, idleRunBudget))
+	if err != nil && ctx.Err() == nil {
+		d.log.Debug("daemon: a drain the lanes asked for ended early", "err", err)
+	}
+	if ctx.Err() == nil && passLeftWork(n, err) {
+		d.ing.resumeDrain()
+	}
+}
+
+// passLeftWork reports whether a budgeted pass that published n lines and ended with err stopped with
+// work left that is worth another pass. A pass its budget ended (errPassBudgetSpent) has consumed a
+// line by then, and stopped only because the budget was spent. A pass a line's own drainLineDeadline
+// ended (the line's dispatch, context.DeadlineExceeded as well) is worth another only if it published
+// a line first: a line whose dispatch never finishes ends every pass that reaches it that way, and a
+// requester that asked again after each of those ran pass after pass for as long as the daemon lived,
+// each spending the line's whole deadline under the drain's mutex
+// (TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress). So every pass the requester asks
+// for itself follows one that made progress. Any other error is a failure the next request, the idle
+// drain, the watcher or the flush meets again, as before the requester asked for itself at all.
+func passLeftWork(n int, err error) bool {
+	switch {
+	case errors.Is(err, errPassBudgetSpent):
+		return true
+	case errors.Is(err, context.DeadlineExceeded):
+		return n > 0
+	default:
+		return false
 	}
 }
 

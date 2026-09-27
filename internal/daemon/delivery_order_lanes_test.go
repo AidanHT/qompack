@@ -311,6 +311,50 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 	liveOrderRequireTurns(t, o, sess, k)
 }
 
+// TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress: the requester asks for another
+// pass itself after a pass that stopped with work left, because nothing else asks for it. It asked
+// again after every pass that ended "deadline exceeded", and a line that runs out of its own
+// drainLineDeadline ends a pass that way too: a line whose dispatch never finishes then made the
+// requester run pass after pass for as long as the daemon lived, each spending the line's whole
+// deadline under the drain's mutex, where before this branch it stopped after one. A pass stopped by
+// its budget has consumed a line, and a pass a line's deadline stopped asks again only if it
+// published a line first, so every pass the requester asks for itself follows one that made progress.
+// Here a line that never finishes follows one that publishes: the first pass publishes and asks
+// again; the next meets only the line that never finishes, and must not.
+func TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	ahead := liveOrderTool(dd, root, "sess-requested-ahead", 1)
+	wedged := liveOrderTool(dd, root, "sess-requested-wedged", 2)
+	cfg := dd.drainConfig()
+	dispatch := cfg.Dispatch
+	var attempts atomic.Int32
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Nonce == wedged.Nonce {
+			attempts.Add(1)
+			<-ctx.Done() // never finishes: only the line's own deadline ends it
+			return ipc.Response{Err: ctx.Err().Error()}
+		}
+		return dispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	// Pass order is lexical: the line that publishes first, then the one that never finishes.
+	writeHookSpool(t, root, "client-8501.ndjson", ahead)
+	writeHookSpool(t, root, "client-8502.ndjson", wedged)
+	ctx := context.Background()
+
+	dd.requestedDrainPass(ctx)
+	require.True(t, spoolWatchPublished(dd, ahead.Nonce), "fixture: the first pass published the line ahead")
+	require.Equal(t, 1, len(dd.ing.drainKick), "a pass that made progress and stopped with work left asks again")
+	<-dd.ing.drainKick // the requester takes it, as drainOnRequest does
+
+	dd.requestedDrainPass(ctx)
+	require.Positive(t, attempts.Load(), "fixture: a pass met the line that never finishes")
+	require.False(t, spoolWatchPublished(dd, wedged.Nonce), "fixture: the line never finishes")
+	require.Zero(t, len(dd.ing.drainKick),
+		"a pass that published nothing before a line ran out of its own deadline must not ask again: that "+
+			"line would keep the requester running passes for as long as the daemon lives")
+}
+
 // TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (F3, F5): when the committed
 // frontier cannot be read, the flush cannot know whether the session's leased deliveries are
 // published. The ordering gate fails closed on exactly that, and so must the flush: SessionEnd still
