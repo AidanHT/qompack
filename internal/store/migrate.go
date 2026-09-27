@@ -564,6 +564,14 @@ func (m *Migrator) importOne(ctx context.Context, snap LegacySnapshot, r LegacyR
 	}
 
 	// 4. frontier line.
+	//
+	// KNOWN BARRIER GAP, left behind the closed LegacyImportGate (w6-ckptsync review finding 5): this
+	// line is appended without a sync, and Import then commits the cursor past it with a durable
+	// WriteAtomic, so a power cut can keep the cursor and lose the line — the record is then never
+	// re-read, and parity refuses the cutover. The object (step 1) has no publication pass either. The
+	// batch's mapping lines must be made durable before each writeCursor, and the imported objects
+	// through a publication pass, before the gate passes. TestLegacyImportGate_StaysClosedUntilTheImportIsDurable
+	// holds the gate closed until then.
 	mp := ImportMapping{
 		Version: importMappingVersion, SnapshotID: snap.ID, LegacyID: r.ID, Position: r.Position,
 		Root: res.Root.Hash, ToolUseID: id, Tool: r.Tool, Path: r.Path,
@@ -1023,6 +1031,11 @@ func (m *Migrator) RecordNewFormatWrite(ctx context.Context, root core.Hash, leg
 		Version: newFormatWriteVersion, Root: root.String(), LegacyID: legacyID,
 		At: m.now(), First: len(prior) == 0,
 	}
+	// KNOWN BARRIER GAP, left behind the closed LegacyImportGate (w6-ckptsync review finding 5): this
+	// line is appended without a sync, while the handoff that records the first write below is
+	// durable, so a power cut can keep FirstNewWriteAt and lose the line it stands for. The line must
+	// be made durable before the handoff is written, before the gate passes (no production caller
+	// reaches this today; TestLegacyImportGate_StaysClosedUntilTheImportIsDurable).
 	if err := paths.AppendJSONL(m.path(newFormatFile), w); err != nil {
 		return NewFormatWrite{}, fmt.Errorf("store: record new-format write: %w", err)
 	}
