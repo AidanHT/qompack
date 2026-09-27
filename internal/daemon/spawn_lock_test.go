@@ -537,7 +537,11 @@ func TestEnsureRunningUntil_ThePollEndsAtItsDeadline(t *testing.T) {
 				}
 			}
 			assert.Empty(t, past, "no dial of the poll may be bounded past its deadline")
-			assert.Less(t, over, spawnClaimDialTimeout, "the poll ends at its deadline; it ended %s past it", over)
+			// How long after its deadline the call returned is a measurement, not a judgement (ADR
+			// 0010): the dials and the spawn it may not make are pinned above, the wait for a tick
+			// by TestWaitForTick_EndsAtTheDeadlineNotTheTick, and what is left is the claim's file
+			// I/O and the OS scheduling this process, which a co-loaded machine stretched to 0.5 s.
+			t.Logf("the poll returned %s after its deadline", over)
 			<-freedDone
 			if tc.freed {
 				assert.NoFileExists(t, lockPath, "the claim taken on the freed lock is given back")
@@ -546,4 +550,22 @@ func TestEnsureRunningUntil_ThePollEndsAtItsDeadline(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestWaitForTick_EndsAtTheDeadlineNotTheTick (w6-borrow review): the poll's wait for its next tick
+// ends at the poll's deadline when that comes first, and then no dial may follow; a tick that comes
+// first lets the poll dial. The slow ticker here would tick only at spawnLockTestBound, so a wait
+// that ran to the tick instead of the deadline takes 5 s against a deadline 200 ms away, a margin
+// no scheduling delay on a loaded machine comes near.
+func TestWaitForTick_EndsAtTheDeadlineNotTheTick(t *testing.T) {
+	slow := time.NewTicker(spawnLockTestBound)
+	defer slow.Stop()
+	began := time.Now()
+	require.False(t, waitForTick(slow, began.Add(spawnLockMissBound)), "no dial may follow a wait that reached the deadline")
+	require.Less(t, time.Since(began), spawnLockTestBound/2, "the wait ended at the deadline, not at the tick")
+	require.False(t, waitForTick(slow, time.Now()), "a deadline that has come gets no wait and no dial")
+
+	fast := time.NewTicker(ensureRunningPollInterval)
+	defer fast.Stop()
+	require.True(t, waitForTick(fast, time.Now().Add(spawnLockTestBound)), "a tick before the deadline lets the poll dial")
 }
