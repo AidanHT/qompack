@@ -1,0 +1,81 @@
+# RED at 7f5d7a4 archive + durable_test.go + ledger.go's barrier fields + paths.Barriers.FileBarrier; no durable.go, no ingest.go wiring:
+# go test ./internal/negknow -run '^(TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered|TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged|TestRecord_AnUnacknowledgedSourcePaysNoBarrier|TestIngestMCP_PublishesItsEvidenceThroughTheRealStore)$' -count=1 -v
+# (TestRecord_AnUnacknowledgedSourcePaysNoBarrier is the no-barrier half and passes by design)
+=== RUN   TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered
+=== RUN   TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/record_eliminated
+    durable_test.go:134: 
+        	Error Trace:	<scratch>/red-negknow/internal/negknow/durable_test.go:134
+        	Error:      	Not equal: 
+        	            	expected: []string{"evidence:sha256:3e9a4f2df91357e09ed7092102e14427875abe1c64c97b5af810e3dc09ad93f1", "file:eliminations.jsonl", "dir:records"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,6 +1,2 @@
+        	            	-([]string) (len=3) {
+        	            	- (string) (len=80) "evidence:sha256:3e9a4f2df91357e09ed7092102e14427875abe1c64c97b5af810e3dc09ad93f1",
+        	            	- (string) (len=23) "file:eliminations.jsonl",
+        	            	- (string) (len=11) "dir:records"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/record_eliminated
+        	Messages:   	evidence, then the line, then the log's name — the first acknowledged record
+=== RUN   TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/pin_--eliminated
+    durable_test.go:134: 
+        	Error Trace:	<scratch>/red-negknow/internal/negknow/durable_test.go:134
+        	Error:      	Not equal: 
+        	            	expected: []string{"evidence:sha256:3e9a4f2df91357e09ed7092102e14427875abe1c64c97b5af810e3dc09ad93f1", "file:eliminations.jsonl", "dir:records"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,6 +1,2 @@
+        	            	-([]string) (len=3) {
+        	            	- (string) (len=80) "evidence:sha256:3e9a4f2df91357e09ed7092102e14427875abe1c64c97b5af810e3dc09ad93f1",
+        	            	- (string) (len=23) "file:eliminations.jsonl",
+        	            	- (string) (len=11) "dir:records"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/pin_--eliminated
+        	Messages:   	evidence, then the line, then the log's name — the first acknowledged record
+--- FAIL: TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered (0.14s)
+    --- FAIL: TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/record_eliminated (0.06s)
+    --- FAIL: TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/pin_--eliminated (0.08s)
+=== RUN   TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged
+=== RUN   TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/record_eliminated
+    durable_test.go:173: 
+        	Error Trace:	<scratch>/red-negknow/internal/negknow/durable_test.go:173
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected elimination-log sync failure"
+        	            	in chain: 
+        	Test:       	TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/record_eliminated
+        	Messages:   	a line that is not durable is not acknowledged
+=== RUN   TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/pin_--eliminated
+    durable_test.go:173: 
+        	Error Trace:	<scratch>/red-negknow/internal/negknow/durable_test.go:173
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected elimination-log sync failure"
+        	            	in chain: 
+        	Test:       	TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/pin_--eliminated
+        	Messages:   	a line that is not durable is not acknowledged
+--- FAIL: TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged (0.14s)
+    --- FAIL: TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/record_eliminated (0.05s)
+    --- FAIL: TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/pin_--eliminated (0.09s)
+=== RUN   TestRecord_AnUnacknowledgedSourcePaysNoBarrier
+--- PASS: TestRecord_AnUnacknowledgedSourcePaysNoBarrier (0.11s)
+=== RUN   TestIngestMCP_PublishesItsEvidenceThroughTheRealStore
+    durable_test.go:224: 
+        	Error Trace:	<scratch>/red-negknow/internal/negknow/durable_test.go:224
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestIngestMCP_PublishesItsEvidenceThroughTheRealStore
+        	Messages:   	one publication pass makes the evidence durable before the record names it
+--- FAIL: TestIngestMCP_PublishesItsEvidenceThroughTheRealStore (0.26s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	0.870s
+FAIL

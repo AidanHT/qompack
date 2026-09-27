@@ -148,7 +148,8 @@ func openLog(root string) (io.WriteCloser, error) {
 // Windows is atomic against a concurrent appender, so a crash costs at most the whole last line
 // and never half of two. There is no fsync per append — the plugin's durability boundary is the
 // daemon spool (00-ARCHITECTURE.md §2.4), and a lost tail line costs one elimination, never a
-// corrupt index.
+// corrupt index. The exception is a record an ingest acknowledges with no spool line behind it
+// (record_eliminated): durable.go syncs that one before the answer.
 //
 // HTML escaping is off, matching every other JSON writer in this codebase. encoding/json already
 // escapes the control characters that would split a record across two lines, so the interior-
