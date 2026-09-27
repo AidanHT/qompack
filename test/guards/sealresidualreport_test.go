@@ -66,6 +66,12 @@ var releasesWithNoSealResidual = []struct {
 		why: "os.Process.Release, which detaches the spawned child from this process — the same " +
 			"method name on an unrelated type (SpawnDetached's body since C1.17 staged the binary)",
 	},
+	{
+		file: "internal/daemon/spawn.go", fn: "ensureRunning",
+		why: "ipc.SpawnLock.Release, which gives back run/spawn.lock when the spawn it claimed could " +
+			"not start, or was not needed because a daemon answered the dial after the claim (V6 " +
+			"close-out D17) — the spawn claim, not the singleton daemon.lock, and never a delivery journal",
+	},
 }
 
 // reportFunc is the reporter every row above must call once per release.

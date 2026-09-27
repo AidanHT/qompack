@@ -190,11 +190,19 @@ type daemon struct {
 	runCancel   context.CancelFunc
 
 	// firstServed closes the first time this daemon dispatches a request that arrived over the
-	// transport — the earliest instant it can PROVE server.Serve is accepting. Run watches it to
+	// transport — the earliest instant it can PROVE it serves: its startup is done and serveOp let a
+	// request through to dispatchOp. Run watches it to
 	// re-drain the spool; see noteServed and redrainOnceServing for why that instant, and not any
 	// point inside Run's own startup sequence, is the one that closes V2-MERGE-25's window.
 	firstServedOnce sync.Once
 	firstServed     chan struct{}
+
+	// startedOnce/started open the gate every request Run's accept loop reads waits at (serveOp).
+	// The loop runs from the moment the endpoint exists, while the startup still replays the spool;
+	// started closes once that startup is done, which is the point the loop used to start at, so no
+	// live request is dispatched ahead of the replay (V6 close-out D17, the NOUP row).
+	startedOnce sync.Once
+	started     chan struct{}
 
 	// runWG tracks the goroutines Run starts DIRECTLY: the hot-path worker and the serving
 	// re-drain. Cancelling runCtx tells them to stop; it does not wait for them to have stopped,
@@ -364,6 +372,7 @@ func New(o Options) (Daemon, error) {
 		svc:         svc,
 		monitor:     monitor,
 		firstServed: make(chan struct{}),
+		started:     make(chan struct{}),
 		stopped:     make(chan struct{}),
 		stopDone:    make(chan struct{}),
 		// The POINTER, so a closer registered after this copy was taken -- which is every one of
@@ -692,6 +701,18 @@ func (d *daemon) Run(ctx context.Context) error {
 	}
 	d.setServer(server)
 
+	// The accept loop starts now, not after the startup below. A dial that meets an endpoint nobody
+	// accepts on does not queue everywhere: on Windows a named pipe with no accept pending refuses
+	// every dial until one is posted, so a daemon that listened and then spent its startup replaying
+	// the spool looked absent for all of it — session-start's poll missed it, the hook's connect
+	// failed and spooled, and every lazy spawn that followed started a daemon that lost the lock and
+	// exited (V6 close-out D17, the NOUP row: 30 s undiallable under CPU co-load). The requests it
+	// reads wait at serveOp's gate until the startup is done, so the replay still comes first and a
+	// Stop still meets a finished startup (startupMu); the defer opens the gate on every return.
+	serveErrCh := make(chan error, 1)
+	go func() { serveErrCh <- server.Serve(runCtx, d.serveOp) }()
+	defer d.openForRequests()
+
 	if err := ipc.WriteState(d.root, d.currentState()); err != nil {
 		d.log.Warn("daemon: failed to write state.bin", "err", err)
 	}
@@ -738,9 +759,9 @@ func (d *daemon) Run(ctx context.Context) error {
 	// Everything Stop tears down is published; from here on a Stop may proceed. This precedes the
 	// serve loop and every Stop call in it, which would otherwise wait on Run's own mutex.
 	endStartup()
-
-	serveErrCh := make(chan error, 1)
-	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
+	// The startup is done: the requests the accept loop has held, and every one after them, are
+	// dispatched from here on.
+	d.openForRequests()
 
 	var zeroLiveSince time.Time
 	for {
@@ -775,9 +796,16 @@ func (d *daemon) Run(ctx context.Context) error {
 				d.awaitStopCleanup()
 				return nil
 			default:
-				_ = d.Stop(context.Background())
-				return err
 			}
+			if ctx.Err() != nil {
+				// The caller's cancellation closed the server, not a transport failure: the
+				// ctx.Done arm's shutdown, whichever of the two ready arms select picked. The
+				// accept loop starts before the startup, so a cancellation during the startup has
+				// already ended Serve by the time this loop first selects (V6 close-out D17).
+				return d.Stop(context.Background())
+			}
+			_ = d.Stop(context.Background())
+			return err
 		case <-hbTicker.C:
 			// The local, not d.lock: this is Run's own goroutine reading the value Run itself
 			// published, which needs no synchronisation and cannot be nil here (every path that
@@ -828,6 +856,25 @@ func (d *daemon) idleExitDue(now core.UnixMilli, zeroLiveSince *time.Time) bool 
 	return d.clk.Now().Sub(*zeroLiveSince) >= window
 }
 
+// serveOp is the handler Run's accept loop dispatches through. The loop starts as soon as the
+// endpoint exists, so a dial never meets an endpoint that cannot take it; every request it reads
+// waits here until Run's startup is done — the spool replayed, the checkpoint sweep and the
+// publication audit run — and only then reaches dispatchOp. A request therefore sees exactly the
+// daemon it saw when the loop started only after the startup, and dispatchOp's first served request
+// still proves that (redrainOnceServing). The wait has no bound of its own: the caller's reply or ACK
+// deadline is the bound, and a caller that gives up spools, as it does against a slow daemon. Run
+// opens the gate on every return, so a Stop in the middle of the startup releases what it held.
+func (d *daemon) serveOp(ctx context.Context, req ipc.Request) ipc.Response {
+	<-d.started
+	return d.dispatchOp(ctx, req)
+}
+
+// openForRequests opens serveOp's gate. Idempotent: Run calls it once its startup is done, and
+// again, deferred, on its way out.
+func (d *daemon) openForRequests() {
+	d.startedOnce.Do(func() { close(d.started) })
+}
+
 // noteServed records that this daemon has dispatched a request, releasing redrainOnceServing. It
 // is called from dispatchOp, which is the function Run hands to server.Serve — so it fires only
 // once a connection has been accepted, a full frame read, and a request decoded.
@@ -841,13 +888,14 @@ func (d *daemon) noteServed() {
 
 // redrainOnceServing replays the spool a second time, once the daemon is provably serving.
 //
-// Run's own startup Drain runs BEFORE `go server.Serve(...)`, and after it the next drain is an
-// idle tick away — idleTickMax, 30s (V2-MERGE-25). Anything a client spools inside that window is
-// durable but invisible for up to half a minute, and on a cold start that window is precisely
-// where the spawn-causing entry lives. internal/ipc/client.go now spools before it spawns, which
-// keeps the ordinary cold start ahead of the startup drain, but that is a property of the CLIENT:
-// a second client dialling the not-yet-accepting daemon in the same window still times out and
-// spools with nothing left to notice it. This closes that from the daemon's own side, so
+// Run's own startup Drain runs before Run dispatches any request (serveOp holds what the accept loop
+// reads until the startup is done), and after it the next drain is an idle tick away — idleTickMax,
+// 30s (V2-MERGE-25). Anything a client spools inside that window is durable but invisible for up to
+// half a minute, and on a cold start that window is precisely where the spawn-causing entry lives.
+// internal/ipc/client.go now spools before it spawns, which keeps the ordinary cold start ahead of
+// the startup drain, but that is a property of the CLIENT: a second client whose request the
+// still-starting daemon holds past its deadline, or whose dial came before the endpoint existed,
+// spools in the same window with nothing left to notice it. This closes that from the daemon's own side, so
 // freshness stops depending on client-side ordering at all.
 //
 // The trigger is the FIRST SERVED REQUEST rather than a second Drain call placed after
@@ -856,7 +904,7 @@ func (d *daemon) noteServed() {
 //   - `go` orders nothing. A Drain written on the line after it can still run before the accept
 //     loop has started, which leaves exactly the window it was meant to close, just narrower and
 //     by an unbounded amount. A served request is the earliest fact the daemon can observe that
-//     PROVES Serve is accepting.
+//     PROVES it is past its startup and dispatching.
 //   - It is the only trigger with a happens-before edge to the thing being drained. A client that
 //     failed to reach this daemon appended to the spool before it gave up, and it gave up before
 //     any later client could be served — so every spool entry from the cold-start window is
@@ -1006,8 +1054,8 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 // into d.Drain — as the ordinary flush route does — would deadlock this goroutine on a lock it is
 // already holding, permanently. That deadlock is not a rare interleaving: ipc.client.Send spools
 // EVERY op on EVERY connect failure (no hot-path filter), so a SessionEnd hook firing while the
-// daemon is down leaves exactly this line for the very next daemon's STARTUP drain — before Serve
-// has accepted a single connection — to trip over. A LEASED flush reaches here only when no session
+// daemon is down leaves exactly this line for the very next daemon's STARTUP drain — before Run
+// dispatches a single request — to trip over. A LEASED flush reaches here only when no session
 // end of its own could take it (drainer.dispatchPending asks endDrainedFlush first, C1.15): during
 // the startup drain, during Stop's drain, and in a drain a session end runs itself.
 //

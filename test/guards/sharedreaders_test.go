@@ -53,10 +53,16 @@ var sharedReaders = []sharedReader{
 		why:   "Lock.Release's os.Remove, the last act of a daemon shutdown, and removeLockFiles' reclaim of a stale lock",
 	},
 	{
-		file:  "internal/ipc/client.go",
-		fn:    "spawnLockIsStale",
+		file:  "internal/ipc/spawnlock.go",
+		fn:    "readSpawnLock",
 		holds: "run/spawn.lock",
-		why:   "daemon.removeSpawnLockFile, which deletes the lock from the spawned daemon's own process once it is listening",
+		why:   "daemon.removeSpawnLockFile, which deletes the lock from the spawned daemon's own process once it is listening, and a competing spawner's reclaim of a stale lock",
+	},
+	{
+		file:  "internal/ipc/spawnlock.go",
+		fn:    "removeSpawnLockIf",
+		holds: "run/spawn.lock",
+		why:   "the same two deleters: it reads the lock to check the claim is still the one it means to remove",
 	},
 	{
 		file:  "internal/contract/monitor.go",
