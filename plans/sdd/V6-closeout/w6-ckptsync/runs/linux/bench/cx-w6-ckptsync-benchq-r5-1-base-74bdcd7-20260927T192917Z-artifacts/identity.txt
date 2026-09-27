@@ -1,0 +1,21 @@
+run_id=cx-w6-ckptsync-benchq-r5-1-base-74bdcd7-20260927T192917Z
+commit=74bdcd76281353772d9e32afcc14fc7a3f072041
+tree=5827d80bf0bfff6ce95ecbdb68721b231b8536c0
+bundle_sha256=3fd2b576df22e5966f7543de49087bf497db0a4e4e31befc35e0a19ab554761a
+started_utc=2026-09-27T19:29:44Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^$
+skip=
+extra_env= GOFLAGS=-bench=^(BenchmarkIngestAccept|BenchmarkIngestAcceptLeased|BenchmarkIngestAcceptExternalized|BenchmarkIngestMCPRealStore|BenchmarkRecord)$
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-bench=^(BenchmarkIngestAccept|BenchmarkIngestAcceptLeased|BenchmarkIngestAcceptExternalized|BenchmarkIngestMCPRealStore|BenchmarkRecord)$
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T19:30:55Z

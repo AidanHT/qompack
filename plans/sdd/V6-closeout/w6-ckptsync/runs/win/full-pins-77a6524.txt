@@ -1,0 +1,121 @@
+=== RUN   TestPinsAReportedChangeSurvivesAPowerCut
+=== RUN   TestPinsAReportedChangeSurvivesAPowerCut/first_pin_creates_the_log
+=== RUN   TestPinsAReportedChangeSurvivesAPowerCut/a_later_pin
+=== RUN   TestPinsAReportedChangeSurvivesAPowerCut/a_removal
+--- PASS: TestPinsAReportedChangeSurvivesAPowerCut (0.26s)
+    --- PASS: TestPinsAReportedChangeSurvivesAPowerCut/first_pin_creates_the_log (0.04s)
+    --- PASS: TestPinsAReportedChangeSurvivesAPowerCut/a_later_pin (0.10s)
+    --- PASS: TestPinsAReportedChangeSurvivesAPowerCut/a_removal (0.11s)
+=== RUN   TestPinsAnAppendWhoseSyncIsCutIsNotReported
+--- PASS: TestPinsAnAppendWhoseSyncIsCutIsNotReported (0.01s)
+=== RUN   TestPinsMintIDStable
+--- PASS: TestPinsMintIDStable (0.00s)
+=== RUN   TestPinsSourceNormalized
+=== RUN   TestPinsSourceNormalized/user_survives
+=== RUN   TestPinsSourceNormalized/agent_survives
+=== RUN   TestPinsSourceNormalized/decision_survives
+=== RUN   TestPinsSourceNormalized/empty_becomes_agent
+=== RUN   TestPinsSourceNormalized/bogus_becomes_agent
+=== RUN   TestPinsSourceNormalized/case_is_not_folded
+--- PASS: TestPinsSourceNormalized (0.27s)
+    --- PASS: TestPinsSourceNormalized/user_survives (0.06s)
+    --- PASS: TestPinsSourceNormalized/agent_survives (0.06s)
+    --- PASS: TestPinsSourceNormalized/decision_survives (0.06s)
+    --- PASS: TestPinsSourceNormalized/empty_becomes_agent (0.03s)
+    --- PASS: TestPinsSourceNormalized/bogus_becomes_agent (0.03s)
+    --- PASS: TestPinsSourceNormalized/case_is_not_folded (0.03s)
+=== RUN   TestPinsRejectedSourceIsLogged
+--- PASS: TestPinsRejectedSourceIsLogged (0.05s)
+=== RUN   TestPinsEmptySourceIsNotLogged
+--- PASS: TestPinsEmptySourceIsNotLogged (0.04s)
+=== RUN   TestPinsEmptyTextRejected
+--- PASS: TestPinsEmptyTextRejected (0.01s)
+=== RUN   TestPinsAddAppendsOneLine
+--- PASS: TestPinsAddAppendsOneLine (0.05s)
+=== RUN   TestPinsAddIsIdempotent
+--- PASS: TestPinsAddIsIdempotent (0.03s)
+=== RUN   TestPinsAddDefaultsPinnedFromTheClockOnly
+--- PASS: TestPinsAddDefaultsPinnedFromTheClockOnly (0.08s)
+=== RUN   TestPinsTruncatesOversizeText
+--- PASS: TestPinsTruncatesOversizeText (0.03s)
+=== RUN   TestPinsTextAtTheCapIsUntouched
+--- PASS: TestPinsTextAtTheCapIsUntouched (0.02s)
+=== RUN   TestPinsOpenKeepsItsOneArgumentArity
+--- PASS: TestPinsOpenKeepsItsOneArgumentArity (0.07s)
+=== RUN   TestRunPinsSuite_RealStore
+=== RUN   TestRunPinsSuite_RealStore/pins.OpenWith/shape
+=== RUN   TestRunPinsSuite_RealStore/pins.OpenWith/behaviour
+=== RUN   TestRunPinsSuite_RealStore/pins.OpenWith/behaviour/add_is_append_only_and_all_returns_append_order
+=== RUN   TestRunPinsSuite_RealStore/pins.OpenWith/behaviour/remove_writes_a_tombstone_and_all_excludes_it
+=== RUN   TestRunPinsSuite_RealStore/pins.OpenWith/behaviour/materialize_regenerates_the_view_without_changing_the_logical_set
+--- PASS: TestRunPinsSuite_RealStore (0.34s)
+    --- PASS: TestRunPinsSuite_RealStore/pins.OpenWith/shape (0.09s)
+    --- PASS: TestRunPinsSuite_RealStore/pins.OpenWith/behaviour (0.22s)
+        --- PASS: TestRunPinsSuite_RealStore/pins.OpenWith/behaviour/add_is_append_only_and_all_returns_append_order (0.07s)
+        --- PASS: TestRunPinsSuite_RealStore/pins.OpenWith/behaviour/remove_writes_a_tombstone_and_all_excludes_it (0.11s)
+        --- PASS: TestRunPinsSuite_RealStore/pins.OpenWith/behaviour/materialize_regenerates_the_view_without_changing_the_logical_set (0.04s)
+=== RUN   TestPinsMatchesFrozenAddFixture
+--- PASS: TestPinsMatchesFrozenAddFixture (0.07s)
+=== RUN   TestPinsRemoveWritesTombstone
+--- PASS: TestPinsRemoveWritesTombstone (0.16s)
+=== RUN   TestPinsRemoveUnknownIsNotFound
+--- PASS: TestPinsRemoveUnknownIsNotFound (0.00s)
+=== RUN   TestPinsRemoveTwiceIsANoOp
+--- PASS: TestPinsRemoveTwiceIsANoOp (0.08s)
+=== RUN   TestPinsReaddAfterRemoveAppendsAgain
+--- PASS: TestPinsReaddAfterRemoveAppendsAgain (0.11s)
+=== RUN   TestPinsReplaySkipsMalformedLine
+--- PASS: TestPinsReplaySkipsMalformedLine (0.02s)
+=== RUN   TestPinsReplayBadLineShapes
+--- PASS: TestPinsReplayBadLineShapes (0.02s)
+=== RUN   TestPinsReplayHandlesAFinalLineWithNoNewline
+--- PASS: TestPinsReplayHandlesAFinalLineWithNoNewline (0.01s)
+=== RUN   TestPinsReplayRefreshesADuplicateAdd
+--- PASS: TestPinsReplayRefreshesADuplicateAdd (0.01s)
+=== RUN   TestPinsStateSurvivesReopen
+--- PASS: TestPinsStateSurvivesReopen (0.16s)
+=== RUN   TestPinsAllSortsByPinnedThenID
+--- PASS: TestPinsAllSortsByPinnedThenID (0.11s)
+=== RUN   TestPinsMaterializeView
+--- PASS: TestPinsMaterializeView (0.17s)
+=== RUN   TestPinsMaterializeRunsAfterEveryAddAndRemove
+--- PASS: TestPinsMaterializeRunsAfterEveryAddAndRemove (0.08s)
+=== RUN   TestPinsMaterializeIsIdempotent
+--- PASS: TestPinsMaterializeIsIdempotent (0.05s)
+=== RUN   TestPinsAppendOnlyGuard
+--- PASS: TestPinsAppendOnlyGuard (0.04s)
+=== RUN   TestPinsOpenWithCreatesThePinsDirectory
+--- PASS: TestPinsOpenWithCreatesThePinsDirectory (0.00s)
+=== RUN   TestPinsOpenWithFailsWhenPinsIsNotADirectory
+--- PASS: TestPinsOpenWithFailsWhenPinsIsNotADirectory (0.00s)
+=== RUN   TestPinsOpenWithFailsWhenTheLogIsUnreadable
+--- PASS: TestPinsOpenWithFailsWhenTheLogIsUnreadable (0.01s)
+=== RUN   TestPinsHonoursAnExpiredContext
+--- PASS: TestPinsHonoursAnExpiredContext (0.00s)
+=== RUN   TestPinsReplayTombstoneForAnUnknownID
+--- PASS: TestPinsReplayTombstoneForAnUnknownID (0.03s)
+=== RUN   TestPinsAddReportsAnAppendFailure
+--- PASS: TestPinsAddReportsAnAppendFailure (0.01s)
+=== RUN   TestPinsRemoveReportsAnAppendFailure
+--- PASS: TestPinsRemoveReportsAnAppendFailure (0.03s)
+=== RUN   TestPinsMaterializeReportsAStagingFailure
+--- PASS: TestPinsMaterializeReportsAStagingFailure (0.00s)
+=== RUN   TestPinsMaterializeReportsAReplaceFailure
+--- PASS: TestPinsMaterializeReportsAReplaceFailure (0.05s)
+=== RUN   TestPinsConcurrentAddsAreSerialized
+--- PASS: TestPinsConcurrentAddsAreSerialized (0.50s)
+=== RUN   TestPinsAddRetryRepairsAViewThatFailedToWrite
+--- PASS: TestPinsAddRetryRepairsAViewThatFailedToWrite (0.06s)
+=== RUN   TestPinsRemoveRetryClearsAnInvariantLeftVisibleByAFailedViewWrite
+--- PASS: TestPinsRemoveRetryClearsAnInvariantLeftVisibleByAFailedViewWrite (0.09s)
+=== RUN   TestPinsReplayTreatsAnOversizeLineAsOneBadRecord
+=== RUN   TestPinsReplayTreatsAnOversizeLineAsOneBadRecord/unparseable
+=== RUN   TestPinsReplayTreatsAnOversizeLineAsOneBadRecord/a_structurally_valid_add_record
+--- PASS: TestPinsReplayTreatsAnOversizeLineAsOneBadRecord (0.09s)
+    --- PASS: TestPinsReplayTreatsAnOversizeLineAsOneBadRecord/unparseable (0.03s)
+    --- PASS: TestPinsReplayTreatsAnOversizeLineAsOneBadRecord/a_structurally_valid_add_record (0.07s)
+=== RUN   TestPinsReplayDoesNotAllocateAWholeOversizeLine
+--- PASS: TestPinsReplayDoesNotAllocateAWholeOversizeLine (0.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/pins	4.455s
+exit=0

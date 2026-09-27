@@ -1,0 +1,72 @@
+{"Time":"2026-09-27T19:14:28.620715728Z","Action":"start","Package":"github.com/qompack/qompack/internal/checkpoint"}
+{"Time":"2026-09-27T19:14:28.637984964Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"goos: linux\n"}
+{"Time":"2026-09-27T19:14:28.638039042Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"goarch: amd64\n"}
+{"Time":"2026-09-27T19:14:28.63804713Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"pkg: github.com/qompack/qompack/internal/checkpoint\n"}
+{"Time":"2026-09-27T19:14:28.638053387Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"cpu: Intel(R) Core(TM) Ultra 7 155H\n"}
+{"Time":"2026-09-27T19:14:28.638062905Z","Action":"run","Package":"github.com/qompack/qompack/internal/checkpoint","Test":"BenchmarkFinalize"}
+{"Time":"2026-09-27T19:14:28.638067412Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Test":"BenchmarkFinalize","Output":"=== RUN   BenchmarkFinalize\n"}
+{"Time":"2026-09-27T19:14:28.638071622Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Test":"BenchmarkFinalize","Output":"BenchmarkFinalize\n"}
+{"Time":"2026-09-27T19:16:52.339044354Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Test":"BenchmarkFinalize","Output":"BenchmarkFinalize-4   \t       6\t 248415080 ns/op\n"}
+{"Time":"2026-09-27T19:18:21.852356517Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"BenchmarkFinalize-4   \t       3\t 337308978 ns/op\n"}
+{"Time":"2026-09-27T19:20:34.005733075Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"BenchmarkFinalize-4   \t       7\t 154809930 ns/op\n"}
+{"Time":"2026-09-27T19:23:03.834293902Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"BenchmarkFinalize-4   \t       7\t 180134798 ns/op\n"}
+{"Time":"2026-09-27T19:25:30.290001106Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"BenchmarkFinalize-4   \t       8\t 141379377 ns/op\n"}
+{"Time":"2026-09-27T19:25:30.290390686Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"PASS\n"}
+{"Time":"2026-09-27T19:25:30.297281471Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"ok  \tgithub.com/qompack/qompack/internal/checkpoint\t661.731s\n"}
+{"Time":"2026-09-27T19:25:30.297351981Z","Action":"pass","Package":"github.com/qompack/qompack/internal/checkpoint","Elapsed":661.732}
+{"Time":"2026-09-27T19:25:30.30043751Z","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-09-27T19:25:30.321387354Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"goos: linux\n"}
+{"Time":"2026-09-27T19:25:30.321450213Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"goarch: amd64\n"}
+{"Time":"2026-09-27T19:25:30.321460135Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"pkg: github.com/qompack/qompack/internal/daemon\n"}
+{"Time":"2026-09-27T19:25:30.32153161Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"cpu: Intel(R) Core(TM) Ultra 7 155H\n"}
+{"Time":"2026-09-27T19:25:30.321552646Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAccept"}
+{"Time":"2026-09-27T19:25:30.321558945Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAccept","Output":"=== RUN   BenchmarkIngestAccept\n"}
+{"Time":"2026-09-27T19:25:30.321563601Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAccept","Output":"BenchmarkIngestAccept\n"}
+{"Time":"2026-09-27T19:25:31.76673609Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAccept","Output":"BenchmarkIngestAccept-4               \t      68\t  19831499 ns/op\n"}
+{"Time":"2026-09-27T19:25:33.020414965Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAccept-4               \t      58\t  19678318 ns/op\n"}
+{"Time":"2026-09-27T19:25:35.419482735Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAccept-4               \t      60\t  21167153 ns/op\n"}
+{"Time":"2026-09-27T19:25:37.786189363Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAccept-4               \t     100\t  22593069 ns/op\n"}
+{"Time":"2026-09-27T19:25:39.38204778Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAccept-4               \t      84\t  17768390 ns/op\n"}
+{"Time":"2026-09-27T19:25:39.382123591Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAcceptLeased"}
+{"Time":"2026-09-27T19:25:39.382229395Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAcceptLeased","Output":"=== RUN   BenchmarkIngestAcceptLeased\n"}
+{"Time":"2026-09-27T19:25:39.382251174Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAcceptLeased","Output":"BenchmarkIngestAcceptLeased\n"}
+{"Time":"2026-09-27T19:25:42.068642654Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAcceptLeased","Output":"BenchmarkIngestAcceptLeased-4         \t      36\t  44737343 ns/op\n"}
+{"Time":"2026-09-27T19:25:44.303779855Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAcceptLeased-4         \t      27\t  45348968 ns/op\n"}
+{"Time":"2026-09-27T19:25:47.191612413Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAcceptLeased-4         \t      45\t  43410881 ns/op\n"}
+{"Time":"2026-09-27T19:25:49.385396391Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAcceptLeased-4         \t      33\t  40314486 ns/op\n"}
+{"Time":"2026-09-27T19:25:52.846795086Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAcceptLeased-4         \t      26\t  41694773 ns/op\n"}
+{"Time":"2026-09-27T19:25:52.846873911Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAcceptExternalized"}
+{"Time":"2026-09-27T19:25:52.846883367Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAcceptExternalized","Output":"=== RUN   BenchmarkIngestAcceptExternalized\n"}
+{"Time":"2026-09-27T19:25:52.84688925Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAcceptExternalized","Output":"BenchmarkIngestAcceptExternalized\n"}
+{"Time":"2026-09-27T19:25:54.149969485Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"BenchmarkIngestAcceptExternalized","Output":"BenchmarkIngestAcceptExternalized-4   \t      28\t  39038881 ns/op\n"}
+{"Time":"2026-09-27T19:25:55.504605133Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAcceptExternalized-4   \t      28\t  40903032 ns/op\n"}
+{"Time":"2026-09-27T19:25:56.864237969Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAcceptExternalized-4   \t      28\t  40766328 ns/op\n"}
+{"Time":"2026-09-27T19:25:59.101364095Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAcceptExternalized-4   \t      37\t  54527787 ns/op\n"}
+{"Time":"2026-09-27T19:26:00.806738283Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"BenchmarkIngestAcceptExternalized-4   \t      20\t  59014377 ns/op\n"}
+{"Time":"2026-09-27T19:26:00.806811078Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"PASS\n"}
+{"Time":"2026-09-27T19:26:00.81155832Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"ok  \tgithub.com/qompack/qompack/internal/daemon\t30.515s\n"}
+{"Time":"2026-09-27T19:26:00.81190518Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":30.515}
+{"Time":"2026-09-27T19:26:00.822495968Z","Action":"start","Package":"github.com/qompack/qompack/internal/negknow"}
+{"Time":"2026-09-27T19:26:00.862989401Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"goos: linux\n"}
+{"Time":"2026-09-27T19:26:00.863045582Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"goarch: amd64\n"}
+{"Time":"2026-09-27T19:26:00.86305163Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"pkg: github.com/qompack/qompack/internal/negknow\n"}
+{"Time":"2026-09-27T19:26:00.863128987Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"cpu: Intel(R) Core(TM) Ultra 7 155H\n"}
+{"Time":"2026-09-27T19:26:00.863142959Z","Action":"run","Package":"github.com/qompack/qompack/internal/negknow","Test":"BenchmarkRecord"}
+{"Time":"2026-09-27T19:26:00.863147384Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Test":"BenchmarkRecord","Output":"=== RUN   BenchmarkRecord\n"}
+{"Time":"2026-09-27T19:26:00.863154199Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Test":"BenchmarkRecord","Output":"BenchmarkRecord\n"}
+{"Time":"2026-09-27T19:26:03.188055632Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Test":"BenchmarkRecord","Output":"BenchmarkRecord-4               \t   13572\t     86186 ns/op\t     78149 cpu-ns/op\t   10918 B/op\t      70 allocs/op\n"}
+{"Time":"2026-09-27T19:26:06.707625521Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"BenchmarkRecord-4               \t   14958\t     82957 ns/op\t     73208 cpu-ns/op\t   11547 B/op\t      70 allocs/op\n"}
+{"Time":"2026-09-27T19:26:07.953820564Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"BenchmarkRecord-4               \t   10000\t    106458 ns/op\t     86025 cpu-ns/op\t   11490 B/op\t      70 allocs/op\n"}
+{"Time":"2026-09-27T19:26:09.235332206Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"BenchmarkRecord-4               \t   10000\t    104973 ns/op\t     96944 cpu-ns/op\t   11491 B/op\t      70 allocs/op\n"}
+{"Time":"2026-09-27T19:26:10.481860974Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"BenchmarkRecord-4               \t   10000\t    103593 ns/op\t     95047 cpu-ns/op\t   11491 B/op\t      70 allocs/op\n"}
+{"Time":"2026-09-27T19:26:10.481927566Z","Action":"run","Package":"github.com/qompack/qompack/internal/negknow","Test":"BenchmarkIngestMCPRealStore"}
+{"Time":"2026-09-27T19:26:10.481939883Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Test":"BenchmarkIngestMCPRealStore","Output":"=== RUN   BenchmarkIngestMCPRealStore\n"}
+{"Time":"2026-09-27T19:26:10.481953973Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Test":"BenchmarkIngestMCPRealStore","Output":"BenchmarkIngestMCPRealStore\n"}
+{"Time":"2026-09-27T19:26:12.336806207Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Test":"BenchmarkIngestMCPRealStore","Output":"BenchmarkIngestMCPRealStore-4   \t      14\t 104917027 ns/op\t  107602 B/op\t     285 allocs/op\n"}
+{"Time":"2026-09-27T19:26:13.724065281Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"BenchmarkIngestMCPRealStore-4   \t       8\t 129105174 ns/op\t   44158 B/op\t     290 allocs/op\n"}
+{"Time":"2026-09-27T19:26:15.390638545Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"BenchmarkIngestMCPRealStore-4   \t      13\t 102012318 ns/op\t   42982 B/op\t     286 allocs/op\n"}
+{"Time":"2026-09-27T19:26:17.816158179Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"BenchmarkIngestMCPRealStore-4   \t       9\t 118050288 ns/op\t   33269 B/op\t     281 allocs/op\n"}
+{"Time":"2026-09-27T19:26:20.064235981Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"BenchmarkIngestMCPRealStore-4   \t       8\t 132237849 ns/op\t   42967 B/op\t     284 allocs/op\n"}
+{"Time":"2026-09-27T19:26:20.064302919Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"PASS\n"}
+{"Time":"2026-09-27T19:26:20.06657842Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"ok  \tgithub.com/qompack/qompack/internal/negknow\t19.244s\n"}
+{"Time":"2026-09-27T19:26:20.066640017Z","Action":"pass","Package":"github.com/qompack/qompack/internal/negknow","Elapsed":19.244}

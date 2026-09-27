@@ -1,0 +1,10 @@
+run_id=cx-w6-ckptsync-benchq-r5-2-head-312e15a-20260927T193056Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync
+rev=312e15a
+commit=312e15af1a4e797a0a8fe2cf0978cf6f80500b75
+bundle_sha256=eff13590863cdbb18b134d11e967249268e93eabc4574cbab6ac219e82892ff0
+host_started_utc=2026-09-27T19:31:11Z
+inner_args=--no-race --run ^$ --count 5 --timeout 30m --env GOFLAGS=-bench=^(BenchmarkIngestAccept|BenchmarkIngestAcceptLeased|BenchmarkIngestAcceptExternalized|BenchmarkIngestMCPRealStore|BenchmarkRecord)$ -- ./internal/daemon ./internal/negknow
+host_finished_utc=2026-09-27T19:32:38Z
+container_exit=0

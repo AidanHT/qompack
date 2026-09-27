@@ -1,0 +1,24 @@
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: 5.324442ms CPU/op over 314 iterations (best of 1) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 4.067318ms wall/op over 314 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (2.27s)
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: attempt 1 is 14.283561ms wall/op and 8.026541ms CPU/op, over the 10ms ceiling on a gated clock — retrying
+    bench_test.go:744: BenchmarkRefreshStaleness: attempt 2 is 15.573166ms wall/op and 7.96875ms CPU/op, over the 10ms ceiling on a gated clock — retrying
+    bench_test.go:744: BenchmarkRefreshStaleness: attempt 3 is 12.738657ms wall/op and 8.125ms CPU/op, over the 10ms ceiling on a gated clock — retrying
+    bench_test.go:744: BenchmarkRefreshStaleness: 7.96875ms CPU/op over 100 iterations (best of 3) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 12.738657ms wall/op over 100 iterations (best of 3) against a 10ms budget
+    bench_test.go:744: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync/internal/negknow/bench_test.go:441
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync/internal/negknow/bench_test.go:744
+        	Error:      	"12.738657ms" is not less than or equal to "10ms"
+        	Test:       	TestBudget_RefreshStaleness
+        	Messages:   	BenchmarkRefreshStaleness: 12.738657ms wall/op exceeds the §11.2 budget of 10ms
+--- FAIL: TestBudget_RefreshStaleness (8.75s)
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: 7.058397ms CPU/op over 259 iterations (best of 1) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 5.643139ms wall/op over 259 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (6.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	17.320s
+FAIL

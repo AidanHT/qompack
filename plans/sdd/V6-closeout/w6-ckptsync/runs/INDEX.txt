@@ -1,0 +1,29 @@
+w6-ckptsync evidence (closeout/w6-ckptsync). Code head 61c6c7f; 312e15a adds only evidence. eddb208 -> 61c6c7f
+changes comments only (internal/checkpoint/finalize.go), so a run at eddb208 exercises the head's code.
+
+red/        RED logs, one per barrier fix; red/INDEX.txt names the commit, archive and failing test of each.
+
+win/        Windows 11, go1.26.6, co-loaded (other workstreams on the machine and in the container).
+  full-{paths,pins,negknow,store}-77a6524.txt   go test ./internal/<pkg> -count=1 -timeout=70m -v.
+      None of these four packages imports internal/checkpoint (go list -deps -test), and 77a6524 ->
+      head changes only internal/checkpoint/finalize.go, so these are the head's results.
+      negknow: TestBudget_RefreshStaleness failed once (10.7 ms wall/op vs 10 ms) under co-load; see
+      refresh-staleness-*.txt: alone at the head it went 2 of 3 then 10 of 10, the base 3 of 3 and
+      10 of 10, in the same 2.3-6.0 ms band; the path is unchanged by this branch.
+  full-checkpoint-77a6524-red.txt   the run that found TestColdPreCompactCatchesUpInOneBatchOldestFirst
+      (fixed in eddb208).
+  full-{checkpoint,daemon,cli}-312e15a.txt      the same command at the head: all ok.
+  focus-*-312e15a.txt   record_eliminated/pin rows (mcp, commands), fault+integration rows touching
+      checkpoints, backup and publication, e2e checkpoint/rehydrate/elimination rows: all PASS.
+  refresh-staleness-alone-base.txt ran on f6095e2 plus the two benchmark files (scratch commit
+      74bdcd7, never a branch); refresh-staleness-ab.txt alternates head and that base, count 5 each.
+  finalize-ab-*.txt     Windows BenchmarkFinalize ABBA (test binaries of head and base, 5x, 6 rounds).
+
+linux/      qompack-v6-linux-verification via plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh, non-root.
+  cx-w6-ckptsync-touched-full-eddb208-*   -race, the seven touched packages: all PASS except
+      TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1 of 1519 in daemon; co-load, see below).
+  cx-w6-ckptsync-lane-overflow-alone-eddb208-*   that row alone, -race, --count 10: 10/10 PASS.
+  bench/   paired ABBA timing, --no-race, --count 5, GOFLAGS=-bench=<regex>, base = scratch commit
+      74bdcd7 (f6095e2 + the two new benchmark files), head = 312e15a, 6 rounds; driver and pairing
+      script as bench-abba.sh.txt and bench-pairs.py.txt; PAIRS.txt is the pairing's output. Ratios
+      only: the container was co-loaded by three other workstreams (a single WAL fsync took ~20 ms).

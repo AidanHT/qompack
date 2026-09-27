@@ -1,0 +1,23 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/checkpoint": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/negknow": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}
