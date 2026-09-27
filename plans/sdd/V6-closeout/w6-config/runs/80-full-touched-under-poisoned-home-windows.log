@@ -1,0 +1,87 @@
+# fix seat (w6-config), 2026-09-27: every touched package once in full (internal/config, test/guards, test/docs) under a poisoned fake real home (scratch fullrun.sh + poisonhome, the implementer's scripts; poison built from a f6095e2 archive). Worktree = HEAD 91608c4 + all fix-seat changes, uncommitted. Windows 11, co-loaded host.
+# The one failure, TestCarriedDefects_WaveReportRequiresResolution (six carried-defect rows vs plans/V6-report.md), fails identically at base f6095e2: runs/81.
+# run 'fix-touched': go test in C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config (91608c4f, status: 19 changed paths)
+# poisoned fake real home: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w6\config\fix\fakehome-fix-touched; HOME, USERPROFILE, QOMPACK_HOME, CLAUDE_CONFIG_DIR point into it; GOPATH=C:\Users\Quant\go GOMODCACHE=C:\Users\Quant\go\pkg\mod GOCACHE=C:\Users\Quant\AppData\Local\go-build GOENV=C:\Users\Quant\AppData\Roaming\go\env pinned
+store-scoped poisoned factor: 1.6
+# poisoned files:
+{"checkpoint":{"budgetTokens":4242},"runtime":{"mode":"off"}}
+{"44fe9059e31e":1.6}
+{"permissions":{"deny":["Read(./**)"]}}
+# snapshot before:
+.claude d
+.claude/settings.json f 39 1790546375 1782a660312d0b4334ab699b34cc4e8928cc78ca517da20d69a224f0693a26b3
+.qompack d
+.qompack/calibration.json f 20 1790546375 216ba3fac88155b87132d86dec3a6dc52f472ed837ac176b854b7b92f7105e30
+.qompack/config.json f 61 1790546375 2cc93be31c257948859c78c46c3763a1f139d2bc3a4cf5f1dd9b701703759f04
+.qompack/tmp d
+# started 2026-09-27T21:59:36Z: go test -p 2 -count=1 -timeout=30m ./internal/config ./test/guards ./test/docs
+ok  	github.com/qompack/qompack/internal/config	14.936s
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.13s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP06-D2 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+            	Messages:   	SP06-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  the PutBytes cold and warm budgets (3 ms / 400 us) are 5.2x and 14.1x over on Windows at V5 (15.74 / 5.65 ms, cold allocations up 28 % since the wave-3 baseline) and have never been measured on the reference platform
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+            	Messages:   	SP08-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  OnToolUse over a 256 KB tool result breaches budget B-C (l0_process, p99 < 50 ms): 53-115 ms on Qompack.md 8.1's own one-changed-line case and 262-655 ms when every chunk is novel, dominated by store.PutBytes's per-novel-chunk object-write path
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP10-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+            	Messages:   	SP10-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  Finalize measures 42.8-43.8 ms/op at 170-208 % processor performance but 64-73 ms/op at 128 % and at base clock on Windows against exit criterion 1570's 50 ms after perf(checkpoint) 72f3226 removed the paths.Norm share (264-284 ms before), and the reference platform has never been measured
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-10-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP09-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+            	Messages:   	SP09-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  negknow Open measures 258-273 ms CPU/op at 120 % processor performance but 586-633 ms at 55 % on Windows against its 300 ms budget, so the budget holds on this host only at turbo clocks, and the reference platform has never been measured
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP20-D2 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+            	Messages:   	SP20-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  verify-on-read (16ecc77) adds an Lstat, an fstat and a content hash of the plaintext to every object read, so GetChunk measures 85-88 us/op (26 allocs) against the 60 us budget where the wave-3 baseline read 45 us (18 allocs), and Search_1000Roots, which reads every candidate chunk through the same path, 82 ms against 25 ms where the baseline read 45-52 ms; OpenSpan_4KB_of_4MB (19 -> 27 allocs) stays inside its 150 us at turbo but reads 316-333 us at base clock
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D3 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+            	Messages:   	SP08-D3 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  V6 worker capture restores spooled prompts and original publication intents, preserves distinct equal-text deliveries, and orders leased same-session replay; focused recovery and instrumented Linux crash-replay cases pass on identified snapshots, while final candidate packaged recovery and acceptance remain outstanding
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	94.678s
+ok  	github.com/qompack/qompack/test/docs	2.012s
+FAIL
+# finished 2026-09-27T22:01:13Z
+go-test-exit=1
+# fake real home .qompack/.claude diff (before -> after); empty means untouched:
+diff-exit=0
