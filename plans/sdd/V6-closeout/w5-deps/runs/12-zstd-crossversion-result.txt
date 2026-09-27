@@ -1,0 +1,10 @@
+v1.18.0 encoded 1516 objects, 121127697 plaintext bytes -> 20762258 compressed bytes; MaxEncodedSize(64MiB)=67110417
+enc0 exit=0
+v1.18.7 encoded 1516 objects, 121127697 plaintext bytes -> 20762267 compressed bytes; MaxEncodedSize(64MiB)=67110417
+enc7 exit=0
+files on disk: 3032
+v1.18.0-decoder decoded 3032 objects OK, 0 failed
+dec0 exit=0
+v1.18.7-decoder decoded 3032 objects OK, 0 failed
+dec7 exit=0
+  differs: e3b0c44298fc1c14-empty.zst 0 vs 9 bytes

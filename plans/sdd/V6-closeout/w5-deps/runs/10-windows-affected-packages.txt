@@ -1,0 +1,28 @@
+HEAD=2167632c3baeb3ef2f0457e3864aa7115e79531a started=2026-09-26T22:06:58Z
+./tools/lint/nomagic exit=0 finished=2026-09-26T22:07:02Z
+./internal/paths exit=0 finished=2026-09-26T22:07:12Z
+./internal/ipc exit=0 finished=2026-09-26T22:07:35Z
+./test/security exit=0 finished=2026-09-26T22:08:59Z
+./internal/store exit=0 finished=2026-09-26T22:18:16Z
+done
+--- win-nomagic.log
+ok  	github.com/qompack/qompack/tools/lint/nomagic	2.632s
+--- win-paths.log
+ok  	github.com/qompack/qompack/internal/paths	7.962s
+--- win-ipc.log
+ok  	github.com/qompack/qompack/internal/ipc	21.523s
+--- win-security.log
+ok  	github.com/qompack/qompack/test/security	81.804s
+--- win-store.log
+ok  	github.com/qompack/qompack/internal/store	554.493s
+
+Extra packages whose inputs changed (go.mod, THIRD_PARTY_NOTICES.md): test/docs, tools/devtool
+HEAD=2167632c3baeb3ef2f0457e3864aa7115e79531a started=2026-09-26T22:21:30Z
+./test/docs exit=0 finished=2026-09-26T22:21:34Z
+./tools/devtool exit=0 finished=2026-09-26T22:24:52Z
+porcelain-after=[]
+done
+--- win-docs.log
+ok  	github.com/qompack/qompack/test/docs	2.729s
+--- win-devtool.log
+ok  	github.com/qompack/qompack/tools/devtool	192.979s
