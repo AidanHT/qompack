@@ -301,16 +301,17 @@ Open at this release, stated here rather than left to discovery.
   nothing answers behind as STALE and disables no check.
 - **On Windows, durability across a power cut rests on NTFS journaling (owner decision D24).** On
   POSIX every promise Qompack makes — a sealed checkpoint, an acknowledged delivery, a published
-  capture, a pin — is backed by a sync of the file and of the directory that names it
-  ([Architecture §4](architecture.md#4-publication-and-durability)). On Windows the directory sync
-  is a no-op. NTFS journals every metadata change (a creation, a rename, a deletion, a size change)
-  as one transaction, so a power cut never tears a directory entry, and each of those promises ends
-  with a file flush that forces the journal out past the change it depends on. What a power cut can
-  still take is a rename or deletion made after the last flush on the volume: the most recent
-  replacement of a derived file (a `state/` document, `pins/invariants.json`, a draft, a restore's
-  final rename) can revert to its previous complete version, and a removed file can reappear.
-  Nothing Qompack guarantees depends on more than that. The premise has not been tested with a real
-  power cut.
+  capture, a pin, a recorded elimination — is backed by a sync of the file and of the directory that
+  names it ([Architecture §4](architecture.md#4-publication-and-durability)). On Windows the
+  directory sync is a no-op. NTFS journals metadata, not file contents: every creation, rename,
+  deletion and size change is one logged transaction, so a power cut never tears a directory entry,
+  while bytes written since a file's last flush can be lost. Each of those promises ends with a file
+  flush, which writes the file's bytes and forces the journal out past the directory change it
+  depends on. What a power cut can still take is what follows the last flush on the volume: the
+  most recent replacement of a derived file (a `state/` document, `pins/invariants.json`, a draft, a
+  restore's final rename) can revert to its previous complete version, and a removed file can
+  reappear. Nothing Qompack guarantees depends on more than that. The premise has not been tested
+  with a real power cut.
 - **One platform, one host.** Every measurement on this page is windows/amd64 with one Claude Code
   version. The five other release targets are cross-compiled and untested at this level — see
   `docs/release.md` for the supported-scope table, which is generated from records rather than
