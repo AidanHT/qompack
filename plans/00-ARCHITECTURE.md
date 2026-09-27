@@ -610,7 +610,10 @@ That open grants the same delete sharing and also refuses a final link itself. T
 Lstat-then-`os.SameFile` identity check refused whenever a save landed between its two halves, and
 the no-follow open leaves no such window. What no reader can close is the moment in which Windows
 reports the name missing while a rename replaces it: a read then finds no file, as it would a
-deleted one. `docs/architecture.md` §2 and `docs/cannot-do.md` record that residual.
+deleted one. On the hook path a file the pre-check found and the open then did not is looked for
+again, within a bounded budget, before the layer is taken for missing (w6-config review), so the
+residual is a first look that falls inside that moment. `docs/architecture.md` §2 and
+`docs/cannot-do.md` record it.
 
 **`paths/pathstest` isolates a test process's home (V6 close-out `w6-config`).** It is a `<pkg>test`
 subpackage under rule (c) of `importrules.go`, so it needs no entry of its own, and it imports

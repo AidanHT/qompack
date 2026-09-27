@@ -208,12 +208,17 @@ replace a file while any process holds it open, even with delete sharing, so tha
 refused while a hook is reading the file. The editor reports the refusal, the hook still reads the
 version on disk, and saving again succeeds. And a rename that replaces `config.json` can leave the
 name missing for tens of milliseconds while it runs, whichever rename the editor uses: measured on
-the development host, about one save in every 10,000 to 40,000 did, with no reader holding the file
-(`plans/sdd/V6-closeout/w6-config/runs/`). A hook or a load in that moment finds no file, exactly
-as it would if you had deleted it, and uses the configuration without that layer: the defaults, or
-the user-global file for a missing project file. That one delivery is then recorded, or not, under
-that configuration: a `runtime.mode` of `off` or a `runtime.redact` addition in the file being saved
-does not apply to it. No reader can tell that moment from a deleted file, so it is not refused.
+the development host, about one save in every 10,000 to 40,000 did, for 18 to 115 ms, with no reader
+holding the file (`plans/sdd/V6-closeout/w6-config/runs/`). A hook that saw the file and then could
+not open it looks again for up to 250 ms: it reads the file that comes back, refuses one that comes
+back and cannot be read, and goes on without that layer only if the file stays gone throughout. A
+hook whose first look falls inside that moment, and a `config.Load` (the daemon's reload,
+`config print`), find no file, exactly as they would if you had deleted it, and use the
+configuration without that layer: the defaults, or the user-global file for a missing project file.
+That one delivery is then recorded, or not, under that configuration: a `runtime.mode` of `off` or a
+`runtime.redact` addition in the file being saved does not apply to it. A reader that has not seen
+the file cannot tell that moment from a deleted file, and looking again after every miss would
+delay every hook in a project that has no `config.json`, so it is not refused.
 
 The two trees never coincide. A project root is resolved from `QOMPACK_PROJECT_ROOT`, else the
 nearest enclosing `.git`, else the working directory, and each of those can name the home directory
