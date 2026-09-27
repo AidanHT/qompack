@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -225,6 +226,94 @@ func TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick(t *testi
 	require.FileExists(t, filepath.Join(paths.Of(root).Spool, "client-6161.ndjson"),
 		"nothing of it was lost: it stays for a drain that can publish it")
 	require.False(t, spoolWatchPublished(dd, blocked.Nonce), "control: its predecessor never published")
+}
+
+// spoolWatchSlowDrain installs a drainer whose dispatch of every delivery in slow takes d, or ends
+// early with its context, before it publishes the delivery as the product would. It counts the
+// attempts it made at those deliveries.
+func spoolWatchSlowDrain(dd *daemon, slow map[string]bool, d time.Duration) *atomic.Int32 {
+	var attempts atomic.Int32
+	cfg := dd.drainConfig()
+	dispatch := cfg.Dispatch
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if slow[req.Nonce] {
+			attempts.Add(1)
+			timer := time.NewTimer(d)
+			defer timer.Stop()
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				return ipc.Response{Err: ctx.Err().Error()}
+			}
+		}
+		return dispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	return &attempts
+}
+
+// TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished: the watcher's pass has the idle
+// drain's budget (idleRunBudget), and a context deadline enforced it, which cancelled the line the
+// pass was publishing. A spooled delivery whose publication took longer than that — a capture on a
+// host with a deep fsync queue — was cancelled by every pass, then by fewer and fewer as the retries
+// backed off, and was published by none while its session lasted: under CPU and fsync co-load on top
+// of two other gate runs on Linux, TestE2E_ThinSliceDropsControlOnlyEdges waited out its 60 s with
+// 13 and 20 hooks' client spools still undrained. The pass must give the line it started its own
+// drainLineDeadline, as a requested pass does (withPassBudget).
+func TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	const sess core.SessionID = "sess-spool-slow"
+	spooled := liveOrderTool(dd, root, sess, 1)
+	slow := idleRunBudget + time.Second // longer than a pass's budget, inside drainLineDeadline
+	require.Less(t, slow, drainLineDeadline, "fixture: the slow line must fit its own deadline")
+	attempts := spoolWatchSlowDrain(dd, map[string]bool{spooled.Nonce: true}, slow)
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
+
+	writeSpoolLines(t, root, "client-8181.ndjson", spooled)
+	spoolWatchRunTraffic(t, dd, root, "sess-spool-kicks", 2)
+
+	require.Eventually(t, func() bool { return spoolWatchPublished(dd, spooled.Nonce) },
+		liveOrderBound, liveOrderTick, "a client spool slower than a pass's budget was never published")
+	require.Equal(t, int32(1), attempts.Load(),
+		"the pass that started the slow line let it finish instead of cancelling it to try again")
+}
+
+// TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft: a pass that stops because its
+// budget is spent has not found the spools it did not reach unconsumable, so it must not put them on
+// the doubling wait meant for those; they are due at the next look. Under load every pass stops that
+// way, and a watcher that doubled the wait each time left most of a burst of client spools waiting
+// through tens of seconds of passes that each published one (TestE2E_ThinSliceDropsControlOnlyEdges,
+// 13 and 20 spools still undrained at its 60 s bound). Here the first of two settled spools takes
+// longer than the whole pass budget to publish, so the pass publishes it and stops before the second.
+func TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	first := liveOrderTool(dd, root, "sess-spool-cut-a", 1)
+	second := liveOrderTool(dd, root, "sess-spool-cut-b", 2)
+	slow := idleRunBudget + spoolWatchTick // longer than a pass's budget, inside drainLineDeadline
+	require.Less(t, slow, drainLineDeadline, "fixture: the slow line must fit its own deadline")
+	spoolWatchSlowDrain(dd, map[string]bool{first.Nonce: true}, slow)
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	dd.spool.every, dd.spool.horizon = spoolWatchTick, liveOrderBound
+	writeSpoolLines(t, root, "client-8201.ndjson", first)
+	writeSpoolLines(t, root, "client-8202.ndjson", second)
+
+	ctx := context.Background()
+	entries := map[string]*spoolWatchEntry{}
+	t0 := time.Now()
+	dd.lookAtClientSpools(ctx, entries, true, t0) // both seen for the first time: not settled yet
+	now := t0.Add(spoolWatchTick)
+	dd.lookAtClientSpools(ctx, entries, false, now) // both settled and due: one pass
+	require.True(t, spoolWatchPublished(dd, first.Nonce), "fixture: the pass finished the line it started")
+	require.False(t, spoolWatchPublished(dd, second.Nonce), "fixture: its budget was spent before the second")
+
+	left := entries["client-8202.ndjson"]
+	require.NotNil(t, left)
+	require.Equal(t, 1, left.passes, "the pass counts toward the retry horizon")
+	due, waiting := left.retryDue(now, dd.spool.horizon)
+	require.True(t, waiting)
+	require.True(t, due,
+		"a spool a budget-spent pass left is due at the next look, not after %s", spoolRetryAfter(spoolWatchTick, 1))
 }
 
 // TestSpoolWatch_DoesNothingWithoutAKick: the watcher never polls an idle daemon. A client spool on

@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
@@ -32,7 +33,9 @@ import (
 //
 // A spool a pass could not consume — its line waits on an earlier arrival of its session that is
 // still publishing, which is the usual reason, or on one nothing will ever publish — is passed over
-// again after twice the previous wait (spoolRetryAfter): 2, 4, 8, ... intervals. The retries end once
+// again after twice the previous wait (spoolRetryAfter): 2, 4, 8, ... intervals. A pass that stopped
+// because its budget was spent (withPassBudget: it finishes the line it started, then starts no
+// other) judged nothing about the spools it left, so they are due again at the next look. The retries end once
 // the spool has been waiting for its first pass for longer than the idle drain's own horizon
 // (DetectAfterSeconds): past it the idle drain, a drain the lanes ask for (the pass leased the line,
 // so its session's next arrival parks behind it and asks), the session's flush or a restart takes
@@ -208,18 +211,28 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 		if d.m != nil {
 			d.m.Counter(counterSpoolWatchDrains).Add(1)
 		}
-		pass, cancel := context.WithTimeout(ctx, idleRunBudget)
+		// A pass budget, not a deadline (withPassBudget): the line the pass is publishing when the
+		// budget runs out keeps its own drainLineDeadline and is published.
+		var perr error
 		if dr := d.drain.Load(); dr != nil {
-			if _, perr := dr.DrainClientSpools(pass); perr != nil && ctx.Err() == nil {
+			if _, perr = dr.DrainClientSpools(withPassBudget(ctx, idleRunBudget)); perr != nil && ctx.Err() == nil {
 				d.log.Debug("daemon: a client-spool pass ended early", "err", perr)
 			}
 		}
-		cancel()
+		// A pass that stopped because its budget was spent has not found the spools it left
+		// unconsumable: it may never have reached them. They are due again at the next look rather
+		// than after the doubling wait meant for a spool a pass could not consume. The horizon still
+		// runs from their first pass.
+		budgetSpent := errors.Is(perr, errPassBudgetSpent)
 		for _, e := range due {
 			if e.passes == 0 {
 				e.first = now
 			}
 			e.passes++
+			if budgetSpent {
+				e.next = now
+				continue
+			}
 			e.next = now.Add(spoolRetryAfter(w.every, e.passes))
 		}
 	}
