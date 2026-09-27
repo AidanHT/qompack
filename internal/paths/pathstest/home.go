@@ -7,8 +7,10 @@
 // HOME and USERPROFILE directly, QOMPACK_HOME for the calibration file, and CLAUDE_CONFIG_DIR for
 // Claude Code's settings. A test process that inherits the developer's real values reads their
 // config and calibration, so its result depends on the machine it runs on, and it can write into
-// them, which 00-ARCHITECTURE.md §13 invariant 7 forbids. After a live UAT the machine running the
-// suite has exactly such files.
+// them: a test's calibration samples would overwrite the user's real factor. ~/.qompack is in the
+// product write set (00-ARCHITECTURE.md §13 invariant 7) for the product serving the user, never
+// for a test, and nothing may write under ~/.claude at all. After a live UAT the machine running
+// the suite has exactly such files.
 //
 // Main is the TestMain body of every test package whose test binary links a package that resolves
 // the home. test/guards' TestGuard_EveryHomeReachingTestPackageIsolatesHome finds those packages
@@ -16,8 +18,9 @@
 // TestGuard_IsolatedTestsNeverReadAPoisonedRealHome proves the isolation against a fake real home
 // holding a poisoned config.json, calibration.json and Claude Code settings file.
 //
-// The package imports nothing from this module, so the in-package tests of every package but paths
-// and core can use it without an import cycle.
+// The package imports nothing from this module, so the in-package tests of any package can use it
+// without an import cycle. internal/testutil cannot offer that: it imports store, config and most of
+// the tree, so the in-package tests of those packages cannot import it.
 package pathstest
 
 import (
