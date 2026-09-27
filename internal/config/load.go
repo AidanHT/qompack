@@ -3,7 +3,9 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"math"
 	"path/filepath"
 	"sort"
@@ -44,6 +46,13 @@ func ProjectConfigPath(root string) string {
 // failed the read, and a failed read was taken for a missing file — the whole layer fell back to the
 // defaults without a word (TestLoad_ReadsThroughAnEditorsAtomicSaves; owner decision D22).
 //
+// Only a file that does not exist is an absent layer. A file that exists and cannot be read — a
+// directory named config.json, a permission refusal, another process holding it exclusively — is a
+// keyless "unreadable config" Warning naming the file, as an unparseable one is, and the layer is
+// not applied (TestLoad_UnreadableFileWarns). What no reader can tell apart from absence is the
+// moment during a rename-replace in which the filesystem itself reports the name missing; see
+// docs/architecture.md on the user-global layer.
+//
 // Load never logs and never writes a file. It cannot reach logging.Loud — logging imports config,
 // so the reverse edge would be a cycle (§3.2) — and it writes nothing by design: reporting the
 // returned Warnings and Violations, and persisting them, is the caller's job — see
@@ -71,13 +80,22 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 		deepMerge(merged, layer, "", prov, origin, loc, lines, &warns)
 	}
 
-	userPath := UserConfigPath(env.HomeDir)
-	projectPath := ProjectConfigPath(env.ProjectRoot)
-	if b, err := paths.ReadFileShared(userPath); err == nil {
-		apply(b, OriginUserFile, userPath)
-	}
-	if b, err := paths.ReadFileShared(projectPath); err == nil {
-		apply(b, OriginProjectFile, projectPath)
+	for _, layer := range []struct {
+		path   string
+		origin Origin
+	}{
+		{UserConfigPath(env.HomeDir), OriginUserFile},
+		{ProjectConfigPath(env.ProjectRoot), OriginProjectFile},
+	} {
+		b, err := paths.ReadFileShared(layer.path)
+		switch {
+		case err == nil:
+			apply(b, layer.origin, layer.path)
+		case !errors.Is(err, fs.ErrNotExist):
+			warns = append(warns, Warning{
+				Key: "", Message: "unreadable config: " + err.Error(), Location: layer.path,
+			})
+		}
 	}
 	applyEnv(merged, env.Getenv, prov, &warns)
 	applyFlags(merged, env.Flags, prov, &warns)
