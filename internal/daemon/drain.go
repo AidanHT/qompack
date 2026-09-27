@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -29,36 +30,54 @@ import (
 // (task-3-spec.md drain.go: "a per-line context deadline of 5s").
 const drainLineDeadline = 5 * time.Second
 
-// passBudgetKey carries a budgeted pass's end on its context (withPassBudget).
+// passBudgetKey carries a budgeted pass's budget on its context (withPassBudget).
 type passBudgetKey struct{}
+
+// passBudget is a budgeted pass's end and whether the pass has consumed a line yet.
+type passBudget struct {
+	end      time.Time
+	consumed atomic.Bool
+}
 
 // errPassBudgetSpent ends a budgeted pass between two lines once its budget is spent. It wraps
 // context.DeadlineExceeded, so every caller that stops on a spent context stops on it too, and a
 // caller that asks again after a pass its budget cut short (drainOnRequest) sees one.
 var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: %w", context.DeadlineExceeded)
 
-// withPassBudget returns ctx carrying a budget for the pass it is handed to: the pass stops STARTING
-// lines once budget has passed, and a line it has started keeps its own drainLineDeadline. A deadline
-// on the pass's context cancelled the line in flight instead, so a line whose publication took longer
-// than the budget (a capture on a host with a deep fsync queue) was cancelled by every pass and
-// published by none (TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget). A budgeted
-// pass therefore runs past its budget by at most one line's drainLineDeadline, plus the bookkeeping
-// that ends it. Cancelling ctx still ends the pass, and the line in it, at once. The budget is on real
-// time, as a context deadline is, never on the daemon's clock.
+// withPassBudget returns ctx carrying a budget for the pass it is handed to: once budget has passed
+// and the pass has consumed at least one line, it starts no further line; a line it has started keeps
+// its own drainLineDeadline. A deadline on the pass's context cancelled the line in flight instead,
+// so a line whose publication took longer than the budget (a capture on a host with a deep fsync
+// queue) was cancelled by every pass and published by none
+// (TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget), and a pass whose own
+// bookkeeping outlasted the budget on such a host (listing, progress state and the spool syncs
+// before its first line) reached no line at all, however often it was asked again. A budgeted pass
+// therefore always consumes a line when it can, and runs past its budget by that bookkeeping and at
+// most one line's drainLineDeadline. Cancelling ctx still ends the pass, and the line in it, at once.
+// The budget is on real time, as a context deadline is, never on the daemon's clock.
 func withPassBudget(ctx context.Context, budget time.Duration) context.Context {
-	return context.WithValue(ctx, passBudgetKey{}, time.Now().Add(budget))
+	return context.WithValue(ctx, passBudgetKey{}, &passBudget{end: time.Now().Add(budget)})
 }
 
 // passStopped reports why a pass must start no further line: ctx's own error, or errPassBudgetSpent
-// once a budget withPassBudget set has passed. Once it answers non-nil it never answers nil again.
+// once a budget withPassBudget set has passed and the pass has consumed a line
+// (notePassConsumed). Once it answers non-nil it never answers nil again.
 func passStopped(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if end, ok := ctx.Value(passBudgetKey{}).(time.Time); ok && !time.Now().Before(end) {
+	if b, ok := ctx.Value(passBudgetKey{}).(*passBudget); ok && b.consumed.Load() && !time.Now().Before(b.end) {
 		return errPassBudgetSpent
 	}
 	return nil
+}
+
+// notePassConsumed records that the pass ctx carries has consumed a line, which lets its budget end it
+// (passStopped). A pass without a budget ignores it.
+func notePassConsumed(ctx context.Context) {
+	if b, ok := ctx.Value(passBudgetKey{}).(*passBudget); ok {
+		b.consumed.Store(true)
+	}
 }
 
 // drainReadBufferBytes sizes the buffered reader Drain scans each spool file with.
@@ -546,6 +565,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	var deferred []deferredLine
 
 	consume := func(start, next int64) {
+		notePassConsumed(ctx)
 		if start != offset {
 			// Consumed out of order; the front rolls over it later. Bounded (item 3): past the roll-
 			// forward memory cap we stop recording it — the line is already dispatched and ACKED, so a

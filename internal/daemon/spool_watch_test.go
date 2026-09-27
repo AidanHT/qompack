@@ -316,6 +316,35 @@ func TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft(t *testi
 		"a spool a budget-spent pass left is due at the next look, not after %s", spoolRetryAfter(spoolWatchTick, 1))
 }
 
+// TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine: a budgeted pass
+// does bookkeeping before its first line — the spool listing, its progress state, and a sync of each
+// spool file it reads — and on a host with a deep fsync queue that alone can outlast the budget.
+// A pass that then stopped before its first line made no progress, and neither did the next one it
+// was asked for: under CPU and fsync co-load beside two other gate runs every lane row stayed at 2 or
+// 3 of 5 acknowledged. The pass must consume a line before its budget can end it. Here the spool
+// file's sync takes longer than the whole budget; the pass must still publish the first of two
+// spooled deliveries, and stop, its budget spent, before the second.
+func TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	first := liveOrderTool(dd, root, "sess-spool-slow-sync", 1)
+	second := liveOrderTool(dd, root, "sess-spool-slow-sync", 2)
+	writeSpoolLines(t, root, "client-8301.ndjson", first, second)
+	dr := newDrainer(dd.drainConfig())
+	sync := dr.syncFile
+	dr.syncFile = func(path string) error {
+		timer := time.NewTimer(idleRunBudget + spoolWatchTick) // longer than the whole budget
+		defer timer.Stop()
+		<-timer.C
+		return sync(path)
+	}
+	dd.drain.Store(dr)
+
+	_, err := dr.DrainClientSpools(withPassBudget(context.Background(), idleRunBudget))
+	require.ErrorIs(t, err, errPassBudgetSpent, "the pass stopped on its budget")
+	require.True(t, spoolWatchPublished(dd, first.Nonce), "the pass consumed a line before its budget ended it")
+	require.False(t, spoolWatchPublished(dd, second.Nonce), "and started no other once its budget was spent")
+}
+
 // TestSpoolWatch_DoesNothingWithoutAKick: the watcher never polls an idle daemon. A client spool on
 // disk with no request served is left to the drains that already cover an idle daemon; the next
 // served request kicks the watcher, which then publishes it.

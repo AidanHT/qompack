@@ -775,12 +775,12 @@ func (ls *dispatchLanes) claimReady() (sess core.SessionID, ok, more bool) {
 // a lane parked on a head only a drain can now publish, or jobs the lanes or the ring could not
 // hold. Without it those waited for a flush, admin.drain, a restart or DetectAfterSeconds of
 // project-wide idleness. Each pass gets the idle drain's own budget (idleRunBudget) as a pass budget
-// (withPassBudget): it starts no line once the budget is spent, and a line it started keeps its own
-// drainLineDeadline, so it always finishes the line it started and holds the drain's mutex at most
-// one line's deadline past an idle pass's budget. The requester then rests as long as the pass
-// took, so requested passes take at most half of its time however often the lanes ask: a session
-// whose head fails on every retry can make it drain again and again, but never back to back. Requests
-// made during a pass or its rest merge into the next one. The pass's release of the sessions it
+// (withPassBudget): once the budget is spent and it has consumed a line it starts no other, and a
+// line it started keeps its own drainLineDeadline, so it always finishes the line it started and
+// consumes one when it can. The requester then rests as long as the pass took, so requested passes
+// take at most half of its time however often the lanes ask: a session whose head fails on every
+// retry can make it drain again and again, but never back to back. Requests made during a pass or its
+// rest merge into the next one. The pass's release of the sessions it
 // consumed (DrainConfig.Released) is what wakes their parked lanes. Run starts it once the drainer
 // exists and joins it with the rest of runWG; it stops when ctx is done.
 //
