@@ -31,7 +31,9 @@ import (
 // and lock, and never a Store handed in through Options. The store WireObserver opens is flushed
 // by OnSessionEnd and by the idle Persist task, and lives for the process; runDaemon
 // (internal/cli/daemon.go) releases its file handles after Run returns, which in production is
-// the moment before process exit.
+// the moment before process exit. The observer's graph records and session state are written out
+// once more at Stop, by the same Persist (registered on Options.OnStop in WireObserver): a flush,
+// not a close.
 
 // observerPersistTask and observerPersistPrio are the idle registration RegisterObserverIdleWork
 // makes: priority 50 is mid-band — below SP-12's frontier advancement, above GC.
@@ -147,6 +149,21 @@ func WireObserver(o *Options) (observer.Observer, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("daemon: wire observer: %w", err)
+	}
+
+	// The observer keeps the graph's new records and its per-session state in memory until its
+	// SessionEnd or the idle Persist writes them out, so Stop writes them out too (dag.Graph.Flush:
+	// the daemon flushes "from its idle loop and at shutdown"). Without it, a Stop that met a session
+	// whose end had not run lost every graph record since the last flush for good: the next daemon
+	// replays the flush, but the session's deliveries are already acknowledged, and a redelivery never
+	// recomputes a first run's graph (observer step 6c). Since C1.15 that is any Stop within its grace
+	// of a flush on a loaded host. Stop runs it after its server has closed, its workers are joined
+	// and its session ends are joined or, past their grace, cancelled, so nothing it started is still
+	// feeding the observer.
+	if p, ok := obsv.(observer.Persister); ok {
+		o.OnStop("the observer's graph and session state", func() error {
+			return p.Persist(context.Background())
+		})
 	}
 
 	// The single Bind attaching the five seams. ObserveTool, ObserveStop and SessionEnd return
