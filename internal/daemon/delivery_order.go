@@ -774,20 +774,22 @@ func (ls *dispatchLanes) claimReady() (sess core.SessionID, ok, more bool) {
 // drainOnRequest runs one bounded drain pass for each request the ingest makes (ingest.requestDrain):
 // a lane parked on a head only a drain can now publish, or jobs the lanes or the ring could not
 // hold. Without it those waited for a flush, admin.drain, a restart or DetectAfterSeconds of
-// project-wide idleness. Each pass gets the idle drain's own budget (idleRunBudget), so it holds the
-// drain's mutex no longer than an idle pass would, and the requester then rests as long as the pass
+// project-wide idleness. Each pass gets the idle drain's own budget (idleRunBudget) as a pass budget
+// (withPassBudget): it starts no line once the budget is spent, and a line it started keeps its own
+// drainLineDeadline, so it always finishes the line it started and holds the drain's mutex at most
+// one line's deadline past an idle pass's budget. The requester then rests as long as the pass
 // took, so requested passes take at most half of its time however often the lanes ask: a session
 // whose head fails on every retry can make it drain again and again, but never back to back. Requests
 // made during a pass or its rest merge into the next one. The pass's release of the sessions it
 // consumed (DrainConfig.Released) is what wakes their parked lanes. Run starts it once the drainer
 // exists and joins it with the rest of runWG; it stops when ctx is done.
 //
-// A pass that runs out of its budget has left behind work it was asked for, and nothing else will
-// ask again: a lane that ran dry dropped its overflow when it asked, and the pass's release wakes
-// only lanes that still hold jobs. So a pass cut short by its budget asks for the next one itself,
-// and the drain resumes where the cut pass stopped once the rest is over. It is still never back to
-// back, so a spool that keeps outlasting the budget gets at most half of the requester's time, as a
-// head that keeps failing does.
+// A pass that runs out of its budget, or whose line runs out of its own deadline, has left behind
+// work it was asked for, and nothing else will ask again: a lane that ran dry dropped its overflow
+// when it asked, and the pass's release wakes only lanes that still hold jobs. So such a pass asks
+// for the next one itself, and the drain resumes where it stopped once the rest is over. It is still
+// never back to back, so a spool that keeps outlasting the budget gets at most half of the
+// requester's time, as a head that keeps failing does.
 func (d *daemon) drainOnRequest(ctx context.Context) {
 	for {
 		select {
@@ -796,14 +798,14 @@ func (d *daemon) drainOnRequest(ctx context.Context) {
 		case <-d.ing.drainKick:
 		}
 		began := time.Now()
-		pass, cancel := context.WithTimeout(ctx, idleRunBudget)
-		if _, err := d.Drain(pass); err != nil && ctx.Err() == nil {
+		_, err := d.Drain(withPassBudget(ctx, idleRunBudget))
+		if err != nil && ctx.Err() == nil {
 			d.log.Debug("daemon: a drain the lanes asked for ended early", "err", err)
 		}
-		if errors.Is(pass.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
+		// Its budget spent, or a line's own deadline passed: the pass stopped with work left.
+		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
 			d.ing.resumeDrain()
 		}
-		cancel()
 		rest := time.NewTimer(time.Since(began))
 		select {
 		case <-ctx.Done():
