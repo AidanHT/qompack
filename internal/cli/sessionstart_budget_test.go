@@ -196,6 +196,35 @@ func TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling(t *testing.T) {
 	require.Contains(t, out, daemon.DeferredNoAnswer)
 }
 
+// TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled (w6-borrow review): with
+// no time left to wait for an answer, session-start hands its request to the spool without
+// dialling. An ordinary write failure makes the spool drop it, counting and Louding the drop itself
+// and returning nil, so the hook cannot tell a written request from a dropped one and must not log
+// it as spooled. The failure is a file where the spool directory has to be created.
+func TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled(t *testing.T) {
+	root := unansweredProject(t, nil)
+	spoolDir := paths.Of(root).Spool
+	require.NoError(t, os.RemoveAll(paths.Long(spoolDir)))
+	require.NoError(t, os.WriteFile(paths.Long(spoolDir), []byte("not a directory"), 0o600))
+	requests := silentDaemon(t, root)
+	host := hookExitReserve + budgetTestReply + hookConnectDeadlineFloor + hookConnectDeadlineFloor
+	spec := sessionStartSpec(blockUntil(func(by time.Time) time.Time {
+		return by.Add(budgetTestReply + hookConnectDeadlineFloor + 100*time.Millisecond) // past the bound
+	}))
+	spec.hostTimeout, spec.deadline = host, budgetTestReply
+
+	out, _, _ := runBudgetedSessionStart(t, root, "startup", spec)
+	require.Equal(t, "{}\n", out, "the hook still answers")
+	require.Zero(t, requests.Load(), "no answer can be waited for, so nothing is sent")
+
+	loud, err := paths.ReadFileShared(filepath.Join(paths.Of(root).Logs, "LOUD.log"))
+	require.NoError(t, err, "the spool Louds the request it dropped")
+	require.Contains(t, string(loud), "spool write failed", "the spool's own word on the drop")
+	day := dayLogText(t, root)
+	require.Contains(t, day, noTimeLeftMsg, "the hook still says why it sent nothing, and only what it knows")
+	require.NotContains(t, day, "the request was spooled", "a request the spool dropped is not logged as spooled")
+}
+
 // V6 close-out D21: session-start's find/start step may borrow the reply wait's idle time. Its poll
 // for a daemon on its way runs until borrowBy, 8.25 s from doHook's first statement — the last
 // instant that still leaves the reply D9's 5 s compact bound (daemon.CompactAnswerBudget) plus the
