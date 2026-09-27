@@ -22,8 +22,10 @@ var _ Writer = (*FileWriter)(nil)
 // line, inside budget B-E (Qompack.md §11.3: the whole PreCompact hook is 2 s p99).
 //
 // It can hold that budget because Advance has already done the O(session) work during idle
-// windows: everything here is a validate, a truncate, a marshal, two file operations and the four
-// or five barriers that seal them (below).
+// windows: everything here is a validate, a truncate, a marshal, two file operations and the
+// barriers that seal them (below): three file syncs and one directory sync per seal, plus a second
+// directory sync when the seal creates the manifest and index/'s once per daemon lifetime. On
+// Windows the directory syncs are no-ops (D24), so a seal pays three FlushFileBuffers.
 // BenchmarkFinalize in finalize_test.go prices the whole thing against the < 50 ms exit criterion.
 //
 // The order below is load-bearing. Pointers are validated BEFORE truncation so that a pointer
