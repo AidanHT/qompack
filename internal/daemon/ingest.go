@@ -3,8 +3,11 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -156,9 +159,12 @@ type ingest struct {
 	// them per segment; nothing else sets them.
 	writeWAL func(*os.File, []byte) (int, error)
 	syncWAL  func(*os.File) error
-	// syncSpoolDir makes the spool directory's entries durable when a WAL segment handle is opened:
-	// paths.SyncDir in production (a no-op on Windows, D24). It is a field so a test can observe it.
+	// syncSpoolDir makes the spool directory's entries durable when a WAL segment handle is opened
+	// and after an externalized payload is synced: paths.SyncDir in production (a no-op on Windows,
+	// D24). syncBlobFile makes an externalized payload's bytes durable: syncSpoolFile in production.
+	// They are fields so a test can observe them.
 	syncSpoolDir func(string) error
+	syncBlobFile func(string) error
 
 	ring chan job
 	seen *seenSet
@@ -215,6 +221,7 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 		syncWAL:  (*os.File).Sync,
 
 		syncSpoolDir: paths.SyncDir,
+		syncBlobFile: syncSpoolFile,
 		ring:         make(chan job, ringCapacity),
 		seen:         newSeenSet(seenCapacity),
 		lanes:        newDispatchLanes(laneCapacity, laneSessionCapacity),
@@ -325,6 +332,9 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 // session's WAL and synced, then the delivery's lease, and the job that carries both. It queues
 // nothing.
 func (i *ingest) makeDurable(req ipc.Request, line []byte) (job, error) {
+	if err := i.syncExternalized(req); err != nil {
+		return job{}, err
+	}
 	if err := i.appendWAL(req.Session, line); err != nil {
 		return job{}, err
 	}
@@ -345,6 +355,51 @@ func (i *ingest) makeDurable(req ipc.Request, line []byte) (job, error) {
 		lease:  lease,
 		leased: leased,
 	}, nil
+}
+
+// syncExternalized makes a client-externalized payload durable before the WAL line that refers to
+// it is, and so before the ACK. A request whose tool response was too large to send inline carries
+// only a descriptor; the bytes are in spool/blob-<pid>-<n>.bin, which the hook wrote and closed
+// without a sync, and the job that reads them runs after the ACK. On POSIX a power cut between the two
+// could keep the durable WAL line and lose the blob (or keep its name with none of its bytes: a
+// delayed-allocation file comes back empty), and the capture the ACK called durable — always one of
+// the largest a session makes — could never be published. So the blob's bytes are synced and then
+// the spool directory, for its name, before the line is appended.
+//
+// Only a well-formed descriptor naming a blob that exists costs anything: an ordinary request has no
+// blob, and a missing or malformed one is left to readBlob to report, exactly as before — there is
+// nothing here to make durable. A sync that fails fails the delivery, which is not ACKed; the hook's
+// own fallback keeps the line and the blob stays in place for it.
+func (i *ingest) syncExternalized(req ipc.Request) error {
+	name, ok := externalizedBlob(req)
+	if !ok {
+		return nil
+	}
+	if err := i.syncBlobFile(filepath.Join(i.spoolDir, name)); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("daemon: ingest: sync externalized payload: %w", err)
+	}
+	if err := i.syncSpoolDir(i.spoolDir); err != nil {
+		return fmt.Errorf("daemon: ingest: sync spool directory for an externalized payload: %w", err)
+	}
+	return nil
+}
+
+// externalizedBlob reports the blob file a client-externalized request's descriptor names, under the
+// same rules readBlob reads it by: a descriptor for the tool response, on a request with an event, and
+// a name the shipped client could have written.
+func externalizedBlob(req ipc.Request) (string, bool) {
+	if len(req.Raw) == 0 || req.Event == nil {
+		return "", false
+	}
+	var ref blobRef
+	if err := json.Unmarshal(req.Raw, &ref); err != nil || ref.Blob == "" ||
+		ref.Field != drainBlobToolResponse || !safeBlobName(ref.Blob) {
+		return "", false
+	}
+	return ref.Blob, true
 }
 
 // acceptDurable makes a CONTROL delivery — a SessionEnd flush — durable exactly as Accept makes an
