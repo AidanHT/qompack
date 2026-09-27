@@ -312,6 +312,48 @@ func TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn(t *testing.T) {
 	require.NoFileExists(t, lockPath, "the claim it made on the freed lock is given back")
 }
 
+// staleMidWaitBound is the poll bound TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed gives
+// ensureRunning; staleMidWaitAt is when that row ages the lock it found past the freshness window;
+// and staleMidWaitSpawn is how long the spawn it then makes takes: longer than the whole bound, as a
+// staged spawn on a loaded Windows machine can (the V6 close-out's cold-start diagnostic saw process
+// creation stall for 4-5 s), so the daemon it starts comes up after the deadline the wait began with.
+const (
+	staleMidWaitBound = time.Second
+	staleMidWaitAt    = 300 * time.Millisecond
+	staleMidWaitSpawn = staleMidWaitBound + staleMidWaitAt
+)
+
+// TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed: the spawner whose fresh claim
+// ensureRunning found died before it launched anything. Its claim ages past the freshness window
+// while ensureRunning is still waiting, so ensureRunning reclaims it and spawns, within the same call
+// (fail-safe). The daemon it spawned then gets its own wait, counted from that spawn as for any
+// spawn this call makes, not what was left of the wait for the dead spawner's daemon.
+func TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed(t *testing.T) {
+	root := t.TempDir()
+	clk := newFakeClock(epoch)
+	writeSpawnLock(t, root, clk.Now())
+	f := newFakeDaemons(t)
+
+	var aged atomic.Bool
+	ager := time.AfterFunc(staleMidWaitAt, func() {
+		aged.Store(true)
+		clk.Advance(2*ensureSpawnLockHalfWindow + time.Second) // now older than the freshness window
+	})
+	t.Cleanup(func() { ager.Stop() })
+	slowSpawn := func(r, s string) error {
+		require.True(t, aged.Load(), "nothing may spawn while the claim it found is fresh")
+		stall := time.NewTimer(staleMidWaitSpawn)
+		defer stall.Stop()
+		<-stall.C
+		return f.spawnUp(r, s)
+	}
+
+	spawned, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: staleMidWaitBound}, slowSpawn)
+	require.NoError(t, err, "a daemon spawned on a claim reclaimed mid-wait must get its own wait to come up")
+	require.True(t, spawned, "the claim went stale inside the wait, so this call reclaimed it and spawned")
+	require.EqualValues(t, 1, f.calls.Load())
+}
+
 // ensureSpawnLockHalfWindow is half the spawn lock's freshness window (ipc's spawnLockStaleAfter,
 // 10 s, which this package cannot name).
 const ensureSpawnLockHalfWindow = 5 * time.Second

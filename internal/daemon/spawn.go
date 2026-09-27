@@ -96,9 +96,12 @@ const (
 // Each poll dials first and claims only when the dial fails, and a claim is not licence to spawn on
 // its own: the lock is also free once the daemon it announced is listening, because that daemon
 // deletes it (Run), so EnsureRunning dials once more (spawnClaimDialTimeout) before it spawns, and
-// a daemon that answers keeps it from spawning and gets its claim back. The wait re-checks the
-// lock on every poll, so a claim whose spawner died goes stale inside it and is reclaimed, and this
-// caller spawns after all (fail-safe). A lock it cannot take for any other reason does not stop it:
+// a daemon that answers keeps it from spawning and gets its claim back. A claim whose spawner died
+// holds spawning off until it is older than the freshness window (ipc's spawnLockStaleAfter, 10 s):
+// if that happens inside this call's wait, EnsureRunning reclaims it and spawns after all
+// (fail-safe), and that daemon gets its own wait, as any daemon this call starts does; otherwise
+// the wait ends first, ErrNotFound (session-start spools), and the first spawner after the claim
+// has aged out reclaims it. A lock it cannot take for any other reason does not stop it:
 // session-start is the designated starter, and spawned before the lock existed. Its own claim makes
 // every later spawner wait for its daemon in turn, until that daemon is listening and removes the
 // lock.
@@ -130,9 +133,10 @@ func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock)
 // spawn, which on Windows stages the binary (spawn_stage.go) and can stall in process creation for
 // seconds on a loaded machine — is never cut short, and a daemon this call started, or found
 // already on its way, late still gets ensureRunningPollBound to come up, the wait EnsureRunning has
-// always given it, up to latest; session-start then waits that much less for the reply. A deadline
-// that has already passed therefore still gets one dial and, when this call may spawn, its spawn,
-// so the session always gets a daemon started. Zero instants fall back to EnsureRunning's bound.
+// always given it, counted from its spawn or from the moment this call found it on its way, up to
+// latest; session-start then waits that much less for the reply. A deadline that has already
+// passed therefore still gets one dial and, when this call may spawn, its spawn, so the session
+// always gets a daemon started. Zero instants fall back to EnsureRunning's bound.
 func EnsureRunningUntil(projectRoot, self string, log logging.Logger, clk core.Clock, until, latest time.Time) (spawned bool, err error) {
 	return ensureRunning(projectRoot, self, log, clk,
 		pollBound{until: until, after: ensureRunningPollBound, latest: latest}, detachedSpawner(log))
@@ -140,7 +144,9 @@ func EnsureRunningUntil(projectRoot, self string, log logging.Logger, clk core.C
 
 // pollBound is when ensureRunning's poll ends, for a poll that begins once this call spawned or
 // found another spawn in flight: at until or after the given duration from that moment, whichever
-// is later, and never past latest. A zero until or latest bounds nothing.
+// is later, and never past latest. A zero until or latest bounds nothing. A call that found another
+// spawn in flight and later spawns after all (the claim went stale) begins its poll again from its
+// own spawn, which can only move the end later.
 type pollBound struct {
 	until  time.Time
 	after  time.Duration
@@ -189,7 +195,11 @@ func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock,
 			lock, claim := ipc.ClaimSpawn(projectRoot, clk)
 			switch {
 			case claim == ipc.SpawnInFlight:
-				// Another spawner's daemon is on its way: wait for it.
+				// Another spawner's daemon is on its way: the wait for it begins here, the first
+				// time this call finds its claim.
+				if deadline.IsZero() {
+					deadline = bound.deadline(time.Now())
+				}
 			case ipc.Probe(addr, spawnClaimDialTimeout):
 				// A daemon answers after all: the one the lock announced, up since this call's last
 				// dial and the reason the lock was free, or one that shorter dial missed while it
@@ -203,12 +213,11 @@ func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock,
 					return false, serr
 				}
 				spawned = true
+				// The poll begins here, after this call's own spawn, so that preparing a staged copy
+				// or a slow process creation does not eat the wait the new daemon gets — also when
+				// this call waited on another spawner's claim first and reclaimed it once stale.
+				deadline = bound.deadline(time.Now())
 			}
-		}
-		if deadline.IsZero() {
-			// The poll begins here, after this call's own spawn, so that preparing a staged copy
-			// or a slow process creation does not eat the wait the new daemon gets.
-			deadline = bound.deadline(time.Now())
 		}
 		if !time.Now().Before(deadline) {
 			return spawned, core.ErrNotFound
