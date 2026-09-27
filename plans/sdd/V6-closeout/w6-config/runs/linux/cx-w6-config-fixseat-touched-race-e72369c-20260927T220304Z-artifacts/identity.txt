@@ -1,0 +1,21 @@
+run_id=cx-w6-config-fixseat-touched-race-e72369c-20260927T220304Z
+commit=e72369c1800c8c2c4536cda5b8525e41f66eae09
+tree=75b5ac52543279a94f19e663bf34b462f78f788a
+bundle_sha256=9d82c2f34a70e9e8a35ac6e41738e345bf07bf99ae1b701b7845e1b52a8aeba7
+started_utc=2026-09-27T22:03:11Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T22:04:48Z
