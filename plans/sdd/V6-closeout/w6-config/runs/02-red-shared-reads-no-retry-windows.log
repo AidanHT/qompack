@@ -1,0 +1,74 @@
+# state: config reads switched to paths.ReadFileShared/OpenShared, no retry (uncommitted intermediate on f6095e2)
+# (First w6-config seat's run, with the atomic-save test's earlier form, in which any answer but the two saved versions counted as wrong.)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:173: 2000 loads, 171 wrong; 664 saves attempted, 0 refused (first: )
+    atomic_save_test.go:175: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/atomic_save_test.go:175
+        	Error:      	Should be zero, but was 171
+        	Test:       	TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+        	Messages:   	of 2000 loads under atomic saves, 171 refused or lost the project layer (first: refused: qompack: running in degraded mode: capture configuration unavailable: the project config file is not a bounded regular file)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:173: 2000 loads, 0 wrong; 9059 saves attempted, 6348 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex113177431\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex113177431\001\.qompack\config.json: Access is denied.)
+--- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (27.51s)
+    --- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (8.90s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (18.61s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:173: 2000 loads, 0 wrong; 346 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:173: 2000 loads, 0 wrong; 7696 saves attempted, 5675 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex126970338\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex126970338\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (15.22s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (4.90s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (10.32s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:173: 2000 loads, 84 wrong; 466 saves attempted, 0 refused (first: )
+    atomic_save_test.go:175: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/atomic_save_test.go:175
+        	Error:      	Should be zero, but was 84
+        	Test:       	TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+        	Messages:   	of 2000 loads under atomic saves, 84 refused or lost the project layer (first: refused: qompack: running in degraded mode: capture configuration unavailable: the project config file is not a bounded regular file)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:173: 2000 loads, 0 wrong; 5670 saves attempted, 3999 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex2469221530\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex2469221530\001\.qompack\config.json: Access is denied.)
+--- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (20.40s)
+    --- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (7.00s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (13.40s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:173: 2000 loads, 0 wrong; 251 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:173: 2000 loads, 85 wrong; 7683 saves attempted, 6249 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex1101879970\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex1101879970\001\.qompack\config.json: Access is denied.)
+    atomic_save_test.go:175: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/atomic_save_test.go:175
+        	Error:      	Should be zero, but was 85
+        	Test:       	TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+        	Messages:   	of 2000 loads under atomic saves, 85 refused or lost the project layer (first: budgetTokens 12000: the project layer was silently dropped)
+--- FAIL: TestLoad_ReadsThroughAnEditorsAtomicSaves (22.83s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (6.01s)
+    --- FAIL: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (16.82s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:173: 2000 loads, 63 wrong; 405 saves attempted, 0 refused (first: )
+    atomic_save_test.go:175: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/atomic_save_test.go:175
+        	Error:      	Should be zero, but was 63
+        	Test:       	TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+        	Messages:   	of 2000 loads under atomic saves, 63 refused or lost the project layer (first: refused: qompack: running in degraded mode: capture configuration unavailable: the project config file is not a bounded regular file)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:173: 2000 loads, 0 wrong; 8062 saves attempted, 5779 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex1552428698\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex1552428698\001\.qompack\config.json: Access is denied.)
+--- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (17.35s)
+    --- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (5.76s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (11.59s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:173: 2000 loads, 0 wrong; 560 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:173: 2000 loads, 0 wrong; 8743 saves attempted, 6477 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex3581439592\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex3581439592\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (21.99s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (7.57s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (14.43s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	126.373s
+FAIL
+exit=1

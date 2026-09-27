@@ -25,8 +25,7 @@ const (
 	atomicSaveAttempts = 200
 )
 
-// atomicSaveBudgets are the two versions of the file the writer alternates between. Every load must
-// answer one of them: anything else — the default, or a refusal — is the defect.
+// atomicSaveBudgets are the two versions of the file the writer alternates between.
 var atomicSaveBudgets = [2]int{9000, 9001}
 
 // atomicSave is one way of replacing config.json atomically: write the whole new file, then rename it
@@ -112,70 +111,127 @@ func (w *atomicSaveWriter) stop() {
 	w.wg.Wait()
 }
 
-// loadUnderAtomicSaves runs load in a loop against a writer saving the project config atomically,
-// and returns how many loads answered anything other than one of the two saved versions, with the
-// first such answer for the failure message.
-func loadUnderAtomicSaves(t *testing.T, how atomicSave, load func(env config.Env) (int, error)) (
-	reads, bad int, first string, w *atomicSaveWriter,
+// atomicSaveLoad is one load's answer: the project layer's checkpoint.budgetTokens as loaded, how
+// many warnings and violations the loader returned, and its error.
+type atomicSaveLoad struct {
+	budget int
+	notes  int
+	err    error
+}
+
+// atomicSaveTally classifies every load made under the writer.
+//
+//   - versions counts the loads that answered one of the two saved versions, cleanly.
+//   - absent counts the loads that answered the configuration with no project layer at all — the
+//     default budget, no warning, no error — which is what each loader answers when the file does
+//     not exist. Since config.Load warns for a file that exists and cannot be read
+//     (TestLoad_UnreadableFileWarns), and LoadForCapture refuses one, such an answer means the
+//     filesystem reported config.json absent at the moment of the read. See atomicSaveAbsence.
+//   - bad counts everything else: a refusal, any warning or violation, or any other value. These are
+//     the reader's failures, and each one fails the test; first is the first of them.
+type atomicSaveTally struct {
+	reads    int
+	versions [2]int
+	absent   int
+	bad      int
+	first    string
+}
+
+// atomicSaveAbsence is why an absent answer is not a failure. On the development host (Windows 11,
+// NTFS) a rename-replace that SUCCEEDS can leave the destination name missing for tens of
+// milliseconds, inside one save that runs slow, with no reader holding the file at all: a monitor
+// that only Lstats the name saw ERROR_FILE_NOT_FOUND for 31-115 ms inside 4 of 40,000 MoveFileEx
+// saves, 1 of 40,000 paths.WriteAtomic saves and 2 of 60,000 bare POSIX-semantics renames, and a
+// paced paths.ReadFileShared reader saw it 38 times in 30,000 reads
+// (plans/sdd/V6-closeout/w6-config/runs/5x-diag-*). At that moment the file does not exist, for
+// this reader or any other, so no reader can answer anything but "no file". It is the residual
+// docs/architecture.md records for the user-global layer's config.json, not something this test can
+// hold a reader to.
+const atomicSaveAbsence = "the filesystem reported config.json absent during a rename-replace"
+
+// loadUnderAtomicSaves runs load in a loop against a writer saving the project config atomically and
+// classifies every answer.
+func loadUnderAtomicSaves(t *testing.T, how atomicSave, load func(env config.Env) atomicSaveLoad) (
+	atomicSaveTally, *atomicSaveWriter,
 ) {
 	t.Helper()
 	env := baseEnv(t)
-	w = startAtomicSaveWriter(t, env.ProjectRoot, how)
-	for reads < atomicSaveReads || w.attempts.Load() < atomicSaveAttempts {
-		reads++
-		budget, err := load(env)
+	absentBudget := config.Defaults().Checkpoint.BudgetTokens
+	var tally atomicSaveTally
+	w := startAtomicSaveWriter(t, env.ProjectRoot, how)
+	for tally.reads < atomicSaveReads || w.attempts.Load() < atomicSaveAttempts {
+		tally.reads++
+		got := load(env)
+		var why string
 		switch {
-		case err != nil:
-			bad++
-			if first == "" {
-				first = "refused: " + err.Error()
-			}
-		case budget != atomicSaveBudgets[0] && budget != atomicSaveBudgets[1]:
-			bad++
-			if first == "" {
-				first = fmt.Sprintf("budgetTokens %d: the project layer was silently dropped", budget)
+		case got.err != nil:
+			why = "refused: " + got.err.Error()
+		case got.notes != 0:
+			why = fmt.Sprintf("%d warning(s) or violation(s): the file was not read cleanly", got.notes)
+		case got.budget == atomicSaveBudgets[0]:
+			tally.versions[0]++
+		case got.budget == atomicSaveBudgets[1]:
+			tally.versions[1]++
+		case got.budget == absentBudget:
+			tally.absent++
+		default:
+			why = fmt.Sprintf("budgetTokens %d, which the writer never saved", got.budget)
+		}
+		if why != "" {
+			tally.bad++
+			if tally.first == "" {
+				tally.first = why
 			}
 		}
 	}
 	w.stop()
-	return reads, bad, first, w
+	return tally, w
 }
 
 // TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves is D22's reason for existing. The hook path
 // reads .qompack/config.json on every capture, and under D8 a config it cannot read refuses the
 // capture outright. On Windows an ordinary os.Open carries no FILE_SHARE_DELETE, so an atomic save
 // landing while a hook read the file failed one of the two: the hook's open was refused while the
-// rename was finishing, or the rename was refused while the hook's handle was open. A user saving
-// their config could make a hook record nothing. Every load must answer one of the two versions the
-// writer saves, and none may refuse.
+// rename was finishing, or the rename was refused while the hook's handle was open; and the old
+// Lstat/os.SameFile identity check refused whenever a save landed between its two halves. A user
+// saving their config could make a hook record nothing. No load may refuse or warn, and every load
+// must answer one of the two versions the writer saves, or no file at a moment the filesystem
+// reported none (atomicSaveAbsence).
 func TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves(t *testing.T) {
-	requireLoadsSurviveAtomicSaves(t, func(env config.Env) (int, error) {
-		cfg, _, _, _, err := config.LoadForCapture(env)
-		return cfg.Checkpoint.BudgetTokens, err
+	requireLoadsSurviveAtomicSaves(t, func(env config.Env) atomicSaveLoad {
+		cfg, _, violations, warnings, err := config.LoadForCapture(env)
+		return atomicSaveLoad{budget: cfg.Checkpoint.BudgetTokens, notes: len(violations) + len(warnings), err: err}
 	})
 }
 
 // TestLoad_ReadsThroughAnEditorsAtomicSaves is the same race through config.Load, the loader the
 // daemon's reload, `config print`, doctor and self-test use. It never refuses, so here the defect
 // was quieter: a read the save made fail was taken for a missing file, and the whole project layer
-// fell back to the defaults without a warning.
+// fell back to the defaults without a warning. A failed read of a file that exists is a warning now
+// (TestLoad_UnreadableFileWarns), and this test fails on any.
 func TestLoad_ReadsThroughAnEditorsAtomicSaves(t *testing.T) {
-	requireLoadsSurviveAtomicSaves(t, func(env config.Env) (int, error) {
-		cfg, _, _, err := config.Load(env)
-		return cfg.Checkpoint.BudgetTokens, err
+	requireLoadsSurviveAtomicSaves(t, func(env config.Env) atomicSaveLoad {
+		cfg, _, warns, err := config.Load(env)
+		return atomicSaveLoad{budget: cfg.Checkpoint.BudgetTokens, notes: len(warns), err: err}
 	})
 }
 
-func requireLoadsSurviveAtomicSaves(t *testing.T, load func(env config.Env) (int, error)) {
+func requireLoadsSurviveAtomicSaves(t *testing.T, load func(env config.Env) atomicSaveLoad) {
 	t.Helper()
 	for _, how := range atomicSaves {
 		t.Run(how.name, func(t *testing.T) {
-			reads, bad, first, w := loadUnderAtomicSaves(t, how, load)
+			tally, w := loadUnderAtomicSaves(t, how, load)
 			firstErr, _ := w.firstErr.Load().(string)
-			t.Logf("%d loads, %d wrong; %d saves attempted, %d refused (first: %s)",
-				reads, bad, w.attempts.Load(), w.refused.Load(), firstErr)
-			require.Zero(t, bad, "of %d loads under atomic saves, %d refused or lost the project layer "+
-				"(first: %s)", reads, bad, first)
+			t.Logf("%d loads: %d and %d answered the two saved versions, %d found no file (%s), %d wrong; "+
+				"%d saves attempted, %d refused (first: %s)", tally.reads, tally.versions[0],
+				tally.versions[1], tally.absent, atomicSaveAbsence, tally.bad, w.attempts.Load(),
+				w.refused.Load(), firstErr)
+			require.Zero(t, tally.bad, "of %d loads under atomic saves, %d refused, warned or answered a "+
+				"version the writer never saved (first: %s)", tally.reads, tally.bad, tally.first)
+			require.Positive(t, tally.versions[0], "no load read the first saved version: the loads are "+
+				"not reading the file the writer saves")
+			require.Positive(t, tally.versions[1], "no load read the second saved version: the loads are "+
+				"not reading the file the writer saves")
 			if how.savesMustLand {
 				require.Zero(t, w.refused.Load(), "of %d atomic saves, %d were refused while a load held "+
 					"the file (first: %s)", w.attempts.Load(), w.refused.Load(), firstErr)
