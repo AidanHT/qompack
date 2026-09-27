@@ -1,0 +1,70 @@
+=== RUN   TestPin_AddRecordsUserAuthorityByDefault
+=== PAUSE TestPin_AddRecordsUserAuthorityByDefault
+=== RUN   TestPin_AgentClaimIsNotUpgradedToAUserInstruction
+=== PAUSE TestPin_AgentClaimIsNotUpgradedToAUserInstruction
+=== RUN   TestPin_SourceFlagIsValidated
+=== PAUSE TestPin_SourceFlagIsValidated
+=== RUN   TestPin_ListReportsSourcePerInvariant
+=== PAUSE TestPin_ListReportsSourcePerInvariant
+=== RUN   TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+=== PAUSE TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+=== RUN   TestPin_RemoveUnknownIDSaysSo
+=== PAUSE TestPin_RemoveUnknownIDSaysSo
+=== RUN   TestPin_ModesAreExclusive
+=== PAUSE TestPin_ModesAreExclusive
+=== RUN   TestPin_NoStoreIsUnavailable
+=== PAUSE TestPin_NoStoreIsUnavailable
+=== RUN   TestPin_EliminationRequiresItsDependencies
+=== PAUSE TestPin_EliminationRequiresItsDependencies
+=== RUN   TestPin_EliminationGoesThroughTheSP13Handler
+=== PAUSE TestPin_EliminationGoesThroughTheSP13Handler
+=== RUN   TestPin_EliminationRequiresEveryClaimField
+=== PAUSE TestPin_EliminationRequiresEveryClaimField
+=== CONT  TestPin_AddRecordsUserAuthorityByDefault
+=== CONT  TestPin_ModesAreExclusive
+=== CONT  TestPin_EliminationGoesThroughTheSP13Handler
+=== CONT  TestPin_NoStoreIsUnavailable
+--- PASS: TestPin_AddRecordsUserAuthorityByDefault (0.00s)
+=== CONT  TestPin_RemoveUnknownIDSaysSo
+--- PASS: TestPin_RemoveUnknownIDSaysSo (0.00s)
+--- PASS: TestPin_NoStoreIsUnavailable (0.00s)
+--- PASS: TestPin_ModesAreExclusive (0.00s)
+=== CONT  TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+=== CONT  TestPin_ListReportsSourcePerInvariant
+=== CONT  TestPin_SourceFlagIsValidated
+=== CONT  TestPin_EliminationRequiresItsDependencies
+=== CONT  TestPin_AgentClaimIsNotUpgradedToAUserInstruction
+=== CONT  TestPin_EliminationRequiresEveryClaimField
+--- PASS: TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord (0.00s)
+--- PASS: TestPin_EliminationGoesThroughTheSP13Handler (0.00s)
+--- PASS: TestPin_SourceFlagIsValidated (0.00s)
+--- PASS: TestPin_EliminationRequiresItsDependencies (0.00s)
+--- PASS: TestPin_AgentClaimIsNotUpgradedToAUserInstruction (0.00s)
+--- PASS: TestPin_ListReportsSourcePerInvariant (0.00s)
+--- PASS: TestPin_EliminationRequiresEveryClaimField (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/commands	1.105s
+=== RUN   TestRecordEliminatedIsNotTaggedEphemeral
+--- PASS: TestRecordEliminatedIsNotTaggedEphemeral (0.10s)
+=== RUN   TestRecordEliminatedWritesLedgerRecord
+--- PASS: TestRecordEliminatedWritesLedgerRecord (0.16s)
+=== RUN   TestRecordEliminatedStoresEvidence
+--- PASS: TestRecordEliminatedStoresEvidence (0.09s)
+=== RUN   TestRecordEliminatedResolvesDependsOnHashes
+--- PASS: TestRecordEliminatedResolvesDependsOnHashes (0.78s)
+=== RUN   TestRecordEliminatedUnresolvedDependencyReported
+--- PASS: TestRecordEliminatedUnresolvedDependencyReported (0.74s)
+=== RUN   TestRecordEliminatedDefaultsScopeFromConfig
+--- PASS: TestRecordEliminatedDefaultsScopeFromConfig (0.09s)
+=== RUN   TestRecordEliminatedRejectsUnknownScope
+--- PASS: TestRecordEliminatedRejectsUnknownScope (0.04s)
+=== RUN   TestRecordEliminatedRejectsEmptyReason
+--- PASS: TestRecordEliminatedRejectsEmptyReason (0.05s)
+=== RUN   TestRecordEliminatedRejectsOversizeFields
+--- PASS: TestRecordEliminatedRejectsOversizeFields (0.04s)
+=== RUN   TestRecordEliminatedRefusesSessionScopeWithoutSession
+--- PASS: TestRecordEliminatedRefusesSessionScopeWithoutSession (0.08s)
+=== RUN   TestRecordEliminatedIsNotEphemeral
+--- PASS: TestRecordEliminatedIsNotEphemeral (0.08s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	2.458s

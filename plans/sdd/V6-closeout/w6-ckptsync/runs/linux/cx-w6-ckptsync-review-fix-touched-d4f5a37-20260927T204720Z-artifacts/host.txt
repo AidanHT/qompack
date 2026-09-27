@@ -1,0 +1,10 @@
+run_id=cx-w6-ckptsync-review-fix-touched-d4f5a37-20260927T204720Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync
+rev=d4f5a37
+commit=d4f5a379ad9e4c6944e678a0dfeaf4fc2835c888
+bundle_sha256=64d3d21f94f076064f8e1b84ba8a50ab034917710b2560e73ea33394bc5b6015
+host_started_utc=2026-09-27T20:47:40Z
+inner_args=--timeout 70m -- ./internal/paths ./internal/pins ./internal/config ./internal/negknow ./internal/checkpoint ./internal/store ./internal/daemon ./internal/cli
+host_finished_utc=2026-09-27T20:59:15Z
+container_exit=0

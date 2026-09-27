@@ -47,3 +47,19 @@ red-restore-dest.txt    (new restore destination). 5acdfb8 archive + the extende
                         TestMaintenance_ARestoreIsDurableBeforeItIsReported: FAIL.
 red-coldpath-batch.txt  (seal re-mark batching, eddb208). Found by the Windows full checkpoint run at
                         77a6524: TestColdPreCompactCatchesUpInOneBatchOldestFirst FAIL (5 batches, want 1).
+
+Fix seat (independent review findings), each RED run in the worktree at b51664b with the new test
+added and the fix not yet written:
+red-review-f1-paths.txt     dd9444f (finding 1: a directory barrier retried, never taken as done).
+                            TestAppendLinesDurable_RetriesADirectoryBarrierThatFailed,
+                            TestAppendLinesDurable_SyncsTheNameOfAFileItDidNotCreate,
+                            TestBarriersMkdirAll_RetriesAParentSyncThatFailed,
+                            TestEnsureLayout_RetriesABarrierThatFailed,
+                            TestEnsureLayout_SyncsALayoutAnotherWriterStarted: FAIL.
+red-review-f1-pins.txt      dd9444f (finding 1, the reviewer's pin scenario). Both rows of
+                            TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced: FAIL.
+red-review-f3-sidecar.txt   dd9444f (finding 3: two writers into one fresh shard).
+                            TestCaptureSidecar_AWriterSyncsAShardAnotherWriterIsStillSyncing: FAIL.
+red-review-f2-finalize.txt  da8512b (finding 2: a barrier failing after the MANIFEST line). All three
+                            rows of TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice: FAIL on
+                            seq_reference_drift = 1, the duplicate seal the reviewer described.

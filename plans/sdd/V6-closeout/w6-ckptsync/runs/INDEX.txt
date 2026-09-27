@@ -33,3 +33,20 @@ linux/      qompack-v6-linux-verification via plans/sdd/V6-closeout/linux/linux-
       processes were killed. Both sides of every round shared that load (ABBA order); the unchanged
       controls (BenchmarkIngestAccept, BenchmarkIngestAcceptLeased, BenchmarkRecord) show the noise
       floor. That first driver's runs are unpaired or partial and are not evidence; they are not here.
+
+Fix seat (independent review findings 1-5). Code commits dd9444f, da8512b, b5561e1 (docs),
+d4f5a37; b08b47f changes comments only (internal/paths/barriers.go, internal/store/migrate.go), so
+a run at d4f5a37 exercises the head's code.
+red/red-review-*.txt   RED for each fix; red/INDEX.txt names the commit and failing tests.
+win/full-{paths,pins,config,checkpoint,store}-d4f5a37.txt   go test ./internal/<pkg> -count=1
+      -timeout=70m -v, Windows 11, go1.26.6, co-loaded: all ok (store 860 pass, 1 skip; the
+      skips are the same platform skips as the earlier seat's runs).
+win/focus-cli-fsck-d4f5a37.txt        ./internal/cli -run '^TestFsck_': 70 PASS.
+win/focus-mcp-commands-d4f5a37.txt    ./internal/commands ./internal/mcp -run
+      '^(TestPin_|TestRecordEliminated)': 22 PASS.
+win/focus-e2e-b08b47f.txt, win/focus-fault-integration-b08b47f.txt   the same rows as the earlier
+      seat's focus runs (checkpoint, rehydrate, elimination, publication, backup): 6 + 10 PASS.
+linux/cx-w6-ckptsync-review-fix-touched-d4f5a37-*   plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh,
+      non-root, -race, GOMAXPROCS 4: paths, pins, config, negknow, checkpoint, store, daemon, cli
+      all PASS (daemon 1519 pass; the lane-overflow row that failed once under co-load at eddb208
+      passed here).

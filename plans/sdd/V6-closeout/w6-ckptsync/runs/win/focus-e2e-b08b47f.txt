@@ -1,0 +1,32 @@
+=== RUN   TestE2E_CheckpointHookWritesImmutableArtifact
+--- PASS: TestE2E_CheckpointHookWritesImmutableArtifact (11.81s)
+=== RUN   TestE2E_SessionStartCompactRestoresCheckpointItems
+--- PASS: TestE2E_SessionStartCompactRestoresCheckpointItems (0.57s)
+=== RUN   TestV4_PreCompactToCheckpointToRehydrateRoundTrip
+--- PASS: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (3.40s)
+=== RUN   TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction
+--- PASS: TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction (4.65s)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops
+    v5_x04_test.go:528: bounded arm: tokens=572 budget=600 degraded=false dropped=41 item7_rendered=true
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (18.84s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (8.09s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (8.10s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (2.65s)
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/uncertain_under_stale_response_drop
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/negative_control_blind_ledger_is_unavailable_not_absent
+    v5_x05_test.go:625: blind-ledger digest carries the MCP record's line: true; the stale tag: false
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/old_caller_adapter_agrees_with_the_wire
+--- PASS: TestV5_EliminationThroughEveryFourSurfaces (11.30s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces (2.63s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface (1.02s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/uncertain_under_stale_response_drop (2.23s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/negative_control_blind_ledger_is_unavailable_not_absent (2.37s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/old_caller_adapter_agrees_with_the_wire (1.51s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	50.786s

@@ -1,0 +1,47 @@
+# RED in the worktree at b51664b plus the new test, before the fix:
+# go test ./internal/pins -run '^TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced$' -count=1 -v
+=== RUN   TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced
+=== RUN   TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced/the_first_pin's_directory_sync_failed
+    durability_test.go:210: 
+        	Error Trace:	<worktree>/internal/pins/durability_test.go:210
+        	Error:      	Not equal: 
+        	            	expected: []string{"file:invariants.jsonl", "dir:pins"}
+        	            	actual  : []string{"file:invariants.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,3 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=21) "file:invariants.jsonl",
+        	            	- (string) (len=8) "dir:pins"
+        	            	+([]string) (len=1) {
+        	            	+ (string) (len=21) "file:invariants.jsonl"
+        	            	 }
+        	Test:       	TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced/the_first_pin's_directory_sync_failed
+        	Messages:   	the pin syncs the directory whose entry names the log before it is reported kept
+=== RUN   TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced/another_process_created_the_log
+    durability_test.go:210: 
+        	Error Trace:	<worktree>/internal/pins/durability_test.go:210
+        	Error:      	Not equal: 
+        	            	expected: []string{"file:invariants.jsonl", "dir:pins"}
+        	            	actual  : []string{"file:invariants.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,3 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=21) "file:invariants.jsonl",
+        	            	- (string) (len=8) "dir:pins"
+        	            	+([]string) (len=1) {
+        	            	+ (string) (len=21) "file:invariants.jsonl"
+        	            	 }
+        	Test:       	TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced/another_process_created_the_log
+        	Messages:   	the pin syncs the directory whose entry names the log before it is reported kept
+--- FAIL: TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced (0.11s)
+    --- FAIL: TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced/the_first_pin's_directory_sync_failed (0.07s)
+    --- FAIL: TestPinsAPinIsKeptWhenAnEarlierWriterLeftTheLogsNameUnsynced/another_process_created_the_log (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/pins	1.311s
+FAIL
