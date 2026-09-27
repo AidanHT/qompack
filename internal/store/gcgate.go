@@ -15,9 +15,9 @@ import (
 // pass writes: both resume the same gc.json cursor and each adds that cursor's counts to its own
 // report and subtracts its freed bytes from bytesOnDisk again — which state/store.json persists and
 // the quota reads, so the store's size is under-reported for good (w6-gcserial runs/04: Stats.Bytes 0
-// with 3,506 bytes of live objects on disk) — and one pass's clearGCState deletes the cursor another
-// just saved, the two write gc-live.bin under each other, both tombstone the same dead roots, and
-// both compact retention-roots.jsonl. So passes on one store are serialized here.
+// with 3,506 bytes of live objects on disk). One pass's clearGCState can also delete the cursor
+// another just saved, the two can write gc-live.bin under each other and tombstone the same dead
+// roots twice, and both compact retention-roots.jsonl. So passes on one store are serialized here.
 //
 // What a request that finds a pass running does: it WAITS, and it is answered only by a pass that
 // STARTED after it arrived. It never joins the pass already running, because that pass harvested its
@@ -42,8 +42,9 @@ import (
 //     time spent waiting is not charged to it.
 //
 // The queue is never longer than the requests actually waiting, and a burst of any number of session
-// ends costs at most two passes' time: the one running when they arrive and the one follow-up that
-// answers them all. A pass must never call GC on its own store — a retention source or a test hook
+// ends (which all ask for one kind of pass) costs at most two passes' time unless Stop cancels them:
+// the one running when they arrive and the one follow-up that answers them all. A pass must never
+// call GC on its own store — a retention source or a test hook
 // that did would wait for the pass it is part of — and nothing in the product does.
 //
 // Scope. The gate orders the passes of ONE store handle. That is every pass on a project: GC runs only
