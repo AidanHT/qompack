@@ -21,13 +21,17 @@ import (
 // the daemon fails to come up, Send still runs — it spools — and the hook still answers with (at
 // worst) an empty response, or the deferred note for a compaction, and exits 0, per §2.3.
 //
-// The whole invocation is bounded by the manifest timeout (V6 close-out D17b): of its 15 s,
+// The whole invocation is bounded by the manifest timeout (V6 close-out D17b, D21): of its 15 s,
 // hookExitReserve (1.5 s) is kept for the process's start and exit, the reply deadline (10 s) and
 // the dial (hookConnectDeadlineFloor, 250 ms) come last, and what is left before them — 3.25 s from
-// doHook's first statement — is everything up to and including the daemon start, whose poll stops
-// there. Staging a binary and creating the process are never cut short, and a daemon started late
-// still gets the 1.5 s EnsureRunning always gave it to come up; whatever runs over is taken from
-// the reply wait instead (hookBudget.replyDeadline), so the hook still ends in time.
+// doHook's first statement — is everything up to and including the daemon start when the reply is
+// to keep its full 10 s. Finding or starting the daemon may borrow the reply wait's idle time: its
+// poll runs until 8.25 s (hookBudget.borrowBy), the last instant that still leaves the reply D9's
+// 5 s compact bound (daemon.CompactAnswerBudget) plus the dial, and the reply wait is then what is
+// left, min(10 s, doneBy - now - dial). Staging a binary and creating the process are never cut
+// short, and a daemon started late still gets the 1.5 s EnsureRunning always gave it to come up,
+// even past 8.25 s; whatever runs over is taken from the reply wait (hookBudget.replyDeadline), so
+// the hook still ends in time.
 func runSessionStart(ctx context.Context, env Env, args []string, out, errw io.Writer) error {
 	return doHook(sessionStartSpec(ensureDaemonRunning))(ctx, env, args, out, errw)
 }
@@ -37,7 +41,7 @@ func runSessionStart(ctx context.Context, env Env, args []string, out, errw io.W
 func sessionStartSpec(preSend func(root, self string, st ipc.State, clk core.Clock, b hookBudget)) hookSpec {
 	return hookSpec{
 		op: ipc.OpSessionStart, reply: true, deadline: sessionStartReplyDeadline,
-		hostTimeout: sessionStartHostTimeout(), preSend: preSend,
+		hostTimeout: sessionStartHostTimeout(), minReply: daemon.CompactAnswerBudget(), preSend: preSend,
 	}
 }
 
@@ -58,7 +62,9 @@ func sessionStartHostTimeout() time.Duration {
 const defaultSessionStartHostTimeout = 15 * time.Second
 
 // ensureDaemonRunning calls daemon.EnsureRunningUntil for session-start's preSend seam, bounding its
-// poll by the hook's budget: the pre-send deadline, and the last instant a reply could still follow.
+// poll by the hook's budget: the borrow limit (hookBudget.borrowBy, D21), which leaves the reply at
+// least the compact bound, and the last instant a reply could still follow, up to which a daemon
+// started late still gets its classic wait.
 //
 // It is a no-op under the daemon-down fault site (task-6-spec.md's table: that site's whole point
 // is that nothing is listening AND nothing may be spawned in response), whenever self is ""
@@ -80,5 +86,5 @@ func ensureDaemonRunning(root, self string, st ipc.State, clk core.Clock, b hook
 	if !st.DaemonEnabled {
 		return
 	}
-	_, _ = daemon.EnsureRunningUntil(root, self, newHookLogger(root), clk, b.preSendBy, b.latestPoll)
+	_, _ = daemon.EnsureRunningUntil(root, self, newHookLogger(root), clk, b.borrowBy, b.latestPoll)
 }
