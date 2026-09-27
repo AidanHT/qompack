@@ -1,0 +1,21 @@
+run_id=cx-w6-linuxrows-daemon-rows-load7-c08d008-20260927T174910Z
+commit=c08d008810414abc6c964171fcde5be1cdc7f956
+tree=f6940a394f63bf06ac7fb168409dff0201dd9235
+bundle_sha256=e976e83cd0fe90cc8f2fd79ab32181dc7a17ef384dc47f1bf48c36ddc5f4c0b8
+started_utc=2026-09-27T17:49:46Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=30 timeout=40m gomaxprocs=4 coload=1
+run=^(TestDeliveryOrder_LaneOverflowIsDrainedOnRequest|TestFeaturesFrom_LexicalCohesionShingleCap|TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T17:55:45Z

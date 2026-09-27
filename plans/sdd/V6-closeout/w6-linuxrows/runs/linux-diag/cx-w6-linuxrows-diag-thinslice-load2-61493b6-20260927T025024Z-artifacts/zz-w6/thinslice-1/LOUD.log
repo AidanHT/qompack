@@ -1,0 +1,2 @@
+ts=2026-09-27T02:52:35.294928945Z level=loud msg="daemon: stop: a session end ignored cancellation; abandoning it, its flush stays in the WAL" bound=250ms
+ts=2026-09-27T02:52:35.295837667Z level=loud msg="daemon: flush: SessionEnd runs before the session settled; its pending deliveries stay in the WAL for replay" session=sess-e2e-thinslice reason="some of its leased deliveries are not on the committed frontier"

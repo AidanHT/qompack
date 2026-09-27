@@ -1,0 +1,13 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 7,
+   "failed": [
+    "TestE2E_ThinSliceDropsControlOnlyEdges"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

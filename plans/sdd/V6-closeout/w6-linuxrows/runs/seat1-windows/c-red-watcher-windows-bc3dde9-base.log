@@ -1,0 +1,17 @@
+=== RUN   TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+    spool_watch_test.go:277: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/spool_watch_test.go:277
+        	Error:      	Condition never satisfied
+        	Test:       	TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+        	Messages:   	a client spool slower than a pass's budget was never published
+--- FAIL: TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished (30.96s)
+=== RUN   TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft
+    spool_watch_test.go:310: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/spool_watch_test.go:310
+        	Error:      	Condition never satisfied
+        	Test:       	TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft
+        	Messages:   	spools a budget-cut pass never reached were put on the doubling wait
+--- FAIL: TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft (31.69s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	64.655s
+FAIL

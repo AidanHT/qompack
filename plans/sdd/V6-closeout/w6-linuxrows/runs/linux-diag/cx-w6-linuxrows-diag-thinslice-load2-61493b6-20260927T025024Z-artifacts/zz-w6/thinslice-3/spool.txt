@@ -1,0 +1,1 @@
+client-23377.ndjson(2958B,51L) drain.json={"client-23377.ndjson":{"size":2204,"offset":2204,"done":true,"durable_size":true}}

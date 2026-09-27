@@ -1,0 +1,1 @@
+PASS      github.com/qompack/qompack/internal/daemon  (pass=130 fail=0 skip=0)

@@ -1,0 +1,21 @@
+run_id=cx-w6-linuxrows-e2e-rows-load8-64a01ed-20260927T175923Z
+commit=64a01ed0d86d647c2edca58f4bc7626d7efc145e
+tree=f4d3ed9272a1b3e4e2fab055cdc6b37f58a60a7b
+bundle_sha256=6b331053b87f96c5d6a447a5ea4d9e15f45cd873af18910b089e94c498f0a2a4
+started_utc=2026-09-27T17:59:48Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=60m gomaxprocs=4 coload=1
+run=^(TestV3_LiveSessionWriteSetAndAppendOnly|TestE2E_SpooledSessionStartNeverDegradesTheProject|TestE2E_ThinSliceDropsControlOnlyEdges)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T18:11:59Z

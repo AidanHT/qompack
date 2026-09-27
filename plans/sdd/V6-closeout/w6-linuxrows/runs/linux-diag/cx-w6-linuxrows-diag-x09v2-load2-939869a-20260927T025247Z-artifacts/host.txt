@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-diag-x09v2-load2-939869a-20260927T025247Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows/diagclone
+rev=939869a
+commit=939869ad81fe3ca92469e7d8a8bffa60aa1ced23
+bundle_sha256=e061e059c9b540fd00b210f2c7e82e3a6764b32fd8379879028130521012dfb5
+host_started_utc=2026-09-27T02:53:30Z
+inner_args=--count 2 --timeout 60m --run ^TestV3_LiveSessionWriteSetAndAppendOnly$ -- ./test/e2e
+host_finished_utc=2026-09-27T03:04:25Z
+container_exit=1

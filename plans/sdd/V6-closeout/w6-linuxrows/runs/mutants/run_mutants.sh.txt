@@ -1,0 +1,23 @@
+#!/bin/sh
+# Temporary evidence tool (w6-linuxrows): run each mutant's row against the final tests, in the scratch clone.
+S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows
+C=$S/diagclone
+out=$S/r3/mutants
+mkdir -p $out
+run() {
+	name=$1; pat=$2
+	(cd $C && git -c core.longpaths=true checkout -q -- internal/daemon) || exit 1
+	python $S/mutants.py $C $name || exit 1
+	(cd $C && go test ./internal/daemon -run "$pat" -count=1 -v -timeout=10m) > $out/$name.log 2>&1
+	echo "exit=$?" >> $out/$name.log
+	echo "$name: $(grep -E '^--- (PASS|FAIL)' $out/$name.log | tr '\n' ' ') $(tail -1 $out/$name.log)"
+	(cd $C && git -c core.longpaths=true checkout -q -- internal/daemon)
+}
+run M1-no-resume '^TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain$'
+run M2-hard-deadline '^(TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget|TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished)$'
+run M3-no-consume-first '^TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine$'
+run M4-watcher-backoff '^TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft$'
+run M5-watcher-deadline '^TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished$'
+run M6-no-stop-persist '^TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd$'
+(cd $C && git -c core.longpaths=true status --short -- internal)
+echo done

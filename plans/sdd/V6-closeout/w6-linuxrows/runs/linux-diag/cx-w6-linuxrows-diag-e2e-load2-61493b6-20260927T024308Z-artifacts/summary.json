@@ -1,0 +1,15 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 6,
+   "failed": [
+    "TestV3_LiveSessionWriteSetAndAppendOnly",
+    "TestV3_LiveSessionWriteSetAndAppendOnly",
+    "TestV3_LiveSessionWriteSetAndAppendOnly"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

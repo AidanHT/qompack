@@ -1,0 +1,11 @@
+=== RUN   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    delivery_order_lanes_test.go:244: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows/diagclone/internal/daemon/delivery_order_lanes_test.go:244
+        	Error:      	Condition never satisfied
+        	Test:       	TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+        	Messages:   	the refused jobs a pass cut short by its budget left were never drained: 3 of 5 arrivals acknowledged, l0_ordering_deferred=0
+--- FAIL: TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (30.54s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	30.800s
+FAIL
+exit=1
