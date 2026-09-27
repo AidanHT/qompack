@@ -10,6 +10,18 @@ import (
 	"github.com/qompack/qompack/internal/core"
 )
 
+// ErrLineNotDurable reports a durable append that WROTE its lines but could not complete the barriers
+// after the write: the file's sync, or the directory sync that makes its name durable, failed. The
+// lines are in the file and every reader sees them now; what is not known is whether they survive a
+// power cut. Every other error from AppendJSONLDurable, AppendLinesDurable and AppendManifest means
+// nothing was appended.
+//
+// A caller whose "not done" answer would otherwise be acted on as "nothing happened" must tell the
+// two apart. checkpoint.Finalize does: a MANIFEST line that is written is a seal readers already see
+// and a sequence the manifest already claims, so the draft behind it must not be unsealed and sealed
+// again under the next sequence (w6-ckptsync review finding 2).
+var ErrLineNotDurable = errors.New("paths: the line is written but not known durable")
+
 // Barriers are the two durability calls a sealing write issues: SyncFile makes the bytes written
 // through a handle durable, and SyncDir makes a directory's entries durable — the names of the files
 // in it, which on POSIX a file's own fsync does not cover (fsyncDir).
@@ -21,7 +33,8 @@ import (
 // store's pubSyncDir and the daemon's syncDir fields are the same kind of seam for their own writers.
 //
 // A barrier that fails stops the write where it is and returns the barrier's error: nothing after it
-// runs, so a caller never learns "durable" from a write whose barrier failed.
+// runs, so a caller never learns "durable" from a write whose barrier failed. A barrier that fails
+// after an append's write returns the error wrapped in ErrLineNotDurable.
 type Barriers struct {
 	// SyncFile makes f's written bytes durable. Nil means (*os.File).Sync.
 	SyncFile func(f *os.File) error
@@ -166,18 +179,23 @@ func (x Barriers) AppendLinesDurable(p string, lines []byte) error {
 		_ = f.Close()
 		return err
 	}
+	// From here on the lines are in the file, visible to every reader, so a failure is not "nothing
+	// was appended" and must not read as one (ErrLineNotDurable).
 	if err := x.syncFile(f); err != nil {
 		_ = f.Close()
-		return err
+		return fmt.Errorf("%w: %s: %w", ErrLineNotDurable, p, err)
 	}
 	if err := f.Close(); err != nil {
-		return err
+		return fmt.Errorf("%w: %s: %w", ErrLineNotDurable, p, err)
 	}
 	names := entries.pendingFrom(p)
 	if st, _ := entries.look(p); st != entryDurable {
 		names = append([]string{p}, names...)
 	}
-	return x.syncEntries("AppendLinesDurable", names)
+	if err := x.syncEntries("AppendLinesDurable", names); err != nil {
+		return fmt.Errorf("%w: %w", ErrLineNotDurable, err)
+	}
+	return nil
 }
 
 // CreateNew is the package function of the same name, issuing its file sync through x.
@@ -194,7 +212,7 @@ func (x Barriers) CreateNew(p string, b []byte) error { return createNew(p, b, x
 //     the manifest's own name durable when the manifest already exists, whoever created it.
 //  2. The line, then SyncFile(manifest) — the seal itself. Until it returns, the checkpoint is not
 //     sealed, and a cut anywhere before leaves at most an orphan artifact, which `qompack fsck`
-//     indexes by re-hashing it.
+//     indexes by re-hashing it. A failure from here on is ErrLineNotDurable: the line is written.
 //  3. SyncDir(checkpoints) again, only when the manifest's name is not yet durable: step 2 created
 //     it (the project's first checkpoint), or an earlier append's step 3 failed and no step 1 has run
 //     since. Step 1 covers an existing manifest's name, so a steady-state seal pays one directory
