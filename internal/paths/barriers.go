@@ -48,6 +48,36 @@ func (x Barriers) syncDir(dir string) error {
 // something depends on them (store's backup and restore trees).
 func (x Barriers) DirBarrier(dir string) error { return x.syncDir(dir) }
 
+// MkdirAll is os.MkdirAll made durable: it creates dir and every missing parent, then syncs the
+// parent of each directory it created, deepest first, so that a file written into dir afterwards
+// cannot lose its name to a power cut along with a directory whose own entry was never synced — a
+// file's WriteAtomic syncs the directory that holds it, not that directory's parent. A dir that
+// already exists costs one Lstat and syncs nothing, so a writer that shards into directories made on
+// demand pays the barrier once per new directory, not per file.
+func (x Barriers) MkdirAll(dir string, perm fs.FileMode) error {
+	var created []string
+	for p := filepath.Clean(dir); ; {
+		if _, err := os.Lstat(Long(p)); !errors.Is(err, fs.ErrNotExist) {
+			break
+		}
+		created = append(created, p)
+		parent := filepath.Dir(p)
+		if parent == p {
+			break
+		}
+		p = parent
+	}
+	if err := os.MkdirAll(Long(dir), perm); err != nil {
+		return err
+	}
+	for _, c := range created {
+		if err := x.syncDir(filepath.Dir(c)); err != nil {
+			return fmt.Errorf("paths: MkdirAll: sync %s: %w", filepath.Dir(c), err)
+		}
+	}
+	return nil
+}
+
 // FileBarrier syncs f's written bytes through x: (*os.File).Sync, unless x.SyncFile replaces it. It
 // is for a writer outside this package that holds its own append handle and must make what it wrote
 // durable before it acknowledges it (negknow's acknowledged eliminations).

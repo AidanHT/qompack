@@ -348,8 +348,10 @@ seam that lets tests count and cut them):
 - **Delivery and WAL.** A hook's ACK follows the WAL line's sync; the spool directory is synced when
   a WAL segment is opened, and a tool response too large to send inline (a `spool/blob-*.bin` file
   the hook wrote) is synced, with its directory, before the line that names it.
-- **Publication, pins, eliminations, GC.** A publication pass fsyncs each object, its directories
-  and the index before any reference or acknowledgement depends on it. A pin's log line is synced
+- **Publication, pins, eliminations, GC.** A capture sidecar is durable, name included, before any
+  reference or frontier ACK names it: a new `records/captures/<shard>/` directory is synced into its
+  parent before the sidecar is written. A publication pass fsyncs each object, its directories and
+  the index before any reference or acknowledgement depends on it. A pin's log line is synced
   before the derived `pins/invariants.json` changes. A `record_eliminated` call publishes the
   evidence it minted and syncs its `records/eliminations.jsonl` line before it answers, because no
   spool line stands behind an MCP call. A GC pass syncs its tombstones before it deletes the chunks

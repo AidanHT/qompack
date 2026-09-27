@@ -168,3 +168,31 @@ func TestEnsureLayout_MakesTheDirectoriesItCreatesDurable(t *testing.T) {
 	require.NoError(t, added.barriers().EnsureLayout(l))
 	require.Equal(t, []string{"dir:.qompack"}, added.steps, "one new directory: only its parent is synced")
 }
+
+// TestBarriersMkdirAll_SyncsTheParentOfEveryDirectoryItCreates: MkdirAll syncs, deepest first, the
+// parent of each directory it had to create — so the new directories' own entries are durable before
+// a file is written into the deepest one — and a directory that already exists costs no barrier. A
+// failed parent sync fails the call.
+func TestBarriersMkdirAll_SyncsTheParentOfEveryDirectoryItCreates(t *testing.T) {
+	base := t.TempDir()
+	deep := filepath.Join(base, "captures", "ab")
+
+	first := &barrierLog{}
+	require.NoError(t, first.barriers().MkdirAll(deep, 0o700))
+	fi, err := os.Stat(paths.Long(deep))
+	require.NoError(t, err)
+	require.True(t, fi.IsDir())
+	require.Equal(t, []string{"dir:captures", "dir:" + filepath.Base(base)}, first.steps,
+		"ab's entry in captures/, then captures' entry in its parent")
+
+	again := &barrierLog{}
+	require.NoError(t, again.barriers().MkdirAll(deep, 0o700))
+	require.Empty(t, again.steps, "an existing directory costs no barrier")
+
+	sibling := &barrierLog{}
+	require.NoError(t, sibling.barriers().MkdirAll(filepath.Join(base, "captures", "cd"), 0o700))
+	require.Equal(t, []string{"dir:captures"}, sibling.steps, "a new shard under an existing parent syncs that parent")
+
+	failing := &barrierLog{failAt: 1}
+	require.ErrorIs(t, failing.barriers().MkdirAll(filepath.Join(base, "captures", "ef"), 0o700), errBarrier)
+}

@@ -40,3 +40,6 @@ red-negknow-ack.txt     2df3776 (acknowledged eliminations). 7f5d7a4 archive + t
 The first eight were produced by the earlier seat (2026-09-27 02:54-03:49 UTC per its digest);
 each run completed (none was cut short by the pause). The commands' exact file lists are in
 plans/sdd/V6-closeout/coordinator/digests/w6-ckptsync.txt.
+red-sidecar-shard.txt   (sidecar shard directory). 9086913 archive + the tests, Barriers.MkdirAll
+                        stubbed to os.MkdirAll. TestBarriersMkdirAll_SyncsTheParentOfEveryDirectoryItCreates,
+                        TestCaptureSidecar_ANewShardIsDurableBeforeTheSidecarIsWritten: FAIL.
