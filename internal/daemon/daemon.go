@@ -393,7 +393,7 @@ func New(o Options) (Daemon, error) {
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
 
 	d.idle = newIdleController(o.Cfg.Scheduler.Idle.DetectAfterSeconds, o.Clock, o.Log, o.Metrics, monitor.Mode)
-	d.idle.Register(idleTaskDrain, idlePrioDrain, d.idleDrain)
+	d.idle.registerPaced(idleTaskDrain, idlePrioDrain, d.idleDrain)
 	d.idle.Register(idleTaskSketches, idlePrioSketches, d.idleSaveSketches)
 	d.idle.Register(idleTaskMetrics, idlePrioMetrics, d.idleWriteMetrics)
 	// The client-spool watcher retries a spool it cannot yet consume only up to the idle drain's own
