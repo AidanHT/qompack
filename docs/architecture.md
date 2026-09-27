@@ -225,6 +225,20 @@ The write set is asserted, not asserted-about: `plans/V5-report.md` §27 records
 roots and GC are covered by the I-06.x rows and the phase-7 compaction tests, and that the
 compaction tests rewrite by design and are documented as doing so.
 
+**One GC pass at a time.** Store GC runs only inside the daemon: every session end runs a pass, and
+so does the idle scheduler. A store runs one pass at a time (`internal/store/gcgate.go`), because two
+overlapping passes both resume the same `state/gc.json` cursor and subtract its freed bytes twice
+from the size that `state/store.json` persists and the quota reads, and they also collide on
+`gc-live.bin`, the tombstones and the compaction of `retention-roots.jsonl`. A request that finds a
+pass running waits for it, and is answered by the next pass to start, never by the running one: that
+pass harvested its retention sources before the request existed. The requests that waited behind one
+pass and ask for the same kind of pass (retention window, dry run, quota) are answered by a single
+follow-up pass, started by the one that grants the longest deadline; the daemon's two callers always
+ask for the same kind. The wait answers to the caller's context, so Stop is never held behind a queue,
+and a pass's deadline starts only when that pass starts. The gate needs no file lock:
+`qompack fsck --repair` never runs GC, and every command that opens a writable store takes the
+daemon lock first.
+
 **What is never written.** Secrets. `internal/redact` is the choke point: "secrets must never reach
 `objects/`, so redaction is applied once, at `store.Put`/`PutBytes`, before canonicalization and
 chunking — never as an after-the-fact audit step". Ten built-in rules run in a fixed order plus
