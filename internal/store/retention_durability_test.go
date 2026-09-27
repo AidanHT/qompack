@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -61,6 +62,14 @@ func TestRetentionRoots_ABackupsDeclarationsAreDurableBeforeItsManifest(t *testi
 	reason := []byte("restorable through backup " + id + "/" + backupManifestFile)
 	require.Equal(t, 3, bytes.Count(kept, reason),
 		"after a power cut, the backup's three rollback declarations are still on disk")
-	require.Equal(t, []string{"file:" + retentionRootsFile}, steps, "one sync for the whole batch")
+	// The same barriers also carry the backup tree's directory syncs (syncTreeDirs, pinned by
+	// TestMaintenance_ABackupIsDurableBeforeItIsCertified), so only the file syncs are the batch's.
+	var fileSteps []string
+	for _, s := range steps {
+		if strings.HasPrefix(s, "file:") {
+			fileSteps = append(fileSteps, s)
+		}
+	}
+	require.Equal(t, []string{"file:" + retentionRootsFile}, fileSteps, "one sync for the whole batch")
 	require.False(t, manifestFirst, "the declarations are durable before the manifest that depends on them exists")
 }
