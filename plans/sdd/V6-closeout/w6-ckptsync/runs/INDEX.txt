@@ -26,4 +26,10 @@ linux/      qompack-v6-linux-verification via plans/sdd/V6-closeout/linux/linux-
   bench/   paired ABBA timing, --no-race, --count 5, GOFLAGS=-bench=<regex>, base = scratch commit
       74bdcd7 (f6095e2 + the two new benchmark files), head = 312e15a, 6 rounds; driver and pairing
       script as bench-abba.sh.txt and bench-pairs.py.txt; PAIRS.txt is the pairing's output. Ratios
-      only: the container was co-loaded by three other workstreams (a single WAL fsync took ~20 ms).
+      only: the container was co-loaded by three other workstreams (a single WAL fsync took ~20 ms)
+      and, from round 1 to round 6, by this seat's own earlier driver: a first ABBA that also timed
+      BenchmarkFinalize (one sample took ~9 min under that load) was stopped at its 20-minute cap, but
+      its host sh survived the stop and kept launching runs until 19:5x UTC, when it and its container
+      processes were killed. Both sides of every round shared that load (ABBA order); the unchanged
+      controls (BenchmarkIngestAccept, BenchmarkIngestAcceptLeased, BenchmarkRecord) show the noise
+      floor. That first driver's runs are unpaired or partial and are not evidence; they are not here.
