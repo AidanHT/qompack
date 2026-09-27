@@ -161,12 +161,31 @@ type doctorState struct {
 	lockInfo    daemon.LockInfo
 	lockHeld    bool
 	lockAlive   bool
+	// refused is the D18 refusal when root is the home directory. The report then reads nothing
+	// under root: its .qompack is the user-global layer, not a project store, so there is no
+	// history, ledger, lock, spool or store of a project there to report on, and every section that
+	// would describe one states the refusal instead.
+	refused error
 }
 
 // collectDoctorReport assembles every section.
 func collectDoctorReport(ctx context.Context, root string, env Env, clk core.Clock) doctorReport {
 	s := &doctorState{ctx: ctx, root: root, env: env, clk: clk, register: contract.DefaultCapabilityRegister()}
 	if root != "" {
+		s.refused = refuseHomeRoot(env, root)
+	}
+	switch {
+	case s.refused != nil:
+		// The configuration rows still describe what a project below this home would inherit: the
+		// user-global layer, with no project layer.
+		cfg, prov, warns, err := loadUserGlobalConfig(env)
+		s.cfg, s.prov, s.warnings = cfg, prov, warns
+		if err != nil {
+			s.cfg, s.prov = config.Defaults(), config.Provenance{}
+		}
+		s.history = &contract.SessionHistory{}
+		s.ledger = &contract.ObservationLedger{}
+	case root != "":
 		s.l = paths.Of(root)
 		s.established = projectEstablished(s.l)
 		cfg, prov, warns, err := config.Load(config.Env{
@@ -182,7 +201,7 @@ func collectDoctorReport(ctx context.Context, root string, env Env, clk core.Clo
 		s.history = contract.LoadHistory(contract.HistoryPath(root))
 		s.ledger = contract.LoadObservationLedger(contract.ObservationLedgerPath(root))
 		s.lockInfo, s.lockHeld, s.lockAlive = fsckDaemonLiveness(root)
-	} else {
+	default:
 		s.cfg, s.prov = config.Defaults(), config.Provenance{}
 		s.history = &contract.SessionHistory{}
 		s.ledger = &contract.ObservationLedger{}
@@ -428,6 +447,15 @@ func (s *doctorState) scopeRows() []doctorRow {
 		}}
 	}
 
+	if s.refused != nil {
+		// A decision (D18), so disabled rather than degraded. No scope.established row: the
+		// .qompack here is the user-global layer, and calling it an established project is exactly
+		// the confusion the refusal exists to prevent.
+		return []doctorRow{{
+			ID: "scope.root", Status: doctorDisabled, Observed: s.root, Detail: s.refused.Error(),
+		}, s.modeRow()}
+	}
+
 	rows := []doctorRow{{
 		ID: "scope.root", Status: doctorOK, Observed: s.root,
 		Detail: "resolved from --project, QOMPACK_PROJECT_ROOT or the nearest enclosing .git",
@@ -627,13 +655,18 @@ func (s *doctorState) controlRows() []doctorRow {
 		Detail: "admission.Gate.Admits answers (false, disabled) while the mirror is off and " +
 			"(false, unknown target) once it is on with no target evidence",
 	})
-	rows = append(rows, doctorRow{
+	recording := doctorRow{
 		ID: "runtime.recording", Status: s.recordingStatus(),
 		Observed: s.cfg.Runtime.Mode,
 		Detail: "recording has no switch of its own: runtime.mode passive or off IS the recording " +
 			"control (config/runtime.go:104-116)",
-	})
-	return rows
+	}
+	if s.refused != nil {
+		// Whatever the mode says, a refused root records nothing (D18).
+		recording.Status = doctorDisabled
+		recording.Detail = "nothing is recorded whatever runtime.mode says: " + s.refused.Error()
+	}
+	return append(rows, recording)
 }
 
 // recordingStatus maps runtime.mode onto whether this build records at all.
@@ -679,7 +712,12 @@ func (s *doctorState) switchRow(key string, gate *doctorGate) doctorRow {
 // from the list a previous run persisted.
 func (s *doctorState) configViolationsRow() doctorRow {
 	live := config.ViolationsFromWarnings(s.warnings)
-	persisted := doctorPersistedViolations(s.l)
+	// Only a project's own state/ holds a persisted list. With no root, or a refused one (D18), the
+	// layout is empty and its State would be a path relative to the working directory.
+	var persisted []config.Violation
+	if s.l.State != "" {
+		persisted = doctorPersistedViolations(s.l)
+	}
 
 	if len(live) == 0 && len(persisted) == 0 {
 		return doctorRow{
@@ -724,6 +762,12 @@ func doctorPersistedViolations(l paths.Layout) []config.Violation {
 // .qompack degrades every writer quietly, and the only trace is a Warn in a file nothing points a
 // user at (Task 2's F-2). One throwaway file under tmp/ answers it, and it is always removed.
 func (s *doctorState) recordingRows() []doctorRow {
+	if s.refused != nil {
+		return []doctorRow{{
+			ID: "store.writable", Status: doctorDisabled, Observed: "not probed: nothing is recorded here",
+			Detail: s.refused.Error(),
+		}}
+	}
 	var rows []doctorRow
 	if s.root != "" {
 		// Before any .qompack test: a configuration the hook path refuses is precisely what leaves a
@@ -1074,6 +1118,12 @@ func (s *doctorState) assertionRows() []doctorRow {
 // labelled one: a dedup ratio is not a health verdict and a latency figure is not a promise, which
 // is why neither appears.
 func (s *doctorState) retrievalRows() []doctorRow {
+	if s.refused != nil {
+		return []doctorRow{{
+			ID: "store.open", Status: doctorDisabled, Observed: "not opened: nothing is recorded here",
+			Detail: s.refused.Error() + "; every MCP tool answers with that refusal",
+		}}
+	}
 	if s.root == "" || !s.established {
 		return []doctorRow{{
 			ID: "store.open", Status: doctorUnknown, Observed: "no .qompack to open",
@@ -1193,10 +1243,16 @@ func (s *doctorState) statusRows() []doctorRow {
 		}}
 	}
 
-	client := newCommandClient(s.root, s.cfg, doctorNoSpawnEnv(s.env), logging.Nop(), obs.New(s.clk), s.clk)
-	defer func() { _ = client.Close() }()
-
-	rep := commands.CollectStatus(s.ctx, commandStatusSources(s.ctx, s.root, client), s.clk.Now())
+	var rep commands.StatusReport
+	if s.refused != nil {
+		// The same sources `qompack status` binds for a refused root (buildCommandDeps), so the two
+		// still agree, and no client is built for the home directory.
+		rep = commands.CollectStatus(s.ctx, commands.StatusSources{Refused: s.refused}, s.clk.Now())
+	} else {
+		client := newCommandClient(s.root, s.cfg, doctorNoSpawnEnv(s.env), logging.Nop(), obs.New(s.clk), s.clk)
+		defer func() { _ = client.Close() }()
+		rep = commands.CollectStatus(s.ctx, commandStatusSources(s.ctx, s.root, client), s.clk.Now())
+	}
 
 	mode := doctorUnknown
 	if rep.Snapshot != nil && rep.Snapshot.Mode != "" {

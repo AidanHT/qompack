@@ -225,6 +225,11 @@ func runFsck(ctx context.Context, env Env, args []string, out, errw io.Writer) e
 		fmt.Fprintln(errw, "qompack fsck: could not resolve a project root")
 		return errAlreadyReported
 	}
+	// D18: the home directory's .qompack is the user-global layer, not a store to scan or repair.
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		fmt.Fprintf(errw, "qompack fsck: %v\n", refused)
+		return errAlreadyReported
+	}
 	clk := env.Clock
 	if clk == nil {
 		clk = core.SystemClock()

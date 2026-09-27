@@ -65,7 +65,18 @@ type Deps struct {
 	// worth failing over a missing seam, and every caller that cares about determinism — every
 	// test, every golden fixture — sets it.
 	Clock core.Clock
+	// Refused, when non-nil, is why this invocation has no project to act on at all: owner decision
+	// D18 refuses a project root that is the user's home directory. Every command that reads or
+	// writes a project then reports it as unavailable instead of running (refusalExempt names the
+	// two that do not), and the error keeps its own identity under errors.Is, so a caller can still
+	// branch on paths.ErrHomeRoot.
+	Refused error
 }
+
+// refusalExempt are the commands that still run when Deps.Refused is set. status reports the
+// refusal as its answer (Status.Refused), because "why is nothing recorded here" is the question it
+// exists to answer; eval reads a completed evaluation's artifacts and never a project.
+var refusalExempt = map[string]bool{"status": true, "eval": true}
 
 // now reads the injected clock, defaulting to the system one.
 func (d Deps) now() time.Time {
@@ -190,6 +201,9 @@ func (f *frontend) Run(ctx context.Context, args []string, out io.Writer) error 
 	}
 	if help {
 		return f.spec.WriteHelp(out)
+	}
+	if f.deps.Refused != nil && !refusalExempt[f.spec.Name] {
+		return f.report(inv, nil, fmt.Errorf("%w: %w", ErrUnavailable, f.deps.Refused))
 	}
 
 	data, runErr := f.body(ctx, inv)

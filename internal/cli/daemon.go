@@ -48,6 +48,14 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 		fmt.Fprintln(errw, "qompack daemon: could not resolve a project root")
 		return nil
 	}
+	// D18: no daemon serves the home directory, however it was named — the override, --project or
+	// the working directory. The refusal comes before the writer lease, which would create run/ and
+	// daemon.lock inside the user-global layer's directory. daemon.AcquireLock refuses the same root
+	// again for any other embedder.
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		fmt.Fprintf(errw, "qompack daemon: %v\n", refused)
+		return nil
+	}
 
 	// Exclude maintenance and competing daemon bootstraps before wiring opens
 	// any store handles. Keep the lease through all deferred writer closes.

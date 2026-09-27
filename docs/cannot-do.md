@@ -263,6 +263,25 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `Qompack.md` v1.5 §12; `plans/V5-report.md` §24 (the SP-21 enabled-surface matrix)
   and §26; [docs/architecture.md §10](architecture.md#10-what-is-not-supported).
 
+### No recording in a session whose project root is the home directory
+
+- **Limit.** A session whose project root resolves to your home directory records nothing, and every
+  Qompack command there refuses or reports that it is inactive. That covers a session started in the
+  home directory, one started below a home that is itself a git work tree (a dotfiles repository) in
+  a directory with no `.git` of its own, and `QOMPACK_PROJECT_ROOT` naming the home directory. A
+  session that started in the home directory stays inactive even if its work moves into a project.
+- **Why.** Owner decision D18. The project store would be `~/.qompack`, the directory that already
+  holds Qompack's user-wide configuration, calibration file, fallback logs and, on Windows, the
+  staged daemon copies; a project store there would mix the two and put project records where
+  uninstalling or resetting the user-wide settings would take them. The comparison ignores case on
+  Windows and follows symlinks and junctions, so it cannot be spelled around.
+- **What Qompack does instead.** It says so once, on `SessionStart`, and writes nothing: no store, no
+  log, no lock, no daemon. The MCP tools answer a stable refusal, `status` and `doctor` report the
+  reason, and a project below the home directory — with or without its own `.git`, below a plain
+  home — works as it always did.
+- **Recorded at.** [docs/troubleshooting.md](troubleshooting.md#qompack-is-inactive-in-the-home-directory);
+  [docs/architecture.md §2](architecture.md#2-write-set-and-retention); `plans/00-ARCHITECTURE.md` §3.3.
+
 ### No performance guarantee on any host
 
 - **Limit.** Qompack makes no performance guarantee. The latency budgets in this repository gate

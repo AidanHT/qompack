@@ -157,6 +157,17 @@ token-estimator calibration file, a fallback log directory for a project whose o
 written, and — on Windows — the daemon's staged executable, `bin/<sha256>/qompack.exe`, §1).
 `test/guards/writeset_test.go` runs all six hooks and fails on any write outside these two trees.
 
+The two trees never coincide. A project root is resolved from `QOMPACK_PROJECT_ROOT`, else the
+nearest enclosing `.git`, else the working directory, and each of those can name the home directory
+itself: a session started there, one started below a home that is a git work tree (a dotfiles
+repository), or an override pointing at it. Its store would be `<home>/.qompack/`, the user-global
+layer's own directory, so owner decision D18 refuses that root: every entry point compares the
+resolved root with the home directory (after cleaning, case-insensitively on Windows, following
+symlinks and junctions, `internal/paths/home.go`) and records nothing, writes nothing, locks nothing
+and starts no daemon for it. `SessionStart` answers with one short message saying so, the other hooks
+answer `{}`, the MCP tools answer a stable refusal, and `status`, `doctor` and every store command
+say why (`internal/cli/homeroot.go`). A project below the home directory is unaffected.
+
 Named files referenced elsewhere on this page: `checkpoints/NNNN.json` and
 `checkpoints/MANIFEST.jsonl`, `index/observations.jsonl`, `records/eliminations.jsonl`,
 `state/frontier.json`, `state/config-violations.json`, `sketches/tried.bloom`.

@@ -19,7 +19,9 @@ What the commands, the slash commands and the MCP tools *are* is
 > `qompack config print` does not create the layout
 > ([docs/user-guide.md](user-guide.md#operator-commands)), but it does write
 > `.qompack/state/config-violations.json` into one that already exists (observed on this tree). The
-> full write set is [docs/architecture.md §2](architecture.md#2-write-set-and-retention).
+> full write set is [docs/architecture.md §2](architecture.md#2-write-set-and-retention). The one
+> exception is a project root that is your home directory: there none of them writes anything
+> ([below](#qompack-is-inactive-in-the-home-directory)).
 
 ## 1. Start with provenance
 
@@ -44,6 +46,11 @@ nine host-contract assertions of `internal/contract/ids.go`: `session_start.fire
 `session_start.source_compact`, `hook.additional_context_delivered`,
 `precompact.has_time_to_write`, `precompact.custom_instructions_accepted`, `hook.payload_shape`,
 `mcp.server_registered`, `transcript.readable` and `plugin.root_resolves`.
+
+Where the project root is your home directory none of those rows runs, because each would lay out,
+probe, lock or spawn for a directory Qompack refuses. The report then has one row, `project.root`:
+critical, with the directory and the fix in `OBSERVED`, `mode: off`, exit 1
+([the home directory](#qompack-is-inactive-in-the-home-directory)).
 
 `config.load` and `config.capture` answer different questions. `config.load` asks the soft loader
 every read command uses, which falls back instead of failing, so it passes for almost any file.
@@ -107,6 +114,45 @@ ever run there, so there were none. A project that has never hosted a session ha
 and reports exactly that.
 
 **Action.** No action; this is a recorded limit. See §2 for the `unavailable` latency rows.
+
+### Qompack is inactive in the home directory
+
+**Symptom.** A session opens with one line: "Qompack is inactive in this session: its project root
+is your home directory, so it records nothing. Open a project directory (one with its own .git) to
+use Qompack." Its MCP tools answer "qompack is inactive in this session: …" as a tool error, and a
+command run from the same directory says `the project root is the home directory`.
+
+**Diagnose.** `qompack doctor` from that directory: `scope.root` is `disabled` and its detail names
+the directory. `qompack status` reads `source: none (unavailable)` with the same reason. The project
+root is resolved as [architecture §2](architecture.md#2-write-set-and-retention) describes —
+`QOMPACK_PROJECT_ROOT`, else the nearest enclosing `.git`, else the working directory — and three
+things lead it to the home directory: the session was started there; it was started below a home
+that is itself a git work tree (a dotfiles repository), in a directory with no `.git` of its own; or
+`QOMPACK_PROJECT_ROOT` names the home directory.
+
+**Meaning.** Owner decision D18. The store for such a root would be `~/.qompack`, the directory that
+holds Qompack's user-wide configuration, the calibration file, the fallback logs and, on Windows,
+the staged daemon copies, so Qompack refuses to treat it as a project. Nothing is recorded, no
+daemon starts, nothing is written under `~/.qompack`, and every hook still exits 0: `SessionStart`
+shows the line above and the other hooks answer `{}`. The comparison is made on the cleaned path,
+ignores case on Windows and follows symlinks and junctions, so no spelling of the home directory
+gets through (`internal/paths/home.go`). `fsck`, `backup`, `admin delivery-seal`, `self-test`,
+`recall`, `pin`, `why` and `dropped` refuse with exit 1; `status` and `doctor` report and exit 0;
+`config print` shows the user-wide configuration alone, labelled `user`, with the reason on stderr.
+A project below the home directory, and the user-wide settings it inherits, are unaffected.
+
+**Action.** Start the session in the project directory itself. Below a dotfiles home, a directory
+without its own `.git` resolves to the home directory: run `git init` there, or set
+`QOMPACK_PROJECT_ROOT` to it. A session that started in the home directory stays inactive even if
+the work moves into a project below it, so the line it showed stays true; start a new session in the
+project.
+
+A build before this refusal recorded such sessions into `~/.qompack` itself, so after an upgrade that
+directory may still hold a project store beside the user-wide files — `objects/`, `index/`, `spool/`,
+`run/`, `state/` and the rest of the layout — and a daemon an older build started there may still be
+running until its idle exit. This build never reads, writes or removes any of it. Whether to keep it
+is yours to decide: `config.json`, `calibration.json`, `logs/` and, on Windows, `bin/` are the
+user-wide layer; everything else there is the old home-directory sessions' history.
 
 ### `qompack config print --provenance`
 
