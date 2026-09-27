@@ -193,6 +193,17 @@ token-estimator calibration file, a fallback log directory for a project whose o
 written, and — on Windows — the daemon's staged executable, `bin/<sha256>/qompack.exe`, §1).
 `test/guards/writeset_test.go` runs all six hooks and fails on any write outside these two trees.
 
+Qompack only reads `config.json`, in both trees; you or your editor write it. Every read takes a
+handle with delete sharing: `paths.ReadFileShared`, or on the hook path `paths.OpenSharedLeaf`, which
+also never follows a final symlink or junction. So an editor that saves by renaming a new file over
+the old one never makes a hook's read fail. Such a failure matters because a hook that cannot read
+its configuration records nothing (owner decision D8). The shared reads need `internal/config` to
+import `internal/paths`, which owner decision D22 allows (`plans/00-ARCHITECTURE.md` §3.2). One
+save pattern still collides with a read. An editor that renames with Windows' legacy `MoveFileEx`
+cannot replace a file while any process holds it open, even with delete sharing, so that save can
+be refused while a hook is reading the file. The editor reports the refusal, the hook still reads
+the version on disk, and saving again succeeds.
+
 The two trees never coincide. A project root is resolved from `QOMPACK_PROJECT_ROOT`, else the
 nearest enclosing `.git`, else the working directory, and each of those can name the home directory
 itself: a session started there, one started below a home that is a git work tree (a dotfiles

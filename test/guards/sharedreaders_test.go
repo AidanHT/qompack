@@ -151,8 +151,9 @@ var sharedReaders = []sharedReader{
 	// The V6 close-out's audit (w5-winfiles) of every product read of a file some writer replaces or
 	// removes. Each reader below took an ordinary handle on a file that another process, or another
 	// goroutine no lock of its own orders, replaces or removes; each was os.ReadFile or os.Open until
-	// that audit. Every other product read is classified in ordinaryReaders below, with the reason
-	// an ordinary handle is safe there, and TestGuard_EveryProductReadIsClassified keeps that true.
+	// that audit. Every other product read is classified in productreads_test.go's ordinaryReads,
+	// with the reason an ordinary handle is safe there, and TestGuard_EveryProductReadIsClassified
+	// keeps that true.
 	{
 		file:  "internal/contract/marker.go",
 		fn:    "readMarker",
@@ -266,6 +267,29 @@ var sharedReaders = []sharedReader{
 			"HEAD, and add, commit and the index-refreshing status editors run in the background " +
 			"rewrite an index of up to 64 MiB. The rename fails while this read holds an ordinary handle",
 	},
+	// Owner decision D22 (00-ARCHITECTURE.md §3.2): internal/config may import internal/paths, so
+	// the two config loaders now read config.json shared, which w5-winfiles could only record as a
+	// residual.
+	{
+		file:  "internal/config/load.go",
+		fn:    "Load",
+		holds: "<project>/.qompack/config.json and <home>/.qompack/config.json",
+		why: "the user's editor saving the file atomically, a new file renamed over the old one. An " +
+			"ordinary handle made that save fail while config.Load held the file (the daemon's reload, " +
+			"`config print`, doctor, self-test), and a read the save made fail was taken for a missing " +
+			"file, so the whole layer fell back to the defaults without a warning " +
+			"(TestLoad_ReadsThroughAnEditorsAtomicSaves)",
+	},
+	{
+		file:  "internal/config/capture_load.go",
+		fn:    "readCaptureConfig",
+		holds: "<project>/.qompack/config.json and <home>/.qompack/config.json",
+		why: "the same atomic save, on the hook path: an ordinary handle made the save or the hook's read " +
+			"fail, and under D8 a config the hook cannot read refuses the capture, so saving the config " +
+			"could make a hook record nothing. It reads through paths.OpenSharedLeaf, which also never " +
+			"follows a final link, so no Lstat/os.SameFile identity check is left for a save to land " +
+			"inside (TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves)",
+	},
 	{
 		file:  "test/fault/fault.go",
 		fn:    "flushAndAwaitEnd",
@@ -289,6 +313,7 @@ var (
 	requiredReads = map[string]bool{
 		"paths.ReadFileShared": true,
 		"paths.OpenShared":     true,
+		"paths.OpenSharedLeaf": true,
 	}
 )
 

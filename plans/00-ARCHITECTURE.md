@@ -605,6 +605,10 @@ it cannot read as a refusal (D8), so saving the config could make a hook record 
 amendment adds one edge. `paths` imports only `core`, so `config → paths` closes no cycle: `logging`
 and `obs` already import both, and `paths` imports neither `config` nor anything that does. What
 stays out is unchanged: `config` still may not import `logging` (which imports `config`) or `obs`.
+The hook path's loader reads through `paths.OpenSharedLeaf`, an addition to `paths` made for it.
+That open grants the same delete sharing and also refuses a final link itself. The loader's old
+Lstat-then-`os.SameFile` identity check refused whenever a save landed between its two halves, and
+the no-follow open leaves no such window.
 
 **`hostperm` (V6 close-out C1.9, V6-HOST-1) is foundation-only by the same construction.** It reads
 Claude Code's settings files and evaluates their `permissions.deny`/`permissions.ask` Read rules for

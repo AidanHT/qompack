@@ -273,7 +273,7 @@ func assertAdmissionTreeHasNoSecret(t *testing.T, root string) {
 
 // TestHookCapture_HardCapMatchesTheValidationBound keeps the two halves of finding S-2 in step.
 //
-// internal/config cannot import this package (§3.2 gives config the allow-set {core}), so the
+// internal/config cannot import this package (§3.2 gives config the allow-set {core, paths}), so the
 // validation bound it enforces on runtime.hotPath.maxPayloadBytes is a restated literal. This is the
 // only thing that would notice if one of them moved: a smaller cap here would refuse deliveries a
 // validated configuration says are legal, and a larger one would put the silent switch-off S-2

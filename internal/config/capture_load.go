@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 const (
@@ -80,8 +81,10 @@ const (
 // would either read unbounded input or capture under a weaker privacy policy than the operator wrote:
 //
 //   - a root that is not absolute (refuseRoots);
-//   - a config file that is not a bounded regular leaf: a directory, a link, over 1 MiB, or swapped
-//     between stat and open (refuseFileLeaf);
+//   - a config file that is not a bounded regular leaf: a directory, a link, a FIFO or device, or
+//     over 1 MiB, including a leaf swapped for one of those while it was being opened
+//     (refuseFileLeaf). An atomic save that replaces one regular file with another is not a swap:
+//     the read takes the old file or the new one (readCaptureConfig, owner decision D22);
 //   - a config file that is not one strict JSONC object: malformed, not UTF-8, an unterminated
 //     comment or string, an unpaired surrogate escape, an empty trailing comma, a duplicate key in
 //     either spelling, nesting past 128, a number JSON cannot represent (refuseFileJSONC). A layer
@@ -258,21 +261,34 @@ func decodeCaptureMap(merged map[string]any) (Config, bool) {
 	return cfg, true
 }
 
+// readCaptureConfig reads one config layer for the hook path: the file's bytes, or missing when there
+// is no file, with ok false when the file is not a bounded regular leaf (refuseFileLeaf).
+//
+// The Lstat is a cheap pre-check that keeps a directory, a FIFO or a device from being opened at all.
+// What is trusted is the open and the handle's own Stat. paths.OpenSharedLeaf never follows a final
+// link, so the handle is the file the path named when the open resolved it, and it grants delete
+// sharing, so an editor's atomic save — a new file renamed over config.json — lands while a hook
+// holds the file and never fails the hook's read. The old sequence (Lstat, os.Open, os.SameFile)
+// failed on both counts on Windows: an ordinary handle made the save or the read fail, and a save
+// landing between the Lstat and the identity check made the paths disagree, and either way D8
+// refused the capture (owner decision D22, TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves).
+// A leaf swapped for a link, a directory or anything else between the Lstat and the open is still
+// refused: the open refuses the link, and the handle's Stat refuses the rest.
 func readCaptureConfig(path string) ([]byte, bool, bool) {
 	info, err := os.Lstat(path)
 	if os.IsNotExist(err) {
 		return nil, true, true
 	}
-	if err != nil || !info.Mode().IsRegular() || info.Size() > captureConfigMaxBytes {
+	if err != nil || !boundedRegular(info) {
 		return nil, false, false
 	}
-	f, err := os.Open(path)
+	f, err := paths.OpenSharedLeaf(path)
 	if err != nil {
 		return nil, false, false
 	}
 	defer f.Close()
 	opened, err := f.Stat()
-	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) || opened.Size() > captureConfigMaxBytes {
+	if err != nil || !boundedRegular(opened) {
 		return nil, false, false
 	}
 	b, err := io.ReadAll(io.LimitReader(f, captureConfigMaxBytes+1))
@@ -280,6 +296,12 @@ func readCaptureConfig(path string) ([]byte, bool, bool) {
 		return nil, false, false
 	}
 	return b, false, true
+}
+
+// boundedRegular reports whether fi is a regular file (not a link, directory, FIFO or device) within
+// the capture loader's size bound.
+func boundedRegular(fi os.FileInfo) bool {
+	return fi.Mode().IsRegular() && fi.Size() <= captureConfigMaxBytes
 }
 
 func decodeCaptureConfig(raw []byte) ([]byte, map[string]any, bool) {

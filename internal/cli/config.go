@@ -20,11 +20,11 @@ const configViolationsFile = "config-violations.json"
 // LoadConfigAndReport is the single helper every composition root uses to load configuration.
 //
 // It exists because §11.3 splits one requirement across two packages that cannot see each other.
-// config.Load performs the per-leaf fallback and returns the evidence as warnings, but it can
-// neither log nor persist: §3.2 gives config the allow-set {core}, so it can reach neither
-// logging (which imports config, making the reverse edge a cycle) nor paths. The reporting half
-// therefore belongs to whoever called Load — and putting it here, rather than at each call site,
-// is what stops a caller from forgetting it.
+// config.Load performs the per-leaf fallback and returns the evidence as warnings, but it neither
+// logs nor persists: §3.2 keeps logging out of config's allow-set {core, paths} (logging imports
+// config, so the reverse edge would be a cycle), and config writes no file by design. The
+// reporting half therefore belongs to whoever called Load — and putting it here, rather than at
+// each call site, is what stops a caller from forgetting it.
 //
 // Every violation is reported through logging.Loud (§12: nothing degrades silently) and the typed
 // list is persisted to state/config-violations.json so /qompack:status and the next SessionStart

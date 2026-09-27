@@ -4,11 +4,11 @@
 //
 // Every leaf in Config carries up to five struct tags — json, doc, rng, enum, sec — read by
 // schema.go and by the docs generator. config's own allow-set (00-ARCHITECTURE.md §3.2) is
-// {core}: it may not import internal/paths, internal/logging or internal/obs, which is why Load
-// joins the two config-file locations inline with filepath.Join rather than through
-// paths.Global/paths.Of, and never logs or writes a file itself — reporting a bad value is the
-// composition root's job, once it has called Load (see Load's doc comment and
-// ViolationsFromWarnings).
+// {core, paths} since owner decision D22: the loaders name the two config-file locations through
+// paths.Global and paths.Of and read them with delete sharing (paths.ReadFileShared,
+// paths.OpenSharedLeaf). It may not import internal/logging (which imports config) or internal/obs,
+// so it never logs, and it never writes a file — reporting a bad value is the composition root's
+// job, once it has called Load (see Load's doc comment and ViolationsFromWarnings).
 //
 // Behaviour on invalid configuration is never "crash": Load falls every violating leaf back to
 // its default and reports the problem through the returned []Warning, so a hook that reads bad
