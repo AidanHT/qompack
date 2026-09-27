@@ -516,13 +516,13 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		// With deadline <= 0 (D17b), the steps before the dial used the whole budget, so no answer
 		// could be waited for before the host's timeout. The request is spooled as a start that missed
 		// its deadline is, without dialling a daemon that would then answer into nothing, and the
-		// answer below is the one an unanswered start gets.
+		// answer below is the one an unanswered start gets. The Warn says the spool took it, not that
+		// it was written: a spool that then fails to write it drops it and says so itself.
 		var resp ipc.Response
 		if deadline = budget.replyDeadline(time.Now(), deadline, connectDeadline); deadline > 0 {
 			resp, _ = c.Send(ctx, req, deadline)
 		} else if spoolUnsent(sp, req, hookLog) {
-			hookLog.Warn("hook: no time left to wait for the daemon's answer; the request was spooled",
-				"op", string(spec.op), "overrun_ms", -deadline.Milliseconds())
+			hookLog.Warn(noTimeLeftMsg, "op", string(spec.op), "overrun_ms", -deadline.Milliseconds())
 		}
 		respOut := hookio.Empty()
 		if resp.Output != nil {
@@ -578,14 +578,19 @@ func compactUnanswered(spec hookSpec, ev hookio.Event, degraded bool, st ipc.Sta
 // refused by the spool, and so is lost (spoolUnsent).
 const unsentSpoolRefusedMsg = "hook: the request could not be spooled and is lost"
 
-// spoolUnsent appends req to the hook's spool on the branches where doHook sends nothing at all —
-// no address resolved, or no time left to wait for an answer — and reports whether it was spooled.
-// The client's own spool path counts and Louds a refused append (ipc's appendToSpool); a refusal
-// here was dropped silently, and the no-time-left branch then logged the request as spooled
-// (w5-coldstart review nit). spool.Append already drops, counts and Louds an ordinary write failure
-// and returns nil; the error it does return — the frame-size refusal, or a fault site's — means the
-// request is lost, so that is Louded here.
-func spoolUnsent(sp ipc.SpoolWriter, req ipc.Request, log logging.Logger) bool {
+// noTimeLeftMsg is the Warn a hook writes when no time was left to wait for the daemon's answer and
+// the spool took the request unsent. Took, not wrote: spoolUnsent cannot tell the two apart.
+const noTimeLeftMsg = "hook: no time left to wait for the daemon's answer; the request was handed to the spool"
+
+// spoolUnsent hands req to the hook's spool on the branches where doHook sends nothing at all — no
+// address resolved, or no time left to wait for an answer — and reports whether the spool took it,
+// that is, did not refuse it. The client's own spool path counts and Louds a refused append (ipc's
+// appendToSpool); a refusal here was dropped silently (w5-coldstart review nit). The error Append
+// returns — the frame-size refusal, or a fault site's — means the request is lost, so that is
+// Louded here. A request the spool took was written, or was dropped on an ordinary write failure,
+// which spool.Append counts and Louds itself and reports as nil (§12.3): the two look the same from
+// here, so taken never means "spooled" (w6-borrow review).
+func spoolUnsent(sp ipc.SpoolWriter, req ipc.Request, log logging.Logger) (taken bool) {
 	if err := sp.Append(req); err != nil {
 		log.Loud(unsentSpoolRefusedMsg, "op", string(req.Op), "err", err)
 		return false

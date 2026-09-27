@@ -751,9 +751,11 @@ time". It happens on a loaded machine, and more readily on Windows on the first 
 plugin is installed or updated, when the daemon binary is first copied under the user's `.qompack`.
 
 **Diagnose.** The project's day log (`.qompack/logs/qompack-YYYYMMDD.log`) has `hook: no time left to
-wait for the daemon's answer; the request was spooled` when starting the daemon used the whole of
-`session-start`'s budget, with the overrun in `overrun_ms`, and `daemon: spawn failed` when the
-daemon could not be started at all. Otherwise the start was spooled because the daemon was not
+wait for the daemon's answer; the request was handed to the spool` when starting the daemon used the
+whole of `session-start`'s budget, with the overrun in `overrun_ms`, and `daemon: spawn failed` when
+the daemon could not be started at all. If the spool could not write the request either,
+`.qompack/logs/LOUD.log` has an `ipc: spool` line for the dropped request, or `hook: the request
+could not be spooled and is lost`. Otherwise the start was spooled because the daemon was not
 listening, or still replaying its spool, when the wait ran out. `qompack status` shows whether a
 daemon is running now; until it has replayed the start, the request is a `session.start` line in a
 `.qompack/spool/client-*.ndjson` file.
