@@ -366,16 +366,23 @@ func (i *ingest) makeDurable(req ipc.Request, line []byte) (job, error) {
 // the largest a session makes — could never be published. So the blob's bytes are synced and then
 // the spool directory, for its name, before the line is appended.
 //
-// Only a well-formed descriptor naming a blob that exists costs anything: an ordinary request has no
+// Only a well-formed descriptor naming a regular file costs anything: an ordinary request has no
 // blob, and a missing or malformed one is left to readBlob to report, exactly as before — there is
-// nothing here to make durable. A sync that fails fails the delivery, which is not ACKed; the hook's
-// own fallback keeps the line and the blob stays in place for it.
+// nothing here to make durable. The name is Lstat'ed before anything opens it, because a descriptor
+// is caller-supplied: a directory, a symbolic link or a FIFO at that name is not a blob the shipped
+// client wrote, readBlob refuses it by the same test, and opening a FIFO for writing would block the
+// ingest until some reader appeared. A sync that fails fails the delivery, which is not ACKed; the
+// hook's own fallback keeps the line and the blob stays in place for it.
 func (i *ingest) syncExternalized(req ipc.Request) error {
 	name, ok := externalizedBlob(req)
 	if !ok {
 		return nil
 	}
-	if err := i.syncBlobFile(filepath.Join(i.spoolDir, name)); err != nil {
+	blobPath := filepath.Join(i.spoolDir, name)
+	if fi, err := os.Lstat(paths.Long(blobPath)); err != nil || !fi.Mode().IsRegular() {
+		return nil
+	}
+	if err := i.syncBlobFile(blobPath); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
