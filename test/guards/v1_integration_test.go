@@ -864,8 +864,10 @@ const (
 // started, and does not return until that daemon is GONE. It is a fast no-op whenever no daemon
 // ever came up.
 //
-// "Gone" is deliberately keyed on <root>/.qompack/run/daemon.lock disappearing, not on the endpoint
-// going quiet, and the difference is the whole point of this helper.
+// "Gone" is testutil.ShutdownDaemonUntilGone's one definition, shared with every shutdown helper
+// under test/: no live process holds <root>/.qompack/run/daemon.lock, every process seen holding it
+// has exited, and no holder went unidentified. It is deliberately not the endpoint going quiet, and
+// the difference is the whole point of this helper.
 //
 // ipc.Server.Serve arms `context.AfterFunc(ctx, s.Close)`, so the listener is torn down the instant
 // daemon.Stop cancels the run context — which is Stop's FIRST act, before its bounded drain, before
@@ -874,36 +876,33 @@ const (
 // end (as this helper used to) hands control back to a caller that is about to walk .qompack/ while
 // three paths.WriteAtomic calls are still staging files into .qompack/tmp/, which is exactly how
 // TestV1_WriteSetConfinedAcrossFullHookSequence's "WriteAtomic left staging files" assertion fires
-// on a run where nothing actually leaked. Releasing daemon.lock is Stop's LAST act, so its absence
-// is the daemon's own published record that every one of those steps has finished.
+// on a run where nothing actually leaked. Releasing daemon.lock is Stop's LAST act, and the
+// process still unwinds after it, so the helper waits for the process as well as the lock.
 //
-// Keying on the lock also fixes the case the probe silently skipped: a daemon still COMING UP.
+// Watching the lock also covers the case the probe silently skipped: a daemon still COMING UP.
 // daemon.Run takes the lock before it listens, so a daemon that has not started accepting yet is
 // invisible to ipc.Probe but plainly visible here — and it is precisely that daemon, arriving late
 // under load and then replaying the spool, that is still writing when the guard reads the tree.
 // admin.shutdown is retried on a ticker (Client.Send never propagates an error — a failed round
 // trip just spools the request), so the retry loop simply keeps knocking until it comes up.
 //
-// A daemon that is still holding the lock when the bound expires fails the test rather than being
-// logged and left running: with daemon.Run now waiting on Stop's full cleanup before it returns,
-// the only ways to reach that state are a daemon that cannot be stopped or one that died without
-// releasing — and both of those leave exactly the debris the caller is about to assert against.
+// A daemon that is still holding the lock, or still running, when the bound expires fails the test
+// rather than being logged and left running: with daemon.Run now waiting on Stop's full cleanup
+// before it returns, the only ways to reach that state are a daemon that cannot be stopped or one
+// that died without releasing — and both of those leave exactly the debris the caller is about to
+// assert against. For the second reason a lock left behind by a holder that has exited fails the
+// test too, although the shared definition counts such a lock as released.
 //
-// The lock is watched with os.Stat rather than daemon.ReadLock. That used to be a correctness
-// requirement and is now a cost one, and the history matters because the mechanism has not gone
-// anywhere. Go's os.Open/os.ReadFile — which readLockFile, and so ReadLock, used to be — open a
-// Windows file with FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so a poller holding
-// daemon.lock open made the daemon's own os.Remove of it fail with ERROR_SHARING_VIOLATION. Polled
-// that way this helper CAUSED the very abandoned lock it was watching for, roughly once in twenty
-// runs (observed: the daemon exits with daemon.hb removed and daemon.lock still there, since
-// Lock.Release attempts both removes and only the second one is unobstructed).
-//
-// readLockFile now reads through paths.ReadFileShared, so polling ReadLock would no longer obstruct
-// a release. The wait still uses os.Stat, for two reasons that outlive that fix: it asks a presence
-// question, and GetFileAttributesEx answers it without taking a handle at all; and it does not
-// depend on the reader in internal/daemon staying shared. What keeps THAT from reverting is
-// TestGuard_HotFilesAreReadWithDeleteSharing (sharedreaders_test.go), not this helper. ReadLock is
-// used only once the wait has already failed, to name the pid and address in the message.
+// The lock's contents are read through paths.ReadFileShared (testutil.DaemonHoldingLock), and the
+// history of why matters because the mechanism has not gone anywhere. Go's os.Open/os.ReadFile open
+// a Windows file with FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so a poller holding
+// daemon.lock open that way made the daemon's own os.Remove of it fail with ERROR_SHARING_VIOLATION.
+// Polled like that this helper CAUSED the very abandoned lock it was watching for, roughly once in
+// twenty runs (observed: the daemon exits with daemon.hb removed and daemon.lock still there, since
+// Lock.Release attempts both removes and only the second one is unobstructed). ReadFileShared's
+// handle carries FILE_SHARE_DELETE and cannot obstruct the remove. The presence checks here use
+// os.Stat, which answers without taking a handle at all. What keeps internal/daemon's own reader
+// shared is TestGuard_HotFilesAreReadWithDeleteSharing (sharedreaders_test.go), not this helper.
 func v1StopDaemonAndWaitGone(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
@@ -915,67 +914,42 @@ func v1StopDaemonAndWaitGone(t *testing.T, root string) {
 		return // no daemon ever took this project.
 	}
 
-	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
-		ProjectRoot:     root,
-		ConnectDeadline: v1RoundTripDeadline,
-		AckDeadline:     v1RoundTripDeadline,
-	})
-	defer func() { _ = c.Close() }()
-
-	// The pid holding the lock as the handshake starts. This helper's contract — quoted by its
-	// caller, and the reason every assertion downstream is about what the run LEAKED rather than
-	// what it had in flight — is that it returns only once the daemon has FINISHED. The lock file
-	// does not answer that question: Lock.Release is Stop's last act, so the file disappears while
-	// the process is still unwinding, and everything it does on the way out (flushing sinks,
-	// closing the day log, completing an in-flight paths.WriteAtomic) still lands under .qompack/.
-	// Returning there is what failed TestV1_WriteSetConfinedAcrossFullHookSequence on CI run
-	// 32932419445 — with exactly the symptom the timeout branch below predicts in as many words:
+	// The loop, and what "gone" means, are testutil.ShutdownDaemonUntilGone's, shared with every other
+	// shutdown helper under test/. The lock file does not answer "has the daemon FINISHED?", which is
+	// this helper's contract — quoted by its caller, and the reason every assertion downstream is
+	// about what the run LEAKED rather than what it had in flight: Lock.Release is Stop's last act,
+	// so the file disappears while the process is still unwinding, and everything it does on the way
+	// out (flushing sinks, closing the day log, completing an in-flight paths.WriteAtomic) still lands
+	// under .qompack/. Returning there is what failed TestV1_WriteSetConfinedAcrossFullHookSequence on
+	// CI run 32932419445 — with exactly the symptom the failures below predict in as many words:
 	//
 	//	Error:    Should be empty, but was [wa-2077983404]
 	//	Messages: WriteAtomic left staging files in .qompack/tmp/
 	//
-	// So the exit asks the process, not the file. testutil.ProcessAlive is the same probe
-	// test/e2e's shutdown helper uses, and it is decisive on Windows too, where
-	// internal/daemon's own pidAlive deliberately abstains (it has a heartbeat fallback; this
-	// helper has none).
-	shutdownPID, _ := daemon.ReadLock(root)
-
-	// A ticker, not time.Sleep, per §6.1's wall-clock-sleep ban (devtool lint's sleepcheck
-	// sub-check, which exempts only test/bench/**).
-	ticker := time.NewTicker(v1ShutdownPollTick)
-	defer ticker.Stop()
-	timeout := time.NewTimer(v1ShutdownPollBound)
-	defer timeout.Stop()
-	for {
-		_, _ = c.Send(context.Background(), ipc.Request{
-			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
-		}, v1RoundTripDeadline)
-		if !v1FileExists(lockPath) && !testutil.ProcessAlive(shutdownPID.PID) {
-			return
-		}
-		select {
-		case <-ticker.C:
-		case <-timeout.C:
-			if !v1FileExists(lockPath) && !testutil.ProcessAlive(shutdownPID.PID) {
-				return
-			}
-			info, _ := daemon.ReadLock(root)
-			if !v1FileExists(lockPath) {
-				t.Errorf("a daemon (pid %d) released %s but had still not exited after %s. Every "+
-					"assertion the caller is about to make walks a tree this process may still be "+
-					"writing to on its way out — which is exactly the shape that leaves a half-finished "+
-					"paths.WriteAtomic staging file behind in .qompack/tmp/",
-					shutdownPID.PID, lockPath, v1ShutdownPollBound)
-				return
-			}
-			t.Errorf("a daemon (pid %d, addr %s) still held %s after %s of retried admin.shutdown. "+
-				"Every assertion the caller is about to make walks a tree this process may still be "+
-				"writing to, and a daemon that exits without releasing its lock is itself the failure: "+
-				"it is the shape that leaves a half-finished paths.WriteAtomic staging file behind in "+
-				".qompack/tmp/", info.PID, info.Addr, lockPath, v1ShutdownPollBound)
-			return
-		}
+	// So the exit asks the processes, not the file: every pid the lock names during the call, read
+	// on every check — this helper used to take one read as the handshake began, and an empty lock
+	// caught mid-create gave it pid 0, which "has it exited?" always answers yes.
+	out := testutil.ShutdownDaemonUntilGone(root, addr, testutil.ShutdownWait{
+		Tick: v1ShutdownPollTick, Bound: v1ShutdownPollBound, RoundTrip: v1RoundTripDeadline,
+	})
+	switch {
+	case !out.Gone && (out.LockHeld || len(out.Running) > 0):
+		t.Errorf("%s. Every assertion the caller is about to make walks a tree this process may still be "+
+			"writing to — which is exactly the shape that leaves a half-finished paths.WriteAtomic "+
+			"staging file behind in .qompack/tmp/", out.Describe(lockPath, v1ShutdownPollBound))
+	case !out.Gone:
+		// A holder no check could identify: nobody can ask whether it has exited, so the bound, which
+		// outlasts daemon.StopCleanupBound, is the most any wait can give it. Nothing is known to be
+		// alive, so this is reported rather than failed.
+		t.Logf("%s", out.Describe(lockPath, v1ShutdownPollBound))
+	case v1FileExists(lockPath):
+		// Every holder has exited and the lock is still there: a daemon that exits without releasing its
+		// lock is itself the failure, and it leaves exactly the debris the caller is about to assert
+		// against.
+		info, _ := daemon.ReadLock(root)
+		t.Errorf("%s is still present, naming pid %d (addr %s), after every process seen holding it "+
+			"exited: a daemon exited without releasing its lock, which is the shape that leaves a "+
+			"half-finished paths.WriteAtomic staging file behind in .qompack/tmp/", lockPath, info.PID, info.Addr)
 	}
 }
 

@@ -13,13 +13,23 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
 
-// atomicFaultStore is publicationFaultStore's counterpart on the write path production actually
-// takes: it FORWARDS store.SupersedingRecorder, so the observer keeps the atomic
-// record-plus-marks path, and the fault is injected into that one write.
+// atomicFaultStore is publicationFaultStore's counterpart on the atomic record path: it FORWARDS
+// store.SupersedingRecorder, so the observer keeps the atomic record-plus-marks write, and the fault
+// is injected into that one write.
+//
+// On its own it carries only an UNLEASED delivery — one with no nonce, or one the daemon could not
+// lease (ingest.leaseDelivery), for which the observer has no identity to publish under. It forwards
+// neither store.ObservationRecovery nor store.PublicationSync, and a leased delivery needs both: the
+// observer asks the first on every leased delivery before anything else, and NAKs with nothing
+// written when it is missing (observer identity.go observationRecord). leasedAtomicFaultStore adds
+// those two for the leased path; durableFaultStore adds them and store.DurableObservationPublisher
+// for the branch production ships, since the daemon's own store is *store.FSStore.
 //
 // The forwarding is the whole point and is not incidental. A wrapper written the ordinary way —
 // embedding store.Store and overriding a method — cannot promote RecordToolUseSuperseding, because
@@ -115,14 +125,19 @@ func TestStoreWrapperDropsTheSupersedingCapability(t *testing.T) {
 }
 
 // TestObserverAtomicPublicationFailureRemainsDrainRetryable is
-// TestObserverPublicationFailureRemainsDrainRetryable's "tool-use reference" arm on the write path
-// production takes.
+// TestObserverPublicationFailureRemainsDrainRetryable's "tool-use reference" arm on the atomic record
+// write, for an UNLEASED delivery: the request carries no nonce, so the daemon assigns it no
+// observation identity, and the observer publishes it with no capture link and no publication
+// barrier of its own. That is the path a delivery takes when the daemon cannot lease it
+// (ingest.leaseDelivery counts it unleased). A leased delivery, which is what a hook sends, is
+// TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable and, on the branch production
+// ships, TestObserverDurablePublisherFailureRemainsDrainRetryable.
 //
-// That test injects its fault into store.RecordToolUse, which the observer stopped calling for a
+// The legacy row injects its fault into store.RecordToolUse, which the observer stopped calling for a
 // tool result when SP08-D2 moved the record and the marks it authors into one index write. It still
 // passes, but only because its wrapper drops store.SupersedingRecorder and forces the legacy path —
-// so without this row the daemon's publication-order property would no longer be measured anywhere
-// on the path the daemon actually ships.
+// so without this row the unleased publication-order property would no longer be measured on the
+// atomic write at all.
 //
 // The property is the acknowledgement boundary, unchanged: a Store failure is not an observer
 // warning that may be ACKed, and the WAL stays the retry source until a tool-use reference is
@@ -203,6 +218,191 @@ func TestObserverAtomicPublicationFailureRemainsDrainRetryable(t *testing.T) {
 	// only thing this session observed, and on the atomic path its record never reaches
 	// store.RecordToolUse — so a non-zero count here means the capability was dropped somewhere
 	// between this wrapper and observer.New.
+	require.Zero(t, faulty.legacyCalls(),
+		"the observer must publish a tool result through RecordToolUseSuperseding, not RecordToolUse")
+}
+
+// leasedAtomicFaultStore is atomicFaultStore extended to carry a LEASED delivery, and no further:
+// it forwards store.ObservationRecovery and store.PublicationSync from the backing store, each held
+// as its own field so that dropping a forward is a compile error, and it deliberately does NOT
+// declare store.DurableObservationPublisher.
+//
+// That makes it the store an observer meets on its non-declaring branch
+// (observer identity.go recorderPublishesDurably): the observer proves the record's root durable
+// itself before the write and re-proves the publication after it (finishObservation), on top of
+// whatever the store's own write does. Production's *store.FSStore declares the barriers, so the
+// daemon ships the other branch, which durableFaultStore covers; this one is the path any store that
+// does not declare them takes, and the path every leased capture took before SP08-D1.
+type leasedAtomicFaultStore struct {
+	*atomicFaultStore
+	sync     store.PublicationSync
+	recovery store.ObservationRecovery
+}
+
+var (
+	_ store.SupersedingRecorder = (*leasedAtomicFaultStore)(nil)
+	_ store.PublicationSync     = (*leasedAtomicFaultStore)(nil)
+	_ store.ObservationRecovery = (*leasedAtomicFaultStore)(nil)
+)
+
+func newLeasedAtomicFaultStore(t *testing.T, backing store.Store, err error) *leasedAtomicFaultStore {
+	t.Helper()
+	sync, ok := backing.(store.PublicationSync)
+	require.True(t, ok, "fixture: the backing store (%T) must implement store.PublicationSync", backing)
+	recovery, ok := backing.(store.ObservationRecovery)
+	require.True(t, ok, "fixture: the backing store (%T) must implement store.ObservationRecovery", backing)
+	return &leasedAtomicFaultStore{
+		atomicFaultStore: newAtomicFaultStore(t, backing, err),
+		sync:             sync, recovery: recovery,
+	}
+}
+
+func (s *leasedAtomicFaultStore) SyncPublication(ctx context.Context, h core.Hash) error {
+	return s.sync.SyncPublication(ctx, h)
+}
+
+func (s *leasedAtomicFaultStore) RecoverToolUseByObservation(ctx context.Context,
+	id core.ObservationID,
+) (store.ToolUseRecord, error) {
+	return s.recovery.RecoverToolUseByObservation(ctx, id)
+}
+
+// The publication sync passes a leased tool capture costs on the observer's non-declaring branch,
+// read from the store's own counter (durablePublicationPasses) rather than from a clock.
+const (
+	// leasedObserverPrePasses is the observer's own pass before the record write: it proves the
+	// record's root durable before any index line names it (00-ARCHITECTURE.md §0.2.2), because a
+	// non-declaring store is not trusted to. A fault in the write itself therefore lands after it.
+	leasedObserverPrePasses = 1
+	// leasedPublicationPasses is one whole fresh publication through such a store: the observer's
+	// pass before the write, the backing *store.FSStore's two barriers inside it (it carries them
+	// whether or not the wrapper declares so), and finishObservation's pass after it.
+	leasedPublicationPasses = leasedObserverPrePasses + 2 + 1
+)
+
+// TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable is
+// TestObserverAtomicPublicationFailureRemainsDrainRetryable for a LEASED delivery, which is what a
+// hook sends: the request carries a nonce, the daemon leases it an observation identity and writes
+// its capture sidecar before the observer runs, and the observer publishes under that identity. The
+// store forwards what a leased capture needs and does not declare the durable barriers, so the
+// observer takes its non-declaring branch and adds its own passes around the write;
+// TestObserverDurablePublisherFailureRemainsDrainRetryable is the same property on the declaring
+// branch production ships.
+//
+// The acknowledgement boundary is the same on both branches: a refused record write NAKs, leaves the
+// WAL line byte-identical, the capture sidecar unpublished and the frontier uncommitted, and exposes
+// no tool-use reference or binding. After repair the drain replays the same lease and publishes
+// once, and the pass counts, which are the store's own counter, show the branch that ran.
+func TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable(t *testing.T) {
+	root := t.TempDir()
+	metrics := obs.New(core.SystemClock())
+	backing, err := store.Open(root, testConfig(), store.Deps{Metrics: metrics})
+	require.NoError(t, err)
+	storeOwned := true
+	t.Cleanup(func() {
+		if storeOwned {
+			_ = backing.Close()
+		}
+	})
+	faulty := newLeasedAtomicFaultStore(t, backing, errors.New("tool-use index refused"))
+	passes := func() int64 { return metrics.Counter(durablePublicationPasses).Value() }
+
+	_, dd, o := wireTestDaemon(t, root, func(o *Options) { o.Store = faulty })
+	storeOwned = false // wireTestDaemon now owns the supplied store's lifetime
+	lock := lockFor(t, dd, root)
+	defer func() { _ = lock.Release() }()
+
+	// Non-vacuity, before the fault can be reached: the observer writes through this wrapper, the
+	// wrapper carries everything a leased capture needs, and it does not claim the barriers, so the
+	// branch under test is the non-declaring one.
+	require.Same(t, store.Store(faulty), o.Store, "fixture: WireObserver must keep the supplied store")
+	for name, capable := range map[string]bool{
+		"SupersedingRecorder": isA[store.SupersedingRecorder](o.Store),
+		"PublicationSync":     isA[store.PublicationSync](o.Store),
+		"ObservationRecovery": isA[store.ObservationRecovery](o.Store),
+	} {
+		require.True(t, capable, "fixture: the observer's store must implement store.%s", name)
+	}
+	require.False(t, isA[store.DurableObservationPublisher](o.Store),
+		"fixture: the observer's store must not declare the durable barriers, or this row measures the "+
+			"declaring branch TestObserverDurablePublisherFailureRemainsDrainRetryable already covers")
+
+	ctx := context.Background()
+	const sess core.SessionID = "sess-atomic-leased-publication"
+	const toolID core.ToolUseID = "toolu_atomic_leased_publication"
+	token := testDeliveryToken('8')
+	req := durablePublicationRead(token, sess, toolID)
+	require.True(t, dd.dispatchOp(ctx, req).OK, "the transport ACK is the durable acceptance, not the publication")
+	job := <-dd.ing.ring
+	require.True(t, job.leased, "fixture: the delivery must be leased, or this is the unleased row again")
+
+	var first ipc.Response
+	var leasedID core.ObservationID
+	dd.ing.dispatch(ctx, func(ctx context.Context, got ipc.Request) ipc.Response {
+		leasedID = observer.ObservationFrom(ctx)
+		first = dd.runIngested(ctx, got)
+		return first
+	}, job)
+	require.NotEmpty(t, leasedID, "fixture: the handler must run with the leased observation identity")
+	require.False(t, first.OK, "an unpublished observation must NAK so its WAL line is retryable")
+	require.Equal(t, "observation handling failed", first.Err)
+	require.NotContains(t, first.Err, "tool-use index refused")
+	require.Equal(t, int64(leasedObserverPrePasses), passes(),
+		"a non-declaring store gets the observer's own pass before the write, and the fault is the write")
+
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	wal, err := os.ReadFile(walPath(paths.Of(root).Spool, sess, 0))
+	require.NoError(t, err)
+	require.Equal(t, line, wal, "the failed observation remains byte-for-byte replayable")
+	journal, err := dd.deliveryJournal()
+	require.NoError(t, err)
+	require.False(t, journal.acknowledged(token), "a failed record write must block the committed frontier")
+	require.False(t, readOnlySidecar(t, root).Published, "the capture has no reference, so it is not linked")
+	_, lookupErr := faulty.ToolUse(ctx, toolID)
+	require.ErrorIs(t, lookupErr, core.ErrNotFound, "failed publication must not expose a tool-use reference")
+	reader, ok := backing.(store.ObservationReader)
+	require.True(t, ok)
+	_, lookupErr = reader.ToolUseByObservation(ctx, leasedID)
+	require.ErrorIs(t, lookupErr, core.ErrNotFound, "no intent or binding exists for the failed delivery")
+
+	completed, acquired := dd.ing.seen.begin(job.key)
+	require.False(t, completed, "only a successful observation may enter the completed seen set")
+	require.True(t, acquired, "the failed work remains eligible for retry")
+	dd.ing.seen.finish(job.key, false)
+
+	faulty.repair()
+	require.NoError(t, dd.ing.CloseSession(sess), "the inactive drainer cannot remove an open WAL on Windows")
+	// The drainer Run installs, over this daemon's own journal, so the replay leases the same nonce
+	// back; the daemon under test never ran Run.
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	n, err := dd.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, n, "the repaired drainer must actually re-run the retained line")
+
+	require.Equal(t, int64(leasedObserverPrePasses+leasedPublicationPasses), passes(),
+		"the retry is a fresh publication on the non-declaring branch: the observer's pass before the "+
+			"write, the store's two barriers, and the observer's pass after it")
+	rec, err := faulty.ToolUse(ctx, toolID)
+	require.NoError(t, err)
+	require.NotZero(t, rec.Root, "the repaired publication exposes the stored object through its reference")
+	bound, err := reader.ToolUseByObservation(ctx, leasedID)
+	require.NoError(t, err, "the replay took the same lease back and committed its binding")
+	require.Equal(t, toolID, bound.ID)
+	sc := readOnlySidecar(t, root)
+	require.True(t, sc.Published, "the capture link is written after the durable record")
+	require.Equal(t, toolID, sc.ToolUseID)
+	require.Equal(t, rec.Root, sc.Root)
+	require.True(t, journal.acknowledged(token), "the replayed publication reaches the frontier")
+	require.Equal(t, 1, sp08d2CountTool(t, root, rec.Tool), "one record for one delivery")
+	// The session is still live, so its WAL is offset-marked rather than removed; what matters is
+	// that the committed offset is past the line, so a later pass has nothing left to publish.
+	index := sp08d2Index(t, root)
+	n, err = dd.Drain(ctx)
+	require.NoError(t, err)
+	require.Zero(t, n, "a published, acknowledged line is not replayed again")
+	require.Equal(t, int64(leasedObserverPrePasses+leasedPublicationPasses), passes(), "and it syncs nothing more")
+	require.Equal(t, string(index), string(sp08d2Index(t, root)), "and it appends nothing")
 	require.Zero(t, faulty.legacyCalls(),
 		"the observer must publish a tool result through RecordToolUseSuperseding, not RecordToolUse")
 }
