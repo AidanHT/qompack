@@ -93,53 +93,41 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 (`handleAdminShutdown`'s `sync.Once` vs `daemon.Run`) and failures in `test/guards`,
 `test/integration` and `test/security` beyond the ingest family — assigned to the `linux` lane.
 
-## PAUSED 2026-09-25 23:20 (America/Toronto), resumed 2026-09-26
+## PAUSED 2026-09-27 00:45 (America/Toronto): resume here
 
-Step 1 below was dispatched on 2026-09-26 as run `wf_85543bfd-f18` (dispatch log, row "3/4 resume").
+Paused at the owner's request. Wave 6 (`wf_937a8468-45d`) was stopped with TaskStop about two
+hours in, before any implementer finished. The orphaned test processes it left were stopped:
+Windows `go test` trees, gate scripts, and test daemons under `%TEMP%`, plus every container
+process under `/work/cx-w6-*` and one orphaned e2e daemon. Nothing of the close-out is running.
+The container is up and holds only harmless zombies (PID 1 does not reap them). The keep-awake
+was released. Earlier pauses and restarts: 2026-09-25 23:20 overnight (waves 3/4, resumed
+2026-09-26 as `wf_85543bfd-f18`); 2026-09-26 17:45 host restart (wave 5, resumed as `wf_8f93ec11-36e`).
 
-Paused at the owner's request. Both running workflows were stopped with TaskStop: wave 3
-`wf_eed51aa0-3c3` and wave 4 `wf_9c2ba09a-353`. Two orphaned Linux gate runs from their agents
-(`cx-w3-paths-final-pkgs-dd24a58`, `cx-w3-startroute-flushpass-alone-base-54a4334`) were stopped
-in the container; their partial artifacts are under each worktree's `runs/linux/`. No qompack,
-go, test or claude process of this close-out is left running. Coordinator scripts:
-`plans/sdd/V6-closeout/coordinator/` (README there).
+**Integration head:** `closeout/integration` `4196798` in `../qompack-cx-int`, holding waves 1–5.
+Owner decisions D1–D24 are above.
 
-**Integration head:** `closeout/integration` `6aff949` in `../qompack-cx-int`. It holds every
-wave-1, wave-2b and wave-3 (`e2ereds`, `eval3`) branch, plus the runpatterns fixes (`893b11b`,
-`8d50d6b`) and the replayed-flush test fix (`20af0e6`). Evidence: `plans/sdd/V6-closeout/integration/runs/`
-(run 1, `gates1/`, run 2).
+**Stopped mid-implementation, not yet reviewed.** Worktrees `../qompack-cx-w6-<ws>` (branch
+`closeout/w6-<ws>`, base `f6095e2`). Digests of each seat's actions are in `coordinator/digests/`.
 
-**Stopped mid-implementation.** Commits and uncommitted evidence are preserved; do not discard
-them. None of the four reached review:
-
-| Workstream | Worktree / branch | State at pause |
+| Workstream | Head at pause | State |
 |---|---|---|
-| `w3-startroute` (D11, replayed-probe defect, cold-start wait) | `../qompack-cx-w3-startroute` | 7 commits to `d9393a0` (probe/replay fixes, D11 deferred note, docs); untracked `runs/` |
-| `w3-paths` (WriteAtomic walk, x/sys v0.44.0, GC overshoot) | `../qompack-cx-w3-paths` | 7 commits to `dd24a58`; untracked `runs/`; its final Linux package run was stopped part-way |
-| `w4-syncs` (SP08-D1 redundant syncs) | `../qompack-cx-w4-syncs` | 5 commits to `3d1c6b1` (pass counter, dropped passes, benchmark); untracked `internal/observer/publication_sweep_test.go` + `runs/` |
-| `w4-e2eflakes` (load-sensitive Windows e2e rows) | `../qompack-cx-w4-e2eflakes` | 1 commit `0de7707` (rehydrate state read shared); uncommitted edits in `test/e2e/faultinject_test.go`, `shutdown_spawn_inflight_test.go` + `runs/` |
+| `w6-borrow` (D21 borrow, spawner-side home refusal) | `24eae18`, 5 commits | Code done and lint green on both OSes; the full package runs had started |
+| `w6-config` (D22, shared config reads, test-home isolation plus a guard) | `89574c4`, 6 commits | Code done; the §3.2 pathstest note and the full runs remain |
+| `w6-ckptsync` (checkpoint and other missing barriers, D24 docs) | `e6bc7a8`, 12 commits | Barrier fixes across 9 writers; the audit table, cost measurement and full runs remain |
+| `w6-gcserial` (one GC pass per store) | `b9c2676`, 6 commits | Code done; the full runs remain |
+| `w6-linuxrows` (Linux load-sensitive rows) | `4894f4f`, 6 commits, plus uncommitted RED tests | Found product defects in drain budgets and the spool watcher, and the observer's graph was not written at stop; mid-step on a soft watcher budget |
 
 **To resume:**
 
-1. Relaunch the four as a new workflow built from `coordinator/wave3.js` and `wave4.js`. Keep each
-   `ws` task text, and add a RESUMING instruction: inspect `git log`/`git status` first, adopt or
-   revise the earlier commits and uncommitted edits deliberately, and finish the task. Pipeline:
-   implement → review → fix. Do not use `resumeFromRunId` with an edited shared prompt; it would
-   re-run the finished `e2ereds`/`eval3` agents.
-2. For each finished workstream, commit its report (`wfreport.py`, `shacheck.sh`), merge it into
-   integration, run `devtool lint --only=runpatterns`, and waive with `rpwaive.py` or correct the quote.
-3. Freeze the candidate (C3.1). Then run Phase 3 on a quiet, awake host: the Windows whole tree
-   with the sleep disabled, the Linux non-root `-race` whole tree, e2e on both, lint, cover,
-   generated docs, fuzz, and `release-check`.
-4. Quiet C5.1/C5.2 benchmarks, then the Phase 2 carried-defect dispositions (SP06-D2, SP08-D1,
-   SP09-D1, SP10-D1, SP20-D2 go to the owner with quiet distributions; SP08-D3 to `fixed` with
-   evidence). `test/guards` stays red until they are recorded.
-5. The live lane (`coordinator/live-uat.js`, 32 sessions max), then the pre-registered
-   confirmatory eval on qompack-live-v2 (40 sessions, `--confirmatory --known-open-defects none`,
-   only if the frozen candidate truly carries no known open defect; the exact command is in
-   `w3-eval3/report.md`). These run sequentially, never concurrently: both use the real `~/.claude`.
-6. Phase 6 docs, the 304-row inventory and the V6 report; Phase 7: v0.3.0, push `verify/v6` + CI,
-   merge to develop (D4). Ask before main, tag, Release, marketplace.
+1. Hold a keep-awake (`coordinator/keepawake.ps1`), check `docker exec qompack-v6-linux-verification true`,
+   then launch `Workflow({scriptPath: "<repo>/plans/sdd/V6-closeout/coordinator/wave6-resume.js"})`.
+   It gives each seat a resume brief and runs implement → review → fix → verify.
+2. For each finished workstream, render and commit its report (`wfreport.py`, `shacheck.sh`) and merge it
+   into integration. Then run the lint subset and `runpatterns` (`rpwaive.py`), and the merge-overlap packages on a quiet host.
+3. Freeze the candidate (C3.1), then run Phase 3 with `coordinator/phase3.sh` on a quiet, awake host.
+4. Quiet C5.1/C5.2 benchmarks, then the Phase 2 carried-defect dispositions (owner).
+5. The live lane (`coordinator/live-uat.js`), then the confirmatory eval (sequentially).
+6. Phase 6 docs, the inventory and the report; Phase 7 per D4.
 
 ## Where things stand (found at takeover)
 
