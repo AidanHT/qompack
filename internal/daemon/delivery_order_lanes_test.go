@@ -259,7 +259,10 @@ func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *tes
 // longer than the pass budget (idleRunBudget). Here every attempt at the second refused job takes a
 // second longer than the whole budget and well inside drainLineDeadline, as such a publication does;
 // a requested pass must give a line it has started its own deadline, and stop starting lines once
-// its budget is spent.
+// its budget is spent. The row counts the attempts cancelled inside their slow part: the pass budget
+// did that to every attempt, and a line's own deadline, which ends after it, cannot. (An attempt can
+// still run out of its own deadline after the slow part on a loaded host and be tried again; that is
+// the per-line deadline doing its job, not the budget.)
 func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing.T) {
 	dd, o, root := laneTestDaemon(t)
 	const sess core.SessionID = "sess-overflow-slow-line"
@@ -269,7 +272,7 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 	laneTestSetLanes(dd, laneCapacity, perSession)
 	cfg := dd.drainConfig()
 	dispatch := cfg.Dispatch
-	var attempts atomic.Int32
+	var attempts, cutInside atomic.Int32
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Event != nil && req.Event.Prompt == "p3" {
 			attempts.Add(1)
@@ -278,6 +281,7 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 			select {
 			case <-timer.C:
 			case <-ctx.Done():
+				cutInside.Add(1)
 				return ipc.Response{Err: ctx.Err().Error()}
 			}
 		}
@@ -301,8 +305,9 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 	open()
 	require.Eventually(t, func() bool { return liveOrderAcked(dd, leases) == k }, liveOrderBound, liveOrderTick,
 		"a refused job slower than a pass's budget was never drained: %s", liveOrderDiag{dd, leases})
-	require.Equal(t, int32(1), attempts.Load(),
-		"the pass that started the slow line let it finish instead of cancelling it to try again")
+	require.Positive(t, attempts.Load(), "fixture: the drain met the slow line")
+	require.Zero(t, cutInside.Load(),
+		"no pass cancelled the slow line inside its slow part: the budget never cuts a line it started")
 	liveOrderRequireTurns(t, o, sess, k)
 }
 
