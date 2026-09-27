@@ -194,22 +194,28 @@ var sharedReaders = []sharedReader{
 		file:  "internal/store/lifecycle.go",
 		fn:    "CompactRetentionRoots",
 		holds: "state/retention-roots.jsonl",
-		why: "another GC pass's compaction, a paths.WriteAtomic of the same file: GC passes are not " +
-			"serialized, and each concurrent session end runs one (C1.15), as does the idle scheduler",
+		why: "another compaction's paths.WriteAtomic of the same file. A store's GC passes run one " +
+			"at a time since w6-gcserial (internal/store/gcgate.go), so GC's own compactions no longer " +
+			"overlap; the function is exported and takes a project root, not a store, so a caller " +
+			"outside a GC pass, or a pass on a second writable handle of the project, is not ordered " +
+			"by that gate",
 	},
 	{
 		file:  "internal/store/gcrun.go",
 		fn:    "loadGCState",
 		holds: "state/gc.json",
-		why: "another GC pass's saveGCState (paths.WriteAtomic) and clearGCState (os.Remove), for " +
-			"CompactRetentionRoots' reason: nothing serializes two passes",
+		why: "saveGCState (paths.WriteAtomic) and clearGCState (os.Remove) of a GC pass on a second " +
+			"writable handle of the project. The passes of one handle run one at a time since " +
+			"w6-gcserial (internal/store/gcgate.go) and the product opens one writable handle per " +
+			"project, so this is the gate's unordered remainder, kept shared as defence in depth",
 	},
 	{
 		file:  "internal/store/gcrun.go",
 		fn:    "pendingMarkerRoot",
 		holds: "state/pending/<marker>.json",
-		why: "the os.Remove of the same expired marker by a concurrent GC pass's " +
-			"expirePendingMarkers, or by the late Put's own pendingWrite.done",
+		why: "the os.Remove of the same marker by the late Put's own pendingWrite.done, which no lock " +
+			"orders with GC (a concurrent pass's expirePendingMarkers no longer can on one store " +
+			"handle, since w6-gcserial)",
 	},
 	{
 		file:  "internal/tokens/calibrate.go",
