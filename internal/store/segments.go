@@ -236,7 +236,20 @@ func (l *segLog) append(v any) error {
 	return l.f.write(line)
 }
 
-// sync flushes the log's handle. Flush calls it.
+// Sync is SegmentSync: it flushes the log's handle, making every appended record durable. The file
+// already exists when a record is appended to it — Open creates it, and index/ is synced by every
+// publication pass — so the file's own sync is the whole barrier.
+func (l *segLog) Sync(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return l.sync()
+}
+
+// The store's own segment log offers the durability half checkpoint.Finalize asks for.
+var _ SegmentSync = (*segLog)(nil)
+
+// sync flushes the log's handle. Flush and Sync call it.
 func (l *segLog) sync() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()

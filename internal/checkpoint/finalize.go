@@ -28,6 +28,26 @@ var _ Writer = (*FileWriter)(nil)
 // The order below is load-bearing. Pointers are validated BEFORE truncation so that a pointer
 // removed for being unresolvable does not consume budget that a resolvable one could have used,
 // and truncation happens BEFORE marshalling so the bytes written are the bytes measured.
+//
+// So is the order of the seal's durability barriers, because Finalize returning nil is a promise:
+// the daemon answers PreCompact on it and the host then compacts the conversation away, the draft
+// that held the session is deleted, and the successor draft names this checkpoint as its parent. A
+// power cut after that point must find the checkpoint sealed. A cut before it must find the
+// checkpoint absent — no MANIFEST line — and the draft still on disk to seal again. Never a MANIFEST
+// line naming bytes or a name the cut took, and never a seal whose segments the log forgot:
+//
+//  1. the artifact's bytes (paths.CreateNew syncs the file);
+//  2. the draft's segment marks (sealSegmentMarks: re-marked, then store.SegmentSync; a failure
+//     here is Loud and counted but does not refuse the seal — see sealSegmentMarks for why);
+//  3. the artifact's name (paths.AppendManifest's first SyncDir of checkpoints/);
+//  4. the MANIFEST line (appended, then the manifest synced) — the seal;
+//  5. the manifest's name, when this seal created the manifest (a second SyncDir);
+//  6. only then everything that depends on the seal: the pins view, the draft's retirement, the
+//     successor draft, the PreCompact answer, state/precompact.json and, at the next SessionStart,
+//     the rehydration and its state file.
+//
+// finalize_durability_test.go pins the order with a barrier-counting seam and cuts the seal at every
+// barrier, as a process crash and as a power loss.
 func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens) (Ref, error) {
 	if d == nil {
 		return Ref{}, fmt.Errorf("checkpoint: Finalize: nil draft")
@@ -85,7 +105,7 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 		sum = sha256.Sum256(b)
 
 		p := paths.CheckpointPath(w.l, seq)
-		err = paths.CreateNew(p, b)
+		err = w.barriers.CreateNew(p, b)
 		if err == nil {
 			break
 		}
@@ -103,15 +123,17 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 		seq++
 	}
 	w.reconcileEncodedSeq(ctx, d, src, cp.EncodedSegments, seq)
+	w.sealSegmentMarks(ctx, src, cp.EncodedSegments, seq)
 
-	// 6. The manifest is internal/paths' file, written only through AppendManifest.
+	// 6. The manifest is internal/paths' file, written only through AppendManifest, which makes the
+	//    artifact's name durable before the line and the line durable before it returns.
 	entry := paths.ManifestEntry{
 		Seq:     seq,
 		SHA256:  core.Hash(sum).String(),
 		Bytes:   int64(len(b)),
 		Created: core.NowMilli(w.clk),
 	}
-	if err := paths.AppendManifest(w.l, entry); err != nil {
+	if err := w.barriers.AppendManifest(w.l, entry); err != nil {
 		// The artifact is on disk and verifies; only its index line is missing. Say so loudly and
 		// leave the file: `qompack fsck` reconciles an orphan by re-hashing it, whereas deleting a
 		// good checkpoint here would lose the session.
@@ -187,6 +209,64 @@ func (w *FileWriter) reconcileEncodedSeq(
 		w.m.Counter(metricSeqReferenceDrift).Add(1)
 		w.log.Loud("checkpoint: segments still reference the sequence this checkpoint was NOT written at; run qompack fsck",
 			"written_seq", int(seq), "segments", len(ids), "err", err.Error())
+	}
+}
+
+// metricSegmentMarksUnsynced counts seals whose segment marks could not all be re-marked or made
+// durable before the MANIFEST line. The seal goes ahead — see sealSegmentMarks — so this counter and
+// its Loud line are how an operator learns that a later draft may re-encode a sealed segment: fsck's
+// segment class checks that every encode record names a sealed checkpoint, not the converse.
+const metricSegmentMarksUnsynced = "checkpoint.segment_marks_unsynced"
+
+// sealSegmentMarks makes the draft's segment marks durable before the MANIFEST line that seals the
+// checkpoint they name (Finalize's barrier 2).
+//
+// The marks were appended by Advance, during idle windows and without a sync, while the draft file
+// that records the same set is durable (WriteAtomic). So a power cut can leave the draft remembering
+// a segment the log forgot. That is harmless while the draft is open — Advance skips a segment its
+// own draft already holds — but not once the draft is sealed: the successor draft starts empty, the
+// log reports the segment unencoded, and it is encoded a second time, the §4.6 DPI guard broken by a
+// lost tail. Re-marking is idempotent for the same sequence (store.SegmentLog.MarkEncoded appends
+// nothing for a segment already marked into seq), so it appends only the marks a cut lost; the sync
+// then makes every mark durable, and only then does AppendManifest seal.
+//
+// Each id is re-marked on its own, because MarkEncoded refuses a whole batch for one bad id: a
+// segment bound to another sequence (the drift reconcileEncodedSeq has reported), or one the log does
+// not know or holds open (its own records lost to a cut), must not stop the others being marked.
+//
+// A failure here degrades the seal rather than refusing it, and that is deliberate. The seal is what
+// the session needs to survive the compaction PreCompact is answering; refusing it over the DPI
+// bookkeeping would trade a possible later re-encoding for a certain loss of the checkpoint now. So
+// a mark or sync failure is Loud and counted (metricSegmentMarksUnsynced) and the seal proceeds, and
+// the barrier's ORDER — marks synced before the MANIFEST line — holds on every path that reaches the
+// line with the log healthy. A SegmentLog without store.SegmentSync (a test double) is marked but not
+// synced.
+//
+// The context is detached from PreCompact's deadline for the same reason Finalize ignores
+// ValidatePointers' cancellation: §12's PreCompact-timeout row says finalize as-is.
+func (w *FileWriter) sealSegmentMarks(ctx context.Context, src SourceSet, ids []core.SegmentID, seq core.CheckpointSeq) {
+	if len(ids) == 0 {
+		return
+	}
+	ctx = context.WithoutCancel(ctx)
+	var failed error
+	for _, id := range ids {
+		err := src.Segments.MarkEncoded(ctx, []core.SegmentID{id}, seq)
+		switch {
+		case err == nil, errors.Is(err, core.ErrAlreadyEncoded), errors.Is(err, core.ErrNotFound),
+			errors.Is(err, store.ErrSegmentOpen):
+			// Marked, or a segment this seal cannot re-point: nothing more to do for it here.
+		case failed == nil:
+			failed = err
+		}
+	}
+	if s, ok := src.Segments.(store.SegmentSync); ok && failed == nil {
+		failed = s.Sync(ctx)
+	}
+	if failed != nil {
+		w.m.Counter(metricSegmentMarksUnsynced).Add(1)
+		w.log.Loud("checkpoint: segment marks not durable before the seal; a later draft may re-encode them",
+			"seq", int(seq), "segments", len(ids), "err", failed.Error())
 	}
 }
 
