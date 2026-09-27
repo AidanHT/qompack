@@ -20,6 +20,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/eval"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/store"
@@ -98,12 +99,6 @@ const (
 	bloomOverCeilingFPRate = 0.11
 )
 
-// initialEnv is the process environment as it was before any test ran. Child processes are built
-// from this rather than from a live os.Environ() because testutil.NewProject points HOME and
-// USERPROFILE at a temporary directory via t.Setenv, and a `go build` inheriting that would
-// resolve GOPATH — and with it the module cache — under an empty temp home.
-var initialEnv = os.Environ()
-
 // TestIntegration_RealStoreGrowthIsSublinear is §11.3's "store growth sublinear in session length
 // after dedup", measured for the first time against a real store rather than a fixture.
 //
@@ -159,7 +154,7 @@ func TestIntegration_RealStoreGrowthIsSublinear(t *testing.T) {
 // inconclusive verdict must FAIL: a guardrail that reports "we could not tell" as green is how a
 // store that grows linearly ships.
 func TestIntegration_ReplayGateAcceptsRealGrowthFile(t *testing.T) {
-	// Built before growthWalk's testutil.NewProject redirects HOME for the process; see initialEnv.
+	// Built from pathstest.Environ, so growthWalk's testutil.NewProject redirecting HOME does not reach it.
 	driver := buildReplayDriver(t)
 
 	samples := growthWalk(t)
@@ -390,7 +385,7 @@ func buildReplayDriver(t *testing.T) string {
 
 	cmd := exec.Command("go", "build", "-o", out, "./test/replay")
 	cmd.Dir = growthModuleRoot(t)
-	cmd.Env = initialEnv
+	cmd.Env = pathstest.Environ()
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	require.NoError(t, cmd.Run(), "go build -o %s ./test/replay:\n%s", out, stderr.String())
@@ -400,7 +395,7 @@ func buildReplayDriver(t *testing.T) string {
 // runReplayGate runs the driver with the CI replay-gate job's own flags plus extra, and returns
 // its exit code and both streams.
 //
-// The child's environment is pinned rather than inherited live: it starts from initialEnv, HOME
+// The child's environment is pinned rather than inherited live: it starts from pathstest.Environ, HOME
 // and USERPROFILE point at a fresh temporary directory so the user-global configuration layer is
 // empty, and QOMPACK_PROJECT_ROOT at the repository, so the gate resolves exactly the
 // configuration CI resolves no matter which project the calling test happened to create. --ci is
@@ -434,8 +429,8 @@ func runReplayGate(t *testing.T, bin string, extra ...string) (code int, stdout,
 
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = root
-	// os/exec keeps the LAST value for a duplicated key, so these three override initialEnv's.
-	env := append([]string{}, initialEnv...)
+	// os/exec keeps the LAST value for a duplicated key, so these three override pathstest.Environ's.
+	env := pathstest.Environ()
 	env = append(env,
 		"HOME="+dir,
 		"USERPROFILE="+dir,

@@ -3,6 +3,8 @@ package fault
 import (
 	"os"
 	"testing"
+
+	"github.com/qompack/qompack/internal/paths/pathstest"
 )
 
 // TestMain prunes the artifact directory BEFORE the first case, writes this run's manifest after the
@@ -16,10 +18,11 @@ import (
 //
 // The bundle directory outlives the test that triggered its assembly (it is os.MkdirTemp, not
 // t.TempDir), so this is the only place that can remove it.
+//
+// Every case runs with the user's home isolated (pathstest.Main): the daemons these cases start
+// inherit HOME and USERPROFILE, and no test may read or write the real ~/.qompack or ~/.claude
+// (test/guards' TestGuard_EveryHomeReachingTestPackageIsolatesHome).
 func TestMain(m *testing.M) {
 	primeArtifactDir()
-	code := m.Run()
-	writeArtifactIndex()
-	removeBundle()
-	os.Exit(code)
+	os.Exit(pathstest.Main(m, writeArtifactIndex, removeBundle))
 }
