@@ -49,33 +49,49 @@ func (x Barriers) syncDir(dir string) error {
 func (x Barriers) DirBarrier(dir string) error { return x.syncDir(dir) }
 
 // MkdirAll is os.MkdirAll made durable: it creates dir and every missing parent, then syncs the
-// parent of each directory it created, deepest first, so that a file written into dir afterwards
-// cannot lose its name to a power cut along with a directory whose own entry was never synced — a
-// file's WriteAtomic syncs the directory that holds it, not that directory's parent. A dir that
-// already exists costs one Lstat and syncs nothing, so a writer that shards into directories made on
-// demand pays the barrier once per new directory, not per file.
+// parent of each directory whose entry is not yet durable, deepest first, so that a file written into
+// dir afterwards cannot lose its name to a power cut along with a directory whose own entry was never
+// synced — a file's WriteAtomic syncs the directory that holds it, not that directory's parent.
+//
+// "Not yet durable" is the directories this call creates and, from the process's entry ledger
+// (entries.go), every directory on dir's path that an earlier call in this process created and has
+// not yet synced into its parent: a call whose parent sync failed, or a concurrent call still inside
+// its sync. A directory found on disk is therefore never taken as durable merely because it exists —
+// the second ingest worker into a shard the first has just created syncs the shard's entry itself
+// rather than writing a sidecar a power cut could take with the shard (w6-ckptsync review findings 1
+// and 3). A directory that exists and is durable costs one Lstat and syncs nothing, so a writer that
+// shards into directories made on demand pays the barrier once per new directory, not per file.
+//
+// A directory another PROCESS created is taken as durable. That process either synced it (every
+// product writer that makes a directory on demand for a durable file goes through here) or failed
+// and reported the failure; in the second case the entry sits in the page cache, where the file
+// system's own journal commits it within seconds, and a later process has no record to retry from.
+// That narrow window is the residual this rule accepts rather than sync every existing ancestor of
+// every durable write in every process.
 func (x Barriers) MkdirAll(dir string, perm fs.FileMode) error {
-	var created []string
-	for p := filepath.Clean(dir); ; {
+	var names []string
+	p := filepath.Clean(dir)
+	for {
 		if _, err := os.Lstat(Long(p)); !errors.Is(err, fs.ErrNotExist) {
 			break
 		}
-		created = append(created, p)
+		entries.creating(p)
+		names = append(names, p)
 		parent := filepath.Dir(p)
 		if parent == p {
 			break
 		}
 		p = parent
 	}
+	// p is the deepest directory that already existed: dir itself when nothing was missing.
+	if st, _ := entries.look(p); st == entryPending {
+		names = append(names, p)
+	}
+	names = append(names, entries.pendingFrom(p)...)
 	if err := os.MkdirAll(Long(dir), perm); err != nil {
 		return err
 	}
-	for _, c := range created {
-		if err := x.syncDir(filepath.Dir(c)); err != nil {
-			return fmt.Errorf("paths: MkdirAll: sync %s: %w", filepath.Dir(c), err)
-		}
-	}
-	return nil
+	return x.syncEntries("MkdirAll", names)
 }
 
 // FileBarrier syncs f's written bytes through x: (*os.File).Sync, unless x.SyncFile replaces it. It
@@ -87,18 +103,21 @@ func (x Barriers) FileBarrier(f *os.File) error { return x.syncFile(f) }
 // AppendJSONL would (same encoding, same newline guard, same torn-tail terminator), then:
 //
 //  1. syncs the file, so the line survives a power cut once the call returns;
-//  2. syncs the file's directory when this call created the file, so the file's NAME survives too —
-//     on POSIX a new file's fsync does not make its directory entry durable, and a line kept in a
-//     file whose name is lost is lost with it.
+//  2. syncs the file's directory unless this process has already made the file's NAME durable, so
+//     the name survives too — on POSIX a new file's fsync does not make its directory entry durable,
+//     and a line kept in a file whose name is lost is lost with it.
 //
 // It is for an append-only log whose line something durable depends on as soon as the call returns:
 // a user told "pinned", a checkpoint sealed on the strength of its MANIFEST line. A log whose tail may
 // be lost by design (the elimination log, the day logs) keeps AppendJSONL and pays nothing.
 //
-// "Created by this call" is read from an Lstat taken before the open. A file some other writer
-// created an instant earlier, and has not yet synced the directory of, is that writer's to sync; in
-// this codebase every writer of a log that reaches this function goes through it, so the one that
-// created the file does.
+// Step 2 is decided from the process's entry ledger (entries.go), never from whether the file already
+// exists: a file that exists may be one whose creating append had its directory sync fail, one
+// another goroutine created and is still syncing, or one another process created and exited before
+// syncing — `qompack pin` is one process per pin (w6-ckptsync review finding 1). So the first durable
+// append to a path in each process syncs its directory, whoever created the file, and later appends
+// in the same process pay only the file sync. Directories above the file that this process created
+// and has not yet made durable are synced too (paths.Barriers.MkdirAll).
 func AppendJSONLDurable(p string, v any) error { return Barriers{}.AppendJSONLDurable(p, v) }
 
 // AppendJSONLDurable is the package function of the same name, issuing its barriers through x.
@@ -112,8 +131,8 @@ func (x Barriers) AppendJSONLDurable(p string, v any) error {
 
 // AppendLinesDurable appends lines — one or more complete records, each terminated by a newline —
 // to the append-only file p in one write, and makes them durable before it returns exactly as
-// AppendJSONLDurable does for one record: the file's sync, then its directory's when the append
-// created the file. It is for a producer that declares many records at once and needs them all
+// AppendJSONLDurable does for one record: the file's sync, then its directory's unless this process
+// has already made the file's name durable. It is for a producer that declares many records at once and needs them all
 // durable (store's retention roots before a backup manifest names them): one sync for the batch,
 // not one per line. A lines that is empty or does not end in a newline is refused, since the next
 // append would glue its first record onto the unterminated last one.
@@ -124,8 +143,9 @@ func (x Barriers) AppendLinesDurable(p string, lines []byte) error {
 	if len(lines) == 0 || lines[len(lines)-1] != jsonRecordNewline {
 		return fmt.Errorf("%w: AppendLinesDurable needs newline-terminated records: %s", core.ErrAppendOnly, p)
 	}
-	_, statErr := os.Lstat(Long(p))
-	created := errors.Is(statErr, fs.ErrNotExist)
+	if _, err := os.Lstat(Long(p)); errors.Is(err, fs.ErrNotExist) {
+		entries.creating(p) // before the create, so no concurrent append can find it durable
+	}
 
 	w, err := AppendOnly(p)
 	if err != nil {
@@ -153,10 +173,11 @@ func (x Barriers) AppendLinesDurable(p string, lines []byte) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	if created {
-		return x.syncDir(filepath.Dir(p))
+	names := entries.pendingFrom(p)
+	if st, _ := entries.look(p); st != entryDurable {
+		names = append([]string{p}, names...)
 	}
-	return nil
+	return x.syncEntries("AppendLinesDurable", names)
 }
 
 // CreateNew is the package function of the same name, issuing its file sync through x.
@@ -174,8 +195,10 @@ func (x Barriers) CreateNew(p string, b []byte) error { return createNew(p, b, x
 //  2. The line, then SyncFile(manifest) — the seal itself. Until it returns, the checkpoint is not
 //     sealed, and a cut anywhere before leaves at most an orphan artifact, which `qompack fsck`
 //     indexes by re-hashing it.
-//  3. SyncDir(checkpoints) again, only when step 2 created the manifest (the project's first
-//     checkpoint), so the manifest's name survives as well as its line.
+//  3. SyncDir(checkpoints) again, only when the manifest's name is not yet durable: step 2 created
+//     it (the project's first checkpoint), or an earlier append's step 3 failed and no step 1 has run
+//     since. Step 1 covers an existing manifest's name, so a steady-state seal pays one directory
+//     sync, and a step 3 that failed is retried by the next append's step 1.
 //
 // Every caller that returns "sealed" does so only after this returns nil: Finalize, before the
 // PreCompact answer, the draft's retirement and the successor draft; fsck's orphan repair, before it
@@ -185,8 +208,16 @@ func AppendManifest(l Layout, e ManifestEntry) error { return Barriers{}.AppendM
 
 // AppendManifest is the package function of the same name, issuing its barriers through x.
 func (x Barriers) AppendManifest(l Layout, e ManifestEntry) error {
+	mp := ManifestPath(l)
+	_, gen := entries.look(mp)
+	_, statErr := os.Lstat(Long(mp))
 	if err := x.syncDir(l.Checkpoints); err != nil {
 		return err
 	}
-	return x.AppendJSONLDurable(ManifestPath(l), e)
+	if statErr == nil {
+		// Step 1's sync ran after the manifest existed, so it made the manifest's name durable too;
+		// the ledger records that, and step 2's append does not sync the directory a second time.
+		entries.credit(mp, gen)
+	}
+	return x.AppendJSONLDurable(mp, e)
 }

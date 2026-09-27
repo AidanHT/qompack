@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -66,4 +67,73 @@ func TestCaptureSidecar_ANewShardIsDurableBeforeTheSidecarIsWritten(t *testing.T
 		"the first capture syncs its shard's entry in captures/ and captures' entry in records/")
 	require.Empty(t, write(ids[1]), "a sidecar in an existing shard pays no directory barrier")
 	require.Equal(t, []string{"dir:captures"}, write(ids[2]), "a new shard syncs its entry in captures/")
+}
+
+// TestCaptureSidecar_AWriterSyncsAShardAnotherWriterIsStillSyncing: two ingest workers write into one
+// fresh shard at once (w6-ckptsync review finding 3). The first creates records/captures/<shard>/ and
+// is still inside its sync of captures/ when the second arrives. The second finds the shard on disk,
+// but that is not a durable entry yet: it must make the entry durable itself before it writes its
+// sidecar, not take the first worker's unfinished barrier as done and publish a capture a power cut
+// could take along with the shard.
+func TestCaptureSidecar_AWriterSyncsAShardAnotherWriterIsStillSyncing(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, paths.EnsureLayout(paths.Of(root)))
+
+	var ids []core.ObservationID
+	var shard string
+	for arrival := uint64(1); len(ids) < 2 && arrival < 4096; arrival++ {
+		id := testObservationID(t, "sidecar-concurrent", arrival)
+		p, err := CaptureSidecarPath(root, id)
+		require.NoError(t, err)
+		s := filepath.Base(filepath.Dir(p))
+		if len(ids) == 0 || s == shard {
+			ids, shard = append(ids, id), s
+		}
+	}
+	require.Len(t, ids, 2, "fixture: two observations share a shard")
+	sidecar := func(id core.ObservationID) CaptureSidecar {
+		return CaptureSidecar{
+			ObservationID: id, Session: "sidecar-concurrent", Op: "observe.tool",
+			HashVersion: core.EvidenceHashVersion, Fidelity: core.FidelityExact, Outcome: core.OutcomeOK,
+			Bytes: []byte(`{"tool_response":"ok"}`),
+		}
+	}
+
+	// Writer A blocks inside its first directory barrier — its sync of captures/ for the new shard —
+	// until the test releases it.
+	entered, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	blockFirst := paths.Barriers{SyncDir: func(dir string) error {
+		first := false
+		once.Do(func() { first = true })
+		if first {
+			close(entered)
+			<-release
+		}
+		return paths.SyncDir(dir)
+	}}
+	aDone := make(chan error, 1)
+	go func() { aDone <- writeCaptureSidecar(root, sidecar(ids[0]), blockFirst) }()
+	<-entered
+
+	pB, err := CaptureSidecarPath(root, ids[1])
+	require.NoError(t, err)
+	var steps []string
+	var sidecarExisted []bool
+	recording := paths.Barriers{SyncDir: func(dir string) error {
+		steps = append(steps, "dir:"+filepath.Base(dir))
+		_, err := os.Lstat(paths.Long(pB))
+		sidecarExisted = append(sidecarExisted, err == nil)
+		return paths.SyncDir(dir)
+	}}
+	bErr := writeCaptureSidecar(root, sidecar(ids[1]), recording)
+	close(release)
+	require.NoError(t, <-aDone)
+	require.NoError(t, bErr)
+
+	require.Contains(t, steps, "dir:captures",
+		"the second writer syncs the shard's entry itself; the first writer's barrier had not returned")
+	for i, existed := range sidecarExisted {
+		require.Falsef(t, existed, "directory barrier %d (%s) runs before the second sidecar is written", i, steps[i])
+	}
 }
