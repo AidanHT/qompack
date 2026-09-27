@@ -1,0 +1,21 @@
+# RED at 5acdfb8 archive + the extended backup_durability_test.go (Restore still on os.MkdirAll):
+# go test ./internal/store -run '^TestMaintenance_ARestoreIsDurableBeforeItIsReported$' -count=1 -v
+=== RUN   TestMaintenance_ARestoreIsDurableBeforeItIsReported
+    backup_durability_test.go:141: 
+        	Error Trace:	<scratch>/red-dest/internal/store/backup_durability_test.go:141
+        	Error:      	Not equal: 
+        	            	expected: "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestMaintenance_ARestoreIsDurableBeforeItIsReported3437796182\\002"
+        	            	actual  : "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestMaintenance_ARestoreIsDurableBeforeItIsReported3437796182\\002\\restored\\.qompack.restore-rt-3688fd57db951f39\\.qompack\\state"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-C:\Users\Quant\AppData\Local\Temp\TestMaintenance_ARestoreIsDurableBeforeItIsReported3437796182\002
+        	            	+C:\Users\Quant\AppData\Local\Temp\TestMaintenance_ARestoreIsDurableBeforeItIsReported3437796182\002\restored\.qompack.restore-rt-3688fd57db951f39\.qompack\state
+        	Test:       	TestMaintenance_ARestoreIsDurableBeforeItIsReported
+        	Messages:   	the destination this restore created is synced into its parent first
+--- FAIL: TestMaintenance_ARestoreIsDurableBeforeItIsReported (0.59s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.957s
+FAIL

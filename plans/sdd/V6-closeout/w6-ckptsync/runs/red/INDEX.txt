@@ -43,3 +43,5 @@ plans/sdd/V6-closeout/coordinator/digests/w6-ckptsync.txt.
 red-sidecar-shard.txt   (sidecar shard directory). 9086913 archive + the tests, Barriers.MkdirAll
                         stubbed to os.MkdirAll. TestBarriersMkdirAll_SyncsTheParentOfEveryDirectoryItCreates,
                         TestCaptureSidecar_ANewShardIsDurableBeforeTheSidecarIsWritten: FAIL.
+red-restore-dest.txt    (new restore destination). 5acdfb8 archive + the extended restore test.
+                        TestMaintenance_ARestoreIsDurableBeforeItIsReported: FAIL.

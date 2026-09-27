@@ -138,4 +138,6 @@ func TestMaintenance_ARestoreIsDurableBeforeItIsReported(t *testing.T) {
 	last := (*syncs)[len(*syncs)-1]
 	require.Equal(t, filepath.Clean(dest), last.dir, "the destination is synced ...")
 	require.True(t, last.markers[published], "... after the rename that publishes the restore")
+	require.Equal(t, filepath.Clean(filepath.Dir(dest)), (*syncs)[0].dir,
+		"the destination this restore created is synced into its parent first")
 }
