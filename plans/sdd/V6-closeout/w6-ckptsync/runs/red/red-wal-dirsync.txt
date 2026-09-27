@@ -1,0 +1,24 @@
+=== RUN   TestIngest_AWALSegmentsNameIsDurableBeforeItsFirstLineIsAcked
+    ingest_wal_dirsync_test.go:52: 
+        	Error Trace:	<scratch>/red-wal/internal/daemon/ingest_wal_dirsync_test.go:52
+        	Error:      	Not equal: 
+        	            	expected: []string{"dirsync", "first write wal-dirsync-one.ndjson", "dirsync", "first write wal-dirsync-two.ndjson", "dirsync", "first write wal-dirsync-one.1.ndjson"}
+        	            	actual  : []string{"first write wal-dirsync-one.ndjson", "first write wal-dirsync-two.ndjson", "first write wal-dirsync-one.1.ndjson"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,7 +1,4 @@
+        	            	-([]string) (len=6) {
+        	            	- (string) (len=7) "dirsync",
+        	            	+([]string) (len=3) {
+        	            	  (string) (len=34) "first write wal-dirsync-one.ndjson",
+        	            	- (string) (len=7) "dirsync",
+        	            	  (string) (len=34) "first write wal-dirsync-two.ndjson",
+        	            	- (string) (len=7) "dirsync",
+        	            	  (string) (len=36) "first write wal-dirsync-one.1.ndjson"
+        	Test:       	TestIngest_AWALSegmentsNameIsDurableBeforeItsFirstLineIsAcked
+--- FAIL: TestIngest_AWALSegmentsNameIsDurableBeforeItsFirstLineIsAcked (0.14s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.690s
+FAIL

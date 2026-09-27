@@ -1,0 +1,42 @@
+RED evidence for closeout/w6-ckptsync. Each file is one focused go test run, on Windows, that FAILED
+because the barrier under test was missing. "<scratch>" is the seat's scratch directory; an
+"archive" is `git archive <rev>` extracted there with the named files copied in. Every GREEN is
+re-run at the branch's final head (see the returned report), not here.
+
+red-finalize-seal.txt   2d12861/a0d6232 (checkpoint seal). Archive of f6095e2 + the new
+                        finalize_durability_test.go/export_test.go and the Barriers seam, with
+                        AppendManifest's SyncDir and the segment-marks sync removed.
+                        TestFinalizeSealsThroughItsBarriersInOrder,
+                        TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed: FAIL.
+red-pins.txt            ac0bd13 (pins log line). Archive of the head then + the pins durability test
+                        and seam, appendLocked still on AppendJSONL.
+                        TestPinsAReportedChangeSurvivesAPowerCut,
+                        TestPinsAnAppendWhoseSyncIsCutIsNotReported: FAIL.
+red-gc-tombstone.txt    6b9381b (GC tombstones). In the worktree before the fix.
+                        TestGC_TombstonesAreDurableBeforeTheSweepDeletesTheirChunks: FAIL.
+red-wal-dirsync.txt     8a7459b (WAL segment name). Archive + the test and the syncSpoolDir seam,
+                        openWALLocked without the directory sync.
+                        TestIngest_AWALSegmentsNameIsDurableBeforeItsFirstLineIsAcked: FAIL.
+red-retention.txt       703aee5 (retention roots). Archive + the test, retainRoots on the unsynced
+                        per-hash append.
+                        TestRetentionRoots_ABackupsDeclarationsAreDurableBeforeItsManifest: FAIL.
+red-backup.txt          06c40ca (backup/restore trees). Archive + the backup durability test and the
+                        DirBarrier seam, no tree or marker syncs.
+                        TestMaintenance_ABackupIsDurableBeforeItIsCertified,
+                        TestMaintenance_ARestoreIsDurableBeforeItIsReported: FAIL.
+red-layout.txt          1b33b0d (EnsureLayout). Archive + barriers_test.go, EnsureLayout without the
+                        parent syncs. TestEnsureLayout_MakesTheDirectoriesItCreatesDurable: FAIL.
+red-blob.txt            1a4311f (externalized payload). Archive + the test and the syncBlobFile seam,
+                        makeDurable without syncExternalized.
+                        TestIngest_AnExternalizedPayloadIsDurableBeforeItsLineIsAcked: FAIL.
+red-blob-nonregular.txt dc17169 (blob barrier opens only a regular file). e6bc7a8 + the new test.
+                        TestIngest_AnExternalizedDescriptorNamingANonRegularFileIsNotOpened: FAIL.
+red-segdir.txt          7f5d7a4 (segment log name). dc17169 archive + the test, Sync without the
+                        index/ barrier. TestSegmentLog_SyncMakesTheLogsNameDurableOnce: FAIL.
+red-negknow-ack.txt     2df3776 (acknowledged eliminations). 7f5d7a4 archive + the tests and the
+                        barrier fields, no durable.go wiring. Three FAIL; the no-barrier half passes
+                        by design.
+
+The first eight were produced by the earlier seat (2026-09-27 02:54-03:49 UTC per its digest);
+each run completed (none was cut short by the pause). The commands' exact file lists are in
+plans/sdd/V6-closeout/coordinator/digests/w6-ckptsync.txt.

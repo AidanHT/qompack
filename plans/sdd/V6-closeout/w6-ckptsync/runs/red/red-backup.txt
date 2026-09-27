@@ -1,0 +1,17 @@
+=== RUN   TestMaintenance_ABackupIsDurableBeforeItIsCertified
+    backup_durability_test.go:87: 
+        	Error Trace:	<scratch>/red-backup/internal/store/backup_durability_test.go:87
+        	Error:      	Should be true
+        	Test:       	TestMaintenance_ABackupIsDurableBeforeItIsCertified
+        	Messages:   	backup directory C:\Users\Quant\AppData\Local\Temp\TestMaintenance_ABackupIsDurableBeforeItIsCertified1709209768\001\project\.qompack\backup\durable-backup is synced before the manifest certifies it
+--- FAIL: TestMaintenance_ABackupIsDurableBeforeItIsCertified (2.41s)
+=== RUN   TestMaintenance_ARestoreIsDurableBeforeItIsReported
+    backup_durability_test.go:136: 
+        	Error Trace:	<scratch>/red-backup/internal/store/backup_durability_test.go:136
+        	Error:      	Should be true
+        	Test:       	TestMaintenance_ARestoreIsDurableBeforeItIsReported
+        	Messages:   	restored directory C:\Users\Quant\AppData\Local\Temp\TestMaintenance_ARestoreIsDurableBeforeItIsReported2177451157\002\restored\.qompack was synced in staging before the publish
+--- FAIL: TestMaintenance_ARestoreIsDurableBeforeItIsReported (1.97s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	5.788s
+FAIL

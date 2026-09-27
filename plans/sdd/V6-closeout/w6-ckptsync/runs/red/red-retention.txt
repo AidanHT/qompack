@@ -1,0 +1,12 @@
+=== RUN   TestRetentionRoots_ABackupsDeclarationsAreDurableBeforeItsManifest
+    retention_durability_test.go:62: 
+        	Error Trace:	<scratch>/red-retention/internal/store/retention_durability_test.go:62
+        	Error:      	Not equal: 
+        	            	expected: 3
+        	            	actual  : 0
+        	Test:       	TestRetentionRoots_ABackupsDeclarationsAreDurableBeforeItsManifest
+        	Messages:   	after a power cut, the backup's three rollback declarations are still on disk
+--- FAIL: TestRetentionRoots_ABackupsDeclarationsAreDurableBeforeItsManifest (0.88s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1.212s
+FAIL

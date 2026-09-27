@@ -1,0 +1,25 @@
+=== RUN   TestIngest_AnExternalizedPayloadIsDurableBeforeItsLineIsAcked
+    ingest_wal_dirsync_test.go:105: 
+        	Error Trace:	<scratch>/red-blob/internal/daemon/ingest_wal_dirsync_test.go:105
+        	Error:      	Not equal: 
+        	            	expected: []string{"blobsync blob-7-1.bin", "dirsync spool", "dirsync spool", "write", "write", "blobsync blob-7-2.bin", "write"}
+        	            	actual  : []string{"dirsync spool", "write", "write", "write"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,2 @@
+        	            	-([]string) (len=7) {
+        	            	- (string) (len=21) "blobsync blob-7-1.bin",
+        	            	- (string) (len=13) "dirsync spool",
+        	            	+([]string) (len=4) {
+        	            	  (string) (len=13) "dirsync spool",
+        	            	@@ -6,3 +4,2 @@
+        	            	  (string) (len=5) "write",
+        	            	- (string) (len=21) "blobsync blob-7-2.bin",
+        	            	  (string) (len=5) "write"
+        	Test:       	TestIngest_AnExternalizedPayloadIsDurableBeforeItsLineIsAcked
+--- FAIL: TestIngest_AnExternalizedPayloadIsDurableBeforeItsLineIsAcked (0.42s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.935s
+FAIL
