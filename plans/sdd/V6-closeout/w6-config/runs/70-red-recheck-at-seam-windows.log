@@ -1,0 +1,85 @@
+# fix seat (w6-config), 2026-09-27: HEAD 91608c4 + a behaviour-preserving seam in readCaptureConfig (captureConfigReader) + the new internal tests; product behaviour is HEAD's (a not-found open is missing). Windows.
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_at_the_next_look_and_is_read
+    capture_read_internal_test.go:150: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/capture_read_internal_test.go:150
+        	Error:      	Not equal: 
+        	            	expected: "{\"checkpoint\":{\"budgetTokens\":9001}}"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-{"checkpoint":{"budgetTokens":9001}}
+        	            	+
+        	Test:       	TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_at_the_next_look_and_is_read
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_after_several_absent_looks_and_is_read
+    capture_read_internal_test.go:150: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/capture_read_internal_test.go:150
+        	Error:      	Not equal: 
+        	            	expected: "{\"checkpoint\":{\"budgetTokens\":9001}}"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-{"checkpoint":{"budgetTokens":9001}}
+        	            	+
+        	Test:       	TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_after_several_absent_looks_and_is_read
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_stays_absent_through_the_whole_budget:_missing
+    capture_read_internal_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/capture_read_internal_test.go:157
+        	Error:      	"0s" is not greater than or equal to "250ms"
+        	Test:       	TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_stays_absent_through_the_whole_budget:_missing
+        	Messages:   	the reader answered before its re-check budget was spent
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/a_directory_is_back_in_its_place:_refused
+    capture_read_internal_test.go:154: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/capture_read_internal_test.go:154
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/a_directory_is_back_in_its_place:_refused
+        	Messages:   	missing
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_name_keeps_coming_back_and_every_open_misses:_refused_at_the_budget
+    capture_read_internal_test.go:154: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/capture_read_internal_test.go:154
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_name_keeps_coming_back_and_every_open_misses:_refused_at_the_budget
+        	Messages:   	missing
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_and_its_open_fails_for_another_reason:_refused
+    capture_read_internal_test.go:154: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/capture_read_internal_test.go:154
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_and_its_open_fails_for_another_reason:_refused
+        	Messages:   	missing
+--- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen (0.01s)
+    --- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_at_the_next_look_and_is_read (0.00s)
+    --- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_after_several_absent_looks_and_is_read (0.00s)
+    --- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_stays_absent_through_the_whole_budget:_missing (0.00s)
+    --- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/a_directory_is_back_in_its_place:_refused (0.00s)
+    --- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_name_keeps_coming_back_and_every_open_misses:_refused_at_the_budget (0.00s)
+    --- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_and_its_open_fails_for_another_reason:_refused (0.00s)
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/found_and_read
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_finds_no_file:_missing
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_fails_for_another_reason:_refused
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_finds_a_directory:_refused
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_fails_for_another_reason:_refused
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_finds_a_directory:_refused
+--- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck (0.02s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/found_and_read (0.01s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_finds_no_file:_missing (0.00s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_fails_for_another_reason:_refused (0.00s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_finds_a_directory:_refused (0.00s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_fails_for_another_reason:_refused (0.00s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_finds_a_directory:_refused (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	1.138s
+FAIL
+exit=1
