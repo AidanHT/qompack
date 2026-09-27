@@ -199,7 +199,8 @@ func fsyncDir(dir string) error {
 //   - NTFS writes every metadata change — a file's creation, a rename, a deletion, a size change —
 //     to the volume's write-ahead log as one transaction, and replays that log at mount, so after a
 //     power cut each such change is either wholly present or wholly absent. A directory entry is
-//     never torn, and a rename never leaves both names or neither.
+//     never torn, and a rename never leaves both names or neither. File contents are NOT journaled,
+//     which is why every durable write still flushes its file.
 //   - FlushFileBuffers on a file (File.Sync) writes the file's bytes and forces the log out through
 //     the file's own latest change. The log is sequential, so every metadata change logged before
 //     that point — the file's own creation or rename among them — is durable when the flush returns.
@@ -211,12 +212,13 @@ func fsyncDir(dir string) error {
 // torn or empty one — and a removed file can reappear. No product guarantee depends on more than
 // the premise: every write whose loss would break one ends with a flush after the directory change it
 // relies on (a checkpoint's MANIFEST line, the delivery and WAL journal appends, each object's flush
-// in a publication pass, the pins log line), and the files that can revert — state/ documents, the
-// pins view, precompact.json, a draft, a restore's final directory rename — are derived or rebuilt,
-// or leave the operator the previous state to retry from. The premise has not been tested with a
-// power cut on this project; a real Windows directory barrier exists (FlushFileBuffers on a
-// CreateFile(GENERIC_WRITE, FILE_FLAG_BACKUP_SEMANTICS) handle, w5-dirsync item 4) and D24 declines
-// it. docs/architecture.md §4 and docs/security.md §8 carry the same statement for operators.
+// in a publication pass, the pins log line, an acknowledged elimination's line), and the files that
+// can revert — state/ documents, the pins view, precompact.json, a draft, a restore's final
+// directory rename — are derived or rebuilt, or leave the operator the previous state to retry from.
+// The premise has not been tested with a power cut on this project; a real Windows directory barrier
+// exists (FlushFileBuffers on a CreateFile(GENERIC_WRITE, FILE_FLAG_BACKUP_SEMANTICS) handle,
+// w5-dirsync item 4) and D24 declines it. docs/architecture.md §4 and docs/security.md §8 carry the
+// same statement for operators.
 func SyncDir(dir string) error { return fsyncDir(dir) }
 
 // ownerWriteBit is the permission bit Windows' os.Chmod reads: it maps the whole mode onto the
