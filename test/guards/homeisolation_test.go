@@ -33,9 +33,11 @@ import (
 // Qompack's user-global layer lives (<home>/.qompack: config.json, calibration.json, the fallback
 // logs, the staged daemon copies under bin/) beside Claude Code's own settings (<home>/.claude).
 // A test that reaches either with the developer's real home reads files the suite does not control,
-// so its result depends on the machine, and it can write into them, which 00-ARCHITECTURE.md §13
-// invariant 7 forbids. w5-winfiles found internal/cli tests opening stores with no isolation at all,
-// on a machine that would have a real calibration.json after the live UAT.
+// so its result depends on the machine, and it can write into them: its calibration samples would
+// overwrite the user's real factor. ~/.qompack is in 00-ARCHITECTURE.md §13 invariant 7's write set
+// for the product serving its user, never for a test, and ~/.claude is in no write set. w5-winfiles
+// found internal/cli tests opening stores with no isolation at all, on a machine that would have a
+// real calibration.json after the live UAT.
 //
 // The mechanism is internal/paths/pathstest: pathstest.Main, called from TestMain, points HOME and
 // USERPROFILE at a fresh directory and unsets QOMPACK_HOME and CLAUDE_CONFIG_DIR for the whole test
