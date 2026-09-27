@@ -28,9 +28,10 @@ var ErrLineNotDurable = errors.New("paths: the line is written but not known dur
 //
 // The zero value is the real thing: a nil SyncFile is (*os.File).Sync and a nil SyncDir is SyncDir.
 // Production code only ever uses the zero value, through the package functions (CreateNew,
-// AppendManifest, AppendJSONLDurable, AppendLinesDurable). A caller that must count the barriers a write issues, or cut
-// it at one of them the way a power loss would, holds its own Barriers and calls the methods; the
-// store's pubSyncDir and the daemon's syncDir fields are the same kind of seam for their own writers.
+// AppendManifest, AppendJSONLDurable, AppendLinesDurable). A caller that must count the barriers a
+// write issues, or cut it at one of them the way a power loss would, holds its own Barriers and calls
+// the methods; the store's pubSyncDir and the daemon's syncDir fields are the same kind of seam for
+// their own writers.
 //
 // A barrier that fails stops the write where it is and returns the barrier's error: nothing after it
 // runs, so a caller never learns "durable" from a write whose barrier failed. A barrier that fails
@@ -75,12 +76,11 @@ func (x Barriers) DirBarrier(dir string) error { return x.syncDir(dir) }
 // and 3). A directory that exists and is durable costs one Lstat and syncs nothing, so a writer that
 // shards into directories made on demand pays the barrier once per new directory, not per file.
 //
-// A directory another PROCESS created is taken as durable. That process either synced it (every
-// product writer that makes a directory on demand for a durable file goes through here) or failed
-// and reported the failure; in the second case the entry sits in the page cache, where the file
-// system's own journal commits it within seconds, and a later process has no record to retry from.
-// That narrow window is the residual this rule accepts rather than sync every existing ancestor of
-// every durable write in every process.
+// A directory another PROCESS created is taken as durable: this process has no record of whether
+// that process's barrier ran. When it failed, or the directory was made with a plain mkdir that syncs
+// nothing, the entry sits in the page cache until the file system's own journal commits it, within
+// seconds. That window is the residual this rule accepts rather than sync every existing ancestor of
+// every durable write in every process; EnsureLayout closes it for the layout's own directories.
 func (x Barriers) MkdirAll(dir string, perm fs.FileMode) error {
 	var names []string
 	p := filepath.Clean(dir)
@@ -145,10 +145,10 @@ func (x Barriers) AppendJSONLDurable(p string, v any) error {
 // AppendLinesDurable appends lines — one or more complete records, each terminated by a newline —
 // to the append-only file p in one write, and makes them durable before it returns exactly as
 // AppendJSONLDurable does for one record: the file's sync, then its directory's unless this process
-// has already made the file's name durable. It is for a producer that declares many records at once and needs them all
-// durable (store's retention roots before a backup manifest names them): one sync for the batch,
-// not one per line. A lines that is empty or does not end in a newline is refused, since the next
-// append would glue its first record onto the unterminated last one.
+// has already made the file's name durable. It is for a producer that declares many records at once
+// and needs them all durable (store's retention roots before a backup manifest names them): one sync
+// for the batch, not one per line. A lines that is empty or does not end in a newline is refused,
+// since the next append would glue its first record onto the unterminated last one.
 func AppendLinesDurable(p string, lines []byte) error { return Barriers{}.AppendLinesDurable(p, lines) }
 
 // AppendLinesDurable is the package function of the same name, issuing its barriers through x.
