@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -780,6 +781,13 @@ func (ls *dispatchLanes) claimReady() (sess core.SessionID, ok, more bool) {
 // made during a pass or its rest merge into the next one. The pass's release of the sessions it
 // consumed (DrainConfig.Released) is what wakes their parked lanes. Run starts it once the drainer
 // exists and joins it with the rest of runWG; it stops when ctx is done.
+//
+// A pass that runs out of its budget has left behind work it was asked for, and nothing else will
+// ask again: a lane that ran dry dropped its overflow when it asked, and the pass's release wakes
+// only lanes that still hold jobs. So a pass cut short by its budget asks for the next one itself,
+// and the drain resumes where the cut pass stopped once the rest is over. It is still never back to
+// back, so a spool that keeps outlasting the budget gets at most half of the requester's time, as a
+// head that keeps failing does.
 func (d *daemon) drainOnRequest(ctx context.Context) {
 	for {
 		select {
@@ -791,6 +799,9 @@ func (d *daemon) drainOnRequest(ctx context.Context) {
 		pass, cancel := context.WithTimeout(ctx, idleRunBudget)
 		if _, err := d.Drain(pass); err != nil && ctx.Err() == nil {
 			d.log.Debug("daemon: a drain the lanes asked for ended early", "err", err)
+		}
+		if errors.Is(pass.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
+			d.ing.resumeDrain()
 		}
 		cancel()
 		rest := time.NewTimer(time.Since(began))
