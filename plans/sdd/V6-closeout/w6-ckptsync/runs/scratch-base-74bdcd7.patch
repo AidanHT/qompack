@@ -1,0 +1,149 @@
+From 74bdcd76281353772d9e32afcc14fc7a3f072041 Mon Sep 17 00:00:00 2001
+From: Aidan <aidantran120@gmail.com>
+Date: Sun, 27 Sep 2026 14:12:59 -0400
+Subject: [PATCH] scratch: f6095e2 plus the two w6-ckptsync cost benchmarks
+ (timing base, never a branch)
+
+---
+ .../daemon/ingest_externalized_bench_test.go  | 80 +++++++++++++++++++
+ internal/negknow/durable_bench_test.go        | 41 ++++++++++
+ 2 files changed, 121 insertions(+)
+ create mode 100644 internal/daemon/ingest_externalized_bench_test.go
+ create mode 100644 internal/negknow/durable_bench_test.go
+
+diff --git a/internal/daemon/ingest_externalized_bench_test.go b/internal/daemon/ingest_externalized_bench_test.go
+new file mode 100644
+index 00000000..86a9999b
+--- /dev/null
++++ b/internal/daemon/ingest_externalized_bench_test.go
+@@ -0,0 +1,80 @@
++package daemon
++
++import (
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// BenchmarkIngestAcceptExternalized prices the externalized-payload barrier (w6-ckptsync, 1a4311f):
++// an Accept whose tool response the hook moved to spool/blob-<pid>-<n>.bin, which the ingest now
++// syncs — the blob's bytes, then the spool directory — before the WAL line that names it. It is
++// BenchmarkIngestAccept (the unleased control, which pays only the WAL fsync) with that descriptor on
++// every request, so the difference between the two is the barrier.
++//
++// Each iteration's blob is written with the timer stopped, as the hook writes it (unsynced), and
++// removed afterwards, also untimed, so the disk holds one blob at a time. Its size is ipc.MaxLineBytes:
++// the client externalizes a request once its line reaches the frame limit (or the configured
++// maxPayloadBytes, which defaults to the same 1 MiB), so this is the smallest payload that takes the
++// path and the barrier's cost grows with the payload from here. ns/op is Accept alone; it is a
++// shape/regression figure read as a ratio against its own base, never a budget.
++func BenchmarkIngestAcceptExternalized(b *testing.B) {
++	root := b.TempDir()
++	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, core.SystemClock())
++	b.Cleanup(func() { _ = ing.Close() })
++	spool := paths.Of(root).Spool
++	if err := os.MkdirAll(paths.Long(spool), 0o700); err != nil {
++		b.Fatal(err)
++	}
++	payload := make([]byte, ipc.MaxLineBytes)
++	for i := range payload {
++		payload[i] = byte('a' + i%26)
++	}
++
++	req := func(i int) (ipc.Request, []byte, string) {
++		name := fmt.Sprintf("%s%d-%d.bin", blobFilePrefix, os.Getpid(), i)
++		ref, err := json.Marshal(blobRef{Blob: name, Bytes: len(payload), Field: drainBlobToolResponse})
++		if err != nil {
++			b.Fatal(err)
++		}
++		r := ipc.Request{Op: ipc.OpObserveTool, Session: "bench-externalized", Event: &hookio.Event{}, Raw: ref}
++		line, err := ipc.EncodeRequest(r)
++		if err != nil {
++			b.Fatal(err)
++		}
++		p := filepath.Join(spool, name)
++		if err := os.WriteFile(paths.Long(p), payload, 0o600); err != nil {
++			b.Fatal(err)
++		}
++		return r, line, p
++	}
++
++	// Warm the WAL handle (its segment open and the spool directory's sync) before timing.
++	r, line, p := req(-1)
++	if err := ing.Accept(r, line); err != nil {
++		b.Fatal(err)
++	}
++	_ = os.Remove(paths.Long(p))
++
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		b.StopTimer()
++		r, line, p := req(i)
++		b.StartTimer()
++		if err := ing.Accept(r, line); err != nil {
++			b.Fatal(err)
++		}
++		b.StopTimer()
++		_ = os.Remove(paths.Long(p))
++		b.StartTimer()
++	}
++}
+diff --git a/internal/negknow/durable_bench_test.go b/internal/negknow/durable_bench_test.go
+new file mode 100644
+index 00000000..05905a82
+--- /dev/null
++++ b/internal/negknow/durable_bench_test.go
+@@ -0,0 +1,41 @@
++package negknow
++
++import (
++	"context"
++	"strconv"
++	"testing"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/store"
++)
++
++// BenchmarkIngestMCPRealStore prices one record_eliminated ingest over the real store the daemon
++// hands the ledger: evidence minted through PutBytes, then — since w6-ckptsync 2df3776 — the
++// evidence's publication pass and the log line's sync (durable.go), then the answer. Every
++// iteration records a distinct elimination, so none is a dedup hit. It is read as a ratio against
++// its own base, never as a budget: record_eliminated is an explicit agent call, not a hot path.
++func BenchmarkIngestMCPRealStore(b *testing.B) {
++	root, cfg := benchProject(b)
++	st, err := store.Open(root, cfg, store.Deps{Log: logging.Nop(), Clock: core.SystemClock()})
++	if err != nil {
++		b.Fatal(err)
++	}
++	b.Cleanup(func() { _ = st.Close() })
++	deps := benchDeps(nil, nil)
++	deps.Store = st
++	l := benchOpen(b, root, cfg, deps)
++	ctx := context.Background()
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	for i := range b.N {
++		n := strconv.Itoa(i)
++		if _, _, err := l.IngestMCP(ctx, MCPArgs{
++			Target: "src/bench/f" + n + ".ts:run", Approach: "widen pool timeout " + n,
++			Reason: "measured: the pool is not the bottleneck, iteration " + n, Scope: "project",
++		}); err != nil {
++			b.Fatal(err)
++		}
++	}
++}
+-- 
+2.47.0.windows.2
+
