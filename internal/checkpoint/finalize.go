@@ -227,13 +227,17 @@ const metricSegmentMarksUnsynced = "checkpoint.segment_marks_unsynced"
 // a segment the log forgot. That is harmless while the draft is open — Advance skips a segment its
 // own draft already holds — but not once the draft is sealed: the successor draft starts empty, the
 // log reports the segment unencoded, and it is encoded a second time, the §4.6 DPI guard broken by a
-// lost tail. Re-marking is idempotent for the same sequence (store.SegmentLog.MarkEncoded appends
-// nothing for a segment already marked into seq), so it appends only the marks a cut lost; the sync
-// then makes every mark durable, and only then does AppendManifest seal.
+// lost tail. So each segment the log does not show as encoded is re-marked into seq before the sync,
+// and the sync then makes every mark durable; only then does AppendManifest seal.
 //
-// Each id is re-marked on its own, because MarkEncoded refuses a whole batch for one bad id: a
-// segment bound to another sequence (the drift reconcileEncodedSeq has reported), or one the log does
-// not know or holds open (its own records lost to a cut), must not stop the others being marked.
+// The log is asked first (SegmentLog.Get) and only the segments it has lost are re-marked, in one
+// batch. In the ordinary seal that is none of them — Advance marked them into this sequence in this
+// daemon's lifetime — so the seal adds no MarkEncoded call to the one batch per Advance that the cold
+// path's shape depends on (TestColdPreCompactCatchesUpInOneBatchOldestFirst). A segment the log shows
+// encoded into ANOTHER sequence (the drift reconcileEncodedSeq has reported) is left alone, and so is
+// one it does not know (its own records lost to a cut). If the batch is refused — MarkEncoded refuses
+// a whole batch for one bad id, such as a segment the log holds open — each id is re-marked on its
+// own, so one bad id does not stop the others.
 //
 // A failure here degrades the seal rather than refusing it, and that is deliberate. The seal is what
 // the session needs to survive the compaction PreCompact is answering; refusing it over the DPI
@@ -251,14 +255,32 @@ func (w *FileWriter) sealSegmentMarks(ctx context.Context, src SourceSet, ids []
 	}
 	ctx = context.WithoutCancel(ctx)
 	var failed error
-	for _, id := range ids {
-		err := src.Segments.MarkEncoded(ctx, []core.SegmentID{id}, seq)
-		switch {
-		case err == nil, errors.Is(err, core.ErrAlreadyEncoded), errors.Is(err, core.ErrNotFound),
-			errors.Is(err, store.ErrSegmentOpen):
-			// Marked, or a segment this seal cannot re-point: nothing more to do for it here.
-		case failed == nil:
+	note := func(err error) {
+		if err != nil && failed == nil {
 			failed = err
+		}
+	}
+	var lost []core.SegmentID
+	for _, id := range ids {
+		seg, err := src.Segments.Get(ctx, id)
+		switch {
+		case err == nil && seg.EncodedOnce:
+			// Marked: into this seal, or into another sequence reconcileEncodedSeq has reported.
+		case err == nil:
+			lost = append(lost, id)
+		case errors.Is(err, core.ErrNotFound):
+			// The log does not know it: its own records were lost, and there is nothing to re-point.
+		default:
+			note(err)
+		}
+	}
+	if len(lost) > 0 && src.Segments.MarkEncoded(ctx, lost, seq) != nil {
+		for _, id := range lost {
+			err := src.Segments.MarkEncoded(ctx, []core.SegmentID{id}, seq)
+			if !errors.Is(err, core.ErrAlreadyEncoded) && !errors.Is(err, core.ErrNotFound) &&
+				!errors.Is(err, store.ErrSegmentOpen) {
+				note(err)
+			}
 		}
 	}
 	if s, ok := src.Segments.(store.SegmentSync); ok && failed == nil {
