@@ -113,7 +113,7 @@ Owner decisions D1–D24 are above.
 |---|---|---|
 | `w6-borrow` (D21 borrow, spawner-side home refusal) | `24eae18`, 5 commits | Code done and lint green on both OSes; the full package runs had started |
 | `w6-config` (D22, shared config reads, test-home isolation plus a guard) | `89574c4`, 6 commits | Code done; the §3.2 pathstest note and the full runs remain |
-| `w6-ckptsync` (checkpoint and other missing barriers, D24 docs) | `e6bc7a8`, 12 commits | Barrier fixes across 9 writers; the audit table, cost measurement and full runs remain |
+| `w6-ckptsync` (checkpoint and other missing barriers, D24 docs) | `e6bc7a8`, 13 commits | Barrier fixes across 9 writers; the audit table, cost measurement and full runs remain |
 | `w6-gcserial` (one GC pass per store) | `b9c2676`, 6 commits | Code done; the full runs remain |
 | `w6-linuxrows` (Linux load-sensitive rows) | `4894f4f`, 6 commits, plus uncommitted RED tests | Found product defects in drain budgets and the spool watcher, and the observer's graph was not written at stop; mid-step on a soft watcher budget |
 
