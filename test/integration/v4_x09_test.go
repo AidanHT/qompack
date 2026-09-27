@@ -224,7 +224,7 @@ func x9v4Walk(t *testing.T, r *x9v4Rig, unique bool) []eval.StatsSample {
 // ephemeral records, fed content that cannot deduplicate. The guardrail must then FAIL. Without it,
 // "growth is sublinear" would also be reported by a gate that says sublinear to everything.
 func TestV4_GrowthGuardrailWithCheckpointsAndEphemerals(t *testing.T) {
-	// Built before testutil.NewProject redirects HOME for the process; see initialEnv.
+	// Built from pathstest.Environ, so testutil.NewProject redirecting HOME does not reach it.
 	driver := buildReplayDriver(t)
 
 	r := x9v4Open(t)

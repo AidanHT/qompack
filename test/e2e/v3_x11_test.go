@@ -69,6 +69,7 @@ import (
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/testutil"
@@ -114,13 +115,6 @@ const (
 // ~2,250 real spawns plus warm-up, two `go build`s and daemon start/stop sit under two minutes on
 // this class of host; six is headroom.
 const x11HarnessBound = 6 * time.Minute
-
-// x11InitialEnv is the process environment as it was before any test ran. Child `go build`s and
-// the harness itself are run under it so that testutil.NewProject's HOME/USERPROFILE redirection
-// (which points into t.TempDir) cannot hide the real module cache from the toolchain — the same
-// pattern test/integration pins as initialEnv. Package-level var initialization runs before any
-// test (and before TestMain's m.Run), so this snapshot is genuinely pre-test.
-var x11InitialEnv = os.Environ()
 
 // ── the bench artifact shape (test/bench/hotpath is package main and cannot be imported; these
 // mirror its Report/BudgetRow/SpawnFloor JSON verbatim, exactly as test/integration does) ───────
@@ -331,7 +325,10 @@ func x11BuildBenchBinary(t *testing.T) string {
 	}
 	cmd := exec.Command("go", "build", "-o", out, "./test/bench/hotpath")
 	cmd.Dir = root
-	cmd.Env = x11InitialEnv
+	// pathstest.Environ: the isolated home and the pinned toolchain, not the per-test HOME
+	// testutil.NewProject sets and not the real home either, which the harness's own daemons would
+	// otherwise write their calibration into.
+	cmd.Env = pathstest.Environ()
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	require.NoError(t, cmd.Run(), "go build -o %s ./test/bench/hotpath:\n%s", out, stderr.String())
@@ -474,7 +471,10 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	require.NoError(t, err)
 	cmd := exec.CommandContext(hctx, bench, args...)
 	cmd.Dir = root
-	cmd.Env = x11InitialEnv
+	// pathstest.Environ: the isolated home and the pinned toolchain, not the per-test HOME
+	// testutil.NewProject sets and not the real home either, which the harness's own daemons would
+	// otherwise write their calibration into.
+	cmd.Env = pathstest.Environ()
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
