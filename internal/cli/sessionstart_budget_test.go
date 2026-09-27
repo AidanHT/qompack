@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -12,8 +14,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
@@ -25,27 +29,42 @@ import (
 // binary on Windows, EnsureRunning's poll — was not, and one co-loaded cold start took 21.2 s
 // (w3-startroute runs/50), past the host's 15 s.
 
-// TestSessionStartBudget_SplitsTheManifestTimeout pins the owner's numbers: of the 15 s the manifest
-// gives SessionStart, hookExitReserve (1.5 s) is kept for the process's start and exit, the reply
-// deadline (10 s) and the dial (250 ms) come last, and the pre-send step gets the 3.25 s before
-// them. A pre-send step that keeps to its budget leaves the full reply deadline.
+// TestSessionStartBudget_SplitsTheManifestTimeout pins the owner's numbers (D17b, D21): of the 15 s
+// the manifest gives SessionStart, hookExitReserve (1.5 s) is kept for the process's start and
+// exit, the reply deadline (10 s) and the dial (250 ms) come last, and a pre-send step that returns
+// within the 3.25 s before them leaves the full reply deadline. The find/start step may borrow the
+// reply's idle time until 8.25 s, which still leaves the reply D9's 5 s compact bound plus the
+// dial; a daemon started late may be waited for until 13.25 s, where only the dial still fits.
 func TestSessionStartBudget_SplitsTheManifestTimeout(t *testing.T) {
 	spec := sessionStartSpec(nil)
 	require.Equal(t, 15*time.Second, spec.hostTimeout, "the manifest's SessionStart timeout")
 	require.Equal(t, sessionStartReplyDeadline, spec.deadline)
 	require.Equal(t, 1500*time.Millisecond, hookExitReserve)
+	require.Equal(t, 5*time.Second, spec.minReply, "the borrowing leaves the reply D9's compact bound")
+	require.Equal(t, daemon.CompactAnswerBudget(), spec.minReply, "the daemon's own bound, not a copy")
 
 	began := time.Unix(0, 0)
-	b := newHookBudget(began, spec.hostTimeout, spec.deadline, hookConnectDeadlineFloor)
+	b := newHookBudget(began, spec.hostTimeout, spec.deadline, hookConnectDeadlineFloor, spec.minReply)
 	require.Equal(t, 13500*time.Millisecond, b.doneBy.Sub(began), "the hook's own work ends 1.5 s before the host's timeout")
-	require.Equal(t, 3250*time.Millisecond, b.preSendBy.Sub(began), "what is left for the pre-send step")
+	require.Equal(t, 3250*time.Millisecond, b.preSendBy.Sub(began), "what is left before a full reply deadline")
+	require.Equal(t, 8250*time.Millisecond, b.borrowBy.Sub(began), "the find/start step may borrow until 8.25 s")
 	require.Equal(t, 13250*time.Millisecond, b.latestPoll.Sub(began), "a late daemon may be waited for until only the dial fits")
 	require.Equal(t, sessionStartReplyDeadline, b.replyDeadline(b.preSendBy, spec.deadline, hookConnectDeadlineFloor),
-		"a pre-send step inside its budget leaves the full reply deadline")
+		"a pre-send step inside 3.25 s leaves the full reply deadline")
+	require.Equal(t, 7250*time.Millisecond, b.replyDeadline(began.Add(6*time.Second), spec.deadline, hookConnectDeadlineFloor),
+		"a daemon found at 6 s leaves the reply what is left before doneBy")
+	require.Equal(t, 5250*time.Millisecond, b.replyDeadline(began.Add(8*time.Second), spec.deadline, hookConnectDeadlineFloor),
+		"a daemon found at 8 s still leaves more than the compact bound")
+	require.Equal(t, spec.minReply, b.replyDeadline(b.borrowBy, spec.deadline, hookConnectDeadlineFloor),
+		"at the borrow limit exactly the compact bound is left")
 	require.Equal(t, 2*time.Second, b.replyDeadline(b.preSendBy.Add(8*time.Second), spec.deadline, hookConnectDeadlineFloor),
-		"one that ran over leaves only what is left before doneBy")
+		"a step that ran over leaves only what is left before doneBy")
 
-	require.Zero(t, newHookBudget(began, 0, spec.deadline, hookConnectDeadlineFloor), "no hostTimeout, no bound")
+	require.Equal(t, b.preSendBy, newHookBudget(began, spec.hostTimeout, spec.deadline, hookConnectDeadlineFloor, 0).borrowBy,
+		"no minReply lends nothing")
+	require.Equal(t, b.preSendBy, newHookBudget(began, spec.hostTimeout, spec.deadline, hookConnectDeadlineFloor, spec.deadline).borrowBy,
+		"a minReply as long as the reply lends nothing")
+	require.Zero(t, newHookBudget(began, 0, spec.deadline, hookConnectDeadlineFloor, spec.minReply), "no hostTimeout, no bound")
 	require.Equal(t, spec.deadline, hookBudget{}.replyDeadline(began, spec.deadline, hookConnectDeadlineFloor))
 }
 
@@ -175,4 +194,197 @@ func TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling(t *testing.T) {
 	require.True(t, spooledStart(t, root), "the start is spooled for the daemon to replay")
 	require.Contains(t, out, daemon.DeferredNoteTag, "a compaction that got no answer says so")
 	require.Contains(t, out, daemon.DeferredNoAnswer)
+}
+
+// V6 close-out D21: session-start's find/start step may borrow the reply wait's idle time. Its poll
+// for a daemon on its way runs until borrowBy, 8.25 s from doHook's first statement — the last
+// instant that still leaves the reply D9's 5 s compact bound (daemon.CompactAnswerBudget) plus the
+// dial — instead of stopping at 3.25 s, where the full 10 s reply would still fit. The reply wait
+// is then what is left, min(10 s, doneBy - now - dial). The rows below run session-start through
+// its production preSend (ensureDaemonRunning, so daemon.EnsureRunningUntil) with the manifest's
+// real 15 s budget, against a project whose spawn.lock holds a fresh claim: a daemon is on its way,
+// so session-start waits for it and spawns nothing. The rows run in parallel; each waits for real.
+
+// lateDaemonAnswer is what a lateDaemon answers a session.start with, so a row can tell the
+// daemon's answer from the empty answer and the deferred note an unanswered start gets.
+const lateDaemonAnswer = "late-daemon-answer"
+
+// lateDaemon is a daemon on its way: it starts listening at a given instant, removes the spawn
+// claim that announced it the way Run does (listen, serve, then delete run/spawn.lock), and answers
+// every request after holding it for a given time.
+type lateDaemon struct {
+	mu       sync.Mutex
+	srv      ipc.Server
+	received int
+	err      error
+}
+
+// startLateDaemon brings a lateDaemon up for root at the instant at, holding each request for hold.
+func startLateDaemon(t *testing.T, root string, at time.Time, hold time.Duration) *lateDaemon {
+	t.Helper()
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+	d := &lateDaemon{}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		select {
+		case <-time.After(time.Until(at)):
+		case <-ctx.Done():
+			return
+		}
+		srv, lerr := ipc.NewServer(addr, logging.Nop(), obs.New(testClock()), 0)
+		d.mu.Lock()
+		d.srv, d.err = srv, lerr
+		d.mu.Unlock()
+		if lerr != nil {
+			return
+		}
+		served := make(chan struct{})
+		go func() {
+			defer close(served)
+			_ = srv.Serve(ctx, func(ctx context.Context, _ ipc.Request) ipc.Response {
+				d.mu.Lock()
+				d.received++
+				d.mu.Unlock()
+				select {
+				case <-time.After(hold):
+				case <-ctx.Done():
+					return ipc.Response{}
+				}
+				out := hookio.SessionStartOutput(lateDaemonAnswer)
+				return ipc.Response{OK: true, Mode: contract.ModeFull, Output: &out}
+			})
+		}()
+		removeSpawnClaim(root)
+		<-served
+	}()
+	t.Cleanup(func() {
+		cancel()
+		d.mu.Lock()
+		if d.srv != nil {
+			_ = d.srv.Close()
+		}
+		d.mu.Unlock()
+		<-done
+	})
+	return d
+}
+
+// requests reports how many requests reached d, and whether it failed to listen.
+func (d *lateDaemon) requests() (int, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.received, d.err
+}
+
+// removeSpawnClaim deletes root's run/spawn.lock, as a daemon does once it listens. The lock is
+// created read-only (paths.CreateNew), which blocks the delete on Windows, so the mode goes first.
+func removeSpawnClaim(root string) {
+	p := filepath.Join(paths.Of(root).Run, "spawn.lock")
+	_ = os.Chmod(paths.Long(p), 0o600)
+	_ = os.Remove(paths.Long(p))
+}
+
+// claimedProject is an unanswered project whose spawn.lock holds a fresh claim, stamped by the
+// hook's own clock: another spawner's daemon is on its way.
+func claimedProject(t *testing.T) string {
+	t.Helper()
+	root := unansweredProject(t, nil)
+	_, claim := ipc.ClaimSpawn(root, testClock())
+	require.Equal(t, ipc.SpawnClaimed, claim)
+	return root
+}
+
+// runLiveSessionStart runs session-start through its production preSend with the manifest's own
+// budget. up, when set, is called with the instant of doHook's first statement (the budget's
+// origin) just before the poll begins, so a row can bring a daemon up at an offset from it. It
+// returns the hook's stdout, how long the invocation took, and the budget the hook ran under.
+func runLiveSessionStart(t *testing.T, root, source string, up func(began time.Time)) (string, time.Duration, hookBudget) {
+	t.Helper()
+	spec := sessionStartSpec(nil)
+	var got hookBudget
+	spec.preSend = func(r, self string, st ipc.State, clk core.Clock, b hookBudget) {
+		got = b
+		if up != nil {
+			up(b.doneBy.Add(-(spec.hostTimeout - hookExitReserve)))
+		}
+		ensureDaemonRunning(r, self, st, clk, b)
+	}
+	payload := strings.Replace(string(entryPayload(t, "SessionStart", root)), `"source":"compact"`,
+		`"source":"`+source+`"`, 1)
+	var out, errw bytes.Buffer
+	start := time.Now()
+	err := doHook(spec)(context.Background(), Env{
+		Getenv: envWith(map[string]string{"QOMPACK_PROJECT_ROOT": root}),
+		Stdin:  strings.NewReader(payload),
+		Clock:  testClock(),
+		// A self that names no file: ensureDaemonRunning runs only with a self, and the fresh claim
+		// means nothing is spawned from it.
+		Self:    filepath.Join(t.TempDir(), "never-spawned"),
+		HomeDir: t.TempDir(),
+	}, nil, &out, &errw)
+	took := time.Since(start)
+	require.NoError(t, err, "stderr=%s", errw.String())
+	return out.String(), took, got
+}
+
+// TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered: a daemon on its way that comes
+// up at 4 s, 6 s or 8 s — after the 3.25 s where the full reply would still fit, before the 8.25 s
+// the step may borrow to — is found by the poll and answers; nothing is spooled.
+func TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered(t *testing.T) {
+	for _, upAfter := range []time.Duration{4 * time.Second, 6 * time.Second, 8 * time.Second} {
+		t.Run(upAfter.String(), func(t *testing.T) {
+			t.Parallel()
+			root := claimedProject(t)
+			var d *lateDaemon
+			out, took, _ := runLiveSessionStart(t, root, "startup", func(began time.Time) {
+				d = startLateDaemon(t, root, began.Add(upAfter), 0)
+			})
+			n, lerr := d.requests()
+			require.NoError(t, lerr, "the late daemon could not listen")
+			require.Contains(t, out, lateDaemonAnswer, "a daemon up at %s is answered, not given up on", upAfter)
+			require.Equal(t, 1, n, "the start reached the daemon")
+			require.False(t, spooledStart(t, root), "an answered start is not spooled")
+			require.Less(t, took, upAfter+budgetTestSlack, "the hook ends once the daemon answers; it took %s", took)
+		})
+	}
+}
+
+// TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit: the daemon on its way
+// never listens. The poll gives up at the borrow limit, 8.25 s, the hook's dial fails at once and
+// the start is spooled, and the whole hook ends inside the 15 s manifest timeout.
+func TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit(t *testing.T) {
+	t.Parallel()
+	const borrowFor = 8250 * time.Millisecond // doneBy (13.5 s) - dial (250 ms) - compact bound (5 s)
+	root := claimedProject(t)
+	out, took, _ := runLiveSessionStart(t, root, "startup", nil)
+	require.GreaterOrEqual(t, took, borrowFor, "the poll runs to the borrow limit; the hook took %s", took)
+	require.Less(t, took, borrowFor+budgetTestSlack, "and the hook spools once it is reached; it took %s", took)
+	require.Less(t, took, sessionStartHostTimeout()-hookExitReserve, "the whole hook ends inside the manifest timeout")
+	require.True(t, spooledStart(t, root), "the unanswered start is spooled for the daemon to replay")
+	require.Equal(t, "{}\n", out)
+}
+
+// TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound: a compaction whose daemon comes
+// up at 8 s still leaves the reply more than D9's 5 s compact bound, so a daemon that takes its
+// whole bound to answer — the deferred note it sends when the rehydration is late — is heard,
+// rather than the start being spooled with the client's own note.
+func TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound(t *testing.T) {
+	t.Parallel()
+	const upAfter = 8 * time.Second
+	root := claimedProject(t)
+	var d *lateDaemon
+	out, took, _ := runLiveSessionStart(t, root, compactSource, func(began time.Time) {
+		d = startLateDaemon(t, root, began.Add(upAfter), daemon.CompactAnswerBudget())
+	})
+	n, lerr := d.requests()
+	require.NoError(t, lerr, "the late daemon could not listen")
+	require.Contains(t, out, lateDaemonAnswer, "the daemon's answer at its compact bound reaches the host")
+	require.NotContains(t, out, daemon.DeferredNoAnswer, "not the client's own no-answer note")
+	require.Equal(t, 1, n)
+	require.False(t, spooledStart(t, root), "an answered compaction is not spooled")
+	require.Less(t, took, sessionStartHostTimeout()-hookExitReserve+budgetTestSlack,
+		"the hook still ends by its bound; it took %s", took)
 }
