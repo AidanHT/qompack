@@ -1,0 +1,64 @@
+package daemon
+
+// TEMPORARY DIAGNOSTIC (w6-linuxrows review, finding 5): never committed to the tree. It reproduces
+// the stray spawn-claim gap x09 waits out (x9AwaitNoSpawnInFlight). It is kept, red, as evidence under
+// plans/sdd/V6-closeout/w6-linuxrows/runs/review/ for the owner decision and for w6-borrow to adopt as
+// its failing test first.
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
+)
+
+func TestDiagSpawnClaim_ALockLosingDaemonLeavesNoFreshClaimOnceNoDaemonRuns(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+	cfg := testConfig()
+	clk := core.SystemClock()
+
+	// The session's running daemon.
+	dA, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: clk})
+	require.NoError(t, err)
+	ctxA, cancelA := context.WithCancel(context.Background())
+	defer cancelA()
+	errChA := make(chan error, 1)
+	go func() { errChA <- dA.Run(ctxA) }()
+	require.Eventually(t, func() bool {
+		_, ok := ReadLock(root)
+		return ok
+	}, 5*time.Second, 20*time.Millisecond, "daemon A must acquire the lock")
+
+	// A hook whose connect deadline expired: its lazy spawn claims spawn.lock and launches a daemon,
+	// which loses the lock to A and exits.
+	_, st := ipc.ClaimSpawn(root, clk)
+	require.Equal(t, ipc.SpawnClaimed, st, "fixture: the hook's lazy spawn claims spawn.lock")
+	dB, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: clk})
+	require.NoError(t, err)
+	ctxB, cancelB := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelB()
+	require.NoError(t, dB.Run(ctxB), "fixture: the spawned daemon loses the lock and exits quietly")
+
+	// The session's daemon stops (x09's pre-flush shutdown).
+	cancelA()
+	select {
+	case <-errChA:
+	case <-time.After(30 * time.Second):
+		t.Fatal("daemon A did not shut down")
+	}
+
+	// The SessionEnd flush's own lazy spawn, with no daemon running.
+	_, st = ipc.ClaimSpawn(root, clk)
+	require.Equal(t, ipc.SpawnClaimed, st,
+		"no daemon runs, yet the flush's lazy spawn is held off (SpawnInFlight) by the claim a lock-losing "+
+			"daemon left fresh: the flush starts no daemon for up to the claim's staleness window")
+}

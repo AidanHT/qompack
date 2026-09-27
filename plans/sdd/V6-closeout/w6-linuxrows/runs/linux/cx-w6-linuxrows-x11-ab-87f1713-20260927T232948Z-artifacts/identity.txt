@@ -1,0 +1,21 @@
+run_id=cx-w6-linuxrows-x11-ab-87f1713-20260927T232948Z
+commit=87f1713c0a53472071dc97251db3275d95c46818
+tree=2a3cb0fd9053645a53c625252bfe84cd9c1768aa
+bundle_sha256=dda9a9839ebd5e1e03380355ed36741ee0be0093155e77e3f451dccd73b13315
+started_utc=2026-09-27T23:29:57Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^TestV3_HotPathUnchangedWithLedgerResident$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T23:34:14Z

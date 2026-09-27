@@ -1,0 +1,9 @@
+--- FAIL: TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress (10.33s)
+    delivery_order_lanes_test.go:353: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/delivery_order_lanes_test.go:353
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress
+        	Messages:   	a pass that published nothing before a line ran out of its own deadline must not ask again: that line would keep the requester running passes for as long as the daemon lives
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	10.555s
+FAIL
