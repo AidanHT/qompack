@@ -1,0 +1,24 @@
+# fix seat (w6-config), 2026-09-27: HEAD's call-only classifyReadCalls (temporarily restored) against the extended self-test (an opener handed on as a value). Windows.
+=== RUN   TestGuard_SharedReaderScannerSeesAForbiddenCall
+    sharedreaders_test.go:419: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/sharedreaders_test.go:419
+        	Error:      	Not equal: 
+        	            	expected: []string{"os.Open"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,2 @@
+        	            	-([]string) (len=1) {
+        	            	- (string) (len=7) "os.Open"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestGuard_SharedReaderScannerSeesAForbiddenCall
+        	Messages:   	an ordinary opener handed on as a value is the same forbidden read as a call to it
+--- FAIL: TestGuard_SharedReaderScannerSeesAForbiddenCall (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.288s
+FAIL
+exit=1

@@ -396,6 +396,30 @@ func sample(p string) ([]byte, error) {
 		"the classifier must see both forbidden shapes; if it sees neither, every row above is vacuous")
 	require.Equal(t, []string{"paths.ReadFileShared"}, required,
 		"the classifier must also recognise the shared read, or a correct reader would fail the guard")
+
+	const values = `package p
+
+import (
+	"os"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+type reader struct{ open func(string) (*os.File, error) }
+
+func handsOn(p string) (reader, reader) {
+	return reader{open: paths.OpenSharedLeaf}, reader{open: os.Open}
+}
+`
+	f, err = parser.ParseFile(fset, "values.go", values, parser.SkipObjectResolution)
+	require.NoError(t, err)
+	fn = funcDeclNamed(f, "handsOn")
+	require.NotNil(t, fn)
+	forbidden, required = classifyReadCalls(fn)
+	require.Equal(t, []string{"os.Open"}, forbidden,
+		"an ordinary opener handed on as a value is the same forbidden read as a call to it")
+	require.Equal(t, []string{"paths.OpenSharedLeaf"}, required,
+		"a shared opener handed on as a value is the same shared read as a call to it")
 }
 
 // findFuncDecl parses path and returns the one function declared there under name. Exactly one
@@ -433,19 +457,18 @@ func funcDeclNamed(f *ast.File, name string) *ast.FuncDecl {
 	return nil
 }
 
-// classifyReadCalls walks fn's body and reports which forbidden and which required read calls it
-// makes, each sorted and de-duplicated. Nested function literals are included: a read moved into a
-// closure inside the same function is the same read.
+// classifyReadCalls walks fn's body and reports which forbidden and which required read functions it
+// uses, each sorted and de-duplicated. A use is a call or a reference to the function as a value —
+// an opener handed to a reader that calls it, as readCaptureConfig hands paths.OpenSharedLeaf to its
+// captureConfigReader — which is the same read, and the shape TestGuard_EveryProductReadIsClassified
+// already counts for os.Open. Nested function literals are included: a read moved into a closure
+// inside the same function is the same read.
 func classifyReadCalls(fn *ast.FuncDecl) (forbidden, required []string) {
 	seenBad := map[string]bool{}
 	seenGood := map[string]bool{}
 
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
+		sel, ok := n.(*ast.SelectorExpr)
 		if !ok || sel.Sel == nil {
 			return true
 		}
