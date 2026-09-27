@@ -167,11 +167,15 @@ func renameWithRetry(tmp, p string) error {
 // fsyncDir fsyncs dir's directory entry after a rename — the durability half of the write
 // barrier WriteAtomic promises. Without it, a crash between the rename and the next unrelated
 // metadata flush can lose the rename on some POSIX filesystems even though the renamed file's
-// own data was already synced. Windows needs no equivalent: MoveFileEx's NTFS transaction is
-// durable on its own, so fsyncDir is a no-op there — and that still holds now that the rename may
-// be replace_windows.go's FileRenameInfoEx instead, because the two differ only in the
-// FILE_RENAME_* flags handed to the same NTFS FileRenameInformation path, not in how the metadata
-// change is journalled.
+// own data was already synced.
+//
+// On Windows it is a no-op, by owner decision D24, and SyncDir's comment states the premise that
+// decision rests on and what it leaves exposed. The no-op is also forced by the API: os.Open of a
+// directory yields a handle FlushFileBuffers refuses (ERROR_ACCESS_DENIED), and os.OpenFile(dir,
+// O_RDWR) fails with EISDIR (w5-dirsync, runs/win-dir-fsync-probe.txt), so without the short circuit
+// every call would fail. That still holds now that the rename may be replace_windows.go's
+// FileRenameInfoEx instead of MoveFileEx: the two differ only in the FILE_RENAME_* flags handed to
+// the same NTFS FileRenameInformation path, not in how the metadata change is journalled.
 func fsyncDir(dir string) error {
 	if runtime.GOOS == "windows" {
 		return nil
@@ -187,8 +191,32 @@ func fsyncDir(dir string) error {
 // SyncDir makes dir's entries durable: the names of the files in it, which on POSIX a file's own
 // fsync does not cover. WriteAtomic syncs its destination's directory this way after its rename. A
 // caller that makes durable a file another process created, and never synced the directory of, needs
-// the same: the daemon's drain, before it consumes a spool file a hook created. Like fsyncDir, it is a
-// no-op on Windows.
+// the same: the daemon's drain, before it consumes a spool file a hook created. So does a caller that
+// is about to depend on a new file's name: AppendManifest, before a MANIFEST line names an artifact.
+//
+// On Windows SyncDir is a no-op (owner decision D24), on the NTFS-journaling premise:
+//
+//   - NTFS writes every metadata change — a file's creation, a rename, a deletion, a size change —
+//     to the volume's write-ahead log as one transaction, and replays that log at mount, so after a
+//     power cut each such change is either wholly present or wholly absent. A directory entry is
+//     never torn, and a rename never leaves both names or neither.
+//   - FlushFileBuffers on a file (File.Sync) writes the file's bytes and forces the log out through
+//     the file's own latest change. The log is sequential, so every metadata change logged before
+//     that point — the file's own creation or rename among them — is durable when the flush returns.
+//     A directory flush would add nothing to a file that is itself flushed after its last rename.
+//
+// The residual risk is what follows the LAST flush on the volume: a rename or deletion completed
+// after it can be undone by a power cut. WriteAtomic flushes its staging file before the rename, so
+// its most recent replacement of a file can revert to the previous complete version — never to a
+// torn or empty one — and a removed file can reappear. No product guarantee depends on more than
+// the premise: every write whose loss would break one ends with a flush after the directory change it
+// relies on (a checkpoint's MANIFEST line, the delivery and WAL journal appends, each object's flush
+// in a publication pass, the pins log line), and the files that can revert — state/ documents, the
+// pins view, precompact.json, a draft, a restore's final directory rename — are derived or rebuilt,
+// or leave the operator the previous state to retry from. The premise has not been tested with a
+// power cut on this project; a real Windows directory barrier exists (FlushFileBuffers on a
+// CreateFile(GENERIC_WRITE, FILE_FLAG_BACKUP_SEMANTICS) handle, w5-dirsync item 4) and D24 declines
+// it. docs/architecture.md §4 and docs/security.md §8 carry the same statement for operators.
 func SyncDir(dir string) error { return fsyncDir(dir) }
 
 // ownerWriteBit is the permission bit Windows' os.Chmod reads: it maps the whole mode onto the
