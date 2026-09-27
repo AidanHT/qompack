@@ -32,17 +32,20 @@ const spawnLockTestBound = 5 * time.Second
 // spawnLockMissBound is the bound for the rows that expect NO daemon: they wait it out in full.
 const spawnLockMissBound = 200 * time.Millisecond
 
-// fakeDaemonUpAfter is how long the fake daemon takes to start serving once spawned.
-const fakeDaemonUpAfter = 150 * time.Millisecond
+// fakeDaemonUpAfter is how long the fake daemon takes to start serving once spawned. It is off
+// ensureRunning's 25 ms poll grid (ensureRunningPollInterval), so that no row depends on whether a
+// poll lands just before or just after the daemon comes up and clears the spawn lock.
+const fakeDaemonUpAfter = 163 * time.Millisecond
 
 // fakeDaemons stands in for the process spawnDetached starts: a real listener at the project's
-// resolved address, brought up after a delay, the way a spawned daemon comes up once it serves. It
-// counts the spawns it was asked for.
+// resolved address, brought up after a delay, the way a spawned daemon comes up once it serves, and
+// deleting run/spawn.lock once it listens, as Run does. It counts the spawns it was asked for.
 type fakeDaemons struct {
 	t *testing.T
 
 	mu      sync.Mutex
 	servers []ipc.Server
+	up      map[string]bool
 	timers  []*time.Timer
 	closed  bool
 
@@ -55,35 +58,45 @@ func newFakeDaemons(t *testing.T) *fakeDaemons {
 	return f
 }
 
-// serveAfter brings up a listener for root after d. A second listener on the same address fails
-// to bind and is dropped, as a second daemon loses the singleton race and exits.
+// serveAfter brings up a daemon for root after d (serve).
 func (f *fakeDaemons) serveAfter(root string, d time.Duration) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.closed {
 		return
 	}
-	f.timers = append(f.timers, time.AfterFunc(d, func() {
-		addr, err := ipc.Resolve(root)
-		if err != nil {
-			return
-		}
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		if f.closed {
-			return
-		}
-		srv, err := ipc.NewServer(addr, logging.Nop(), nil, 0)
-		if err != nil {
-			return
-		}
-		f.servers = append(f.servers, srv)
-		go func() {
-			_ = srv.Serve(context.Background(), func(context.Context, ipc.Request) ipc.Response {
-				return ipc.Response{OK: true}
-			})
-		}()
-	}))
+	f.timers = append(f.timers, time.AfterFunc(d, func() { f.serve(root) }))
+}
+
+// serve brings up a daemon for root now: it listens, starts serving and then deletes run/spawn.lock,
+// in Run's order (NewServer, Serve, WriteState, removeSpawnLockFile). A second daemon for a root
+// already served exits without listening or touching the lock, as a real one that loses the
+// singleton lock (daemon.lock) does.
+func (f *fakeDaemons) serve(root string) {
+	addr, err := ipc.Resolve(root)
+	if err != nil {
+		return
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed || f.up[root] {
+		return
+	}
+	srv, err := ipc.NewServer(addr, logging.Nop(), nil, 0)
+	if err != nil {
+		return
+	}
+	if f.up == nil {
+		f.up = map[string]bool{}
+	}
+	f.up[root] = true
+	f.servers = append(f.servers, srv)
+	go func() {
+		_ = srv.Serve(context.Background(), func(context.Context, ipc.Request) ipc.Response {
+			return ipc.Response{OK: true}
+		})
+	}()
+	removeSpawnLockFile(root)
 }
 
 func (f *fakeDaemons) close() {
@@ -263,6 +276,40 @@ func TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails(t *testing.T) {
 	var lazy atomic.Int64
 	requireLazySpawns(t, root, clk, &lazy)
 	require.EqualValues(t, 1, lazy.Load(), "the next spawner is not held off by a spawn that never started")
+}
+
+// onFirstNowClock is a fakeClock that runs fn the first time anything reads it. ensureRunning reads
+// its clock first inside its first ipc.ClaimSpawn, to stamp the claim before it creates the lock, so
+// fn runs after the dial that found no daemon and before the claim.
+type onFirstNowClock struct {
+	*fakeClock
+	once sync.Once
+	fn   func()
+}
+
+func (c *onFirstNowClock) Now() time.Time {
+	c.once.Do(c.fn)
+	return c.fakeClock.Now()
+}
+
+func (c *onFirstNowClock) Since(t time.Time) time.Duration { return c.Now().Sub(t) }
+
+// TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn: the daemon another spawner announced
+// comes up, and deletes run/spawn.lock as Run does, after ensureRunning's dial missed it and before
+// its claim. The claim then succeeds, on a lock the daemon itself freed. EnsureRunning must dial again
+// before it spawns, find that daemon and give the claim back, not start a second daemon: the lock is
+// free both when nobody is spawning and when the spawn it announced has finished.
+func TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn(t *testing.T) {
+	root := t.TempDir()
+	f := newFakeDaemons(t)
+	clk := &onFirstNowClock{fakeClock: newFakeClock(epoch), fn: func() { f.serve(root) }}
+	lockPath := writeSpawnLock(t, root, clk.fakeClock.Now())
+
+	spawned, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound}, f.spawnUp)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, f.calls.Load(), "the daemon that freed the lock is up: nothing may spawn a second one")
+	require.False(t, spawned, "EnsureRunning spawned nothing: the daemon it found was another spawner's")
+	require.NoFileExists(t, lockPath, "the claim it made on the freed lock is given back")
 }
 
 // ensureSpawnLockHalfWindow is half the spawn lock's freshness window (ipc's spawnLockStaleAfter,

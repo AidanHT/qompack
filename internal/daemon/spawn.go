@@ -37,6 +37,22 @@ func removeSpawnLockFile(root string) {
 // spawn.go): "costs nothing", so it is short.
 const ensureRunningDialTimeout = 20 * time.Millisecond
 
+// spawnClaimDialTimeout bounds the dial EnsureRunning makes after it has claimed run/spawn.lock and
+// before it spawns (V6 close-out D17a). A free lock does not mean no daemon: the daemon a claim
+// announced deletes the lock once it listens (Run), so a caller whose last dial missed that daemon by
+// moments can claim the lock it freed. A daemon that has only just listened, or has just accepted
+// another dial, may not have its next accept posted yet: on Windows a named pipe with no accept
+// pending answers ERROR_PIPE_BUSY, which go-winio retries every 10 ms (ipc's dialBusyRetryQuantum),
+// and ensureRunningDialTimeout's 20 ms buys two attempts, which a loaded machine's scheduling can
+// outlast. So this dial gets the budget every other dial of a daemon that may be just starting gets:
+// 250 ms, the value of internal/cli's hookConnectDeadlineFloor, which a hook gives session-start's
+// dial for the same race and which this package cannot import. It costs nothing when no daemon is
+// there, because a missing pipe or socket fails a dial at once; only a pipe that exists and never
+// accepts, a hung daemon, holds a spawn back this long. Too short, and a daemon that is up but slow
+// to accept is missed and a second one spawned, which loses daemon.lock and exits after costing the
+// caller a spawn; too long, and a hung daemon delays its replacement by that much.
+const spawnClaimDialTimeout = 250 * time.Millisecond
+
 // ensureRunningPollInterval and ensureRunningPollBound bound EnsureRunning's poll: a ticker every
 // 25ms for up to 1500ms total (task-3-spec.md spawn.go), counted from the moment the poll begins —
 // after this call's own spawn, or once it found another spawner's claim. Both are real wall-clock
@@ -77,11 +93,15 @@ const (
 // claim another spawner made within the lock's freshness window — a hook's lazy spawn, the MCP
 // server's, another session-start, a Windows spawn still copying its staged binary — means that
 // spawner's daemon is on its way, and EnsureRunning waits for it instead of starting a second one.
-// The wait re-checks the lock on every poll, so a claim whose spawner died goes stale inside it and
-// is reclaimed, and this caller spawns after all (fail-safe). A lock it cannot take for any other
-// reason does not stop it: session-start is the designated starter, and spawned before the lock
-// existed. Its own claim makes every later spawner wait for its daemon in turn, until that daemon
-// is listening and removes the lock (Run).
+// Each poll dials first and claims only when the dial fails, and a claim is not licence to spawn on
+// its own: the lock is also free once the daemon it announced is listening, because that daemon
+// deletes it (Run), so EnsureRunning dials once more (spawnClaimDialTimeout) before it spawns, and
+// a daemon that answers keeps it from spawning and gets its claim back. The wait re-checks the
+// lock on every poll, so a claim whose spawner died goes stale inside it and is reclaimed, and this
+// caller spawns after all (fail-safe). A lock it cannot take for any other reason does not stop it:
+// session-start is the designated starter, and spawned before the lock existed. Its own claim makes
+// every later spawner wait for its daemon in turn, until that daemon is listening and removes the
+// lock.
 //
 // spawned reports whether THIS call started the daemon. If the spawn itself fails, nothing was
 // spawned, so this reports (false, serr) rather than claiming a spawn that never happened, and
@@ -166,7 +186,17 @@ func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock,
 	defer ticker.Stop()
 	for {
 		if !spawned {
-			if lock, claim := ipc.ClaimSpawn(projectRoot, clk); claim != ipc.SpawnInFlight {
+			lock, claim := ipc.ClaimSpawn(projectRoot, clk)
+			switch {
+			case claim == ipc.SpawnInFlight:
+				// Another spawner's daemon is on its way: wait for it.
+			case ipc.Probe(addr, spawnClaimDialTimeout):
+				// A daemon answers after all: the one the lock announced, up since this call's last
+				// dial and the reason the lock was free, or one that shorter dial missed while it
+				// was busy. Either way it is the daemon this call was making sure of.
+				lock.Release()
+				return false, nil
+			default:
 				if serr := spawn(projectRoot, self); serr != nil {
 					lock.Release()
 					log.Warn("daemon: spawn failed", "err", serr)
@@ -180,13 +210,15 @@ func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock,
 			// or a slow process creation does not eat the wait the new daemon gets.
 			deadline = bound.deadline(time.Now())
 		}
-		if ipc.Probe(addr, ensureRunningDialTimeout) {
-			return spawned, nil
-		}
 		if !time.Now().Before(deadline) {
 			return spawned, core.ErrNotFound
 		}
 		<-ticker.C
+		// Dial before anything else on every poll: a daemon that is up needs no claim, and the
+		// lock it announced may already be gone.
+		if ipc.Probe(addr, ensureRunningDialTimeout) {
+			return spawned, nil
+		}
 	}
 }
 

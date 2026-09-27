@@ -720,8 +720,10 @@ spooled, not lost: the daemon replays it — at its next idle drain, within 30 s
 and records the session, but a replayed start mints no probe and delivers no rehydration, because
 its answer could reach no one. Only one daemon is started per project however many hooks race to
 start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process that appears and exits at
-once, because it cannot take the project's singleton lock, means a spawn took longer than the spawn
-lock's 10 s freshness window, which is itself a sign of heavy load.
+once, because it cannot take the project's singleton lock, means a spawner found neither a daemon
+answering its dial nor a spawn in flight while one was in fact starting or running: a spawn that
+took longer than the spawn lock's 10 s freshness window, or a hook whose short dial a busy daemon did
+not answer in time. Both are signs of heavy load.
 
 **Action.** None for a single occurrence: the session continues, and a compaction's note lists the
 recovery calls. If it recurs on every start, look at the machine's CPU and disk load when sessions
