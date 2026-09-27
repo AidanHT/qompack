@@ -336,7 +336,11 @@ different things: a file's sync makes its bytes durable, and a sync of its direc
 *name* durable. A new file whose own sync returned can still vanish if its directory was never
 synced. Every step that promises durability issues both where it depends on both, in an order that
 lets no durable record name something a cut could still take (`internal/paths/barriers.go` is the
-seam that lets tests count and cut them):
+seam that lets tests count and cut them). A directory barrier is never taken as done because the
+name it covers is already on disk: the first durable append to a log in each process syncs the log's
+directory whoever created the file, and a directory some earlier call in the process created but
+could not sync — the call failed, or another goroutine is still inside it — is synced by the next
+call that depends on it:
 
 - **Checkpoint seal.** `Finalize` returns only after, in order: the artifact's bytes; the draft's
   segment marks (`index/segments.jsonl`, re-marked and synced — and `index/` once per daemon run,
@@ -344,7 +348,10 @@ seam that lets tests count and cut them):
   seal itself; and `checkpoints/` again when the seal created the manifest. Only then do the draft's
   retirement, the successor draft, the PreCompact answer and the next rehydration act on it. A cut
   anywhere leaves the checkpoint absent (its draft still on disk, sealed on the next attempt) or
-  sealed with its marks durable, never a manifest line naming bytes the cut took.
+  sealed with its marks durable, never a manifest line naming bytes the cut took. A barrier that
+  fails after the line is written, while the process lives on, leaves the checkpoint sealed for every
+  reader: `Finalize` reports the failure (and counts `checkpoint.seal_not_durable`) but retires the
+  draft as sealed, so the next attempt never seals the same content again under the next sequence.
 - **Delivery and WAL.** A hook's ACK follows the WAL line's sync; the spool directory is synced when
   a WAL segment is opened, and a tool response too large to send inline (a `spool/blob-*.bin` file
   the hook wrote) is synced, with its directory, before the line that names it.
@@ -360,7 +367,9 @@ seam that lets tests count and cut them):
 - **Backup and restore.** Every directory of a backup tree, and the certification marker, is synced
   before the manifest certifies the backup; a restore syncs its staged tree before the rename that
   publishes it, and the destination after. `EnsureLayout` syncs the parent of every directory it
-  creates.
+  creates, and writes `.qompack/.gitignore` only after those syncs succeed, so the next call over a
+  layout whose syncs failed, or one another writer began (a hook's spool directory), syncs its
+  entries again.
 
 Some files may lose their tail to a power cut by design, because nothing durable depends on them:
 the elimination lines the detector and prompt recognition derive from spooled events (a lost tail
@@ -389,11 +398,16 @@ keeps the no-op on the NTFS-journaling premise rather than add a raw Windows dir
   bytes, and a rename, creation or deletion completed after it. `WriteAtomic` flushes its staging
   file before its rename, so its most recent replacement of a file can revert to the previous
   complete version — never to a torn or empty one — and a removed file can reappear.
-- *Why that is enough.* No product guarantee depends on more: each write listed above ends with a
+- *Why that is enough.* No product guarantee depends on more. Each write listed above ends with a
   file flush after the directory change it relies on (the `MANIFEST.jsonl` line, the journal and WAL
   appends, each object's flush in a publication pass, the pins and acknowledged elimination lines),
-  and the files that can revert — `state/` documents, the pins view, a draft, `state/precompact.json`,
-  a restore's final rename — are derived or rebuilt, or leave the previous state to retry from.
+  except a backup's certification, and every change that can revert is safe to lose. `state/`
+  documents, the pins view, a draft and `state/precompact.json` are derived or rebuilt. A restore's
+  final rename leaves the previous state to retry from. A backup's certification is the rename of its
+  manifest and the removal of its certification-pending marker, the last two steps of
+  `qompack backup`, and no flush follows them: a power cut just after the command reports the backup
+  certified can leave it without its manifest or with the marker back. Verification refuses such a
+  backup, so it is never restored from as certified; it must be taken again.
 
 The premise has not been tested with a power cut on this project; a working Windows directory
 barrier exists (`FlushFileBuffers` on a `CreateFile(GENERIC_WRITE, FILE_FLAG_BACKUP_SEMANTICS)`
