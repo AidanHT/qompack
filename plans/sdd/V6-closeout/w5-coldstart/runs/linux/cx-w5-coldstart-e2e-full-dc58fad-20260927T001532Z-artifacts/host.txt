@@ -1,0 +1,10 @@
+run_id=cx-w5-coldstart-e2e-full-dc58fad-20260927T001532Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart
+rev=dc58fad
+commit=dc58fadb0463ed6826e0e9c9b7a515091256479d
+bundle_sha256=409a272b7a80a51fdbb88edaa433cbbd6765d57863a62b641053e1c5378798e3
+host_started_utc=2026-09-27T00:15:45Z
+inner_args=--timeout 100m -- ./test/e2e
+host_finished_utc=2026-09-27T00:56:29Z
+container_exit=1

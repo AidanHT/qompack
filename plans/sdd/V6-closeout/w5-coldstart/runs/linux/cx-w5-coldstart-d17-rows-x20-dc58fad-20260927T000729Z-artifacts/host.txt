@@ -1,0 +1,10 @@
+run_id=cx-w5-coldstart-d17-rows-x20-dc58fad-20260927T000729Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart
+rev=dc58fad
+commit=dc58fadb0463ed6826e0e9c9b7a515091256479d
+bundle_sha256=94aecf0b5372c45851f8929aea64accc63eaf493366ecfdb163d2a6ead94237b
+host_started_utc=2026-09-27T00:07:40Z
+inner_args=--count 20 --timeout 60m --run ^(TestLazySpawn_|TestClaimSpawn_|TestEnsureRunning_|TestEnsureRunningUntil_|TestRun_AcceptsDialsWhileItsStartupDrainRuns$|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun$|TestRunCtxDoneGoesThroughStop$|TestRedrainOnFirstServedRequest$|TestSessionStartBudget_|TestEnsureDaemonRunning_) -- ./internal/ipc ./internal/daemon ./internal/cli
+host_finished_utc=2026-09-27T00:10:27Z
+container_exit=0
