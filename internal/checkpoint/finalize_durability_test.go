@@ -452,3 +452,37 @@ func runSealCut(t *testing.T, prior, cutAt int, powerLoss bool) {
 	require.NoError(t, err)
 	require.True(t, seg.EncodedOnce, "the resumed seal leaves the segment marked, so no later draft re-encodes it")
 }
+
+// failingMarksSync is a SegmentLog whose Sync always fails, the way a failing disk would.
+type failingMarksSync struct{ store.SegmentLog }
+
+var errMarksSync = errors.New("injected segment-log sync failure")
+
+func (failingMarksSync) Sync(context.Context) error { return errMarksSync }
+
+// TestFinalizeSealsWhenItsSegmentMarksCannotBeSynced pins the one barrier failure that degrades the
+// seal instead of refusing it (sealSegmentMarks): the checkpoint the session needs to survive this
+// compaction is still sealed, and the failure is counted, because refusing the seal over the DPI
+// bookkeeping would trade a possible later re-encoding for a certain loss of the checkpoint now.
+func TestFinalizeSealsWhenItsSegmentMarksCannotBeSynced(t *testing.T) {
+	f := newFx(t)
+	reg := obs.New(f.p.Clock)
+	w, err := checkpoint.OpenWriter(f.p.Root, f.p.Cfg, f.p.Log, reg, f.p.Clock)
+	require.NoError(t, err)
+	f.w = w
+	f.src.Segments = failingMarksSync{f.store.Segments()}
+
+	f.prompt(0, "Fix the intermittent 500s on the refresh endpoint.", true)
+	f.tool("toolu_marks_0001", 1, "Read", "src/auth.ts", "export function refreshToken() {}", false)
+	f.closedSeg(1, 0, 3)
+	d := f.begin()
+	f.advance(d, 1)
+
+	res, err := f.w.PreCompact(f.ctx(), f.precompactInput())
+	require.NoError(t, err, "a segment-log sync failure does not refuse the seal")
+	outcome, cp := classifySeal(t, f.p.Root, res.Ref.Seq)
+	require.Equal(t, outcomeSealed, outcome)
+	require.Contains(t, cp.EncodedSegments, core.SegmentID(1))
+	require.Equal(t, int64(1), reg.Counter("checkpoint.segment_marks_unsynced").Value(),
+		"the degraded seal is counted, so an operator can learn a later draft may re-encode its segments")
+}
