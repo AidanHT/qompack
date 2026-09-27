@@ -133,8 +133,9 @@ func TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero(t *testing.T)
 }
 
 // TestCLI_ConfigViolationsAreLoudAndPersisted is the cli half of §11.3. config.Load does the
-// per-leaf fallback and returns the evidence; it cannot log or persist, because §3.2 gives it the
-// allow-set {core}. This test asserts the reporting half actually happens.
+// per-leaf fallback and returns the evidence; it neither logs nor persists, because §3.2 keeps logging
+// out of its allow-set {core, paths} and it writes no file by design. This test asserts the
+// reporting half actually happens.
 func TestCLI_ConfigViolationsAreLoudAndPersisted(t *testing.T) {
 	dir := t.TempDir()
 

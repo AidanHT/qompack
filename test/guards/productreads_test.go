@@ -54,9 +54,6 @@ const (
 		"module file); no Qompack process rewrites it during the run"
 	whySealedCheckpoint = "a sealed checkpoint artifact (§7.4): CreateNew writes it read-only once, and " +
 		"nothing replaces or removes an artifact the manifest names"
-	whyConfigFile = "config.json, which only the user or their editor writes: no Qompack process replaces " +
-		"it. §3.2 gives config the allow-set {core}, so it cannot reach paths.ReadFileShared either; an " +
-		"editor's atomic save racing this read is the documented residual (w5-winfiles)"
 	whyObject = "a content-addressed object, never replaced. GC removes only unreachable objects and " +
 		"counts a removal a reader refuses as skipped for that pass (gcrun.go's sweep), and quarantine " +
 		"runs under the daemon lock. These opens also carry flags OpenShared does not take"
@@ -73,8 +70,6 @@ var ordinaryReads = []ordinaryRead{
 		"that session is live; the daemon lock keeps every other writer out, and backup copies it shared"},
 	{"internal/cli/doctor.go", "bundleRow", "a file the plugin bundle ships, which no Qompack process writes"},
 	{"internal/commands/evalartifacts.go", "readEvalJSON", whyEvalInput},
-	{"internal/config/capture_load.go", "readCaptureConfig", whyConfigFile},
-	{"internal/config/load.go", "Load", whyConfigFile},
 	{"internal/contract/sentinel.go", "readTail", whyHostTranscript},
 	{"internal/daemon/delivery_lease.go", "loadAcksFrom", whyDeliveryJournal},
 	{"internal/daemon/delivery_lease.go", "loadDeliveryPosition", whyDeliveryJournal},
@@ -117,6 +112,8 @@ var ordinaryReads = []ordinaryRead{
 	{"internal/paths/appendonly.go", "TerminatePartialTail", "the tail of an append-only log its caller " +
 		"is about to append to; append-only logs are never replaced"},
 	{"internal/paths/atomic.go", "fsyncDir", whyDirectory},
+	{"internal/paths/leaf_unix.go", "openSharedLeaf", "OpenSharedLeaf's own body off Windows, where a " +
+		"descriptor blocks no replace or remove"},
 	{"internal/paths/manifest.go", "ReadManifest", "checkpoints/MANIFEST.jsonl, append-only under §7.4: " +
 		"nothing replaces or removes it"},
 	{"internal/paths/replace_other.go", "openShared", "OpenShared's own body off Windows, where a " +
