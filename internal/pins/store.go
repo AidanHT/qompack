@@ -124,6 +124,10 @@ type pinStore struct {
 	// disk is behind both the log and the live set. See materializeLocked for why it is needed and
 	// Add and Remove for what acts on it.
 	viewDirty bool
+
+	// barriers are the syncs appendLocked makes a record durable through. The zero value is the real
+	// thing and is all production uses; a test counts or cuts them (export_test.go).
+	barriers paths.Barriers
 }
 
 // pinStore is the implementation behind the seam every caller holds.
@@ -289,15 +293,22 @@ func (s *pinStore) normalizeSource(src string) string {
 	}
 }
 
-// appendLocked writes one record to the log through paths.AppendJSONL — which opens the file with
-// paths.AppendOnly, marshals compactly with HTML escaping DISABLED so a "<" or "&" inside a
-// pinned fact survives as itself, and terminates the line with exactly one newline.
+// appendLocked writes one record to the log through paths.AppendJSONLDurable — which opens the file
+// with paths.AppendOnly, marshals compactly with HTML escaping DISABLED so a "<" or "&" inside a
+// pinned fact survives as itself, terminates the line with exactly one newline, and syncs it (and,
+// for the project's first pin, the pins directory that now names the log) before it returns.
+//
+// The sync is what makes Add's and Remove's success true. Both append here and then regenerate
+// invariants.json through paths.ReplacePinsView, which syncs the view and its directory; with an
+// unsynced log line, a power cut could keep the derived view and lose its source, and the next
+// replay and Materialize would silently drop a pin the user was told was kept (or bring back one
+// they removed). The log is the truth (§3.3), so its line is durable first. Pins are written a
+// handful of times per session, so one sync per record is not on any hot path.
 //
 // The handle is opened and closed per record rather than held for the store's lifetime because
-// the frozen Store seam has no Close: a long-lived handle would have nothing to release it, and
-// pins are written a handful of times per session, so the open is not on any hot path.
+// the frozen Store seam has no Close: a long-lived handle would have nothing to release it.
 func (s *pinStore) appendLocked(rec record) error {
-	if err := paths.AppendJSONL(s.logPath(), rec); err != nil {
+	if err := s.barriers.AppendJSONLDurable(s.logPath(), rec); err != nil {
 		return fmt.Errorf("pins: appending to %s: %w", s.logPath(), err)
 	}
 	return nil
