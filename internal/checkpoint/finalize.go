@@ -44,7 +44,9 @@ var _ Writer = (*FileWriter)(nil)
 //     here is Loud and counted but does not refuse the seal — see sealSegmentMarks for why);
 //  3. the artifact's name (paths.AppendManifest's first SyncDir of checkpoints/);
 //  4. the MANIFEST line (appended, then the manifest synced) — the seal;
-//  5. the manifest's name, when this seal created the manifest (a second SyncDir);
+//  5. the manifest's name, when this seal created the manifest (a second SyncDir). A barrier that
+//     fails after step 4's write (paths.ErrLineNotDurable) leaves the line visible: the draft is
+//     retired as sealed, never sealed again at the next sequence, and Finalize reports the failure;
 //  6. only then everything that depends on the seal: the pins view, the draft's retirement, the
 //     successor draft, the PreCompact answer, state/precompact.json and, at the next SessionStart,
 //     the rehydration and its state file.
@@ -137,9 +139,25 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 		Created: core.NowMilli(w.clk),
 	}
 	if err := w.barriers.AppendManifest(w.l, entry); err != nil {
-		// The artifact is on disk and verifies; only its index line is missing. Say so loudly and
-		// leave the file: `qompack fsck` reconciles an orphan by re-hashing it, whereas deleting a
-		// good checkpoint here would lose the session.
+		if errors.Is(err, paths.ErrLineNotDurable) {
+			// The line is written: every reader in this boot already sees the checkpoint sealed, and
+			// the manifest claims seq. Unsealing the draft would have the next attempt — the next
+			// cadence tick or compaction — find seq taken, seal the same content again at seq+1 and
+			// report the segments it re-points as seq_reference_drift (w6-ckptsync review finding 2).
+			// So the draft becomes this checkpoint exactly as on success; what is withheld is the
+			// promise, because the barrier that would make it true failed. The artifact's bytes and
+			// name were made durable before the line (barriers 1 and 3), so a power cut that takes
+			// the line leaves an orphan `qompack fsck` re-indexes, not a lost session.
+			committed = true
+			w.m.Counter(metricSealNotDurable).Add(1)
+			w.log.Loud("checkpoint: sealed, but its manifest line is not known durable; after a power cut run qompack fsck",
+				"seq", int(seq), "path", paths.CheckpointPath(w.l, seq), "err", err.Error())
+			w.afterSeal(ctx, d, src, seq)
+			return Ref{}, fmt.Errorf("checkpoint: seal %04d is visible but not durable: %w", seq, err)
+		}
+		// Nothing was appended. The artifact is on disk and verifies; only its index line is missing.
+		// Say so loudly and leave the file: `qompack fsck` reconciles an orphan by re-hashing it,
+		// whereas deleting a good checkpoint here would lose the session.
 		w.log.Loud("checkpoint written but manifest append failed",
 			"seq", int(seq), "path", paths.CheckpointPath(w.l, seq), "err", err.Error())
 		return Ref{}, fmt.Errorf("checkpoint: manifest append %04d: %w", seq, err)
@@ -147,12 +165,6 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 	// The artifact exists, verifies and is indexed: the draft has become a checkpoint and must stay
 	// sealed whatever the tail of this function does.
 	committed = true
-
-	if err := src.Pins.Materialize(ctx); err != nil {
-		// The materialized view is derived state; a stale invariants.json never costs correctness,
-		// so this is a Warn and not a failed finalize.
-		w.log.Warn("checkpoint: pins materialize failed after finalize", "seq", int(seq), "err", err.Error())
-	}
 
 	ref := Ref{
 		Seq:      seq,
@@ -164,6 +176,25 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 		Created:  entry.Created,
 	}
 
+	w.afterSeal(ctx, d, src, seq)
+	return ref, nil
+}
+
+// metricSealNotDurable counts seals whose MANIFEST line was written but whose barriers after the
+// write failed (paths.ErrLineNotDurable): the checkpoint is sealed for every reader, Finalize reported
+// it failed, and a power cut may still undo it. Its Loud line tells the operator to run fsck after
+// one, which re-indexes the artifact if the line was lost.
+const metricSealNotDurable = "checkpoint.seal_not_durable"
+
+// afterSeal is everything that follows a seal's MANIFEST line, whether or not its barriers all
+// returned: the pins view, the draft's retirement and its successor.
+func (w *FileWriter) afterSeal(ctx context.Context, d *Draft, src SourceSet, seq core.CheckpointSeq) {
+	if err := src.Pins.Materialize(ctx); err != nil {
+		// The materialized view is derived state; a stale invariants.json never costs correctness,
+		// so this is a Warn and not a failed finalize.
+		w.log.Warn("checkpoint: pins materialize failed after finalize", "seq", int(seq), "err", err.Error())
+	}
+
 	// 7. Retire the draft and open its successor immediately, so frontier advancement resumes on
 	//    the very next idle tick. This is what keeps the NEXT residual span O(delta) rather than
 	//    letting it grow from zero again (§8.5, O5).
@@ -173,8 +204,6 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 		// will open one on its next call.
 		w.log.Warn("checkpoint: could not open successor draft", "parent", int(seq), "err", err.Error())
 	}
-
-	return ref, nil
 }
 
 // metricSeqReferenceDrift counts artifacts written at a sequence number the segment log cannot be

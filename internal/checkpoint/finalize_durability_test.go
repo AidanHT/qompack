@@ -45,6 +45,9 @@ import (
 // errPowerCut is what every barrier returns from the cut onwards.
 var errPowerCut = errors.New("injected power cut")
 
+// errBarrier is what the one barrier a sealModel's failAt names returns: a failed sync, not a cut.
+var errBarrier = errors.New("injected barrier failure")
+
 // Barrier names as sealModel records them: file:<base> for a file sync, dir:<base> for a directory
 // sync, and marks for the segment log's sync.
 const (
@@ -68,7 +71,10 @@ type sealModel struct {
 	armed bool
 	cutAt int // 1-based barrier index to cut at; 0 cuts nothing
 	cut   bool
-	steps []string
+	// failAt is a 1-based barrier index that FAILS without cutting: that barrier returns errBarrier,
+	// the way a failing disk's sync does, and every later one runs normally. 0 fails nothing.
+	failAt int
+	steps  []string
 	// dependentsTouched names every barrier at which something that depends on the seal had
 	// already happened: the draft retired or replaced, or precompact.json written for the seq.
 	dependentsTouched []string
@@ -78,6 +84,12 @@ type sealModel struct {
 	segDur   int64            // index/segments.jsonl bytes durable
 	snapCP   map[string][]byte
 	snapSeg  []byte
+	// snapDraft is the draft file as the cut found it (snapDraftOK false: absent). The process stops
+	// at a cut, so nothing it would have written afterwards may survive the rebuild — and Finalize
+	// does write afterwards when a barrier after the MANIFEST line fails: it retires the draft and
+	// persists the successor (paths.ErrLineNotDurable).
+	snapDraft   []byte
+	snapDraftOK bool
 }
 
 func newSealModel(t *testing.T, root string) *sealModel {
@@ -145,6 +157,9 @@ func (m *sealModel) barrier(step string, do func() error, credit func()) error {
 		m.cut = true
 		return errPowerCut
 	}
+	if len(m.steps) == m.failAt {
+		return errBarrier
+	}
 	if err := do(); err != nil {
 		return err
 	}
@@ -191,6 +206,8 @@ func (m *sealModel) readCheckpoints() map[string][]byte {
 
 func (m *sealModel) snapshot() {
 	m.snapCP = m.readCheckpoints()
+	draft, err := os.ReadFile(paths.Long(m.draftPath))
+	m.snapDraft, m.snapDraftOK = draft, err == nil
 	b, err := os.ReadFile(paths.Long(m.segPath))
 	require.NoError(m.t, err)
 	m.snapSeg = b
@@ -227,6 +244,13 @@ func (m *sealModel) rebuild(powerLoss bool) {
 		if keep {
 			require.NoError(m.t, os.WriteFile(paths.Long(p), content, 0o600))
 		}
+	}
+	// The draft was durable (WriteAtomic) before the seal began and nothing durable touches it until
+	// the seal completes, so the power-loss view of it is the same as the crash view: the snapshot.
+	if m.snapDraftOK {
+		require.NoError(m.t, os.WriteFile(paths.Long(m.draftPath), m.snapDraft, 0o600))
+	} else if err := os.Remove(paths.Long(m.draftPath)); err != nil && !os.IsNotExist(err) {
+		require.NoError(m.t, err)
 	}
 	seg := m.snapSeg
 	if powerLoss {
@@ -294,7 +318,13 @@ type sealFixture struct {
 
 func newSealFixture(t *testing.T, prior int, cutAt int) sealFixture {
 	t.Helper()
-	f := newFx(t)
+	return newSealFixtureOn(t, newFx(t), prior, cutAt)
+}
+
+// newSealFixtureOn is newSealFixture over a caller-built fx, for a test that must hold the writer's
+// metrics registry.
+func newSealFixtureOn(t *testing.T, f *fx, prior int, cutAt int) sealFixture {
+	t.Helper()
 	m := newSealModel(t, f.p.Root)
 	f.src.Segments = recordingSegments{SegmentLog: f.store.Segments(), m: m}
 
@@ -485,4 +515,60 @@ func TestFinalizeSealsWhenItsSegmentMarksCannotBeSynced(t *testing.T) {
 	require.Contains(t, cp.EncodedSegments, core.SegmentID(1))
 	require.Equal(t, int64(1), reg.Counter("checkpoint.segment_marks_unsynced").Value(),
 		"the degraded seal is counted, so an operator can learn a later draft may re-encode its segments")
+}
+
+// TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice fails — does not cut — a barrier that runs
+// after the MANIFEST line is written: the manifest's own sync, or the checkpoints/ sync that makes a
+// new manifest's name durable. The process lives on, so the line is visible to every reader and the
+// manifest claims the sequence (w6-ckptsync review finding 2).
+//
+// The seal is not reported (PreCompact fails: no durability promise is made) and it is counted, but
+// the draft is not unsealed either. An unsealed draft still at that sequence was sealed a second
+// time by the next attempt: CreateNew found the sequence taken, the retry moved to the next one, and
+// the duplicate carried the same segments, which the log had already marked into the first — a
+// Loud seq_reference_drift for a checkpoint that was never lost.
+func TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		prior  int
+		failAt int
+	}{
+		{name: "the manifest's sync fails", prior: 1, failAt: 4},
+		{name: "the new manifest's sync fails", prior: 0, failAt: 4},
+		{name: "the new manifest's name fails", prior: 0, failAt: 5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFx(t)
+			reg := obs.New(f.p.Clock)
+			w, err := checkpoint.OpenWriter(f.p.Root, f.p.Cfg, f.p.Log, reg, f.p.Clock)
+			require.NoError(t, err)
+			f.w = w
+			sf := newSealFixtureOn(t, f, tc.prior, 0)
+			sf.m.failAt = tc.failAt
+
+			_, err = f.w.PreCompact(f.ctx(), f.precompactInput())
+			require.ErrorIs(t, err, errBarrier, "a seal whose barrier failed is not reported sealed")
+			require.Equal(t, expectedSealSteps(sf.seq, tc.prior == 0)[:tc.failAt], sf.m.steps)
+			outcome, cp := classifySeal(t, f.p.Root, sf.seq)
+			require.Equal(t, outcomeSealed, outcome, "fixture: the line was written, so readers see the seal")
+			require.Contains(t, cp.EncodedSegments, sf.segID)
+
+			// The next attempt, in the same process: the scheduler's next cadence tick or the host's
+			// next compaction.
+			sf.m.failAt = 0
+			got, err := f.w.PreCompact(f.ctx(), f.precompactInput())
+			require.NoError(t, err)
+			require.Greater(t, got.Ref.Seq, sf.seq)
+			require.Zero(t, reg.Counter("checkpoint.seq_reference_drift").Value(),
+				"no segment is re-pointed at a second checkpoint")
+			_, next := classifySeal(t, f.p.Root, got.Ref.Seq)
+			require.NotContains(t, next.EncodedSegments, sf.segID,
+				"the segment is sealed once, into the checkpoint the manifest already claims")
+			seg, err := f.store.Segments().Get(f.ctx(), sf.segID)
+			require.NoError(t, err)
+			require.Equal(t, sf.seq, seg.CheckpointSeq, "the segment's mark still names the first seal")
+			require.Equal(t, int64(1), reg.Counter("checkpoint.seal_not_durable").Value(),
+				"the seal written but not known durable is counted, once")
+		})
+	}
 }

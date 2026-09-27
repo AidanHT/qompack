@@ -12,12 +12,14 @@ package paths_test
 // before it. These tests pin that the next call issues the barrier itself.
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -135,3 +137,54 @@ func TestEnsureLayout_SyncsALayoutAnotherWriterStarted(t *testing.T) {
 	require.FileExists(t, filepath.Join(l.Dot, ".gitignore"))
 }
 
+// TestAppendManifest_SaysWhenTheLineIsWrittenButNotDurable: a failure before the line (the artifact
+// name's sync) means nothing was appended; a failure after it — the line's sync, or the directory
+// sync for a new manifest's name — is paths.ErrLineNotDurable, because the line is in the file and
+// readers see it (w6-ckptsync review finding 2). The next append's first directory sync covers a new
+// manifest's name that the failed step 3 left unsynced, so it issues no step 3 of its own.
+func TestAppendManifest_SaysWhenTheLineIsWrittenButNotDurable(t *testing.T) {
+	entry := func(seq core.CheckpointSeq) paths.ManifestEntry {
+		return paths.ManifestEntry{Seq: seq, SHA256: "a", Bytes: 1, Created: 1}
+	}
+	for _, tc := range []struct {
+		name    string
+		failAt  int
+		written bool
+	}{
+		{name: "the artifact name's sync", failAt: 1, written: false},
+		{name: "the line's sync", failAt: 2, written: true},
+		{name: "the new manifest name's sync", failAt: 3, written: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			l := newLayout(t)
+			b := &barrierLog{failAt: tc.failAt}
+			err := b.barriers().AppendManifest(l, entry(1))
+			require.ErrorIs(t, err, errBarrier)
+			require.Equal(t, tc.written, errors.Is(err, paths.ErrLineNotDurable),
+				"ErrLineNotDurable exactly when the line was written")
+			got, rerr := paths.ReadManifest(l)
+			require.NoError(t, rerr)
+			require.Len(t, got, map[bool]int{false: 0, true: 1}[tc.written])
+
+			next := &barrierLog{}
+			require.NoError(t, next.barriers().AppendManifest(l, entry(2)))
+			want := []string{"dir:checkpoints", "file:MANIFEST.jsonl"}
+			if !tc.written {
+				want = append(want, "dir:checkpoints") // this append is the one that creates the manifest
+			}
+			require.Equal(t, want, next.steps)
+		})
+	}
+}
+
+// TestAppendLinesDurable_SaysWhenTheLineIsWrittenButNotDurable: the same distinction for any durable
+// append, whichever barrier after the write fails.
+func TestAppendLinesDurable_SaysWhenTheLineIsWrittenButNotDurable(t *testing.T) {
+	for _, failAt := range []int{1, 2} {
+		p := filepath.Join(t.TempDir(), "log.jsonl")
+		b := &barrierLog{failAt: failAt}
+		err := b.barriers().AppendLinesDurable(p, []byte("{\"n\":1}\n"))
+		require.ErrorIs(t, err, errBarrier)
+		require.ErrorIs(t, err, paths.ErrLineNotDurable, "barrier %d runs after the write", failAt)
+	}
+}
