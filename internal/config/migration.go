@@ -93,6 +93,12 @@ func MigrationBuildGates() []MigrationGate {
 // LegacyImportGate returns the legacy import/cutover build gate as this build ships it. Passed is
 // false until SP-20 M1-04's acceptance evidence lands, so the production wiring of
 // store.NewMigrator refuses to import or cut over at all.
+//
+// Before Passed flips, the import's two unsynced appends must become durable: the mapping line that
+// Import commits its cursor past (store/migrate.go importOne, with a publication pass for the
+// imported objects) and the new-format write line the handoff records (RecordNewFormatWrite). The
+// V6 close-out found both and left them behind this gate (w6-ckptsync review finding 5); the store
+// test TestLegacyImportGate_StaysClosedUntilTheImportIsDurable fails if the gate opens first.
 func LegacyImportGate() MigrationGate {
 	for _, g := range migrationBuildGates {
 		if g.Key == LegacyImportGateKey {
