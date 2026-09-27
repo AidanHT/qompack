@@ -125,22 +125,46 @@ type atomicSaveLoad struct {
 //   - absent counts the loads that answered the configuration with no project layer at all — the
 //     default budget, no warning, no error — which is what each loader answers when the file does
 //     not exist. Since config.Load warns for a file that exists and cannot be read
-//     (TestLoad_UnreadableFileWarns), and LoadForCapture refuses one, such an answer means the
-//     filesystem reported config.json absent at the moment of the read. See atomicSaveAbsence.
+//     (TestLoad_UnreadableFileWarns), and LoadForCapture refuses one
+//     (TestReadCaptureConfig_AnswersAtOnceWithoutARecheck), such an answer means the filesystem
+//     reported config.json absent at the moment of the read. See atomicSaveAbsence.
+//   - absentRuns counts the maximal runs of consecutive absent loads, and longestAbsentRun is the
+//     longest, in loads. The runs, not the loads, are what atomicSaveMaxAbsentRuns bounds.
 //   - bad counts everything else: a refusal, any warning or violation, or any other value. These are
 //     the reader's failures, and each one fails the test; first is the first of them.
 type atomicSaveTally struct {
-	reads    int
-	versions [2]int
-	absent   int
-	bad      int
-	first    string
+	reads                        int
+	versions                     [2]int
+	absent                       int
+	absentRuns, longestAbsentRun int
+	bad                          int
+	first                        string
 }
+
+// atomicSaveMaxAbsentRuns is the most runs of absent answers one sub-test may see, a test criterion
+// the owner approves (V6 close-out w6-config, review finding 2). It keeps the absent bucket from
+// hiding a read failure taken for a missing file.
+//
+// Derivation. A filesystem absence is one moment during one save, and every load that falls into it
+// answers "no file" back to back, so it shows as ONE run however many loads it spans. Measured at
+// the fix (plans/sdd/V6-closeout/w6-config/runs/73): of 40 sub-tests, 36 saw no absent load and 4
+// saw exactly one run each, of 16, 41, 56 and 92 loads (0.8-4.6% of 2,000 reads). A bound on the
+// COUNT of absent loads would have to sit above the longest such moment times the read rate, which
+// grows with a slower host, so it is either flaky or too loose to see anything. A read failure
+// taken for a missing file is not one moment: it strikes loads spread across the whole run. At the
+// base f6095e2, whose config.Load took a failed read for a missing file, config.Load found no file
+// 105 to 475 times per sub-test in 105 to 435 separate runs, the longest 5 loads (runs/74); the
+// movefileex sub-test passed there before this bound (runs/42) and fails with it. At the measured
+// 4 runs in 40 sub-tests (0.1 per sub-test), four or more runs in one sub-test is Poisson-rare
+// (about 4e-6), and still rare at five times that rate (about 2e-3 at 0.5 per sub-test). If it is
+// too low, a host slower than the one measured fails this test with no defect; if it is too high, a
+// read-failure regression that strikes only a few times per run passes.
+const atomicSaveMaxAbsentRuns = 3
 
 // atomicSaveAbsence is why an absent answer is not a failure. On the development host (Windows 11,
 // NTFS) a rename-replace that SUCCEEDS can leave the destination name missing for tens of
 // milliseconds, inside one save that runs slow, with no reader holding the file at all: a monitor
-// that only Lstats the name saw ERROR_FILE_NOT_FOUND for 31-115 ms inside 4 of 40,000 MoveFileEx
+// that only Lstats the name saw ERROR_FILE_NOT_FOUND for 18-115 ms inside 4 of 40,000 MoveFileEx
 // saves, 1 of 40,000 paths.WriteAtomic saves and 2 of 60,000 bare POSIX-semantics renames, and a
 // paced paths.ReadFileShared reader saw it 38 times in 30,000 reads
 // (plans/sdd/V6-closeout/w6-config/runs/5x-diag-*). At that moment the file does not exist, for
@@ -159,9 +183,21 @@ func loadUnderAtomicSaves(t *testing.T, how atomicSave, load func(env config.Env
 	absentBudget := config.Defaults().Checkpoint.BudgetTokens
 	var tally atomicSaveTally
 	w := startAtomicSaveWriter(t, env.ProjectRoot, how)
+	run := 0
 	for tally.reads < atomicSaveReads || w.attempts.Load() < atomicSaveAttempts {
 		tally.reads++
 		got := load(env)
+		absent := got.err == nil && got.notes == 0 && got.budget == absentBudget
+		switch {
+		case absent && run == 0:
+			tally.absentRuns++
+			run = 1
+		case absent:
+			run++
+		default:
+			run = 0
+		}
+		tally.longestAbsentRun = max(tally.longestAbsentRun, run)
 		var why string
 		switch {
 		case got.err != nil:
@@ -222,12 +258,16 @@ func requireLoadsSurviveAtomicSaves(t *testing.T, load func(env config.Env) atom
 		t.Run(how.name, func(t *testing.T) {
 			tally, w := loadUnderAtomicSaves(t, how, load)
 			firstErr, _ := w.firstErr.Load().(string)
-			t.Logf("%d loads: %d and %d answered the two saved versions, %d found no file (%s), %d wrong; "+
-				"%d saves attempted, %d refused (first: %s)", tally.reads, tally.versions[0],
-				tally.versions[1], tally.absent, atomicSaveAbsence, tally.bad, w.attempts.Load(),
-				w.refused.Load(), firstErr)
+			t.Logf("%d loads: %d and %d answered the two saved versions, %d found no file in %d run(s), "+
+				"the longest %d loads (%s), %d wrong; %d saves attempted, %d refused (first: %s)",
+				tally.reads, tally.versions[0], tally.versions[1], tally.absent, tally.absentRuns,
+				tally.longestAbsentRun, atomicSaveAbsence, tally.bad, w.attempts.Load(), w.refused.Load(),
+				firstErr)
 			require.Zero(t, tally.bad, "of %d loads under atomic saves, %d refused, warned or answered a "+
 				"version the writer never saved (first: %s)", tally.reads, tally.bad, tally.first)
+			require.LessOrEqual(t, tally.absentRuns, atomicSaveMaxAbsentRuns, "of %d loads, %d found no "+
+				"file in %d separate runs: more than one rename-replace's absent moment explains, so a "+
+				"read failure is being taken for a missing file", tally.reads, tally.absent, tally.absentRuns)
 			require.Positive(t, tally.versions[0], "no load read the first saved version: the loads are "+
 				"not reading the file the writer saves")
 			require.Positive(t, tally.versions[1], "no load read the second saved version: the loads are "+
