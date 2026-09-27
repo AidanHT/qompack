@@ -97,9 +97,12 @@ var compositionRoots = map[string]bool{
 // on disk but is absent from both allow and compositionRoots is an error: new packages must be
 // declared here, which forces an architecture amendment.
 var allow = map[string][]string{
-	"core":   {},
-	"paths":  {"core"},
-	"config": {"core"},
+	"core":  {},
+	"paths": {"core"},
+	// config -> paths is owner decision D22 (2026-09-26): the config loaders name the user-global
+	// root through paths.Global and read config.json with delete sharing. paths imports only core,
+	// so the edge closes no cycle.
+	"config": {"core", "paths"},
 
 	"logging": {"core", "paths", "config"},
 	"obs":     {"core", "paths", "config"},
