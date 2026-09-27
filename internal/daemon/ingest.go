@@ -156,6 +156,9 @@ type ingest struct {
 	// them per segment; nothing else sets them.
 	writeWAL func(*os.File, []byte) (int, error)
 	syncWAL  func(*os.File) error
+	// syncSpoolDir makes the spool directory's entries durable when a WAL segment handle is opened:
+	// paths.SyncDir in production (a no-op on Windows, D24). It is a field so a test can observe it.
+	syncSpoolDir func(string) error
 
 	ring chan job
 	seen *seenSet
@@ -197,24 +200,26 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 	}
 
 	return &ingest{
-		root:      root,
-		cfg:       cfg,
-		log:       log,
-		m:         m,
-		clk:       clk,
-		spoolDir:  paths.Of(root).Spool,
-		histBB:    histName(obs.BB),
-		histBC:    histName(obs.BC),
-		wals:      map[core.SessionID]*walFile{},
-		synced:    map[string]int64{},
-		walQ:      groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
-		writeWAL:  (*os.File).Write,
-		syncWAL:   (*os.File).Sync,
-		ring:      make(chan job, ringCapacity),
-		seen:      newSeenSet(seenCapacity),
-		lanes:     newDispatchLanes(laneCapacity, laneSessionCapacity),
-		wake:      make(chan struct{}, 1),
-		drainKick: make(chan struct{}, 1),
+		root:     root,
+		cfg:      cfg,
+		log:      log,
+		m:        m,
+		clk:      clk,
+		spoolDir: paths.Of(root).Spool,
+		histBB:   histName(obs.BB),
+		histBC:   histName(obs.BC),
+		wals:     map[core.SessionID]*walFile{},
+		synced:   map[string]int64{},
+		walQ:     groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
+		writeWAL: (*os.File).Write,
+		syncWAL:  (*os.File).Sync,
+
+		syncSpoolDir: paths.SyncDir,
+		ring:         make(chan job, ringCapacity),
+		seen:         newSeenSet(seenCapacity),
+		lanes:        newDispatchLanes(laneCapacity, laneSessionCapacity),
+		wake:         make(chan struct{}, 1),
+		drainKick:    make(chan struct{}, 1),
 	}
 }
 
@@ -609,6 +614,14 @@ func (i *ingest) rotateWALLocked(sess core.SessionID, wf *walFile) error {
 
 // openWALLocked opens (creating if needed) the WAL segment file for sess at wf's current
 // rotation sequence. mu must be held.
+//
+// It syncs the spool directory before it hands the handle back, and that is part of the WAL being
+// the durability boundary (§2.4). The ACK a hook gets is sent after its line's Sync, and on POSIX a
+// file's Sync does not make the file's NAME durable: a segment created for a new session or by a
+// rotation, whose directory entry a power cut then took, would lose every line an ACK had already
+// called durable. Once per opened handle is enough — a directory sync makes every entry that exists
+// when it runs durable — and it also covers a segment an earlier daemon created and never synced the
+// directory of. One directory sync per session per daemon lifetime, and per rotation, not per line.
 func (i *ingest) openWALLocked(sess core.SessionID, wf *walFile) error {
 	if err := os.MkdirAll(paths.Long(i.spoolDir), 0o700); err != nil {
 		return fmt.Errorf("daemon: ingest: mkdir spool: %w", err)
@@ -621,6 +634,10 @@ func (i *ingest) openWALLocked(sess core.SessionID, wf *walFile) error {
 	f, ok := wc.(*os.File)
 	if !ok {
 		return fmt.Errorf("daemon: ingest: AppendOnly returned a non-*os.File writer")
+	}
+	if err := i.syncSpoolDir(i.spoolDir); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("daemon: ingest: sync spool directory: %w", err)
 	}
 	wf.w = f
 	wf.name = filepath.Base(p)
