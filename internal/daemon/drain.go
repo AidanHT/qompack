@@ -54,7 +54,8 @@ var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: 
 // before its first line) reached no line at all, however often it was asked again. A budgeted pass
 // therefore always consumes a line when it can, and runs past its budget by that bookkeeping and at
 // most one line's drainLineDeadline. Cancelling ctx still ends the pass, and the line in it, at once.
-// The budget is on real time, as a context deadline is, never on the daemon's clock.
+// The budget is on real time, as a context deadline is, never on the daemon's clock. It is the pass's
+// alone: what the pass hands a line to runs without it (withoutPassBudget).
 func withPassBudget(ctx context.Context, budget time.Duration) context.Context {
 	return context.WithValue(ctx, passBudgetKey{}, &passBudget{end: time.Now().Add(budget)})
 }
@@ -66,7 +67,7 @@ func passStopped(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if b, ok := ctx.Value(passBudgetKey{}).(*passBudget); ok && b.consumed.Load() && !time.Now().Before(b.end) {
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil && b.consumed.Load() && !time.Now().Before(b.end) {
 		return errPassBudgetSpent
 	}
 	return nil
@@ -75,9 +76,26 @@ func passStopped(ctx context.Context) error {
 // notePassConsumed records that the pass ctx carries has consumed a line, which lets its budget end it
 // (passStopped). A pass without a budget ignores it.
 func notePassConsumed(ctx context.Context) {
-	if b, ok := ctx.Value(passBudgetKey{}).(*passBudget); ok {
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil {
 		b.consumed.Store(true)
 	}
+}
+
+// withoutPassBudget returns ctx with no pass budget on it, keeping its cancellation and every other
+// value. A budget belongs to the pass that set it and ends at the pass's boundary, where the pass hands
+// a line on (dispatchPending): the handler that publishes the line runs under the line's own
+// drainLineDeadline, and the session end a replayed flush starts runs under the ends' lifetime with no
+// budget but its own. A context value outlives the context.WithoutCancel that detaches a session end
+// from the pass (launchSessionEnd), and by the time the end drains the budget is spent and the pass
+// has consumed a line, so an end started from a budgeted pass ran its settle and final drains under
+// that spent budget: both stopped at their first spool file, the flush's spool was never absorbed and
+// its recovery marker stayed at stage "drain"
+// (TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget).
+func withoutPassBudget(ctx context.Context) context.Context {
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, passBudgetKey{}, (*passBudget)(nil))
 }
 
 // drainReadBufferBytes sizes the buffered reader Drain scans each spool file with.
@@ -1312,8 +1330,11 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 		return "", core.ErrDegraded
 	}
 	resolved = verdict.Request
+	// The pass's budget stays with the pass (withoutPassBudget): what the line is handed to below, a
+	// session end or the handler, runs under its own bounds.
+	lineCtx := withoutPassBudget(ctx)
 	if leased && resolved.Op == ipc.OpFlush && dr.cfg.Seen != nil && dr.cfg.EndSession != nil &&
-		dr.cfg.EndSession(ctx, resolved, key, lease) {
+		dr.cfg.EndSession(lineCtx, resolved, key, lease) {
 		return "", errSessionEndStarted
 	}
 	// Only an observation has a capture to publish. A control line — a session start, checkpoint or
@@ -1328,7 +1349,7 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 			return "", fmt.Errorf("daemon: drain: capture not durable: %w", err)
 		}
 	}
-	dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
+	dctx, cancel := context.WithTimeout(lineCtx, drainLineDeadline)
 	defer cancel()
 	if leased {
 		// A replayed flush settles only the arrivals before its own (sessionEndArrival).

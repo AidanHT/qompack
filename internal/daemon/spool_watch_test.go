@@ -102,6 +102,23 @@ func spoolWatchGone(root, base string) bool {
 	return os.IsNotExist(err)
 }
 
+// writeHookSpool writes reqs into the client spool base exactly as a hook's spool writer leaves them:
+// each request's encoding, which ends its own line, and nothing between them. (writeSpoolLines adds
+// a newline of its own after each, so its files carry a blank line after every record, which a drain
+// consumes as a line; the rows that count what a budgeted pass consumed must not have those.)
+func writeHookSpool(t *testing.T, root, base string, reqs ...ipc.Request) {
+	t.Helper()
+	var buf []byte
+	for _, req := range reqs {
+		line, err := ipc.EncodeRequest(req)
+		require.NoError(t, err)
+		buf = append(buf, line...)
+	}
+	spool := paths.Of(root).Spool
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(spool, base)), buf, 0o600))
+}
+
 // TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive is the C1.13 regression: a delivery
 // that reached only its client spool, in the middle of a session that keeps sending hooks, is
 // published while the session is still active — with no flush, no admin.drain, no drain the lanes
