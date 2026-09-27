@@ -109,8 +109,10 @@ unparseable (another spawner may be writing it), or stamped later than now, is j
 own age. A spawn that fails to start releases its claim, and the daemon deletes the lock once it
 listens, so a free lock can also mean the daemon is already up: `session-start` dials before each
 claim, and once more after it and before it spawns, and gives the claim back when a daemon answers.
-Two processes that reclaim the same stale lock at the same instant can still both spawn; the
-singleton lock then turns the second away.
+A claim whose spawner died holds spawning off until it is 10 s old; a `session-start` whose wait
+ends first spools its start, and the first spawner after that reclaims the lock. Two processes that
+reclaim the same stale lock at the same instant can still both spawn; the singleton lock then turns
+the second away.
 
 A daemon takes dials from the moment it listens, before its startup is done. That startup replays
 what hooks spooled while no daemon answered, then sweeps the checkpoint store and audits publication
