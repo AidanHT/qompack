@@ -1,0 +1,21 @@
+run_id=cx-w6-borrow-lane-abab3-base-f6095e2-20260927T184233Z
+commit=f6095e2704d55336e2e4eac1c2ffc82f566c423b
+tree=8e44f543058cfa29ca82fa4733dac9d867933bad
+bundle_sha256=a07f6cb81414bf0fa5c87feecfc284a71eb831727991fa4cd4d00bffe9185ed8
+started_utc=2026-09-27T18:43:11Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=20m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T18:44:08Z

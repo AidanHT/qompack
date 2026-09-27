@@ -1,0 +1,4 @@
+18:30:48 cpu_load_pct=99 go_test_qompack_procs=11
+18:31:20 cpu_load_pct=99 go_test_qompack_procs=14
+18:31:53 cpu_load_pct=96 go_test_qompack_procs=11
+18:32:25 cpu_load_pct=59 go_test_qompack_procs=8

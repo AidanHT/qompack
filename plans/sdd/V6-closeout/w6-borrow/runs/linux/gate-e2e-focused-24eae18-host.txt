@@ -1,0 +1,35 @@
+run_id=cx-w6-borrow-e2e-focused-24eae18-20260927T182749Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+rev=24eae18
+commit=24eae1818323eaa2519bf81d84c8b5f8d7ec8842
+bundle_sha256=4481c01ca231ae9cc67bdde08a2ea2bb39b432f02c4ed6e3312e2ffe0e5322ed
+host_started_utc=2026-09-27T18:28:41Z
+inner_args=--timeout 60m --run ^(TestE2E_SessionStart|TestE2ELazySpawn$|TestE2EHookRoundTrip$|TestE2EIdleExit$|TestE2E_AllSixHooksExitZero$|TestHooksExitZeroUnderFaults$|TestE2E_HooksExitZeroUnderFaultInjection$|TestE2E_DaemonLeavesThePluginDirectoryRemovable$|TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable$|TestE2E_SpooledSessionStartNeverDegradesTheProject$|TestV1_HookLifecycleThroughRealBinary$|TestE2E_ContractSentinelIsAppendedByTheDaemon$|TestV4_PreCompactToCheckpointToRehydrateRoundTrip$|TestV5_PreCompactToRehydrateToDroppedRoundTrip$|TestV5_EveryContractAssertionHasARealProducer$|TestE2ESpoolSubmodeEndToEnd$|TestE2E_StoreSurvivesProcessRestart$|TestE2EShutdownIfReachable_) -- ./test/e2e
+/work/cx-w6-borrow-e2e-focused-24eae18-20260927T182749Z.bundle: OK
+run_id=cx-w6-borrow-e2e-focused-24eae18-20260927T182749Z
+commit=24eae1818323eaa2519bf81d84c8b5f8d7ec8842
+tree=389969acfa8b03626ab2484649e913eed2f67f54
+bundle_sha256=4481c01ca231ae9cc67bdde08a2ea2bb39b432f02c4ed6e3312e2ffe0e5322ed
+started_utc=2026-09-27T18:28:49Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=60m gomaxprocs=4 coload=0
+run=^(TestE2E_SessionStart|TestE2ELazySpawn$|TestE2EHookRoundTrip$|TestE2EIdleExit$|TestE2E_AllSixHooksExitZero$|TestHooksExitZeroUnderFaults$|TestE2E_HooksExitZeroUnderFaultInjection$|TestE2E_DaemonLeavesThePluginDirectoryRemovable$|TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable$|TestE2E_SpooledSessionStartNeverDegradesTheProject$|TestV1_HookLifecycleThroughRealBinary$|TestE2E_ContractSentinelIsAppendedByTheDaemon$|TestV4_PreCompactToCheckpointToRehydrateRoundTrip$|TestV5_PreCompactToRehydrateToDroppedRoundTrip$|TestV5_EveryContractAssertionHasARealProducer$|TestE2ESpoolSubmodeEndToEnd$|TestE2E_StoreSurvivesProcessRestart$|TestE2EShutdownIfReachable_)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/test/e2e  (pass=107 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/plans/sdd/V6-closeout/w6-borrow/runs/linux/cx-w6-borrow-e2e-focused-24eae18-20260927T182749Z-artifacts
+exit=0
+exit=0

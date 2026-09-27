@@ -1,0 +1,16 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 1,
+   "failed": [
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

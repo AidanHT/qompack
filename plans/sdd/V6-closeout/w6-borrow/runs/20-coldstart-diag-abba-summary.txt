@@ -1,0 +1,114 @@
+== python zz_aggregate.py.txt diag/diag-*.log  (w6-borrow third seat; 8 rounds ABBA, before f6095e2 vs after 24eae18, ZZ_CPU_COLOAD=1 with 8 spinners; rounds 1-4 ZZ_ITERS=2, rounds 5-8 ZZ_ITERS=5)
+== before (all rounds): rows=336 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=727 p90=1722 p99=3577 max=5399 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=93 p99=891 max=1912 ms; over 1.5 s=2
+   startup  spooled=0/112 sswall p50=684 p90=1639 max=5399   [prespawned=0/28 staged-cold=0/28 staged-warm=0/28 unstaged=0/28]
+   resume   spooled=0/112 sswall p50=648 p90=1742 max=4942   [prespawned=0/28 staged-cold=0/28 staged-warm=0/28 unstaged=0/28]
+   compact  spooled=0/112 sswall p50=838 p90=1556 max=3577   [prespawned=0/28 staged-cold=0/28 staged-warm=0/28 unstaged=0/28]
+== after (all rounds): rows=336 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=793 p90=1651 p99=3104 max=4991 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=88 p99=814 max=1272 ms; over 1.5 s=0
+   startup  spooled=0/112 sswall p50=730 p90=1418 max=3561   [prespawned=0/28 staged-cold=0/28 staged-warm=0/28 unstaged=0/28]
+   resume   spooled=0/112 sswall p50=731 p90=1470 max=4991   [prespawned=0/28 staged-cold=0/28 staged-warm=0/28 unstaged=0/28]
+   compact  spooled=0/112 sswall p50=905 p90=1871 max=4363   [prespawned=0/28 staged-cold=0/28 staged-warm=0/28 unstaged=0/28]
+
+-- round 1 after: rows=24 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=1208 p90=2171 p99=2656 max=4991 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=165 p99=615 max=679 ms; over 1.5 s=0
+   startup  spooled=0/8 sswall p50=1181 p90=1697 max=2296   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   resume   spooled=0/8 sswall p50=687 p90=2171 max=4991   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   compact  spooled=0/8 sswall p50=1208 p90=1741 max=2656   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+-- round 1 before: rows=24 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=1005 p90=1405 p99=1639 max=1722 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=125 p99=668 max=790 ms; over 1.5 s=0
+   startup  spooled=0/8 sswall p50=805 p90=1253 max=1639   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   resume   spooled=0/8 sswall p50=686 p90=1319 max=1722   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   compact  spooled=0/8 sswall p50=1048 p90=1405 max=1461   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+-- round 2 after: rows=24 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=864 p90=1651 p99=2607 max=3842 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=92 p99=434 max=471 ms; over 1.5 s=0
+   startup  spooled=0/8 sswall p50=897 p90=1348 max=2417   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   resume   spooled=0/8 sswall p50=804 p90=1090 max=1651   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   compact  spooled=0/8 sswall p50=685 p90=2607 max=3842   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+-- round 2 before: rows=24 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=1460 p90=2095 p99=2480 max=4213 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=186 p99=725 max=873 ms; over 1.5 s=0
+   startup  spooled=0/8 sswall p50=1184 p90=1899 max=4213   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   resume   spooled=0/8 sswall p50=1189 p90=1653 max=2055   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   compact  spooled=0/8 sswall p50=1526 p90=2127 max=2480   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+-- round 3 after: rows=24 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=947 p90=1506 p99=1577 max=2195 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=107 p99=507 max=814 ms; over 1.5 s=0
+   startup  spooled=0/8 sswall p50=676 p90=1517 max=1577   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   resume   spooled=0/8 sswall p50=731 p90=1330 max=1506   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   compact  spooled=0/8 sswall p50=1122 p90=1376 max=2195   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+-- round 3 before: rows=24 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=647 p90=2100 p99=4942 max=5399 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=111 p99=1738 max=1912 ms; over 1.5 s=2
+   startup  spooled=0/8 sswall p50=433 p90=1429 max=5399   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   resume   spooled=0/8 sswall p50=491 p90=4045 max=4942   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   compact  spooled=0/8 sswall p50=804 p90=1140 max=1594   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+-- round 4 after: rows=24 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=797 p90=1288 p99=1804 max=2511 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=95 p99=594 max=689 ms; over 1.5 s=0
+   startup  spooled=0/8 sswall p50=766 p90=1288 max=2511   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   resume   spooled=0/8 sswall p50=425 p90=1037 max=1043   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   compact  spooled=0/8 sswall p50=930 p90=1538 max=1804   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+-- round 4 before: rows=24 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=1426 p90=2371 p99=2474 max=2537 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=202 p99=556 max=891 ms; over 1.5 s=0
+   startup  spooled=0/8 sswall p50=1135 p90=2082 max=2371   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   resume   spooled=0/8 sswall p50=1334 p90=1945 max=2443   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+   compact  spooled=0/8 sswall p50=1426 p90=2474 max=2537   [prespawned=0/2 staged-cold=0/2 staged-warm=0/2 unstaged=0/2]
+-- round 5 after: rows=60 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=926 p90=2403 p99=3561 max=4363 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=85 p99=985 max=1272 ms; over 1.5 s=0
+   startup  spooled=0/20 sswall p50=835 p90=2107 max=3561   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   resume   spooled=0/20 sswall p50=1018 p90=2166 max=2742   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   compact  spooled=0/20 sswall p50=852 p90=2797 max=4363   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+-- round 5 before: rows=60 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=880 p90=1403 p99=1730 max=2167 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=99 p99=532 max=584 ms; over 1.5 s=0
+   startup  spooled=0/20 sswall p50=742 p90=1013 max=1050   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   resume   spooled=0/20 sswall p50=837 p90=1691 max=2167   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   compact  spooled=0/20 sswall p50=977 p90=1403 max=1636   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+-- round 6 after: rows=60 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=603 p90=987 p99=1460 max=1498 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=68 p99=355 max=397 ms; over 1.5 s=0
+   startup  spooled=0/20 sswall p50=544 p90=857 max=964   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   resume   spooled=0/20 sswall p50=507 p90=1027 max=1154   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   compact  spooled=0/20 sswall p50=711 p90=1258 max=1498   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+-- round 6 before: rows=60 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=543 p90=876 p99=1081 max=1295 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=71 p99=319 max=422 ms; over 1.5 s=0
+   startup  spooled=0/20 sswall p50=489 p90=785 max=876   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   resume   spooled=0/20 sswall p50=468 p90=702 max=754   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   compact  spooled=0/20 sswall p50=670 p90=1069 max=1295   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+-- round 7 after: rows=60 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=855 p90=1267 p99=2076 max=2079 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=103 p99=492 max=868 ms; over 1.5 s=0
+   startup  spooled=0/20 sswall p50=765 p90=1166 max=1554   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   resume   spooled=0/20 sswall p50=745 p90=1067 max=1267   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   compact  spooled=0/20 sswall p50=1086 p90=2007 max=2079   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+-- round 7 before: rows=60 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=531 p90=1583 p99=2154 max=2395 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=55 p99=1091 max=1094 ms; over 1.5 s=0
+   startup  spooled=0/20 sswall p50=456 p90=1583 max=1934   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   resume   spooled=0/20 sswall p50=289 p90=1790 max=2395   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   compact  spooled=0/20 sswall p50=718 p90=833 max=1176   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+-- round 8 after: rows=60 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=512 p90=1129 p99=1796 max=1871 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=54 p99=406 max=466 ms; over 1.5 s=0
+   startup  spooled=0/20 sswall p50=444 p90=953 max=1203   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   resume   spooled=0/20 sswall p50=354 p90=992 max=1161   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   compact  spooled=0/20 sswall p50=561 p90=1290 max=1871   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+-- round 8 before: rows=60 spooled=0 (0.0%) multi-daemon=0 noup=0 sswall p50=651 p90=1373 p99=2530 max=3577 ms; over 13.5 s=0; over 15 s=0
+   outside doHook (process start + exit, the hookExitReserve share): p50=66 p99=609 max=867 ms; over 1.5 s=0
+   startup  spooled=0/20 sswall p50=642 p90=1373 max=2530   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   resume   spooled=0/20 sswall p50=414 p90=734 max=840   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+   compact  spooled=0/20 sswall p50=726 p90=1865 max=3577   [prespawned=0/5 staged-cold=0/5 staged-warm=0/5 unstaged=0/5]
+
+== python zz_nearmiss.py.txt diag/diag-*.log
+== before: rows=336 daemon dialable after the hook began: max=4265 ms; > 3.25 s: 2; > 8.25 s: 0
+     4265 ms  staged-cold/resume spooled=false sswall=4942 ms
+     3706 ms  staged-cold/resume spooled=false sswall=4045 ms
+     2769 ms  staged-cold/startup spooled=false sswall=4213 ms
+     2418 ms  staged-cold/startup spooled=false sswall=2530 ms
+     2284 ms  staged-cold/resume spooled=false sswall=2395 ms
+== after: rows=336 daemon dialable after the hook began: max=3922 ms; > 3.25 s: 1; > 8.25 s: 0
+     3922 ms  staged-cold/compact spooled=false sswall=4363 ms
+     2592 ms  staged-cold/resume spooled=false sswall=2742 ms
+     2265 ms  staged-cold/startup spooled=false sswall=2511 ms
+     2184 ms  staged-cold/resume spooled=false sswall=2343 ms
+     2162 ms  staged-cold/startup spooled=false sswall=2456 ms
+
+== python zz_causes.py.txt diag/diag-*.log
+== before: 0 spooled rows: {}
+== after: 0 spooled rows: {}
+
+== machine CPU load sampled every 30 s during each run (diag/load-<tree>-r<N>.txt; includes this diagnostic's 8 spinners and every other workstream)
+before: samples=51 mean_cpu_load=67% samples>=90%=18
+after: samples=45 mean_cpu_load=75% samples>=90%=18

@@ -1,0 +1,4 @@
+== HEAD 24eae18, fake HOME/USERPROFILE, started 17:57:11Z: go test ./test/fault/ -count=1 -timeout=40m
+ok  	github.com/qompack/qompack/test/fault	621.079s
+exit=0
+ended 18:07:36Z
