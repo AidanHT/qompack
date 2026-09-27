@@ -30,7 +30,9 @@ type tombstoneSyncProbe struct {
 }
 
 func (p *tombstoneSyncProbe) Sync() error {
-	if err := p.WriteCloser.(syncer).Sync(); err != nil {
+	s, ok := p.WriteCloser.(syncer)
+	require.True(p.t, ok, "fixture: roots.jsonl's handle can be synced")
+	if err := s.Sync(); err != nil {
 		return err
 	}
 	raw, err := os.ReadFile(paths.Long(p.rootsPth))
