@@ -244,6 +244,7 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	// So the row lets any such claim lapse first; the flush's own spawn is then what it tests.
 	x9AwaitNoSpawnInFlight(t, p.Root)
 	pending := x9UnconsumedSpoolLines(t, p.Root)
+	flushed := time.Now()
 	x9Hook(t, bin, env, []string{"flush"}, x9SessionEndPayload(t, p.Root))
 
 	// store.GC ran on flush with the configured policy and deleted nothing: the observer's
@@ -258,6 +259,11 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	}, x9FlushGCBound(pending), e2eDaemonDownTick,
 		"flush never produced the observer's \"observer: gc\" log line — store.GC did not run on SessionEnd "+
 			"(%d spool lines were left for the flush's daemon to replay before it)", pending)
+	// The evidence for x9FlushGCBound's derivation, on every run: how much replay the flush's daemon
+	// had in front of its SessionEnd, and how long the GC line took behind it.
+	t.Logf("x09: the flush's \"observer: gc\" line came %s after the flush, behind %d spool lines left "+
+		"for its daemon to replay (bound %s)", time.Since(flushed).Round(time.Millisecond), pending,
+		x9FlushGCBound(pending))
 	// The retention window covers every NON-ephemeral object this young project holds, so those
 	// may never be collected. Ephemeral retrieval results are different by design: an ephemeral
 	// root is never in-window by the age clause (Qompack.md 8.2 - "retrieval spam is reclaimable")
@@ -1027,6 +1033,9 @@ func x9UnconsumedSpoolLines(t *testing.T, root string) int {
 // polling to that.
 func x9AwaitNoSpawnInFlight(t *testing.T, root string) {
 	t.Helper()
+	if e2eSpawnInFlight(root) {
+		t.Logf("x09: a spawn.lock claim was fresh before the flush with no hook running; waiting for it to lapse")
+	}
 	require.Eventually(t, func() bool { return !e2eSpawnInFlight(root) },
 		e2eSpawnLockStaleAfter+e2eLazySpawnSettleTick, e2eLazySpawnSettleTick,
 		"a spawn.lock claim stayed fresh past %s with no hook running", e2eSpawnLockStaleAfter)
