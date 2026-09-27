@@ -48,6 +48,11 @@ func (x Barriers) syncDir(dir string) error {
 // something depends on them (store's backup and restore trees).
 func (x Barriers) DirBarrier(dir string) error { return x.syncDir(dir) }
 
+// FileBarrier syncs f's written bytes through x: (*os.File).Sync, unless x.SyncFile replaces it. It
+// is for a writer outside this package that holds its own append handle and must make what it wrote
+// durable before it acknowledges it (negknow's acknowledged eliminations).
+func (x Barriers) FileBarrier(f *os.File) error { return x.syncFile(f) }
+
 // AppendJSONLDurable is AppendJSONL made durable before it returns. It appends exactly the line
 // AppendJSONL would (same encoding, same newline guard, same torn-tail terminator), then:
 //
