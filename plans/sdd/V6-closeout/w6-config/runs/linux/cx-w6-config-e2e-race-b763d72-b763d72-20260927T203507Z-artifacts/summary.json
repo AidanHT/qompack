@@ -1,0 +1,18 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 306,
+   "failed": [
+    "TestV3_LiveSessionWriteSetAndAppendOnly",
+    "TestV3_HotPathUnchangedWithLedgerResident"
+   ],
+   "skipped": [
+    "TestInstall_HostCLIInstallUpgradeUninstall",
+    "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting",
+    "TestE2E_RequiredProductChildRaceInstrumentation"
+   ]
+  }
+ },
+ "unreported": []
+}

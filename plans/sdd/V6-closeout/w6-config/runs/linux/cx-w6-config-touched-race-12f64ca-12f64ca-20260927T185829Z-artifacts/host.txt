@@ -1,0 +1,10 @@
+run_id=cx-w6-config-touched-race-12f64ca-12f64ca-20260927T185829Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config
+rev=12f64ca
+commit=12f64ca3c40fedcdcbdcd3032c82037ca7b8b857
+bundle_sha256=e1133b684b2720a67f71cf226219772d44785abcf31dda8f3a5a574ce5cf734d
+host_started_utc=2026-09-27T18:58:57Z
+inner_args=--timeout 60m -- ./internal/analyzer ./internal/analyzer/analyzertest ./internal/canon ./internal/checkpoint ./internal/checkpoint/checkpointtest ./internal/chunk ./internal/cli ./internal/commands ./internal/config ./internal/contract ./internal/contract/contracttest ./internal/daemon ./internal/eval ./internal/eval/evaltest ./internal/hostperm ./internal/ipc ./internal/ipc/ipctest ./internal/mcp ./internal/mcp/mcptest ./internal/negknow ./internal/negknow/negknowtest ./internal/observer ./internal/observer/observertest ./internal/paths ./internal/paths/pathstest ./internal/pins ./internal/redact ./internal/rehydrate ./internal/rehydrate/rehydratetest ./internal/sketch ./internal/store ./internal/store/storetest ./internal/testutil ./internal/tokens ./internal/tokens/tokenstest ./test/bench/hotpath ./test/canary ./test/fault ./test/guards ./test/integration ./test/platform ./test/release ./test/replay ./test/replay/l3policy ./test/security ./tools/devtool
+host_finished_utc=2026-09-27T19:34:21Z
+container_exit=1

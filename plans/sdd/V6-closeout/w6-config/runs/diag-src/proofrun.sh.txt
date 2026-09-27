@@ -1,0 +1,47 @@
+#!/bin/sh
+# proofrun.sh TREE LABEL LOG -- go-test-args...   (w6-config third seat, scratch only)
+#
+# Builds a fresh poisoned fake "real home", snapshots its .qompack and .claude, runs `go test <args>`
+# in TREE with HOME, USERPROFILE, QOMPACK_HOME and CLAUDE_CONFIG_DIR pointing into it (the Go
+# toolchain's GOPATH/GOMODCACHE/GOCACHE/GOENV pinned to their real values, as a developer whose
+# real home held these files would have them), snapshots again and reports the diff. go test's
+# exit status is captured without a pipe.
+set -u
+tree=$1; label=$2; log=$3; shift 3
+[ "$1" = "--" ] && shift
+here=$(cd "$(dirname "$0")" && pwd)
+fake=$here/fakehome-$label
+rm -rf "$fake"
+mkdir -p "$fake"
+fakew=$(cygpath -w "$fake" 2>/dev/null || printf '%s' "$fake")
+gopath=$(cd "$tree" && go env GOPATH); gomod=$(cd "$tree" && go env GOMODCACHE)
+gocache=$(cd "$tree" && go env GOCACHE); goenvf=$(cd "$tree" && go env GOENV)
+mkdir -p "$tree/tools/poisonhome"
+cp "$here/poisonhome/main.go" "$tree/tools/poisonhome/main.go"
+snap() { (cd "$fake" && find .qompack .claude -mindepth 0 2>/dev/null | LC_ALL=C sort | while IFS= read -r p; do
+	if [ -f "$p" ]; then printf '%s f %s %s %s\n' "$p" "$(stat -c %s "$p")" "$(stat -c %Y "$p")" "$(sha256sum "$p" | cut -d' ' -f1)"
+	else printf '%s d\n' "$p"; fi; done); }
+{
+	echo "# proof run '$label' in $tree"
+	echo "# fake real home: $fakew (HOME, USERPROFILE, QOMPACK_HOME, CLAUDE_CONFIG_DIR point into it; GOPATH=$gopath GOMODCACHE=$gomod GOCACHE=$gocache GOENV=$goenvf pinned)"
+	(cd "$tree" && go run ./tools/poisonhome "$fakew") 2>&1
+	rm -rf "$tree/tools/poisonhome"
+	echo "# poisoned files:"
+	cat "$fake/.qompack/config.json"; echo
+	cat "$fake/.qompack/calibration.json"; echo
+	cat "$fake/.claude/settings.json"; echo
+	echo "# snapshot before:"; snap
+	echo "# go test $*"
+} > "$log" 2>&1
+snap > "$here/snap-$label-before.txt"
+(cd "$tree" && HOME="$fakew" USERPROFILE="$fakew" QOMPACK_HOME="$fakew\.qompack" CLAUDE_CONFIG_DIR="$fakew\.claude" \
+	GOPATH="$gopath" GOMODCACHE="$gomod" GOCACHE="$gocache" GOENV="$goenvf" go test "$@" >> "$log" 2>&1)
+code=$?
+snap > "$here/snap-$label-after.txt"
+{
+	echo "go-test-exit=$code"
+	echo "# fake real home .qompack/.claude diff (before -> after); empty means untouched:"
+	diff "$here/snap-$label-before.txt" "$here/snap-$label-after.txt"
+	echo "diff-exit=$?"
+} >> "$log" 2>&1
+exit "$code"

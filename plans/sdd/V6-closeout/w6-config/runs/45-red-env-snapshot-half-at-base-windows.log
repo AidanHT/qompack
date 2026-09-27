@@ -1,0 +1,15 @@
+# DIAGNOSTIC VARIANT (scratch only): git archive f6095e2 + HEAD's pathstest, homeisolation_test.go and guards main_test.go, with the missing-TestMain require inverted so the run reaches the package-level env-snapshot half; Windows
+=== RUN   TestGuard_EveryHomeReachingTestPackageIsolatesHome
+    homeisolation_test.go:133: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/s3/base-guard/test/guards/homeisolation_test.go:133
+        	Error:      	Should be empty, but was [test/e2e/v3_x05_test.go: x5InitialEnv (os.Environ) test/e2e/v3_x11_test.go: x11InitialEnv (os.Environ) test/integration/replaygrowth_test.go: initialEnv (os.Environ)]
+        	Test:       	TestGuard_EveryHomeReachingTestPackageIsolatesHome
+        	Messages:   	these package-level variables capture the environment or the home during package initialization, which runs before TestMain isolates the home, so they hold the real one. Read pathstest.Environ() (or the environment) where the value is used instead:
+        	            	  test/e2e/v3_x05_test.go: x5InitialEnv (os.Environ)
+        	            	  test/e2e/v3_x11_test.go: x11InitialEnv (os.Environ)
+        	            	  test/integration/replaygrowth_test.go: initialEnv (os.Environ)
+--- FAIL: TestGuard_EveryHomeReachingTestPackageIsolatesHome (8.55s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	9.032s
+FAIL
+exit=1

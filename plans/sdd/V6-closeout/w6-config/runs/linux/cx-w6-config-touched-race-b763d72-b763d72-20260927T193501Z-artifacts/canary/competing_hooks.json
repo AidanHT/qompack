@@ -1,0 +1,13 @@
+{
+  "name": "competing_hooks",
+  "capability": "observation",
+  "scope": "repository",
+  "outcome": "verified",
+  "reason": "local approximation; competing installed plugin hooks unverified. 2 concurrent `observe tool` invocations for 2 distinct session ids against one temporary project (daemon disabled, so both spool). Both exited 0 with empty-or-parseable stdout. This races two copies of Qompack, not Qompack against another plugin's hook, which would require installing one into a disposable target.",
+  "target": {
+    "provider": "unknown",
+    "platform": "linux/amd64",
+    "date": "2026-09-27T19:46:38Z"
+  },
+  "recorded_at": "2026-09-27T19:46:38Z"
+}

@@ -1,0 +1,10 @@
+run_id=cx-w6-config-hotpath-alone-base-f6095e2-f6095e2-20260927T201759Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config
+rev=f6095e2
+commit=f6095e2704d55336e2e4eac1c2ffc82f566c423b
+bundle_sha256=bfe35cb5e0be2d3f625fd241d7500a274b5a08f15a6f849c7b5c105063913b21
+host_started_utc=2026-09-27T20:18:13Z
+inner_args=--run ^TestIntegration_HotPathWarmWithRealResidentState$ -- ./test/integration
+host_finished_utc=2026-09-27T20:21:52Z
+container_exit=1

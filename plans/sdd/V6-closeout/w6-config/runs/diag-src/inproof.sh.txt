@@ -1,0 +1,37 @@
+#!/bin/sh
+# inproof.sh <commit> <label> <outdir>   (w6-config third seat, scratch only)
+# Plants a poisoned fake real home in the Linux container, watches its .qompack and .claude with
+# inotify, and runs <commit>'s cli/tokens/hostperm/mcp tests non-root through the committed gate
+# with HOME, USERPROFILE, QOMPACK_HOME and CLAUDE_CONFIG_DIR pointing into it.
+set -u
+commit=$1; label=$2; out=$3
+C=qompack-v6-linux-verification
+W=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config
+here=$(cd "$(dirname "$0")" && pwd)
+ts=$(date -u +%Y%m%dT%H%M%SZ)
+fake=/work/cx-w6-config-fakehome-$label-$ts
+wd=/work/cx-w6-config-inwatch-$label-$ts
+export MSYS_NO_PATHCONV=1
+docker exec $C sh -c "set -e; test ! -e $fake; test ! -e $wd; mkdir -p $fake/.qompack $fake/.claude $wd
+printf '%s' '{\"checkpoint\":{\"budgetTokens\":4242},\"runtime\":{\"mode\":\"off\"}}' > $fake/.qompack/config.json
+printf '%s' '{\"poisoned\":1.6}' > $fake/.qompack/calibration.json
+printf '%s' '{\"permissions\":{\"deny\":[\"Read(./**)\"]}}' > $fake/.claude/settings.json
+chown -R 10001:10001 $fake"
+docker cp "$(cygpath -w "$here/inwatch")" "$C:$wd/inwatch"
+docker exec $C chmod 0755 $wd/inwatch
+docker exec -d $C sh -c "$wd/inwatch -for 60m $fake/.qompack $fake/.claude > $wd/events.txt 2>&1"
+sleep 2
+sh "$W/plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh" --prefix cx-w6-config --repo "$W" --out "$out" "$commit" "$label" \
+	--no-race --env HOME=$fake --env USERPROFILE=$fake --env QOMPACK_HOME=$fake/.qompack \
+	--env CLAUDE_CONFIG_DIR=$fake/.claude --env GOCACHE=/home/qompack-test/.cache/go-build \
+	-- ./internal/cli ./internal/tokens ./internal/hostperm ./internal/mcp
+rc=$?
+sleep 2
+docker exec $C sh -c "pkill -f '$wd/inwatch' || true"
+{
+	echo "# inotify events under the poisoned fake real home $fake (.qompack and .claude), commit $commit, label $label"
+	echo "# go test exit (gate): $rc"
+	docker exec $C cat $wd/events.txt
+	echo "# after:"; docker exec $C sh -c "cd $fake && find .qompack .claude -type f -exec sha256sum {} +"
+} > "$out/inotify-$label.txt" 2>&1
+echo "gate-rc=$rc"

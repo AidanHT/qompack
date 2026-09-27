@@ -1,0 +1,29 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 419,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/tokens": {
+   "result": "pass",
+   "passed": 121,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/hostperm": {
+   "result": "pass",
+   "passed": 111,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/mcp": {
+   "result": "pass",
+   "passed": 387,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

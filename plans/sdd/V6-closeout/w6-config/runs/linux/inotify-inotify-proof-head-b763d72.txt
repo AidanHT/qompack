@@ -1,0 +1,15 @@
+# inotify events under the poisoned fake real home /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z (.qompack and .claude), commit b763d72, label inotify-proof-head-b763d72
+# go test exit (gate): 0
+2026-09-27T21:20:54.225373188Z watching /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.qompack
+2026-09-27T21:20:54.225503484Z watching /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.qompack/calibration.json
+2026-09-27T21:20:54.225523987Z watching /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.qompack/config.json
+2026-09-27T21:20:54.225530248Z watching /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.claude
+2026-09-27T21:20:54.225547983Z watching /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.claude/settings.json
+2026-09-27T21:20:54.225562339Z /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.qompack  OPEN|ISDIR
+2026-09-27T21:20:54.225566388Z /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.qompack  READ|ISDIR
+2026-09-27T21:20:54.225568503Z /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.claude  OPEN|ISDIR
+2026-09-27T21:20:54.225570404Z /work/cx-w6-config-fakehome-inotify-proof-head-b763d72-20260927T212053Z/.claude  READ|ISDIR
+# after:
+fe028cd489c95e2db30a2e261e7dbf5fcda07af5ac2f7e41321a74f65b3e9052  .qompack/calibration.json
+2cc93be31c257948859c78c46c3763a1f139d2bc3a4cf5f1dd9b701703759f04  .qompack/config.json
+1782a660312d0b4334ab699b34cc4e8928cc78ca517da20d69a224f0693a26b3  .claude/settings.json

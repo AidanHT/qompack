@@ -1,0 +1,8 @@
+import sys, re
+p = 'internal/paths/pathstest/home.go'
+s = open(p, encoding='utf-8').read()
+key, value = sys.argv[1], sys.argv[2]
+pat = re.compile(r'var ' + key + r' = \[\]string\{[^}]*\}')
+assert len(pat.findall(s)) == 1, key
+s = pat.sub(lambda m: 'var ' + key + ' = []string{' + value + '}', s)
+open(p, 'w', encoding='utf-8', newline='\n').write(s)

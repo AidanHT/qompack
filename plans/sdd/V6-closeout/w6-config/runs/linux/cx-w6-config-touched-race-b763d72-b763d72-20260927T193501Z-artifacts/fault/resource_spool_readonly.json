@@ -1,0 +1,20 @@
+{
+  "name": "resource_spool_readonly",
+  "phase": "resource",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "boundary": "the spool directory is not writable",
+  "seed_method": "the `spool-readonly` QOMPACK_FAULT site, which denies write on the spool directory (icacls on Windows, chmod elsewhere) from inside the hook process",
+  "outcome": "explicit_incomplete",
+  "reason": "the cut introduced no dangling reference; recording did not resume within the bound and the product says so on LOUD.log+day log (warn): daylog[2]: qompack-20260927.log: ts=2026-09-27T19:57:20.898163247Z level=loud msg=\"ipc: spool write failed — event dropped\" err=\"ipc: spool: open: open /tmp/qompack-fault-2820489894/proj/.qompack/spool/client-71837.ndjson: permission denied\" path=/t…; loud[2]: ts=2026-09-27T19:57:20.898163247Z level=loud msg=\"ipc: spool write failed — event dropped\" err=\"ipc: spool: open: open /tmp/qompack-fault-2820489894/proj/.qompack/spool/client-71837.ndjson: permission denied\" path=/tmp/qompack-fault-28204…; surfaces LOUD.log+day log (warn)",
+  "detail": "the faulted delivery toolu_fault_spool_readonly_01 did not reach the index, so the spool-readonly site bit; after the restart and drain it still had not landed\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}\naudit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:0 reported:0}\ndegradation (new since the cut): daylog[2]: qompack-20260927.log: ts=2026-09-27T19:57:20.898163247Z level=loud msg=\"ipc: spool write failed — event dropped\" err=\"ipc: spool: open: open /tmp/qompack-fault-2820489894/proj/.qompack/spool/client-71837.ndjson: permission denied\" path=/t…; loud[2]: ts=2026-09-27T19:57:20.898163247Z level=loud msg=\"ipc: spool write failed — event dropped\" err=\"ipc: spool: open: open /tmp/qompack-fault-2820489894/proj/.qompack/spool/client-71837.ndjson: permission denied\" path=/tmp/qompack-fault-28204…; surfaces LOUD.log+day log (warn)\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

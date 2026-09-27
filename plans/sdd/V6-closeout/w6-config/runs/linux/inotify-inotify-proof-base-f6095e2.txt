@@ -1,0 +1,1162 @@
+# inotify events under the poisoned fake real home /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z (.qompack and .claude), commit f6095e2, label inotify-proof-base-f6095e2
+# go test exit (gate): 0
+2026-09-27T21:19:16.066542203Z watching /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack
+2026-09-27T21:19:16.066614536Z watching /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json
+2026-09-27T21:19:16.066619168Z watching /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json
+2026-09-27T21:19:16.066622484Z watching /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude
+2026-09-27T21:19:16.066635191Z watching /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude/settings.json
+2026-09-27T21:19:16.066660334Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack  OPEN|ISDIR
+2026-09-27T21:19:16.066663445Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack  READ|ISDIR
+2026-09-27T21:19:16.066664932Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude  OPEN|ISDIR
+2026-09-27T21:19:16.066666177Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude  READ|ISDIR
+2026-09-27T21:19:30.128258407Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:30.128409497Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:30.128415904Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:30.128417402Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:30.280329821Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude settings.json OPEN
+2026-09-27T21:19:30.280384186Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude/settings.json  OPEN
+2026-09-27T21:19:30.280385808Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude settings.json READ
+2026-09-27T21:19:30.280387623Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude/settings.json  READ
+2026-09-27T21:19:30.491577373Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:30.49162789Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:30.491631186Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:30.491632448Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:30.843096182Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:30.84314873Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:30.843150596Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:30.843152286Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:31.195064992Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:31.195087373Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:31.195089074Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:31.195090195Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:31.368993275Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:31.369020965Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:31.369026035Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:31.369038905Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:31.534928863Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:31.534987251Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:31.534988782Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:31.534989835Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:31.658453244Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:31.658476798Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:31.658478997Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:31.658480684Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:31.802651922Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:31.802676054Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:31.80267763Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:31.802679466Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:31.993194305Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:31.993241881Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:31.99324354Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:31.993244663Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:32.089400414Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:32.0894246Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:32.08942809Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:32.089429292Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:32.363455507Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:32.363486849Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:32.363490331Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:32.363492814Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:32.386728798Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:32.386753917Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:32.386756947Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:32.386758151Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:32.589405576Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:32.589465302Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:32.589469092Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:32.589470267Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:32.696927815Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:32.697006003Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:32.697010894Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:32.697013811Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:32.889549875Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:32.889574104Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:32.889575844Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:32.889577902Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:32.979255191Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:32.979304823Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:32.979306444Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:32.979307552Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:33.054015088Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:33.054038434Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:33.054040161Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:33.054041243Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:37.724881428Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:37.724946898Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:37.724950513Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:37.724951819Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:37.725377148Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:37.725381316Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:37.725382643Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:37.725383742Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:37.725398789Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:37.725400731Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:37.725401931Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:37.725403115Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:37.725439207Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:37.725441656Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:37.725443643Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:37.725444872Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.002814357Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.002840994Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.002842739Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.002843896Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.003018763Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.003023065Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.003024294Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.003025432Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.197064142Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.197088417Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.197090174Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.197091304Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.197495623Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.197499879Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.197503383Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.197504781Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.197506391Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.197507831Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.197509602Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.197510688Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.197557953Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.197567237Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.197569198Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.197570351Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.336786163Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.336809914Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.336820249Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.336821456Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.406798368Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.406931132Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.406933955Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.406935577Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.407646804Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.40766049Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.407662139Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.407663288Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.685361153Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.685393838Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.685395815Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.685396965Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.685661622Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.685678644Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.685682481Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.685684918Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.878157625Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.878185873Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.878224423Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.87822678Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.8785384Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.878552884Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.878554435Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.878555564Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.878590663Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.878599493Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.878600802Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.878601911Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:38.878634412Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:38.878640273Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:38.878641715Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:38.878642863Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.317513706Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:39.317537735Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:39.317541273Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:39.317542404Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:39.318334558Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.318338102Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.318340623Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.318341836Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.31939167Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.319401857Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.319403231Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.319404325Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.319406527Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.319407643Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.319445783Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.319446926Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.319448914Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.319449978Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.319450995Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.319452005Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.518137148Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:39.518160022Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:39.51816168Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:39.518162823Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:39.518415034Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.5184183Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.518419735Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.518425807Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.518886306Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.518891712Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.518893037Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.518916414Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.518919117Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.518920294Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.518921553Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.518922723Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.518971352Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.518974009Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.518975274Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.518976415Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.67680303Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.676837304Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.676839122Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.676840597Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:39.985217945Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:39.985249717Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:39.985251664Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:39.985252968Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:40.228923108Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:40.228983334Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:40.228985107Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:40.22898627Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:40.806102683Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:40.806156783Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:40.806158542Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:40.806160341Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:41.0837463Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:41.083771449Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:41.083780607Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:41.083782618Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:41.363678206Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:41.363705701Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:41.363707381Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:41.36370852Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:41.6628568Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:41.662885397Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:41.662887546Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:41.662889057Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:41.938566426Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:41.938593472Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:41.938641374Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:41.938644939Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:42.298565722Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:42.298595646Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:42.298597676Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:42.29859885Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:42.568323467Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:42.568346567Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:42.56834846Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:42.568349629Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:42.867456031Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:42.867529696Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:42.867533065Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:42.867535505Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:43.142548325Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:43.142583811Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:43.142609904Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:43.142621704Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:43.438631542Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:43.438672652Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:43.438760446Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:43.438769067Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:43.839038842Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:43.839060749Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:43.839064035Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:43.839065297Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:44.131158832Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:44.131184757Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:44.131186437Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:44.131187559Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:44.457998622Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:44.458019975Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:44.458022354Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:44.458023785Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:44.738332948Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:44.73835625Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:44.73835783Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:44.738358887Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:44.794017276Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:44.794040826Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:44.794042405Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:44.794043648Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:45.085095936Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:45.085151835Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:45.085153656Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:45.08515479Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:45.376334299Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:45.376357247Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:45.376360698Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:45.376367964Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:45.679748544Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:45.679796749Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:45.679883603Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:45.679892034Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:45.938173999Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:45.938223036Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:45.938226241Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:45.938227434Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:46.102632844Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:46.102660431Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:46.102664541Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:46.102665908Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:46.379091512Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:46.379117818Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:46.379121938Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:46.379123201Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:46.548162953Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:46.54818705Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:46.548188845Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:46.548190017Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:46.803719552Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:46.803830695Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:46.803836429Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:46.803837758Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:46.961763552Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:46.961788695Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:46.961792593Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:46.961794114Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:47.219939471Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:47.21999283Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:47.219994543Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:47.219995646Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.141302588Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.141343792Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.141346221Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.141348249Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.171882588Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.171932289Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.171934133Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.171935281Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.171938374Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.171939535Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.171940648Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.171941729Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.233971819Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.234027731Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.234029497Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.234030677Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.235033377Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.235042835Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.235045844Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.235047731Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.235251107Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.235255431Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.235302995Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.23531332Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.235495361Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.235499509Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.235501688Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.235502758Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.314466718Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.314491909Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.314496804Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.314498398Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.314929482Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.314945968Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.314964083Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.314967806Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.314969914Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.314971847Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.314973767Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.31497636Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:49.314980398Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:49.314982563Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:49.314984474Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:49.314986369Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:56.746848225Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:56.746960188Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:56.746964003Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:56.746966525Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:56.747678323Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:56.747696301Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:56.747699402Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:56.747701588Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:56.747705548Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:56.747707675Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:56.747710467Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:56.747712445Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:56.747780078Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:56.747790356Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:56.747805151Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:56.747807809Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:58.826005912Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:58.826028139Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:58.826029847Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:58.82603096Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:58.826032028Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:58.826039946Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:58.826041016Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:58.826042073Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:58.82604313Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:58.835831191Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:58.835909198Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:58.835912107Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:58.835913283Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.022163018Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.022190918Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.022194461Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.022196205Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.023683197Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.023698308Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.023700127Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.02370116Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.024225447Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.024231841Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.024234273Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.024235528Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.025954496Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.025996629Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.026000584Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.026058878Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.026275152Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.026283688Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.026285063Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.026286144Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.02660701Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.026614857Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.026616383Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.026617706Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.027308257Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.027314673Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.027316806Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.027317945Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.027320448Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.027321593Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.027322681Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.02732376Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.027426211Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.027428871Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.027430784Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.027431879Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.02794842Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.02801935Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.028031354Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.028033917Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.028035858Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.028038201Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.028040006Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.028041676Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.028253777Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.028259192Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.02826055Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.028262003Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.029149109Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.029159501Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.029161116Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.029162389Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.029522988Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.029530584Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.029586532Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.029590101Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.029680318Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.02969041Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.02969309Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.029694466Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.030158495Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.030166601Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.03016887Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.030170122Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.030607692Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.03061129Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.030620023Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.030621122Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.031004093Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.031008421Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.031010429Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.031011543Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.03106039Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.031062367Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.031064402Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.031065536Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.0314056Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json OPEN
+2026-09-27T21:19:59.031420638Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  OPEN
+2026-09-27T21:19:59.031423835Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack config.json READ
+2026-09-27T21:19:59.031433163Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/config.json  READ
+2026-09-27T21:19:59.055121369Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.055139605Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.055142615Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.055144412Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.060355213Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.061142371Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.061151658Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.06115324Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.069792555Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.069806472Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.069809175Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.069810312Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.074372528Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.074545456Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.074554702Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.07455609Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.261862457Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.261883374Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.261885727Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.261886913Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.267517856Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.268149839Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.268159228Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.268160784Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.282422569Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.282443952Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.282445801Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.282446913Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.287185282Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.287387517Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.287404938Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.287406328Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.393049699Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.393173713Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.393177606Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.393178799Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.469346469Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.469369003Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.469370786Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.469371928Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.474233387Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.474416055Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.474424087Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.474425844Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.494009768Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.4940579Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.494060157Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.494061493Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.606614191Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.606662816Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.606666275Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.606667581Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.674748851Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.674771403Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.674774631Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.674775793Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.678962284Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.67934587Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.679355774Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.679357485Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.70216068Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.702207057Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.702210573Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.702211904Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.829469053Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.829492789Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.829494334Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.829495399Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.907569491Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.907590699Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.907595603Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.907596771Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.907597813Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.907598856Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:19:59.933133857Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:19:59.933187578Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:19:59.933190867Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:19:59.933193146Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.04468014Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.044719754Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.044726039Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.044728619Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.115435181Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.115484269Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.115486138Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.115487342Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.119769796Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.120118379Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.120127369Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.120129836Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.147643682Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.147673796Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.147677207Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.147678501Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.248255673Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.248305501Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.248309052Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.248310284Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.31704832Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.317074279Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.317076039Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.317077184Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.321268332Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.321516893Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.321552496Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.32155412Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.350688149Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.35071005Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.350711701Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.350712778Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.460325918Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.460349042Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.460350624Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.460351782Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.527821079Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.527845081Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.527848838Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.527850202Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.532212461Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.532433357Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.532440243Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.53246148Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.561555261Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.561603414Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.56160664Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.561607849Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.665097576Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.665142613Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.665144299Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.665145434Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.734788746Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.734814487Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.734816453Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.73481776Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.740879346Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.741055957Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.74106179Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.741063149Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.787524312Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.787551764Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.787554815Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.787556021Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.872931757Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.87295443Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.872956122Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.872957436Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.941509483Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.941617667Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.941628534Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.941631307Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.965037064Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.96506544Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.965074014Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.965076589Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:00.991239656Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:00.991264562Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:00.991267851Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:00.991268932Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.099252482Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.099301236Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.099305427Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.0993066Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.145638486Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.145663501Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.145665152Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.145666293Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.162951896Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.162970891Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.16300047Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.163002912Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.196640838Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.196699028Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.196702857Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.196704055Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.302369753Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.302391853Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.302395099Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.302396216Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.393720281Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.393742477Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.393745846Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.393746983Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.409599315Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.409646215Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.409648798Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.409650618Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.442668972Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.4427228Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.442725707Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.442726887Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:01.567389766Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:01.567443524Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:01.567446989Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:01.56744821Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:09.516176121Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude settings.json OPEN
+2026-09-27T21:20:09.516202615Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude/settings.json  OPEN
+2026-09-27T21:20:09.516204341Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude settings.json READ
+2026-09-27T21:20:09.51620544Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude/settings.json  READ
+2026-09-27T21:20:10.901780665Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:10.901804522Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:10.901806172Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:10.901807249Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:11.502205331Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:11.502258593Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:11.502261915Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:11.502263182Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:12.045867003Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:12.045895237Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:12.045898696Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:12.04589991Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:12.579219882Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:12.579254602Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:12.579258158Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:12.579270404Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:13.108069885Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:13.108146467Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:13.108148277Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:13.108149337Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:13.617299794Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:13.617371889Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:13.617375419Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:13.617377475Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:13.662691363Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:13.662725678Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:13.66272906Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:13.662730223Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:13.783905463Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:13.783962664Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:13.783967329Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:13.783968483Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:13.927644487Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:13.927694349Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:13.927697711Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:13.927699018Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.009996679Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.010030269Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.010032042Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.010033182Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.108873832Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.108899334Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.108902631Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.108903798Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.12969594Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.129748018Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.129751631Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.129753598Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.179016992Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.179048848Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.179051899Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.179053838Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.198845448Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.19886953Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.198872616Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.198881385Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.389395482Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.38941948Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.389421179Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.389422282Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.512583402Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.512608961Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.512610563Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.512612252Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.56500076Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.565061175Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.565063651Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.565064789Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.647403981Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.647429484Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.647431136Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.64743227Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.730528363Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.730606589Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.730610007Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.730612538Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.819103316Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.819129856Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.81913161Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.819133455Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:14.907061221Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:14.907138909Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:14.90714445Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:14.907147073Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.000914385Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.000970387Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.000972983Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.000974173Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.123056214Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.123081709Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.123083421Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.123084529Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.24001625Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.240047593Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.240049438Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.240050538Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.260931511Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.260987549Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.260991537Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.260992778Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.307825666Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.307873891Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.307875712Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.307876844Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.338153678Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.338220612Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.338233054Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.338234433Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.429594544Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.429620795Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.429624777Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.429626145Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.47764859Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.477720601Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.477724165Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.477726627Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.536213651Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.536236023Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.536237801Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.536238987Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.616484954Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.616508985Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.616510721Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.616512729Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.698183355Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.698220721Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.698224632Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.69822865Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:15.787328325Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:15.787405673Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:15.787407454Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:15.787408633Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:16.349961441Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:16.349985386Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:16.3499871Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:16.349988271Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:16.438545166Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:16.438585993Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:16.438587776Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:16.438589009Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:16.518547775Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:16.518572229Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:16.518573944Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:16.518575124Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:16.591802899Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:16.591849156Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:16.591852214Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:16.591853435Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:17.213165123Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:17.213221888Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:17.213226242Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:17.213227553Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:17.748417657Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:17.748452934Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:17.748454733Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:17.748456837Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:17.812816009Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:17.812864044Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:17.812869415Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:17.812871227Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.376473002Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.37650258Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.376505733Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.376506831Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.440677967Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.440729046Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.440732384Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.440741019Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.495123797Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.495154169Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.495157884Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.495159153Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.558198343Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.558272585Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.558276148Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.558278616Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.621168083Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.621218497Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.62122005Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.62122112Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.68440589Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.684455609Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.68445737Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.684458531Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.737776379Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.737802481Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.737805421Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.737806537Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.793986255Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.794013501Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.79401668Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.794017878Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.849200457Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.849266156Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.849270152Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.849271348Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.896119443Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.896183625Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.89619793Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.896199277Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:18.938661273Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:18.938688176Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:18.938689957Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:18.938691083Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:19.480224351Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:19.480250207Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:19.480253832Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:19.480254944Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.009047177Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.009083963Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.009087714Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.009088961Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.057348838Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.057405797Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.057409574Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.057410791Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.079430869Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.0795033Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.079508522Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.079510403Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.104936689Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.104969503Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.10497249Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.104974337Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.125061265Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.125113483Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.125115188Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.125116363Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.17202862Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.17205433Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.172057277Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.17205838Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.215989254Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.216020502Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.216023574Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.216024985Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.268668477Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.268693647Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.268695522Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.268696711Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.323416431Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.323439829Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.323441526Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.323442682Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.378636467Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.378704361Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.378707814Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.378709869Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.402855173Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.4028805Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.402883634Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.402884765Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.455929678Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.45595556Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.455959527Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.455960743Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.513644999Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.513673356Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.513675012Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.513684311Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.561508235Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.561597729Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.561600736Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.561601926Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.608553261Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.608598486Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.60860019Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.608601933Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.655048502Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.655089452Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.655093499Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.655095928Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.676421131Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.676448124Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.676451347Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.676452556Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.724167154Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.724201902Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.724214154Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.724216628Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.772380461Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.772418695Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.772422187Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.772424628Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.792630074Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.792653992Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.792657156Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.792658347Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.853826741Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.853865641Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.853869123Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.853870282Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.879224637Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.879283491Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.879287526Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.879289807Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:20.948820037Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:20.948845281Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:20.948846931Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:20.948848044Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.020878798Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.020921554Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.020925009Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.020926216Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.136802075Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.136826842Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.136829142Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.136830287Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.2186908Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.218717924Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.218719775Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.218720933Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.394270545Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.39430024Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.394301915Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.394303073Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.474688747Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.474737521Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.474740552Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.474741713Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.564179886Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.564257717Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.564261179Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.564263527Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.671735795Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.671771091Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.671774897Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.671776087Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.844816692Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.844852582Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.844855861Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.844858075Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:21.923368928Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:21.92339427Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:21.923396607Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:21.923397793Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:22.002255245Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:22.002297629Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:22.002310136Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:22.002311924Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:22.084091242Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:22.084147547Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:22.084151802Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:22.084154122Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:22.163547869Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:22.163573932Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:22.163577625Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:22.163579132Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:22.26160914Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:22.261715963Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:22.261726031Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:22.261727352Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:23.542660859Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:23.54271466Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:23.542716415Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:23.542717522Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:23.622268457Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:23.622321166Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:23.622323514Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:23.622324673Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:23.705364458Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:23.705411973Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:23.705413893Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:23.705415828Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:23.786562589Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:23.786611855Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:23.786613604Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:23.786614722Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:23.869505353Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:23.869533687Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:23.869537151Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:23.869538338Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:23.952899791Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:23.952950326Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:23.95295349Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:23.952954649Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:24.06294285Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:24.063005927Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:24.063009048Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:24.063011135Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:24.145678829Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:24.14571547Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:24.145717384Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:24.145718524Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:24.166165443Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:24.166212152Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:24.166213914Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:24.166215179Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:24.584888055Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:24.584965819Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:24.584970356Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:24.584971786Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:25.184395866Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:25.184428843Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:25.184432403Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:25.184434095Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:25.715003995Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:25.715033864Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:25.715037042Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:25.71503815Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:32.849739062Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:32.849780357Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:32.849783872Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:32.849785076Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:32.94993568Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:32.949991311Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:32.949996825Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:32.949998077Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.05092677Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.050951251Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.050954185Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.050963183Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.107090485Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.107141342Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.10714346Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.107155259Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.205357821Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.205394539Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.205396951Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.205399119Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.30367392Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.303704551Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.303708064Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.303709335Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.401900994Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.401949958Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.401954327Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.401955584Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.501233002Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.501298316Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.501301137Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.501303077Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.598213829Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.598238545Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.598242152Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.598243264Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.695178687Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.695219923Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.695223191Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.695224298Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.752964648Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.752990646Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.753000492Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.753001726Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.813357934Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.813386774Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.813390227Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.813391471Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:33.91623885Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:33.916269601Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:33.916272898Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:33.91627407Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:34.013836149Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:34.013903863Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:34.013909618Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:34.01391219Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:34.034265412Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:34.034296479Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:34.034299286Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:34.034301242Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:34.092958253Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:34.09301385Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:34.093017157Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:34.093018372Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:35.223104075Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:35.223151551Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:35.223156274Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:35.223158024Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:35.366466549Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:35.366540838Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:35.366544252Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:35.366545487Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:35.429822681Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:35.429943783Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:35.429950759Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:35.429953617Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:35.532156416Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:35.532216641Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:35.532222464Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:35.532225012Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:35.674016188Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:35.674138305Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:35.674150862Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:35.674154113Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:35.760420631Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:35.760487125Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:35.760496656Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:35.760499762Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:35.825987213Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:35.826029061Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:35.826032058Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:35.82603415Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+2026-09-27T21:20:35.936321138Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json OPEN
+2026-09-27T21:20:35.936426195Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  OPEN
+2026-09-27T21:20:35.936434632Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack calibration.json READ
+2026-09-27T21:20:35.936437646Z /work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack/calibration.json  READ
+# after:
+fe028cd489c95e2db30a2e261e7dbf5fcda07af5ac2f7e41321a74f65b3e9052  .qompack/calibration.json
+2cc93be31c257948859c78c46c3763a1f139d2bc3a4cf5f1dd9b701703759f04  .qompack/config.json
+1782a660312d0b4334ab699b34cc4e8928cc78ca517da20d69a224f0693a26b3  .claude/settings.json

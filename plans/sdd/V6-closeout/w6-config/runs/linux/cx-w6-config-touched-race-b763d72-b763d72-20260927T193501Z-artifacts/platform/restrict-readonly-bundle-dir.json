@@ -1,0 +1,16 @@
+{
+  "name": "restrict-readonly-bundle-dir",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "outcome": "verified",
+  "reason": "all six hooks run from a read-only plugin install directory",
+  "detail": "deny applied to \"/tmp/qompack-platform-222095183/plug in ünï\"; 13 bundle files byte-identical afterwards; CLAUDE_PLUGIN_ROOT set to the denied directory; hook stderr was 0 bytes; daemon suppressed through QOMPACK_RUNTIME__DAEMON__ENABLED=false"
+}

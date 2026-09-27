@@ -1,0 +1,19 @@
+{
+  "name": "switch_refused_experiments_enabled",
+  "capability": "switch",
+  "scope": "installed_bundle",
+  "switch": "runtime.migration.experiments.enabled",
+  "value": "true",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "outcome": "verified",
+  "reason": "the operator's value was refused and restored to the default, with a recorded violation",
+  "detail": "`config print --json` reports runtime.migration.experiments.enabled=false after the environment layer set it true, and state/config-violations.json names [runtime.migration.experiments.enabled]. This switch REFUSES rather than disables: there is no production reader to turn off (internal/config/migration.go's gate table), so nothing stops — the value never takes effect at all. Not duplicated here: internal/config/validate_test.go pins the refusal itself and test/security's posture_telemetry_is_refused pins telemetry end to end"
+}
