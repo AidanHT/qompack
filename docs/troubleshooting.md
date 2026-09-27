@@ -701,8 +701,8 @@ cause: the route's own durable writes (`session_start.contract`, `.finish`) are 
 
 **Symptom.** A session's first `SessionStart` got no answer: no §12.1 probe was minted for it, or
 a compaction's context opens with the deferred note naming "the Qompack daemon did not answer in
-time". It happens on a loaded machine, or on the first start after installing or updating the plugin
-on Windows, when the daemon binary is copied and scanned before it first runs.
+time". It happens on a loaded machine, and more readily on Windows on the first start after the
+plugin is installed or updated, when the daemon binary is first copied under the user's `.qompack`.
 
 **Diagnose.** The project's day log (`.qompack/logs/qompack-YYYYMMDD.log`) has `hook: no time left to
 wait for the daemon's answer; the request was spooled` when starting the daemon used the whole of
@@ -725,8 +725,8 @@ lock's 10 s freshness window, which is itself a sign of heavy load.
 
 **Action.** None for a single occurrence: the session continues, and a compaction's note lists the
 recovery calls. If it recurs on every start, look at the machine's CPU and disk load when sessions
-begin; on Windows an antivirus scan of `%USERPROFILE%\.qompack\bin` on the first run of each plugin
-version is expected once.
+begin. On a loaded Windows machine the V6 close-out's cold-start diagnostic saw starting the daemon
+process stall for 4 to 5 s in about one spawn in ten; what causes those stalls was not identified.
 
 ---
 
