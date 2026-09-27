@@ -45,3 +45,5 @@ red-sidecar-shard.txt   (sidecar shard directory). 9086913 archive + the tests, 
                         TestCaptureSidecar_ANewShardIsDurableBeforeTheSidecarIsWritten: FAIL.
 red-restore-dest.txt    (new restore destination). 5acdfb8 archive + the extended restore test.
                         TestMaintenance_ARestoreIsDurableBeforeItIsReported: FAIL.
+red-coldpath-batch.txt  (seal re-mark batching, eddb208). Found by the Windows full checkpoint run at
+                        77a6524: TestColdPreCompactCatchesUpInOneBatchOldestFirst FAIL (5 batches, want 1).

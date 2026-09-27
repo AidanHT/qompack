@@ -1,0 +1,16 @@
+# RED found by the Windows full run of ./internal/checkpoint at 77a6524 (go test ./internal/checkpoint -count=1 -timeout=70m -v):
+# a0d6232's per-id re-mark added four MarkEncoded calls to every seal; fixed in eddb208. Excerpt:
+468:=== RUN   TestColdPreCompactCatchesUpInOneBatchOldestFirst
+469-    precompact_test.go:308: 
+470-        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync/internal/checkpoint/precompact_test.go:308
+471-        	Error:      	Not equal: 
+472-        	            	expected: 1
+473-        	            	actual  : 5
+474-        	Test:       	TestColdPreCompactCatchesUpInOneBatchOldestFirst
+475-        	Messages:   	the cold path catches up in ONE batched Advance, not one full-graph scan per segment
+476---- FAIL: TestColdPreCompactCatchesUpInOneBatchOldestFirst (0.33s)
+477-=== RUN   TestPreCompactReportsTruncationButNotPointerDrops
+478---- PASS: TestPreCompactReportsTruncationButNotPointerDrops (0.39s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	102.719s
+FAIL
