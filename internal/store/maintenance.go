@@ -264,7 +264,9 @@ func (x *Maintenance) Restore(ctx context.Context, id, dest string) (RestoreProo
 	if err := maintRefuseExistingDot(dl.Dot); err != nil {
 		return proof, err
 	}
-	if err := os.MkdirAll(paths.Long(dest), 0o700); err != nil {
+	// A destination this restore creates is synced into its parent, so the restore reported below
+	// cannot vanish with a directory whose own entry a power cut took.
+	if err := x.m.barriers.MkdirAll(dest, 0o700); err != nil {
 		return proof, fmt.Errorf("store: restore backup %q: destination: %w", id, err)
 	}
 
