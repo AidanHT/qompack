@@ -257,21 +257,30 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 	}
 
 	tree := filepath.Join(dir, backupTreeDir)
-	err = filepath.WalkDir(paths.Long(m.l.Dot), func(p string, d fs.DirEntry, werr error) error {
+	// The walk runs over paths.Long(Dot), so on Windows every path it yields past MAX_PATH carries
+	// the \\?\ prefix. That spelling is for the directory enumeration only. Everything below works
+	// from src, the same file spelled from m.l.Dot the way every other path in this package is, and
+	// every callee applies paths.Long again at its own syscall. Handing on the walked spelling is
+	// what broke backups of deep projects: the copy's maintNoFollow relates its source to the
+	// unprefixed project root with filepath.Rel, which cannot relate two volume spellings, so
+	// every such backup failed with "Rel: can't make \\?\... relative to ..." (C1.7).
+	walkRoot := paths.Long(m.l.Dot)
+	err = filepath.WalkDir(walkRoot, func(p string, d fs.DirEntry, werr error) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		if werr != nil {
 			return werr
 		}
-		rel, rerr := filepath.Rel(paths.Long(m.l.Dot), p)
+		rel, rerr := filepath.Rel(walkRoot, p)
 		if rerr != nil {
 			return rerr
 		}
-		rel = filepath.ToSlash(rel)
 		if rel == "." {
 			return nil
 		}
+		src := filepath.Join(m.l.Dot, rel)
+		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
 			if backupSkipDirs[strings.SplitN(rel, "/", 2)[0]] {
 				return filepath.SkipDir
@@ -291,14 +300,14 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 				return fmt.Errorf("store: backup exceeds supported file count")
 			}
 			dst := filepath.Join(tree, filepath.FromSlash(rel))
-			size, digest, err := m.copyBackupFile(ctx, p, dst)
+			size, digest, err := m.copyBackupFile(ctx, src, dst)
 			if err != nil {
 				return err
 			}
 			man.Files = append(man.Files, BackupFile{Name: rel, Size: size, SHA256: digest})
 			return nil
 		}
-		b, ferr := paths.ReadFileShared(p)
+		b, ferr := paths.ReadFileShared(src)
 		if ferr != nil {
 			return ferr
 		}

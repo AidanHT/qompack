@@ -151,8 +151,13 @@ type versionedCalibFile struct {
 type flatCalibFile map[string]float64
 
 // loadCalibEntry reads key's entry from p, accepting either document shape.
+//
+// p is normally the one user-global document every project's daemon persists into with
+// paths.WriteAtomic, so the read is shared (paths.ReadFileShared): on Windows an ordinary handle
+// would fail another process's replace and would itself be refused while one is finishing
+// (test/guards' sharedReaders).
 func loadCalibEntry(p, key string) (calibEntry, bool, error) {
-	b, err := os.ReadFile(paths.Long(p))
+	b, err := paths.ReadFileShared(p)
 	if err != nil {
 		return calibEntry{}, false, err
 	}
@@ -177,9 +182,13 @@ func loadCalibEntry(p, key string) (calibEntry, bool, error) {
 }
 
 // persist writes this scope's factor into the shared document, preserving every other entry.
+//
+// Its read is shared (paths.ReadFileShared) for loadCalibEntry's reason, and here a refused read
+// costs more than a stale value: the document written back would hold this scope's entry alone and
+// drop every other project's factor.
 func (c *calibState) persist(factor, _ float64, _ int) error {
 	m := flatCalibFile{}
-	if b, err := os.ReadFile(paths.Long(c.calibPath)); err == nil {
+	if b, err := paths.ReadFileShared(c.calibPath); err == nil {
 		var versioned versionedCalibFile
 		if uerr := json.Unmarshal(b, &versioned); uerr == nil && versioned.Projects != nil {
 			for k, e := range versioned.Projects {

@@ -308,9 +308,14 @@ type RetentionCompaction struct {
 // it therefore ABORTS the pass with core.ErrDegraded and changes nothing: the duplication is shed
 // on a later pass instead, and no declaration is ever lost to the race. Callers should still run it
 // at a quiescent point — the end of a GC pass, which is what wires it in.
+//
+// The read is shared (paths.ReadFileShared). The end of a GC pass is quiescent for this pass only:
+// session ends run concurrently since C1.15 and each runs a GC, so another pass's compaction can
+// replace the file while this one reads it, and on Windows an ordinary handle would fail that
+// replace (test/guards' sharedReaders).
 func CompactRetentionRoots(projectRoot string) (RetentionCompaction, error) {
 	p := RetentionRootsPath(projectRoot)
-	before, err := os.ReadFile(paths.Long(p))
+	before, err := paths.ReadFileShared(p)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return RetentionCompaction{}, nil

@@ -207,12 +207,19 @@ func WriteCaptureSidecar(projectRoot string, sc CaptureSidecar) error {
 // ReadCaptureSidecar reads back the sidecar for id. A missing sidecar is reported as such rather
 // than as an empty record, because "nothing was captured" and "the capture is gone" are different
 // answers and only one of them is a gap.
+//
+// The read is shared (paths.ReadFileShared). The same sidecar is replaced with paths.WriteAtomic
+// by WriteCaptureSidecar and by LinkCaptureReference, and a lost-ACK duplicate reaches the
+// daemon's ingest on two paths, live and drain, that no lock this reader takes orders. On Windows
+// an ordinary handle would fail such a replace, and a read refused by one would drop the prior
+// sidecar's Published record, which WriteCaptureSidecar would then write back as open
+// (test/guards' sharedReaders).
 func ReadCaptureSidecar(projectRoot string, id core.ObservationID) (CaptureSidecar, error) {
 	p, err := CaptureSidecarPath(projectRoot, id)
 	if err != nil {
 		return CaptureSidecar{}, err
 	}
-	b, err := os.ReadFile(paths.Long(p))
+	b, err := paths.ReadFileShared(p)
 	if err != nil {
 		return CaptureSidecar{}, err
 	}

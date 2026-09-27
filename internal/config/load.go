@@ -12,6 +12,28 @@ import (
 	"strings"
 )
 
+// storeDirName and configFileName spell the two config files' locations: the store directory
+// paths.Global(home) and paths.Of(root).Dot name, and the file inside it. §3.2 gives config the
+// allow-set {core}, so it cannot import paths to ask for either; test/guards'
+// TestGuard_ConfigFilesAreWhereThePathsLayoutPutsThem holds the two spellings together instead.
+const (
+	storeDirName   = ".qompack"
+	configFileName = "config.json"
+)
+
+// UserConfigPath returns the user-global config file, <home>/.qompack/config.json: the file named
+// config.json in paths.Global(home), the cross-project layer (§3.3). The project root's
+// QOMPACK_PROJECT_ROOT override and .git walk never apply to it.
+func UserConfigPath(home string) string {
+	return filepath.Join(home, storeDirName, configFileName)
+}
+
+// ProjectConfigPath returns the project config file, <root>/.qompack/config.json: the file named
+// config.json in paths.Of(root).Dot.
+func ProjectConfigPath(root string) string {
+	return filepath.Join(root, storeDirName, configFileName)
+}
+
 // Load composes five layers, deep-merged per leaf key, lowest precedence first: built-in
 // defaults, the user-global file, the project file, QOMPACK_* environment variables, and --set
 // flags. It returns a non-nil error only when env.ProjectRoot is empty — every other problem
@@ -46,10 +68,8 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 		deepMerge(merged, layer, "", prov, origin, loc, lines, &warns)
 	}
 
-	// §3.2 gives `config` the allow-set {core}: it may not import `paths`, so the two config-file
-	// locations are joined inline here with filepath.Join rather than via paths.Global/paths.Of.
-	userPath := filepath.Join(env.HomeDir, ".qompack", "config.json")
-	projectPath := filepath.Join(env.ProjectRoot, ".qompack", "config.json")
+	userPath := UserConfigPath(env.HomeDir)
+	projectPath := ProjectConfigPath(env.ProjectRoot)
 	if b, err := os.ReadFile(userPath); err == nil {
 		apply(b, OriginUserFile, userPath)
 	}

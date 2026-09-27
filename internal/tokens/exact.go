@@ -179,6 +179,11 @@ type exact struct {
 	// calib guards the calibration state; see calibrate.go.
 	calib calibState
 
+	// fmu serializes flush's file I/O, which runs after cmu is released: an append's read-write
+	// handle blocks, on Windows, a concurrent compaction's paths.WriteAtomic replace of the same
+	// file, and two appends that measured the same record count write over each other's records.
+	// It is only ever taken first, before cmu.
+	fmu sync.Mutex
 	// cmu guards every chunk-cache field below.
 	cmu       sync.Mutex
 	cache     map[core.Hash]uint32

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -129,3 +130,63 @@ func TestChunkCache_EmptyPathIsInMemoryOnly(t *testing.T) {
 	require.NoError(t, persister(t, est).Flush())
 	require.NoError(t, persister(t, est).Close())
 }
+
+// TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk runs Flush from several goroutines at once, as
+// concurrent session ends do (each one's store.Flush reaches the estimator). Each flush takes its
+// pending records under the cache lock but did its file I/O after releasing it, so two flushes could
+// overlap on disk: an append's read-write handle, which on Windows carries no FILE_SHARE_DELETE,
+// made a concurrent compaction's paths.WriteAtomic replace fail, and two appends that measured the
+// same record count wrote their records over each other's. A cap of a few entries makes nearly
+// every other flush a compaction, so the overlap is exercised on every run.
+func TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk(t *testing.T) {
+	defer tokens.SetChunkCacheMaxEntries(concurrentFlushCap)()
+	cachePath := filepath.Join(t.TempDir(), "chunktokens.bin")
+	est := tokens.NewExact(config.Defaults(), "", cachePath)
+	sink := chunkSink(t, est)
+	flusher := persister(t, est)
+
+	errs := make(chan error, concurrentFlushers*concurrentFlushRounds)
+	var wg sync.WaitGroup
+	for g := 0; g < concurrentFlushers; g++ {
+		wg.Add(1)
+		go func(g int) {
+			defer wg.Done()
+			for r := 0; r < concurrentFlushRounds; r++ {
+				body := bytes.Repeat([]byte("concurrent flush chunk "), 2+(g+r)%5)
+				h := core.HashBytes("tokens.concurrent", append([]byte{byte(g), byte(r)}, body...))
+				sink.NoteChunk(h, tokens.ClassProse, body)
+				errs <- flusher.Flush()
+			}
+		}(g)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err, "a flush must never fail because another flush was writing the same file")
+	}
+	require.NoError(t, flusher.Close())
+
+	raw, err := os.ReadFile(cachePath)
+	require.NoError(t, err)
+	body := raw[tokens.ChunkCacheHeaderSize():]
+	require.Zero(t, len(body)%tokens.ChunkCacheRecordSize(), "the record region must be whole records")
+	records := len(body) / tokens.ChunkCacheRecordSize()
+	require.Equal(t, uint64(records), binary.LittleEndian.Uint64(raw[8:16]),
+		"the header's record count must match the records on disk")
+	seen := map[string]bool{}
+	for i := 0; i < records; i++ {
+		rec := body[i*tokens.ChunkCacheRecordSize() : (i+1)*tokens.ChunkCacheRecordSize()]
+		key := string(rec[:len(core.Hash{})])
+		require.False(t, seen[key], "record %d repeats a hash: two flushes wrote over each other", i)
+		seen[key] = true
+	}
+}
+
+// concurrentFlushCap, concurrentFlushers and concurrentFlushRounds size that test: a cap of four
+// entries makes a file past chunkCacheCompactFactor (2) times the cap after a few flushes, so most
+// rounds compact; eight goroutines of forty rounds give 320 flushes that overlap on any scheduler.
+const (
+	concurrentFlushCap    = 4
+	concurrentFlushers    = 8
+	concurrentFlushRounds = 40
+)
