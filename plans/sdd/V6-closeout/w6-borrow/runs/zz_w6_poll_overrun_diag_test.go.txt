@@ -1,0 +1,96 @@
+package daemon
+
+// TEMPORARY DIAGNOSTIC (w6-borrow fix seat): where the time goes when EnsureRunningUntil's poll
+// returns past its deadline. Never committed as code; kept as evidence in runs/ as a .txt copy.
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"sort"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
+)
+
+type zzTimedHung struct {
+	mu      sync.Mutex
+	lastEnd time.Time
+}
+
+func (h *zzTimedHung) probe(_ ipc.Addr, by time.Time) bool {
+	w := time.NewTimer(time.Until(by))
+	<-w.C
+	h.mu.Lock()
+	h.lastEnd = time.Now()
+	h.mu.Unlock()
+	return false
+}
+
+func zzPct(xs []time.Duration, p float64) time.Duration {
+	if len(xs) == 0 {
+		return 0
+	}
+	s := append([]time.Duration(nil), xs...)
+	sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })
+	i := int(p * float64(len(s)-1))
+	return s[i]
+}
+
+func TestZZW6_PollOverrunDiag(t *testing.T) {
+	iters, _ := strconv.Atoi(os.Getenv("ZZ_ITERS"))
+	if iters <= 0 {
+		iters = 20
+	}
+	spinners := 0
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if os.Getenv("ZZ_CPU_COLOAD") == "1" {
+		spinners = 8
+		for range spinners {
+			go func() {
+				x := 0
+				for ctx.Err() == nil {
+					x++
+				}
+				_ = x
+			}()
+		}
+	}
+	t.Logf("spinners=%d iters=%d", spinners, iters)
+	for _, freed := range []bool{false, true} {
+		var over, dialEnd, tail []time.Duration
+		for range iters {
+			root := t.TempDir()
+			clk := newFakeClock(epoch)
+			writeSpawnLock(t, root, clk.Now())
+			h := &zzTimedHung{}
+			until := time.Now().Add(pollEndsWait)
+			var fr *time.Timer
+			if freed {
+				fr = time.AfterFunc(time.Until(until.Add(-pollEndsFreedBefore)), func() { removeSpawnLockFile(root) })
+			}
+			_, _ = ensureRunningWith(root, "self", logging.Nop(), clk,
+				pollBound{until: until, after: spawnLockMissBound, latest: until.Add(spawnLockTestBound)},
+				func(string, string) error { return nil }, h.probe)
+			ret := time.Now()
+			if fr != nil {
+				fr.Stop()
+			}
+			h.mu.Lock()
+			le := h.lastEnd
+			h.mu.Unlock()
+			over = append(over, ret.Sub(until))
+			dialEnd = append(dialEnd, le.Sub(until))
+			tail = append(tail, ret.Sub(le))
+		}
+		line := fmt.Sprintf("freed=%v n=%d over p50=%s p90=%s max=%s | lastDialEnd-until p50=%s max=%s | return-lastDialEnd p50=%s p90=%s max=%s",
+			freed, iters, zzPct(over, .5), zzPct(over, .9), zzPct(over, 1), zzPct(dialEnd, .5), zzPct(dialEnd, 1),
+			zzPct(tail, .5), zzPct(tail, .9), zzPct(tail, 1))
+		t.Log(line)
+	}
+}

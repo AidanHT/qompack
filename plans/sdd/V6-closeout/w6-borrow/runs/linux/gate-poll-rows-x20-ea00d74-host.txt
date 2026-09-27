@@ -1,0 +1,34 @@
+run_id=cx-w6-borrow-poll-rows-x20-ea00d74-20260927T201532Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+rev=ea00d74
+commit=ea00d7401082f43b627cab6c87007897bdbea212
+bundle_sha256=40165aff688d9b8e94714ad07ae6ef56c7b8e62a055b096f32255d4673b9a472
+host_started_utc=2026-09-27T20:15:44Z
+inner_args=--count 20 --timeout 50m --run ^(TestWaitForTick_EndsAtTheDeadlineNotTheTick$|TestEnsureRunningUntil_|TestEnsureRunning_) -- ./internal/daemon
+/work/cx-w6-borrow-poll-rows-x20-ea00d74-20260927T201532Z.bundle: OK
+run_id=cx-w6-borrow-poll-rows-x20-ea00d74-20260927T201532Z
+commit=ea00d7401082f43b627cab6c87007897bdbea212
+tree=49c517393082699243b1b1b475cb2b746b26fa29
+bundle_sha256=40165aff688d9b8e94714ad07ae6ef56c7b8e62a055b096f32255d4673b9a472
+started_utc=2026-09-27T20:15:52Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=50m gomaxprocs=4 coload=0
+run=^(TestWaitForTick_EndsAtTheDeadlineNotTheTick$|TestEnsureRunningUntil_|TestEnsureRunning_)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=360 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/plans/sdd/V6-closeout/w6-borrow/runs/linux/cx-w6-borrow-poll-rows-x20-ea00d74-20260927T201532Z-artifacts
+exit=0

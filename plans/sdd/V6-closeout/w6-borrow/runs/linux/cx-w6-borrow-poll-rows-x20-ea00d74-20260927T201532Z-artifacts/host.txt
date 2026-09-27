@@ -1,0 +1,10 @@
+run_id=cx-w6-borrow-poll-rows-x20-ea00d74-20260927T201532Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+rev=ea00d74
+commit=ea00d7401082f43b627cab6c87007897bdbea212
+bundle_sha256=40165aff688d9b8e94714ad07ae6ef56c7b8e62a055b096f32255d4673b9a472
+host_started_utc=2026-09-27T20:15:44Z
+inner_args=--count 20 --timeout 50m --run ^(TestWaitForTick_EndsAtTheDeadlineNotTheTick$|TestEnsureRunningUntil_|TestEnsureRunning_) -- ./internal/daemon
+host_finished_utc=2026-09-27T20:18:26Z
+container_exit=0

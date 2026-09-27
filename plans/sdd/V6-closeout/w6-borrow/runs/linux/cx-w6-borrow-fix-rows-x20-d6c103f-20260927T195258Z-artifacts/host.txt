@@ -1,0 +1,10 @@
+run_id=cx-w6-borrow-fix-rows-x20-d6c103f-20260927T195258Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+rev=d6c103f
+commit=d6c103f1e3699e6a51178428de5c0fe38a551a0e
+bundle_sha256=fa26ec59079dc011b4b0cf87e7336c9a12cb1ab361a1b676560f4be4203c41de
+host_started_utc=2026-09-27T19:53:26Z
+inner_args=--count 20 --timeout 50m --run ^(TestEnsureRunningUntil_|TestEnsureRunning_|TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled$|TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud$|TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling$) -- ./internal/daemon ./internal/cli
+host_finished_utc=2026-09-27T19:58:14Z
+container_exit=0

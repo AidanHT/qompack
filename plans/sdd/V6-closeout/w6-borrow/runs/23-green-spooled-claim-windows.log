@@ -1,0 +1,23 @@
+== w6-borrow fix seat: green run after the spoolUnsent/Warn fix, with the two sibling rows
+== $ go test ./internal/cli/ -run '^(TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled|TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud|TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling)$' -count=3 -v
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.73s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.91s)
+=== RUN   TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled
+--- PASS: TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled (3.96s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.90s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.72s)
+=== RUN   TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled
+--- PASS: TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled (3.71s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.74s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.70s)
+=== RUN   TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled
+--- PASS: TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled (3.73s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	34.339s
+exit=0

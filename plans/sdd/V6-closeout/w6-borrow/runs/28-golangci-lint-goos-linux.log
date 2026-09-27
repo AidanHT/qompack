@@ -1,0 +1,3 @@
+== head d6c103f; the pinned golangci-lint (tools/pinned/go.mod) built on the host, run with GOOS=linux
+== GOOS=linux golangci-lint run ./...
+exit=0

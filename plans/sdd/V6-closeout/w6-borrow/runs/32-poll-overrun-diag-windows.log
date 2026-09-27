@@ -1,0 +1,26 @@
+== head d6c103f + the temporary diagnostic zz_w6_poll_overrun_diag_test.go (runs/zz_w6_poll_overrun_diag_test.go.txt), never committed as code
+== the Linux gate was running in the container throughout (machine co-loaded besides the in-test spinners)
+== $ ZZ_CPU_COLOAD=1 ZZ_ITERS=30 timeout 600 go test ./internal/daemon/ -run '^TestZZW6_PollOverrunDiag$' -count=1 -v   (temporary diagnostic)
+    zz_w6_poll_overrun_diag_test.go:64: spinners=8 iters=30
+    zz_w6_poll_overrun_diag_test.go:94: freed=false n=30 over p50=346µs p90=781.3µs max=3.9464ms | lastDialEnd-until p50=325µs max=974.9µs | return-lastDialEnd p50=0s p90=0s max=4.5279ms
+    zz_w6_poll_overrun_diag_test.go:94: freed=true n=30 over p50=4.0089ms p90=6.2136ms max=8.9993ms | lastDialEnd-until p50=500.1µs max=1.8589ms | return-lastDialEnd p50=3.5153ms p90=4.6902ms max=8.2625ms
+ok  	github.com/qompack/qompack/internal/daemon	60.793s
+exit=0
+== $ ZZ_CPU_COLOAD=0 ZZ_ITERS=30 timeout 600 go test ./internal/daemon/ -run '^TestZZW6_PollOverrunDiag$' -count=1 -v   (temporary diagnostic)
+    zz_w6_poll_overrun_diag_test.go:64: spinners=0 iters=30
+    zz_w6_poll_overrun_diag_test.go:94: freed=false n=30 over p50=411.7µs p90=661.6µs max=1.6015ms | lastDialEnd-until p50=411.7µs max=1.6015ms | return-lastDialEnd p50=0s p90=0s max=0s
+    zz_w6_poll_overrun_diag_test.go:94: freed=true n=30 over p50=4.5342ms p90=5.3875ms max=7.897ms | lastDialEnd-until p50=517.7µs max=2.0268ms | return-lastDialEnd p50=3.8093ms p90=4.8698ms max=6.9312ms
+ok  	github.com/qompack/qompack/internal/daemon	60.810s
+exit=0
+== $ ZZ_CPU_COLOAD=1 ZZ_ITERS=30 timeout 600 go test ./internal/daemon/ -run '^TestZZW6_PollOverrunDiag$' -count=1 -v   (temporary diagnostic)
+    zz_w6_poll_overrun_diag_test.go:64: spinners=8 iters=30
+    zz_w6_poll_overrun_diag_test.go:94: freed=false n=30 over p50=537.8µs p90=1.0289ms max=1.2079ms | lastDialEnd-until p50=506.1µs max=1.2079ms | return-lastDialEnd p50=0s p90=0s max=6.6622ms
+    zz_w6_poll_overrun_diag_test.go:94: freed=true n=30 over p50=3.9757ms p90=5.0482ms max=12.5858ms | lastDialEnd-until p50=619.5µs max=2.2382ms | return-lastDialEnd p50=3.3511ms p90=4.2925ms max=12.2838ms
+ok  	github.com/qompack/qompack/internal/daemon	60.747s
+exit=0
+== $ ZZ_CPU_COLOAD=0 ZZ_ITERS=30 timeout 600 go test ./internal/daemon/ -run '^TestZZW6_PollOverrunDiag$' -count=1 -v   (temporary diagnostic)
+    zz_w6_poll_overrun_diag_test.go:64: spinners=0 iters=30
+    zz_w6_poll_overrun_diag_test.go:94: freed=false n=30 over p50=524.4µs p90=8.2715ms max=41.1382ms | lastDialEnd-until p50=367.8µs max=9.4682ms | return-lastDialEnd p50=0s p90=0s max=65.2077ms
+    zz_w6_poll_overrun_diag_test.go:94: freed=true n=30 over p50=8.5575ms p90=252.2678ms max=508.0319ms | lastDialEnd-until p50=1.2287ms max=301.8404ms | return-lastDialEnd p50=7.4773ms p90=121.564ms max=206.1915ms
+ok  	github.com/qompack/qompack/internal/daemon	65.786s
+exit=0

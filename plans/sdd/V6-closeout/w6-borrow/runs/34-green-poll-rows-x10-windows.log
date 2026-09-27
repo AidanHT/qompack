@@ -1,0 +1,165 @@
+== head d6c103f + the uncommitted row change (the overrun logged, TestWaitForTick_EndsAtTheDeadlineNotTheTick added); the Linux touched-race gate running in the container
+== $ go test ./internal/daemon/ -run '^(TestWaitForTick_EndsAtTheDeadlineNotTheTick|TestEnsureRunningUntil_ThePollEndsAtItsDeadline)$' -count=10 -v
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 1.0511ms after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 3.6942ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.01s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.01s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 537.2µs after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 2.7026ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.01s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.01s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 11.4154ms after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 14.7854ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.02s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.02s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 8.1492ms after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 8.9948ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.02s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.05s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 578.4µs after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 20.0875ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.05s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.05s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 1.72ms after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 17.4343ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.05s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.06s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 1.2459ms after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 17.0753ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.05s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.06s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 1.8655ms after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 9.1975ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.03s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.05s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 37.6µs after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 25.6988ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.02s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.03s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:544: the poll returned 1.9301ms after its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:544: the poll returned 19.1666ms after its deadline
+--- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.02s)
+    --- PASS: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.10s)
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+--- PASS: TestWaitForTick_EndsAtTheDeadlineNotTheTick (0.23s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	13.071s
+exit=0
