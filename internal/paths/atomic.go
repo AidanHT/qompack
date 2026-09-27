@@ -212,9 +212,14 @@ func fsyncDir(dir string) error {
 // torn or empty one — and a removed file can reappear. No product guarantee depends on more than
 // the premise: every write whose loss would break one ends with a flush after the directory change it
 // relies on (a checkpoint's MANIFEST line, the delivery and WAL journal appends, each object's flush
-// in a publication pass, the pins log line, an acknowledged elimination's line), and the files that
-// can revert — state/ documents, the pins view, precompact.json, a draft, a restore's final
-// directory rename — are derived or rebuilt, or leave the operator the previous state to retry from.
+// in a publication pass, the pins log line, an acknowledged elimination's line), except a backup's
+// certification, and every change that can revert is safe to lose. State/ documents, the pins view,
+// precompact.json and a draft are derived or rebuilt; a restore's final directory rename leaves the
+// operator the previous state to retry from. A backup's certification is the rename of its manifest
+// and the removal of its certification-pending marker, the last two steps of TakeBackup, and no flush
+// follows them: a power cut just after it reports the backup certified can leave the backup without
+// its manifest or with the marker back. Verification refuses such a backup, so it is never restored
+// from as certified; it must be taken again.
 // The premise has not been tested with a power cut on this project; a real Windows directory barrier
 // exists (FlushFileBuffers on a CreateFile(GENERIC_WRITE, FILE_FLAG_BACKUP_SEMANTICS) handle,
 // w5-dirsync item 4) and D24 declines it. docs/architecture.md §4 and docs/security.md §8 carry the

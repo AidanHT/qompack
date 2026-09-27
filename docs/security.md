@@ -310,8 +310,12 @@ Open at this release, stated here rather than left to discovery.
   depends on. What a power cut can still take is what follows the last flush on the volume: the
   most recent replacement of a derived file (a `state/` document, `pins/invariants.json`, a draft, a
   restore's final rename) can revert to its previous complete version, and a removed file can
-  reappear. Nothing Qompack guarantees depends on more than that. The premise has not been tested
-  with a real power cut.
+  reappear. A backup's certification is exposed the same way: the rename of its manifest and the
+  removal of its certification-pending marker are the last steps of `qompack backup`, no flush
+  follows them, and a power cut just after the command reports the backup certified can leave it
+  without its manifest or with the marker back. Verification refuses such a backup, so it is never
+  restored from as certified; it must be taken again. Nothing Qompack guarantees depends on more than
+  that. The premise has not been tested with a real power cut.
 - **One platform, one host.** Every measurement on this page is windows/amd64 with one Claude Code
   version. The five other release targets are cross-compiled and untested at this level — see
   `docs/release.md` for the supported-scope table, which is generated from records rather than
