@@ -58,6 +58,16 @@ import (
 // directory derived from it) with, spelled pkg.Func.
 var homeLookupCalls = map[string]bool{"os.UserHomeDir": true, "os.UserConfigDir": true, "os.UserCacheDir": true}
 
+// envReaders are the os functions that read the process environment. Called with a home name they
+// are a home lookup (homeEnvNames); passed as a function value — config.Env{Getenv: os.Getenv},
+// paths.HomeDirs(os.Getenv) — they hand the real environment to code that may read the home with
+// it under any key, which this scan cannot follow, so the reference itself counts.
+var envReaders = map[string]bool{"Getenv": true, "LookupEnv": true, "Environ": true}
+
+// pathsImport is internal/paths, whose HomeDirs reads HOME and USERPROFILE through whatever getenv
+// it is handed; a call to it is a home lookup whatever that getenv is.
+const pathsImport = modulePrefix + "internal/paths"
+
 // homeEnvNames are the environment variables that name the home or a user-global location ahead of
 // it: the two os.UserHomeDir reads, the calibration file's directory (tokens.DefaultCalibPath) and
 // Claude Code's settings directory (internal/hostperm).
@@ -76,8 +86,14 @@ var homeResolverExempt = map[string]bool{"internal/paths/pathstest": true}
 
 // knownHomeResolvers are the packages the scan must find today. It guards the scan from passing
 // vacuously; a new resolver is found without an edit here, and a resolver that stops reading the
-// home is removed here in the same change.
-var knownHomeResolvers = []string{"internal/cli", "internal/daemon", "internal/eval", "internal/hostperm", "internal/tokens"}
+// home is removed here in the same change. cmd/qompack is found only by the function-value rule (it
+// hands os.Getenv to internal/cli, which reads HOME and USERPROFILE with it), so it pins that rule
+// on the real tree. internal/ipc is also found by that rule today (ipc.Resolve hands os.Getenv to
+// resolveFor, which reads only QOMPACK_IPC_ADDR and XDG_RUNTIME_DIR) and is deliberately not listed:
+// it is a conservative match, not a home reader.
+var knownHomeResolvers = []string{
+	"cmd/qompack", "internal/cli", "internal/daemon", "internal/eval", "internal/hostperm", "internal/tokens",
+}
 
 // minHomeReachingTestPackages is a floor on how many test packages the import graph must report as
 // able to reach the home. It is far below the tree's real count (44 when this guard was written) and
@@ -157,11 +173,63 @@ func d() string { return sys.Getenv("PATH") }
 	f, err := parser.ParseFile(fset, "p.go", product, parser.SkipObjectResolution)
 	require.NoError(t, err)
 	require.Equal(t, []string{"a: os.UserHomeDir", "b: os.Getenv(QOMPACK_HOME)", "c: os.LookupEnv(CLAUDE_CONFIG_DIR)"},
-		homeLookupsInFile(f), "an aliased os, a lookup call, and both env readers with a home name; not PATH")
+		homeLookupsInFile(f, stringConsts(f)), "an aliased os, a lookup call, and both env readers with a home name; not PATH")
+
+	// The shapes review finding 3 (w6-config) named: a home name behind a constant, declared in this
+	// file or in another file of the package, and the environment handed on as a function value,
+	// including to paths.HomeDirs, which reads HOME and USERPROFILE with whatever it is given.
+	const indirect = `package p
+
+import (
+	"os"
+
+	hp "github.com/qompack/qompack/internal/paths"
+)
+
+const homeKey = "HOME"
+
+const pathKey = "PATH"
+
+type env struct{ Getenv func(string) string }
+
+func e() string { return os.Getenv(homeKey) }
+
+func f() string { return os.Getenv(otherFileKey) }
+
+func g() string { return os.Getenv(pathKey) }
+
+func h() []string { return hp.HomeDirs(os.Getenv) }
+
+func i() env { return env{Getenv: os.Getenv} }
+
+func j() func() []string { return os.Environ }
+
+func k(getenv func(string) string) []string { return hp.HomeDirs(getenv) }
+`
+	const otherFile = `package p
+
+const otherFileKey = "USERPROFILE"
+`
+	f, err = parser.ParseFile(fset, "i.go", indirect, parser.SkipObjectResolution)
+	require.NoError(t, err)
+	other, err := parser.ParseFile(fset, "o.go", otherFile, parser.SkipObjectResolution)
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		"e: os.Getenv(HOME)", "f: os.Getenv(USERPROFILE)",
+		"h: paths.HomeDirs", "h: os.Getenv as a value", "i: os.Getenv as a value", "j: os.Environ as a value",
+		"k: paths.HomeDirs",
+	}, homeLookupsInFile(f, stringConsts(f, other)),
+		"a constant key from this file or another, paths.HomeDirs under an alias, and each env reader as a value; not PATH")
 
 	const snapshot = `package p
 
-import "os"
+import (
+	"os"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+const homeKey = "HOME"
 
 var env = os.Environ()
 
@@ -170,12 +238,20 @@ var (
 	home, _ = os.UserHomeDir()
 )
 
+var fromConst = os.Getenv(homeKey)
+
+var homes = paths.HomeDirs(os.Getenv)
+
+var path = os.Getenv("PATH")
+
 func f() []string { return os.Environ() }
 `
 	f, err = parser.ParseFile(fset, "s.go", snapshot, parser.SkipObjectResolution)
 	require.NoError(t, err)
-	require.Equal(t, []string{"env (os.Environ)", "home, _ (os.UserHomeDir)"}, envSnapshotsInFile(f),
-		"both package-level forms, and not a call inside a function")
+	require.Equal(t, []string{
+		"env (os.Environ)", "home, _ (os.UserHomeDir)", "fromConst (os.Getenv)", "homes (paths.HomeDirs)",
+	}, envSnapshotsInFile(f, stringConsts(f)),
+		"both package-level forms, a home name behind a constant and paths.HomeDirs; not PATH, and not a call inside a function")
 
 	dir := t.TempDir()
 	write := func(name, body string) {
@@ -197,10 +273,15 @@ func f() []string { return os.Environ() }
 }
 
 // scanHomeResolvers returns every product package (module-relative, under internal/ and cmd/) that
-// resolves the home itself, with the function-level evidence the scan found.
+// resolves the home itself, with the function-level evidence the scan found. It parses a package's
+// files before scanning any of them, so a key constant declared in one file resolves in another.
 func scanHomeResolvers(t *testing.T, root string) map[string][]string {
 	t.Helper()
-	found := map[string][]string{}
+	type parsed struct {
+		name string
+		file *ast.File
+	}
+	packages := map[string][]parsed{}
 	for _, top := range productReadRoots {
 		err := filepath.WalkDir(filepath.Join(root, top), func(p string, d fs.DirEntry, werr error) error {
 			if werr != nil {
@@ -227,37 +308,109 @@ func scanHomeResolvers(t *testing.T, root string) map[string][]string {
 			if perr != nil {
 				return perr
 			}
-			for _, hit := range homeLookupsInFile(f) {
-				found[pkg] = append(found[pkg], filepath.Base(rel)+" "+hit)
-			}
+			packages[pkg] = append(packages[pkg], parsed{name: filepath.Base(rel), file: f})
 			return nil
 		})
 		require.NoError(t, err, "scanning %s", top)
 	}
+	found := map[string][]string{}
+	for pkg, files := range packages {
+		var all []*ast.File
+		for _, pf := range files {
+			all = append(all, pf.file)
+		}
+		consts := stringConsts(all...)
+		for _, pf := range files {
+			for _, hit := range homeLookupsInFile(pf.file, consts) {
+				found[pkg] = append(found[pkg], pf.name+" "+hit)
+			}
+		}
+	}
 	return found
 }
 
-// osLocalName returns the name f refers to package os by, or "" when f does not import it. A dot
-// import is reported as ".", which no selector can match, so such a file is flagged by name alone.
-func osLocalName(f *ast.File) string {
+// stringConsts maps every constant the files declare with a string literal value, at any scope, to
+// the values it is given. A name declared twice keeps both values, so a lookup through it is a home
+// lookup when either value is a home name: over-reporting is the safe direction for this scan.
+func stringConsts(files ...*ast.File) map[string][]string {
+	consts := map[string][]string{}
+	for _, f := range files {
+		ast.Inspect(f, func(n ast.Node) bool {
+			gd, ok := n.(*ast.GenDecl)
+			if !ok || gd.Tok != token.CONST {
+				return true
+			}
+			for _, spec := range gd.Specs {
+				vs, ok := spec.(*ast.ValueSpec)
+				if !ok {
+					continue
+				}
+				for i, name := range vs.Names {
+					if i >= len(vs.Values) {
+						break
+					}
+					if lit, ok := vs.Values[i].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+						if v, err := strconv.Unquote(lit.Value); err == nil {
+							consts[name.Name] = append(consts[name.Name], v)
+						}
+					}
+				}
+			}
+			return true
+		})
+	}
+	return consts
+}
+
+// homeEnvKey returns the home name an env reader's key argument spells, as a string literal or as a
+// constant consts resolves, and "" when it spells none.
+func homeEnvKey(arg ast.Expr, consts map[string][]string) string {
+	switch x := arg.(type) {
+	case *ast.BasicLit:
+		if v, err := strconv.Unquote(x.Value); x.Kind == token.STRING && err == nil && homeEnvNames[v] {
+			return v
+		}
+	case *ast.Ident:
+		for _, v := range consts[x.Name] {
+			if homeEnvNames[v] {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
+// importLocalName returns the name f refers to the package at importPath by, or "" when f does not
+// import it. A dot import is reported as ".", which no selector can match.
+func importLocalName(f *ast.File, importPath, defaultName string) string {
 	for _, imp := range f.Imports {
-		if path, err := strconv.Unquote(imp.Path.Value); err != nil || path != "os" {
+		if path, err := strconv.Unquote(imp.Path.Value); err != nil || path != importPath {
 			continue
 		}
 		if imp.Name != nil {
 			return imp.Name.Name
 		}
-		return "os"
+		return defaultName
 	}
 	return ""
 }
 
-// homeLookupsInFile returns "fn: call" for every home lookup in f, in source order: a reference to
-// one of homeLookupCalls, or an os.Getenv / os.LookupEnv call whose first argument is a string
-// literal naming one of homeEnvNames.
-func homeLookupsInFile(f *ast.File) []string {
+// osLocalName returns the name f refers to package os by, or "" when f does not import it. A dot
+// import is reported as ".", which no selector can match, so such a file is flagged by name alone.
+func osLocalName(f *ast.File) string { return importLocalName(f, "os", "os") }
+
+// homeLookupsInFile returns "fn: lookup" for every home lookup in f, in source order:
+//
+//   - a reference to one of homeLookupCalls;
+//   - an os.Getenv / os.LookupEnv call whose key names one of homeEnvNames, as a string literal or
+//     as a constant consts resolves (stringConsts of the whole package);
+//   - an envReaders function referenced as a value rather than called, which hands the real
+//     environment to code this scan cannot follow;
+//   - a call to paths.HomeDirs, which reads HOME and USERPROFILE with the getenv it is given.
+func homeLookupsInFile(f *ast.File, consts map[string][]string) []string {
 	osName := osLocalName(f)
-	if osName == "" {
+	pathsName := importLocalName(f, pathsImport, "paths")
+	if osName == "" && pathsName == "" {
 		return nil
 	}
 	var hits []string
@@ -266,19 +419,33 @@ func homeLookupsInFile(f *ast.File) []string {
 		if fd, ok := decl.(*ast.FuncDecl); ok && fd.Name != nil {
 			fn = fd.Name.Name
 		}
+		// called holds the selector of every call's function, so a selector met on its own below is
+		// known to be a value, not a call. ast.Inspect visits a call before its function.
+		called := map[*ast.SelectorExpr]bool{}
 		ast.Inspect(decl, func(n ast.Node) bool {
 			switch x := n.(type) {
 			case *ast.CallExpr:
+				if sel, ok := x.Fun.(*ast.SelectorExpr); ok {
+					called[sel] = true
+				}
 				if name := osCall(x.Fun, osName); (name == "Getenv" || name == "LookupEnv") && len(x.Args) > 0 {
-					if lit, ok := x.Args[0].(*ast.BasicLit); ok && lit.Kind == token.STRING {
-						if v, err := strconv.Unquote(lit.Value); err == nil && homeEnvNames[v] {
-							hits = append(hits, fmt.Sprintf("%s: os.%s(%s)", fn, name, v))
-						}
+					if v := homeEnvKey(x.Args[0], consts); v != "" {
+						hits = append(hits, fmt.Sprintf("%s: os.%s(%s)", fn, name, v))
 					}
 				}
+				if pathsName != "" && osCall(x.Fun, pathsName) == "HomeDirs" {
+					hits = append(hits, fn+": paths.HomeDirs")
+				}
 			case *ast.SelectorExpr:
-				if name := osCall(x, osName); homeLookupCalls["os."+name] {
+				if osName == "" {
+					break
+				}
+				name := osCall(x, osName)
+				switch {
+				case homeLookupCalls["os."+name]:
 					hits = append(hits, fmt.Sprintf("%s: os.%s", fn, name))
+				case envReaders[name] && !called[x]:
+					hits = append(hits, fmt.Sprintf("%s: os.%s as a value", fn, name))
 				}
 			}
 			return true
@@ -367,10 +534,16 @@ func testMainCallsPathstestMain(t *testing.T, dir string) (bool, string) {
 }
 
 // scanPackageLevelEnvSnapshots returns "file: var (call)" for every package-level variable in the
-// tree initialized with an envSnapshotCalls call or a home-naming os.Getenv / os.LookupEnv.
+// tree initialized with an envSnapshotCalls call, a home-naming os.Getenv / os.LookupEnv or a
+// paths.HomeDirs call. It parses a directory's files before scanning any of them, so a key constant
+// declared in one file resolves in another.
 func scanPackageLevelEnvSnapshots(t *testing.T, root string) []string {
 	t.Helper()
-	var found []string
+	type parsed struct {
+		rel  string
+		file *ast.File
+	}
+	dirs := map[string][]parsed{}
 	for _, top := range []string{"internal", "cmd", "test", "tools"} {
 		err := filepath.WalkDir(filepath.Join(root, top), func(p string, d fs.DirEntry, werr error) error {
 			if werr != nil {
@@ -390,22 +563,35 @@ func scanPackageLevelEnvSnapshots(t *testing.T, root string) []string {
 				return perr
 			}
 			rel, _ := filepath.Rel(root, p)
-			for _, hit := range envSnapshotsInFile(f) {
-				found = append(found, filepath.ToSlash(rel)+": "+hit)
-			}
+			dirs[filepath.Dir(rel)] = append(dirs[filepath.Dir(rel)], parsed{rel: filepath.ToSlash(rel), file: f})
 			return nil
 		})
 		require.NoError(t, err, "scanning %s", top)
+	}
+	var found []string
+	for _, files := range dirs {
+		var all []*ast.File
+		for _, pf := range files {
+			all = append(all, pf.file)
+		}
+		consts := stringConsts(all...)
+		for _, pf := range files {
+			for _, hit := range envSnapshotsInFile(pf.file, consts) {
+				found = append(found, pf.rel+": "+hit)
+			}
+		}
 	}
 	sort.Strings(found)
 	return found
 }
 
 // envSnapshotsInFile returns "name (call)" for every package-level variable of f whose initializer
-// calls an envSnapshotCalls function or reads a homeEnvNames variable.
-func envSnapshotsInFile(f *ast.File) []string {
+// calls an envSnapshotCalls function, reads a homeEnvNames variable (by literal or through consts),
+// or calls paths.HomeDirs.
+func envSnapshotsInFile(f *ast.File, consts map[string][]string) []string {
 	osName := osLocalName(f)
-	if osName == "" {
+	pathsName := importLocalName(f, pathsImport, "paths")
+	if osName == "" && pathsName == "" {
 		return nil
 	}
 	var hits []string
@@ -429,13 +615,17 @@ func envSnapshotsInFile(f *ast.File) []string {
 					if !ok {
 						return true
 					}
+					if pathsName != "" && osCall(c.Fun, pathsName) == "HomeDirs" {
+						hits = append(hits, strings.Join(names, ", ")+" (paths.HomeDirs)")
+						return true
+					}
+					if osName == "" {
+						return true
+					}
 					name := osCall(c.Fun, osName)
 					hit := envSnapshotCalls["os."+name]
 					if (name == "Getenv" || name == "LookupEnv") && len(c.Args) > 0 {
-						if lit, ok := c.Args[0].(*ast.BasicLit); ok && lit.Kind == token.STRING {
-							v, err := strconv.Unquote(lit.Value)
-							hit = err == nil && homeEnvNames[v]
-						}
+						hit = homeEnvKey(c.Args[0], consts) != ""
 					}
 					if hit {
 						hits = append(hits, fmt.Sprintf("%s (os.%s)", strings.Join(names, ", "), name))
