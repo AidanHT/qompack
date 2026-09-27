@@ -1,0 +1,21 @@
+== C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/plans/sdd/V6-closeout/w5-coldstart/runs/52-coldstart-diag-cpu-coload-639e6d5-windows.log: rows=60 spooled=4 noup=0 multi-daemon=0 sswall p50=2663 p90=5640 p99=12918 max=13570 timelined-spawns=6 stalls>1s=0 max-stall=510
+   startup  unstaged     n=5 spooled=0 multi=0 sswall p50=2250 max=3897
+   startup  staged-cold  n=5 spooled=1 multi=0 sswall p50=5563 max=13570
+   startup  staged-warm  n=5 spooled=0 multi=0 sswall p50=2609 max=2963
+   startup  prespawned   n=5 spooled=0 multi=0 sswall p50=1816 max=2563
+   resume   unstaged     n=5 spooled=1 multi=0 sswall p50=2540 max=4830
+   resume   staged-cold  n=5 spooled=0 multi=0 sswall p50=5640 max=12918
+   resume   staged-warm  n=5 spooled=0 multi=0 sswall p50=2147 max=3235
+   resume   prespawned   n=5 spooled=0 multi=0 sswall p50=2855 max=3158
+   compact  unstaged     n=5 spooled=0 multi=0 sswall p50=2602 max=3836
+   compact  staged-cold  n=5 spooled=0 multi=0 sswall p50=5001 max=9866
+   compact  staged-warm  n=5 spooled=2 multi=0 sswall p50=3537 max=4943
+   compact  prespawned   n=5 spooled=0 multi=0 sswall p50=1937 max=3315
+== C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/plans/sdd/V6-closeout/w5-coldstart/runs/50-coldstart-diag-prespawned-idle-1b79f80-windows.log: rows=18 spooled=0 noup=0 multi-daemon=10 sswall p50=481 p90=782 p99=784 max=785 timelined-spawns=0 stalls>1s=0 max-stall=0
+   startup  prespawned   n=6 spooled=0 multi=2 sswall p50=481 max=493
+   resume   prespawned   n=6 spooled=0 multi=3 sswall p50=459 max=477
+   compact  prespawned   n=6 spooled=0 multi=5 sswall p50=778 max=785
+== C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/plans/sdd/V6-closeout/w5-coldstart/runs/51-coldstart-diag-prespawned-idle-639e6d5-windows.log: rows=18 spooled=0 noup=0 multi-daemon=0 sswall p50=469 p90=790 p99=797 max=810 timelined-spawns=0 stalls>1s=0 max-stall=0
+   startup  prespawned   n=6 spooled=0 multi=0 sswall p50=457 max=469
+   resume   prespawned   n=6 spooled=0 multi=0 sswall p50=468 max=489
+   compact  prespawned   n=6 spooled=0 multi=0 sswall p50=770 max=810
