@@ -610,6 +610,15 @@ That open grants the same delete sharing and also refuses a final link itself. T
 Lstat-then-`os.SameFile` identity check refused whenever a save landed between its two halves, and
 the no-follow open leaves no such window.
 
+**`paths/pathstest` isolates a test process's home (V6 close-out `w6-config`).** It is a `<pkg>test`
+subpackage under rule (c) of `importrules.go`, so it needs no entry of its own, and it imports nothing
+from `internal/`. That is what lets the in-package tests of every package except `paths` and `core`
+use it without a cycle, which `testutil` cannot offer. `pathstest.Main`, called from `TestMain`,
+points `HOME` and `USERPROFILE` at a temporary directory and unsets `QOMPACK_HOME` and
+`CLAUDE_CONFIG_DIR` for the whole test process, so no test reads or writes the real `~/.qompack` or
+`~/.claude` (§13 invariant 7). `test/guards` requires it of every package whose test binary links a
+package that resolves the home.
+
 **`hostperm` (V6 close-out C1.9, V6-HOST-1) is foundation-only by the same construction.** It reads
 Claude Code's settings files and evaluates their `permissions.deny`/`permissions.ask` Read rules for
 one absolute path; `mcp` is its only consumer and calls it after the containment check on every
