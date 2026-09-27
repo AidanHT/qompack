@@ -299,6 +299,29 @@ func TestLoad_UnparseableFileWarns(t *testing.T) {
 	require.Equal(t, config.Defaults(), cfg)
 }
 
+// TestLoad_UnreadableFileWarns is the other half of "a layer that is not in effect is never silent"
+// (§11.3, §13 invariant 10). A config file that exists but cannot be read — here a directory named
+// config.json, which every platform refuses to read as a file — used to be taken for a missing
+// file: the whole layer fell back to the defaults without a word. Only a file that does not exist
+// is absent; any other read failure is a keyless warning naming the file, like an unparseable one.
+func TestLoad_UnreadableFileWarns(t *testing.T) {
+	env := baseEnv(t)
+	userPath := config.UserConfigPath(env.HomeDir)
+	projectPath := config.ProjectConfigPath(env.ProjectRoot)
+	require.NoError(t, os.MkdirAll(userPath, 0o700))
+	require.NoError(t, os.MkdirAll(projectPath, 0o700))
+
+	cfg, _, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.Equal(t, config.Defaults(), cfg)
+	require.Len(t, warns, 2, "one warning per layer that exists and could not be read: %+v", warns)
+	for i, want := range []string{userPath, projectPath} {
+		require.Empty(t, warns[i].Key, "a whole layer, not a leaf")
+		require.Equal(t, want, warns[i].Location)
+		require.Contains(t, warns[i].Message, "unreadable config")
+	}
+}
+
 func TestLoad_ProvenanceLocationHasLine(t *testing.T) {
 	env := baseEnv(t)
 	// softFloorPct's key lands on line 4 by construction: {, {, blank, key.
