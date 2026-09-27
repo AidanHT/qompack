@@ -13,8 +13,8 @@ import (
 )
 
 // sharedReader names one function that MUST take its handle through paths.ReadFileShared /
-// paths.OpenShared rather than os.ReadFile / os.Open: a production reader, or a test/e2e helper that
-// polls a file a live daemon is replacing.
+// paths.OpenShared rather than os.ReadFile / os.Open: a production reader, or a test helper (under
+// test/ or internal/testutil) that polls a file a live daemon is replacing or deleting.
 //
 // The list is an inventory, not a pattern: "reads a file some other process replaces or deletes
 // while this one is live" is a judgement about the file, and there is no syntax that carries it.
@@ -103,6 +103,25 @@ var sharedReaders = []sharedReader{
 			"answer (C1.16) while this helper polls for it. An ordinary handle both failed the read with " +
 			"ERROR_SHARING_VIOLATION (V5 x04's co-load red) and failed that replace " +
 			"(w4-e2eflakes runs/diag-b-sharing-modes-rerun-windows.txt)",
+	},
+	{
+		file:  "internal/testutil/daemongone.go",
+		fn:    "DaemonHoldingLock",
+		holds: "run/daemon.lock",
+		why: "Lock.Release's os.Remove, the last act of a daemon shutdown, which every test/ shutdown " +
+			"helper polls for through this one reader (testutil.ShutdownDaemonUntilGone, and the " +
+			"e2e/fault/platform/release/security/guards gates and diagnostics around it). An ordinary " +
+			"handle in this read made that remove fail about one run in twenty, so the helper itself " +
+			"caused the abandoned lock it was waiting on (v1StopDaemonAndWaitGone measured it)",
+	},
+	{
+		file:  "test/e2e/faultinject_test.go",
+		fn:    "e2eSpawnInFlight",
+		holds: "run/spawn.lock",
+		why: "daemon.removeSpawnLockFile, the spawned daemon's single, unretried os.Remove of the marker " +
+			"once it listens. e2eAwaitSpawnInFlight polls through this helper for exactly that daemon " +
+			"(e2eShutdownIfReachable's spawn-in-flight wait), and a remove its read made fail leaves a " +
+			"marker that suppresses every later lazy spawn until it ages out of ipc's spawnLockStaleAfter",
 	},
 	{
 		file: "internal/store/backup.go",

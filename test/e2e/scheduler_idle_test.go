@@ -127,7 +127,7 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 	require.Equal(t, 0, code, "stderr:\n%s", stderr)
 	requireParsesAsOutput(t, stdout)
 	e2eWaitDaemonUp(t, p.Root)
-	pid, held := e2eDaemonHoldingLock(p.Root)
+	pid, held := testutil.DaemonHoldingLock(p.Root)
 	require.True(t, held, "a reachable daemon holds daemon.lock")
 	daemonPID = pid
 

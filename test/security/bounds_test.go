@@ -17,6 +17,7 @@ import (
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
+	"github.com/qompack/qompack/internal/testutil"
 )
 
 // Decode and size bounds: what the product does when the bytes on disk, or the bytes a host hands
@@ -233,7 +234,7 @@ func TestSecurity_MalformedObjectsAreQuarantinedAndBounded(t *testing.T) {
 	require.Contains(t, alive.Text, deniedMarker, "the healthy control object must still expand")
 	child.finish(t)
 
-	_, held := daemonHoldingLock(p.Root)
+	_, held := testutil.DaemonHoldingLock(p.Root)
 	require.True(t, held, "the daemon must still be running after five hostile objects")
 
 	// A checkpoint must still complete rather than stalling on a dangling pointer.

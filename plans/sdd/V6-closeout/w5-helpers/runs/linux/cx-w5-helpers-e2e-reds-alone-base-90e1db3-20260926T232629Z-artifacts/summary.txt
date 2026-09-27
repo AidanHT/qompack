@@ -1,0 +1,7 @@
+FAIL      github.com/qompack/qompack/test/e2e  (pass=0 fail=6 skip=0)
+    FAIL TestE2E_SpooledSessionStartNeverDegradesTheProject
+    FAIL TestV3_LiveSessionWriteSetAndAppendOnly
+    FAIL TestE2E_SpooledSessionStartNeverDegradesTheProject
+    FAIL TestV3_LiveSessionWriteSetAndAppendOnly
+    FAIL TestE2E_SpooledSessionStartNeverDegradesTheProject
+    FAIL TestV3_LiveSessionWriteSetAndAppendOnly

@@ -1098,15 +1098,14 @@ func adminPing(t *testing.T, root string, addr ipc.Addr) (ipc.Response, bool) {
 }
 
 // shutdownIfReachable dials root's resolved address and, if anything answers or a live process
-// still holds the lock, sends admin.shutdown until the daemon goes away.
+// still holds the lock, sends admin.shutdown until the daemon is gone.
 //
-// This is test/e2e's e2eShutdownIfReachable reduced to what this package needs, cloned rather than
-// imported because test/e2e is a composition root. The two properties worth keeping are the ones
-// its own comments were written around: "gone" is the LOCK disappearing rather than the address
-// going unreachable, because Stop closes the listener first and then goes on writing under
-// .qompack/ for the rest of its unwind; and a daemon that is still COMING UP holds the lock and
-// its day log while answering no dial at all, so liveness of the lock holder — not reachability —
-// decides whether there is anything to wait for.
+// What "gone" means is testutil.ShutdownDaemonUntilGone's one definition, shared with every other
+// shutdown helper under test/: no live process holds the lock, every process seen holding it during
+// the call has exited, and no holder went unidentified. This helper keeps only what is this
+// package's own: a daemon that is still COMING UP holds the lock and its day log while answering no
+// dial at all, so liveness of the lock holder — not reachability alone — decides whether there is
+// anything to wait for.
 func shutdownIfReachable(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
@@ -1115,74 +1114,18 @@ func shutdownIfReachable(t *testing.T, root string) {
 	}
 	reachable := ipc.Probe(addr, probeTimeout)
 	if !reachable {
-		if _, held := daemonHoldingLock(root); !held {
+		if _, held := testutil.DaemonHoldingLock(root); !held {
 			return
 		}
 	}
 
-	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
-		ProjectRoot:     root,
-		ConnectDeadline: roundTripDeadline,
-		AckDeadline:     roundTripDeadline,
+	out := testutil.ShutdownDaemonUntilGone(root, addr, testutil.ShutdownWait{
+		Tick: daemonPollTick, Bound: daemonDownBound, RoundTrip: roundTripDeadline,
 	})
-	defer func() { _ = c.Close() }()
-
-	shutdownPID, _ := daemonHoldingLock(root)
-
-	ticker := time.NewTicker(daemonPollTick)
-	defer ticker.Stop()
-	timeout := time.NewTimer(daemonDownBound)
-	defer timeout.Stop()
-	for {
-		_, _ = c.Send(context.Background(), ipc.Request{
-			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
-		}, roundTripDeadline)
-
-		lockPID, held := daemonHoldingLock(root)
-		if !held && processSettled(shutdownPID) {
-			return
-		}
-		select {
-		case <-ticker.C:
-		case <-timeout.C:
-			t.Logf("platform: a daemon (lock pid %d, shutdown pid %d) still held %s after %s of "+
-				"retried admin.shutdown; this case's cleanup is about to remove a tree it may still be writing to",
-				lockPID, shutdownPID, daemon.LockPath(root), daemonDownBound)
-			return
-		}
+	if !out.Gone {
+		t.Logf("platform: %s; this case's cleanup is about to remove a tree it may still be writing to",
+			out.Describe(daemon.LockPath(root), daemonDownBound))
 	}
-}
-
-// processSettled reports whether the pid that held the lock can no longer write inside the tree.
-// Our own pid always can, and asking whether the asking process has exited is meaningless, so for
-// that one case the lock's absence is the whole condition (test/e2e's e2eShutdownProcessSettled
-// makes the same distinction for the same reason).
-func processSettled(shutdownPID int) bool {
-	if shutdownPID == 0 || shutdownPID == os.Getpid() {
-		return true
-	}
-	return !testutil.ProcessAlive(shutdownPID)
-}
-
-// daemonHoldingLock reports the pid recorded in root's daemon.lock and whether a live process
-// still holds it.
-//
-// The lock is read with paths.ReadFileShared, whose handle carries FILE_SHARE_DELETE, so polling
-// it cannot make the daemon's own Release fail on Windows and thereby CAUSE the abandoned lock it
-// is checking for. A lock file that exists but does not parse counts as held: paths.CreateNew
-// creates the file and only then writes the body, so an empty daemon.lock is one a process
-// finished creating microseconds ago — the most alive a daemon ever is.
-func daemonHoldingLock(root string) (pid int, held bool) {
-	b, err := paths.ReadFileShared(daemon.LockPath(root))
-	if err != nil {
-		return 0, false
-	}
-	var info daemon.LockInfo
-	if err := json.Unmarshal(b, &info); err != nil {
-		return 0, true
-	}
-	return info.PID, testutil.ProcessAlive(info.PID)
 }
 
 // ---------------------------------------------------------------------------

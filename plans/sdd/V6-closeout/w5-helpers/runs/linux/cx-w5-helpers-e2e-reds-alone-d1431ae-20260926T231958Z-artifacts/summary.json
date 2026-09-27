@@ -1,0 +1,18 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 3,
+   "failed": [
+    "TestE2E_SpooledSessionStartNeverDegradesTheProject",
+    "TestV3_LiveSessionWriteSetAndAppendOnly",
+    "TestE2E_SpooledSessionStartNeverDegradesTheProject",
+    "TestV3_LiveSessionWriteSetAndAppendOnly",
+    "TestE2E_SpooledSessionStartNeverDegradesTheProject",
+    "TestV3_LiveSessionWriteSetAndAppendOnly"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

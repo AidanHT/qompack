@@ -1,0 +1,585 @@
+# Windows, HEAD 248b481, QOMPACK_UNDER_COLOAD unset, co-loaded host (other workstreams; this seat's Linux test/guards gate running in the container)
+# go test ./test/guards -count=1 -v -timeout=30m
+=== RUN   TestGuard_Phase0BeforeStore
+--- PASS: TestGuard_Phase0BeforeStore (0.00s)
+=== RUN   TestGuard_StoreAndNegknowBeforeCheckpoint
+--- PASS: TestGuard_StoreAndNegknowBeforeCheckpoint (0.06s)
+=== RUN   TestGuard_SubmodularInertWithoutPSelection
+=== PAUSE TestGuard_SubmodularInertWithoutPSelection
+=== RUN   TestGuard_SelectorRefusesWithoutPSelection
+=== PAUSE TestGuard_SelectorRefusesWithoutPSelection
+=== RUN   TestGuard_O1FlagDefaults
+=== PAUSE TestGuard_O1FlagDefaults
+=== RUN   TestGuard_SubmodularDefaultsOff
+=== PAUSE TestGuard_SubmodularDefaultsOff
+=== RUN   TestGuard_CacheOrderingIdentifiersStayInsideEval
+=== PAUSE TestGuard_CacheOrderingIdentifiersStayInsideEval
+=== RUN   TestGuard_CacheOrderingScannerSeesAMention
+=== PAUSE TestGuard_CacheOrderingScannerSeesAMention
+=== RUN   TestCarriedDefects_ManifestIsWellFormed
+=== PAUSE TestCarriedDefects_ManifestIsWellFormed
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== PAUSE TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution
+=== PAUSE TestCarriedDefects_WaveReportRequiresResolution
+=== RUN   TestColoadYieldersAreJudgedInIsolation
+=== PAUSE TestColoadYieldersAreJudgedInIsolation
+=== RUN   TestColoadDeclarationIsPinnedToTheGoConstant
+=== PAUSE TestColoadDeclarationIsPinnedToTheGoConstant
+=== RUN   TestGuard_CommandsAreFreeOfStdioAndWallClock
+=== PAUSE TestGuard_CommandsAreFreeOfStdioAndWallClock
+=== RUN   TestGuard_CommandsPurityScannerSeesAForbiddenSelector
+=== PAUSE TestGuard_CommandsPurityScannerSeesAForbiddenSelector
+=== RUN   TestGuard_FreshBuildReportsModeFull
+--- PASS: TestGuard_FreshBuildReportsModeFull (0.02s)
+=== RUN   TestGuard_DeclaredSeverityIsPreservedOnTheAssertion
+=== PAUSE TestGuard_DeclaredSeverityIsPreservedOnTheAssertion
+=== RUN   TestGuard_TheV1DeliveryPositionHasOneEncoder
+=== RUN   TestGuard_TheV1DeliveryPositionHasOneEncoder/internal/daemon/delivery_lease.go:openDeliveryJournal
+=== RUN   TestGuard_TheV1DeliveryPositionHasOneEncoder/internal/daemon/delivery_lease.go:openAckLocked
+=== RUN   TestGuard_TheV1DeliveryPositionHasOneEncoder/every_deliveryPosition_marshal_site_is_named_here
+--- PASS: TestGuard_TheV1DeliveryPositionHasOneEncoder (0.10s)
+    --- PASS: TestGuard_TheV1DeliveryPositionHasOneEncoder/internal/daemon/delivery_lease.go:openDeliveryJournal (0.00s)
+    --- PASS: TestGuard_TheV1DeliveryPositionHasOneEncoder/internal/daemon/delivery_lease.go:openAckLocked (0.00s)
+    --- PASS: TestGuard_TheV1DeliveryPositionHasOneEncoder/every_deliveryPosition_marshal_site_is_named_here (0.03s)
+=== RUN   TestGuard_TheDeliveryPositionScannerSeesEveryShapeItClaims
+--- PASS: TestGuard_TheDeliveryPositionScannerSeesEveryShapeItClaims (0.00s)
+=== RUN   TestGuard_FaultEnvIsConfinedToTwoFiles
+=== PAUSE TestGuard_FaultEnvIsConfinedToTwoFiles
+=== RUN   TestWorkflowGoVersionMatchesToolchain
+    goversion_test.go:85: 20 go-version pins across [ci.yml marketplace.yml nightly.yml release.yml] all equal go.mod's toolchain go1.26.6
+--- PASS: TestWorkflowGoVersionMatchesToolchain (0.07s)
+=== RUN   TestMarketplaceWorkflowPinsWithTheReleasesGenerator
+=== PAUSE TestMarketplaceWorkflowPinsWithTheReleasesGenerator
+=== RUN   TestMarketplaceWorkflowReRunsCleanly
+=== PAUSE TestMarketplaceWorkflowReRunsCleanly
+=== RUN   TestGuard_NoNetworkImports
+=== PAUSE TestGuard_NoNetworkImports
+=== RUN   TestGuard_NoNetworkImports_DetectsAViolation
+=== PAUSE TestGuard_NoNetworkImports_DetectsAViolation
+=== RUN   TestNightlyFuzzMatrix
+=== PAUSE TestNightlyFuzzMatrix
+=== RUN   TestNightlyFuzz_LandedSubplansMirrorsCoverGo
+=== PAUSE TestNightlyFuzz_LandedSubplansMirrorsCoverGo
+=== RUN   TestQompackChangesOnlyThroughAnAuthorizedRevision
+--- PASS: TestQompackChangesOnlyThroughAnAuthorizedRevision (0.02s)
+=== RUN   TestQompackDeclaredVersionIsRecorded
+--- PASS: TestQompackDeclaredVersionIsRecorded (0.00s)
+=== RUN   TestQompackErrataAndRevisionLogAgree
+--- PASS: TestQompackErrataAndRevisionLogAgree (0.00s)
+=== RUN   TestGoreleaserBuildsNothingAndDraftsTheRelease
+=== PAUSE TestGoreleaserBuildsNothingAndDraftsTheRelease
+=== RUN   TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck
+=== PAUSE TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck
+=== RUN   TestGoreleaserGuardRejectsReshapedYAML
+=== PAUSE TestGoreleaserGuardRejectsReshapedYAML
+=== RUN   TestGuard_AReleasedLockReportsItsSealResidual
+=== RUN   TestGuard_AReleasedLockReportsItsSealResidual/internal/daemon/borrowed_lease.go:ReleaseWithReport
+=== RUN   TestGuard_AReleasedLockReportsItsSealResidual/every_release_in_internal/daemon_is_accounted_for
+--- PASS: TestGuard_AReleasedLockReportsItsSealResidual (0.07s)
+    --- PASS: TestGuard_AReleasedLockReportsItsSealResidual/internal/daemon/borrowed_lease.go:ReleaseWithReport (0.00s)
+    --- PASS: TestGuard_AReleasedLockReportsItsSealResidual/every_release_in_internal/daemon_is_accounted_for (0.02s)
+=== RUN   TestGuard_TheSealResidualScannerSeesBothCallShapes
+--- PASS: TestGuard_TheSealResidualScannerSeesBothCallShapes (0.00s)
+=== RUN   TestGuard_SelectorHasExactlyOnePosVersusPComparison
+=== PAUSE TestGuard_SelectorHasExactlyOnePosVersusPComparison
+=== RUN   TestGuard_SelectorBypassScannerSeesAComparison
+=== PAUSE TestGuard_SelectorBypassScannerSeesAComparison
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- PASS: TestGuard_HotFilesAreReadWithDeleteSharing (0.06s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+=== RUN   TestGuard_SharedReaderScannerSeesAForbiddenCall
+--- PASS: TestGuard_SharedReaderScannerSeesAForbiddenCall (0.00s)
+=== RUN   TestGuard_NoSilentSketchLoadOutsideItsPackage
+=== PAUSE TestGuard_NoSilentSketchLoadOutsideItsPackage
+=== RUN   TestGuard_SketchLoadScannerSeesACall
+=== PAUSE TestGuard_SketchLoadScannerSeesACall
+=== RUN   TestObserverNewRequiresItsCollaborators
+=== RUN   TestObserverNewRequiresItsCollaborators/Log
+=== RUN   TestObserverNewRequiresItsCollaborators/Clock
+=== RUN   TestObserverNewRequiresItsCollaborators/ProjectRoot
+=== RUN   TestObserverNewRequiresItsCollaborators/Store
+=== RUN   TestObserverNewRequiresItsCollaborators/Graph
+--- PASS: TestObserverNewRequiresItsCollaborators (0.03s)
+    --- PASS: TestObserverNewRequiresItsCollaborators/Log (0.00s)
+    --- PASS: TestObserverNewRequiresItsCollaborators/Clock (0.00s)
+    --- PASS: TestObserverNewRequiresItsCollaborators/ProjectRoot (0.00s)
+    --- PASS: TestObserverNewRequiresItsCollaborators/Store (0.00s)
+    --- PASS: TestObserverNewRequiresItsCollaborators/Graph (0.00s)
+=== RUN   TestAllStubsReturnNotImplemented
+=== RUN   TestAllStubsReturnNotImplemented/chunk
+=== RUN   TestAllStubsReturnNotImplemented/canon
+=== RUN   TestAllStubsReturnNotImplemented/symbols
+=== RUN   TestAllStubsReturnNotImplemented/redact
+=== RUN   TestAllStubsReturnNotImplemented/sketch
+=== RUN   TestAllStubsReturnNotImplemented/store
+=== RUN   TestAllStubsReturnNotImplemented/dag
+=== RUN   TestAllStubsReturnNotImplemented/grammar
+=== RUN   TestAllStubsReturnNotImplemented/negknow
+=== RUN   TestAllStubsReturnNotImplemented/analyzer
+=== RUN   TestAllStubsReturnNotImplemented/scheduler
+=== RUN   TestAllStubsReturnNotImplemented/checkpoint
+=== RUN   TestAllStubsReturnNotImplemented/pins
+=== RUN   TestAllStubsReturnNotImplemented/rules
+=== RUN   TestAllStubsReturnNotImplemented/skills
+=== RUN   TestAllStubsReturnNotImplemented/mcp
+=== RUN   TestAllStubsReturnNotImplemented/eval
+=== RUN   TestAllStubsReturnNotImplemented/ipc
+=== RUN   TestAllStubsReturnNotImplemented/observer
+=== RUN   TestAllStubsReturnNotImplemented/contract
+=== RUN   TestAllStubsReturnNotImplemented/state
+=== RUN   TestAllStubsReturnNotImplemented/admission
+=== RUN   TestAllStubsReturnNotImplemented/hostperm
+--- PASS: TestAllStubsReturnNotImplemented (0.13s)
+    --- PASS: TestAllStubsReturnNotImplemented/chunk (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/canon (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/symbols (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/redact (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/sketch (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/store (0.03s)
+    --- PASS: TestAllStubsReturnNotImplemented/dag (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/grammar (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/negknow (0.02s)
+    --- PASS: TestAllStubsReturnNotImplemented/analyzer (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/scheduler (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/checkpoint (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/pins (0.01s)
+    --- PASS: TestAllStubsReturnNotImplemented/rules (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/skills (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/mcp (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/eval (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/ipc (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/observer (0.06s)
+    --- PASS: TestAllStubsReturnNotImplemented/contract (0.01s)
+    --- PASS: TestAllStubsReturnNotImplemented/state (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/admission (0.00s)
+    --- PASS: TestAllStubsReturnNotImplemented/hostperm (0.00s)
+=== RUN   TestStubRegistry_ListsEveryPackageOnDisk
+=== PAUSE TestStubRegistry_ListsEveryPackageOnDisk
+=== RUN   TestV1_AppendOnlyInvariantSurvivesRealHookRun
+=== RUN   TestV1_AppendOnlyInvariantSurvivesRealHookRun/a_trunc_on_checkpoint
+=== RUN   TestV1_AppendOnlyInvariantSurvivesRealHookRun/b_nonappend_write_on_pins
+=== RUN   TestV1_AppendOnlyInvariantSurvivesRealHookRun/c_writeatomic_on_bloom
+=== RUN   TestV1_AppendOnlyInvariantSurvivesRealHookRun/d_createnew_twice
+=== RUN   TestV1_AppendOnlyInvariantSurvivesRealHookRun/e_appendonly_wrong_extension
+--- PASS: TestV1_AppendOnlyInvariantSurvivesRealHookRun (0.10s)
+    --- PASS: TestV1_AppendOnlyInvariantSurvivesRealHookRun/a_trunc_on_checkpoint (0.00s)
+    --- PASS: TestV1_AppendOnlyInvariantSurvivesRealHookRun/b_nonappend_write_on_pins (0.00s)
+    --- PASS: TestV1_AppendOnlyInvariantSurvivesRealHookRun/c_writeatomic_on_bloom (0.00s)
+    --- PASS: TestV1_AppendOnlyInvariantSurvivesRealHookRun/d_createnew_twice (0.00s)
+    --- PASS: TestV1_AppendOnlyInvariantSurvivesRealHookRun/e_appendonly_wrong_extension (0.00s)
+=== RUN   TestV1_WriteSetConfinedAcrossFullHookSequence
+--- PASS: TestV1_WriteSetConfinedAcrossFullHookSequence (3.18s)
+=== RUN   TestV1_StubGraphIsInertAndOwned
+    v1_integration_test.go:368: eval has landed since V1; its stub-inertness rows no longer apply
+    v1_integration_test.go:368: store has landed since V1; its stub-inertness rows no longer apply
+    v1_integration_test.go:368: negknow has landed since V1; its stub-inertness rows no longer apply
+    v1_integration_test.go:368: checkpoint has landed since V1; its stub-inertness rows no longer apply
+--- PASS: TestV1_StubGraphIsInertAndOwned (0.30s)
+=== RUN   TestV1_ContractMonitorDegradesAndRestoresLoudly
+    v1_integration_test.go:426: LOUD.log absent in C:\Users\Quant\AppData\Local\Temp\TestV1_ContractMonitorDegradesAndRestoresLoudly4134686715\001\project\.qompack\logs (nothing loud has happened yet); directory holds: [qompack-20260926.log]
+--- PASS: TestV1_ContractMonitorDegradesAndRestoresLoudly (0.11s)
+=== RUN   TestV1_ObsBudgetsAreConfigDrivenEndToEnd
+--- PASS: TestV1_ObsBudgetsAreConfigDrivenEndToEnd (0.04s)
+=== RUN   TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes
+=== RUN   TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes/hookio_covers_every_event_and_source
+=== RUN   TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes/checkpoint_golden_populates_every_tier_and_carries_no_code
+=== RUN   TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes/pins_records_carry_a_round_trippable_invariant
+--- PASS: TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes (0.99s)
+    --- PASS: TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes/hookio_covers_every_event_and_source (0.18s)
+    --- PASS: TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes/checkpoint_golden_populates_every_tier_and_carries_no_code (0.00s)
+    --- PASS: TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes/pins_records_carry_a_round_trippable_invariant (0.00s)
+=== RUN   TestV1_ToolchainGatesRejectRealViolations
+=== RUN   TestV1_ToolchainGatesRejectRealViolations/TestNoMagic_Analyzer
+=== RUN   TestV1_ToolchainGatesRejectRealViolations/TestImportGraph_RejectsViolation
+=== RUN   TestV1_ToolchainGatesRejectRealViolations/TestTestDeps_RejectsProductionTestify
+=== RUN   TestV1_ToolchainGatesRejectRealViolations/TestScanAllowComments_BareAllowIsNotExempt
+--- PASS: TestV1_ToolchainGatesRejectRealViolations (12.17s)
+    --- PASS: TestV1_ToolchainGatesRejectRealViolations/TestNoMagic_Analyzer (3.55s)
+    --- PASS: TestV1_ToolchainGatesRejectRealViolations/TestImportGraph_RejectsViolation (3.13s)
+    --- PASS: TestV1_ToolchainGatesRejectRealViolations/TestTestDeps_RejectsProductionTestify (3.19s)
+    --- PASS: TestV1_ToolchainGatesRejectRealViolations/TestScanAllowComments_BareAllowIsNotExempt (2.22s)
+=== RUN   TestGuard_WriteSetConfinedToQompack
+--- PASS: TestGuard_WriteSetConfinedToQompack (0.18s)
+=== RUN   TestGuard_WriteSetDetectsAStrayWrite
+=== PAUSE TestGuard_WriteSetDetectsAStrayWrite
+=== CONT  TestGuard_SubmodularInertWithoutPSelection
+=== CONT  TestMarketplaceWorkflowPinsWithTheReleasesGenerator
+=== CONT  TestGuard_SelectorHasExactlyOnePosVersusPComparison
+=== CONT  TestGuard_SelectorRefusesWithoutPSelection
+--- PASS: TestGuard_SubmodularInertWithoutPSelection (0.00s)
+=== CONT  TestGuard_FaultEnvIsConfinedToTwoFiles
+--- PASS: TestGuard_SelectorRefusesWithoutPSelection (0.00s)
+=== CONT  TestGoreleaserGuardRejectsReshapedYAML
+--- PASS: TestGoreleaserGuardRejectsReshapedYAML (0.00s)
+=== CONT  TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck
+=== CONT  TestGuard_DeclaredSeverityIsPreservedOnTheAssertion
+--- PASS: TestGuard_DeclaredSeverityIsPreservedOnTheAssertion (0.00s)
+=== CONT  TestGoreleaserBuildsNothingAndDraftsTheRelease
+=== CONT  TestGuard_WriteSetDetectsAStrayWrite
+=== CONT  TestGuard_CommandsPurityScannerSeesAForbiddenSelector
+=== CONT  TestGuard_CommandsAreFreeOfStdioAndWallClock
+=== CONT  TestStubRegistry_ListsEveryPackageOnDisk
+=== CONT  TestColoadDeclarationIsPinnedToTheGoConstant
+=== CONT  TestGuard_SketchLoadScannerSeesACall
+=== CONT  TestColoadYieldersAreJudgedInIsolation
+=== CONT  TestGuard_NoSilentSketchLoadOutsideItsPackage
+=== CONT  TestCarriedDefects_WaveReportRequiresResolution
+=== CONT  TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== CONT  TestCarriedDefects_ManifestIsWellFormed
+=== CONT  TestGuard_CacheOrderingScannerSeesAMention
+=== CONT  TestGuard_SelectorBypassScannerSeesAComparison
+=== CONT  TestGuard_CacheOrderingIdentifiersStayInsideEval
+=== CONT  TestGuard_SubmodularDefaultsOff
+=== CONT  TestGuard_O1FlagDefaults
+=== CONT  TestNightlyFuzzMatrix
+--- PASS: TestGuard_O1FlagDefaults (0.00s)
+=== CONT  TestNightlyFuzz_LandedSubplansMirrorsCoverGo
+--- PASS: TestGuard_SubmodularDefaultsOff (0.00s)
+=== CONT  TestGuard_NoNetworkImports
+--- PASS: TestGuard_SelectorBypassScannerSeesAComparison (0.02s)
+=== CONT  TestGuard_NoNetworkImports_DetectsAViolation
+--- PASS: TestGuard_NoNetworkImports_DetectsAViolation (0.00s)
+=== CONT  TestMarketplaceWorkflowReRunsCleanly
+--- PASS: TestGuard_CommandsPurityScannerSeesAForbiddenSelector (0.03s)
+--- PASS: TestGuard_SketchLoadScannerSeesACall (0.03s)
+--- PASS: TestGuard_WriteSetDetectsAStrayWrite (0.04s)
+--- PASS: TestGuard_CacheOrderingScannerSeesAMention (0.04s)
+--- PASS: TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck (0.16s)
+--- PASS: TestGuard_CommandsAreFreeOfStdioAndWallClock (0.17s)
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D1
+--- PASS: TestMarketplaceWorkflowPinsWithTheReleasesGenerator (0.20s)
+--- PASS: TestGoreleaserBuildsNothingAndDraftsTheRelease (0.20s)
+--- PASS: TestGuard_SelectorHasExactlyOnePosVersusPComparison (0.21s)
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzCanonicalize
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzCanonicalize
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference
+--- PASS: TestColoadDeclarationIsPinnedToTheGoConstant (0.21s)
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzRestore
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzRestore
+=== RUN   TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference
+=== PAUSE TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference
+=== RUN   TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex
+=== PAUSE TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex
+=== RUN   TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections
+=== PAUSE TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections
+=== RUN   TestNightlyFuzzMatrix/chunk_FuzzSplit
+=== PAUSE TestNightlyFuzzMatrix/chunk_FuzzSplit
+=== RUN   TestNightlyFuzzMatrix/chunk_FuzzSplitStream
+=== PAUSE TestNightlyFuzzMatrix/chunk_FuzzSplitStream
+=== RUN   TestNightlyFuzzMatrix/config_FuzzConfigLoad
+=== PAUSE TestNightlyFuzzMatrix/config_FuzzConfigLoad
+=== RUN   TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect
+=== PAUSE TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect
+=== RUN   TestNightlyFuzzMatrix/eval_FuzzRedact
+=== PAUSE TestNightlyFuzzMatrix/eval_FuzzRedact
+=== RUN   TestNightlyFuzzMatrix/hookio_FuzzReadEvent
+=== PAUSE TestNightlyFuzzMatrix/hookio_FuzzReadEvent
+=== RUN   TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest
+=== PAUSE TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest
+=== RUN   TestNightlyFuzzMatrix/mcp_FuzzServeLine
+=== PAUSE TestNightlyFuzzMatrix/mcp_FuzzServeLine
+=== RUN   TestNightlyFuzzMatrix/observer_FuzzExtractSignals
+=== PAUSE TestNightlyFuzzMatrix/observer_FuzzExtractSignals
+=== RUN   TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent
+=== PAUSE TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent
+=== RUN   TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence
+=== PAUSE TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence
+=== RUN   TestNightlyFuzzMatrix/rehydrate_FuzzBuild_HostCeiling
+=== PAUSE TestNightlyFuzzMatrix/rehydrate_FuzzBuild_HostCeiling
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary
+=== PAUSE TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary
+=== RUN   TestNightlyFuzzMatrix/symbols_FuzzExtract
+=== PAUSE TestNightlyFuzzMatrix/symbols_FuzzExtract
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzCanonicalize
+=== CONT  TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest
+=== NAME  TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    carrieddefects_test.go:293: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+        	Messages:   	SP06-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+        	            	
+        	            	  the PutBytes cold and warm budgets (3 ms / 400 us) are 5.2x and 14.1x over on Windows at V5 (15.74 / 5.65 ms, cold allocations up 28 % since the wave-3 baseline) and have never been measured on the reference platform
+        	            	
+        	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+--- PASS: TestNightlyFuzz_LandedSubplansMirrorsCoverGo (0.21s)
+=== CONT  TestNightlyFuzzMatrix/chunk_FuzzSplit
+=== NAME  TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    carrieddefects_test.go:293: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference
+=== NAME  TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+        	Messages:   	SP08-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+        	            	
+        	            	  OnToolUse over a 256 KB tool result breaches budget B-C (l0_process, p99 < 50 ms): 53-115 ms on Qompack.md 8.1's own one-changed-line case and 262-655 ms when every chunk is novel, dominated by store.PutBytes's per-novel-chunk object-write path
+        	            	
+        	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference
+=== NAME  TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    carrieddefects_test.go:293: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+        	Messages:   	SP10-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+        	            	
+        	            	  Finalize measures 42.8-43.8 ms/op at 170-208 % processor performance but 64-73 ms/op at 128 % and at base clock on Windows against exit criterion 1570's 50 ms after perf(checkpoint) 72f3226 removed the paths.Norm share (264-284 ms before), and the reference platform has never been measured
+        	            	
+        	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-10-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+=== CONT  TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary
+=== CONT  TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent
+=== CONT  TestNightlyFuzzMatrix/symbols_FuzzExtract
+=== CONT  TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence
+=== CONT  TestNightlyFuzzMatrix/rehydrate_FuzzBuild_HostCeiling
+=== NAME  TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    carrieddefects_test.go:293: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+        	Messages:   	SP09-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+        	            	
+        	            	  negknow Open measures 258-273 ms CPU/op at 120 % processor performance but 586-633 ms at 55 % on Windows against its 300 ms budget, so the budget holds on this host only at turbo clocks, and the reference platform has never been measured
+        	            	
+        	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+--- PASS: TestMarketplaceWorkflowReRunsCleanly (0.20s)
+=== CONT  TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D4
+=== NAME  TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    carrieddefects_test.go:293: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+        	Messages:   	SP20-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+        	            	
+        	            	  verify-on-read (16ecc77) adds an Lstat, an fstat and a content hash of the plaintext to every object read, so GetChunk measures 85-88 us/op (26 allocs) against the 60 us budget where the wave-3 baseline read 45 us (18 allocs), and Search_1000Roots, which reads every candidate chunk through the same path, 82 ms against 25 ms where the baseline read 45-52 ms; OpenSpan_4KB_of_4MB (19 -> 27 allocs) stays inside its 150 us at turbo but reads 316-333 us at base clock
+        	            	
+        	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D5
+=== NAME  TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    carrieddefects_test.go:293: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+        	Messages:   	SP08-D3 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+        	            	
+        	            	  V6 worker capture restores spooled prompts and original publication intents, preserves distinct equal-text deliveries, and orders leased same-session replay; focused recovery and instrumented Linux crash-replay cases pass on identified snapshots, while final candidate packaged recovery and acceptance remain outstanding
+        	            	
+        	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.23s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP06-D2 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP10-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP09-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP20-D2 (0.01s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D3 (0.00s)
+=== CONT  TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D7
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP10-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP09-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D6
+--- PASS: TestCarriedDefects_ManifestIsWellFormed (0.31s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D1 (0.01s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D1 (0.01s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D2 (0.01s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D3 (0.01s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D7 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP10-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP09-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D6 (0.00s)
+=== CONT  TestNightlyFuzzMatrix/canon_FuzzRestore
+--- PASS: TestStubRegistry_ListsEveryPackageOnDisk (0.72s)
+=== CONT  TestNightlyFuzzMatrix/observer_FuzzExtractSignals
+--- PASS: TestGuard_NoSilentSketchLoadOutsideItsPackage (1.14s)
+=== CONT  TestNightlyFuzzMatrix/mcp_FuzzServeLine
+--- PASS: TestGuard_FaultEnvIsConfinedToTwoFiles (1.16s)
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary
+--- PASS: TestGuard_CacheOrderingIdentifiersStayInsideEval (1.18s)
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary
+--- PASS: TestGuard_NoNetworkImports (2.86s)
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary
+=== NAME  TestColoadYieldersAreJudgedInIsolation
+    coload_test.go:149: 13 yielders found from source: [./internal/daemon:TestFeaturesFrom_LexicalCohesionShingleCap ./internal/mcp:TestBudgetBF ./internal/negknow:TestBudget_DetectorScan ./internal/negknow:TestBudget_Open ./internal/negknow:TestBudget_QueryHit ./internal/negknow:TestBudget_QueryMiss ./internal/negknow:TestBudget_RebuildBloom ./internal/negknow:TestBudget_Record ./internal/negknow:TestBudget_RefreshStaleness ./internal/store:TestGC_DeadlineOvershootIsBoundedByTheCheckInterval ./internal/store:TestGC_DeadlineTruncatesAndResumes ./test/e2e:TestV3_HotPathUnchangedWithLedgerResident ./test/integration:TestIntegration_HotPathWarmWithRealResidentState]
+    coload_test.go:209: ./test/e2e:TestV3_HotPathUnchangedWithLedgerResident is judged by `test-e2e`, which runs ./test/e2e whole
+    coload_test.go:248: every yielder is judged in isolation: 12 by name in `timing`, the rest by `test-e2e`
+--- PASS: TestColoadYieldersAreJudgedInIsolation (3.09s)
+=== CONT  TestNightlyFuzzMatrix/config_FuzzConfigLoad
+=== NAME  TestNightlyFuzzMatrix/mcp_FuzzServeLine
+    nightlyfuzz_test.go:136: live: ./internal/mcp declares FuzzServeLine; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/chunk_FuzzSplitStream
+=== NAME  TestNightlyFuzzMatrix/observer_FuzzExtractSignals
+    nightlyfuzz_test.go:136: live: ./internal/observer declares FuzzExtractSignals; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/hookio_FuzzReadEvent
+=== NAME  TestNightlyFuzzMatrix/config_FuzzConfigLoad
+    nightlyfuzz_test.go:136: live: ./internal/config declares FuzzConfigLoad; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/eval_FuzzRedact
+=== NAME  TestNightlyFuzzMatrix/symbols_FuzzExtract
+    nightlyfuzz_test.go:136: live: ./internal/symbols declares FuzzExtract; the nightly leg fuzzes it for real
+=== CONT  TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary
+=== NAME  TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect
+    nightlyfuzz_test.go:136: live: ./internal/daemon declares FuzzDeliverySealSelect; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest
+    nightlyfuzz_test.go:136: live: ./internal/ipc declares FuzzDecodeRequest; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex
+    nightlyfuzz_test.go:136: live: ./internal/checkpoint declares FuzzParseGitIndex; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections
+    nightlyfuzz_test.go:136: live: ./internal/checkpoint declares FuzzStripInjections; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference
+    nightlyfuzz_test.go:136: live: ./internal/canon declares FuzzTrailingWSAgreesWithReference; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/rehydrate_FuzzBuild_HostCeiling
+    nightlyfuzz_test.go:136: live: ./internal/rehydrate declares FuzzBuild_HostCeiling; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary
+    nightlyfuzz_test.go:136: live: ./internal/sketch declares FuzzSignatureUnmarshalBinary; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/chunk_FuzzSplit
+    nightlyfuzz_test.go:136: live: ./internal/chunk declares FuzzSplit; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary
+    nightlyfuzz_test.go:136: live: ./internal/sketch declares FuzzCMSUnmarshalBinary; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan
+    nightlyfuzz_test.go:136: live: ./internal/canon declares FuzzPrefilterAgreesWithFullScan; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent
+    nightlyfuzz_test.go:136: live: ./internal/redact declares FuzzRedactIdempotent; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary
+    nightlyfuzz_test.go:136: live: ./internal/sketch declares FuzzBloomUnmarshalBinary; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary
+    nightlyfuzz_test.go:136: live: ./internal/sketch declares FuzzMisraGriesUnmarshalBinary; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence
+    nightlyfuzz_test.go:136: live: ./internal/redact declares FuzzRedactPrefilterEquivalence; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzCanonicalize
+    nightlyfuzz_test.go:136: live: ./internal/canon declares FuzzCanonicalize; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference
+    nightlyfuzz_test.go:136: live: ./internal/canon declares FuzzNumericMatchesAgreeWithReference; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/canon_FuzzRestore
+    nightlyfuzz_test.go:136: live: ./internal/canon declares FuzzRestore; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/eval_FuzzRedact
+    nightlyfuzz_test.go:136: live: ./internal/eval declares FuzzRedact; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/hookio_FuzzReadEvent
+    nightlyfuzz_test.go:136: live: ./internal/hookio declares FuzzReadEvent; the nightly leg fuzzes it for real
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP10-D1
+=== NAME  TestNightlyFuzzMatrix/chunk_FuzzSplitStream
+    nightlyfuzz_test.go:136: live: ./internal/chunk declares FuzzSplitStream; the nightly leg fuzzes it for real
+=== NAME  TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary
+    nightlyfuzz_test.go:136: live: ./internal/sketch declares FuzzHLLUnmarshalBinary; the nightly leg fuzzes it for real
+--- PASS: TestNightlyFuzzMatrix (0.20s)
+    --- PASS: TestNightlyFuzzMatrix/mcp_FuzzServeLine (9.27s)
+    --- PASS: TestNightlyFuzzMatrix/observer_FuzzExtractSignals (9.71s)
+    --- PASS: TestNightlyFuzzMatrix/config_FuzzConfigLoad (8.09s)
+    --- PASS: TestNightlyFuzzMatrix/symbols_FuzzExtract (13.84s)
+    --- PASS: TestNightlyFuzzMatrix/daemon_FuzzDeliverySealSelect (15.31s)
+    --- PASS: TestNightlyFuzzMatrix/ipc_FuzzDecodeRequest (16.86s)
+    --- PASS: TestNightlyFuzzMatrix/checkpoint_FuzzParseGitIndex (18.02s)
+    --- PASS: TestNightlyFuzzMatrix/checkpoint_FuzzStripInjections (18.10s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzTrailingWSAgreesWithReference (19.37s)
+    --- PASS: TestNightlyFuzzMatrix/rehydrate_FuzzBuild_HostCeiling (19.95s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzSignatureUnmarshalBinary (19.16s)
+    --- PASS: TestNightlyFuzzMatrix/chunk_FuzzSplit (20.41s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzCMSUnmarshalBinary (17.80s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzPrefilterAgreesWithFullScan (20.52s)
+    --- PASS: TestNightlyFuzzMatrix/redact_FuzzRedactIdempotent (20.53s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzBloomUnmarshalBinary (20.59s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzMisraGriesUnmarshalBinary (19.67s)
+    --- PASS: TestNightlyFuzzMatrix/redact_FuzzRedactPrefilterEquivalence (20.64s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzCanonicalize (20.65s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzNumericMatchesAgreeWithReference (20.65s)
+    --- PASS: TestNightlyFuzzMatrix/canon_FuzzRestore (20.55s)
+    --- PASS: TestNightlyFuzzMatrix/eval_FuzzRedact (16.93s)
+    --- PASS: TestNightlyFuzzMatrix/hookio_FuzzReadEvent (18.07s)
+    --- PASS: TestNightlyFuzzMatrix/chunk_FuzzSplitStream (19.48s)
+    --- PASS: TestNightlyFuzzMatrix/sketch_FuzzHLLUnmarshalBinary (15.96s)
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP09-D1
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP20-D2
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D3
+--- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence (170.81s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D1 (29.19s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP10-D1 (18.02s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP09-D1 (31.62s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP20-D2 (64.66s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D3 (27.13s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	188.719s
+FAIL
+exit=1

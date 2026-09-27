@@ -1,0 +1,4 @@
+FAIL      github.com/qompack/qompack/test/e2e  (pass=305 fail=3 skip=3)
+    FAIL TestE2E_ThinSliceDropsControlOnlyEdges
+    FAIL TestE2E_SpooledSessionStartNeverDegradesTheProject
+    FAIL TestV3_LiveSessionWriteSetAndAppendOnly

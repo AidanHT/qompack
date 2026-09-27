@@ -1,0 +1,16 @@
+{
+  "name": "hook-exec-form",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "d5674c90e3b40da7e5989cb3b8013996f4d9d69f630cffad89d3d065fbdc9c3e"
+  },
+  "outcome": "verified",
+  "reason": "every hooks.json entry and .mcp.json is exec form naming exactly ${CLAUDE_PLUGIN_ROOT}/bin/qompack; spawned directly as the host does, each exits 0 with parseable stdout from a spaced, non-ASCII install directory",
+  "detail": "control \"/tmp/qompack-platform-2031948248/plugplain\" exited 0; 7 entries run from \"/tmp/qompack-platform-2031948248/plug in ünï\"; `shell` absent and ignored by the host when args is set, so no host shell choice reaches these launches"
+}
