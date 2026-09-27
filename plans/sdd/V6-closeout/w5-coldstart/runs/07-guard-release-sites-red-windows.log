@@ -1,0 +1,28 @@
+=== RUN   TestGuard_AReleasedLockReportsItsSealResidual
+=== RUN   TestGuard_AReleasedLockReportsItsSealResidual/internal/daemon/borrowed_lease.go:ReleaseWithReport
+=== RUN   TestGuard_AReleasedLockReportsItsSealResidual/every_release_in_internal/daemon_is_accounted_for
+    sealresidualreport_test.go:109: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/test/guards/sealresidualreport_test.go:109
+        	Error:      	Not equal: 
+        	            	expected: []string{"ReleaseWithReport", "RepairDeliverySeal", "spawnDetached"}
+        	            	actual  : []string{"ReleaseWithReport", "RepairDeliverySeal", "ensureRunning", "spawnDetached"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,5 @@
+        	            	-([]string) (len=3) {
+        	            	+([]string) (len=4) {
+        	            	  (string) (len=17) "ReleaseWithReport",
+        	            	  (string) (len=18) "RepairDeliverySeal",
+        	            	+ (string) (len=13) "ensureRunning",
+        	            	  (string) (len=13) "spawnDetached"
+        	Test:       	TestGuard_AReleasedLockReportsItsSealResidual/every_release_in_internal/daemon_is_accounted_for
+        	Messages:   	a production function in internal/daemon calls Release and is in neither list. If it releases the singleton lock, add it to sealResidualReleaseSites and call reportSealDowngradeResidual beside the release; if it releases something else, add it to releasesWithNoSealResidual with the reason. Leaving it out is how the third site went unnoticed the first time.
+--- FAIL: TestGuard_AReleasedLockReportsItsSealResidual (0.10s)
+    --- PASS: TestGuard_AReleasedLockReportsItsSealResidual/internal/daemon/borrowed_lease.go:ReleaseWithReport (0.00s)
+    --- FAIL: TestGuard_AReleasedLockReportsItsSealResidual/every_release_in_internal/daemon_is_accounted_for (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.343s
+FAIL
+exit=1

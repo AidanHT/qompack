@@ -1,0 +1,113 @@
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.21s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ItsSpawnHoldsOffALazySpawn
+--- PASS: TestEnsureRunning_ItsSpawnHoldsOffALazySpawn (0.24s)
+=== RUN   TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale
+--- PASS: TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale (0.44s)
+=== RUN   TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails
+--- PASS: TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails (0.04s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound
+--- PASS: TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound (1.83s)
+=== RUN   TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait
+--- PASS: TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait (0.20s)
+=== RUN   TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon
+--- PASS: TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon (0.01s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ItsSpawnHoldsOffALazySpawn
+--- PASS: TestEnsureRunning_ItsSpawnHoldsOffALazySpawn (0.24s)
+=== RUN   TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale
+--- PASS: TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale (0.41s)
+=== RUN   TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails
+--- PASS: TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails (0.04s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.01s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound
+--- PASS: TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound (1.83s)
+=== RUN   TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait
+--- PASS: TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait (0.18s)
+=== RUN   TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon
+--- PASS: TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon (0.02s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.19s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.18s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ItsSpawnHoldsOffALazySpawn
+--- PASS: TestEnsureRunning_ItsSpawnHoldsOffALazySpawn (0.24s)
+=== RUN   TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale
+--- PASS: TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale (0.41s)
+=== RUN   TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails
+--- PASS: TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails (0.04s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound
+--- PASS: TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound (1.83s)
+=== RUN   TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait
+--- PASS: TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait (0.20s)
+=== RUN   TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon
+--- PASS: TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon (0.01s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.19s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.19s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ItsSpawnHoldsOffALazySpawn
+--- PASS: TestEnsureRunning_ItsSpawnHoldsOffALazySpawn (0.25s)
+=== RUN   TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale
+--- PASS: TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale (0.44s)
+=== RUN   TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails
+--- PASS: TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails (0.04s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound
+--- PASS: TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound (1.83s)
+=== RUN   TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait
+--- PASS: TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait (0.18s)
+=== RUN   TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon
+--- PASS: TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon (0.02s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.24s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ItsSpawnHoldsOffALazySpawn
+--- PASS: TestEnsureRunning_ItsSpawnHoldsOffALazySpawn (0.24s)
+=== RUN   TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale
+--- PASS: TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale (0.44s)
+=== RUN   TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails
+--- PASS: TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails (0.02s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound
+--- PASS: TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound (1.83s)
+=== RUN   TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait
+--- PASS: TestEnsureRunningUntil_ALateSpawnStillGetsTheClassicWait (0.20s)
+=== RUN   TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon
+--- PASS: TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	27.022s
+exit=0

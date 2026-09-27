@@ -1,0 +1,61 @@
+// Package zzdiag is a TEMPORARY diagnostic for the w5-coldstart lane. It is never committed: it is
+// copied into a scratch export of the tree to time a cold start's phases in the hook and daemon
+// processes. Every call is a no-op unless ZZ_DIAG_DIR names a directory.
+package zzdiag
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sync"
+	"time"
+)
+
+var (
+	mu    sync.Mutex
+	dir   = os.Getenv("ZZ_DIAG_DIR")
+	start = time.Now()
+	logf  *os.File
+	ppid  int
+)
+
+// Mark appends one timestamped line to ZZ_DIAG_DIR/<pid>.log.
+func Mark(tag string, kv ...any) {
+	if dir == "" {
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if logf == nil {
+		f, err := os.OpenFile(filepath.Join(dir, fmt.Sprintf("%d.log", os.Getpid())), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		if err != nil {
+			return
+		}
+		logf = f
+		ppid = os.Getppid()
+	}
+	fmt.Fprintf(logf, "%s pid=%d ppid=%d +%dms %s %v\n", time.Now().UTC().Format("15:04:05.000"), os.Getpid(), ppid,
+		time.Since(start).Milliseconds(), tag, kv)
+}
+
+// Watchdog dumps every goroutine's stack at each offset unless done has closed.
+func Watchdog(done <-chan struct{}, offsets ...time.Duration) {
+	if dir == "" {
+		return
+	}
+	go func() {
+		begun := time.Now()
+		for i, off := range offsets {
+			select {
+			case <-done:
+				return
+			case <-time.After(time.Until(begun.Add(off))):
+			}
+			buf := make([]byte, 1<<22)
+			n := runtime.Stack(buf, true)
+			_ = os.WriteFile(filepath.Join(dir, fmt.Sprintf("%d-stack-%d.txt", os.Getpid(), i)), buf[:n], 0o600)
+			Mark("watchdog-stack", "i", i, "after", off)
+		}
+	}()
+}

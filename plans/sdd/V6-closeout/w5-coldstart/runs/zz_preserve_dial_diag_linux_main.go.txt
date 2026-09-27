@@ -1,0 +1,28 @@
+// TEMPORARY DIAGNOSTIC (w5-coldstart): a unix socket that listens but never accepts.
+package main
+
+import (
+	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+	"time"
+)
+
+func main() {
+	dir, _ := os.MkdirTemp("", "preserve")
+	p := filepath.Join(dir, "d.sock")
+	ln, err := net.Listen("unix", p)
+	if err != nil {
+		panic(err)
+	}
+	defer ln.Close()
+	for i := 0; i < 4; i++ {
+		t0 := time.Now()
+		c, err := net.DialTimeout("unix", p, 250*time.Millisecond)
+		fmt.Printf("listening, no accept loop: dial %d ok=%v in %v\n", i, err == nil, time.Since(t0))
+		if c != nil {
+			c.Close()
+		}
+	}
+}

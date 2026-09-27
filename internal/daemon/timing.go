@@ -16,6 +16,9 @@ import "time"
 const (
 	// SpawnPollBound is how long EnsureRunning polls a freshly spawned daemon's address before
 	// reporting core.ErrNotFound — the spawning side's own definition of "it never came up".
+	// session-start polls through EnsureRunningUntil instead: until its hook budget's pre-send
+	// deadline (internal/cli hookBudget, D17b) or for this long after its spawn, whichever is later,
+	// and never past the last instant a reply could still follow.
 	SpawnPollBound = ensureRunningPollBound
 
 	// DrainLineDeadline is the per-line deadline the drainer dispatches each replayed spool or WAL

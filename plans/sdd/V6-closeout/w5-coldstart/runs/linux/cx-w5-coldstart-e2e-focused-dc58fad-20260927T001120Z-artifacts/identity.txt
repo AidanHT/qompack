@@ -1,0 +1,21 @@
+run_id=cx-w5-coldstart-e2e-focused-dc58fad-20260927T001120Z
+commit=dc58fadb0463ed6826e0e9c9b7a515091256479d
+tree=e213bdaa985b76b891fddea443d6801eaea29876
+bundle_sha256=b044f62ef9db9848741e3207b062e12042ff763620bcf610736215c35b887912
+started_utc=2026-09-27T00:11:34Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=60m gomaxprocs=4 coload=0
+run=^(TestE2E_SessionStart|TestE2ELazySpawn$|TestE2EHookRoundTrip$|TestE2EIdleExit$|TestE2E_AllSixHooksExitZero$|TestHooksExitZeroUnderFaults$|TestE2E_HooksExitZeroUnderFaultInjection$|TestE2E_DaemonLeavesThePluginDirectoryRemovable$|TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable$|TestE2E_SpooledSessionStartNeverDegradesTheProject$|TestV1_HookLifecycleThroughRealBinary$|TestE2E_ContractSentinelIsAppendedByTheDaemon$|TestV4_PreCompactToCheckpointToRehydrateRoundTrip$|TestV5_PreCompactToRehydrateToDroppedRoundTrip$|TestV5_EveryContractAssertionHasARealProducer$|TestE2ESpoolSubmodeEndToEnd$|TestE2E_StoreSurvivesProcessRestart$|TestE2EShutdownIfReachable_)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T00:15:02Z

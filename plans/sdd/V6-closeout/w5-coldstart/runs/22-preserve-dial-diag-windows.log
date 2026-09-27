@@ -1,0 +1,12 @@
+=== RUN   TestZZPreServeDial
+    zz_preserve_diag_test.go:26: listening, no accept loop: probe 0 ok=false in 251.3408ms
+    zz_preserve_diag_test.go:26: listening, no accept loop: probe 1 ok=false in 251.3239ms
+    zz_preserve_diag_test.go:26: listening, no accept loop: probe 2 ok=false in 273.4989ms
+    zz_preserve_diag_test.go:26: listening, no accept loop: probe 3 ok=false in 261.4926ms
+    zz_preserve_diag_test.go:34: accept loop running: probe 0 ok=true in 12.829ms
+    zz_preserve_diag_test.go:34: accept loop running: probe 1 ok=true in 27.1767ms
+    zz_preserve_diag_test.go:34: accept loop running: probe 2 ok=true in 13.3654ms
+--- PASS: TestZZPreServeDial (1.98s)
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	9.905s
+exit=0

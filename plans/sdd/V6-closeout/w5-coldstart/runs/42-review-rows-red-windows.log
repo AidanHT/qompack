@@ -1,0 +1,47 @@
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+    spawn_lock_test.go:149: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/internal/daemon/spawn_lock_test.go:149
+        	Error:      	Received unexpected error:
+        	            	daemon: spawn: exec: "/this/path/does/not/exist": executable file not found in %PATH%
+        	Test:       	TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+        	Messages:   	a spawn announced in a fresh spawn.lock must be waited for, not duplicated
+--- FAIL: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.20s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+    spawn_lock_test.go:183: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/internal/daemon/spawn_lock_test.go:183
+        	Error:      	Not equal: 
+        	            	expected: int(1)
+        	            	actual  : int64(2)
+        	Test:       	TestEnsureRunning_TwoColdHooksStartOneDaemon
+        	Messages:   	two cold hooks on one project must start one daemon, not two
+--- FAIL: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.18s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+    spawn_lock_test.go:220: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/internal/daemon/spawn_lock_test.go:220
+        	Error:      	Not equal: 
+        	            	expected: int(1)
+        	            	actual  : int64(2)
+        	Test:       	TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+        	Messages:   	the hook that arrived mid-staging must not spawn a second daemon
+--- FAIL: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.38s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+    spawn_lock_test.go:310: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/internal/daemon/spawn_lock_test.go:310
+        	Error:      	Not equal: 
+        	            	expected: int(0)
+        	            	actual  : int64(1)
+        	Test:       	TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+        	Messages:   	the daemon that freed the lock is up: nothing may spawn a second one
+--- FAIL: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.01s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+    spawn_lock_test.go:352: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/internal/daemon/spawn_lock_test.go:352
+        	Error:      	Received unexpected error:
+        	            	qompack: not found
+        	Test:       	TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+        	Messages:   	a daemon spawned on a claim reclaimed mid-wait must get its own wait to come up
+--- FAIL: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.66s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	2.757s
+FAIL
+exit=1

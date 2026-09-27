@@ -1,0 +1,21 @@
+run_id=cx-w5-coldstart-daemon-race-639e6d5-20260927T020409Z
+commit=639e6d5c1ee3302b2b465d897ec1f1832610ad04
+tree=a49cb13d12d63b99eba220d39bc92b176e3c716f
+bundle_sha256=f43fa510a6dedda19ed939cd458eb81fd32c89a6b646c6bfdcd9b13e002852cf
+started_utc=2026-09-27T02:04:19Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=60m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T02:09:40Z

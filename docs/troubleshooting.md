@@ -711,8 +711,9 @@ checkpoint unreadable` (with `checkpoint manifest unreadable` when the manifest 
 store. "the Qompack daemon was shutting down" is no fault of the store or the build: the daemon was
 stopping before the rehydration could start, or its stop cut the rehydration short (`LOUD.log` then
 has `rehydrate: stopped before the rehydration was built`). "the Qompack daemon did not answer in
-time" is the hook client's: no answer reached it within its 10 s deadline, so look at whether a
-daemon was running at all (`qompack status`) and at the disk load at that moment.
+time" is the hook client's: no answer reached it within its reply deadline — 10 s, or less when
+starting the daemon ran past its share of the hook's 15 s timeout (see the next entry) — so look at
+whether a daemon was running at all (`qompack status`) and at the disk load at that moment.
 
 **Meaning.** The rehydration is bounded (C1.16): the daemon waits for a compact rehydration for at
 most a third of the hook's 15 s timeout, counted from the request's arrival, and a rehydration that
@@ -741,6 +742,39 @@ line for the dropped request.
 prompt, `recall` for anything captured, `dropped()` — and `.qompack/checkpoints/` holds the
 checkpoint itself (the highest number is the newest). If it recurs, the machine's disk is the usual
 cause: the route's own durable writes (`session_start.contract`, `.finish`) are fsync-bound.
+
+---
+
+**Symptom.** A session's first `SessionStart` got no answer: no §12.1 probe was minted for it, or
+a compaction's context opens with the deferred note naming "the Qompack daemon did not answer in
+time". It happens on a loaded machine, and more readily on Windows on the first start after the
+plugin is installed or updated, when the daemon binary is first copied under the user's `.qompack`.
+
+**Diagnose.** The project's day log (`.qompack/logs/qompack-YYYYMMDD.log`) has `hook: no time left to
+wait for the daemon's answer; the request was spooled` when starting the daemon used the whole of
+`session-start`'s budget, with the overrun in `overrun_ms`, and `daemon: spawn failed` when the
+daemon could not be started at all. Otherwise the start was spooled because the daemon was not
+listening, or still replaying its spool, when the wait ran out. `qompack status` shows whether a
+daemon is running now; until it has replayed the start, the request is a `session.start` line in a
+`.qompack/spool/client-*.ndjson` file.
+
+**Meaning.** `session-start` is bounded by its 15 s manifest timeout as a whole (V6 close-out D17b):
+the daemon must be listening within 3.25 s of the hook starting (or within 1.5 s of a spawn that
+itself ran late), and its answer must arrive within the reply wait that follows (10 s, shorter when
+the start ran over). A start that misses either is
+spooled, not lost: the daemon replays it — at its next idle drain, within 30 s, or its next start —
+and records the session, but a replayed start mints no probe and delivers no rehydration, because
+its answer could reach no one. Only one daemon is started per project however many hooks race to
+start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process that appears and exits at
+once, because it cannot take the project's singleton lock, means a spawner found neither a daemon
+answering its dial nor a spawn in flight while one was in fact starting or running: a spawn that
+took longer than the spawn lock's 10 s freshness window, or a hook whose short dial a busy daemon did
+not answer in time. Both are signs of heavy load.
+
+**Action.** None for a single occurrence: the session continues, and a compaction's note lists the
+recovery calls. If it recurs on every start, look at the machine's CPU and disk load when sessions
+begin. On a loaded Windows machine the V6 close-out's cold-start diagnostic saw starting the daemon
+process stall for 4 to 5 s in about one spawn in ten; what causes those stalls was not identified.
 
 ---
 

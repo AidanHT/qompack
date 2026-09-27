@@ -1,0 +1,62 @@
+== runs/before-coload-A.log: rows=60 spooled=3 noup=0 multi-daemon=9 sswall p50=1064 p90=2648 p99=6261 max=7271 timelined-spawns=7 stalls>1s=0 max-stall=47
+   startup  unstaged     n=5 spooled=2 multi=2 sswall p50=2744 max=7271
+   startup  staged-cold  n=5 spooled=0 multi=0 sswall p50=1322 max=2351
+   startup  staged-warm  n=5 spooled=0 multi=0 sswall p50=586 max=676
+   startup  prespawned   n=5 spooled=0 multi=1 sswall p50=538 max=1513
+   resume   unstaged     n=5 spooled=0 multi=0 sswall p50=1526 max=2286
+   resume   staged-cold  n=5 spooled=0 multi=0 sswall p50=1697 max=2648
+   resume   staged-warm  n=5 spooled=0 multi=0 sswall p50=695 max=1073
+   resume   prespawned   n=5 spooled=0 multi=2 sswall p50=1227 max=1511
+   compact  unstaged     n=5 spooled=0 multi=0 sswall p50=652 max=1064
+   compact  staged-cold  n=5 spooled=0 multi=0 sswall p50=2101 max=6261
+   compact  staged-warm  n=5 spooled=0 multi=0 sswall p50=787 max=839
+   compact  prespawned   n=5 spooled=1 multi=4 sswall p50=989 max=2968
+== runs/after-coload-A.log: rows=60 spooled=8 noup=0 multi-daemon=1 sswall p50=896 p90=4948 p99=6203 max=6778 timelined-spawns=8 stalls>1s=8 max-stall=5023
+   startup  unstaged     n=5 spooled=0 multi=0 sswall p50=409 max=634
+   startup  staged-cold  n=5 spooled=0 multi=0 sswall p50=1550 max=6778
+   startup  staged-warm  n=5 spooled=0 multi=0 sswall p50=603 max=818
+   startup  prespawned   n=5 spooled=0 multi=0 sswall p50=720 max=1321
+   resume   unstaged     n=5 spooled=2 multi=0 sswall p50=999 max=5287
+   resume   staged-cold  n=5 spooled=0 multi=0 sswall p50=1339 max=1389
+   resume   staged-warm  n=5 spooled=1 multi=0 sswall p50=887 max=4948
+   resume   prespawned   n=5 spooled=0 multi=0 sswall p50=635 max=695
+   compact  unstaged     n=5 spooled=1 multi=0 sswall p50=677 max=5397
+   compact  staged-cold  n=5 spooled=0 multi=0 sswall p50=1032 max=1334
+   compact  staged-warm  n=5 spooled=4 multi=0 sswall p50=4715 max=6203
+   compact  prespawned   n=5 spooled=0 multi=1 sswall p50=1260 max=1848
+== runs/after2-coload-A.log: rows=60 spooled=0 noup=0 multi-daemon=0 sswall p50=689 p90=1314 p99=4099 max=6444 timelined-spawns=60 stalls>1s=7 max-stall=5019
+   startup  unstaged     n=5 spooled=0 multi=0 sswall p50=448 max=478
+   startup  staged-cold  n=5 spooled=0 multi=0 sswall p50=1282 max=1539
+   startup  staged-warm  n=5 spooled=0 multi=0 sswall p50=408 max=695
+   startup  prespawned   n=5 spooled=0 multi=0 sswall p50=955 max=1291
+   resume   unstaged     n=5 spooled=0 multi=0 sswall p50=293 max=540
+   resume   staged-cold  n=5 spooled=0 multi=0 sswall p50=1024 max=1272
+   resume   staged-warm  n=5 spooled=0 multi=0 sswall p50=687 max=861
+   resume   prespawned   n=5 spooled=0 multi=0 sswall p50=613 max=1138
+   compact  unstaged     n=5 spooled=0 multi=0 sswall p50=558 max=2564
+   compact  staged-cold  n=5 spooled=0 multi=0 sswall p50=1029 max=1698
+   compact  staged-warm  n=5 spooled=0 multi=0 sswall p50=2686 max=6444
+   compact  prespawned   n=5 spooled=0 multi=0 sswall p50=595 max=849
+== runs/final-coload-A.log: rows=60 spooled=1 noup=0 multi-daemon=0 sswall p50=649 p90=3091 p99=4773 max=6520 timelined-spawns=60 stalls>1s=4 max-stall=4933
+   startup  unstaged     n=5 spooled=0 multi=0 sswall p50=306 max=2227
+   startup  staged-cold  n=5 spooled=0 multi=0 sswall p50=1571 max=2861
+   startup  staged-warm  n=5 spooled=0 multi=0 sswall p50=476 max=706
+   startup  prespawned   n=5 spooled=0 multi=0 sswall p50=421 max=508
+   resume   unstaged     n=5 spooled=0 multi=0 sswall p50=349 max=649
+   resume   staged-cold  n=5 spooled=0 multi=0 sswall p50=2271 max=3426
+   resume   staged-warm  n=5 spooled=0 multi=0 sswall p50=286 max=312
+   resume   prespawned   n=5 spooled=0 multi=0 sswall p50=1864 max=3221
+   compact  unstaged     n=5 spooled=0 multi=0 sswall p50=901 max=2029
+   compact  staged-cold  n=5 spooled=1 multi=0 sswall p50=1765 max=3422
+   compact  staged-warm  n=5 spooled=0 multi=0 sswall p50=4197 max=6520
+   compact  prespawned   n=5 spooled=0 multi=0 sswall p50=622 max=856
+== runs/before-heavy-B.log: rows=12 spooled=0 noup=0 multi-daemon=0 sswall p50=1632 p90=2734 p99=3007 max=4893 timelined-spawns=12 stalls>1s=0 max-stall=45
+   startup  unstaged     n=3 spooled=0 multi=0 sswall p50=3007 max=4893
+   startup  staged-warm  n=3 spooled=0 multi=0 sswall p50=1311 max=1803
+   resume   unstaged     n=3 spooled=0 multi=0 sswall p50=1739 max=2186
+   resume   staged-warm  n=3 spooled=0 multi=0 sswall p50=1136 max=2734
+== runs/after2-heavy-B.log: rows=12 spooled=0 noup=0 multi-daemon=0 sswall p50=1628 p90=2412 p99=2687 max=5369 timelined-spawns=12 stalls>1s=0 max-stall=115
+   startup  unstaged     n=3 spooled=0 multi=0 sswall p50=2213 max=5369
+   startup  staged-warm  n=3 spooled=0 multi=0 sswall p50=2252 max=2412
+   resume   unstaged     n=3 spooled=0 multi=0 sswall p50=2027 max=2687
+   resume   staged-warm  n=3 spooled=0 multi=0 sswall p50=1444 max=1501

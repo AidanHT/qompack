@@ -1,0 +1,203 @@
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.03s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.38s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.03s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (2.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.18s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.78s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.18s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.01s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.18s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.01s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.80s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.19s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.78s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.21s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.01s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.78s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.38s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.18s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.19s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.19s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.03s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.21s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.03s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.78s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.03s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.78s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.21s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.01s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.78s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (2.19s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.38s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.20s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.37s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.01s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.81s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.18s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.36s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.03s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.83s)
+=== RUN   TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces
+--- PASS: TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces (0.19s)
+=== RUN   TestEnsureRunning_TwoColdHooksStartOneDaemon
+--- PASS: TestEnsureRunning_TwoColdHooksStartOneDaemon (0.22s)
+=== RUN   TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits
+--- PASS: TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits (0.38s)
+=== RUN   TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn
+--- PASS: TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn (0.02s)
+=== RUN   TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed
+--- PASS: TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed (1.82s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	55.961s
+exit=0
