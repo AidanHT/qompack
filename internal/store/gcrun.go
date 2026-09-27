@@ -70,6 +70,11 @@ type gcState struct {
 
 // GC runs an authoritative mark-and-sweep collection (00-ARCHITECTURE.md §5.8 GC semantics).
 //
+// Passes on one store run one at a time (gcgate.go). A call that finds a pass running waits for it,
+// and is answered by the next pass to start, which answers every call that waited behind the same
+// one; the wait answers to ctx, and GCPolicy.Deadline starts only when the pass that answers the call
+// starts. An uncontended call runs its pass at once, on its own goroutine and context.
+//
 // Two different clocks are in play, deliberately. The RETENTION cutoff reads the injected
 // core.Clock, so a test can age a root by moving the clock rather than by waiting. The DEADLINE and
 // GCReport.Duration read wall-clock time, because Deadline is a latency budget the idle scheduler
@@ -80,7 +85,20 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 	}
 	// GCPolicy.Deadline bounds how long a pass runs once it has started; ctx is how the CALLER
 	// cancels one. They are not the same lever, and honouring only the first would let a shutdown
-	// wait out a full sweep of objects/.
+	// wait out a full sweep of objects/ — or, now, a queue of them.
+	if err := ctx.Err(); err != nil {
+		return GCReport{}, err
+	}
+	return s.serializeGC(ctx, p, s.gcPass)
+}
+
+// gcPass is one GC pass, run only through serializeGC, which guarantees no other pass of this store
+// runs beside it. It re-checks the store and ctx because a waiting call reaches it later than GC's own
+// checks: the store may have been closed, or the caller may have given up, meanwhile.
+func (s *FSStore) gcPass(ctx context.Context, p GCPolicy) (GCReport, error) {
+	if err := s.mutate(); err != nil {
+		return GCReport{}, err
+	}
 	if err := ctx.Err(); err != nil {
 		return GCReport{}, err
 	}
@@ -1641,9 +1659,10 @@ func (s *FSStore) expirePendingMarkers(days int, dryRun bool, rep *GCReport, out
 // pendingMarkerRoot reads the root a pending marker names, reporting the zero hash for a marker
 // that is unreadable or was torn by the very crash it records.
 //
-// The read is shared (paths.ReadFileShared): a concurrent GC pass's expiry, or the late Put's own
-// done(), may remove the marker while it is read, and on Windows an ordinary handle would fail that
-// os.Remove (test/guards' sharedReaders).
+// The read is shared (paths.ReadFileShared): the late Put's own done() may remove the marker while it
+// is read, and on Windows an ordinary handle would fail that os.Remove (test/guards' sharedReaders).
+// Another GC pass's expiry no longer can on this store handle, since passes run one at a time
+// (gcgate.go).
 func pendingMarkerRoot(p string) core.Hash {
 	b, err := paths.ReadFileShared(p)
 	if err != nil {
@@ -1700,10 +1719,11 @@ func (s *FSStore) writeLiveSet(live map[core.Hash]struct{}) error {
 // the tail of the object tree against a stale live set — the one way this collector could delete
 // something reachable.
 //
-// The read is shared (paths.ReadFileShared): GC passes are not serialized against each other (each
-// concurrent session end runs one, since C1.15), so another pass's saveGCState or clearGCState may
-// replace or remove the file while it is read, and on Windows an ordinary handle would fail either
-// (test/guards' sharedReaders).
+// Only a GC pass writes the file (saveGCState, clearGCState), and the passes of one store handle run
+// one at a time (gcgate.go), so no pass of this handle replaces or removes it during this read. The
+// read stays shared (paths.ReadFileShared, test/guards' sharedReaders) for what the gate does not
+// order: a pass on a second writable handle of the same project, which nothing in the product opens
+// (gcgate.go, Scope) but which an ordinary handle would turn into a failed replace on Windows.
 func (s *FSStore) loadGCState(digest string) (gcState, bool) {
 	b, err := paths.ReadFileShared(filepath.Join(s.l.State, gcStateFile))
 	if err != nil {

@@ -317,6 +317,10 @@ type FSStore struct {
 	// bound, so the halt is Loud once per run of halted passes rather than once per idle tick; the
 	// first pass whose harvest completes clears it (gcrun.go, noteDeliveryCarryHalt).
 	carryHaltAnnounced atomic.Bool
+
+	// gcq runs this store's GC passes one at a time and answers the requests that wait behind one
+	// with a single follow-up pass (gcgate.go).
+	gcq gcGate
 }
 
 // use is the closed-store guard. Every method with an error return calls it first and reports
