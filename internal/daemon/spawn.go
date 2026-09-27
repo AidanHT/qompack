@@ -110,6 +110,11 @@ const (
 // spawned, so this reports (false, serr) rather than claiming a spawn that never happened, and
 // releases its claim so it holds no later spawner off.
 //
+// A project root that is the home directory is refused with paths.ErrHomeRoot before anything else
+// (owner decision D18): nothing is dialled, claimed, logged or spawned for it. Every entry point in
+// internal/cli refuses that root first; this keeps a caller that did not from creating anything
+// under ~/.qompack.
+//
 // The liveness check is ipc.Probe (Ruling #22: a successful dial, not a round trip through
 // admin.ping) — deliberately: unlike lock.go's staleness protocol, which can afford to fall
 // through to slower POSIX/heartbeat checks on an inconclusive network result, a false "dead" here
@@ -178,6 +183,11 @@ func detachedSpawner(log logging.Logger) func(projectRoot, self string) error {
 func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock, bound pollBound,
 	spawn func(projectRoot, self string) error,
 ) (spawned bool, err error) {
+	// D18: nothing is dialled, claimed or spawned for the home directory. Nothing is logged either:
+	// a hook's logger would write under the very directory the refusal keeps untouched.
+	if rerr := refuseHomeRoot(projectRoot); rerr != nil {
+		return false, fmt.Errorf("daemon: ensure running: %w", rerr)
+	}
 	if log == nil {
 		log = logging.Nop()
 	}
@@ -243,6 +253,9 @@ func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock,
 // self under the per-user data directory, not self (spawn_stage.go, C1.17): a daemon running from
 // the plugin's own binary would keep the plugin directory from being removed or updated for as
 // long as it lives.
+//
+// A project root that is the home directory is refused with paths.ErrHomeRoot (owner decision D18):
+// no copy is staged and no process started for it.
 func SpawnDetached(projectRoot, self string) error {
 	return spawnDetached(projectRoot, self, userHomeDir(), nil)
 }
@@ -251,6 +264,10 @@ func SpawnDetached(projectRoot, self string) error {
 // for a staging failure — which is reported and never stops the spawn: the daemon is started from
 // self instead, as it was before staging existed, and reports that itself (Run).
 func spawnDetached(projectRoot, self, home string, log logging.Logger) error {
+	// D18: no process is started, and no staged copy prepared, for the home directory.
+	if err := refuseHomeRoot(projectRoot); err != nil {
+		return fmt.Errorf("daemon: spawn: %w", err)
+	}
 	program, stageErr := daemonProgram(self, home, os.Getenv(pluginRootEnv), stagingEnabled)
 	if stageErr != nil && log != nil {
 		log.Warn("daemon: could not stage the daemon binary; starting it from the plugin binary",

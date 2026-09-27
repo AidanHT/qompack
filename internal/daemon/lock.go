@@ -109,6 +109,15 @@ func (l *Lock) deliveryRollover() (entries int, bytes int64) {
 	return entries, bytes
 }
 
+// refuseHomeRoot returns the D18 refusal, which wraps paths.ErrHomeRoot, when projectRoot is this
+// process's home directory, and nil otherwise. The homes are this process's own HOME and
+// USERPROFILE, the ones userHomeDir and the D10 staging read. AcquireLock asks it, and so do the
+// spawners, EnsureRunning and SpawnDetached, so that no caller creates a spawn claim, a staged copy
+// or a daemon for the directory whose .qompack is the user-global layer.
+func refuseHomeRoot(projectRoot string) error {
+	return paths.RefuseHome(projectRoot, paths.HomeDirs(os.Getenv)...)
+}
+
 // AcquireLock takes .qompack/run/daemon.lock for the current process at addr, resolving
 // contention with the 5-step staleness protocol of task-3-spec.md: a dead process's lock is
 // reclaimed; a live one's is not.
@@ -119,9 +128,8 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 	// Owner decision D18: no daemon and no maintenance writer for the home directory, whose .qompack
 	// is the user-global layer. Every entry point in internal/cli refuses that root first and says
 	// why; this is the one gate every daemon start and every writer lease passes through, so no
-	// other embedder can create run/ and daemon.lock there either. The homes are this process's own,
-	// the ones userHomeDir and the D10 staging read.
-	if err := paths.RefuseHome(projectRoot, paths.HomeDirs(os.Getenv)...); err != nil {
+	// other embedder can create run/ and daemon.lock there either.
+	if err := refuseHomeRoot(projectRoot); err != nil {
 		return nil, fmt.Errorf("daemon: lock: %w", err)
 	}
 

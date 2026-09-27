@@ -206,7 +206,10 @@ resolved root with the home directory (after cleaning, case-insensitively on Win
 symlinks and junctions, `internal/paths/home.go`) and records nothing, writes nothing, locks nothing
 and starts no daemon for it. `SessionStart` answers with one short message saying so, the other hooks
 answer `{}`, the MCP tools answer a stable refusal, and `status`, `doctor` and every store command
-say why (`internal/cli/homeroot.go`). A project below the home directory is unaffected.
+say why (`internal/cli/homeroot.go`). Behind the entry points, the daemon's lock and every spawner —
+the spawn claim, a hook's or the MCP server's lazy spawn, `EnsureRunning` and `SpawnDetached` —
+refuse the same root themselves, so a caller that skipped the check would still create nothing under
+`<home>/.qompack/`. A project below the home directory is unaffected.
 
 Named files referenced elsewhere on this page: `checkpoints/NNNN.json` and
 `checkpoints/MANIFEST.jsonl`, `index/observations.jsonl`, `records/eliminations.jsonl`,
