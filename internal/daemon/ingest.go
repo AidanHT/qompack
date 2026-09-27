@@ -752,6 +752,16 @@ func (i *ingest) requestDrain() {
 	}
 }
 
+// resumeDrain asks the drain requester for one more pass on its own behalf, for a pass its budget
+// cut short (daemon.drainOnRequest), without ever blocking. It is not a request the lanes made, so it
+// is not counted as one (counterOrderingDrainRequested).
+func (i *ingest) resumeDrain() {
+	select {
+	case i.drainKick <- struct{}{}:
+	default:
+	}
+}
+
 // runWoken runs one lane a wake listed, first passing the signal on if more remain listed so another
 // idle worker takes the next one.
 func (i *ingest) runWoken(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response) {
