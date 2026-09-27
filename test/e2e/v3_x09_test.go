@@ -252,18 +252,20 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	// step 6), and the retention window (config defaults: 30 days / 10 sessions) covers everything
 	// this young project holds.
 	var gcLine string
+	gcWait, clamped := x9GCWait(t, pending)
 	require.Eventually(t, func() bool {
 		line, found := x9LastGCLine(p.Root)
 		gcLine = line
 		return found
-	}, x9FlushGCBound(pending), e2eDaemonDownTick,
+	}, gcWait, e2eDaemonDownTick,
 		"flush never produced the observer's \"observer: gc\" log line — store.GC did not run on SessionEnd "+
-			"(%d spool lines were left for the flush's daemon to replay before it)", pending)
+			"(%d spool lines were left for the flush's daemon to replay before it; waited %s of the derived %s, "+
+			"cut to the test binary's -timeout: %t)", pending, gcWait, x9FlushGCBound(pending), clamped)
 	// The evidence for x9FlushGCBound's derivation, on every run: how much replay the flush's daemon
 	// had in front of its SessionEnd, and how long the GC line took behind it.
 	t.Logf("x09: the flush's \"observer: gc\" line came %s after the flush, behind %d spool lines left "+
-		"for its daemon to replay (bound %s)", time.Since(flushed).Round(time.Millisecond), pending,
-		x9FlushGCBound(pending))
+		"for its daemon to replay (bound %s; waited up to %s, cut to the test binary's -timeout: %t)",
+		time.Since(flushed).Round(time.Millisecond), pending, x9FlushGCBound(pending), gcWait, clamped)
 	// The retention window covers every NON-ephemeral object this young project holds, so those
 	// may never be collected. Ephemeral retrieval results are different by design: an ephemeral
 	// root is never in-window by the age clause (Qompack.md 8.2 - "retrieval spam is reclaimable")
@@ -990,6 +992,30 @@ func x9ListFiles(t *testing.T, dir string) []string {
 func x9FlushGCBound(pending int) time.Duration {
 	return e2eHistoryConvergeBound + time.Duration(pending+1)*daemon.DrainLineDeadline
 }
+
+// x9GCWait is how long the row waits for the flush's GC line: x9FlushGCBound(pending), unless the
+// test binary's -timeout ends sooner, in which case it is what is left before then less
+// x9CleanupReserve, and clamped says so. Under the load that leaves hundreds of lines to replay the
+// derived wait runs past the 30 m -timeout the e2e job and linux-nonroot-inner.sh give the package,
+// and a GC line that never came then surfaced as the binary's timeout panic, which abandons every row
+// after this one and reports none of this one's evidence, instead of as this row's assertion with its
+// pending count. The clamp never lengthens the wait. It shortens it only to end it
+// x9CleanupReserve before the binary's own timeout would, a window in which the row could still
+// pass only if its remaining assertions and its cleanup also beat that timeout.
+func x9GCWait(t *testing.T, pending int) (wait time.Duration, clamped bool) {
+	wait = x9FlushGCBound(pending)
+	if dl, ok := t.Deadline(); ok {
+		if left := time.Until(dl) - x9CleanupReserve; left < wait {
+			return max(left, e2eDaemonDownTick), true
+		}
+	}
+	return wait, false
+}
+
+// x9CleanupReserve is what x9GCWait keeps of the test binary's -timeout for the row's own cleanup,
+// e2eShutdownIfReachable over the flush's daemon: at most a settle for a daemon still being spawned
+// (e2eLazySpawnSettleBound) and then a full daemon shutdown (e2eDaemonDownBound).
+const x9CleanupReserve = e2eLazySpawnSettleBound + e2eDaemonDownBound
 
 // x9UnconsumedSpoolLines counts the lines in root's spool that no drain has consumed yet: every
 // line of a file state/drain.json does not name, and the lines past its recorded offset in one it
