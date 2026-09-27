@@ -331,6 +331,56 @@ the read end.
 There is exactly one draft owner per session — the checkpointer's `FileWriter`, which owns `Begin`,
 `Finalize` and `Abort` and adjudicates the DPI guard in one place.
 
+**Durability barriers.** On POSIX two barriers make a write survive a power cut, and they cover
+different things: a file's sync makes its bytes durable, and a sync of its directory makes its
+*name* durable. A new file whose own sync returned can still vanish if its directory was never
+synced. Every step that promises durability issues both where it depends on both, in an order that
+lets no durable record name something a cut could still take (`internal/paths/barriers.go` is the
+seam that lets tests count and cut them):
+
+- **Checkpoint seal.** `Finalize` returns only after, in order: the artifact's bytes; the draft's
+  segment marks (`index/segments.jsonl`, re-marked and synced, so no later draft re-encodes a sealed
+  segment); the artifact's name (`checkpoints/` synced); the `MANIFEST.jsonl` line, synced — the
+  seal itself; and `checkpoints/` again when the seal created the manifest. Only then do the draft's
+  retirement, the successor draft, the PreCompact answer and the next rehydration act on it. A cut
+  anywhere leaves the checkpoint absent (its draft still on disk, sealed on the next attempt) or
+  sealed with its marks durable, never a manifest line naming bytes the cut took.
+- **Delivery and WAL.** A hook's ACK follows the WAL line's sync; the spool directory is synced when
+  a WAL segment is opened, and a tool response too large to send inline (a `spool/blob-*.bin` file
+  the hook wrote) is synced, with its directory, before the line that names it.
+- **Publication, pins, GC.** A publication pass fsyncs each object, its directories and the index
+  before any reference or acknowledgement depends on it. A pin's log line is synced before
+  the derived `pins/invariants.json` changes. A GC pass syncs its tombstones before it deletes the
+  chunks they retire. Retention-root declarations are synced before the backup manifest that relies
+  on them. (The publication order is `plans/00-ARCHITECTURE.md` §0.2.2's.)
+- **Backup and restore.** Every directory of a backup tree, and the certification marker, is synced
+  before the manifest certifies the backup; a restore syncs its staged tree before the rename that
+  publishes it, and the destination after. `EnsureLayout` syncs the parent of every directory it
+  creates.
+
+Some logs may lose their tail to a power cut by design, because nothing durable depends on them:
+the elimination log (a lost tail costs that elimination; a sealed checkpoint's copy is never read
+back as authority), the signal log, the DAG log's name when it is first created, demand telemetry,
+day logs, and a hook's own client spool file, which carries no acknowledgement.
+
+**Windows directory sync (owner decision D24).** On Windows the directory barrier is a no-op
+(`paths.SyncDir`): the directory handle Go's `os.Open` returns refuses `FlushFileBuffers`, and D24
+keeps the no-op on the NTFS-journaling premise rather than add a raw Windows directory handle. NTFS writes every metadata change — a file's creation, a rename, a
+deletion, a size change — to the volume's write-ahead log as one transaction and replays that log at
+mount, so after a power cut each change is wholly present or wholly absent; a directory entry is
+never torn. A file's `FlushFileBuffers` writes its bytes and forces the log out through that file's
+own latest change, and because the log is sequential every metadata change logged before it is
+durable too. What can still be lost is what follows the *last* flush on the volume: a rename or
+deletion completed after it. `WriteAtomic` flushes its staging file before its rename, so its most
+recent replacement of a file can revert to the previous complete version — never a torn or empty
+one — and a removed file can reappear. No product guarantee depends on more: each write listed above
+ends with a file flush after the directory change it relies on (the `MANIFEST.jsonl` line, the
+journal and WAL appends, each object's flush in a publication pass, the pins log line), and the
+files that can revert — `state/` documents, the pins view, a draft, `state/precompact.json`, a
+restore's final rename — are derived or rebuilt, or leave the previous state to retry from. The
+premise has not been tested with a power cut; a working Windows directory barrier exists and D24
+declines it.
+
 **Open on this tree.** `plans/V5-report.md` §29 item 2 records two known regressions in enabled
 scope that are not host questions: SP20-D1 (hot-path budget B-B red on the shipped leased delivery
 path) and SP20-D2 (verify-on-read over the `GetChunk` and `Search` budgets). Both are carried to
