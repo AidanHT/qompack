@@ -1,0 +1,41 @@
+paired rounds: 12 (1..12); dropped rounds (non-zero exit on either side): none
+
+## ns/op  (median base -> median new; median per-round ratio new/base; rounds new<base; exact two-sided sign test)
+BenchmarkOnToolUse_TestOutput256KB/AllNovel          n=12       1.205e+08 ->      1.167e+08  ratio  0.946 (  -5.4%)  lower 7/12  p=0.7744
+BenchmarkOnToolUse_TestOutput256KB/Deduped           n=12       4.455e+07 ->      3.554e+07  ratio  0.851 ( -14.9%)  lower 10/12  p=0.0386
+BenchmarkOnToolUse_TestOutput256KB/Delta             n=12       9.767e+07 ->       8.82e+07  ratio  0.921 (  -7.9%)  lower 7/12  p=0.7744
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel   n=12       1.726e+09 ->      1.524e+09  ratio  0.853 ( -14.7%)  lower 10/12  p=0.0386
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped    n=12       5.498e+08 ->      5.111e+08  ratio  0.853 ( -14.7%)  lower 9/12  p=0.1460
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta      n=12       7.158e+08 ->      7.055e+08  ratio  1.010 (  +1.0%)  lower 6/12  p=1.0000
+
+## p50-ms  (median base -> median new; median per-round ratio new/base; rounds new<base; exact two-sided sign test)
+BenchmarkOnToolUse_TestOutput256KB/AllNovel          n=12           122.9 ->          114.7  ratio  0.921 (  -7.9%)  lower 7/11  p=0.5488
+BenchmarkOnToolUse_TestOutput256KB/Deduped           n=12           38.91 ->          31.75  ratio  0.854 ( -14.6%)  lower 10/12  p=0.0386
+BenchmarkOnToolUse_TestOutput256KB/Delta             n=12           90.11 ->          90.11  ratio  1.000 (  +0.0%)  lower 5/10  p=1.0000
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel   n=12            1638 ->           1573  ratio  0.902 (  -9.8%)  lower 8/10  p=0.1094
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped    n=12           507.9 ->          524.3  ratio  0.818 ( -18.2%)  lower 8/11  p=0.2266
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta      n=12           655.4 ->          688.1  ratio  1.100 ( +10.0%)  lower 2/10  p=0.1094
+
+## p99-ms  (median base -> median new; median per-round ratio new/base; rounds new<base; exact two-sided sign test)
+BenchmarkOnToolUse_TestOutput256KB/AllNovel          n=12           180.2 ->          155.7  ratio  1.081 (  +8.1%)  lower 5/12  p=0.7744
+BenchmarkOnToolUse_TestOutput256KB/Deduped           n=12           102.4 ->          90.11  ratio  0.861 ( -13.9%)  lower 9/11  p=0.0654
+BenchmarkOnToolUse_TestOutput256KB/Delta             n=12           135.2 ->          114.7  ratio  0.833 ( -16.7%)  lower 8/12  p=0.3877
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel   n=12            3277 ->           2097  ratio  0.692 ( -30.8%)  lower 8/12  p=0.3877
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped    n=12           950.5 ->            852  ratio  1.000 (  +0.0%)  lower 5/9  p=1.0000
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta      n=12            1246 ->           1114  ratio  1.006 (  +0.6%)  lower 6/12  p=1.0000
+
+## B/op  (median base -> median new; median per-round ratio new/base; rounds new<base; exact two-sided sign test)
+BenchmarkOnToolUse_TestOutput256KB/AllNovel          n=12       6.568e+06 ->      6.571e+06  ratio  1.000 (  +0.0%)  lower 5/12  p=0.7744
+BenchmarkOnToolUse_TestOutput256KB/Deduped           n=12       6.704e+06 ->      6.699e+06  ratio  0.999 (  -0.1%)  lower 7/12  p=0.7744
+BenchmarkOnToolUse_TestOutput256KB/Delta             n=12       6.882e+06 ->      6.879e+06  ratio  0.999 (  -0.1%)  lower 8/12  p=0.3877
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel   n=12       1.158e+07 ->      1.144e+07  ratio  0.990 (  -1.0%)  lower 10/12  p=0.0386
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped    n=12       1.074e+07 ->       1.07e+07  ratio  0.999 (  -0.1%)  lower 6/12  p=1.0000
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta      n=12       1.099e+07 ->      1.099e+07  ratio  1.001 (  +0.1%)  lower 6/12  p=1.0000
+
+## allocs/op  (median base -> median new; median per-round ratio new/base; rounds new<base; exact two-sided sign test)
+BenchmarkOnToolUse_TestOutput256KB/AllNovel          n=12            7366 ->           7372  ratio  1.000 (  -0.0%)  lower 7/12  p=0.7744
+BenchmarkOnToolUse_TestOutput256KB/Deduped           n=12            5824 ->           5820  ratio  1.000 (  -0.0%)  lower 6/12  p=1.0000
+BenchmarkOnToolUse_TestOutput256KB/Delta             n=12            6924 ->           6922  ratio  0.999 (  -0.1%)  lower 9/12  p=0.1460
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel   n=12        1.34e+04 ->       1.29e+04  ratio  0.964 (  -3.6%)  lower 12/12  p=0.0005
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped    n=12            8914 ->           8718  ratio  0.979 (  -2.1%)  lower 12/12  p=0.0005
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta      n=12       1.002e+04 ->           9806  ratio  0.979 (  -2.1%)  lower 12/12  p=0.0005

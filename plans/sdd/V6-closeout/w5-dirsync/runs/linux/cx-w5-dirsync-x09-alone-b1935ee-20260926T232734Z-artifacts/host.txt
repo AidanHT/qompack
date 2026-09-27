@@ -1,0 +1,10 @@
+run_id=cx-w5-dirsync-x09-alone-b1935ee-20260926T232734Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync
+rev=b1935ee
+commit=b1935ee180be6877bb7f3239d53e80f73c73d2ec
+bundle_sha256=18465c13e634cc4b338a6bef406eb4119424c6332c12d9480aef17c3e704e816
+host_started_utc=2026-09-26T23:27:47Z
+inner_args=--timeout 30m --run ^TestV3_LiveSessionWriteSetAndAppendOnly$ --count 2 -- ./test/e2e
+host_finished_utc=2026-09-26T23:30:32Z
+container_exit=1

@@ -1,0 +1,8 @@
+# go test ./internal/paths -run '^(TestSyncDir_SyncsAnExistingDirectory|TestSyncDir_ReportsAMissingDirectoryOffWindows)$' -count=1 -v (Windows)
+=== RUN   TestSyncDir_SyncsAnExistingDirectory
+--- PASS: TestSyncDir_SyncsAnExistingDirectory (0.00s)
+=== RUN   TestSyncDir_ReportsAMissingDirectoryOffWindows
+--- PASS: TestSyncDir_ReportsAMissingDirectoryOffWindows (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.736s
+go_test_exit=0

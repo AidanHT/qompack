@@ -1,0 +1,1144 @@
+# HEAD b1935ee (code head b1935ee), Windows, co-loaded host (five other workstreams, this branch's A/B and Linux gate)
+# go test ./internal/observer -count=1 -timeout=75m -v
+=== RUN   TestOnToolUse_RefusesTraversalReadBeforePutBytes
+--- PASS: TestOnToolUse_RefusesTraversalReadBeforePutBytes (0.01s)
+=== RUN   TestOnToolUse_RefusesAbsoluteOutOfProjectRead
+--- PASS: TestOnToolUse_RefusesAbsoluteOutOfProjectRead (0.00s)
+=== RUN   TestOnToolUse_RefusesDroppedPathFileReadAsUnprovable
+--- PASS: TestOnToolUse_RefusesDroppedPathFileReadAsUnprovable (0.00s)
+=== RUN   TestOnToolUse_RefusesMultiEditWhoseSecondPathEscapes
+--- PASS: TestOnToolUse_RefusesMultiEditWhoseSecondPathEscapes (0.01s)
+=== RUN   TestOnToolUse_InProjectReadStillStored
+--- PASS: TestOnToolUse_InProjectReadStillStored (0.00s)
+=== RUN   TestOnToolUse_PathlessBashStillStored
+--- PASS: TestOnToolUse_PathlessBashStillStored (0.00s)
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/subagent
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/tool
+--- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart (1.58s)
+    --- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/subagent (0.73s)
+    --- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/tool (0.85s)
+=== RUN   TestDerivedPublication_V6_MissingLinkAfterSupersessionDrift
+--- PASS: TestDerivedPublication_V6_MissingLinkAfterSupersessionDrift (0.82s)
+=== RUN   TestTermFrequenciesMatchTheTokenRegexp
+    features_cost_test.go:79: [rapid] OK, passed 100 tests (535.6µs)
+    features_cost_test.go:83: [rapid] OK, passed 100 tests (1.7773ms)
+--- PASS: TestTermFrequenciesMatchTheTokenRegexp (0.37s)
+=== RUN   TestWindowTermFrequenciesMatchTheConcatenation
+    features_cost_test.go:95: [rapid] OK, passed 100 tests (153.5584ms)
+--- PASS: TestWindowTermFrequenciesMatchTheConcatenation (0.16s)
+=== RUN   TestTermFrequenciesCostIsPerDistinctToken
+--- PASS: TestTermFrequenciesCostIsPerDistinctToken (0.01s)
+=== RUN   TestFeatures_NotReadyBeforeTwoWindows
+--- PASS: TestFeatures_NotReadyBeforeTwoWindows (0.02s)
+=== RUN   TestFeatures_PathJaccardIdenticalWindows
+--- PASS: TestFeatures_PathJaccardIdenticalWindows (0.02s)
+=== RUN   TestFeatures_PathJaccardDisjointWindows
+--- PASS: TestFeatures_PathJaccardDisjointWindows (0.00s)
+=== RUN   TestFeatures_PathJaccardBothEmpty
+--- PASS: TestFeatures_PathJaccardBothEmpty (0.04s)
+=== RUN   TestFeatures_ToolShiftIdentical
+--- PASS: TestFeatures_ToolShiftIdentical (0.01s)
+=== RUN   TestFeatures_ToolShiftComplete
+--- PASS: TestFeatures_ToolShiftComplete (0.00s)
+=== RUN   TestFeatures_ToolShiftHalf
+--- PASS: TestFeatures_ToolShiftHalf (0.00s)
+=== RUN   TestFeatures_LexicalCohesionIdenticalText
+--- PASS: TestFeatures_LexicalCohesionIdenticalText (0.00s)
+=== RUN   TestFeatures_LexicalCohesionDisjointVocabulary
+--- PASS: TestFeatures_LexicalCohesionDisjointVocabulary (0.02s)
+=== RUN   TestFeatures_GapSecondsFromFakeClock
+--- PASS: TestFeatures_GapSecondsFromFakeClock (0.07s)
+=== RUN   TestFeatures_TodoTransition
+--- PASS: TestFeatures_TodoTransition (0.07s)
+=== RUN   TestFeatures_AllFinite
+    features_test.go:155: [rapid] OK, passed 100 tests (791.8524ms)
+--- PASS: TestFeatures_AllFinite (0.98s)
+=== RUN   TestFeatures_RecentRingBounded
+--- PASS: TestFeatures_RecentRingBounded (0.04s)
+=== RUN   TestFeatures_RecentTextIsBounded
+--- PASS: TestFeatures_RecentTextIsBounded (0.00s)
+=== RUN   TestNewlyCompletedTodos_RecordsEveryCompletedItem
+--- PASS: TestNewlyCompletedTodos_RecordsEveryCompletedItem (0.01s)
+=== RUN   TestJaccard_EdgeCases
+--- PASS: TestJaccard_EdgeCases (0.00s)
+=== RUN   TestTotalVariation_EdgeCases
+--- PASS: TestTotalVariation_EdgeCases (0.00s)
+=== RUN   TestCosineTokens_EdgeCases
+--- PASS: TestCosineTokens_EdgeCases (0.00s)
+=== RUN   TestGraph_ToolUseProducesResult
+--- PASS: TestGraph_ToolUseProducesResult (0.02s)
+=== RUN   TestGraph_SequenceChainAcrossTurns
+--- PASS: TestGraph_SequenceChainAcrossTurns (0.05s)
+=== RUN   TestGraph_ParallelSiblingsShareATurnAndGetNoConsumesEdge
+--- PASS: TestGraph_ParallelSiblingsShareATurnAndGetNoConsumesEdge (0.12s)
+=== RUN   TestGraph_ObserverOutputIsAcyclic
+--- PASS: TestGraph_ObserverOutputIsAcyclic (2.69s)
+=== RUN   TestGraph_TurnLinkIsControlOnlyWhenNothingIsShared
+--- PASS: TestGraph_TurnLinkIsControlOnlyWhenNothingIsShared (0.04s)
+=== RUN   TestGraph_TurnLinkIsSequenceWhenAFileIsShared
+--- PASS: TestGraph_TurnLinkIsSequenceWhenAFileIsShared (0.06s)
+=== RUN   TestGraph_FirstToolUseOfASessionIsSequence
+--- PASS: TestGraph_FirstToolUseOfASessionIsSequence (0.00s)
+=== RUN   TestGraph_SharedFileOrientation
+--- PASS: TestGraph_SharedFileOrientation (0.06s)
+=== RUN   TestGraph_NoToolUseToToolUseSharedFileEdge
+--- PASS: TestGraph_NoToolUseToToolUseSharedFileEdge (0.05s)
+=== RUN   TestGraph_SymbolEdges
+--- PASS: TestGraph_SymbolEdges (0.05s)
+=== RUN   TestGraph_SymbolsSkippedAboveCap
+--- PASS: TestGraph_SymbolsSkippedAboveCap (0.07s)
+=== RUN   TestGraph_SymbolsCappedAt64
+--- PASS: TestGraph_SymbolsCappedAt64 (0.03s)
+=== RUN   TestGraph_PosIsMonotoneAndPreIncrement
+--- PASS: TestGraph_PosIsMonotoneAndPreIncrement (0.10s)
+=== RUN   TestGraph_SegmentMembershipPointsIntoTheSegment
+--- PASS: TestGraph_SegmentMembershipPointsIntoTheSegment (0.07s)
+=== RUN   TestGraph_SegmentNodeAndChainEdgeAtClose
+--- PASS: TestGraph_SegmentNodeAndChainEdgeAtClose (0.03s)
+=== RUN   TestGraph_NilSymbolsTolerated
+--- PASS: TestGraph_NilSymbolsTolerated (0.10s)
+=== RUN   TestGraph_FlushNotCalledPerToolUse
+--- PASS: TestGraph_FlushNotCalledPerToolUse (0.14s)
+=== RUN   TestGraph_IDsComeFromDagConstructors
+--- PASS: TestGraph_IDsComeFromDagConstructors (0.04s)
+=== RUN   TestNew_RequiresItsMandatoryCollaborators
+=== RUN   TestNew_RequiresItsMandatoryCollaborators/ProjectRoot
+=== RUN   TestNew_RequiresItsMandatoryCollaborators/Store
+=== RUN   TestNew_RequiresItsMandatoryCollaborators/Graph
+=== RUN   TestNew_RequiresItsMandatoryCollaborators/Log
+=== RUN   TestNew_RequiresItsMandatoryCollaborators/Clock
+--- PASS: TestNew_RequiresItsMandatoryCollaborators (0.29s)
+    --- PASS: TestNew_RequiresItsMandatoryCollaborators/ProjectRoot (0.05s)
+    --- PASS: TestNew_RequiresItsMandatoryCollaborators/Store (0.09s)
+    --- PASS: TestNew_RequiresItsMandatoryCollaborators/Graph (0.06s)
+    --- PASS: TestNew_RequiresItsMandatoryCollaborators/Log (0.04s)
+    --- PASS: TestNew_RequiresItsMandatoryCollaborators/Clock (0.05s)
+=== RUN   TestNew_AcceptsEveryOptionalCollaboratorAsNil
+--- PASS: TestNew_AcceptsEveryOptionalCollaboratorAsNil (0.04s)
+=== RUN   TestNew_MaxResultBytesFallsBackToTheDefault
+=== RUN   TestNew_MaxResultBytesFallsBackToTheDefault/absent
+=== RUN   TestNew_MaxResultBytesFallsBackToTheDefault/configured
+--- PASS: TestNew_MaxResultBytesFallsBackToTheDefault (0.07s)
+    --- PASS: TestNew_MaxResultBytesFallsBackToTheDefault/absent (0.05s)
+    --- PASS: TestNew_MaxResultBytesFallsBackToTheDefault/configured (0.02s)
+=== RUN   TestObserver_ModeDefaultsToFull
+--- PASS: TestObserver_ModeDefaultsToFull (0.02s)
+=== RUN   TestObserver_SessionIsCreatedOnceWithNonNilMaps
+--- PASS: TestObserver_SessionIsCreatedOnceWithNonNilMaps (0.00s)
+=== RUN   TestObserver_MetricsAreOptional
+--- PASS: TestObserver_MetricsAreOptional (0.01s)
+=== RUN   TestObserver_SoftIgnoresANilError
+--- PASS: TestObserver_SoftIgnoresANilError (0.01s)
+=== RUN   TestObserver_NowTruncatesToUnixMilli
+--- PASS: TestObserver_NowTruncatesToUnixMilli (0.00s)
+=== RUN   TestObserver_EveryEntryPointReturnsCtxErr
+=== RUN   TestObserver_EveryEntryPointReturnsCtxErr/OnToolUse
+=== RUN   TestObserver_EveryEntryPointReturnsCtxErr/OnUserPrompt
+=== RUN   TestObserver_EveryEntryPointReturnsCtxErr/OnStop
+=== RUN   TestObserver_EveryEntryPointReturnsCtxErr/OnSessionStart
+=== RUN   TestObserver_EveryEntryPointReturnsCtxErr/OnSessionEnd
+--- PASS: TestObserver_EveryEntryPointReturnsCtxErr (0.01s)
+    --- PASS: TestObserver_EveryEntryPointReturnsCtxErr/OnToolUse (0.00s)
+    --- PASS: TestObserver_EveryEntryPointReturnsCtxErr/OnUserPrompt (0.00s)
+    --- PASS: TestObserver_EveryEntryPointReturnsCtxErr/OnStop (0.00s)
+    --- PASS: TestObserver_EveryEntryPointReturnsCtxErr/OnSessionStart (0.00s)
+    --- PASS: TestObserver_EveryEntryPointReturnsCtxErr/OnSessionEnd (0.00s)
+=== RUN   TestOnUserPrompt_ReplyOnlyRecordsNothing
+--- PASS: TestOnUserPrompt_ReplyOnlyRecordsNothing (0.02s)
+=== RUN   TestOnUserPrompt_WorkerRecordsAndAdvancesTurn
+--- PASS: TestOnUserPrompt_WorkerRecordsAndAdvancesTurn (0.00s)
+=== RUN   TestOnUserPrompt_LeasedCaptureFailurePropagates
+--- PASS: TestOnUserPrompt_LeasedCaptureFailurePropagates (0.24s)
+=== RUN   TestOnUserPrompt_UnleasedCaptureFailureIsSoftAndAdvances
+--- PASS: TestOnUserPrompt_UnleasedCaptureFailureIsSoftAndAdvances (0.02s)
+=== RUN   TestOnUserPrompt_EmptyPromptIsNotATurn
+--- PASS: TestOnUserPrompt_EmptyPromptIsNotATurn (0.01s)
+=== RUN   TestOnUserPrompt_WarningDoesNotDependOnWorkerScheduling
+--- PASS: TestOnUserPrompt_WarningDoesNotDependOnWorkerScheduling (0.14s)
+=== RUN   TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct
+=== RUN   TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct/first
+=== RUN   TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct/different
+--- PASS: TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct (1.81s)
+    --- PASS: TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct/first (1.08s)
+    --- PASS: TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct/different (0.74s)
+=== RUN   TestV6Prompt_RestartRepairsIndexBeforeSidecarCut
+--- PASS: TestV6Prompt_RestartRepairsIndexBeforeSidecarCut (1.45s)
+=== RUN   TestV6Prompt_PublishedMissingObjectIsNotAcknowledged
+--- PASS: TestV6Prompt_PublishedMissingObjectIsNotAcknowledged (0.48s)
+=== RUN   TestCollectThrash_QueuesEachRuleExactlyOnce
+--- PASS: TestCollectThrash_QueuesEachRuleExactlyOnce (0.06s)
+=== RUN   TestCollectThrash_QueuesANewlyThrashingRule
+--- PASS: TestCollectThrash_QueuesANewlyThrashingRule (0.05s)
+=== RUN   TestCollectThrash_AppendsTheToolSymbolAndTheTestVerdict
+--- PASS: TestCollectThrash_AppendsTheToolSymbolAndTheTestVerdict (0.02s)
+=== RUN   TestPendingThrashLines_DrainsAndFormatsThroughGrammar
+--- PASS: TestPendingThrashLines_DrainsAndFormatsThroughGrammar (0.30s)
+=== RUN   TestCollectThrash_NilGrammarIsTolerated
+--- PASS: TestCollectThrash_NilGrammarIsTolerated (0.09s)
+=== RUN   TestOnUserPrompt_StoresVerbatim
+--- PASS: TestOnUserPrompt_StoresVerbatim (0.10s)
+=== RUN   TestOnUserPrompt_VerbatimAgainstARealStore
+--- PASS: TestOnUserPrompt_VerbatimAgainstARealStore (1.16s)
+=== RUN   TestOnUserPrompt_RecordsIndexEntry
+--- PASS: TestOnUserPrompt_RecordsIndexEntry (0.00s)
+=== RUN   TestOnUserPrompt_TurnIncrements
+--- PASS: TestOnUserPrompt_TurnIncrements (0.01s)
+=== RUN   TestOnUserPrompt_DAGNodeAndSegmentEdge
+--- PASS: TestOnUserPrompt_DAGNodeAndSegmentEdge (0.00s)
+=== RUN   TestOnUserPrompt_NeverRegenerated
+--- PASS: TestOnUserPrompt_NeverRegenerated (0.15s)
+=== RUN   TestOnUserPrompt_EmptyPromptIgnored
+--- PASS: TestOnUserPrompt_EmptyPromptIgnored (0.00s)
+=== RUN   TestOnUserPrompt_GrammarSymbolAppended
+--- PASS: TestOnUserPrompt_GrammarSymbolAppended (0.00s)
+=== RUN   TestOnUserPrompt_ThrashWarningInFullMode
+--- PASS: TestOnUserPrompt_ThrashWarningInFullMode (0.01s)
+=== RUN   TestOnUserPrompt_NoThrashWarningInPassiveMode
+--- PASS: TestOnUserPrompt_NoThrashWarningInPassiveMode (0.00s)
+=== RUN   TestOnUserPrompt_ThrashWarnedOncePerRule
+--- PASS: TestOnUserPrompt_ThrashWarnedOncePerRule (0.01s)
+=== RUN   TestOnUserPrompt_PutFailureStillIncrementsTurn
+--- PASS: TestOnUserPrompt_PutFailureStillIncrementsTurn (0.00s)
+=== RUN   TestVerbatimPromptID
+--- PASS: TestVerbatimPromptID (0.00s)
+=== RUN   TestPromptArgs_IsTheToolInputAPromptDoesNotHave
+--- PASS: TestPromptArgs_IsTheToolInputAPromptDoesNotHave (0.00s)
+=== RUN   TestOnUserPrompt_BackwardSliceReachesThePrompt
+--- PASS: TestOnUserPrompt_BackwardSliceReachesThePrompt (0.01s)
+=== RUN   TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass
+=== RUN   TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Deduped
+    publication_barriers_test.go:72: capture 0: 34 closure objects; per pass 36 file + 69 directory fsyncs; per capture 72 + 138
+    publication_barriers_test.go:72: capture 1: 34 closure objects; per pass 36 file + 69 directory fsyncs; per capture 72 + 138
+=== RUN   TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Delta
+    publication_barriers_test.go:72: capture 0: 34 closure objects; per pass 36 file + 68 directory fsyncs; per capture 72 + 136
+    publication_barriers_test.go:72: capture 1: 34 closure objects; per pass 36 file + 68 directory fsyncs; per capture 72 + 136
+=== RUN   TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/AllNovel
+    publication_barriers_test.go:72: capture 0: 75 closure objects; per pass 77 file + 137 directory fsyncs; per capture 154 + 274
+    publication_barriers_test.go:72: capture 1: 72 closure objects; per pass 74 file + 137 directory fsyncs; per capture 148 + 274
+--- PASS: TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass (26.05s)
+    --- PASS: TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Deduped (5.07s)
+    --- PASS: TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/Delta (5.75s)
+    --- PASS: TestPublicationPasses_Leased256KBCaptureFsyncsEachDirectoryOncePerPass/AllNovel (15.23s)
+=== RUN   TestPublicationPasses_RecorderWithoutTheBarriersKeepsTheObserversPasses
+--- PASS: TestPublicationPasses_RecorderWithoutTheBarriersKeepsTheObserversPasses (0.62s)
+=== RUN   TestPublicationPasses_CutAfterThePutPublishesOnceOnRedelivery
+--- PASS: TestPublicationPasses_CutAfterThePutPublishesOnceOnRedelivery (0.66s)
+=== RUN   TestPublicationPasses_FreshLeasedToolCaptureSyncsTwice
+--- PASS: TestPublicationPasses_FreshLeasedToolCaptureSyncsTwice (0.69s)
+=== RUN   TestPublicationPasses_FreshLeasedPromptSyncsTwice
+--- PASS: TestPublicationPasses_FreshLeasedPromptSyncsTwice (0.59s)
+=== RUN   TestPublicationPasses_FreshLeasedSubagentStopSyncsTwice
+--- PASS: TestPublicationPasses_FreshLeasedSubagentStopSyncsTwice (0.62s)
+=== RUN   TestPublicationPasses_RedeliveryReprovesTheOriginalPublication
+=== RUN   TestPublicationPasses_RedeliveryReprovesTheOriginalPublication/same_process
+=== RUN   TestPublicationPasses_RedeliveryReprovesTheOriginalPublication/after_a_restart
+--- PASS: TestPublicationPasses_RedeliveryReprovesTheOriginalPublication (1.80s)
+    --- PASS: TestPublicationPasses_RedeliveryReprovesTheOriginalPublication/same_process (0.86s)
+    --- PASS: TestPublicationPasses_RedeliveryReprovesTheOriginalPublication/after_a_restart (0.94s)
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun
+    publication_sweep_test.go:70: a complete fresh leased read makes 14 context checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_0_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_1_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_2_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_3_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_4_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_5_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_6_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_7_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_8_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_9_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_10_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_11_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_12_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_13_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_14_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_0_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_1_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_2_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_3_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_4_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_5_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_6_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_7_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_8_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_9_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_10_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_11_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_12_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_13_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_14_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_0_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_1_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_2_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_3_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_4_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_5_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_6_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_7_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_8_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_9_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_10_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_11_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_12_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_13_of_14_checks
+=== RUN   TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_14_of_14_checks
+--- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun (40.23s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_0_of_14_checks (1.40s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_1_of_14_checks (1.13s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_2_of_14_checks (1.04s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_3_of_14_checks (0.83s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_4_of_14_checks (0.75s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_5_of_14_checks (0.79s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_6_of_14_checks (0.91s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_7_of_14_checks (1.01s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_8_of_14_checks (0.85s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_9_of_14_checks (0.86s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_10_of_14_checks (0.81s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_11_of_14_checks (0.82s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_12_of_14_checks (0.90s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_13_of_14_checks (1.16s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/same_process/cut_after_14_of_14_checks (0.80s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_0_of_14_checks (0.61s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_1_of_14_checks (0.90s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_2_of_14_checks (0.76s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_3_of_14_checks (0.62s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_4_of_14_checks (0.65s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_5_of_14_checks (0.66s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_6_of_14_checks (0.98s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_7_of_14_checks (0.73s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_8_of_14_checks (1.00s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_9_of_14_checks (0.86s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_10_of_14_checks (1.44s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_11_of_14_checks (1.58s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_12_of_14_checks (0.63s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_13_of_14_checks (0.83s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_14_of_14_checks (1.12s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_0_of_14_checks (0.60s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_1_of_14_checks (0.69s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_2_of_14_checks (0.43s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_3_of_14_checks (0.56s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_4_of_14_checks (0.49s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_5_of_14_checks (0.44s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_6_of_14_checks (0.41s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_7_of_14_checks (0.58s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_8_of_14_checks (0.53s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_9_of_14_checks (0.58s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_10_of_14_checks (0.88s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_11_of_14_checks (1.05s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_12_of_14_checks (1.39s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_13_of_14_checks (1.44s)
+    --- PASS: TestPublicationPasses_ReadCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_14_of_14_checks (1.78s)
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun
+    publication_sweep_test.go:120: a complete fresh leased subagent capture makes 15 context checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_0_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_1_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_2_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_3_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_4_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_5_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_6_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_7_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_8_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_9_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_10_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_11_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_12_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_13_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_14_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_15_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_0_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_1_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_2_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_3_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_4_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_5_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_6_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_7_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_8_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_9_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_10_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_11_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_12_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_13_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_14_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_15_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_0_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_1_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_2_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_3_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_4_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_5_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_6_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_7_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_8_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_9_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_10_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_11_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_12_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_13_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_14_of_15_checks
+=== RUN   TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_15_of_15_checks
+--- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun (38.40s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_0_of_15_checks (0.95s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_1_of_15_checks (1.07s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_2_of_15_checks (1.14s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_3_of_15_checks (1.45s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_4_of_15_checks (1.09s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_5_of_15_checks (1.26s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_6_of_15_checks (1.43s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_7_of_15_checks (0.65s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_8_of_15_checks (0.62s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_9_of_15_checks (0.70s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_10_of_15_checks (0.89s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_11_of_15_checks (1.23s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_12_of_15_checks (0.74s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_13_of_15_checks (1.04s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_14_of_15_checks (1.42s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/same_process/cut_after_15_of_15_checks (1.00s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_0_of_15_checks (1.02s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_1_of_15_checks (1.16s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_2_of_15_checks (0.49s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_3_of_15_checks (0.46s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_4_of_15_checks (0.56s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_5_of_15_checks (0.56s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_6_of_15_checks (0.61s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_7_of_15_checks (0.89s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_8_of_15_checks (0.58s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_9_of_15_checks (0.50s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_10_of_15_checks (0.52s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_11_of_15_checks (0.47s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_12_of_15_checks (1.10s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_13_of_15_checks (0.57s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_14_of_15_checks (0.64s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_a_persisted_turn/cut_after_15_of_15_checks (0.53s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_0_of_15_checks (0.47s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_1_of_15_checks (0.47s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_2_of_15_checks (0.51s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_3_of_15_checks (0.35s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_4_of_15_checks (0.63s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_5_of_15_checks (0.47s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_6_of_15_checks (0.71s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_7_of_15_checks (0.81s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_8_of_15_checks (0.68s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_9_of_15_checks (0.54s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_10_of_15_checks (0.68s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_11_of_15_checks (0.65s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_12_of_15_checks (0.70s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_13_of_15_checks (0.62s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_14_of_15_checks (1.22s)
+    --- PASS: TestPublicationPasses_StopCutAtEveryCheckOfACompleteRun/restart_with_no_persisted_state/cut_after_15_of_15_checks (0.76s)
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_0_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_1_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_2_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_3_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_4_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_5_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_6_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_7_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_0_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_1_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_2_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_3_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_4_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_5_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_6_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_7_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_0_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_1_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_2_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_3_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_4_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_5_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_6_checks
+=== RUN   TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_7_checks
+--- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay (39.63s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_0_checks (0.75s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_1_checks (0.75s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_2_checks (1.24s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_3_checks (1.78s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_4_checks (0.64s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_5_checks (0.96s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_6_checks (1.02s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/same_process/cut_after_7_checks (1.51s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_0_checks (1.66s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_1_checks (1.23s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_2_checks (1.07s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_3_checks (1.39s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_4_checks (1.49s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_5_checks (1.53s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_6_checks (1.86s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_a_persisted_turn/cut_after_7_checks (1.10s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_0_checks (2.03s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_1_checks (3.47s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_2_checks (2.74s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_3_checks (2.80s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_4_checks (3.53s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_5_checks (1.93s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_6_checks (2.06s)
+    --- PASS: TestRedelivery_ReadCutBeforeItsFileVersionIsRepairedByTheReplay/restart_with_no_persisted_state/cut_after_7_checks (1.07s)
+=== RUN   TestRedelivery_IndexInvariantsHoldOverGeneratedSessions
+    redelivery_property_test.go:174: [rapid] OK, passed 100 tests (2m49.9379655s)
+--- PASS: TestRedelivery_IndexInvariantsHoldOverGeneratedSessions (173.19s)
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_0_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_1_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_2_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_3_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_4_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_5_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_6_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_7_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_0_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_1_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_2_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_3_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_4_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_5_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_6_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_7_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_0_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_1_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_2_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_3_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_4_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_5_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_6_checks
+=== RUN   TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_7_checks
+--- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether (57.56s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_0_checks (0.23s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_1_checks (0.36s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_2_checks (0.56s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_3_checks (1.21s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_4_checks (2.70s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_5_checks (1.41s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_6_checks (0.96s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/same_process/cut_after_7_checks (3.83s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_0_checks (4.76s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_1_checks (1.40s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_2_checks (1.77s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_3_checks (1.88s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_4_checks (2.46s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_5_checks (2.15s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_6_checks (2.59s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_a_persisted_turn/cut_after_7_checks (1.41s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_0_checks (6.25s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_1_checks (5.05s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_2_checks (4.54s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_3_checks (5.05s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_4_checks (3.15s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_5_checks (1.59s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_6_checks (0.78s)
+    --- PASS: TestRedelivery_ReadCutAtEveryPointKeepsRecordAndMarksTogether/restart_with_no_persisted_state/cut_after_7_checks (1.45s)
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_0_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_1_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_2_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_3_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_4_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_5_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_6_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_0_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_1_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_2_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_3_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_4_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_5_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_6_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_0_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_1_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_2_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_3_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_4_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_5_checks
+=== RUN   TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_6_checks
+--- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord (31.72s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_0_checks (3.38s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_1_checks (1.19s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_2_checks (0.54s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_3_checks (2.05s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_4_checks (0.86s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_5_checks (0.49s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/same_process/cut_after_6_checks (0.55s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_0_checks (0.64s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_1_checks (2.25s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_2_checks (0.86s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_3_checks (1.00s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_4_checks (2.64s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_5_checks (1.66s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_a_persisted_turn/cut_after_6_checks (1.12s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_0_checks (0.84s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_1_checks (0.79s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_2_checks (0.72s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_3_checks (1.96s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_4_checks (4.64s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_5_checks (2.14s)
+    --- PASS: TestRedelivery_StopCutAtEveryPointLeavesOneRecord/restart_with_no_persisted_state/cut_after_6_checks (1.39s)
+=== RUN   TestRedelivery_ReadReplayNeverInvertsASupersedeMark
+--- PASS: TestRedelivery_ReadReplayNeverInvertsASupersedeMark (2.36s)
+=== RUN   TestRedelivery_SameHostIDFromTwoDeliveriesRecordsOnce
+--- PASS: TestRedelivery_SameHostIDFromTwoDeliveriesRecordsOnce (1.12s)
+=== RUN   TestRedelivery_StopUnderAReusedLeaseIsAbsorbed
+=== RUN   TestRedelivery_StopUnderAReusedLeaseIsAbsorbed/same_process
+=== RUN   TestRedelivery_StopUnderAReusedLeaseIsAbsorbed/restart_with_a_persisted_turn
+=== RUN   TestRedelivery_StopUnderAReusedLeaseIsAbsorbed/restart_with_no_persisted_state
+--- PASS: TestRedelivery_StopUnderAReusedLeaseIsAbsorbed (1.36s)
+    --- PASS: TestRedelivery_StopUnderAReusedLeaseIsAbsorbed/same_process (0.46s)
+    --- PASS: TestRedelivery_StopUnderAReusedLeaseIsAbsorbed/restart_with_a_persisted_turn (0.51s)
+    --- PASS: TestRedelivery_StopUnderAReusedLeaseIsAbsorbed/restart_with_no_persisted_state (0.39s)
+=== RUN   TestRedelivery_AbsorbedStopStillAdvancesTheSession
+--- PASS: TestRedelivery_AbsorbedStopStillAdvancesTheSession (0.59s)
+=== RUN   TestRedelivery_StopMintsPastAnOccupiedTurn
+--- PASS: TestRedelivery_StopMintsPastAnOccupiedTurn (0.66s)
+=== RUN   TestRedelivery_FreeTurnProbeIsGatedOnALeasedIdentity
+--- PASS: TestRedelivery_FreeTurnProbeIsGatedOnALeasedIdentity (0.46s)
+=== RUN   TestRedelivery_DistinctObservationsAreNotAbsorbed
+--- PASS: TestRedelivery_DistinctObservationsAreNotAbsorbed (0.35s)
+=== RUN   TestRedelivery_StopWithNoIdentityKeepsTodaysBehaviour
+--- PASS: TestRedelivery_StopWithNoIdentityKeepsTodaysBehaviour (0.21s)
+=== RUN   TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock
+--- PASS: TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock (0.48s)
+=== RUN   TestRedelivery_ProbeOnAStoreThatCannotAnswerNamesTheRightCause
+--- PASS: TestRedelivery_ProbeOnAStoreThatCannotAnswerNamesTheRightCause (0.21s)
+=== RUN   TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized
+=== RUN   TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized/another_session's_sidecar
+=== RUN   TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized/another_op's_sidecar
+--- PASS: TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized (3.72s)
+    --- PASS: TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized/another_session's_sidecar (1.24s)
+    --- PASS: TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized/another_op's_sidecar (2.48s)
+=== RUN   TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized
+=== RUN   TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized/conflict=false
+=== RUN   TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized/conflict=true
+--- PASS: TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized (3.43s)
+    --- PASS: TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized/conflict=false (2.20s)
+    --- PASS: TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized/conflict=true (1.24s)
+=== RUN   TestRedelivery_DerivedToolIDIsAbsorbed
+=== RUN   TestRedelivery_DerivedToolIDIsAbsorbed/same_process
+=== RUN   TestRedelivery_DerivedToolIDIsAbsorbed/restart_with_no_persisted_state
+--- PASS: TestRedelivery_DerivedToolIDIsAbsorbed (3.10s)
+    --- PASS: TestRedelivery_DerivedToolIDIsAbsorbed/same_process (1.82s)
+    --- PASS: TestRedelivery_DerivedToolIDIsAbsorbed/restart_with_no_persisted_state (1.28s)
+=== RUN   TestRedelivery_DerivedToolIDWithADifferentRootMintsFreshly
+--- PASS: TestRedelivery_DerivedToolIDWithADifferentRootMintsFreshly (0.62s)
+=== RUN   TestOnToolUseDecodesTheToolResponseOnce
+    response_decode_cost_test.go:66: one decode of the 396000-byte payload: 1229088 bytes; one OnToolUse: 1702976 bytes
+--- PASS: TestOnToolUseDecodesTheToolResponseOnce (1.80s)
+=== RUN   TestResponseTextMatchesEveryShapeOfTheOracle
+    response_decode_cost_test.go:148: [rapid] OK, passed 100 tests (1.0221ms)
+--- PASS: TestResponseTextMatchesEveryShapeOfTheOracle (0.82s)
+=== RUN   TestOnSessionStart_StartupOpensSegment
+--- PASS: TestOnSessionStart_StartupOpensSegment (0.02s)
+=== RUN   TestOnSessionStart_ResumeReusesOpenSegment
+--- PASS: TestOnSessionStart_ResumeReusesOpenSegment (0.12s)
+=== RUN   TestOnSessionStart_ResumeAdoptsFrontierTurn
+--- PASS: TestOnSessionStart_ResumeAdoptsFrontierTurn (0.01s)
+=== RUN   TestOnSessionStart_CompactDelegates
+--- PASS: TestOnSessionStart_CompactDelegates (0.02s)
+=== RUN   TestOnSessionStart_ClearDelegates
+--- PASS: TestOnSessionStart_ClearDelegates (0.02s)
+=== RUN   TestOnSessionStart_CompactWithoutRehydratorIsEmpty
+--- PASS: TestOnSessionStart_CompactWithoutRehydratorIsEmpty (0.02s)
+=== RUN   TestOnSessionStart_UnknownSourceTreatedAsStartup
+--- PASS: TestOnSessionStart_UnknownSourceTreatedAsStartup (0.01s)
+=== RUN   TestOnSessionEnd_Order
+--- PASS: TestOnSessionEnd_Order (0.18s)
+=== RUN   TestOnSessionEnd_GCPolicyFromConfig
+--- PASS: TestOnSessionEnd_GCPolicyFromConfig (0.07s)
+=== RUN   TestOnSessionEnd_GCFailureIsSoft
+--- PASS: TestOnSessionEnd_GCFailureIsSoft (0.05s)
+=== RUN   TestOnSessionEnd_NeverWritesTriedBloom
+--- PASS: TestOnSessionEnd_NeverWritesTriedBloom (0.17s)
+=== RUN   TestOnSessionEnd_SegmentClosedWithFeatures
+--- PASS: TestOnSessionEnd_SegmentClosedWithFeatures (0.09s)
+=== RUN   TestState_RoundTrip
+--- PASS: TestState_RoundTrip (0.04s)
+=== RUN   TestState_ResumedPrevTurnStillGuardsTheCycle
+--- PASS: TestState_ResumedPrevTurnStillGuardsTheCycle (0.04s)
+=== RUN   TestState_CorruptFileRecovers
+--- PASS: TestState_CorruptFileRecovers (0.01s)
+=== RUN   TestState_AtomicWrite
+--- PASS: TestState_AtomicWrite (1.00s)
+=== RUN   TestExtractSignals_TodoCompleted
+--- PASS: TestExtractSignals_TodoCompleted (0.00s)
+=== RUN   TestExtractSignals_TodoNoneCompleted
+--- PASS: TestExtractSignals_TodoNoneCompleted (0.00s)
+=== RUN   TestExtractTestOutcome_GoPass
+--- PASS: TestExtractTestOutcome_GoPass (0.00s)
+=== RUN   TestExtractTestOutcome_GoFail
+--- PASS: TestExtractTestOutcome_GoFail (0.00s)
+=== RUN   TestExtractTestOutcome_JestPass
+--- PASS: TestExtractTestOutcome_JestPass (0.00s)
+=== RUN   TestExtractTestOutcome_PytestMixed
+--- PASS: TestExtractTestOutcome_PytestMixed (0.00s)
+=== RUN   TestExtractTestOutcome_CargoPass
+--- PASS: TestExtractTestOutcome_CargoPass (0.00s)
+=== RUN   TestExtractTestOutcome_NotATestCommand
+--- PASS: TestExtractTestOutcome_NotATestCommand (0.00s)
+=== RUN   TestExtractTestOutcome_NotAShellTool
+--- PASS: TestExtractTestOutcome_NotAShellTool (0.00s)
+=== RUN   TestExtractTestOutcome_PowerShell
+--- PASS: TestExtractTestOutcome_PowerShell (0.00s)
+=== RUN   TestExtractSignals_GitCommit
+--- PASS: TestExtractSignals_GitCommit (0.00s)
+=== RUN   TestExtractSignals_GitCommitNoop
+--- PASS: TestExtractSignals_GitCommitNoop (0.00s)
+=== RUN   TestExtractSignals_GitCommitInChain
+--- PASS: TestExtractSignals_GitCommitInChain (0.00s)
+=== RUN   TestExtractSignals_GitCommitWithDashC
+--- PASS: TestExtractSignals_GitCommitWithDashC (0.00s)
+=== RUN   TestPathsFromInput_Read
+--- PASS: TestPathsFromInput_Read (0.00s)
+=== RUN   TestPathsFromInput_MultiEdit
+--- PASS: TestPathsFromInput_MultiEdit (0.00s)
+=== RUN   TestPathsFromInput_Glob
+--- PASS: TestPathsFromInput_Glob (0.00s)
+=== RUN   TestPathsFromInput_NotebookAndOrder
+--- PASS: TestPathsFromInput_NotebookAndOrder (0.00s)
+=== RUN   TestPathsFromInput_EmptyIsNil
+--- PASS: TestPathsFromInput_EmptyIsNil (0.00s)
+=== RUN   TestExtractSignals_MalformedJSON
+=== RUN   TestExtractSignals_MalformedJSON/truncated_input_object
+=== RUN   TestExtractSignals_MalformedJSON/truncated_response_object
+=== RUN   TestExtractSignals_MalformedJSON/input_is_an_array
+=== RUN   TestExtractSignals_MalformedJSON/response_is_a_number
+=== RUN   TestExtractSignals_MalformedJSON/todos_is_not_an_array
+--- PASS: TestExtractSignals_MalformedJSON (0.00s)
+    --- PASS: TestExtractSignals_MalformedJSON/truncated_input_object (0.00s)
+    --- PASS: TestExtractSignals_MalformedJSON/truncated_response_object (0.00s)
+    --- PASS: TestExtractSignals_MalformedJSON/input_is_an_array (0.00s)
+    --- PASS: TestExtractSignals_MalformedJSON/response_is_a_number (0.00s)
+    --- PASS: TestExtractSignals_MalformedJSON/todos_is_not_an_array (0.00s)
+=== RUN   TestExtractSignals_ZeroEventIsZeroSignals
+--- PASS: TestExtractSignals_ZeroEventIsZeroSignals (0.00s)
+=== RUN   TestExtractSignals_ReadReportsItsPath
+--- PASS: TestExtractSignals_ReadReportsItsPath (0.00s)
+=== RUN   TestExtractSignals_PathsAreRaw
+--- PASS: TestExtractSignals_PathsAreRaw (0.00s)
+=== RUN   TestResponseText_AllFourShapes
+=== RUN   TestResponseText_AllFourShapes/bare_json_string
+=== RUN   TestResponseText_AllFourShapes/content_string
+=== RUN   TestResponseText_AllFourShapes/content_blocks_joined_with_newlines
+=== RUN   TestResponseText_AllFourShapes/stdout_and_stderr
+=== RUN   TestResponseText_AllFourShapes/stdout_alone_carries_no_separator
+=== RUN   TestResponseText_AllFourShapes/an_unrecognized_object_falls_back_to_compacted_json
+=== RUN   TestResponseText_AllFourShapes/an_array_falls_back_to_compacted_json
+=== RUN   TestResponseText_AllFourShapes/unparseable_bytes_are_used_as-is
+--- PASS: TestResponseText_AllFourShapes (0.00s)
+    --- PASS: TestResponseText_AllFourShapes/bare_json_string (0.00s)
+    --- PASS: TestResponseText_AllFourShapes/content_string (0.00s)
+    --- PASS: TestResponseText_AllFourShapes/content_blocks_joined_with_newlines (0.00s)
+    --- PASS: TestResponseText_AllFourShapes/stdout_and_stderr (0.00s)
+    --- PASS: TestResponseText_AllFourShapes/stdout_alone_carries_no_separator (0.00s)
+    --- PASS: TestResponseText_AllFourShapes/an_unrecognized_object_falls_back_to_compacted_json (0.00s)
+    --- PASS: TestResponseText_AllFourShapes/an_array_falls_back_to_compacted_json (0.00s)
+    --- PASS: TestResponseText_AllFourShapes/unparseable_bytes_are_used_as-is (0.00s)
+=== RUN   TestCommandOf
+=== RUN   TestCommandOf/present
+=== RUN   TestCommandOf/absent
+=== RUN   TestCommandOf/malformed
+=== RUN   TestCommandOf/wrong_type
+=== RUN   TestCommandOf/missing
+--- PASS: TestCommandOf (0.00s)
+    --- PASS: TestCommandOf/present (0.00s)
+    --- PASS: TestCommandOf/absent (0.00s)
+    --- PASS: TestCommandOf/malformed (0.00s)
+    --- PASS: TestCommandOf/wrong_type (0.00s)
+    --- PASS: TestCommandOf/missing (0.00s)
+=== RUN   TestSketches_CMSFedWithPathAndTool
+--- PASS: TestSketches_CMSFedWithPathAndTool (0.00s)
+=== RUN   TestSketches_HLLCountsDistinctPaths
+--- PASS: TestSketches_HLLCountsDistinctPaths (0.01s)
+=== RUN   TestSketches_MisraGriesTopK
+--- PASS: TestSketches_MisraGriesTopK (0.02s)
+=== RUN   TestSketches_NoPathNoHLL
+--- PASS: TestSketches_NoPathNoHLL (0.00s)
+=== RUN   TestSketches_EphemeralNotFed
+--- PASS: TestSketches_EphemeralNotFed (0.01s)
+=== RUN   TestSketches_NilTolerated
+--- PASS: TestSketches_NilTolerated (0.00s)
+=== RUN   TestObserverNeverFeedsBloom
+--- PASS: TestObserverNeverFeedsBloom (0.13s)
+=== RUN   TestObserverSourceHasNoBloomReference
+--- PASS: TestObserverSourceHasNoBloomReference (0.01s)
+=== RUN   TestObserverImportSetIsExact
+--- PASS: TestObserverImportSetIsExact (0.01s)
+=== RUN   TestState_RoundTripsThroughDisk
+--- PASS: TestState_RoundTripsThroughDisk (0.04s)
+=== RUN   TestState_IsByteStableAcrossRuns
+--- PASS: TestState_IsByteStableAcrossRuns (0.05s)
+=== RUN   TestState_CorruptFileIsSetAsideAndTheSessionStartsFresh
+--- PASS: TestState_CorruptFileIsSetAsideAndTheSessionStartsFresh (0.01s)
+=== RUN   TestState_UnknownVersionIsTreatedAsCorrupt
+--- PASS: TestState_UnknownVersionIsTreatedAsCorrupt (0.02s)
+=== RUN   TestState_MissingFileIsNotAnError
+--- PASS: TestState_MissingFileIsNotAnError (0.00s)
+=== RUN   TestState_UnparseableRootDropsOnlyThatEntry
+--- PASS: TestState_UnparseableRootDropsOnlyThatEntry (0.02s)
+=== RUN   TestState_ToolUsesAreCappedOnWrite
+--- PASS: TestState_ToolUsesAreCappedOnWrite (0.03s)
+=== RUN   TestPersist_FlushesTheGraphAndHonoursCtx
+--- PASS: TestPersist_FlushesTheGraphAndHonoursCtx (0.02s)
+=== RUN   TestPersist_BeforeAnyEntryPointDoesNotWipeTheFile
+--- PASS: TestPersist_BeforeAnyEntryPointDoesNotWipeTheFile (0.05s)
+=== RUN   TestOnStop_MainAgentIncrementsTurnAndFlushes
+--- PASS: TestOnStop_MainAgentIncrementsTurnAndFlushes (0.00s)
+=== RUN   TestOnStop_SubagentCapturesSummary
+--- PASS: TestOnStop_SubagentCapturesSummary (0.00s)
+=== RUN   TestOnStop_SubagentCapturesToolHashes
+--- PASS: TestOnStop_SubagentCapturesToolHashes (0.01s)
+=== RUN   TestOnStop_SubagentWindowStartsAtLastPrompt
+--- PASS: TestOnStop_SubagentWindowStartsAtLastPrompt (0.02s)
+=== RUN   TestOnStop_SubagentNameFromExtra
+--- PASS: TestOnStop_SubagentNameFromExtra (0.00s)
+=== RUN   TestOnStop_SubagentNameFallback
+=== RUN   TestOnStop_SubagentNameFallback/absent
+=== RUN   TestOnStop_SubagentNameFallback/other_keys
+=== RUN   TestOnStop_SubagentNameFallback/a_number
+=== RUN   TestOnStop_SubagentNameFallback/an_object
+=== RUN   TestOnStop_SubagentNameFallback/empty
+=== RUN   TestOnStop_SubagentNameFallback/malformed
+--- PASS: TestOnStop_SubagentNameFallback (0.01s)
+    --- PASS: TestOnStop_SubagentNameFallback/absent (0.00s)
+    --- PASS: TestOnStop_SubagentNameFallback/other_keys (0.00s)
+    --- PASS: TestOnStop_SubagentNameFallback/a_number (0.00s)
+    --- PASS: TestOnStop_SubagentNameFallback/an_object (0.00s)
+    --- PASS: TestOnStop_SubagentNameFallback/empty (0.00s)
+    --- PASS: TestOnStop_SubagentNameFallback/malformed (0.00s)
+=== RUN   TestOnStop_SummaryFromTranscriptTail
+--- PASS: TestOnStop_SummaryFromTranscriptTail (0.02s)
+=== RUN   TestOnStop_TranscriptMissingIsSilent
+--- PASS: TestOnStop_TranscriptMissingIsSilent (0.00s)
+=== RUN   TestOnStop_EmptySummaryStillStoresHashes
+--- PASS: TestOnStop_EmptySummaryStillStoresHashes (0.01s)
+=== RUN   TestOnStop_TokensEstimatedWhenTheStoreReportsNone
+--- PASS: TestOnStop_TokensEstimatedWhenTheStoreReportsNone (0.00s)
+=== RUN   TestOnStop_PutFailureStillIncrementsTurn
+--- PASS: TestOnStop_PutFailureStillIncrementsTurn (0.01s)
+=== RUN   TestOnStop_ConsumesEdges
+--- PASS: TestOnStop_ConsumesEdges (0.01s)
+=== RUN   TestOnStop_CaptureIsDeterministic
+--- PASS: TestOnStop_CaptureIsDeterministic (0.64s)
+=== RUN   TestOnStop_RetrievalPathG10_1
+--- PASS: TestOnStop_RetrievalPathG10_1 (0.34s)
+=== RUN   TestTailAssistantText_PartialFirstLine
+=== RUN   TestTailAssistantText_PartialFirstLine/a_later_complete_line_wins
+=== RUN   TestTailAssistantText_PartialFirstLine/the_fragment_is_never_the_answer
+=== RUN   TestTailAssistantText_PartialFirstLine/a_whole_file_keeps_its_first_line
+--- PASS: TestTailAssistantText_PartialFirstLine (0.06s)
+    --- PASS: TestTailAssistantText_PartialFirstLine/a_later_complete_line_wins (0.02s)
+    --- PASS: TestTailAssistantText_PartialFirstLine/the_fragment_is_never_the_answer (0.02s)
+    --- PASS: TestTailAssistantText_PartialFirstLine/a_whole_file_keeps_its_first_line (0.01s)
+=== RUN   TestTailAssistantText_Degrades
+--- PASS: TestTailAssistantText_Degrades (0.04s)
+=== RUN   TestSubagentArgs_IsTheToolInputACaptureDoesNotHave
+--- PASS: TestSubagentArgs_IsTheToolInputACaptureDoesNotHave (0.00s)
+=== RUN   TestSubagentCaptureID
+--- PASS: TestSubagentCaptureID (0.00s)
+=== RUN   TestSupersede_IdenticalRootMarksEarlier
+--- PASS: TestSupersede_IdenticalRootMarksEarlier (0.01s)
+=== RUN   TestSupersede_SupersetChunkSet
+--- PASS: TestSupersede_SupersetChunkSet (0.00s)
+=== RUN   TestSupersede_SubsetDoesNotSupersede
+--- PASS: TestSupersede_SubsetDoesNotSupersede (0.00s)
+=== RUN   TestSupersede_NearDuplicateAboveThreshold
+--- PASS: TestSupersede_NearDuplicateAboveThreshold (0.00s)
+=== RUN   TestSupersede_NearDuplicateBelowThreshold
+--- PASS: TestSupersede_NearDuplicateBelowThreshold (0.00s)
+=== RUN   TestSupersede_DifferentPathIgnored
+--- PASS: TestSupersede_DifferentPathIgnored (0.01s)
+=== RUN   TestSupersede_DifferentClassIgnored
+--- PASS: TestSupersede_DifferentClassIgnored (0.00s)
+=== RUN   TestSupersede_NeverMarksLaterRecord
+--- PASS: TestSupersede_NeverMarksLaterRecord (0.00s)
+=== RUN   TestSupersede_SkipsAlreadySuperseded
+--- PASS: TestSupersede_SkipsAlreadySuperseded (0.01s)
+=== RUN   TestSupersede_EphemeralNeitherDirection
+=== RUN   TestSupersede_EphemeralNeitherDirection/EphemeralPrior
+=== RUN   TestSupersede_EphemeralNeitherDirection/EphemeralNewer
+--- PASS: TestSupersede_EphemeralNeitherDirection (0.00s)
+    --- PASS: TestSupersede_EphemeralNeitherDirection/EphemeralPrior (0.00s)
+    --- PASS: TestSupersede_EphemeralNeitherDirection/EphemeralNewer (0.00s)
+=== RUN   TestSupersede_LookbackCapped
+--- PASS: TestSupersede_LookbackCapped (0.00s)
+=== RUN   TestSupersede_StatusSurvivesReopen
+--- PASS: TestSupersede_StatusSurvivesReopen (0.23s)
+=== RUN   TestSupersede_ToolUsesByPathIsMostRecentFirst
+--- PASS: TestSupersede_ToolUsesByPathIsMostRecentFirst (0.27s)
+=== RUN   TestSupersede_EmitsNoEdgesItself
+--- PASS: TestSupersede_EmitsNoEdgesItself (0.00s)
+=== RUN   TestSupersede_ZeroRootPriorSkipped
+--- PASS: TestSupersede_ZeroRootPriorSkipped (0.01s)
+=== RUN   TestSupersede_NearDupSubsetStillSupersedes
+--- PASS: TestSupersede_NearDupSubsetStillSupersedes (0.09s)
+=== RUN   TestSupersede_StoreFailuresAreSoft
+=== RUN   TestSupersede_StoreFailuresAreSoft/List
+=== RUN   TestSupersede_StoreFailuresAreSoft/Root
+=== RUN   TestSupersede_StoreFailuresAreSoft/Mark
+--- PASS: TestSupersede_StoreFailuresAreSoft (0.03s)
+    --- PASS: TestSupersede_StoreFailuresAreSoft/List (0.02s)
+    --- PASS: TestSupersede_StoreFailuresAreSoft/Root (0.01s)
+    --- PASS: TestSupersede_StoreFailuresAreSoft/Mark (0.00s)
+=== RUN   TestOnToolUse_NearDupCounterCountsPathlessOutput
+--- PASS: TestOnToolUse_NearDupCounterCountsPathlessOutput (0.00s)
+=== RUN   TestOnToolUse_NearDupCounterSkipsRetrieval
+--- PASS: TestOnToolUse_NearDupCounterSkipsRetrieval (0.00s)
+=== RUN   TestOnToolUse_NearDupCounterSilentWithoutASignal
+--- PASS: TestOnToolUse_NearDupCounterSilentWithoutASignal (0.00s)
+=== RUN   TestIsSuperset_EmptyOlder
+--- PASS: TestIsSuperset_EmptyOlder (0.00s)
+=== RUN   TestIsSuperset_IgnoresMultiplicity
+--- PASS: TestIsSuperset_IgnoresMultiplicity (0.00s)
+=== RUN   TestIsSuperset_Properties
+=== RUN   TestIsSuperset_Properties/PropertyIsSupersetReflexive
+    supersede_test.go:575: [rapid] OK, passed 100 tests (0s)
+=== RUN   TestIsSuperset_Properties/PropertyIsSupersetOfUnion
+    supersede_test.go:584: [rapid] OK, passed 100 tests (583.2µs)
+--- PASS: TestIsSuperset_Properties (0.00s)
+    --- PASS: TestIsSuperset_Properties/PropertyIsSupersetReflexive (0.00s)
+    --- PASS: TestIsSuperset_Properties/PropertyIsSupersetOfUnion (0.00s)
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/many_long_rules
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_enormous_rule
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/astral_tool_names
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/invalid_UTF-8_names
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/exactly_the_most_lines,_all_short
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_more_than_the_most_lines
+--- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap (0.22s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/many_long_rules (0.02s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_enormous_rule (0.10s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/astral_tool_names (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/invalid_UTF-8_names (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/exactly_the_most_lines,_all_short (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_more_than_the_most_lines (0.01s)
+=== RUN   TestBoundThrashWarning_OrdinaryWarningsRenderWhole
+--- PASS: TestBoundThrashWarning_OrdinaryWarningsRenderWhole (0.00s)
+=== RUN   TestBoundThrashWarning_WorstCaseFitsItsCeiling
+--- PASS: TestBoundThrashWarning_WorstCaseFitsItsCeiling (0.00s)
+=== RUN   TestTombstone_RendersTheSection81Form
+--- PASS: TestTombstone_RendersTheSection81Form (0.00s)
+=== RUN   TestTombstone_IsAddressable
+--- PASS: TestTombstone_IsAddressable (0.00s)
+=== RUN   TestTombstone_NormalizesTheHostToolName
+--- PASS: TestTombstone_NormalizesTheHostToolName (0.00s)
+=== RUN   TestTombstone_NoPathUsesArgsPreview
+--- PASS: TestTombstone_NoPathUsesArgsPreview (0.00s)
+=== RUN   TestTombstone_LongPreviewTruncatedTo48Runes
+--- PASS: TestTombstone_LongPreviewTruncatedTo48Runes (0.00s)
+=== RUN   TestTombstone_MegabyteSize
+--- PASS: TestTombstone_MegabyteSize (0.00s)
+=== RUN   TestTombstone_GigabyteSize
+--- PASS: TestTombstone_GigabyteSize (0.00s)
+=== RUN   TestTombstone_SupersededMarker
+--- PASS: TestTombstone_SupersededMarker (0.00s)
+=== RUN   TestTombstone_EphemeralMarker
+--- PASS: TestTombstone_EphemeralMarker (0.00s)
+=== RUN   TestTombstone_BothMarkers
+--- PASS: TestTombstone_BothMarkers (0.00s)
+=== RUN   TestTombstone_NoSubject
+--- PASS: TestTombstone_NoSubject (0.00s)
+=== RUN   TestTombstoneGolden
+--- PASS: TestTombstoneGolden (0.03s)
+=== RUN   TestTombstoneNote_SingleLine
+--- PASS: TestTombstoneNote_SingleLine (0.00s)
+=== RUN   TestNormalizeToolName
+=== RUN   TestNormalizeToolName/Read
+=== RUN   TestNormalizeToolName/NotebookRead
+=== RUN   TestNormalizeToolName/Edit
+=== RUN   TestNormalizeToolName/MultiEdit
+=== RUN   TestNormalizeToolName/NotebookEdit
+=== RUN   TestNormalizeToolName/Write
+=== RUN   TestNormalizeToolName/Bash
+=== RUN   TestNormalizeToolName/BashOutput
+=== RUN   TestNormalizeToolName/PowerShell
+=== RUN   TestNormalizeToolName/Grep
+=== RUN   TestNormalizeToolName/Glob
+=== RUN   TestNormalizeToolName/WebSearch
+=== RUN   TestNormalizeToolName/WebFetch
+=== RUN   TestNormalizeToolName/Task
+=== RUN   TestNormalizeToolName/TodoWrite
+=== RUN   TestNormalizeToolName/mcp__qompack__recall
+=== RUN   TestNormalizeToolName/SomeToolTheHostAddedLater
+=== RUN   TestNormalizeToolName/#00
+--- PASS: TestNormalizeToolName (0.00s)
+    --- PASS: TestNormalizeToolName/Read (0.00s)
+    --- PASS: TestNormalizeToolName/NotebookRead (0.00s)
+    --- PASS: TestNormalizeToolName/Edit (0.00s)
+    --- PASS: TestNormalizeToolName/MultiEdit (0.00s)
+    --- PASS: TestNormalizeToolName/NotebookEdit (0.00s)
+    --- PASS: TestNormalizeToolName/Write (0.00s)
+    --- PASS: TestNormalizeToolName/Bash (0.00s)
+    --- PASS: TestNormalizeToolName/BashOutput (0.00s)
+    --- PASS: TestNormalizeToolName/PowerShell (0.00s)
+    --- PASS: TestNormalizeToolName/Grep (0.00s)
+    --- PASS: TestNormalizeToolName/Glob (0.00s)
+    --- PASS: TestNormalizeToolName/WebSearch (0.00s)
+    --- PASS: TestNormalizeToolName/WebFetch (0.00s)
+    --- PASS: TestNormalizeToolName/Task (0.00s)
+    --- PASS: TestNormalizeToolName/TodoWrite (0.00s)
+    --- PASS: TestNormalizeToolName/mcp__qompack__recall (0.00s)
+    --- PASS: TestNormalizeToolName/SomeToolTheHostAddedLater (0.00s)
+    --- PASS: TestNormalizeToolName/#00 (0.00s)
+=== RUN   TestIsCompactable
+=== RUN   TestIsCompactable/FileRead
+=== RUN   TestIsCompactable/Bash
+=== RUN   TestIsCompactable/PowerShell
+=== RUN   TestIsCompactable/Grep
+=== RUN   TestIsCompactable/Glob
+=== RUN   TestIsCompactable/WebSearch
+=== RUN   TestIsCompactable/WebFetch
+=== RUN   TestIsCompactable/FileEdit
+=== RUN   TestIsCompactable/FileWrite
+=== RUN   TestIsCompactable/preserved/AgentTool
+=== RUN   TestIsCompactable/preserved/TodoWrite
+=== RUN   TestIsCompactable/preserved/mcp__qompack__expand
+=== RUN   TestIsCompactable/preserved/mcp__qompack__recall
+=== RUN   TestIsCompactable/preserved/
+--- PASS: TestIsCompactable (0.00s)
+    --- PASS: TestIsCompactable/FileRead (0.00s)
+    --- PASS: TestIsCompactable/Bash (0.00s)
+    --- PASS: TestIsCompactable/PowerShell (0.00s)
+    --- PASS: TestIsCompactable/Grep (0.00s)
+    --- PASS: TestIsCompactable/Glob (0.00s)
+    --- PASS: TestIsCompactable/WebSearch (0.00s)
+    --- PASS: TestIsCompactable/WebFetch (0.00s)
+    --- PASS: TestIsCompactable/FileEdit (0.00s)
+    --- PASS: TestIsCompactable/FileWrite (0.00s)
+    --- PASS: TestIsCompactable/preserved/AgentTool (0.00s)
+    --- PASS: TestIsCompactable/preserved/TodoWrite (0.00s)
+    --- PASS: TestIsCompactable/preserved/mcp__qompack__expand (0.00s)
+    --- PASS: TestIsCompactable/preserved/mcp__qompack__recall (0.00s)
+    --- PASS: TestIsCompactable/preserved/ (0.00s)
+=== RUN   TestSupersedableClass
+=== RUN   TestSupersedableClass/FileRead
+=== RUN   TestSupersedableClass/FileEdit
+=== RUN   TestSupersedableClass/FileWrite
+=== RUN   TestSupersedableClass/Grep
+=== RUN   TestSupersedableClass/Glob
+=== RUN   TestSupersedableClass/Bash
+=== RUN   TestSupersedableClass/PowerShell
+=== RUN   TestSupersedableClass/WebFetch
+=== RUN   TestSupersedableClass/WebSearch
+=== RUN   TestSupersedableClass/AgentTool
+=== RUN   TestSupersedableClass/TodoWrite
+=== RUN   TestSupersedableClass/mcp__qompack__recall
+=== RUN   TestSupersedableClass/#00
+=== RUN   TestSupersedableClass/Read
+=== RUN   TestSupersedableClass/Task
+--- PASS: TestSupersedableClass (0.00s)
+    --- PASS: TestSupersedableClass/FileRead (0.00s)
+    --- PASS: TestSupersedableClass/FileEdit (0.00s)
+    --- PASS: TestSupersedableClass/FileWrite (0.00s)
+    --- PASS: TestSupersedableClass/Grep (0.00s)
+    --- PASS: TestSupersedableClass/Glob (0.00s)
+    --- PASS: TestSupersedableClass/Bash (0.00s)
+    --- PASS: TestSupersedableClass/PowerShell (0.00s)
+    --- PASS: TestSupersedableClass/WebFetch (0.00s)
+    --- PASS: TestSupersedableClass/WebSearch (0.00s)
+    --- PASS: TestSupersedableClass/AgentTool (0.00s)
+    --- PASS: TestSupersedableClass/TodoWrite (0.00s)
+    --- PASS: TestSupersedableClass/mcp__qompack__recall (0.00s)
+    --- PASS: TestSupersedableClass/#00 (0.00s)
+    --- PASS: TestSupersedableClass/Read (0.00s)
+    --- PASS: TestSupersedableClass/Task (0.00s)
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/zero
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/one_byte
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/one_below_the_KB_boundary_stays_in_bytes
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/exactly_one_KB
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/the_§8.1_example_rounds_to_2.4,_not_2.5
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/one_below_the_MB_boundary_stays_in_KB
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/exactly_one_MB
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/exactly_one_GB
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/beyond_the_largest_unit_stays_in_GB
+=== RUN   TestHumanBytes_UsesTheBinaryDivisor/a_negative_size_is_not_a_panic
+--- PASS: TestHumanBytes_UsesTheBinaryDivisor (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/zero (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/one_byte (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/one_below_the_KB_boundary_stays_in_bytes (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/exactly_one_KB (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/the_§8.1_example_rounds_to_2.4,_not_2.5 (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/one_below_the_MB_boundary_stays_in_KB (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/exactly_one_MB (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/exactly_one_GB (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/beyond_the_largest_unit_stays_in_GB (0.00s)
+    --- PASS: TestHumanBytes_UsesTheBinaryDivisor/a_negative_size_is_not_a_panic (0.00s)
+=== RUN   TestHumanBytes_NeverEmitsASpaceBeforeTheUnit
+--- PASS: TestHumanBytes_NeverEmitsASpaceBeforeTheUnit (0.00s)
+=== RUN   TestOnToolUse_StoresAndIndexes
+--- PASS: TestOnToolUse_StoresAndIndexes (0.01s)
+=== RUN   TestOnToolUse_CanonOptionsAlwaysIncludeCRLF
+--- PASS: TestOnToolUse_CanonOptionsAlwaysIncludeCRLF (0.00s)
+=== RUN   TestOnToolUse_CanonOptionsFromConfig
+--- PASS: TestOnToolUse_CanonOptionsFromConfig (0.00s)
+=== RUN   TestOnToolUse_FileVersionAppendedForFileContent
+--- PASS: TestOnToolUse_FileVersionAppendedForFileContent (0.01s)
+=== RUN   TestOnToolUse_NoFileVersionForGrep
+--- PASS: TestOnToolUse_NoFileVersionForGrep (0.01s)
+=== RUN   TestOnToolUse_ArgsDigestAndPreview
+--- PASS: TestOnToolUse_ArgsDigestAndPreview (0.01s)
+=== RUN   TestOnToolUse_ArgsDigestIsKeyOrderInvariant
+--- PASS: TestOnToolUse_ArgsDigestIsKeyOrderInvariant (0.00s)
+=== RUN   TestOnToolUse_PreviewTruncatedByStore
+--- PASS: TestOnToolUse_PreviewTruncatedByStore (0.00s)
+=== RUN   TestOnToolUse_MCPResultIsEphemeral
+--- PASS: TestOnToolUse_MCPResultIsEphemeral (0.01s)
+=== RUN   TestOnToolUse_EmptyResponseStillIndexed
+--- PASS: TestOnToolUse_EmptyResponseStillIndexed (0.01s)
+=== RUN   TestOnToolUse_PutFailureRemainsUnpublished
+--- PASS: TestOnToolUse_PutFailureRemainsUnpublished (0.00s)
+=== RUN   TestOnToolUse_IndexFailureStopsPublication
+--- PASS: TestOnToolUse_IndexFailureStopsPublication (0.01s)
+=== RUN   TestOnToolUse_CancelledContext
+--- PASS: TestOnToolUse_CancelledContext (0.00s)
+=== RUN   TestOnToolUse_OversizePayloadTruncated
+--- PASS: TestOnToolUse_OversizePayloadTruncated (0.39s)
+=== RUN   TestOnToolUse_SignalsDelivered
+--- PASS: TestOnToolUse_SignalsDelivered (0.03s)
+=== RUN   TestOnToolUse_TodoTransitionOnlyOnce
+--- PASS: TestOnToolUse_TodoTransitionOnlyOnce (0.02s)
+=== RUN   TestOnToolUse_ReturnsEmptyOutput
+--- PASS: TestOnToolUse_ReturnsEmptyOutput (0.02s)
+=== RUN   TestOnToolUse_RemembersToolUseForSubagentWindow
+--- PASS: TestOnToolUse_RemembersToolUseForSubagentWindow (0.03s)
+=== RUN   TestOnToolUse_ToolUseRingEvictsAndClampsSubagentSince
+--- PASS: TestOnToolUse_ToolUseRingEvictsAndClampsSubagentSince (7.28s)
+=== RUN   TestOnToolUse_LastTSIsPreviousEventTS
+--- PASS: TestOnToolUse_LastTSIsPreviousEventTS (0.09s)
+=== RUN   TestModePassiveStillWrites
+--- PASS: TestModePassiveStillWrites (0.33s)
+=== RUN   TestOnToolUse_ConcurrentSessionsRaceFree
+--- PASS: TestOnToolUse_ConcurrentSessionsRaceFree (5.09s)
+=== RUN   TestOnToolUse_PublishesTheReferenceAgainstItsObservationIdentity
+--- PASS: TestOnToolUse_PublishesTheReferenceAgainstItsObservationIdentity (0.31s)
+=== RUN   TestOnToolUse_UnlinkableCaptureBlocksPublication
+--- PASS: TestOnToolUse_UnlinkableCaptureBlocksPublication (0.05s)
+=== RUN   FuzzExtractSignals
+=== RUN   FuzzExtractSignals/seed#0
+=== RUN   FuzzExtractSignals/seed#1
+=== RUN   FuzzExtractSignals/seed#2
+=== RUN   FuzzExtractSignals/seed#3
+=== RUN   FuzzExtractSignals/seed#4
+=== RUN   FuzzExtractSignals/seed#5
+=== RUN   FuzzExtractSignals/seed#6
+=== RUN   FuzzExtractSignals/seed#7
+=== RUN   FuzzExtractSignals/seed#8
+=== RUN   FuzzExtractSignals/seed#9
+=== RUN   FuzzExtractSignals/seed#10
+=== RUN   FuzzExtractSignals/seed#11
+--- PASS: FuzzExtractSignals (0.01s)
+    --- PASS: FuzzExtractSignals/seed#0 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#1 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#2 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#3 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#4 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#5 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#6 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#7 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#8 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#9 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#10 (0.00s)
+    --- PASS: FuzzExtractSignals/seed#11 (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	466.037s
+go_test_exit=0

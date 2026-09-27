@@ -1,0 +1,39 @@
+w5-dirsync evidence (SP08-D1, owner decision D20). Code head b1935ee; base 90e1db3 (closeout/integration).
+Every run below is at b1935ee unless its name says otherwise. The host was co-loaded throughout by
+five other workstreams; wall-clock results are not budget evidence.
+
+RED / mutation (failing-first)
+  red-store-dirs-2ff7ccb.txt        archive of 2ff7ccb (counting seam, pre-fix loop) + HEAD store barrier
+                                    tests + the pubSyncDir seam routed through the pre-fix loop: 262 dir
+                                    fsyncs per pass (want 163), objects/ fsynced twice. FAIL as intended.
+  red-observer-dirs-2ff7ccb.txt     same archive, observer barrier test: 103 dir fsyncs per pass for a
+                                    34-object root (bound 70). FAIL as intended.
+  red-daemon-dirsync.txt            6c0dfbe's tree with the trailing SyncDir restored through the seam:
+                                    two fsyncs of the directory per step (want one). FAIL as intended.
+  mutation-m1-store-dirset.txt      temporary mutation (reverted): drop a leaf, fsync objects/ twice. The
+                                    count test still passes; the directory-set test fails.
+
+Windows full packages and focused rows
+  win-full-store-b1935ee.txt        ok, 850 PASS lines, one existing symlink-privilege skip
+  win-full-observer-b1935ee.txt     ok (includes both crash sweeps: 14 and 15 context checks)
+  win-full-daemon-b1935ee.txt       ok, one existing platform skip
+  win-fault-publication-focused.txt / win-integration-publication-focused.txt /
+  win-e2e-publication-focused.txt   ok
+
+Linux (linux-nonroot-gate.sh, non-root uid 10001, -race; artifacts under linux/)
+  linux-gate-host-touched-full-b1935ee.txt        store 851 pass, observer 561 pass, daemon 1501 pass +
+                                                   1 fail (TestDeliveryOrder_LaneOverflowIsDrainedOnRequest)
+  linux-gate-host-lane-overflow-alone-{b1935ee,90e1db3}.txt   that test alone, count 10: 10/10 on both
+  linux-gate-host-publication-focused-b1935ee.txt fault 17, integration 6, e2e 4 pass + 1 fail
+                                                   (TestV3_LiveSessionWriteSetAndAppendOnly)
+  linux-gate-host-x09-alone-{b1935ee,90e1db3}.txt that test alone, count 2: fails 2/2 on BOTH builds
+
+Item 4: directory fsync on Windows
+  winprobe-main.go.txt, win-dir-fsync-probe.txt   temporary diagnostic (not a repo test), go1.26.6
+  win-syncdir-noop.txt              internal/paths SyncDir tests on Windows (the no-op is pinned)
+
+Item 5: measurements
+  syscount/                         strace per leased OnToolUse, base 90e1db3 vs new b1935ee (summary.txt)
+  pass-allocs/                      temporary diagnostic: allocs per SyncPublication pass (87 objects)
+  win-ab/, linux-ab/                paired ABBA A/B, 12 rounds per side, benchtime 10x (summary.txt)
+  ab_win.sh, linux_ab.sh, ab_pairs.py   drivers and the paired sign-test summarizer

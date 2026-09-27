@@ -275,6 +275,9 @@ type FSStore struct {
 	// sets it.
 	obsPubFault func(publicationStep) error
 	obsPubMu    sync.Mutex
+	// pubSyncDir is SyncPublication's directory fsync, paths.SyncDir when nil: a seam a test uses to
+	// record which directories a pass fsyncs. Production never sets it.
+	pubSyncDir func(string) error
 
 	// ── files.jsonl ──
 	fileHist map[string][]FileVersion

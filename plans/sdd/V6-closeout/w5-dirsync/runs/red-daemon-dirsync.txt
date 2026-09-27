@@ -1,0 +1,42 @@
+# RED: tree = 658a806 + the syncDir seam, with the trailing directory fsync of appendGeneration/appendTransition restored through it (the pre-fix shape: both the head's and the trailing fsync), Windows
+# go test ./internal/daemon -run '^(TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce|TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce)$' -count=1 -v
+=== RUN   TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce
+    delivery_dirsync_test.go:39: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/internal/daemon/delivery_dirsync_test.go:39
+        	Error:      	Not equal: 
+        	            	expected: []string{"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce3520048972\\001"}
+        	            	actual  : []string{"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce3520048972\\001", "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce3520048972\\001"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,3 @@
+        	            	-([]string) (len=1) {
+        	            	+([]string) (len=2) {
+        	            	+ (string) (len=107) "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce3520048972\\001",
+        	            	  (string) (len=107) "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce3520048972\\001"
+        	Test:       	TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce
+        	Messages:   	the active-0 record fsyncs the state directory once
+--- FAIL: TestDeliverySegments_ATransitionFsyncsTheStateDirectoryOnce (0.02s)
+=== RUN   TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce
+    delivery_dirsync_test.go:68: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/internal/daemon/delivery_dirsync_test.go:68
+        	Error:      	Not equal: 
+        	            	expected: []string{"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce2054789403\\001"}
+        	            	actual  : []string{"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce2054789403\\001", "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce2054789403\\001"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,3 @@
+        	            	-([]string) (len=1) {
+        	            	+([]string) (len=2) {
+        	            	+ (string) (len=100) "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce2054789403\\001",
+        	            	  (string) (len=100) "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce2054789403\\001"
+        	Test:       	TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce
+        	Messages:   	a generation commit fsyncs its directory once
+--- FAIL: TestDeliveryGeneration_ACommitFsyncsItsDirectoryOnce (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.561s
+FAIL
+go_test_exit=1

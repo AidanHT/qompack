@@ -1,0 +1,10 @@
+run_id=cx-w5-dirsync-touched-full-b1935ee-20260926T222718Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync
+rev=b1935ee
+commit=b1935ee180be6877bb7f3239d53e80f73c73d2ec
+bundle_sha256=ce9a19b98597033f18563aba9085d8ff6f0d2bf2099eab33b4e426d9c68b194c
+host_started_utc=2026-09-26T22:27:34Z
+inner_args=--timeout 90m -- ./internal/store ./internal/observer ./internal/daemon
+host_finished_utc=2026-09-26T22:45:47Z
+container_exit=1

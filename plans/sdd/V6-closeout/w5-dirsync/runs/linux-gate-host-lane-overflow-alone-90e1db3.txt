@@ -1,0 +1,34 @@
+run_id=cx-w5-dirsync-lane-overflow-alone-90e1db3-20260926T225107Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync
+rev=90e1db3
+commit=90e1db3016c4ebe5dc255fb16d356dd8857a87da
+bundle_sha256=c45eea800c2dd8fa34ce970b8c1511ecf41af0ccb29e4abf18279fbf58dd09b6
+host_started_utc=2026-09-26T22:51:33Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 10 -- ./internal/daemon
+/work/cx-w5-dirsync-lane-overflow-alone-90e1db3-20260926T225107Z.bundle: OK
+run_id=cx-w5-dirsync-lane-overflow-alone-90e1db3-20260926T225107Z
+commit=90e1db3016c4ebe5dc255fb16d356dd8857a87da
+tree=2bb3e25d9e123c14866d4d75e0cae14c1649f896
+bundle_sha256=c45eea800c2dd8fa34ce970b8c1511ecf41af0ccb29e4abf18279fbf58dd09b6
+started_utc=2026-09-26T22:51:37Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=10 timeout=30m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=10 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/plans/sdd/V6-closeout/w5-dirsync/runs/linux/cx-w5-dirsync-lane-overflow-alone-90e1db3-20260926T225107Z-artifacts
+exit=0
