@@ -608,7 +608,9 @@ stays out is unchanged: `config` still may not import `logging` (which imports `
 The hook path's loader reads through `paths.OpenSharedLeaf`, an addition to `paths` made for it.
 That open grants the same delete sharing and also refuses a final link itself. The loader's old
 Lstat-then-`os.SameFile` identity check refused whenever a save landed between its two halves, and
-the no-follow open leaves no such window.
+the no-follow open leaves no such window. What no reader can close is the moment in which Windows
+reports the name missing while a rename replaces it: a read then finds no file, as it would a
+deleted one. `docs/architecture.md` §2 and `docs/cannot-do.md` record that residual.
 
 **`paths/pathstest` isolates a test process's home (V6 close-out `w6-config`).** It is a `<pkg>test`
 subpackage under rule (c) of `importrules.go`, so it needs no entry of its own, and it imports
