@@ -129,3 +129,21 @@ func TestCreateNew_SyncsItsBytesThroughTheBarriers(t *testing.T) {
 	err := failing.barriers().CreateNew(paths.CheckpointPath(l, 4), []byte(`{"seq":4}`))
 	require.ErrorIs(t, err, errBarrier, "a file whose sync failed is not reported written")
 }
+
+// TestAppendLinesDurable_SyncsABatchOnce: a batch of records is one write and one sync (and one
+// directory sync when it creates the file), and a batch that does not end in a newline is refused
+// before anything is written.
+func TestAppendLinesDurable_SyncsABatchOnce(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "roots.jsonl")
+
+	b := &barrierLog{}
+	require.NoError(t, b.barriers().AppendLinesDurable(p, []byte("{\"n\":1}\n{\"n\":2}\n{\"n\":3}\n")))
+	require.Equal(t, []string{"file:roots.jsonl", "dir:" + filepath.Base(dir)}, b.steps)
+
+	require.Error(t, paths.AppendLinesDurable(p, []byte(`{"n":4}`)), "an unterminated batch is refused")
+	require.Error(t, paths.AppendLinesDurable(p, nil), "an empty batch is refused")
+	raw, err := os.ReadFile(paths.Long(p))
+	require.NoError(t, err)
+	require.Equal(t, "{\"n\":1}\n{\"n\":2}\n{\"n\":3}\n", string(raw), "a refused batch writes nothing")
+}

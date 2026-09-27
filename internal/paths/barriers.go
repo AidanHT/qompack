@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/qompack/qompack/internal/core"
 )
 
 // Barriers are the two durability calls a sealing write issues: SyncFile makes the bytes written
@@ -14,7 +16,7 @@ import (
 //
 // The zero value is the real thing: a nil SyncFile is (*os.File).Sync and a nil SyncDir is SyncDir.
 // Production code only ever uses the zero value, through the package functions (CreateNew,
-// AppendManifest, AppendJSONLDurable). A caller that must count the barriers a write issues, or cut
+// AppendManifest, AppendJSONLDurable, AppendLinesDurable). A caller that must count the barriers a write issues, or cut
 // it at one of them the way a power loss would, holds its own Barriers and calls the methods; the
 // store's pubSyncDir and the daemon's syncDir fields are the same kind of seam for their own writers.
 //
@@ -65,6 +67,23 @@ func (x Barriers) AppendJSONLDurable(p string, v any) error {
 	if err != nil {
 		return err
 	}
+	return x.AppendLinesDurable(p, record)
+}
+
+// AppendLinesDurable appends lines — one or more complete records, each terminated by a newline —
+// to the append-only file p in one write, and makes them durable before it returns exactly as
+// AppendJSONLDurable does for one record: the file's sync, then its directory's when the append
+// created the file. It is for a producer that declares many records at once and needs them all
+// durable (store's retention roots before a backup manifest names them): one sync for the batch,
+// not one per line. A lines that is empty or does not end in a newline is refused, since the next
+// append would glue its first record onto the unterminated last one.
+func AppendLinesDurable(p string, lines []byte) error { return Barriers{}.AppendLinesDurable(p, lines) }
+
+// AppendLinesDurable is the package function of the same name, issuing its barriers through x.
+func (x Barriers) AppendLinesDurable(p string, lines []byte) error {
+	if len(lines) == 0 || lines[len(lines)-1] != jsonRecordNewline {
+		return fmt.Errorf("%w: AppendLinesDurable needs newline-terminated records: %s", core.ErrAppendOnly, p)
+	}
 	_, statErr := os.Lstat(Long(p))
 	created := errors.Is(statErr, fs.ErrNotExist)
 
@@ -77,13 +96,13 @@ func (x Barriers) AppendJSONLDurable(p string, v any) error {
 		// AppendOnly returns OpenFile's *os.File. A writer without a handle to sync cannot be made
 		// durable, and saying so beats reporting a line durable that is not.
 		_ = w.Close()
-		return fmt.Errorf("paths: AppendJSONLDurable: %s: the append handle cannot be synced", p)
+		return fmt.Errorf("paths: AppendLinesDurable: %s: the append handle cannot be synced", p)
 	}
 	if err := TerminatePartialTail(f, p); err != nil {
 		_ = f.Close()
 		return err
 	}
-	if _, err := f.Write(record); err != nil {
+	if _, err := f.Write(lines); err != nil {
 		_ = f.Close()
 		return err
 	}

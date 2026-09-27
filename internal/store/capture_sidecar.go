@@ -196,8 +196,10 @@ func WriteCaptureSidecar(projectRoot string, sc CaptureSidecar) error {
 	}
 	// The declaration is what makes the evidence non-collectable under the retention contract,
 	// rather than relying on the sidecar simply living outside objects/. A GC that later learns to
-	// manage records/ inherits the protection with no further change here.
-	return AppendRetentionRoot(projectRoot, RetentionRoot{
+	// manage records/ inherits the protection — and must make this declaration durable when it does:
+	// today nothing can collect what it names, so it is appended without a sync (see
+	// appendRetentionRootVolatile for why that is the whole argument).
+	return appendRetentionRootVolatile(projectRoot, RetentionRoot{
 		Hash:   sc.BytesHash,
 		Class:  RetentionEvidence,
 		Reason: "capture sidecar " + string(sc.ObservationID),
