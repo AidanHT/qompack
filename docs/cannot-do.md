@@ -348,6 +348,23 @@ host change could lift — as prepared proposals, none of which has been filed.
   release.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D6; `plans/V2-WAVE1-carried-defects.md` §SP20-D4.
 
+### A delivery made while Windows reports `config.json` missing uses the configuration without it
+
+- **Limit.** On Windows, a rename that replaces `config.json` (how most editors save) can leave the
+  name missing for tens of milliseconds while it runs. A hook that reads the configuration in that
+  moment finds no file and uses the configuration without that layer, so that one delivery is
+  recorded, or not, without the file being saved: a `runtime.mode` of `off` or a `runtime.redact`
+  addition in it does not apply to that delivery.
+- **Why.** At that moment the file does not exist for any reader: on the development host about one
+  rename in every 10,000 to 40,000 left the name missing, with no reader holding the file, whichever
+  rename the writer used. A hook cannot tell that moment from a file you deleted, and refusing every
+  delivery whose project has no `config.json` would stop recording in every project that has none.
+- **What Qompack does instead.** It reads `config.json` with delete sharing, so an editor's save never
+  makes a hook's read fail or refuse, and it never takes a file that exists but cannot be read for a
+  missing one: `config.Load` warns (`loud`) and the hook path refuses the capture.
+- **Recorded at.** [docs/architecture.md §2](architecture.md#2-write-set-and-retention);
+  `plans/00-ARCHITECTURE.md` §3.2 (owner decision D22).
+
 ### No cost or price guarantee
 
 - **Limit.** Qompack cannot tell you what a session cost. Reported usage is not an estimated price,
