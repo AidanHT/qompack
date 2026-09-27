@@ -43,6 +43,11 @@ func (x Barriers) syncDir(dir string) error {
 	return fsyncDir(dir)
 }
 
+// DirBarrier syncs dir's entries through x: SyncDir, unless x.SyncDir replaces it. It is for a
+// writer outside this package that builds a tree of its own and must make its names durable before
+// something depends on them (store's backup and restore trees).
+func (x Barriers) DirBarrier(dir string) error { return x.syncDir(dir) }
+
 // AppendJSONLDurable is AppendJSONL made durable before it returns. It appends exactly the line
 // AppendJSONL would (same encoding, same newline guard, same torn-tail terminator), then:
 //
