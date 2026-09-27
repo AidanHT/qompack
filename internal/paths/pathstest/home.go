@@ -212,7 +212,17 @@ func stillIsolated() error {
 // pinToolchain sets each unset toolchainVars entry to the value the go command resolves now, while
 // the real home is still in place. The go command itself is asked first, because a go env file can
 // move any of them; the documented defaults are the fallback when it cannot answer.
+//
+// When all of them are already set there is nothing to pin, and the go command is not run at all.
+// That is the case for a test binary started by another isolated test process, which inherits them
+// pinned, and it matters because the go command writes to the home it runs under: on Linux its
+// telemetry counters go to os.UserConfigDir, $HOME/.config/go/telemetry. test/guards' sentinel
+// starts such a child with the home pointing at a fake real home and fails on any write there
+// (TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned).
 func pinToolchain() error {
+	if !slices.ContainsFunc(toolchainVars, func(k string) bool { _, set := os.LookupEnv(k); return !set }) {
+		return nil
+	}
 	resolved, err := goEnv()
 	if err != nil {
 		resolved, err = toolchainDefaults()
