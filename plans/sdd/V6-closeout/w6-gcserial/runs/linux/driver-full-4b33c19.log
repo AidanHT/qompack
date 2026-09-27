@@ -1,0 +1,11 @@
+== 17:41:40 start store (./internal/store)
+== 17:56:49 end store rc=0
+== 17:56:49 start daemon (./internal/daemon)
+== 18:20:21 end daemon rc=0
+== 18:20:21 start fault (./test/fault)
+== 18:35:33 end fault rc=0
+== 18:35:33 start integration (./test/integration)
+== 18:57:45 end integration rc=0
+== 18:57:45 start observer-guards (./internal/observer ./test/guards)
+== 19:04:51 end observer-guards rc=0
+== ALL-DONE

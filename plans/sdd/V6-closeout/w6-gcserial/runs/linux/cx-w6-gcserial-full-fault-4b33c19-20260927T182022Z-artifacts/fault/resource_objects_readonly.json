@@ -1,0 +1,20 @@
+{
+  "name": "resource_objects_readonly",
+  "phase": "resource",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "381006e47a7677b23ef7868bab0e44a001d160f33d55bbfa4dcbd9610a7415b4"
+  },
+  "boundary": "`.qompack/objects` is read-only while a session records into it",
+  "seed_method": "a real session, then a genuine deny on the objects directory (icacls (OI)(CI)(WD,AD,WEA,WA,DE,DC) on Windows, 0o500 elsewhere), then a turn, then the deny lifted",
+  "outcome": "recovered",
+  "reason": "the cut introduced no dangling reference, none remains anywhere under .qompack/, and the product went on recording: the recovery session's own observation was indexed.",
+  "detail": "note: recording recovered by spool replay once the deny was lifted. Whether anything durable said so WHILE the deny was in force is Task 2's F-2 (owner internal/cli + internal/ipc); the degradation line above is this row's measurement of it, not a new finding.\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}\naudit after  {tool_uses:5 roots:5 sidecars:5 checkpoints:0 dangling:0 reported:1}\ndegradation (new since the cut): daylog[10]: qompack-20260927.log: ts=2026-09-27T18:33:59.33301415Z level=warn msg=\"daemon: ObserveTool failed\"; surfaces day log (warn)\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

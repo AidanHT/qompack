@@ -1,0 +1,4 @@
+# cmd: go vet ./internal/store/... ./internal/daemon ./internal/observer ./test/guards (Windows), then the same with GOOS=linux
+# commit: 4b33c19
+# windows vet exit: 0
+# linux vet exit: 0

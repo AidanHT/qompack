@@ -1,0 +1,16 @@
+{
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "381006e47a7677b23ef7868bab0e44a001d160f33d55bbfa4dcbd9610a7415b4"
+  },
+  "records": [
+    "object_written_index_line_absent",
+    "object_written_index_line_absent",
+    "object_written_index_line_absent"
+  ]
+}

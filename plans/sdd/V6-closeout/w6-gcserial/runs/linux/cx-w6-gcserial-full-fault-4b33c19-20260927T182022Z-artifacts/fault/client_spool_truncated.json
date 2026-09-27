@@ -1,0 +1,20 @@
+{
+  "name": "client_spool_truncated",
+  "phase": "publication",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "381006e47a7677b23ef7868bab0e44a001d160f33d55bbfa4dcbd9610a7415b4"
+  },
+  "boundary": "client spool truncated",
+  "seed_method": "a spool/client-*.ndjson file is truncated inside a record; a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 6 client-* spool file(s)",
+  "outcome": "explicit_incomplete",
+  "reason": "the cut introduced no silently dangling reference; what it did leave, the audit can name as reported: drain_gap(client-46975.ndjson): pending: 232 spool bytes not yet replayed; drain_gap(client-50502.ndjson): pending: 6259 spool bytes not yet replayed",
+  "detail": "cut: truncated client-50502.ndjson from 6283 to 6259 bytes\neverything the surfaces gained: daylog[1]: qompack-20260927.log: ts=2026-09-27T18:25:23.557055269Z level=warn msg=\"store: segment closed without a tokens feature; Segment.Tokens stays zero permanently\" segment=3 session=sess-fault-client-spool-truncated-r; status[1]: spool_files=3; surfaces status --json+day log (warn)\nof which naming this cut (drain, spool, client): status[1]: spool_files=3; surfaces status --json\naudit before {tool_uses:3 roots:4 sidecars:4 checkpoints:0 dangling:1 reported:0}\naudit after  {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:2}\ndegradation (new since the cut): status[1]: spool_files=3; surfaces status --json\nnewly dangling: none\nnewly reported: drain_gap(client-46975.ndjson): pending: 232 spool bytes not yet replayed; drain_gap(client-50502.ndjson): pending: 6259 spool bytes not yet replayed\nremaining dangling after recovery: none",
+  "dangling_before": 1,
+  "dangling_after": 0
+}

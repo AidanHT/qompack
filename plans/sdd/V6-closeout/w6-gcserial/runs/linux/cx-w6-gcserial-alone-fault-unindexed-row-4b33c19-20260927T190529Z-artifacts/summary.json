@@ -1,0 +1,11 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/fault": {
+   "result": "pass",
+   "passed": 6,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

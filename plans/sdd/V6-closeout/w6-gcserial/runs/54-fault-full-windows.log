@@ -1,0 +1,590 @@
+# cmd: go test ./test/fault -count=1 -timeout=40m -v
+# commit: 4b33c19 (tracked changes: 0)
+# host: windows, co-loaded (other workstreams running tests on this machine and in the Linux container)
+# started: 2026-09-27T18:07:17Z
+=== RUN   TestFault_AuditSeesADeletedObjectUnderALiveIndex
+    audit_test.go:66: fault: deleting one object under a live index produced 3 dangling reference(s): root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-audit-selftest_0): tool_use prompt_sess-fault-audit-selftest_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-audit-selftest_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+--- PASS: TestFault_AuditSeesADeletedObjectUnderALiveIndex (18.13s)
+=== RUN   TestFault_MCPChildKilledMidRequest
+    child_test.go:94: fault child_mcp_killed_mid_request: recovered — the client saw the session end as an error rather than hanging (the mcp launcher closed its stdout before answering); every object present before the MCP session is still present with the same bytes, and nothing dangles
+          boundary: the MCP server child is killed mid-request
+          seed:     a real session through the installed binary, then `<bundle>/bin/qompack mcp` launched the way plugin/.mcp.json instructs (exec form, no shell), killed between a request and its answer
+          dangling: 0→0
+          detail:   first call: isError=false found=true denied=false available=<absent> reason=""
+        after the kill: transport/protocol error: the mcp launcher closed its stdout before answering
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:4 roots:4 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        objects present before the session: 3, of which changed or gone afterwards: []
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_MCPChildKilledMidRequest2865473083\001\child_mcp_killed_mid_request.json
+--- PASS: TestFault_MCPChildKilledMidRequest (4.41s)
+=== RUN   TestFault_DaemonKilledMidIngest
+    child_test.go:134: fault: killed daemon pid 44248 serving the fixture C:\Users\Quant\AppData\Local\Temp\qompack-fault-1928959899\proj
+    child_test.go:134: fault: aged C:\Users\Quant\AppData\Local\Temp\qompack-fault-1928959899\proj\.qompack\run\daemon.hb past the staleness window so the next daemon may reclaim the lock
+    child_test.go:158: fault child_daemon_killed_mid_ingest: recovered — the restarted daemon replayed the spool the killed one left, went on recording, and introduced no dangling reference
+          boundary: the daemon is killed during a burst of `observe tool` deliveries
+          seed:     a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 2 client-* spool file(s)
+          dangling: 0→0
+          detail:   spool wal/client 1/2 → 0/1; recording resumed: true
+        audit before {tool_uses:9 roots:4 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:0}; reported gaps: none
+        degradation (new since the kill): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_DaemonKilledMidIngest2987117187\001\child_daemon_killed_mid_ingest.json
+--- PASS: TestFault_DaemonKilledMidIngest (10.24s)
+=== RUN   TestFault_SubagentStopWithoutResult
+    child_test.go:233: fault child_subagent_stop_without_result: recovered — the hook exited 0 with parseable stdout and left no dangling reference. The stop is NOT inert, and what it wrote is stated rather than denied: tool_use records 0→1, roots 0→1, capture sidecars 0→1. Every one of those records resolves — that is what the clean audit above means
+          boundary: `observe stop --subagent` for a subagent that never produced a result
+          seed:     a live session, then a SubagentStop with no preceding tool observation for that subagent at all
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:1 roots:1 sidecars:1 checkpoints:0 dangling:0 reported:1}
+        what the stop caused to be written: tool_use records 0→1, roots 0→1, capture sidecars 0→1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_SubagentStopWithoutResult2532942832\001\child_subagent_stop_without_result.json
+--- PASS: TestFault_SubagentStopWithoutResult (8.79s)
+=== RUN   TestFault_HookStdinUnusable
+=== RUN   TestFault_HookStdinUnusable/stdin_eof
+    child_test.go:291: fault child_hook_stdin_eof: recovered — every hook exited 0 with parseable stdout under stdin-eof, and the store the live session was writing gained no dangling reference
+          boundary: a hook whose stdin is stdin-eof, during a live session
+          seed:     the `stdin-eof` QOMPACK_FAULT site (internal/cli/fault.go), delivered to every hook subcommand of a live session
+          dangling: 0→0
+          detail:   six hook subcommands driven under stdin-eof
+        audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:0 roots:0 sidecars:3 checkpoints:0 dangling:0 reported:1}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_HookStdinUnusablestdin_eof4130437667\001\child_hook_stdin_eof.json
+=== RUN   TestFault_HookStdinUnusable/stdin_garbage
+    child_test.go:291: fault child_hook_stdin_garbage: recovered — every hook exited 0 with parseable stdout under stdin-garbage, and the store the live session was writing gained no dangling reference
+          boundary: a hook whose stdin is stdin-garbage, during a live session
+          seed:     the `stdin-garbage` QOMPACK_FAULT site (internal/cli/fault.go), delivered to every hook subcommand of a live session
+          dangling: 0→0
+          detail:   six hook subcommands driven under stdin-garbage
+        audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:0 roots:0 sidecars:3 checkpoints:0 dangling:0 reported:1}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_HookStdinUnusablestdin_garbage1415623771\001\child_hook_stdin_garbage.json
+--- PASS: TestFault_HookStdinUnusable (7.09s)
+    --- PASS: TestFault_HookStdinUnusable/stdin_eof (3.40s)
+    --- PASS: TestFault_HookStdinUnusable/stdin_garbage (3.69s)
+=== RUN   TestFault_LinesNamingIgnoresTheUniversalWarn
+    evidence_test.go:1111: fault: auditing 20 registered token list(s)
+--- PASS: TestFault_LinesNamingIgnoresTheUniversalWarn (0.00s)
+=== RUN   TestFault_LinesNamingKeepsTheFileAValueNames
+=== RUN   TestFault_LinesNamingKeepsTheFileAValueNames/a_bare_file_name_survives
+=== RUN   TestFault_LinesNamingKeepsTheFileAValueNames/a_full_path_keeps_its_base_name_and_loses_the_fixture_directory
+=== RUN   TestFault_LinesNamingKeepsTheFileAValueNames/a_QUOTED_path_with_a_space_still_yields_its_base_name
+--- PASS: TestFault_LinesNamingKeepsTheFileAValueNames (0.00s)
+    --- PASS: TestFault_LinesNamingKeepsTheFileAValueNames/a_bare_file_name_survives (0.00s)
+    --- PASS: TestFault_LinesNamingKeepsTheFileAValueNames/a_full_path_keeps_its_base_name_and_loses_the_fixture_directory (0.00s)
+    --- PASS: TestFault_LinesNamingKeepsTheFileAValueNames/a_QUOTED_path_with_a_space_still_yields_its_base_name (0.00s)
+=== RUN   TestFault_UnavailableHistoricalObject
+    historical_test.go:111: fault historical_object_unavailable: explicit_incomplete — the retrieval layer answered `unavailable` for an address whose bytes are gone rather than reporting a miss, the damaged object was quarantined as evidence, and a forced GC pass left that evidence in place
+          boundary: an object present at capture, damaged afterwards, asked for through the installed MCP server
+          seed:     a real session captures a file through the installed binary; one of the stored object files is then truncated in half — §12.3's "store corrupt (bad CRC, truncated object)" — and the retrieval is driven through `<bundle>/bin/qompack mcp`
+          dangling: 0→3
+          detail:   damaged: truncated the object file for chunk 6139dde14f6a from 52 to 26 bytes
+        expand(hash=91daa03aa2e6): isError=false found=false denied=false available=false reason="the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it"
+        expand(tool_use_id=prompt_sess-fault-historical_0): isError=false found=false denied=false available=false reason="the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it"
+        quarantined: true
+        forced GC (RetainDays -1, RetainSessions -1) deleted 3 object(s); quarantine 0→0, capture sidecars 3→3
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}; after {tool_uses:5 roots:4 sidecars:3 checkpoints:0 dangling:3 reported:9}
+        named as reported: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; root_chunk(e5ec33f50136/62706e319837): root e5ec33f50136 names chunk 62706e319837, which the object store does not hold; root_chunk(8152211d8f49/3e0c1c855d16): root 8152211d8f49 names chunk 3e0c1c855d16, which the object store does not hold; root_chunk(b072bdf2002a/fad664912af9): root b072bdf2002a names chunk fad664912af9, which the object store does not hold; tool_use_root(prompt_sess-fault-historical_0): tool_use prompt_sess-fault-historical_0 points at root 91daa03aa2e6, which cannot be materialized; tool_use_root(toolu_fault_historical_01): tool_use toolu_fault_historical_01 points at root e5ec33f50136, which cannot be materialized; tool_use_root(toolu_fault_historical_02): tool_use toolu_fault_historical_02 points at root 8152211d8f49, which cannot be materialized; tool_use_root(qompack-mcp:893026e110ef): tool_use qompack-mcp:893026e110ef points at root b072bdf2002a, which cannot be materialized; tool_use_root(qompack-mcp:b36708fde0a4): tool_use qompack-mcp:b36708fde0a4 points at root b072bdf2002a, which cannot be materialized
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_UnavailableHistoricalObject2657907026\001\historical_object_unavailable.json
+--- PASS: TestFault_UnavailableHistoricalObject (4.99s)
+=== RUN   TestFault_CheckpointDropsAnUnresolvablePointer
+    historical_test.go:260: fault historical_checkpoint_drops_pointer: reproduced the returned finding F4-1 (owner internal/store (the index keeps naming bytes that are gone)); the record is the deliverable and nothing here fixes it
+    historical_test.go:260: fault historical_checkpoint_drops_pointer: failed — 3 reference(s) the cut introduced do not resolve and NO surface gained anything about it — not LOUD.log, not status --json taken with the recovery daemon up, not self-test --json, not the day log, not a DropEntry. Owner: internal/store (the index keeps naming bytes that are gone). Returned as F4-1.
+          boundary: a checkpoint written after the object one of its pointers names went away
+          seed:     a real session, one stored object removed outright, then a real PreCompact through the installed binary, then one more observation so the judge has a measured "did recording go on" rather than an assumed one
+          dangling: 0→3
+          detail:   removed: removed the object file for chunk 6139dde14f6a
+        artifacts 0 -> 1 (sealed 1); pointers across them: 4
+        new drop entries: [pointer_git_unavailable()], of which naming the cut: []
+        recovery observation toolu_fault_historical_drop_03 indexed: true
+        everything the surfaces gained: daylog[1]: qompack-20260927.log: ts=2026-09-27T18:08:20.0067064Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=sess-fault-historical-drop; drop[1]: pointer_git_unavailable(); status[1]: spool_files=2; surfaces status --json+checkpoint DropEntry+day log (warn)
+        of which naming this cut (quarantin, materialize, dangling, missing object, prompt_sess-fault-historical-drop_0, 6139dde14f6a): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        note: the sealed checkpoint's OWN pointers all resolve on disk, so the references listed as newly dangling below are not the checkpoint's — they are what the removed object left behind in the index that outlived it. This row cannot distinguish finalize having DROPPED an unresolvable pointer from the pointer never having been a candidate: no drop entry names the removed object either way.
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:3 reported:0}
+        degradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        newly dangling: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+        newly reported: none
+        remaining dangling after recovery: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_CheckpointDropsAnUnresolvablePointer3914667938\001\historical_checkpoint_drops_pointer.json
+--- PASS: TestFault_CheckpointDropsAnUnresolvablePointer (6.57s)
+=== RUN   TestFault_CheckpointResolvabilityIsBlindToADeletedObject
+    historical_test.go:541: fault historical_resolvability_blind_to_deleted_object: recovered — the predicate internal/checkpoint decides pointer resolvability with agrees with the filesystem about a deleted object, and so does the root-level form of it. store.Has still answers from the index, which is its documented contract and no longer what a durable promise is made on.
+          boundary: store.Has answers `held` for an object whose bytes are gone but whose index line survives, and checkpoint finalize decides pointer resolvability with it
+          seed:     a real session through the installed binary, then one object file deleted from objects/ with index/roots.jsonl untouched; store.Has and an on-disk Lstat are then asked the same question
+          dangling: 0→0
+          detail:   after deleting the object backing chunk 6139dde14f6a with its index line intact: store.Has(chunk)=true (the index's belief), store.ObjectOnDisk(chunk)=false (offered=true, the predicate the checkpoint decides with), the bytes are on disk=false, and the whole root 91daa03aa2e6 answers resolvable=false
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_CheckpointResolvabilityIsBlindToADeletedObject1902040533\001\historical_resolvability_blind_to_deleted_object.json
+--- PASS: TestFault_CheckpointResolvabilityIsBlindToADeletedObject (8.53s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup3269559032\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume2928889692\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork3304566276\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear3194101888\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual2225880140\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto2219438141\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed4200179716\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed2939446379\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use4123830938\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact2090689385\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn3805216395\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact1573307572\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend3504524813\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-09-27T18:09:08.0096454Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical,mcp.server_registered/info
+         loud_tail: ts=2026-09-27T18:09:09.9120703Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical,mcp.server_registered/info
+         loud_tail: ts=2026-09-27T18:09:12.1542831Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical,mcp.server_registered/info
+         loud_tail: ts=2026-09-27T18:09:14.0898943Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical,mcp.server_registered/info
+         loud_tail: ts=2026-09-27T18:09:15.6043476Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical,mcp.server_registered/info
+         spool_files=1]
+        self-test failures: []
+        loud lines: 8; day-log warnings: 15
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit3470988669\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (48.57s)
+    --- PASS: TestFault_Lifecycle/startup (2.55s)
+    --- PASS: TestFault_Lifecycle/resume (3.55s)
+    --- PASS: TestFault_Lifecycle/fork (2.37s)
+    --- PASS: TestFault_Lifecycle/clear (6.59s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (3.03s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (8.15s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (4.20s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (4.91s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.71s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (2.46s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.95s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.49s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (1.50s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.58s)
+=== RUN   TestFault_PublicationBoundaries
+=== RUN   TestFault_PublicationBoundaries/object_written_index_line_absent
+    publication_test.go:71: fault object_written_index_line_absent: explicit_incomplete — 2 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scan…; loud[1]: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false…; status[1]: loud_tail: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incom…; surfaces LOUD.log+status --json+day log (warn)
+          boundary: object written but index line absent
+          seed:     a real session's last index/roots.jsonl line is removed while its objects stay on disk — the state daemon/delivery_crash_test.go's cut between the durable object and the reference produces in process
+          dangling: 0→2
+          detail:   cut: removed the last of 3 index/roots.jsonl lines; objects untouched
+        everything the surfaces gained: daylog[2]: qompack-20260927.log: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scan…; loud[1]: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false…; status[1]: loud_tail: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incom…; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (roots.jsonl, badline, index, root, resolve, unindexed): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scan…; loud[1]: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false…; status[1]: loud_tail: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incom…; surfaces LOUD.log+status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:3 sidecars:4 checkpoints:0 dangling:2 reported:0}
+        degradation (new since the cut): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scan…; loud[1]: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false…; status[1]: loud_tail: ts=2026-09-27T18:09:29.5201771Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incom…; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: tool_use_root(toolu_fault_object_written_index_line_absent_02): tool_use toolu_fault_object_written_index_line_absent_02 points at root 8152211d8f49, which cannot be materialized; capture_bytes_absent(toolu_fault_object_written_index_line_absent_02): published capture sidecar names root 8152211d8f49, which does not resolve
+        newly reported: none
+        remaining dangling after recovery: tool_use_root(toolu_fault_object_written_index_line_absent_02): tool_use toolu_fault_object_written_index_line_absent_02 points at root 8152211d8f49, which cannot be materialized; capture_bytes_absent(toolu_fault_object_written_index_line_absent_02): published capture sidecar names root 8152211d8f49, which does not resolve
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesobject_written_index_line_absent2529828422\001\object_written_index_line_absent.json
+=== RUN   TestFault_PublicationBoundaries/roots_last_line_truncated
+    publication_test.go:71: fault roots_last_line_truncated: explicit_incomplete — 3 reference(s) the cut introduced still do not resolve, and the product reports the degradation on status --json+day log (warn): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:40.0765552Z level=warn msg="store: skipped malformed index lines" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+          boundary: roots.jsonl last line truncated mid-record
+          seed:     index/roots.jsonl is truncated inside its final record, the torn-write shape store/fsstore's loadRoots counts as store.index.badline
+          dangling: 0→3
+          detail:   cut: truncated roots.jsonl from 3705 to 3680 bytes, inside its final record
+        everything the surfaces gained: daylog[3]: qompack-20260927.log: ts=2026-09-27T18:09:40.0765552Z level=warn msg="store: skipped malformed index lines" file=roots.jsonl lines=1; loud[1]: ts=2026-09-27T18:09:40.2656949Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=0 unindexed_object_candidates=1 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false…; status[2]: counter store.index.badline=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (roots.jsonl, badline, malformed index): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:40.0765552Z level=warn msg="store: skipped malformed index lines" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:3 sidecars:4 checkpoints:0 dangling:3 reported:0}
+        degradation (new since the cut): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:40.0765552Z level=warn msg="store: skipped malformed index lines" file=roots.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+        newly dangling: index_bad_line(roots.jsonl:3): line does not parse as a roots record: unexpected end of JSON input; tool_use_root(toolu_fault_roots_last_line_truncated_02): tool_use toolu_fault_roots_last_line_truncated_02 points at root 8152211d8f49, which cannot be materialized; capture_bytes_absent(toolu_fault_roots_last_line_truncated_02): published capture sidecar names root 8152211d8f49, which does not resolve
+        newly reported: none
+        remaining dangling after recovery: index_bad_line(roots.jsonl:3): line does not parse as a roots record: unexpected end of JSON input; tool_use_root(toolu_fault_roots_last_line_truncated_02): tool_use toolu_fault_roots_last_line_truncated_02 points at root 8152211d8f49, which cannot be materialized; capture_bytes_absent(toolu_fault_roots_last_line_truncated_02): published capture sidecar names root 8152211d8f49, which does not resolve
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesroots_last_line_truncated1841957082\001\roots_last_line_truncated.json
+=== RUN   TestFault_PublicationBoundaries/tool_use_truncated
+    publication_test.go:71: fault tool_use_truncated: explicit_incomplete — 1 reference(s) the cut introduced still do not resolve, and the product reports the degradation on status --json+day log (warn): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:45.8806373Z level=warn msg="store: skipped malformed tool_use index lines" file=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1048650383\proj\.qompack\index\tool_use.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+          boundary: tool_use.jsonl truncated
+          seed:     index/tool_use.jsonl is truncated inside its final record (the frozen wire shape testdata/golden/contracts/store/want/tool_use_line.jsonl pins)
+          dangling: 0→1
+          detail:   cut: truncated tool_use.jsonl from 4021 to 3996 bytes, inside its final record
+        everything the surfaces gained: daylog[3]: qompack-20260927.log: ts=2026-09-27T18:09:45.8806373Z level=warn msg="store: skipped malformed tool_use index lines" file=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1048650383\proj\.qompack\index\tool_use.jsonl lines=1; loud[1]: ts=2026-09-27T18:09:46.0478741Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=3 objects_scanned=3 truncated=false notes="observation publication remains incomplete"; status[3]: counter store.index.badline=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (tool_use, badline, malformed): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:45.8806373Z level=warn msg="store: skipped malformed tool_use index lines" file=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1048650383\proj\.qompack\index\tool_use.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:3 roots:4 sidecars:4 checkpoints:0 dangling:1 reported:0}
+        degradation (new since the cut): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:09:45.8806373Z level=warn msg="store: skipped malformed tool_use index lines" file=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1048650383\proj\.qompack\index\tool_use.jsonl lines=1; status[1]: counter store.index.badline=1; surfaces status --json+day log (warn)
+        newly dangling: index_bad_line(tool_use.jsonl:3): line does not parse as a tool_use record: unexpected end of JSON input
+        newly reported: none
+        remaining dangling after recovery: index_bad_line(tool_use.jsonl:3): line does not parse as a tool_use record: unexpected end of JSON input
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariestool_use_truncated1357718623\001\tool_use_truncated.json
+=== RUN   TestFault_PublicationBoundaries/capture_sidecar_stage_one_only
+    publication_test.go:71: fault: qompack.exe [session-start] took 7.303s
+    publication_test.go:71: fault capture_sidecar_stage_one_only: explicit_incomplete — 1 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scann…; loud[1]: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false …; status[1]: loud_tail: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scanned=3 incomp…; surfaces LOUD.log+status --json+day log (warn)
+          boundary: capture sidecar at stage 1 only (published:false)
+          seed:     a real sidecar is rewritten to the state WriteCaptureSidecar leaves and LinkCaptureReference has not yet joined — store/capture_sidecar.go's own "crash between publication order's first two stages"
+          dangling: 0→1
+          detail:   cut: rewrote dd113294cedc79a7021874646d0a87d7fea7763e8315e435a447a744743e70c1.json to the real stage-1 shape: published:false, zero root, no tool_use_id, bytes_hash retained
+        everything the surfaces gained: daylog[2]: qompack-20260927.log: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scann…; loud[1]: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false …; status[2]: loud_tail: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scanned=3 incomp…; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (capture, sidecar, published, observation, unpublished): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scann…; loud[1]: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false …; status[1]: loud_tail: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scanned=3 incomp…; surfaces LOUD.log+status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:1 reported:0}
+        degradation (new since the cut): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scann…; loud[1]: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scanned=3 incomplete=false …; status[1]: loud_tail: ts=2026-09-27T18:10:04.603929Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=0 pending_objects=0 captures_scanned=3 objects_scanned=3 incomp…; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: capture_unpublished(sha256:dd113294cedc79a7021874646d0a87d7fea7763e8315e435a447a744743e70c1): capture sidecar for a observe.tool delivery is at stage 1 only: outcome "ok" with bytes d0cd0c75490f durable and no reference joined to it (root 000000000000)
+        newly reported: none
+        remaining dangling after recovery: capture_unpublished(sha256:dd113294cedc79a7021874646d0a87d7fea7763e8315e435a447a744743e70c1): capture sidecar for a observe.tool delivery is at stage 1 only: outcome "ok" with bytes d0cd0c75490f durable and no reference joined to it (root 000000000000)
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariescapture_sidecar_stage_one_only2823532968\001\capture_sidecar_stage_one_only.json
+=== RUN   TestFault_PublicationBoundaries/checkpoint_orphan_artifact
+    publication_test.go:71: fault checkpoint_orphan_artifact: explicit_incomplete — 1 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:12.7768706Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=0002.json path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1707787331\pro…; loud[1]: ts=2026-09-27T18:10:12.7768706Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=0002.json path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1707787331\proj\.qompack\checkpoints…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+          boundary: checkpoint artifact present without its MANIFEST line (orphan)
+          seed:     a second artifact is written beside the sealed one with no manifest line, the state finalize.go logs when CreateNew succeeded and AppendManifest did not; a real PreCompact through the installed binary sealed 1 artifact(s)
+          dangling: 0→1
+          detail:   cut: created checkpoints/0002.json with no MANIFEST.jsonl line
+        everything the surfaces gained: daylog[2]: qompack-20260927.log: ts=2026-09-27T18:10:12.7768706Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=0002.json path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1707787331\pro…; loud[1]: ts=2026-09-27T18:10:12.7768706Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=0002.json path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1707787331\proj\.qompack\checkpoints…; status[3]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (checkpoint, manifest, artifact, orphan): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:12.7768706Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=0002.json path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1707787331\pro…; loud[1]: ts=2026-09-27T18:10:12.7768706Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=0002.json path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1707787331\proj\.qompack\checkpoints…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:1 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:1 reported:0}
+        degradation (new since the cut): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:12.7768706Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=0002.json path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1707787331\pro…; loud[1]: ts=2026-09-27T18:10:12.7768706Z level=loud msg="checkpoint artifact present with no MANIFEST line; it is an orphan and is not used" artifact=0002.json path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1707787331\proj\.qompack\checkpoints…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: orphan_artifact(0002.json): checkpoint artifact present with no checkpoints/MANIFEST.jsonl line (orphan)
+        newly reported: none
+        remaining dangling after recovery: orphan_artifact(0002.json): checkpoint artifact present with no checkpoints/MANIFEST.jsonl line (orphan)
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariescheckpoint_orphan_artifact715349679\001\checkpoint_orphan_artifact.json
+=== RUN   TestFault_PublicationBoundaries/checkpoint_manifest_artifact_missing
+    publication_test.go:71: fault checkpoint_manifest_artifact_missing: explicit_incomplete — 1 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:19.2981498Z level=loud msg="checkpoint artifact missing; the manifest still claims it" artifact=0001.json seq=1 path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3725974442\proj\.qompack\checkpoi…; loud[1]: ts=2026-09-27T18:10:19.2981498Z level=loud msg="checkpoint artifact missing; the manifest still claims it" artifact=0001.json seq=1 path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3725974442\proj\.qompack\checkpoints\0001.json sha256=s…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+          boundary: MANIFEST line whose artifact is missing
+          seed:     the sealed artifact is removed and its manifest line left in place (checkpoint/reader_test.go's ErrContract case); a real PreCompact through the installed binary sealed 1 artifact(s)
+          dangling: 0→1
+          detail:   cut: removed 0001.json, leaving its MANIFEST.jsonl line
+        everything the surfaces gained: daylog[2]: qompack-20260927.log: ts=2026-09-27T18:10:19.2981498Z level=loud msg="checkpoint artifact missing; the manifest still claims it" artifact=0001.json seq=1 path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3725974442\proj\.qompack\checkpoi…; loud[1]: ts=2026-09-27T18:10:19.2981498Z level=loud msg="checkpoint artifact missing; the manifest still claims it" artifact=0001.json seq=1 path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3725974442\proj\.qompack\checkpoints\0001.json sha256=s…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (checkpoint, manifest, artifact): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:19.2981498Z level=loud msg="checkpoint artifact missing; the manifest still claims it" artifact=0001.json seq=1 path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3725974442\proj\.qompack\checkpoi…; loud[1]: ts=2026-09-27T18:10:19.2981498Z level=loud msg="checkpoint artifact missing; the manifest still claims it" artifact=0001.json seq=1 path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3725974442\proj\.qompack\checkpoints\0001.json sha256=s…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:1 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:1 reported:0}
+        degradation (new since the cut): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:19.2981498Z level=loud msg="checkpoint artifact missing; the manifest still claims it" artifact=0001.json seq=1 path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3725974442\proj\.qompack\checkpoi…; loud[1]: ts=2026-09-27T18:10:19.2981498Z level=loud msg="checkpoint artifact missing; the manifest still claims it" artifact=0001.json seq=1 path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3725974442\proj\.qompack\checkpoints\0001.json sha256=s…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: manifest_artifact(0001): checkpoints/MANIFEST.jsonl records this seq and its artifact is missing or does not re-hash to the recorded digest
+        newly reported: none
+        remaining dangling after recovery: manifest_artifact(0001): checkpoints/MANIFEST.jsonl records this seq and its artifact is missing or does not re-hash to the recorded digest
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariescheckpoint_manifest_artifact_mis1346541729\001\checkpoint_manifest_artifact_missing.json
+=== RUN   TestFault_PublicationBoundaries/checkpoint_manifest_digest_mismatch
+    publication_test.go:71: fault checkpoint_manifest_digest_mismatch: explicit_incomplete — 1 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:31.3308673Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:9dea431279dab2e00a330a32ec9cbfab429820e74d7903…; loud[1]: ts=2026-09-27T18:10:31.3308673Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:9dea431279dab2e00a330a32ec9cbfab429820e74d790388a27c7c1f8be5387e obs…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+          boundary: MANIFEST digest mismatch (flip one bit)
+          seed:     one byte of the sealed artifact is flipped so it no longer re-hashes to its manifest line (§12.3 "checkpoint MANIFEST mismatch"); a real PreCompact through the installed binary sealed 1 artifact(s)
+          dangling: 0→1
+          detail:   cut: flipped one bit at offset 924 of 0001.json
+        everything the surfaces gained: daylog[2]: qompack-20260927.log: ts=2026-09-27T18:10:31.3308673Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:9dea431279dab2e00a330a32ec9cbfab429820e74d7903…; loud[1]: ts=2026-09-27T18:10:31.3308673Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:9dea431279dab2e00a330a32ec9cbfab429820e74d790388a27c7c1f8be5387e obs…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (checkpoint, manifest, mismatch, digest): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:31.3308673Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:9dea431279dab2e00a330a32ec9cbfab429820e74d7903…; loud[1]: ts=2026-09-27T18:10:31.3308673Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:9dea431279dab2e00a330a32ec9cbfab429820e74d790388a27c7c1f8be5387e obs…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:1 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:1 reported:0}
+        degradation (new since the cut): daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:31.3308673Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:9dea431279dab2e00a330a32ec9cbfab429820e74d7903…; loud[1]: ts=2026-09-27T18:10:31.3308673Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:9dea431279dab2e00a330a32ec9cbfab429820e74d790388a27c7c1f8be5387e obs…; status[2]: counter checkpoint.manifest_mismatch=1; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: manifest_artifact(0001): checkpoints/MANIFEST.jsonl records this seq and its artifact is missing or does not re-hash to the recorded digest
+        newly reported: none
+        remaining dangling after recovery: manifest_artifact(0001): checkpoints/MANIFEST.jsonl records this seq and its artifact is missing or does not re-hash to the recorded digest
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariescheckpoint_manifest_digest_misma16757457\001\checkpoint_manifest_digest_mismatch.json
+=== RUN   TestFault_PublicationBoundaries/wal_segment_truncated
+    publication_test.go:71: fault: killed daemon pid 23620 serving the fixture C:\Users\Quant\AppData\Local\Temp\qompack-fault-3097094815\proj
+    publication_test.go:71: fault: aged C:\Users\Quant\AppData\Local\Temp\qompack-fault-3097094815\proj\.qompack\run\daemon.hb past the staleness window so the next daemon may reclaim the lock
+    publication_test.go:71: fault wal_segment_truncated: explicit_incomplete — the cut introduced no silently dangling reference; what it did leave, the audit can name as reported: drain_gap(wal-sess-fault-wal-segment-truncated-burst.ndjson): pending: 6337 spool bytes not yet replayed
+          boundary: WAL segment truncated mid-record
+          seed:     a spool/wal-*.ndjson segment is truncated inside a record, the shape daemon/drain.go answers with DrainGapCorruptLine; a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 1 client-* spool file(s)
+          dangling: 0→0
+          detail:   cut: truncated wal-sess-fault-wal-segment-truncated-burst.ndjson from 38166 to 38142 bytes
+        everything the surfaces gained: daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:42.3886701Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=3 session=sess-fault-wal-segment-truncated-r; surfaces day log (warn)
+        of which naming this cut (drain, spool, wal): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        audit before {tool_uses:9 roots:4 sidecars:9 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:1}
+        degradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        newly dangling: none
+        newly reported: drain_gap(wal-sess-fault-wal-segment-truncated-burst.ndjson): pending: 6337 spool bytes not yet replayed
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundarieswal_segment_truncated3717185270\001\wal_segment_truncated.json
+=== RUN   TestFault_PublicationBoundaries/client_spool_truncated
+    publication_test.go:71: fault: killed daemon pid 55736 serving the fixture C:\Users\Quant\AppData\Local\Temp\qompack-fault-2355948059\proj
+    publication_test.go:71: fault: aged C:\Users\Quant\AppData\Local\Temp\qompack-fault-2355948059\proj\.qompack\run\daemon.hb past the staleness window so the next daemon may reclaim the lock
+    publication_test.go:71: fault client_spool_truncated: explicit_incomplete — the cut introduced no silently dangling reference; what it did leave, the audit can name as reported: drain_gap(client-25212.ndjson): pending: 6344 spool bytes not yet replayed; drain_gap(client-51680.ndjson): pending: 174 spool bytes not yet replayed
+          boundary: client spool truncated
+          seed:     a spool/client-*.ndjson file is truncated inside a record; a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 3 client-* spool file(s)
+          dangling: 0→0
+          detail:   cut: truncated client-25212.ndjson from 6368 to 6344 bytes
+        everything the surfaces gained: daylog[1]: qompack-20260927.log: ts=2026-09-27T18:10:54.2818558Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=3 session=sess-fault-client-spool-truncated-r; status[1]: spool_files=2; surfaces status --json+day log (warn)
+        of which naming this cut (drain, spool, client): status[1]: spool_files=2; surfaces status --json
+        audit before {tool_uses:9 roots:4 sidecars:9 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:2}
+        degradation (new since the cut): status[1]: spool_files=2; surfaces status --json
+        newly dangling: none
+        newly reported: drain_gap(client-25212.ndjson): pending: 6344 spool bytes not yet replayed; drain_gap(client-51680.ndjson): pending: 174 spool bytes not yet replayed
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesclient_spool_truncated1719557173\001\client_spool_truncated.json
+=== RUN   TestFault_PublicationBoundaries/stale_drain_progress
+    publication_test.go:71: fault: killed daemon pid 34244 serving the fixture C:\Users\Quant\AppData\Local\Temp\qompack-fault-3378225346\proj
+    publication_test.go:71: fault: aged C:\Users\Quant\AppData\Local\Temp\qompack-fault-3378225346\proj\.qompack\run\daemon.hb past the staleness window so the next daemon may reclaim the lock
+    publication_test.go:71: fault stale_drain_progress: explicit_incomplete — 2 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[3]: qompack-20260927.log: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; loud[1]: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; status[2]: loud_tail: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; surfaces LOUD.log+status --json+day log (warn)
+          boundary: stale drain.json
+          seed:     state/drain.json is rewritten to claim durable bytes the spool no longer has, the wedge daemon/drain_stale_progress_test.go cuts at ten points in process; a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 1 client-* spool file(s)
+          dangling: 1→3
+          detail:   cut: doubled the recorded size and offset of 2 drain record(s): client-61000.ndjson,wal-sess-fault-stale-drain-progress-burst.ndjson
+        everything the surfaces gained: daylog[5]: qompack-20260927.log: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; loud[2]: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; status[3]: loud_tail: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (drain, spool, progress): daylog[3]: qompack-20260927.log: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; loud[1]: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; status[2]: loud_tail: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; surfaces LOUD.log+status --json+day log (warn)
+        audit before {tool_uses:9 roots:4 sidecars:9 checkpoints:0 dangling:1 reported:0}
+        audit after  {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:3 reported:0}
+        degradation (new since the cut): daylog[3]: qompack-20260927.log: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; loud[1]: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; status[2]: loud_tail: ts=2026-09-27T18:11:07.2349173Z level=loud msg="daemon: drain refused; spooled deliveries are stranded until state/drain.json is replaced or removed" spool_files=2 err="daemon: drain: progress no longer matches spool"; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: drain_gap(client-61000.ndjson): spool file is 6358 bytes, below the 12716-byte durable bound the drain recorded: validateProgress refuses the spool over this; drain_gap(wal-sess-fault-stale-drain-progress-burst.ndjson): spool file is 38148 bytes, below the 76296-byte durable bound the drain recorded: validateProgress refuses the spool over this
+        newly reported: none
+        remaining dangling after recovery: capture_unpublished(sha256:9f20447e78807698361d2f6c36f8edc0c1944e94587fde2cfbd1b57361997f96): capture sidecar for a observe.tool delivery is at stage 1 only: outcome "ok" with bytes c6afcd3792d8 durable and no reference joined to it (root 000000000000); drain_gap(client-61000.ndjson): spool file is 6358 bytes, below the 12716-byte durable bound the drain recorded: validateProgress refuses the spool over this; drain_gap(wal-sess-fault-stale-drain-progress-burst.ndjson): spool file is 38148 bytes, below the 76296-byte durable bound the drain recorded: validateProgress refuses the spool over this
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesstale_drain_progress2745230643\001\stale_drain_progress.json
+=== RUN   TestFault_PublicationBoundaries/delivery_seal_torn_slot
+    publication_test.go:71: fault: the recovery session sess-fault-delivery-seal-torn-slot-r was not ended within 30s of its flush hook; the degradation reading is taken without that end
+    publication_test.go:71: fault delivery_seal_torn_slot: explicit_incomplete — the cut introduced no silently dangling reference; what it did leave, the audit can name as reported: drain_gap(client-33612.ndjson): pending: 9740 spool bytes not yet replayed; drain_gap(client-67964.ndjson): pending: 928 spool bytes not yet replayed; drain_gap(wal-sess-fault-delivery-seal-torn-slot-r.ndjson): pending: 10668 spool bytes not yet replayed
+          boundary: delivery seal with one torn slot, and a half-present seal pair
+          seed:     the delivery position files are torn the way daemon/delivery_seal_test.go's crash-reachable images are, then one side of the pair is removed entirely (delivery_seal_tool.go calls a half-present pair "a recovery decision, not a repair")
+          dangling: 0→0
+          detail:   cut: tore delivery-lease-position.json from 112 to 88 bytes; removed delivery-ack-position.json, leaving a half-present pair
+        everything the surfaces gained: daylog[24]: qompack-20260927.log: ts=2026-09-27T18:11:14.2245984Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[13]: ts=2026-09-27T18:11:14.2245984Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[7]: counter l0_delivery_unleased=2; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (delivery, seal, delivery-lease-position, delivery-ack-position, unleased, unacknowledged): daylog[13]: qompack-20260927.log: ts=2026-09-27T18:11:14.2245984Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[13]: ts=2026-09-27T18:11:14.2245984Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[6]: counter l0_delivery_unleased=2; surfaces LOUD.log+status --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:3}
+        degradation (new since the cut): daylog[13]: qompack-20260927.log: ts=2026-09-27T18:11:14.2245984Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; loud[13]: ts=2026-09-27T18:11:14.2245984Z level=loud msg="daemon: delivery identity unavailable; durable WAL retained for recovery"; status[6]: counter l0_delivery_unleased=2; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: none
+        newly reported: drain_gap(client-33612.ndjson): pending: 9740 spool bytes not yet replayed; drain_gap(client-67964.ndjson): pending: 928 spool bytes not yet replayed; drain_gap(wal-sess-fault-delivery-seal-torn-slot-r.ndjson): pending: 10668 spool bytes not yet replayed
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesdelivery_seal_torn_slot1087005726\001\delivery_seal_torn_slot.json
+=== RUN   TestFault_PublicationBoundaries/retention_roots_truncated
+    publication_test.go:71: fault retention_roots_truncated: explicit_incomplete — 1 reference(s) the cut introduced still do not resolve, and the product reports the degradation on LOUD.log+status --json+day log (warn): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:12:20.8490784Z level=loud msg="store: retention-roots line unreadable; everything it names is retained under the blanket rollback class rather than its declared one" file=retention-roots.jsonl class=ro…; loud[1]: ts=2026-09-27T18:12:20.8490784Z level=loud msg="store: retention-roots line unreadable; everything it names is retained under the blanket rollback class rather than its declared one" file=retention-roots.jsonl class=rollback; status[2]: counter store.retention_roots_badline=1; surfaces LOUD.log+status --json+day log (warn)
+          boundary: retention-roots file truncated
+          seed:     state/retention-roots.jsonl is truncated mid-record, then a forced GC pass is run to measure what that actually costs (declaredRetentionLine retains everything on a line it cannot parse; only an in-process source failure stops a pass)
+          dangling: 0→1
+          detail:   cut: truncated retention-roots.jsonl from 603 to 578 bytes, inside its final record
+        everything the surfaces gained: daylog[3]: qompack-20260927.log: ts=2026-09-27T18:12:20.6796223Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=sess-fault-retention-roots-truncated-r; loud[1]: ts=2026-09-27T18:12:20.8490784Z level=loud msg="store: retention-roots line unreadable; everything it names is retained under the blanket rollback class rather than its declared one" file=retention-roots.jsonl class=rollback; status[3]: counter store.retention_roots_badline=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (retention, retention-roots.jsonl, collect): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:12:20.8490784Z level=loud msg="store: retention-roots line unreadable; everything it names is retained under the blanket rollback class rather than its declared one" file=retention-roots.jsonl class=ro…; loud[1]: ts=2026-09-27T18:12:20.8490784Z level=loud msg="store: retention-roots line unreadable; everything it names is retained under the blanket rollback class rather than its declared one" file=retention-roots.jsonl class=rollback; status[2]: counter store.retention_roots_badline=1; surfaces LOUD.log+status --json+day log (warn)
+        measured: a forced GC pass (RetainDays -1, RetainSessions -1) over the torn retention-roots.jsonl completed: RetentionRootsError=true, scanned 0 object(s), deleted 0, retained 0 root(s) of which 0 under the blanket `rollback` class that gcrun.go's declaredRetentionLine gives an unparseable line. Collection was NOT stopped, so round 1's claim that a torn file makes GC collect nothing is refuted by measurement; whether this particular torn line also OVER-retained depends on whether its surviving hash-shaped tokens name anything live, and the blanket count above is what says so for this fixture
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:1 reported:0}
+        degradation (new since the cut): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:12:20.8490784Z level=loud msg="store: retention-roots line unreadable; everything it names is retained under the blanket rollback class rather than its declared one" file=retention-roots.jsonl class=ro…; loud[1]: ts=2026-09-27T18:12:20.8490784Z level=loud msg="store: retention-roots line unreadable; everything it names is retained under the blanket rollback class rather than its declared one" file=retention-roots.jsonl class=rollback; status[2]: counter store.retention_roots_badline=1; surfaces LOUD.log+status --json+day log (warn)
+        newly dangling: retention_root(retention-roots.jsonl:3): retention root line does not parse: invalid character 'h' after object key:value pair
+        newly reported: none
+        remaining dangling after recovery: retention_root(retention-roots.jsonl:3): retention root line does not parse: invalid character 'h' after object key:value pair
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesretention_roots_truncated2699858728\001\retention_roots_truncated.json
+=== RUN   TestFault_PublicationBoundaries/state_bin_corrupt
+    publication_test.go:71: fault state_bin_corrupt: recovered — the cut introduced no dangling reference, none remains anywhere under .qompack/, and the product went on recording: the recovery session's own observation was indexed.
+          boundary: state.bin corrupt
+          seed:     the `state-corrupt` QOMPACK_FAULT site, which writes 32 random bytes into run/state.bin from a real hook process (internal/cli/fault.go)
+          dangling: 0→0
+          detail:   cut: the state-corrupt site rewrote run/state.bin (32 bytes)
+        everything the surfaces gained: daylog[1]: qompack-20260927.log: ts=2026-09-27T18:12:26.239979Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext rea…; loud[1]: ts=2026-09-27T18:12:26.239979Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\",…; status[2]: counter contract.degrade=1; surfaces LOUD.log+status --json+day log (warn)
+        of which naming this cut (state, state.bin): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        note (INFERENCE, not a measurement): run/state.bin holds the host-contract observations, so the `contract: degrading to passive recording` LOUD line this session emits is a PLAUSIBLE consequence of the corruption — and this row did not establish that it is one. The identical line appears in lifecycle_frontier_state_is_explicit, which cuts nothing at all. The chain (state.bin corrupt → the contract observation is lost → the self-check fails → passive) is read off the message text; what was MEASURED is that the cut left no dangling reference and recording resumed.
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:5 roots:5 sidecars:5 checkpoints:0 dangling:0 reported:0}
+        degradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+        newly dangling: none
+        newly reported: none
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesstate_bin_corrupt974982505\001\state_bin_corrupt.json
+=== RUN   TestFault_PublicationBoundaries/config_json_corrupt
+    publication_test.go:71: fault: no daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\proj within 1m0s (lock pid 0, held=false)
+    publication_test.go:71: fault: the recovery session sess-fault-config-json-corrupt-r was not ended within 30s of its flush hook; the degradation reading is taken without that end
+    publication_test.go:71: fault config_json_corrupt: explicit_incomplete — the cut introduced no dangling reference; recording did not resume within the bound and the product says so on LOUD.log+self-test --json+day log (warn): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:14:01.6288159Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\pro…; loud[2]: ts=2026-09-27T18:14:01.6288159Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+          boundary: config.json corrupt
+          seed:     the `config-corrupt` QOMPACK_FAULT site, which writes truncated JSON into .qompack/config.json from a real hook process (internal/cli/fault.go)
+          dangling: 0→0
+          detail:   cut: .qompack/config.json holds 25 bytes of unparseable JSON
+        everything the surfaces gained: daylog[2]: qompack-20260927.log: ts=2026-09-27T18:14:01.6288159Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\pro…; loud[2]: ts=2026-09-27T18:14:01.6288159Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+        of which naming this cut (config): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:14:01.6288159Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\pro…; loud[2]: ts=2026-09-27T18:14:01.6288159Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        degradation (new since the cut): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:14:01.6288159Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\pro…; loud[2]: ts=2026-09-27T18:14:01.6288159Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=C:\Users\Quant\AppData\Local\Temp\qompack-fault-2974887022\proj\.qompack\config.json; self-test[1]: config.capture(severity 2): refused: every hook admits nothing; surfaces LOUD.log+self-test --json+day log (warn)
+        newly dangling: none
+        newly reported: none
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesconfig_json_corrupt787520916\001\config_json_corrupt.json
+--- PASS: TestFault_PublicationBoundaries (283.70s)
+    --- PASS: TestFault_PublicationBoundaries/object_written_index_line_absent (16.93s)
+    --- PASS: TestFault_PublicationBoundaries/roots_last_line_truncated (6.53s)
+    --- PASS: TestFault_PublicationBoundaries/tool_use_truncated (6.62s)
+    --- PASS: TestFault_PublicationBoundaries/capture_sidecar_stage_one_only (18.61s)
+    --- PASS: TestFault_PublicationBoundaries/checkpoint_orphan_artifact (7.37s)
+    --- PASS: TestFault_PublicationBoundaries/checkpoint_manifest_artifact_missing (7.91s)
+    --- PASS: TestFault_PublicationBoundaries/checkpoint_manifest_digest_mismatch (11.72s)
+    --- PASS: TestFault_PublicationBoundaries/wal_segment_truncated (9.13s)
+    --- PASS: TestFault_PublicationBoundaries/client_spool_truncated (16.12s)
+    --- PASS: TestFault_PublicationBoundaries/stale_drain_progress (9.64s)
+    --- PASS: TestFault_PublicationBoundaries/delivery_seal_torn_slot (65.88s)
+    --- PASS: TestFault_PublicationBoundaries/retention_roots_truncated (6.86s)
+    --- PASS: TestFault_PublicationBoundaries/state_bin_corrupt (5.76s)
+    --- PASS: TestFault_PublicationBoundaries/config_json_corrupt (94.61s)
+=== RUN   TestFault_WriteFailures
+=== RUN   TestFault_WriteFailures/disk_full
+    resources_test.go:144: fault: no daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-fault-1577583517\proj within 1m0s (lock pid 0, held=false)
+    resources_test.go:155: fault resource_disk_full: explicit_incomplete — the cut introduced no dangling reference; recording did not resume within the bound and the product says so on LOUD.log+day log (warn): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:14:06.4155808Z level=loud msg="ipc: spool append refused — event dropped" op=observe.tool err="qompack: fault disk-full: no space left on device"; loud[2]: ts=2026-09-27T18:14:06.4155808Z level=loud msg="ipc: spool append refused — event dropped" op=observe.tool err="qompack: fault disk-full: no space left on device"; surfaces LOUD.log+day log (warn)
+          boundary: every write fails, from the first one
+          seed:     the `disk-full` QOMPACK_FAULT site (internal/cli/fault.go:172-208). SIMULATED: this is a forced write failure, not a real ENOSPC — no volume was filled
+          dangling: 0→0
+          detail:   the faulted delivery toolu_fault_disk_full_01 did not reach the index, so the disk-full site bit; after the restart and drain it still had not landed
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:0 reported:0}
+        degradation (new since the cut): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:14:06.4155808Z level=loud msg="ipc: spool append refused — event dropped" op=observe.tool err="qompack: fault disk-full: no space left on device"; loud[2]: ts=2026-09-27T18:14:06.4155808Z level=loud msg="ipc: spool append refused — event dropped" op=observe.tool err="qompack: fault disk-full: no space left on device"; surfaces LOUD.log+day log (warn)
+        newly dangling: none
+        newly reported: none
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_WriteFailuresdisk_full634093343\001\resource_disk_full.json
+=== RUN   TestFault_WriteFailures/spool_full
+    resources_test.go:144: fault: no daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-fault-4175750954\proj within 1m0s (lock pid 0, held=false)
+    resources_test.go:155: fault resource_spool_full: explicit_incomplete — the cut introduced no dangling reference; recording did not resume within the bound and the product says so on LOUD.log+day log (warn): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:15:15.7613274Z level=loud msg="ipc: spool append refused — event dropped" op=observe.tool err="qompack: spool file at cap"; loud[2]: ts=2026-09-27T18:15:15.7613274Z level=loud msg="ipc: spool append refused — event dropped" op=observe.tool err="qompack: spool file at cap"; surfaces LOUD.log+day log (warn)
+          boundary: the spool accepts nothing at all
+          seed:     the `spool-full:0` QOMPACK_FAULT site, whose allowance of zero makes every Append fail. SIMULATED: a forced Append failure, not a real ENOSPC
+          dangling: 0→0
+          detail:   the faulted delivery toolu_fault_spool_full_01 did not reach the index, so the spool-full:0 site bit; after the restart and drain it still had not landed
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:0 reported:0}
+        degradation (new since the cut): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:15:15.7613274Z level=loud msg="ipc: spool append refused — event dropped" op=observe.tool err="qompack: spool file at cap"; loud[2]: ts=2026-09-27T18:15:15.7613274Z level=loud msg="ipc: spool append refused — event dropped" op=observe.tool err="qompack: spool file at cap"; surfaces LOUD.log+day log (warn)
+        newly dangling: none
+        newly reported: none
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_WriteFailuresspool_full1482537077\001\resource_spool_full.json
+=== RUN   TestFault_WriteFailures/spool_readonly
+    resources_test.go:144: fault: no daemon answered C:\Users\Quant\AppData\Local\Temp\qompack-fault-3334484131\proj within 1m0s (lock pid 0, held=false)
+    resources_test.go:155: fault resource_spool_readonly: explicit_incomplete — the cut introduced no dangling reference; recording did not resume within the bound and the product says so on LOUD.log+day log (warn): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:16:29.2800133Z level=loud msg="ipc: spool write failed — event dropped" err="ipc: spool: open: open C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-fault-3334484131\\proj\\.qompack\\spool\\client-185…; loud[2]: ts=2026-09-27T18:16:29.2800133Z level=loud msg="ipc: spool write failed — event dropped" err="ipc: spool: open: open C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-fault-3334484131\\proj\\.qompack\\spool\\client-18512.ndjson: Access is d…; surfaces LOUD.log+day log (warn)
+          boundary: the spool directory is not writable
+          seed:     the `spool-readonly` QOMPACK_FAULT site, which denies write on the spool directory (icacls on Windows, chmod elsewhere) from inside the hook process
+          dangling: 0→0
+          detail:   the faulted delivery toolu_fault_spool_readonly_01 did not reach the index, so the spool-readonly site bit; after the restart and drain it still had not landed
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:0 reported:0}
+        degradation (new since the cut): daylog[2]: qompack-20260927.log: ts=2026-09-27T18:16:29.2800133Z level=loud msg="ipc: spool write failed — event dropped" err="ipc: spool: open: open C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-fault-3334484131\\proj\\.qompack\\spool\\client-185…; loud[2]: ts=2026-09-27T18:16:29.2800133Z level=loud msg="ipc: spool write failed — event dropped" err="ipc: spool: open: open C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-fault-3334484131\\proj\\.qompack\\spool\\client-18512.ndjson: Access is d…; surfaces LOUD.log+day log (warn)
+        newly dangling: none
+        newly reported: none
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_WriteFailuresspool_readonly490073557\001\resource_spool_readonly.json
+--- PASS: TestFault_WriteFailures (212.99s)
+    --- PASS: TestFault_WriteFailures/disk_full (69.67s)
+    --- PASS: TestFault_WriteFailures/spool_full (70.43s)
+    --- PASS: TestFault_WriteFailures/spool_readonly (72.90s)
+=== RUN   TestFault_ReadOnlyObjectsDirectory
+    resources_test.go:246: fault resource_objects_readonly: recovered — the cut introduced no dangling reference, none remains anywhere under .qompack/, and the product went on recording: the recovery session's own observation was indexed.
+          boundary: `.qompack/objects` is read-only while a session records into it
+          seed:     a real session, then a genuine deny on the objects directory (icacls (OI)(CI)(WD,AD,WEA,WA,DE,DC) on Windows, 0o500 elsewhere), then a turn, then the deny lifted
+          dangling: 0→0
+          detail:   note: recording recovered by spool replay once the deny was lifted. Whether anything durable said so WHILE the deny was in force is Task 2's F-2 (owner internal/cli + internal/ipc); the degradation line above is this row's measurement of it, not a new finding.
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}
+        audit after  {tool_uses:5 roots:5 sidecars:5 checkpoints:0 dangling:0 reported:0}
+        degradation (new since the cut): daylog[10]: qompack-20260927.log: ts=2026-09-27T18:17:41.8282625Z level=warn msg="daemon: ObserveTool failed"; surfaces day log (warn)
+        newly dangling: none
+        newly reported: none
+        remaining dangling after recovery: none
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_ReadOnlyObjectsDirectory2461584752\001\resource_objects_readonly.json
+--- PASS: TestFault_ReadOnlyObjectsDirectory (10.59s)
+=== RUN   TestFault_LockContention
+    resources_test.go:318: fault: aged C:\Users\Quant\AppData\Local\Temp\qompack-fault-1542446346\proj\.qompack\run\daemon.hb past the staleness window so the next daemon may reclaim the lock
+    resources_test.go:336: fault resource_lock_contention: recovered — exactly one daemon held the lock, the second exited 0 without touching the project, hooks delivered during the contention exited 0, and a stale lock was reclaimed by the next daemon
+          boundary: two daemons for one project, and a stale lock left by a dead one
+          seed:     a real session brings the first daemon up; a second `qompack daemon` is run against the same project in the foreground; then the lock is rewritten to name a dead pid
+          dangling: 0→0
+          detail:   second `qompack daemon` exited 0 (stdout "", stderr ""); the lock holder was pid 65028 before and pid 65028 after (held=true)
+        stale lock: planted a lock naming pid 0 with an ancient heartbeat; a daemon answered and the lock is now held=true by pid 22300
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:5 roots:3 sidecars:4 checkpoints:0 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_LockContention2299878762\001\resource_lock_contention.json
+--- PASS: TestFault_LockContention (5.60s)
+=== RUN   TestV6Backup_RoundTripPreservesSourceLaterWritesAndBackup
+    v6_backup_test.go:112: fault v6_backup_roundtrip_preserves_source: recovered — packaged backup create/verify with the daemon stopped, then restore into a fresh destination: same-build content read proof and fsck --seal-check integrity pass; the point-in-time destination excludes the later write; the source, its later write and the original backup are unchanged. Same-build only; no older-reader compatibility is claimed.
+          boundary: operator backup/verify/restore of a stopped store into a fresh destination
+          seed:     packaged hooks seed a store and captures; daemon stopped; backup create/verify; a real hook then writes a new root; daemon stopped; restore into a fresh destination
+          dangling: 0→0
+          detail:   roots_proven=3; integrity_exit=0; source_objects=4; dest_objects=3
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestV6Backup_RoundTripPreservesSourceLaterWritesAndBackup1333306447\001\v6_backup_roundtrip_preserves_source.json
+--- PASS: TestV6Backup_RoundTripPreservesSourceLaterWritesAndBackup (12.84s)
+=== RUN   TestV6Backup_RefusesLiveWriterAndTargetConflict
+    v6_backup_test.go:188: fault v6_backup_refuses_live_writer_and_target_conflict: explicit_incomplete — backup create refuses beside a live daemon (telling the operator to stop it) and creates no artifact; restore refuses an occupied destination and leaves it untouched. The product reports both boundaries rather than proceeding.
+          boundary: backup create beside a live daemon; restore into an occupied destination
+          seed:     packaged hooks seed a store and leave the daemon up; backup create is attempted while it holds the lease; then the daemon is stopped, a backup is taken, and restore is aimed at a destination that already holds a .qompack
+          dangling: 0→0
+          detail:   live_refusal="backup: stop the source daemon before maintenance: qompack: daemon lock already held"; conflict_refusal="store: restore destination .qompack already exists: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-fault-720349716\\occupied\\.qompack is a directory"
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestV6Backup_RefusesLiveWriterAndTargetConflict1839754423\001\v6_backup_refuses_live_writer_and_target_conflict.json
+--- PASS: TestV6Backup_RefusesLiveWriterAndTargetConflict (7.44s)
+=== RUN   TestV6Backup_CorruptedAndUnknownSchemaRefusedWithoutOverwriting
+    v6_backup_test.go:248: fault v6_backup_corrupt_or_unknown_schema_refused: explicit_incomplete — restore refuses a corrupted backup and an unknown-schema manifest, and in neither case does it publish a destination .qompack; the failures are reported, not swept.
+          boundary: restore of a corrupted backup and of an unknown-schema manifest
+          seed:     packaged hooks seed a store; daemon stopped; a valid backup is taken; then one tree file is tampered and, separately, the manifest schema is bumped beyond this build; each restore is aimed at its own fresh destination
+          dangling: 0→0
+          detail:   corrupt_refusal="store: restore backup \"good\": .gitignore: store: backup does not match its manifest: longer than its manifest size; the incomplete staging tree is preserved as evidence at C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-fault-830320387\\dest-corrupt\\.qompack.restore-good-abc53f67ee140ccd"; schema_refusal="store: backup manifest is unusable: backup \"good\" manifest version 999 is not readable by this build"
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestV6Backup_CorruptedAndUnknownSchemaRefusedWithoutOverwriting3953774154\001\v6_backup_corrupt_or_unknown_schema_refused.json
+--- PASS: TestV6Backup_CorruptedAndUnknownSchemaRefusedWithoutOverwriting (8.22s)
+=== RUN   TestV6_FsckReportsUnpublishedCaptureWithoutDiscardingEvidence
+    v6_fsck_test.go:37: fault v6_fsck_unpublished_capture: explicit_incomplete — operator-invoked packaged fsck reports the stage-one capture and exits 1 without changing its objects or sidecars; this is not automatic recovery
+          boundary: capture sidecar published:false with no reference joined
+          seed:     packaged hook capture, stopped writer, then a published observe.tool sidecar returned to stage one
+          dangling: 0→0
+          detail:   returned observe.tool capture sha256:cebbc37c2380b67ba5ca6620e47e73e2090c62baf029160b456981034aa15da6 to stage one; fsck read_only=true; objects=3; sidecars=3
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestV6_FsckReportsUnpublishedCaptureWithoutDiscardingEvidence520891621\001\v6_fsck_unpublished_capture.json
+--- PASS: TestV6_FsckReportsUnpublishedCaptureWithoutDiscardingEvidence (5.40s)
+=== RUN   TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus
+    v6_fsck_test.go:102: fault v6_startup_accounting_unpublished_capture: explicit_incomplete — the daemon's startup accounting names the stage-one observe.tool capture on `status --json` (loud tail / publication counter) and on LOUD.log, and preserves the objects and the sidecar unchanged; the capture is still unpublished afterwards — this is automatic detection, not recovery, which stays the operator's verified backup/restore path
+          boundary: capture sidecar published:false with no reference joined, discovered at daemon startup
+          seed:     packaged hook capture, stopped writer, then a published observe.tool sidecar returned to stage one; the daemon is then restarted so its startup accounting runs
+          dangling: 0→0
+          detail:   returned observe.tool capture sha256:199a34e672142b15b1ca044cbb8e27c1cde3df5e2b7f3c1866d968597271f425 to stage one; status gaps naming the cut present=true; objects=3; sidecars=3
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus3114662009\001\v6_startup_accounting_unpublished_capture.json
+--- PASS: TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus (6.35s)
+PASS
+ok  	github.com/qompack/qompack/test/fault	671.703s
+# finished: 2026-09-27T18:18:33Z
+# exit: 0

@@ -1,0 +1,37 @@
+# cmd: go test ./internal/store -run '^TestGC_OverlappingCallsCountAResumedCursorOnce$' -count=3 -v
+# tree: git archive f6095e2 (base, no gate) plus a TEMPORARY copy of the new test and its helpers (internal/store/zz_diagtemp_recount_test.go, CounterGCQueued spelled as its literal)
+# host: windows, co-loaded
+=== RUN   TestGC_OverlappingCallsCountAResumedCursorOnce
+    zz_diagtemp_recount_test.go:130: removed 336 objects; the calls reported 229 and 332 deleted; Stats.Bytes 0, on disk 1761
+    zz_diagtemp_recount_test.go:133: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/gcserial/base-f6095e2-r2/internal/store/zz_diagtemp_recount_test.go:133
+        	Error:      	Not equal: 
+        	            	expected: 1761
+        	            	actual  : 0
+        	Test:       	TestGC_OverlappingCallsCountAResumedCursorOnce
+        	Messages:   	the store's size, which store.json persists and the quota reads, is the bytes still on disk
+--- FAIL: TestGC_OverlappingCallsCountAResumedCursorOnce (101.63s)
+=== RUN   TestGC_OverlappingCallsCountAResumedCursorOnce
+    zz_diagtemp_recount_test.go:130: removed 336 objects; the calls reported 336 and 225 deleted; Stats.Bytes 0, on disk 1761
+    zz_diagtemp_recount_test.go:133: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/gcserial/base-f6095e2-r2/internal/store/zz_diagtemp_recount_test.go:133
+        	Error:      	Not equal: 
+        	            	expected: 1761
+        	            	actual  : 0
+        	Test:       	TestGC_OverlappingCallsCountAResumedCursorOnce
+        	Messages:   	the store's size, which store.json persists and the quota reads, is the bytes still on disk
+--- FAIL: TestGC_OverlappingCallsCountAResumedCursorOnce (90.97s)
+=== RUN   TestGC_OverlappingCallsCountAResumedCursorOnce
+    zz_diagtemp_recount_test.go:130: removed 336 objects; the calls reported 336 and 225 deleted; Stats.Bytes 0, on disk 1761
+    zz_diagtemp_recount_test.go:133: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/gcserial/base-f6095e2-r2/internal/store/zz_diagtemp_recount_test.go:133
+        	Error:      	Not equal: 
+        	            	expected: 1761
+        	            	actual  : 0
+        	Test:       	TestGC_OverlappingCallsCountAResumedCursorOnce
+        	Messages:   	the store's size, which store.json persists and the quota reads, is the bytes still on disk
+--- FAIL: TestGC_OverlappingCallsCountAResumedCursorOnce (8.55s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	204.172s
+FAIL
+# exit: 1

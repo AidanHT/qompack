@@ -1,0 +1,8 @@
+# cmd: go test ./test/docs -count=1; go run ./tools/devtool gen-config-docs --check; go run ./tools/devtool gen-command-docs --check
+# commit: 4b33c19
+ok  	github.com/qompack/qompack/test/docs	2.611s
+# test/docs exit: 0
+gen-config-docs: docs/config-reference.md is up to date
+# gen-config-docs --check exit: 0
+gen-command-docs: docs/commands.md is up to date
+# gen-command-docs --check exit: 0

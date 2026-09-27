@@ -1,0 +1,20 @@
+{
+  "name": "v6_backup_roundtrip_preserves_source",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "381006e47a7677b23ef7868bab0e44a001d160f33d55bbfa4dcbd9610a7415b4"
+  },
+  "boundary": "operator backup/verify/restore of a stopped store into a fresh destination",
+  "seed_method": "packaged hooks seed a store and captures; daemon stopped; backup create/verify; a real hook then writes a new root; daemon stopped; restore into a fresh destination",
+  "outcome": "recovered",
+  "reason": "packaged backup create/verify with the daemon stopped, then restore into a fresh destination: same-build content read proof and fsck --seal-check integrity pass; the point-in-time destination excludes the later write; the source, its later write and the original backup are unchanged. Same-build only; no older-reader compatibility is claimed.",
+  "detail": "roots_proven=3; integrity_exit=0; source_objects=4; dest_objects=3",
+  "dangling_before": 0,
+  "dangling_after": 0
+}
