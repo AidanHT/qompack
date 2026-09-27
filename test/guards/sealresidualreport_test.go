@@ -69,8 +69,8 @@ var releasesWithNoSealResidual = []struct {
 	{
 		file: "internal/daemon/spawn.go", fn: "ensureRunning",
 		why: "ipc.SpawnLock.Release, which gives back run/spawn.lock when the spawn it claimed could " +
-			"not start (V6 close-out D17) — the spawn claim, not the singleton daemon.lock, and never a " +
-			"delivery journal",
+			"not start, or was not needed because a daemon answered the dial after the claim (V6 " +
+			"close-out D17) — the spawn claim, not the singleton daemon.lock, and never a delivery journal",
 	},
 }
 

@@ -107,7 +107,9 @@ arrive, instead of starting a second daemon. An older lock is presumed left by a
 and is reclaimed, so no lock holds spawning off for longer than that; a lock that is empty or
 unparseable (another spawner may be writing it), or stamped later than now, is judged by the file's
 own age. A spawn that fails to start releases its claim, and the daemon deletes the lock once it
-listens. Two processes that reclaim the same stale lock at the same instant can still both spawn; the
+listens, so a free lock can also mean the daemon is already up: `session-start` dials before each
+claim, and once more after it and before it spawns, and gives the claim back when a daemon answers.
+Two processes that reclaim the same stale lock at the same instant can still both spawn; the
 singleton lock then turns the second away.
 
 A daemon takes dials from the moment it listens, before its startup is done. That startup replays
