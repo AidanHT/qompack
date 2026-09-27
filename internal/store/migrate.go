@@ -570,8 +570,8 @@ func (m *Migrator) importOne(ctx context.Context, snap LegacySnapshot, r LegacyR
 	// WriteAtomic, so a power cut can keep the cursor and lose the line — the record is then never
 	// re-read, and parity refuses the cutover. The object (step 1) has no publication pass either. The
 	// batch's mapping lines must be made durable before each writeCursor, and the imported objects
-	// through a publication pass, before the gate passes. TestLegacyImportGate_StaysClosedUntilTheImportIsDurable
-	// holds the gate closed until then.
+	// through a publication pass, before the gate passes;
+	// TestLegacyImportGate_StaysClosedUntilTheImportIsDurable holds the gate closed until then.
 	mp := ImportMapping{
 		Version: importMappingVersion, SnapshotID: snap.ID, LegacyID: r.ID, Position: r.Position,
 		Root: res.Root.Hash, ToolUseID: id, Tool: r.Tool, Path: r.Path,
