@@ -1,0 +1,55 @@
+# TEMPORARY DIAGNOSTIC (third w6-config seat, 2026-09-27; never committed as code). Source: runs/diag-src/config_readers_under_movefileex_windows_test.go.txt
+# (The source in diag-src is the final version; the six runs above it used the same code before the capture-paced mode was added.)
+# Built as an internal/config test binary from the worktree at ecadcf4 (config.Load had no unreadable-file warning yet); Windows 11, co-loaded host (other workstreams running).
+# DIAG_ROUNDS=15 DIAG_READS=2000 per mode; a MoveFileEx writer saves .qompack/config.json in a loop while DIAG_READER reads it. Modes: readshared, load, capture, lstat, then readshared-paced and lstat-paced (a 2 ms pause before each read, so more saves land).
+## DIAG_READER=readshared
+=== RUN   TestZZDiagConfigUnderMoveFileEx
+    zz_diag_cfg_windows_test.go:149: reader=readshared read ok: 30000
+    zz_diag_cfg_windows_test.go:149: reader=readshared writer rename errno 5: 6433
+    zz_diag_cfg_windows_test.go:149: reader=readshared writer rename ok: 2107
+--- PASS: TestZZDiagConfigUnderMoveFileEx (8.05s)
+PASS
+exit=0
+## DIAG_READER=load
+=== RUN   TestZZDiagConfigUnderMoveFileEx
+    zz_diag_cfg_windows_test.go:149: reader=load load WRONG 12000 unparseable-warning=false nwarn=0: 157
+    zz_diag_cfg_windows_test.go:149: reader=load load ok: 29843
+    zz_diag_cfg_windows_test.go:149: reader=load writer rename errno 5: 31994
+    zz_diag_cfg_windows_test.go:149: reader=load writer rename ok: 21136
+--- PASS: TestZZDiagConfigUnderMoveFileEx (78.04s)
+PASS
+exit=0
+## DIAG_READER=capture
+=== RUN   TestZZDiagConfigUnderMoveFileEx
+    zz_diag_cfg_windows_test.go:149: reader=capture capture ok: 30000
+    zz_diag_cfg_windows_test.go:149: reader=capture writer rename errno 5: 40580
+    zz_diag_cfg_windows_test.go:149: reader=capture writer rename ok: 26872
+--- PASS: TestZZDiagConfigUnderMoveFileEx (72.49s)
+PASS
+exit=0
+## DIAG_READER=lstat
+=== RUN   TestZZDiagConfigUnderMoveFileEx
+    zz_diag_cfg_windows_test.go:149: reader=lstat lstat ok: 30000
+    zz_diag_cfg_windows_test.go:149: reader=lstat writer rename errno 5: 81
+    zz_diag_cfg_windows_test.go:149: reader=lstat writer rename ok: 838
+--- PASS: TestZZDiagConfigUnderMoveFileEx (1.60s)
+PASS
+exit=0
+## DIAG_READER=readshared-paced
+=== RUN   TestZZDiagConfigUnderMoveFileEx
+    zz_diag_cfg_windows_test.go:162: reader=readshared-paced read errno 2 (ntstatus 0xc0000034): 38
+    zz_diag_cfg_windows_test.go:162: reader=readshared-paced read ok: 29962
+    zz_diag_cfg_windows_test.go:162: reader=readshared-paced writer rename errno 5: 62484
+    zz_diag_cfg_windows_test.go:162: reader=readshared-paced writer rename ok: 62109
+--- PASS: TestZZDiagConfigUnderMoveFileEx (186.30s)
+PASS
+exit=0
+## DIAG_READER=lstat-paced
+=== RUN   TestZZDiagConfigUnderMoveFileEx
+    zz_diag_cfg_windows_test.go:162: reader=lstat-paced lstat errno 2 (ntstatus 0xc0000034): 57
+    zz_diag_cfg_windows_test.go:162: reader=lstat-paced lstat ok: 29943
+    zz_diag_cfg_windows_test.go:162: reader=lstat-paced writer rename errno 5: 136
+    zz_diag_cfg_windows_test.go:162: reader=lstat-paced writer rename ok: 56750
+--- PASS: TestZZDiagConfigUnderMoveFileEx (96.24s)
+PASS
+exit=0

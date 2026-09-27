@@ -274,6 +274,13 @@ func decodeCaptureMap(merged map[string]any) (Config, bool) {
 // refused the capture (owner decision D22, TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves).
 // A leaf swapped for a link, a directory or anything else between the Lstat and the open is still
 // refused: the open refuses the link, and the handle's Stat refuses the rest.
+//
+// A file that does not exist is missing, whether the Lstat or the open is the call that finds it
+// gone. Windows can report the name missing for tens of milliseconds while a rename replaces it,
+// whichever rename the writer uses (plans/sdd/V6-closeout/w6-config/runs/, the diagnostics), so an
+// atomic save can make the file vanish between the two calls. Refusing then would be the
+// fail-closed hook D22 exists to prevent, for a file that at that moment is as absent as one the
+// Lstat had not found.
 func readCaptureConfig(path string) ([]byte, bool, bool) {
 	info, err := os.Lstat(path)
 	if os.IsNotExist(err) {
@@ -283,6 +290,9 @@ func readCaptureConfig(path string) ([]byte, bool, bool) {
 		return nil, false, false
 	}
 	f, err := paths.OpenSharedLeaf(path)
+	if os.IsNotExist(err) {
+		return nil, true, true
+	}
 	if err != nil {
 		return nil, false, false
 	}

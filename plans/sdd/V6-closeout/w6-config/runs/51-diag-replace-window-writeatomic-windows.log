@@ -1,0 +1,9 @@
+# TEMPORARY DIAGNOSTIC (third w6-config seat, 2026-09-27; never committed as code). Source: runs/diag-src/replace_window_timeline_windows_test.go.txt
+# Built as an internal/paths test binary from the worktree at ecadcf4; Windows 11, co-loaded host (other workstreams running).
+# DIAG_WRITER=posix DIAG_ROUNDS=20 DIAG_SAVES=2000: the writer is paths.WriteAtomic (POSIX-semantics rename, os.Rename fallback) with an Lstat-only monitor.
+=== RUN   TestZZDiagReplaceWindowTimeline
+    zz_diag_mfx2_windows_test.go:117: round 9: miss run of 1031 Lstats lasting 18.792ms; saves around it (times rel. to run start): [#1260 ok -33.734ms..-16.463ms] [#1261 ok -16.463ms..34.087ms]
+    zz_diag_mfx2_windows_test.go:124: writer=posix: 1 miss runs, 1031 not-found Lstats over 20 rounds
+--- PASS: TestZZDiagReplaceWindowTimeline (675.16s)
+PASS
+exit=0
