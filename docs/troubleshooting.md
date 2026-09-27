@@ -761,8 +761,8 @@ daemon is running now; until it has replayed the start, the request is a `sessio
 **Meaning.** `session-start` is bounded by its 15 s manifest timeout as a whole (V6 close-out D17b
 and D21): the daemon must be listening within 8.25 s of the hook starting (or within 1.5 s of a
 spawn that itself ran late), and its answer must arrive within the reply wait that follows — 10 s
-when the daemon was up within 3.25 s, less when it came up later, and at least the 5 s a compaction
-may take once it was up by 8.25 s. A start that misses either is
+when the daemon was up within 3.25 s, less when it came up later, and about the 5 s a compaction
+may take when it came up just before 8.25 s. A start that misses either is
 spooled, not lost: the daemon replays it — at its next idle drain, within 30 s, or its next start —
 and records the session, but a replayed start mints no probe and delivers no rehydration, because
 its answer could reach no one. Only one daemon is started per project however many hooks race to

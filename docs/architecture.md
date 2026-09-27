@@ -129,15 +129,18 @@ own start and exit, which the host's clock includes; before that come the 10 s r
 250 ms dial; and a start whose daemon is up within the 3.25 s before those keeps the full reply
 wait. Finding or starting the daemon may borrow the reply wait's idle time: the poll for a listening
 daemon runs until 8.25 s, the last instant that still leaves the reply the 5 s the daemon may take
-to answer a compaction (D9) plus the dial, and the reply wait is then what is left before 13.5 s —
-at least 5 s once the daemon is up by 8.25 s. A daemon that has not come up by then is not waited
-for: the start is spooled and the hook ends at about 8.3 s. Preparing a Windows staged copy and
-creating the process are never cut short — the close-out's cold-start diagnostic saw process
-creation alone stall for 4 to 5 s on a loaded Windows machine — and a daemon started that late
-still gets the 1.5 s to come up that `EnsureRunning` has always given it, even past 8.25 s. Whatever
-runs over comes out of the reply wait, and with no time left the request is spooled without a dial.
-A start cut short is answered as any unanswered one — `{}`, or for a compaction the deferred note
-(§7) — and the daemon replays it from the spool, recording the session without the §12.1 probe.
+to answer a compaction (D9) plus the dial, and the reply wait is then what is left before 13.5 s
+once the dial is set aside: about 5 s when the poll runs all the way to 8.25 s, more when it finds
+the daemon sooner. The poll stops at 8.25 s, never partway through a tick or a dial past it, so a
+daemon that comes up in its last moments is reached by the hook's own dial. A daemon that has not
+come up by then is not waited for: the start is spooled and the hook ends at about 8.3 s.
+Preparing a Windows staged copy and creating the process are never cut short — the close-out's
+cold-start diagnostic saw process creation alone stall for 4 to 5 s on a loaded Windows machine —
+and a daemon started that late still gets the 1.5 s to come up that `EnsureRunning` has always
+given it, even past 8.25 s. Whatever runs over comes out of the reply wait, and with no time left
+the request is spooled without a dial. A start cut short is answered as any unanswered one — `{}`,
+or for a compaction the deferred note (§7) — and the daemon replays it from the spool, recording
+the session without the §12.1 probe.
 
 **What runs where.** The hook process parses its event, connects, writes and waits for an ACK. The
 daemon does the work: it is the single writer of the store, and — per `internal/mcp`'s package

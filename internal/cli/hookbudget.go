@@ -57,9 +57,10 @@ func newHookBudget(began time.Time, hostTimeout, reply, connect, minReply time.D
 // replyDeadline is how long a hook that dials at now may wait for its answer: reply, or what is
 // left before doneBy once the dial's own bound is taken off, whichever is shorter. It is reply
 // itself whenever preSend returned by preSendBy, and shorter when the find/start step borrowed idle
-// reply time (never below minReply when it kept to borrowBy) or the steps before the dial ran
-// over — staging a binary and the admission ahead of preSend are never cut short. A result at or
-// below zero means no answer can be waited for at all.
+// reply time or the steps before the dial ran over — staging a binary and the admission ahead of
+// preSend are never cut short. A find/start step that kept to borrowBy leaves minReply less only
+// the time from its return to now: its poll ends at borrowBy, and no tick or dial of the poll runs
+// past it (daemon.EnsureRunningUntil). A result at or below zero means no answer can be waited for.
 func (b hookBudget) replyDeadline(now time.Time, reply, connect time.Duration) time.Duration {
 	if b.doneBy.IsZero() {
 		return reply
