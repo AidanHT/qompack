@@ -63,8 +63,8 @@ func TestIngest_AWALSegmentsNameIsDurableBeforeItsFirstLineIsAcked(t *testing.T)
 // hook moved to spool/blob-<pid>-<n>.bin carries only a descriptor, and the job that reads the blob
 // runs after the ACK. So the blob's bytes and then the spool directory are synced before the WAL
 // line naming the blob is written — and so before the ACK that follows its Sync. An ordinary request
-// pays nothing, and a descriptor naming a blob that is not there is accepted as before (readBlob
-// reports it later; there is nothing here to make durable).
+// pays nothing, and a descriptor naming a blob that is not there is accepted as before without
+// anything being opened for it (readBlob reports it later; there is nothing here to make durable).
 func TestIngest_AnExternalizedPayloadIsDurableBeforeItsLineIsAcked(t *testing.T) {
 	ing, p, root := newWALIngest(t)
 	spool := paths.Of(root).Spool
@@ -105,7 +105,34 @@ func TestIngest_AnExternalizedPayloadIsDurableBeforeItsLineIsAcked(t *testing.T)
 	require.Equal(t, []string{
 		"blobsync " + blob, "dirsync spool", // the payload and its name, before its line
 		"dirsync spool", "write", // the session's WAL segment opened, then the line written
-		"write",                          // an ordinary request: no payload to sync
-		"blobsync blob-7-2.bin", "write", // a descriptor whose blob is missing: nothing to sync
+		"write", // an ordinary request: no payload to sync
+		"write", // a descriptor whose blob is missing: nothing to sync, nothing opened
 	}, got)
+}
+
+// TestIngest_AnExternalizedDescriptorNamingANonRegularFileIsNotOpened: the blob barrier opens only a
+// regular file. A descriptor is caller-supplied, so its name can reach a directory, a symbolic link
+// or (on POSIX) a FIFO sitting in spool/ — and opening a FIFO for writing blocks until a reader
+// appears, which would stall the ingest on a line the hook is still waiting to have ACKed. Such a
+// name has nothing to make durable: the delivery is accepted exactly as it was before the barrier
+// existed, and readBlob refuses the descriptor later by the same Lstat.
+func TestIngest_AnExternalizedDescriptorNamingANonRegularFileIsNotOpened(t *testing.T) {
+	ing, _, root := newWALIngest(t)
+	spool := paths.Of(root).Spool
+	const dirBlob = "blob-9-1.bin"
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Join(spool, dirBlob)), 0o700))
+	var synced []string
+	ing.syncBlobFile = func(path string) error {
+		synced = append(synced, filepath.Base(path))
+		return syncSpoolFile(path)
+	}
+
+	r := newWALReq(t, core.SessionID("externalized-dir"), 0)
+	ref, err := json.Marshal(blobRef{Blob: dirBlob, Bytes: 1, Field: drainBlobToolResponse})
+	require.NoError(t, err)
+	r.req.Event, r.req.Raw = &hookio.Event{}, ref
+
+	require.NoError(t, ing.Accept(r.req, r.line),
+		"a descriptor naming a directory is accepted, as before the barrier; readBlob refuses it later")
+	require.Empty(t, synced, "a name that is not a regular file is never opened for its barrier")
 }
