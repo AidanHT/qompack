@@ -1,0 +1,24 @@
+{"Time":"2026-09-26T23:30:28.475537679Z","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-09-26T23:30:28.506965116Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"}
+{"Time":"2026-09-26T23:30:28.507010355Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest\n"}
+{"Time":"2026-09-26T23:30:32.411655495Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (3.90s)\n"}
+{"Time":"2026-09-26T23:30:32.411694324Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Elapsed":3.9}
+{"Time":"2026-09-26T23:30:32.412697248Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"}
+{"Time":"2026-09-26T23:30:32.412716834Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest\n"}
+{"Time":"2026-09-26T23:30:36.160119287Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (3.75s)\n"}
+{"Time":"2026-09-26T23:30:36.16017245Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Elapsed":3.75}
+{"Time":"2026-09-26T23:30:36.161345988Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"}
+{"Time":"2026-09-26T23:30:36.161379386Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest\n"}
+{"Time":"2026-09-26T23:30:40.115541523Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (3.96s)\n"}
+{"Time":"2026-09-26T23:30:40.115607491Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Elapsed":3.96}
+{"Time":"2026-09-26T23:30:40.11754502Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"}
+{"Time":"2026-09-26T23:30:40.117591528Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest\n"}
+{"Time":"2026-09-26T23:30:43.626647536Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (3.51s)\n"}
+{"Time":"2026-09-26T23:30:43.626695671Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Elapsed":3.51}
+{"Time":"2026-09-26T23:30:43.627677862Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"}
+{"Time":"2026-09-26T23:30:43.627715095Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest\n"}
+{"Time":"2026-09-26T23:30:47.488303701Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Output":"--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (3.86s)\n"}
+{"Time":"2026-09-26T23:30:47.488386396Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestDeliveryOrder_LaneOverflowIsDrainedOnRequest","Elapsed":3.86}
+{"Time":"2026-09-26T23:30:47.489450493Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"PASS\n"}
+{"Time":"2026-09-26T23:30:48.496743672Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"ok  \tgithub.com/qompack/qompack/internal/daemon\t20.022s\n"}
+{"Time":"2026-09-26T23:30:48.496875601Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":20.023}

@@ -647,6 +647,11 @@ func maintStagePreserved(staging string, cause error) error {
 // maintNoFollow refuses when any path component between anchor and full is a symlink or reparse
 // point. anchor is a trusted root (the project root); its own ancestors are not inspected, since a
 // legitimate temp root can itself sit under a symlinked ancestor.
+//
+// Both arguments are in the spelling this package keeps every path in, never paths.Long's \\?\
+// form: that is applied here, per component, at the Lstat. filepath.Rel cannot relate a prefixed
+// path to an unprefixed anchor, so a prefixed full is refused with Rel's error, and TakeBackup's
+// walk once did exactly that to every project past MAX_PATH (C1.7).
 func maintNoFollow(anchor, full string) error {
 	rel, err := filepath.Rel(anchor, full)
 	if err != nil {

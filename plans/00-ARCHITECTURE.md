@@ -706,7 +706,10 @@ hold on Windows). Directory fsync on POSIX. The `.qompack/tmp` is that of the st
 the nearest element of `p`'s own path named `.qompack`, when it exists. A `.qompack` beside the
 path, such as the user-global `~/.qompack` above a project, owns nothing below it, and a `p` that
 no store owns is staged beside itself, so the rename never leaves the store, or the directory, that
-holds `p`. The §7.4 guard is asked of every existing store on the path, not only the owner. Never
+holds `p`. The §7.4 guard is asked of every existing store on the path, not only the owner, and
+compares names as the filesystem resolves them: case-folded where `paths.DefaultFold` holds
+(Windows, macOS) and, on Windows, with NTFS stream suffixes removed; 8.3 short names, hard links and
+reparse points resolve only through the filesystem and are outside a textual guard. Never
 used for append-only targets. `perm` is required rather than defaulted because two callers want
 different modes on the same mechanism — `0444` for a sealed artifact, `0644` for a mutable one — and
 a silent default is how one of them ends up wrong.

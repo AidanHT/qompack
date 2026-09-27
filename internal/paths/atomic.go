@@ -61,30 +61,39 @@ type pathOwner struct {
 // protected path. A p that cannot be made absolute is owned and guarded by nothing, as before.
 //
 // Only an element named .qompack costs a stat, so the walk no longer stats every ancestor up to the
-// volume root. The name is compared the way IsProtected's filepath.Rel compares it: case-folded on
-// Windows, where both the filesystem and filepath.Rel fold case, and exactly elsewhere.
+// volume root. Ownership compares that name as isStoreDirName does: case-folded on Windows and
+// exactly elsewhere. Protection compares it as IsProtected compares every name (sameName), which
+// also folds case on darwin, so a store spelled .QOMPACK on a case-insensitive darwin volume still
+// guards its protected files, while staging keeps choosing only a store spelled exactly (a folded
+// match there could make a stray .qompack on a case-sensitive volume). The walk runs over abs with
+// its NTFS stream suffixes removed, since .qompack::$INDEX_ALLOCATION resolves to the store too.
 func ownerOf(p string) pathOwner {
 	var o pathOwner
 	abs, err := filepath.Abs(p)
 	if err != nil {
 		return o
 	}
+	abs = filepath.Clean(streamless(abs))
 	nearest := true
 	for d := filepath.Dir(abs); ; {
 		parent := filepath.Dir(d)
 		if parent == d {
 			return o
 		}
-		if isStoreDirName(filepath.Base(d)) {
+		base := filepath.Base(d)
+		owns := isStoreDirName(base)
+		if owns || sameName(base, dotDir) {
 			if fi, statErr := os.Stat(Long(d)); statErr == nil && fi.IsDir() {
-				if nearest {
+				if owns && nearest {
 					o.root, o.owned = parent, true
 				}
 				if IsProtected(parent, abs) {
 					o.protected = true
 				}
 			}
-			nearest = false
+			if owns {
+				nearest = false
+			}
 		}
 		d = parent
 	}

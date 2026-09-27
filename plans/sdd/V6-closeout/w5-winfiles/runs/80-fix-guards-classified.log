@@ -1,0 +1,5 @@
+=== RUN   TestGuard_EveryProductReadIsClassified
+--- PASS: TestGuard_EveryProductReadIsClassified (1.56s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	2.349s
+exit=0

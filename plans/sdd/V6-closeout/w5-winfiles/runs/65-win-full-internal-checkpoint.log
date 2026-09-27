@@ -1,0 +1,4 @@
+## HEAD 88373aa, Windows, host co-loaded by other workstreams
+## go test ./internal/checkpoint -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/checkpoint	65.039s
+exit=0

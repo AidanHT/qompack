@@ -1,0 +1,183 @@
+## guard before folding (HEAD c6019e8 + new rows)
+## go test ./internal/paths -run '^(TestIsProtected_CaseVariantsFollowThePlatformsFold|TestIsProtected_FoldingRefusesNoOrdinaryPath|TestAppendOnlyGuard_RefusesCaseVariantsOnWindows|TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows|TestMayBeProtected_NeverHidesAProtectedPath|TestMayBeProtected_EveryProtectedLocationTakesTheWalk)$' -count=1 -v
+=== RUN   TestMayBeProtected_EveryProtectedLocationTakesTheWalk
+--- PASS: TestMayBeProtected_EveryProtectedLocationTakesTheWalk (0.00s)
+=== RUN   TestMayBeProtected_NeverHidesAProtectedPath
+--- PASS: TestMayBeProtected_NeverHidesAProtectedPath (0.60s)
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_checkpoints_directory
+    protected_case_test.go:41: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_test.go:41
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_checkpoints_directory
+        	Messages:   	on a platform that folds case (DefaultFold=true) C:\Users\Quant\AppData\Local\Temp\TestIsProtected_CaseVariantsFollowThePlatformsFold4094037894\001\.qompack\CHECKPOINTS\0001.json names a protected file
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_checkpoints_directory
+    protected_case_test.go:41: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_test.go:41
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_checkpoints_directory
+        	Messages:   	on a platform that folds case (DefaultFold=true) C:\Users\Quant\AppData\Local\Temp\TestIsProtected_CaseVariantsFollowThePlatformsFold4094037894\001\.qompack\Checkpoints\MANIFEST.jsonl names a protected file
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_pins_directory
+    protected_case_test.go:41: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_test.go:41
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_pins_directory
+        	Messages:   	on a platform that folds case (DefaultFold=true) C:\Users\Quant\AppData\Local\Temp\TestIsProtected_CaseVariantsFollowThePlatformsFold4094037894\001\.qompack\PINS\invariants.jsonl names a protected file
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_bloom_name
+    protected_case_test.go:41: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_test.go:41
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_bloom_name
+        	Messages:   	on a platform that folds case (DefaultFold=true) C:\Users\Quant\AppData\Local\Temp\TestIsProtected_CaseVariantsFollowThePlatformsFold4094037894\001\.qompack\sketches\Tried.Bloom names a protected file
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_sketches_directory
+    protected_case_test.go:41: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_test.go:41
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_sketches_directory
+        	Messages:   	on a platform that folds case (DefaultFold=true) C:\Users\Quant\AppData\Local\Temp\TestIsProtected_CaseVariantsFollowThePlatformsFold4094037894\001\.qompack\Sketches\tried.bloom names a protected file
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_store_directory
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/every_element_folded_at_once
+    protected_case_test.go:41: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_test.go:41
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestIsProtected_CaseVariantsFollowThePlatformsFold/every_element_folded_at_once
+        	Messages:   	on a platform that folds case (DefaultFold=true) C:\Users\Quant\AppData\Local\Temp\TestIsProtected_CaseVariantsFollowThePlatformsFold4094037894\001\.Qompack\SKETCHES\TRIED.BLOOM names a protected file
+=== RUN   TestIsProtected_CaseVariantsFollowThePlatformsFold/the_project_root_spelled_in_another_case
+--- FAIL: TestIsProtected_CaseVariantsFollowThePlatformsFold (0.03s)
+    --- FAIL: TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_checkpoints_directory (0.00s)
+    --- FAIL: TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_checkpoints_directory (0.00s)
+    --- FAIL: TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_pins_directory (0.00s)
+    --- FAIL: TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_bloom_name (0.00s)
+    --- FAIL: TestIsProtected_CaseVariantsFollowThePlatformsFold/a_mixed-case_sketches_directory (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/an_upper-case_store_directory (0.00s)
+    --- FAIL: TestIsProtected_CaseVariantsFollowThePlatformsFold/every_element_folded_at_once (0.00s)
+    --- PASS: TestIsProtected_CaseVariantsFollowThePlatformsFold/the_project_root_spelled_in_another_case (0.00s)
+=== RUN   TestIsProtected_FoldingRefusesNoOrdinaryPath
+--- PASS: TestIsProtected_FoldingRefusesNoOrdinaryPath (0.02s)
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_checkpoints_directory
+    protected_case_windows_test.go:55: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:55
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_checkpoints_directory
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_O_TRUNC_through_an_upper-case_pins_directory
+    protected_case_windows_test.go:62: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:62
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_O_TRUNC_through_an_upper-case_pins_directory
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_non-append_write_through_a_mixed-case_pins_directory
+    protected_case_windows_test.go:69: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:69
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_non-append_write_through_a_mixed-case_pins_directory
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenSharedRW_through_an_upper-case_pins_directory
+    protected_case_windows_test.go:76: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:76
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenSharedRW_through_an_upper-case_pins_directory
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_bloom_name
+    protected_case_windows_test.go:79: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:79
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_bloom_name
+=== RUN   TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_through_every_element_in_another_case
+    protected_case_windows_test.go:84: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:84
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_through_every_element_in_another_case
+=== NAME  TestAppendOnlyGuard_RefusesCaseVariantsOnWindows
+    protected_case_windows_test.go:87: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:45
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:87
+        	Error:      	Not equal: 
+        	            	expected: "bloomdata"
+        	            	actual  : "replaced"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-bloomdata
+        	            	+replaced
+        	Test:       	TestAppendOnlyGuard_RefusesCaseVariantsOnWindows
+        	Messages:   	C:\Users\Quant\AppData\Local\Temp\TestAppendOnlyGuard_RefusesCaseVariantsOnWindows305197117\001\.qompack\sketches\tried.bloom must be byte-for-byte untouched
+--- FAIL: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows (0.10s)
+    --- FAIL: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_checkpoints_directory (0.01s)
+    --- FAIL: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_O_TRUNC_through_an_upper-case_pins_directory (0.00s)
+    --- FAIL: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenFile_non-append_write_through_a_mixed-case_pins_directory (0.00s)
+    --- FAIL: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/OpenSharedRW_through_an_upper-case_pins_directory (0.00s)
+    --- FAIL: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_over_an_upper-case_bloom_name (0.02s)
+    --- FAIL: TestAppendOnlyGuard_RefusesCaseVariantsOnWindows/WriteAtomic_through_every_element_in_another_case (0.02s)
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom::$DATA
+    protected_case_windows_test.go:114: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:114
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom::$DATA
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/TRIED.BLOOM::$data
+    protected_case_windows_test.go:114: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:114
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/TRIED.BLOOM::$data
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom:extra
+    protected_case_windows_test.go:114: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:114
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: "open C:\\Users\\Quant\\AppData\\Local\\Temp\\TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows3423392240\\001\\.qompack\\sketches\\tried.bloom:extra: The system cannot find the file specified."
+        	            		"The system cannot find the file specified."
+        	Test:       	TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom:extra
+=== RUN   TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/a_checkpoint's_data_stream
+=== NAME  TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows
+    protected_case_windows_test.go:128: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:45
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/paths/protected_case_windows_test.go:128
+        	Error:      	Not equal: 
+        	            	expected: "bloomdata"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-bloomdata
+        	            	+
+        	Test:       	TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows
+        	Messages:   	C:\Users\Quant\AppData\Local\Temp\TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows3423392240\001\.qompack\sketches\tried.bloom must be byte-for-byte untouched
+--- FAIL: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows (0.07s)
+    --- FAIL: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom::$DATA (0.00s)
+    --- FAIL: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/TRIED.BLOOM::$data (0.00s)
+    --- FAIL: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/tried.bloom:extra (0.00s)
+    --- PASS: TestAppendOnlyGuard_RefusesTheBloomsDataStreamOnWindows/a_checkpoint's_data_stream (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.969s
+FAIL
+exit=1

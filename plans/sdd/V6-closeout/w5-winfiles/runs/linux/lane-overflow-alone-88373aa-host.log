@@ -1,0 +1,34 @@
+run_id=cx-w5-winfiles-lane-overflow-alone-88373aa-20260926T233005Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles
+rev=88373aa
+commit=88373aaf54485acd058dd5b8e6a41a5f90a7ac71
+bundle_sha256=80f93626a1db5204fcf5da31d5a2edcef3afed85128076aa487ec2b36d7f03e1
+host_started_utc=2026-09-26T23:30:12Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 5 -- ./internal/daemon
+/work/cx-w5-winfiles-lane-overflow-alone-88373aa-20260926T233005Z.bundle: OK
+run_id=cx-w5-winfiles-lane-overflow-alone-88373aa-20260926T233005Z
+commit=88373aaf54485acd058dd5b8e6a41a5f90a7ac71
+tree=8d211f92dd5be49f3b5c942dfa35b524d8aa68e9
+bundle_sha256=80f93626a1db5204fcf5da31d5a2edcef3afed85128076aa487ec2b36d7f03e1
+started_utc=2026-09-26T23:30:14Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=5 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/plans/sdd/V6-closeout/w5-winfiles/runs/linux/cx-w5-winfiles-lane-overflow-alone-88373aa-20260926T233005Z-artifacts
+exit=0

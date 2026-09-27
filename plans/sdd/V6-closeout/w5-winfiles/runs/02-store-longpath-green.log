@@ -1,0 +1,13 @@
+## HEAD 88373aa; Windows
+## go test ./internal/store -run '^TestMaintenance_BackupVerifyRestoreBeyondMaxPath$' -count=1 -v
+=== RUN   TestMaintenance_BackupVerifyRestoreBeyondMaxPath
+--- PASS: TestMaintenance_BackupVerifyRestoreBeyondMaxPath (2.52s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	2.957s
+exit=0
+## go test ./internal/store -run '^TestGC_RunsBeyondMaxPath$' -count=1 -v
+=== RUN   TestGC_RunsBeyondMaxPath
+--- PASS: TestGC_RunsBeyondMaxPath (0.18s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.413s
+exit=0

@@ -1,0 +1,8 @@
+## working tree (007c3d6 + backup_segments_test.go matcher fix); TMP=C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\winfiles\deeptmp\deep-tmp-segment-to-push-every-t-tempdir-past-legacy-max-path (224 chars)
+## go test ./internal/store -run '^TestBackup_RefusesFrontierChangedBeforeItsOwnCopy$' -count=1 -v
+=== RUN   TestBackup_RefusesFrontierChangedBeforeItsOwnCopy
+--- PASS: TestBackup_RefusesFrontierChangedBeforeItsOwnCopy (0.41s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.625s
+exit=0
+## before the matcher fix this test failed under the same TMP in runs/42-deeptmp-store-full.log ("the test must change a watched frontier during the copy")

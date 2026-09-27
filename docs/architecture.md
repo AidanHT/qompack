@@ -164,7 +164,13 @@ Named files referenced elsewhere on this page: `checkpoints/NNNN.json` and
 `internal/paths`'s package comment makes the §7.4 append-only invariant mechanical: "every function
 in this package that can write into `.qompack` refuses to truncate or rewrite `checkpoints/`,
 `pins/`, or `sketches/tried.bloom`" (`appendonly.go`: `IsProtected`, `OpenFile`, `AppendOnly`,
-`AppendJSONL`, `CreateNew`, `ReplaceBloom`).
+`AppendJSONL`, `CreateNew`, `ReplaceBloom`). The guard judges a path by its spelling, compared the
+way the filesystem resolves names (`protected_names.go`): case-folded on Windows and macOS, where
+`CHECKPOINTS/0001.json` is the sealed checkpoint itself, and on Windows with every NTFS stream
+suffix (`::$DATA`, `::$INDEX_ALLOCATION`) removed first. Spellings that resolve only through the
+filesystem are outside a textual guard: 8.3 short names such as `CHECKP~1`, hard links and reparse
+points. No product caller builds any of these spellings; every protected path comes from a `Layout`
+field.
 
 The write set is asserted, not asserted-about: `plans/V5-report.md` §27 records
 `TestV5_NoPackageWritesOutsideDotQompack` running under the real binary, plus

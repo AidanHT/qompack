@@ -147,8 +147,8 @@ func LoadForCapture(env Env) (Config, Provenance, []Violation, []Warning, error)
 		origin Origin
 		layer  string
 	}{
-		{filepath.Join(env.HomeDir, ".qompack", "config.json"), OriginUserFile, "user"},
-		{filepath.Join(env.ProjectRoot, ".qompack", "config.json"), OriginProjectFile, "project"},
+		{UserConfigPath(env.HomeDir), OriginUserFile, "user"},
+		{ProjectConfigPath(env.ProjectRoot), OriginProjectFile, "project"},
 	} {
 		raw, missing, ok := readCaptureConfig(input.path)
 		if !ok {
