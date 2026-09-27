@@ -1,0 +1,13 @@
+# head=7abddc7: go test -count=1 ./test/docs; gen-*-docs --check; devtool fmt-check; go vet on the touched packages per GOOS
+ok  	github.com/qompack/qompack/test/docs	2.226s
+test/docs exit=0
+gen-mcp-docs: docs/mcp-tools.md is up to date
+gen-mcp exit=0
+gen-command-docs: docs/commands.md is up to date
+gen-command exit=0
+gen-config-docs: docs/config-reference.md is up to date
+gen-config exit=0
+fmt-check exit=0
+vet windows exit=0
+vet linux exit=0
+vet darwin exit=0

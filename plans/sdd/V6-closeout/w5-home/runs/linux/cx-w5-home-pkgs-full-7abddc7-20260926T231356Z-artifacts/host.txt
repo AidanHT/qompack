@@ -1,0 +1,10 @@
+run_id=cx-w5-home-pkgs-full-7abddc7-20260926T231356Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-home
+rev=7abddc7
+commit=7abddc7485324256bf2ebb04a30e7ee986e64003
+bundle_sha256=b949347eaf543d35706f24eb8e865642f0ad0ef8e0ca9be9d1191276515bf788
+host_started_utc=2026-09-26T23:14:06Z
+inner_args=-- ./internal/paths ./internal/cli ./internal/commands ./internal/mcp ./internal/daemon ./test/docs
+host_finished_utc=2026-09-26T23:34:22Z
+container_exit=0

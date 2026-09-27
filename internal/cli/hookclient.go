@@ -309,6 +309,12 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		ts := clk.Now().UnixMilli() // FIRST statement — the B-A origin.
 
 		root := resolveProjectRoot(env, nil)
+		// D18: a session whose project root is the home directory records nothing. The check comes
+		// before anything reads from that root, writes to it — a fault site, a quiet log, a config
+		// violation list — or starts a daemon for it, because its .qompack is the user-global layer.
+		if isHomeRoot(env, root) {
+			return writeRefusedHookOutput(spec.op, args, out)
+		}
 		faultCorruptStateIfNeeded(root)
 		st := ipc.ReadState(root, config.Defaults())
 		if st.Mode == contract.ModeOff {
@@ -368,6 +374,11 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		// policy is precisely the second pass that must never restore removed content.
 		if !degraded {
 			if r2 := resolveProjectRoot(env, &ev); r2 != root {
+				// The payload's own root is refused exactly like the process's (D18), before its state
+				// is read or its configuration is loaded and reported under it.
+				if isHomeRoot(env, r2) {
+					return writeRefusedHookOutput(spec.op, args, out)
+				}
 				root = r2
 				faultCorruptStateIfNeeded(root)
 				st = ipc.ReadState(root, config.Defaults())

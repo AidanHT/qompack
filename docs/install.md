@@ -129,6 +129,13 @@ validation is not: the directory is validated **where it sits**, so installed ma
 `${CLAUDE_PLUGIN_ROOT}` expansion and launcher discovery remain unverified by it (Qompack.md §7.5).
 The install record is what raises `installed-verified`.
 
+Run the checks from a project directory, and start sessions in one. Qompack does not use your home
+directory as a project (owner decision D18): a session whose project root is the home directory —
+started there, or below a home that is itself a git repository in a directory with no `.git` of its
+own — is told on its first line that Qompack is inactive, and records nothing. There
+`qompack doctor` reports `scope.root` as `disabled` with the reason, and `fsck`, `backup` and
+`self-test` exit 1 ([docs/troubleshooting.md](troubleshooting.md#qompack-is-inactive-in-the-home-directory)).
+
 `qompack doctor --json` answers version, host, capability, scope, and which controls are disabled.
 It carries a `project` field and a `checkpoint.latest` row; it does **not** carry a per-artifact
 schema row. A checkpoint artifact or capture sidecar newer than the build appears in

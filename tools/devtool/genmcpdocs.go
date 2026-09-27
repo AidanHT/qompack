@@ -104,7 +104,7 @@ func renderMCPDoc() ([]byte, error) {
 	b.WriteString("it speaks JSON-RPC 2.0 to the host and forwards every `tools/call` to the resident\n")
 	b.WriteString("daemon, which holds the warm store handles and is the single writer.\n\n")
 
-	b.WriteString("Two behaviours apply to every tool here.\n\n")
+	b.WriteString("These behaviours apply to every tool here.\n\n")
 	b.WriteString("**Ephemeral metadata describes Qompack records.** Retrieval responses expose\n")
 	b.WriteString("`_meta.qompack.ephemeral`; this is not a host eviction control or proof of native\n")
 	b.WriteString("context retention. Capture, archive availability and coverage may be partial or unknown.\n")
@@ -117,6 +117,10 @@ func renderMCPDoc() ([]byte, error) {
 	b.WriteString("chunk-aligned span that covers what you asked for, widened to a symbol boundary where\n")
 	b.WriteString("one is known. Pass `full: true` when you genuinely need the whole object; the response\n")
 	b.WriteString("carries a `next_span` when there is more to page through.\n\n")
+	b.WriteString("**A session in the home directory is refused.** When a session's project root is the\n")
+	b.WriteString("user's home directory, Qompack records nothing (owner decision D18), and `qompack mcp`\n")
+	b.WriteString("answers every call with this tool error without starting a daemon:\n\n")
+	fmt.Fprintf(&b, "> %s\n\n", mcp.HomeRootRefusedText)
 
 	fmt.Fprintf(&b, "A model should call `%s` before committing to an approach: %s\n\n",
 		mcp.ToolAlreadyTried, mcp.StandingInstruction)

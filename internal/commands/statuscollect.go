@@ -155,6 +155,11 @@ type StatusSources struct {
 	Daemon func(context.Context) (DaemonStatus, time.Time, error)
 	// Disk returns the last persisted metrics snapshot, whose own TS carries its age.
 	Disk func(context.Context) (obs.Snapshot, error)
+	// Refused, when non-nil, is why neither source may be asked: owner decision D18 refuses a
+	// project root that is the user's home directory, so there is no daemon to ask and no project
+	// metrics file to read, and asking would touch the user-global layer's directory. The report
+	// then carries nothing observed, with this as its one reason.
+	Refused error
 }
 
 // perHookHists maps a hook entry point to the histogram that measures THAT HOOK ALONE.
@@ -216,6 +221,13 @@ func CollectStatus(ctx context.Context, src StatusSources, now time.Time) Status
 
 // resolve tries the daemon, then the persisted metrics file, and reports which one answered.
 func resolve(ctx context.Context, src StatusSources, now time.Time) (*DaemonStatus, map[string]obs.HistSnapshot, Provenance) {
+	if src.Refused != nil {
+		return nil, nil, Provenance{
+			Source: SourceNone,
+			Status: AvailabilityUnavailable,
+			Reason: src.Refused.Error(),
+		}
+	}
 	var reasons []string
 
 	if src.Daemon != nil {

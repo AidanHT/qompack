@@ -632,7 +632,32 @@ resolved in this order and cached per daemon:
 3. the payload `cwd` itself
 
 It is **never** the plugin install directory and never `~`. Global, cross-project state lives in
-`~/.qompack/` (`config.json` user-global layer, `calibration.json`). There is no daemon registry
+`~/.qompack/` (`config.json` user-global layer, `calibration.json`).
+
+**A root that is the home directory is refused (owner decision D18, 2026-09-26).** Each of the three
+steps can name `~` itself — the override pointing there, a session started there, or a walk from
+below it that stops at a home that is a git work tree (a dotfiles repository) — and the store would
+then be `~/.qompack/`, the user-global layer's own directory. Resolution order is unchanged; what
+changes is that no entry point uses such a root. `paths.IsHome(root, homes...)` is the one question
+(§5.0): the root and each home are made absolute and cleaned, compared by spelling
+(case-insensitively on Windows), then by identity (`os.SameFile` over `os.Stat`, which follows
+symlinks and junctions). The homes are `HOME` and `USERPROFILE`, both on every platform, plus the
+home the caller's user-global layer uses. Every entry point asks it about the root it resolved
+before it reads, writes, locks or spawns anything for it:
+
+- all seven hooks exit 0 and do nothing: `SessionStart` answers one short `systemMessage` saying
+  Qompack is inactive in the home directory and how to fix it, the others `{}`. The process's own
+  root and the payload's root are both asked, so a session started in `~` stays refused when a later
+  payload names a project below it;
+- `qompack mcp` serves the same eight tools, each answering `mcp.HomeRootRefusedText` as a tool
+  error; `qompack daemon` exits 0 with the reason on stderr; `daemon.AcquireLock` refuses the root
+  for any other embedder;
+- `status` and `doctor` report the reason and exit 0; `fsck`, `backup` (source or destination),
+  `admin delivery-seal`, `self-test` and the recall/pin/why/dropped frontends refuse with exit 1;
+  `config print` shows the user-global layer alone and persists nothing.
+
+The user-global layer itself — configuration, calibration, the D10 staged copies — keeps working for
+every project below the home directory, which resolves exactly as before. There is no daemon registry
 file: a daemon is located by deriving its endpoint from the project root (`ipc.Resolve`), not by
 looking it up in a global list, so nothing has to be reconciled after a crash. `daemons.json` was
 in an earlier draft of this section and was never built; it is named here only so that a reader who
@@ -860,6 +885,12 @@ func Of(root string) Layout
 func EnsureLayout(l Layout) error
 func Global(home string) string                       // ~/.qompack (§3.2)
 func Resolve(getenv func(string) string, payloadCWD string) (string, error) // §3.2's three-step project root
+
+// ── the home-directory refusal (§3.3, owner decision D18) ──────────────
+var ErrHomeRoot error                                  // "the project root is the home directory"
+func HomeDirs(getenv func(string) string) []string     // HOME, USERPROFILE: distinct, non-empty; nil getenv → none
+func IsHome(root string, homes ...string) bool         // spelling (folded on Windows), then os.SameFile identity
+func RefuseHome(root string, homes ...string) error    // nil, or ErrHomeRoot wrapped with the root and the fix
 
 // ── the append-only writers (§3.3) ─────────────────────────────────────
 func AppendOnly(p string) (io.WriteCloser, error)     // O_WRONLY|O_APPEND|O_CREATE; refuses O_TRUNC
@@ -2156,6 +2187,13 @@ type Deps struct {
     Eval eval.Harness; Metrics obs.Registry; Contract contract.Monitor; Cfg config.Config
 }
 ```
+
+`Deps.Refused` (owner decision D18) carries why an invocation has no project at all — its root is
+the home directory (§3.3). Every frontend except `status` and `eval` then answers it as an
+`unavailable` error, and `status` reports it as its one provenance reason (`StatusSources.Refused`)
+without asking the daemon or reading a metrics file. The struct above predates SP-14's `MCP`,
+`CheckpointNow`, `EvalArtifacts`, `Status` and `Clock` members; `internal/commands/commands.go` is
+the current shape.
 
 `/qompack:status` output is the observability surface (G8.1): mode (`full`/`degraded-passive`),
 contract-assertion table, store size + dedup ratio, sketch fill ratios and estimated FP rate,

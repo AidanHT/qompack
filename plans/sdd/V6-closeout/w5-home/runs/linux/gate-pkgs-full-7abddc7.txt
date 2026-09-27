@@ -1,0 +1,40 @@
+run_id=cx-w5-home-pkgs-full-7abddc7-20260926T231356Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-home
+rev=7abddc7
+commit=7abddc7485324256bf2ebb04a30e7ee986e64003
+bundle_sha256=b949347eaf543d35706f24eb8e865642f0ad0ef8e0ca9be9d1191276515bf788
+host_started_utc=2026-09-26T23:14:06Z
+inner_args=-- ./internal/paths ./internal/cli ./internal/commands ./internal/mcp ./internal/daemon ./test/docs
+/work/cx-w5-home-pkgs-full-7abddc7-20260926T231356Z.bundle: OK
+run_id=cx-w5-home-pkgs-full-7abddc7-20260926T231356Z
+commit=7abddc7485324256bf2ebb04a30e7ee986e64003
+tree=520058e698eba6f9aa9c314d83a74ca2d91dbd8c
+bundle_sha256=b949347eaf543d35706f24eb8e865642f0ad0ef8e0ca9be9d1191276515bf788
+started_utc=2026-09-26T23:14:09Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/paths  (pass=177 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/cli  (pass=414 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/commands  (pass=126 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/mcp  (pass=387 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1501 fail=0 skip=1)
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-home/plans/sdd/V6-closeout/w5-home/runs/linux/cx-w5-home-pkgs-full-7abddc7-20260926T231356Z-artifacts
+exit=0
+gate exit=0

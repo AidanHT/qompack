@@ -1,0 +1,10 @@
+# head=7abddc7: go test -count=1 -v -run '^TestGuard_WriteSetConfinedToQompack$|^TestGuard_WriteSetDetectsAStrayWrite$' ./test/guards/
+=== RUN   TestGuard_WriteSetConfinedToQompack
+--- PASS: TestGuard_WriteSetConfinedToQompack (0.12s)
+=== RUN   TestGuard_WriteSetDetectsAStrayWrite
+=== PAUSE TestGuard_WriteSetDetectsAStrayWrite
+=== CONT  TestGuard_WriteSetDetectsAStrayWrite
+--- PASS: TestGuard_WriteSetDetectsAStrayWrite (0.01s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.346s
+exit=0

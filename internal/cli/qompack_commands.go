@@ -93,6 +93,14 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 	if root == "" {
 		return deps, noop
 	}
+	// D18: the home directory is not a project. Nothing below may open a log, a pin store or a
+	// client for it: its .qompack is the user-global layer, and projectEstablished would mistake that
+	// directory for an established store and let a query write into it.
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		deps.Refused = refused
+		deps.Status = commands.StatusSources{Refused: refused}
+		return deps, noop
+	}
 
 	l := paths.Of(root)
 
@@ -148,7 +156,9 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 //
 // It tests for .qompack itself rather than for any file inside it: the directory is what
 // paths.EnsureLayout creates, and its presence is the difference between "this is a Qompack
-// project whose store happens to be empty" and "this is somebody's home directory".
+// project whose store happens to be empty" and "this is a directory nobody used Qompack in". It
+// cannot tell a project from the home directory, whose .qompack is the user-global layer: callers
+// refuse that root first (refuseHomeRoot, D18).
 func projectEstablished(l paths.Layout) bool {
 	fi, err := os.Stat(l.Dot)
 	return err == nil && fi.IsDir()

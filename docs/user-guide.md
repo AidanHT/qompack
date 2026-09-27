@@ -36,6 +36,15 @@ The full list is [docs/cannot-do.md](cannot-do.md).
 `.qompack/` in the project directory it resolves and starts that project's daemon. It is a write.
 See [Operator commands](#operator-commands) for exactly which commands do this.
 
+**Open a project, not your home directory.** Qompack works per project: the project root is the
+nearest enclosing `.git`, or else the working directory. When that root is your home
+directory — a session started there, or started below a home that is itself a git repository (a
+dotfiles repository) in a directory with no `.git` of its own — Qompack is inactive for the whole
+session (owner decision D18): its store would be `~/.qompack`, which holds Qompack's own user-wide
+settings. The session opens with one line saying so, the slash commands and MCP tools answer that
+Qompack is inactive, and nothing is written anywhere. Start the session in the project directory
+instead ([docs/troubleshooting.md](troubleshooting.md#qompack-is-inactive-in-the-home-directory)).
+
 ## Slash commands
 
 Qompack installs seven slash commands. Each shells out to the `qompack` binary, so
