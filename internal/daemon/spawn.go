@@ -17,18 +17,23 @@ import (
 // runSpawnLockFileName mirrors ipc's own unexported spawnLockName ("spawn.lock"), the file every
 // spawner of a project's daemon claims inside <root>/.qompack/run before it launches one
 // (ipc.ClaimSpawn). ipc's copy cannot be reached from this package (it is unexported and ipc may not
-// import daemon — §3.2), so the literal is respelled here for the one caller that needs it: Run,
-// which deletes it once the daemon it names has actually come up.
+// import daemon — §3.2), so the literal is respelled here for the two places that delete it: Run,
+// once the daemon it names has actually come up, and Lock.Release, as the lock's owner lets go.
 const runSpawnLockFileName = "spawn.lock"
 
 // removeSpawnLockFile deletes <root>/.qompack/run/spawn.lock, if present (task-5-spec.md
-// daemon.go Run step 3: "delete run/spawn.lock after listen"). A spawner's claim is already
-// self-clearing via staleness, so this is a courtesy cleanup, not a correctness requirement — a
-// missing file is not an error. paths.CreateNew leaves the file read-only
-// (0o444/FILE_ATTRIBUTE_READONLY), which blocks deletion on Windows, so the mode is cleared first;
-// harmless on POSIX, where permissions never gate an unlink.
+// daemon.go Run step 3: "delete run/spawn.lock after listen"): the spawn the claim announced has
+// arrived, so the next spawner need not wait for the claim to go stale. Whatever claim is there
+// when daemon.lock is released is removed then too (Lock.Release, D27). A missing file is not an
+// error.
 func removeSpawnLockFile(root string) {
-	p := filepath.Join(paths.Of(root).Run, runSpawnLockFileName)
+	removeSpawnClaim(filepath.Join(paths.Of(root).Run, runSpawnLockFileName))
+}
+
+// removeSpawnClaim deletes the spawn.lock at p, if present. paths.CreateNew leaves the file
+// read-only (0o444/FILE_ATTRIBUTE_READONLY), which blocks deletion on Windows, so the mode is
+// cleared first; harmless on POSIX, where permissions never gate an unlink.
+func removeSpawnClaim(p string) {
 	_ = os.Chmod(paths.Long(p), 0o600)
 	_ = os.Remove(paths.Long(p))
 }

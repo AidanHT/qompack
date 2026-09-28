@@ -377,6 +377,16 @@ func (l *Lock) SealDowngradeResidual() error {
 // lock already gone (owned reports false) and returns nil without touching anything. It is also
 // safe to call after the lock has been reclaimed by a different process (owned reports false for
 // the same reason): Release never deletes a file it does not currently own.
+//
+// Before it lets go, an owner also gives back run/spawn.lock (V6 close-out D27). A daemon a hook
+// spawned while this lock was held lost it and exited without ever listening, so nothing removed the
+// claim its spawner wrote, and for the claim's freshness window every spawner reads it as a daemon
+// on its way (ipc.ClaimSpawn). While the owner lives that only holds further spawns off; once it has
+// gone, it would leave a SessionEnd flush with no daemon and no spawn. A claim present now is this
+// owner's own spawner's (a daemon stopped before it listened) or was made while this lock was held,
+// so the daemon it names has lost, or will find the lock gone and take it: removing it costs at most
+// one extra spawn, which daemon.lock turns away (D17). It is removed while the lock is still held,
+// so that the lock's removal stays Release's last act.
 func (l *Lock) Release() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -392,6 +402,7 @@ func (l *Lock) Release() error {
 		l.released = true
 		return nil
 	}
+	removeSpawnClaim(filepath.Join(filepath.Dir(l.path), runSpawnLockFileName))
 	_ = os.Chmod(paths.Long(l.path), 0o600) // paths.CreateNew leaves the lock file read-only
 	err1 := os.Remove(paths.Long(l.path))
 	if err1 != nil && os.IsNotExist(err1) {
