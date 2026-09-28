@@ -140,17 +140,18 @@ func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock)
 // EnsureRunningUntil is EnsureRunning bounded by session-start's hook budget (internal/cli
 // hookBudget, D17b and D21): its poll runs until until, the borrow limit — 8.25 s into the hook,
 // the last instant that still leaves the reply D9's compact bound (CompactAnswerBudget) plus the
-// dial — and never past latest, the last instant a reply could still follow. It ends there: no
-// tick or dial of the poll runs past its end (pollEnds), so a poll that ends at until leaves the
-// reply that bound in full; a daemon that comes up in its last tick is found by the hook's own dial. Everything before the
-// poll — the dial, the claim and a spawn, which on Windows stages the binary (spawn_stage.go) and
-// can stall in process creation for seconds on a loaded machine — is never cut short, and a daemon
-// this call started, or found already on its way, late still gets ensureRunningPollBound to come
-// up, the wait EnsureRunning has always given it, counted from its spawn or from the moment this
-// call found it on its way, up to latest; session-start then waits that much less for the reply. A
-// deadline that has already passed therefore still gets one dial and, when this call may spawn, its
-// spawn, so the session always gets a daemon started. Zero instants fall back to EnsureRunning's
-// bound.
+// dial — and never past latest, the last instant a reply could still follow. It ends there: no tick
+// or dial of the poll runs past its end (pollEnds), so a poll that ends at until leaves the reply
+// about that bound, less the poll's own return (a claim given back, say) and the dial's transit, an
+// edge D29 accepted; a daemon that comes up in its last tick is found by the hook's own dial.
+// Everything before the poll — the dial, the claim and a spawn, which on Windows stages the binary
+// (spawn_stage.go) and can stall in process creation for seconds on a loaded machine — is never cut
+// short, and a daemon this call started, or found already on its way, late still gets
+// ensureRunningPollBound to come up, the wait EnsureRunning has always given it, counted from its
+// spawn or from the moment this call found it on its way, up to latest; session-start then waits
+// that much less for the reply. A deadline that has already passed therefore still gets one dial
+// and, when this call may spawn, its spawn, so the session always gets a daemon started. Zero
+// instants fall back to EnsureRunning's bound.
 func EnsureRunningUntil(projectRoot, self string, log logging.Logger, clk core.Clock, until, latest time.Time) (spawned bool, err error) {
 	return ensureRunning(projectRoot, self, log, clk,
 		pollBound{until: until, after: ensureRunningPollBound, latest: latest}, detachedSpawner(log))
