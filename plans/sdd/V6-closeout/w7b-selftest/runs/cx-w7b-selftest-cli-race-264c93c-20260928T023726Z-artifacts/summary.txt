@@ -1,0 +1,1 @@
+PASS      github.com/qompack/qompack/internal/cli  (pass=434 fail=0 skip=0)
