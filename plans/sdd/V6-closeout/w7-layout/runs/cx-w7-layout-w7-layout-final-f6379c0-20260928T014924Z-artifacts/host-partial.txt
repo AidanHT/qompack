@@ -1,0 +1,31 @@
+run_id=cx-w7-layout-w7-layout-final-f6379c0-20260928T014924Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-layout
+rev=f6379c00
+commit=f6379c0014847ea5b846d2dad06a092e4698d21e
+bundle_sha256=1fc3b37b31ad242657259943e80e53b53f3f661acbf8859613c0dad1963c2ea1
+host_started_utc=2026-09-28T01:49:34Z
+inner_args=--timeout 30m -- ./internal/paths ./internal/store ./internal/daemon
+/work/cx-w7-layout-w7-layout-final-f6379c0-20260928T014924Z.bundle: OK
+run_id=cx-w7-layout-w7-layout-final-f6379c0-20260928T014924Z
+commit=f6379c0014847ea5b846d2dad06a092e4698d21e
+tree=56ade54383702eabd27f158948f7e86e38dd5e84
+bundle_sha256=1fc3b37b31ad242657259943e80e53b53f3f661acbf8859613c0dad1963c2ea1
+started_utc=2026-09-28T01:50:01Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+Terminated
+exit=124

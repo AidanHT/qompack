@@ -1,0 +1,14 @@
+=== RUN   TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout
+    barriers_retry_test.go:142: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-layout/internal/paths/barriers_retry_test.go:142
+        	Error:      	Target error should be in err chain:
+        	            	expected: "file does not exist"
+        	            	in chain: 
+        	Test:       	TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout
+        	Messages:   	a layout with a directory whose barrier failed is not marked
+--- FAIL: TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout (0.02s)
+=== RUN   TestEnsureLayout_ReMarksALayoutOnceItsNewDirectoryIsDurable
+--- PASS: TestEnsureLayout_ReMarksALayoutOnceItsNewDirectoryIsDurable (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.570s
+FAIL

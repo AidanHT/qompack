@@ -1,0 +1,9 @@
+{"Time":"2026-09-28T02:17:00.159337733Z","Action":"start","Package":"github.com/qompack/qompack/internal/store"}
+{"Time":"2026-09-28T02:17:00.215104153Z","Action":"run","Package":"github.com/qompack/qompack/internal/store","Test":"TestGC_DeadlineOvershootIsBoundedByTheCheckInterval"}
+{"Time":"2026-09-28T02:17:00.215140562Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestGC_DeadlineOvershootIsBoundedByTheCheckInterval","Output":"=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval\n"}
+{"Time":"2026-09-28T02:20:21.240613288Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestGC_DeadlineOvershootIsBoundedByTheCheckInterval","Output":"    gc_test.go:1518: calibration 217.476293ms…258.800679ms over 3072 objects (fastest of 4); first check 62.815287ms (measured 62.815287ms); window 3.46x, slack 1.86x; check interval 32.209664ms; budget 116.879578ms; overshoot 44.043902ms after 1279 objects on attempt 1 of 5; limit 64.419328ms\n"}
+{"Time":"2026-09-28T02:20:21.659346503Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Test":"TestGC_DeadlineOvershootIsBoundedByTheCheckInterval","Output":"--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (201.47s)\n"}
+{"Time":"2026-09-28T02:20:21.65941615Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Test":"TestGC_DeadlineOvershootIsBoundedByTheCheckInterval","Elapsed":201.47}
+{"Time":"2026-09-28T02:20:21.659932852Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Output":"PASS\n"}
+{"Time":"2026-09-28T02:20:22.669407084Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Output":"ok  \tgithub.com/qompack/qompack/internal/store\t202.539s\n"}
+{"Time":"2026-09-28T02:20:22.669453721Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Elapsed":202.54}

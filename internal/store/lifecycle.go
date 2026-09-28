@@ -248,7 +248,8 @@ func RetentionRootsPath(projectRoot string) string {
 // that names the hash (the backup manifest, the mapping log, the drill record), so that a crash
 // between the two over-retains rather than under-retains. That ordering holds across a power cut
 // only if the declaration is on disk before the artifact is, so the line is synced — and the state
-// directory too when the append created the file — before this returns (paths.AppendLinesDurable).
+// directory too, unless this process has already made the file's name durable — before this returns
+// (paths.AppendLinesDurable states the rule).
 func AppendRetentionRoot(projectRoot string, r RetentionRoot) error {
 	return appendRetentionRoots(projectRoot, paths.Barriers{}, r)
 }

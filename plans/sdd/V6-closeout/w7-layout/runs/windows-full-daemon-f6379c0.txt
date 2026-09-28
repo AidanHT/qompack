@@ -1,0 +1,1 @@
+ok  	github.com/qompack/qompack/internal/daemon	443.042s

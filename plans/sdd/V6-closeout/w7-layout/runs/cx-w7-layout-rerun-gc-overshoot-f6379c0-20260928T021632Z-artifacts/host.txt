@@ -1,0 +1,10 @@
+run_id=cx-w7-layout-rerun-gc-overshoot-f6379c0-20260928T021632Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-layout
+rev=f6379c00
+commit=f6379c0014847ea5b846d2dad06a092e4698d21e
+bundle_sha256=89152368b70f8c0d59b5492f5d02f3d5b851253e1f65f50f89f089ec5ab72dd8
+host_started_utc=2026-09-28T02:16:38Z
+inner_args=--run ^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$ --timeout 30m -- ./internal/store
+host_finished_utc=2026-09-28T02:20:24Z
+container_exit=0

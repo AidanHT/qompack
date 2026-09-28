@@ -1,0 +1,5 @@
+PASS      github.com/qompack/qompack/internal/paths  (pass=217 fail=0 skip=18)
+FAIL      github.com/qompack/qompack/internal/store  (pass=871 fail=1 skip=4)
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=1535 fail=1 skip=1)
+    FAIL TestStop_IsNotHeldBehindASessionEndsDrain

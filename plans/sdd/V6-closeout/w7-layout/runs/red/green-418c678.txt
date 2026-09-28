@@ -1,0 +1,12 @@
+=== RUN   TestEnsureLayout_RetriesABarrierThatFailed
+--- PASS: TestEnsureLayout_RetriesABarrierThatFailed (0.03s)
+=== RUN   TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout
+--- PASS: TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout (0.03s)
+=== RUN   TestEnsureLayout_ReMarksALayoutOnceItsNewDirectoryIsDurable
+--- PASS: TestEnsureLayout_ReMarksALayoutOnceItsNewDirectoryIsDurable (0.04s)
+=== RUN   TestEnsureLayout_SyncsALayoutAnotherWriterStarted
+--- PASS: TestEnsureLayout_SyncsALayoutAnotherWriterStarted (0.02s)
+=== RUN   TestEnsureLayout_IdempotentAndNeverRewritesGitignore
+--- PASS: TestEnsureLayout_IdempotentAndNeverRewritesGitignore (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.630s
