@@ -1,0 +1,21 @@
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/project_file
+    daemon_disabled_test.go:79: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (project layer, C:\Users\Quant\AppData\Local\Temp\TestDaemon_RefusesWhenDaemonDisabledproject_file1588256354\001\.qompack\config.json:1); set runtime.daemon.enabled to true to enable it
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/user_file
+    daemon_disabled_test.go:79: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (user layer, C:\Users\Quant\AppData\Local\Temp\TestDaemon_RefusesWhenDaemonDisableduser_file3438610961\002\.qompack\config.json:1); set runtime.daemon.enabled to true to enable it
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/environment
+    daemon_disabled_test.go:79: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (env layer, QOMPACK_RUNTIME__DAEMON__ENABLED); set runtime.daemon.enabled to true to enable it
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/set_flag
+    daemon_disabled_test.go:79: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (flag layer, --set); set runtime.daemon.enabled to true to enable it
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/foreground
+    daemon_disabled_test.go:79: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (project layer, C:\Users\Quant\AppData\Local\Temp\TestDaemon_RefusesWhenDaemonDisabledforeground3440626132\001\.qompack\config.json:1); set runtime.daemon.enabled to true to enable it
+--- PASS: TestDaemon_RefusesWhenDaemonDisabled (0.02s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/project_file (0.01s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/user_file (0.00s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/environment (0.00s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/set_flag (0.00s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/foreground (0.00s)
+=== RUN   TestDaemon_RunsWhenTheMergedConfigEnablesIt
+--- PASS: TestDaemon_RunsWhenTheMergedConfigEnablesIt (2.08s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	2.353s

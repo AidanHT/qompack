@@ -112,12 +112,19 @@ except where noted):
   `CLAUDE_PLUGIN_DATA`; your recorded sessions are in `.qompack/`, §6), so what that removes is
   whatever the host itself put in the directory.
 
-On Claude Code 2.1.280, `install`, `update` and `uninstall` accept `--json`: "Print one
-machine-readable result line on stdout instead of the human message (same exit codes)". For
-`uninstall` it cannot be combined with `--prune`. `validate`, `list` and `marketplace list` accept
+On Claude Code 2.1.280, `install`, `update` and `uninstall` accept `--json`. For `install` and
+`update` the help reads "Print one machine-readable result line on stdout instead of the human
+message (same exit codes; a marketplace-declared command is still shown and must be confirmed —
+pass -y when not interactive)", so `--json` alone does not make an install non-interactive; for
+`uninstall` it reads "(same exit codes; not with --prune)". `install` and `update` also take
+`--accept-command <sha256>`: it accepts the marketplace-declared command "whose sha256 a previous
+--json run reported as shownCommand.sha256; counts as -y for exactly that command, for that plugin
+and marketplace catalog, and nothing else", and refuses and reports the command again if either
+changed. A bundle installed from a local directory declares no command, so Qompack's flow never
+needs it. `validate`, `list` and `marketplace list` accept
 `--json` too; `marketplace add`, `update` and `remove` do not, and their output is prose on stdout.
-Task 8 ran on 2.1.263, where the three commands had no `--json`; their `--json` output is recorded
-from the CLI's help, not rehearsed. `-y`/`--yes` is documented as required when stdin or stdout is
+Task 8 ran on 2.1.263, where the three commands had no `--json` and there was no
+`--accept-command`; both are recorded from the CLI's help, not rehearsed. `-y`/`--yes` is documented as required when stdin or stdout is
 not a TTY, but for different prompts: on `install` and `update` it accepts a marketplace-declared
 command (a command-source install, or the `headersHelper` that fetches an archive) — a bundle
 installed from a local directory declares none — and on `uninstall` it skips the `--prune`

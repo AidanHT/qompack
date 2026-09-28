@@ -122,8 +122,8 @@ func (d *Draft) AddDrops(e ...DropEntry) {
 }
 
 // SetCurrentWork overrides whatever Advance derived and stops all further derivation (§7):
-// SP-12's todo state and SP-14's /qompack:checkpoint know the real goal and next step, and a
-// heuristic must never overwrite a statement.
+// SP-12's todo state (and any future manual checkpoint route; 0.3.0 ships none, D36) knows the
+// real goal and next step, and a heuristic must never overwrite a statement.
 func (d *Draft) SetCurrentWork(w CurrentWork) {
 	d.mu.Lock()
 	defer d.mu.Unlock()

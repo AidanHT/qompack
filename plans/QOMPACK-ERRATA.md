@@ -1,6 +1,6 @@
 # `Qompack.md` verification record
 
-**Current revision:** v1.6, 2026-09-22: §8.6 bounds the post-compaction rehydration by the host's additionalContext cap, authorized by the owner's decision D5 (V6 close-out). The v1.5 revision of 2026-09-06 was deliberately authorized by the user for Markdown-only planning. The v1.3 record below is preserved verbatim history, not current endorsement of its arithmetic, internal constants or compatibility conclusions. See the appended v1.5 record for superseded claims.
+**Current revision:** v1.7, 2026-09-27: §7.5 counts six commands because 0.3.0 ships no manual checkpoint, decided by the V6 close-out coordinator under the owner's delegation D33 (decision D36). v1.6, 2026-09-22: §8.6 bounds the post-compaction rehydration by the host's additionalContext cap, authorized by the owner's decision D5 (V6 close-out). The v1.5 revision of 2026-09-06 was deliberately authorized by the user for Markdown-only planning. The v1.3 record below is preserved verbatim history, not current endorsement of its arithmetic, internal constants or compatibility conclusions. See the appended v1.5 record for superseded claims.
 
 `Qompack.md` is **read-only** (`plans/README.md`, Global rules). It carries a **Revision log**, so it
 is revisable — but only deliberately, as a versioned revision, never edited in passing by a subplan.
@@ -17,8 +17,11 @@ design of record and the shipped conformance suite were found to disagree about 
 **v1.5 landed on the combined wave-3 baseline (SP-19 M0-01)**, appended after it: the 2026-09-06 planning-only
 revision and its merge-first addendum, renumbered from their draft label "v1.4" (see the numbering note in that section).
 
-**v1.6 landed 2026-09-22** (V6 close-out C1.14), appended last: §8.6 now holds the post-compaction
+**v1.6 landed 2026-09-22** (V6 close-out C1.14), appended after it: §8.6 now holds the post-compaction
 rehydration under Claude Code's 10,000-character hook-field cap.
+
+**v1.7 landed 2026-09-27** (V6 close-out D36), appended last: §7.5 counts six commands, because
+`/qompack:checkpoint` no longer ships.
 
 **Why a record at all, when the document itself has a revision log.** The log says what changed. This
 says what was *checked and did not change*, which is the more perishable half — without it the next
@@ -349,3 +352,58 @@ revising §8.6 and ADR 0011 to match. This record belongs to C1.14.
 The hooks reference transcription and its evidence pointer (`testdata/host/hooks-output-schema.json`);
 the installed Claude Code 2.1.280 bundle (read-only excerpt, `host-cap-unit.txt`); the packaging
 probe; the C1.14 evidence directory `plans/sdd/V6-closeout/rehydrate-cap/evidence/`.
+
+---
+
+## v1.7 — §7.5 counts six commands: no manual checkpoint in 0.3.0 (2026-09-27)
+
+### Origin
+
+The V6 close-out found that `/qompack:checkpoint` did nothing. Its command file ran
+`qompack checkpoint`, and that subcommand is the PreCompact hook entry point
+(`internal/cli/hooks.go`, a hook `Cmd`): it reads a hook event from stdin and always exits 0, so the
+command sealed nothing and reported nothing. The frontend that would have sealed on demand
+(`internal/commands/cmd_checkpoint.go`) was never routed (SP-14 handoff H3). The w7b-checkpoint
+workstream removed the command instead of routing it (option B), and the coordinator ratified that
+under the owner's delegation D33 as decision D36(a) (`plans/V6-CLOSEOUT-CHECKLIST.md`). D36 also
+directs this revision-log entry. This record belongs to wave 8b (`w8b-polish`).
+
+### Checked, and what held
+
+- **The shipped surface is six commands.** `internal/pluginmanifest` `commandSpecs` lists status,
+  recall, pin, why, dropped and eval; `go run ./tools/devtool plugin-validate` reports 9 files,
+  6 commands and 7 hook events on this tree (`plans/sdd/V6-closeout/w8b-polish/runs/`).
+- **Nothing is lost for rehydration.** Rehydration runs only for SessionStart `source=compact`
+  (`internal/rehydrate/build.go`) and reads the session's latest checkpoint, which is the one
+  PreCompact seals at that compaction; a manual seal taken earlier would be superseded before
+  anything read it. Checkpoints are also sealed on the idle cadence (`finalizeIfDue`). Both paths
+  are unchanged.
+- **A future route can bind its session.** The w7b-checkpoint implementer checked the installed
+  Claude Code 2.1.280 bundle: a plugin command's prompt expansion substitutes `${CLAUDE_SESSION_ID}`
+  before its `!` bash block runs (`plans/sdd/V6-closeout/w7b-checkpoint/report.md`).
+
+### What changed
+
+- `Qompack.md` §7.5: "seven hooks, seven commands" now reads "seven hooks, six commands (0.3.0 ships
+  no manual checkpoint command)". The declared version is v1.7 and the Revision log carries the entry.
+- Plan records moved with it: `plans/00-ARCHITECTURE.md` (§3.4's command files, §5.17's command list
+  and Deps note, the plugin-validate row), `plans/TRACEABILITY.md` §4, and
+  `plans/V5-SP-14-slash-commands-and-observability.md`, whose exit criterion SP14-M3-01 ("checkpoint
+  command does not request native compaction") is retired rather than satisfied: its gate test was
+  deleted with the frontend. It returns with any future checkpoint-now route.
+
+### What did not change
+
+- Every other section of `Qompack.md`, including §7.3's hooks and the PreCompact checkpoint, §8.5's
+  checkpointer and §12's cannot-do list. The seven hook events and the one MCP server are unchanged.
+
+### What was not verified
+
+- A checkpoint-now route itself: none was built. It would need a new §5.4 daemon op, a sealing entry
+  outside PreCompact's contract bookkeeping, and a checkpoint schema change to record a `--reason`.
+- `${CLAUDE_SESSION_ID}` on hosts other than Claude Code 2.1.280.
+
+### Sources
+
+`plans/V6-CLOSEOUT-CHECKLIST.md` (D33, D36); `plans/sdd/V6-closeout/w7b-checkpoint/report.md`;
+`internal/pluginmanifest/manifest.go`; `internal/rehydrate/build.go`.

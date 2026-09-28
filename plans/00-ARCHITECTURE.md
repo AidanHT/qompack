@@ -818,8 +818,10 @@ per-platform binary:
 { "mcpServers": { "qompack": { "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack", "args": ["mcp"] } } }
 ```
 
-`plugin/commands/*.md` — seven files, one per §7.5 command, each a frontmatter'd prompt that
-shells out to the corresponding `qompack` subcommand.
+`plugin/commands/*.md` — six files, one per §7.5 command, each a frontmatter'd prompt that
+shells out to the corresponding `qompack` subcommand. (Seven until 2026-09-27: coordinator decision
+D36 removed `/qompack:checkpoint`, whose only route was the PreCompact hook entry point, and
+`Qompack.md` v1.7 counts six.)
 
 **Contract risk (G9.3).** The exact key names above (`hooks.json` shape, `matcher`,
 `${CLAUDE_PLUGIN_ROOT}`, `hookSpecificOutput.additionalContext`, `SessionStart.source`) are
@@ -2211,7 +2213,7 @@ hatch. Every response carries `_meta.qompack.ephemeral=true` when
 
 ```go
 type Command interface {
-    Name() string                                  // status|recall|pin|checkpoint|why|dropped|eval
+    Name() string                                  // status|recall|pin|why|dropped|eval
     Run(ctx context.Context, args []string, out io.Writer) error
 }
 func All(d Deps) []Command
@@ -2226,8 +2228,10 @@ type Deps struct {
 the home directory (§3.3). Every frontend except `status` and `eval` then answers it as an
 `unavailable` error, and `status` reports it as its one provenance reason (`StatusSources.Refused`)
 without asking the daemon or reading a metrics file. The struct above predates SP-14's `MCP`,
-`CheckpointNow`, `EvalArtifacts`, `Status` and `Clock` members; `internal/commands/commands.go` is
-the current shape.
+`EvalArtifacts`, `Status` and `Clock` members (and its `CheckpointNow`, removed with the `checkpoint`
+frontend under D36, 2026-09-27: 0.3.0 ships six commands and no manual checkpoint; the PreCompact
+checkpoint and the automatic cadence seals are unchanged); `internal/commands/commands.go` is the
+current shape.
 
 `/qompack:status` output is the observability surface (G8.1): mode (`full`/`degraded-passive`),
 contract-assertion table, store size + dedup ratio, sketch fill ratios and estimated FP rate,
@@ -2664,7 +2668,7 @@ baselines recorded on the runners are the stated precondition for wiring it into
 | `crossbuild` | ubuntu | `GOOS/GOARCH` matrix build for all 6 release targets |
 | `bench-gate` | ubuntu, macos, windows | `devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench-<os>.json`; hard fail on B-A / B-E |
 | `replay-gate` | ubuntu | `devtool replay --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 0 --growth testdata/golden/eval/growth/stats-growth.json --sketch testdata/golden/eval/growth/health.json --signoff "$RUNNER_TEMP/pr-body.md" --max-cpu 2m --ci`; enforces §11.3 (no metric regresses >2% to improve another without a `sign-off:` trailer in the PR body — read from the body captured to a file, so a direct *push* can sign off on nothing) and the phase exit criterion of every phase merged so far. **`--baseline` names a FILE, never a git ref**: the driver refuses a baseline recorded over a different `corpusTier`, and refuses a `--baseline` path naming nothing. `--baseline ""` is the only way to ask for no comparison |
-| `plugin-validate` | ubuntu | `devtool plugin-validate` byte-compares `plugin/**` against what `internal/pluginmanifest` generates (`--write` regenerates), then `git diff --exit-code -- plugin/`. It asserts the three counts §7.5 fixes: **7 commands, 7 hook events** (§7.3's six entry points, with `Stop` and `SubagentStop` as separate host events) and **1 MCP server**. It does **not** JSON-schema-validate the bundle, and it deliberately does **not** count MCP tools — `mcp.Tools()` is a stub returning nil until SP-13, so a count here would pass for the wrong reason. Asserting the eight tools is SP-13's own exit criterion |
+| `plugin-validate` | ubuntu | `devtool plugin-validate` byte-compares `plugin/**` against what `internal/pluginmanifest` generates (`--write` regenerates), then `git diff --exit-code -- plugin/`. It asserts the three counts §7.5 fixes: **6 commands** (7 until D36 removed `/qompack:checkpoint`, 2026-09-27), **7 hook events** (§7.3's six entry points, with `Stop` and `SubagentStop` as separate host events) and **1 MCP server**. It does **not** JSON-schema-validate the bundle, and it deliberately does **not** count MCP tools — `mcp.Tools()` is a stub returning nil until SP-13, so a count here would pass for the wrong reason. Asserting the eight tools is SP-13's own exit criterion |
 | `security` | ubuntu | `govulncheck ./...` · `devtool lint --only=importgraph,testdeps,bindeps` · two import-allowlist greps over `go list -deps`: **(1)** zero non-test imports of `net/http`, `net/url`, `crypto/tls` from any `internal/**` or `cmd/**` package — `net` itself only in `internal/ipc` (Unix sockets, and only `net.Dial`/`net.Listen` on `unix`, never `tcp`); **(2)** `os/exec` only in `internal/daemon` (detached self-spawn), `internal/cli`, and `internal/testutil` (§6.2 real-binary `RunHook`) |
 | `docs` | ubuntu | `devtool gen-config-docs --check` — diffs `docs/config-reference.md` against `config.Defaults()` in-process and fails if it is missing or stale, so the page can never drift. `--check` is load-bearing: bare `gen-config-docs` *writes* the file, so a job without the flag passes on a stale tree |
 
