@@ -70,14 +70,16 @@ var sharedReaders = []sharedReader{
 	},
 	{
 		file:  "internal/daemon/spawn_stage.go",
-		fn:    "fileSHA256",
-		holds: "~/.qompack/bin/<sha256>/qompack.exe, a staged copy (and the plugin binary it is hashed against)",
+		fn:    "verifyStagedThen",
+		holds: "~/.qompack/bin/<sha256>/qompack.exe, a staged copy",
 		why: "another spawner's copyStaged, whose os.Rename installs the copy and holds the renamed file with " +
 			"DELETE access until MoveFileEx closes its handle: an ordinary handle opened in that window is " +
 			"refused with ERROR_SHARING_VIOLATION, so a losing spawner read a correct copy as a failed install " +
 			"and its first check removed that copy as tampered (w8-stagerace, " +
-			"TestStageBinary_VerifiesACopyItsRenamerStillHolds). stageBinary's removal of a copy shown to be " +
-			"wrong and pruneStaged's removal of other builds' copies are its removers",
+			"TestStageBinary_VerifiesACopyItsRenamerStillHolds). stageBinary's removal of a copy that failed " +
+			"verification and pruneStaged's removal of other builds' copies are its removers, and may land " +
+			"while it hashes: stillFiledAt then refuses the hash " +
+			"(TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed)",
 	},
 	{
 		file:  "internal/contract/monitor.go",

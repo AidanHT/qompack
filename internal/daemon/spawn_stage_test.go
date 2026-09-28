@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"crypto/rand"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -104,6 +105,53 @@ func TestStageBinary_ReplacesATamperedCopy(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, staged, again)
 	requireSameBytes(t, self, again)
+}
+
+// TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed: verification vouches for the file
+// filed at the target, not for bytes a handle can still read once that file has gone. The hash reads
+// through a handle that shares delete (fileSHA256), so a removal can land while it runs —
+// pruneStaged from a spawner of another plugin version during an update, or another spawner's
+// removal of a copy it found wrong — and a copy removed, or removed and replaced, in that moment is
+// not verified however its bytes hash: the error is fs.ErrNotExist's, on which stageBinary makes and
+// verifies a copy of its own rather than hand the spawn a path with nothing (or something never
+// hashed) at it.
+func TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		act  func(t *testing.T, p string)
+	}{
+		{"removed", func(t *testing.T, p string) {
+			t.Helper()
+			unseal(t, p)
+			require.NoError(t, os.Remove(p))
+		}},
+		{"replaced", func(t *testing.T, p string) {
+			t.Helper()
+			b, err := os.ReadFile(p)
+			require.NoError(t, err)
+			unseal(t, p)
+			require.NoError(t, os.Remove(p))
+			require.NoError(t, os.WriteFile(p, b, 0o500))
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			self, home := fakeSelf(t), t.TempDir()
+			staged, err := stageBinary(self, home)
+			require.NoError(t, err)
+			sum := filepath.Base(filepath.Dir(staged))
+
+			err = verifyStagedThen(staged, sum, func() { tc.act(t, staged) })
+			require.ErrorIs(t, err, fs.ErrNotExist, "a copy %s while it was hashed is not verified", tc.name)
+
+			again, err := stageBinary(self, home)
+			require.NoError(t, err)
+			require.Equal(t, staged, again)
+			require.NoError(t, verifyStaged(again, sum))
+			requireSameBytes(t, self, again)
+		})
+	}
 }
 
 // TestStageBinary_ReplacesANonFileAtTheTarget: something other than a regular file standing where
