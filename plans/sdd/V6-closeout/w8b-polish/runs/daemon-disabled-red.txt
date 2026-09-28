@@ -1,0 +1,35 @@
+--- FAIL: TestDaemon_RefusesWhenDaemonDisabled (150.24s)
+    --- FAIL: TestDaemon_RefusesWhenDaemonDisabled/project_file (30.04s)
+        daemon_disabled_test.go:76: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8b-polish/internal/cli/daemon_disabled_test.go:76
+            	Error:      	Should not be: 0
+            	Test:       	TestDaemon_RefusesWhenDaemonDisabled/project_file
+            	Messages:   	a daemon-disabled project must refuse with a non-zero exit; stderr=
+    --- FAIL: TestDaemon_RefusesWhenDaemonDisabled/user_file (30.04s)
+        daemon_disabled_test.go:76: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8b-polish/internal/cli/daemon_disabled_test.go:76
+            	Error:      	Should not be: 0
+            	Test:       	TestDaemon_RefusesWhenDaemonDisabled/user_file
+            	Messages:   	a daemon-disabled project must refuse with a non-zero exit; stderr=
+    --- FAIL: TestDaemon_RefusesWhenDaemonDisabled/environment (30.04s)
+        daemon_disabled_test.go:76: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8b-polish/internal/cli/daemon_disabled_test.go:76
+            	Error:      	Should not be: 0
+            	Test:       	TestDaemon_RefusesWhenDaemonDisabled/environment
+            	Messages:   	a daemon-disabled project must refuse with a non-zero exit; stderr=
+    --- FAIL: TestDaemon_RefusesWhenDaemonDisabled/set_flag (30.04s)
+        daemon_disabled_test.go:76: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8b-polish/internal/cli/daemon_disabled_test.go:76
+            	Error:      	Should not be: 0
+            	Test:       	TestDaemon_RefusesWhenDaemonDisabled/set_flag
+            	Messages:   	a daemon-disabled project must refuse with a non-zero exit; stderr=
+    --- FAIL: TestDaemon_RefusesWhenDaemonDisabled/foreground (30.08s)
+        daemon_disabled_test.go:76: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8b-polish/internal/cli/daemon_disabled_test.go:76
+            	Error:      	Should not be: 0
+            	Test:       	TestDaemon_RefusesWhenDaemonDisabled/foreground
+            	Messages:   	a daemon-disabled project must refuse with a non-zero exit; stderr=qompack daemon: starting for project C:\Users\Quant\AppData\Local\Temp\TestDaemon_RefusesWhenDaemonDisabledforeground594849143\001
+            	            	qompack daemon: stopped
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	150.496s
+FAIL

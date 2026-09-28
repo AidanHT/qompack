@@ -1,0 +1,10 @@
+run_id=cx-w8b-polish-cli-race-92b6be3-20260928T031305Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8b-polish
+rev=92b6be37
+commit=92b6be378314e857bd8214bbfcc94f3414fc0dd5
+bundle_sha256=249357a4866ac8d979a7a3b5ee89efe2ed97dff61f0425db80aaf6938bceb46b
+host_started_utc=2026-09-28T03:13:11Z
+inner_args=--timeout 30m -- ./internal/cli
+host_finished_utc=2026-09-28T03:14:19Z
+container_exit=0

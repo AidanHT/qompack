@@ -1,0 +1,1 @@
+ok  	github.com/qompack/qompack/internal/checkpoint	82.414s
