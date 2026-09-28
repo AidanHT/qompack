@@ -1,0 +1,77 @@
+commit 939869ad81fe3ca92469e7d8a8bffa60aa1ced23
+Author: diag <diag@invalid>
+Date:   Sat Sep 26 22:52:35 2026 -0400
+
+    zz diag: x09 run dir and daemon processes (temporary, never merged)
+
+diff --git a/test/e2e/v3_x09_test.go b/test/e2e/v3_x09_test.go
+index 8c4531a..174ac5c 100644
+--- a/test/e2e/v3_x09_test.go
++++ b/test/e2e/v3_x09_test.go
+@@ -234,15 +234,21 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
+ 	// ── flush: the real binary again (its lazy spawn brings the real daemon back up) ────────────
+ 
+ 	t.Logf("ZZDIAG spool before flush: %s", zzSpool(p.Root))
++	t.Logf("ZZDIAG run/ before flush at %s: %s | procs: %s", time.Now().UTC().Format(time.RFC3339Nano), zzRunDir(p.Root), zzProcs(bin))
+ 	zzFlush := time.Now()
+ 	x9Hook(t, bin, env, []string{"flush"}, x9SessionEndPayload(t, p.Root))
+ 	t.Logf("ZZDIAG flush hook returned after %s", time.Since(zzFlush))
+ 	zzFound := time.Duration(-1)
++	zzMarks := []time.Duration{time.Second, 5 * time.Second, 15 * time.Second, 30 * time.Second, 60 * time.Second, 120 * time.Second}
+ 	for time.Since(zzFlush) < 300*time.Second {
+ 		if _, ok := x9LastGCLine(p.Root); ok {
+ 			zzFound = time.Since(zzFlush)
+ 			break
+ 		}
++		if len(zzMarks) > 0 && time.Since(zzFlush) >= zzMarks[0] {
++			t.Logf("ZZDIAG +%s run/: %s | procs: %s | spool files=%d", zzMarks[0], zzRunDir(p.Root), zzProcs(bin), strings.Count(zzSpool(p.Root), "ndjson("))
++			zzMarks = zzMarks[1:]
++		}
+ 		time.Sleep(100 * time.Millisecond)
+ 	}
+ 	t.Logf("ZZDIAG gc line after %s (bound %s, -1 = never within 300s); spool now: %s", zzFound, e2eHistoryConvergeBound, zzSpool(p.Root))
+@@ -1054,3 +1060,44 @@ func zzCopyLogs(t *testing.T, root string) {
+ 	_ = os.WriteFile(filepath.Join(dst, "spool.txt"), []byte(zzSpool(root)), 0o644)
+ 	t.Logf("ZZDIAG logs copied to %s", dst)
+ }
++
++func zzRunDir(root string) string {
++	var b strings.Builder
++	dir := paths.Of(root).Run
++	entries, _ := os.ReadDir(paths.Long(dir))
++	for _, e := range entries {
++		info, _ := e.Info()
++		data, _ := os.ReadFile(paths.Long(filepath.Join(dir, e.Name())))
++		if len(data) > 64 {
++			data = data[:64]
++		}
++		mt := ""
++		if info != nil {
++			mt = info.ModTime().UTC().Format("15:04:05.000")
++		}
++		fmt.Fprintf(&b, "%s[mtime=%s %q] ", e.Name(), mt, string(data))
++	}
++	return b.String()
++}
++
++func zzProcs(bin string) string {
++	var b strings.Builder
++	entries, _ := os.ReadDir("/proc")
++	for _, e := range entries {
++		if _, err := strconv.Atoi(e.Name()); err != nil {
++			continue
++		}
++		cmd, err := os.ReadFile(filepath.Join("/proc", e.Name(), "cmdline"))
++		if err != nil || !bytes.Contains(cmd, []byte(bin)) {
++			continue
++		}
++		stat, _ := os.ReadFile(filepath.Join("/proc", e.Name(), "stat"))
++		fields := strings.Fields(string(stat))
++		state := ""
++		if len(fields) > 2 {
++			state = fields[2]
++		}
++		fmt.Fprintf(&b, "pid=%s state=%s cmd=%q ", e.Name(), state, string(bytes.ReplaceAll(cmd, []byte{0}, []byte{32})))
++	}
++	return b.String()
++}

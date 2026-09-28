@@ -1,0 +1,11 @@
+=== RUN   TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd
+    observer_stop_persist_test.go:60: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows/diagclone/internal/daemon/observer_stop_persist_test.go:60
+        	Error:      	Should be true
+        	Test:       	TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd
+        	Messages:   	Stop must write the observer's graph out: toolu_stop_read's node is not in dag/deps.jsonl
+--- FAIL: TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd (0.24s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.644s
+FAIL
+exit=1

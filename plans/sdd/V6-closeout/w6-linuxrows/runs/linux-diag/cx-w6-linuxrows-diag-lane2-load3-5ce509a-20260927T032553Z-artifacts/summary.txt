@@ -1,0 +1,13 @@
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=7 fail=12 skip=0)
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest

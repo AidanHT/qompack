@@ -1,0 +1,20 @@
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+--- PASS: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (0.76s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1.21s)
+=== RUN   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+--- PASS: TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (5.36s)
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+--- PASS: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (0.71s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1.15s)
+=== RUN   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+--- PASS: TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (4.96s)
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+--- PASS: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (1.22s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1.08s)
+=== RUN   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+--- PASS: TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (5.21s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	22.082s

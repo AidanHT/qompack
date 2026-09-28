@@ -1,0 +1,11 @@
+=== RUN   TestIdleDrain_ALineSlowerThanTheIdleBudgetIsPublishedAndDoesNotStrandTheRest
+    drain_idle_budget_test.go:207: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/drain_idle_budget_test.go:207
+        	Error:      	Should be true
+        	Test:       	TestIdleDrain_ALineSlowerThanTheIdleBudgetIsPublishedAndDoesNotStrandTheRest
+        	Messages:   	idle passes never published the slow line and the spool behind it: slow=false behind=false, 15 attempts, 15 cut inside the slow part
+--- FAIL: TestIdleDrain_ALineSlowerThanTheIdleBudgetIsPublishedAndDoesNotStrandTheRest (31.58s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	31.901s
+FAIL
+exit=1

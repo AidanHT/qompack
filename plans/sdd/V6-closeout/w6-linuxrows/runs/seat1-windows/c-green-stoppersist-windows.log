@@ -1,0 +1,12 @@
+=== RUN   TestStop_FinishesAnAcceptedSessionEndBeforeItReturns
+--- PASS: TestStop_FinishesAnAcceptedSessionEndBeforeItReturns (0.98s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (1.13s)
+=== RUN   TestWireObserver
+--- PASS: TestWireObserver (0.16s)
+=== RUN   TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd
+--- PASS: TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd (0.23s)
+=== RUN   TestStopClosesTheLedgerTheDaemonOpened
+--- PASS: TestStopClosesTheLedgerTheDaemonOpened (0.06s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	2.957s

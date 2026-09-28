@@ -1,0 +1,12 @@
+=== RUN   TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+--- PASS: TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget (0.36s)
+=== RUN   TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget
+--- PASS: TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget (0.46s)
+=== RUN   TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart
+=== RUN   TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/Stop_has_closed_the_gate
+=== RUN   TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/a_session_end's_own_drain
+--- PASS: TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart (0.54s)
+    --- PASS: TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/Stop_has_closed_the_gate (0.27s)
+    --- PASS: TestDrain_AReplayedFlushIsEndedInlineWhereNoEndMayStart/a_session_end's_own_drain (0.27s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.573s

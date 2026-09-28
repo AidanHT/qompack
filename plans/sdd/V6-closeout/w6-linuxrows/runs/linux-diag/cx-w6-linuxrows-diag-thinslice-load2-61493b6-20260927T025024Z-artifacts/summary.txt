@@ -1,0 +1,2 @@
+FAIL      github.com/qompack/qompack/test/e2e  (pass=7 fail=1 skip=0)
+    FAIL TestE2E_ThinSliceDropsControlOnlyEdges

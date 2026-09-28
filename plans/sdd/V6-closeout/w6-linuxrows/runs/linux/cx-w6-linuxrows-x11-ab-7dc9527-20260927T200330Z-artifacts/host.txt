@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-x11-ab-7dc9527-20260927T200330Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows
+rev=7dc9527
+commit=7dc95273f11a9e164fd27887cc4f5245558eedaa
+bundle_sha256=a3428de519c7b6281369e0f537b67dde8573f49b113c6033597f82a5e1f6f54f
+host_started_utc=2026-09-27T20:03:53Z
+inner_args=--count 2 --timeout 60m --run ^TestV3_HotPathUnchangedWithLedgerResident$ -- ./test/e2e
+host_finished_utc=2026-09-27T20:20:27Z
+container_exit=1

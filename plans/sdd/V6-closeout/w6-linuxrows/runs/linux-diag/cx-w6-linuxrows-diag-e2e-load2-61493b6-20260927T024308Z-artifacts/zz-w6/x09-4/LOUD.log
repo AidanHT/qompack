@@ -1,0 +1,2 @@
+ts=2026-09-27T02:51:49.560774309Z level=loud msg="daemon: drain: delivery identity unavailable; spool retained for recovery"
+ts=2026-09-27T02:51:58.262834537Z level=loud msg="daemon: drain: delivery identity unavailable; spool retained for recovery"

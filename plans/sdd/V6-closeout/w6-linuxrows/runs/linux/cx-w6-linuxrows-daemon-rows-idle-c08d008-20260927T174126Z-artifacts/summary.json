@@ -1,0 +1,13 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 89,
+   "failed": [
+    "TestFeaturesFrom_LexicalCohesionShingleCap"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

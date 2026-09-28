@@ -1,0 +1,86 @@
+commit 9c39d925aff6bb6e70d1bba1a9375689202ab8cb
+Author: diag <diag@invalid>
+Date:   Sat Sep 26 22:40:47 2026 -0400
+
+    zz diag: x09 flush timeline (temporary, never merged)
+
+diff --git a/test/e2e/v3_x09_test.go b/test/e2e/v3_x09_test.go
+index 29c151f..8c4531a 100644
+--- a/test/e2e/v3_x09_test.go
++++ b/test/e2e/v3_x09_test.go
+@@ -145,7 +145,9 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
+ 	// the store's append handles have exactly one owner while the ledger writes, and re-acquired
+ 	// afterwards by the flush below. This is the seam-composition the §5 preamble prescribes for a
+ 	// flow whose production driver (internal/mcp) is a wave-3 stub this test may not reference.
++	zzT := time.Now()
+ 	e2eShutdownIfReachable(t, p.Root)
++	t.Logf("ZZDIAG pre-flush shutdown took %s; spool after it: %s", time.Since(zzT), zzSpool(p.Root))
+ 
+ 	// The in-process phase runs on a clock aligned with the daemon's wall clock, not p.Clock:
+ 	// the daemon that stamped the 200 events runs on core.SystemClock, and the flush-time GC
+@@ -231,7 +233,23 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
+ 
+ 	// ── flush: the real binary again (its lazy spawn brings the real daemon back up) ────────────
+ 
++	t.Logf("ZZDIAG spool before flush: %s", zzSpool(p.Root))
++	zzFlush := time.Now()
+ 	x9Hook(t, bin, env, []string{"flush"}, x9SessionEndPayload(t, p.Root))
++	t.Logf("ZZDIAG flush hook returned after %s", time.Since(zzFlush))
++	zzFound := time.Duration(-1)
++	for time.Since(zzFlush) < 300*time.Second {
++		if _, ok := x9LastGCLine(p.Root); ok {
++			zzFound = time.Since(zzFlush)
++			break
++		}
++		time.Sleep(100 * time.Millisecond)
++	}
++	t.Logf("ZZDIAG gc line after %s (bound %s, -1 = never within 300s); spool now: %s", zzFound, e2eHistoryConvergeBound, zzSpool(p.Root))
++	zzCopyLogs(t, p.Root)
++	if zzFound < 0 || zzFound > e2eHistoryConvergeBound {
++		t.Errorf("ZZDIAG the row would have failed: gc line after %s against %s", zzFound, e2eHistoryConvergeBound)
++	}
+ 
+ 	// store.GC ran on flush with the configured policy and deleted nothing: the observer's
+ 	// SessionEnd logs exactly one "observer: gc" line per GC pass (internal/observer/session.go
+@@ -998,3 +1016,41 @@ func x9AssertBinaryHasNoNetworkImports(t *testing.T, bin string) {
+ 			"the built binary links a banned network package: its symbol table carries %q (J3, §13 invariant 7)", sym)
+ 	}
+ }
++
++// ZZ W6 TEMPORARY DIAGNOSTIC (never in the tree).
++func zzSpool(root string) string {
++	var b strings.Builder
++	entries, _ := os.ReadDir(paths.Long(paths.Of(root).Spool))
++	for _, e := range entries {
++		if e.IsDir() {
++			continue
++		}
++		data, _ := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).Spool, e.Name())))
++		fmt.Fprintf(&b, "%s(%dB,%dL) ", e.Name(), len(data), bytes.Count(data, []byte{10}))
++	}
++	if st, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).State, "drain.json"))); err == nil {
++		fmt.Fprintf(&b, "drain.json=%s", strings.TrimSpace(string(st)))
++	}
++	return b.String()
++}
++
++var zzCopySeq int
++
++func zzCopyLogs(t *testing.T, root string) {
++	base := os.Getenv("QOMPACK_FAULT_ARTIFACTS")
++	if base == "" {
++		return
++	}
++	zzCopySeq++
++	dst := filepath.Join(filepath.Dir(base), "zz-w6", fmt.Sprintf("%s-%d-%d", t.Name(), os.Getpid(), zzCopySeq))
++	_ = os.MkdirAll(dst, 0o755)
++	entries, _ := os.ReadDir(paths.Long(paths.Of(root).Logs))
++	for _, e := range entries {
++		data, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).Logs, e.Name())))
++		if err == nil {
++			_ = os.WriteFile(filepath.Join(dst, e.Name()), data, 0o644)
++		}
++	}
++	_ = os.WriteFile(filepath.Join(dst, "spool.txt"), []byte(zzSpool(root)), 0o644)
++	t.Logf("ZZDIAG logs copied to %s", dst)
++}

@@ -1,0 +1,16 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 5,
+   "failed": [
+    "TestV3_LiveSessionWriteSetAndAppendOnly",
+    "TestE2E_ThinSliceDropsControlOnlyEdges",
+    "TestV3_LiveSessionWriteSetAndAppendOnly",
+    "TestV3_LiveSessionWriteSetAndAppendOnly"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

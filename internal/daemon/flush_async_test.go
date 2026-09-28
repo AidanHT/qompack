@@ -501,6 +501,47 @@ func TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget(t *testing.T) 
 	require.NotContains(t, sr.Sessions, sess, "a finished session end leaves no recovery marker")
 }
 
+// TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget: the drains that run while the
+// daemon serves carry a pass budget on their context (withPassBudget), and a context value survives
+// the context.WithoutCancel that detaches a session end from the pass that started it
+// (launchSessionEnd). An end started from a budgeted pass therefore carried that pass's budget into
+// its own drains, the settle before SessionEnd and the final one after it, by when the budget was long
+// spent and the pass had consumed a line: both stopped at their first spool file. The final drain
+// never absorbed the flush's spool and answered not OK, so the session's recovery marker stayed at
+// stage "drain" for good. The budget is the pass's alone. Here the pass's budget is spent before it
+// starts, and the pass consumes another session's spooled tool use after meeting the flush, as it must
+// before a budget can end it; the end's drains must still run to completion.
+func TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget(t *testing.T) {
+	dd, hold, root := flushAsyncDaemon(t)
+	dd.drainsEndSessions.Store(true) // serving: Run sets it once its startup drain is done
+
+	const sess core.SessionID = "sess-flush-budgeted-pass"
+	req := flushAsyncRequest(dd, root, sess, orderNonce(70))
+	// Pass order is lexical: the flush first, then the tool use the pass consumes.
+	writeHookSpool(t, root, "client-7070.ndjson", req)
+	other := liveOrderTool(dd, root, "sess-flush-budgeted-other", 71)
+	writeHookSpool(t, root, "client-7171.ndjson", other)
+
+	_, err := dd.drain.Load().DrainClientSpools(withPassBudget(context.Background(), 0))
+	require.ErrorIs(t, err, errPassBudgetSpent, "fixture: the pass consumed a line and stopped on its spent budget")
+	require.True(t, spoolWatchPublished(dd, other.Nonce), "fixture: the pass published the other session's tool use")
+	select {
+	case <-hold.entered: // the flush's session end, started from the pass, is in SessionEnd
+	case <-time.After(liveOrderBound):
+		require.FailNow(t, "the replayed flush never reached SessionEnd")
+	}
+
+	hold.open()
+	flushAsyncAwait(t, dd)
+	sr, err := LoadSessionRecovery(root)
+	require.NoError(t, err)
+	require.NotContains(t, sr.Sessions, sess,
+		"the end's final drain ran under the spent budget of the pass that started it, stopped at its first "+
+			"file and left the recovery marker")
+	require.True(t, spoolWatchPublished(dd, req.Nonce), "the ended flush reaches the committed frontier")
+	require.True(t, spoolWatchGone(root, "client-7070.ndjson"), "the end's final drain absorbed the flush's spool")
+}
+
 // TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged: a flush a drain replays inline — the
 // startup drain, Stop's drain — is acknowledged by that drain when the route answers OK. A session end
 // its context cut short, before or during SessionEnd, has not ended the session, and must not answer

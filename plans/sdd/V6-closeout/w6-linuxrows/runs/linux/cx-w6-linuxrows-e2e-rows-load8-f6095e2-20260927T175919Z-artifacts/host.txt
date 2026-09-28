@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-e2e-rows-load8-f6095e2-20260927T175919Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows
+rev=f6095e2
+commit=f6095e2704d55336e2e4eac1c2ffc82f566c423b
+bundle_sha256=a455276a77837066655bee859f0375cf0b76fa9489867bc91f5ff37ff3aa5044
+host_started_utc=2026-09-27T17:59:37Z
+inner_args=--coload --count 3 --timeout 60m --run ^(TestV3_LiveSessionWriteSetAndAppendOnly|TestE2E_SpooledSessionStartNeverDegradesTheProject|TestE2E_ThinSliceDropsControlOnlyEdges)$ -- ./test/e2e
+host_finished_utc=2026-09-27T18:05:57Z
+container_exit=1

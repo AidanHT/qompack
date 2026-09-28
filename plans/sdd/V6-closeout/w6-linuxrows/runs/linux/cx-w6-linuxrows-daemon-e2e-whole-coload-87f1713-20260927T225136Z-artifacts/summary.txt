@@ -1,0 +1,2 @@
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1526 fail=0 skip=1)
+PASS      github.com/qompack/qompack/test/e2e  (pass=308 fail=0 skip=3)

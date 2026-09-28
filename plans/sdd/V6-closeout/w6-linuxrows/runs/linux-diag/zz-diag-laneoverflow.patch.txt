@@ -1,0 +1,61 @@
+commit 4cda3aa40b3cfc4b9ce8bb7f842f59b70065841f
+Author: diag <diag@invalid>
+Date:   Sat Sep 26 22:39:15 2026 -0400
+
+    zz diag: record requested drain passes (temporary, never merged)
+
+diff --git a/internal/daemon/delivery_order.go b/internal/daemon/delivery_order.go
+index 372b338..af726e3 100644
+--- a/internal/daemon/delivery_order.go
++++ b/internal/daemon/delivery_order.go
+@@ -789,7 +789,9 @@ func (d *daemon) drainOnRequest(ctx context.Context) {
+ 		}
+ 		began := time.Now()
+ 		pass, cancel := context.WithTimeout(ctx, idleRunBudget)
+-		if _, err := d.Drain(pass); err != nil && ctx.Err() == nil {
++		zzn, err := d.Drain(pass)
++		zzDiagNotePass(zzn, time.Since(began), err)
++		if err != nil && ctx.Err() == nil {
+ 			d.log.Debug("daemon: a drain the lanes asked for ended early", "err", err)
+ 		}
+ 		cancel()
+@@ -815,3 +817,23 @@ type deferredLine struct {
+ 	start  int64
+ 	next   int64
+ }
++
++// ZZ W6 TEMPORARY DIAGNOSTIC (never in the tree): every requested pass's outcome.
++var (
++	zzDiagMu     sync.Mutex
++	zzDiagPasses []string
++)
++
++func zzDiagNotePass(n int, took time.Duration, err error) {
++	zzDiagMu.Lock()
++	defer zzDiagMu.Unlock()
++	zzDiagPasses = append(zzDiagPasses, fmt.Sprintf("pass{n=%d took=%s err=%v}", n, took, err))
++}
++
++func zzDiagPassLog() string {
++	zzDiagMu.Lock()
++	defer zzDiagMu.Unlock()
++	out := fmt.Sprint(zzDiagPasses)
++	zzDiagPasses = nil
++	return out
++}
+diff --git a/internal/daemon/delivery_order_live_test.go b/internal/daemon/delivery_order_live_test.go
+index 59339ac..73c84a5 100644
+--- a/internal/daemon/delivery_order_live_test.go
++++ b/internal/daemon/delivery_order_live_test.go
+@@ -108,8 +108,9 @@ type liveOrderDiag struct {
+ }
+ 
+ func (d liveOrderDiag) String() string {
+-	return fmt.Sprintf("%d of %d arrivals acknowledged, %s=%d", liveOrderAcked(d.dd, d.leases), len(d.leases),
+-		counterOrderingDeferred, d.dd.m.Counter(counterOrderingDeferred).Value())
++	return fmt.Sprintf("%d of %d arrivals acknowledged, %s=%d ZZDIAG requested=%d drain_deferred=%d passes=%s", liveOrderAcked(d.dd, d.leases), len(d.leases),
++		counterOrderingDeferred, d.dd.m.Counter(counterOrderingDeferred).Value(),
++		d.dd.m.Counter(counterOrderingDrainRequested).Value(), d.dd.m.Counter(counterDrainOrderingDeferred).Value(), zzDiagPassLog())
+ }
+ 
+ // liveOrderRequireTurns asserts prompt i holds turn i: the observer assigns turns in publication

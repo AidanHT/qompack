@@ -1,0 +1,11 @@
+=== RUN   TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine
+    spool_watch_test.go:361: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows/diagclone/internal/daemon/spool_watch_test.go:361
+        	Error:      	Should be true
+        	Test:       	TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine
+        	Messages:   	the pass consumed a line before its budget ended it
+--- FAIL: TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine (2.50s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	2.749s
+FAIL
+exit=1

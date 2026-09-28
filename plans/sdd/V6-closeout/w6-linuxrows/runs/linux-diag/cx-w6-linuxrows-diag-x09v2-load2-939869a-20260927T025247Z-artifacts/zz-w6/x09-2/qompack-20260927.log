@@ -1,0 +1,12 @@
+ts=2026-09-27T02:59:30.083597068Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-27T02:59:30.652255774Z level=info msg="observer: session registered" session=sess-e2e-x9 source=startup turn=0 segment=1
+ts=2026-09-27T02:59:30.65243514Z level=info msg="scheduler: session bound" session=sess-e2e-x9 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-27T02:59:40.713903592Z level=warn msg="daemon: drain: delivery lease unavailable" err="context deadline exceeded"
+ts=2026-09-27T02:59:40.713956368Z level=loud msg="daemon: drain: delivery identity unavailable; spool retained for recovery"
+ts=2026-09-27T02:59:40.94844629Z level=warn msg="daemon: drain: file error" path=/tmp/TestV3_LiveSessionWriteSetAndAppendOnly254990008/001/project/.qompack/spool/client-77225.ndjson err="qompack: running in degraded mode"
+ts=2026-09-27T02:59:51.168296037Z level=warn msg="observer: stage failed" stage=fileversion err="context canceled"
+ts=2026-09-27T02:59:51.168668019Z level=warn msg="daemon: ingest handler did not acknowledge; WAL retained for retry" op=observe.tool
+ts=2026-09-27T02:59:56.065489652Z level=warn msg="observer: tool capture unpublished" stage=index
+ts=2026-09-27T02:59:56.065588206Z level=warn msg="daemon: ObserveTool failed"
+ts=2026-09-27T02:59:59.103567745Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-27T03:04:15.044411173Z level=info msg="observer: gc" scanned=66 deleted=0 freed=0 truncated=false

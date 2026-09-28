@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-diag-lane2-load3-5ce509a-20260927T032553Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows/diagclone
+rev=5ce509a
+commit=5ce509af4d834e0abd7c6fcdf4d9e747a420f902
+bundle_sha256=9742df1a42a74b3cc95b994bf99b8d080690bb5df1d0dc8216faa3e7404cbe61
+host_started_utc=2026-09-27T03:27:05Z
+inner_args=--count 20 --timeout 60m --run ^(TestDeliveryOrder_LaneOverflowIsDrainedOnRequest|TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain)$ -- ./internal/daemon
+host_finished_utc=2026-09-27T03:39:34Z
+container_exit=1
