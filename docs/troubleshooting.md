@@ -827,6 +827,50 @@ operator-facing stop path.
 `pid` appears in that project's `daemon.lock`; daemons are per project and another project's daemon
 is a different process.
 
+---
+
+### Windows Defender flags `qompack.exe`
+
+**Symptom.** On Windows, Windows Security reports a threat in a Qompack binary, named
+`Trojan:Win32/Bearfoos.A!ml` or `Trojan:Win32/Bearfoos.B!ml`, and blocks or quarantines the file:
+the plugin's `bin\qompack.exe`, the daemon's staged copy under
+`%USERPROFILE%\.qompack\bin\<sha256>\`, or a binary you built from source. A blocked binary does
+not start: run by hand, Windows refuses it with "Operation did not complete successfully because
+the file contains a virus or potentially unwanted software", and a quarantined one is simply gone.
+The V6 close-out saw these detections on development builds of this tree (decision D32). Whether a
+release build is flagged, and what Claude Code shows when a hook's binary will not start, have not
+been observed.
+
+**Diagnose.** Windows Security, Virus & threat protection, Protection history lists the detection's
+name and the file it acted on. Then check that the file is the one the release shipped. Hash the
+release zip you installed from and compare it with that zip's line in the same release's
+`checksums.txt`:
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\qompack-plugin-<version>-windows-amd64.zip
+```
+
+(`sha256sum --ignore-missing -c checksums.txt` does the same in Git Bash.) For an extracted bundle,
+`bin/qompack.exe` is listed in the bundle's own `checksums.txt` ([install §1](install.md)). The
+staged copy's directory is named by the copy's own SHA-256, and the daemon runs it only when its
+bytes hash to that name and to the plugin binary it was copied from, so the name printed by
+`Get-FileHash` on it must equal the directory's name and the `bin/qompack.exe` digest.
+
+**Meaning.** The names end in `!ml`: the detection comes from Defender's machine-learning
+heuristics, not from a signature of known malware. Qompack's binaries are not code-signed (an open
+release item, [release §7](release.md#7-not-claimed)), and an unsigned, newly built executable that
+spawns a background process and writes under the user profile is the kind of file such heuristics
+flag. A binary whose digest matches the release's `checksums.txt` is byte-for-byte the one the
+release published. One that matches nothing is not a Qompack release artifact: do not run it.
+
+**Action.** For a binary that matches the release's checksums, report the false positive to
+Microsoft through its file submission portal (<https://www.microsoft.com/en-us/wdsi/filesubmission>),
+as an incorrectly detected file, naming the detection. Restoring the file from quarantine or adding a
+Defender exclusion is your own decision: Qompack never adds one and needs none to be correct, and an
+exclusion turns off scanning for everything under the path it names. If you do add one, scope it to
+the one verified file or its directory. Qompack cannot work while its binary is blocked; until the
+detection is resolved, remove or disable the plugin ([Safe disable](#8-safe-disable)).
+
 ## 8. Safe disable
 
 Five steps, least invasive first. The first four are configuration keys, so each of those is
