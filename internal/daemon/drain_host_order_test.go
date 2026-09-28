@@ -43,7 +43,7 @@ func TestDrainOrder_ClientSpoolsReplayByFirstRecordHostTS(t *testing.T) {
 	files, err := ipc.SpoolFiles(spool)
 	require.NoError(t, err)
 	var got []string
-	for _, f := range orderClientSpoolsByHostTS(files) {
+	for _, f := range orderClientSpoolsByHostTS(files, nil) {
 		got = append(got, filepath.Base(f))
 	}
 	require.Equal(t, []string{
@@ -54,5 +54,41 @@ func TestDrainOrder_ClientSpoolsReplayByFirstRecordHostTS(t *testing.T) {
 		"client-10.ndjson",           // 300
 		"client-0.ndjson",            // unreadable first record: after every stamped file, by name
 		"client-1.ndjson",            // unstamped first record
+	}, got)
+}
+
+// TestDrainOrder_PartlyConsumedClientSpoolOrdersByNextRecord: a client spool is named by pid alone
+// and opened for append, so a later hook that reuses the pid appends to a file an earlier pass has
+// already partly consumed. What the next pass replays from that file starts at its consumed offset,
+// so that is the record whose host timestamp places it: client-9's consumed record says 100, but
+// the first record it still has to replay says 900, which is after client-10's 300.
+func TestDrainOrder_PartlyConsumedClientSpoolOrdersByNextRecord(t *testing.T) {
+	root := t.TempDir()
+	spool := paths.Of(root).Spool
+
+	consumed, err := ipc.EncodeRequest(hostOrderRequest(100, 'a'))
+	require.NoError(t, err)
+	next, err := ipc.EncodeRequest(hostOrderRequest(900, 'b'))
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(spool, "client-9.ndjson")),
+		append(append([]byte{}, consumed...), next...), 0o600))
+	writeSpoolLines(t, root, "client-10.ndjson", hostOrderRequest(300, 'c'))
+	writeSpoolLines(t, root, "client-11.ndjson", hostOrderRequest(50, 'd'))
+
+	st := drainState{
+		"client-9.ndjson":  {Size: int64(len(consumed)), Offset: int64(len(consumed))},
+		"client-11.ndjson": {}, // an entry at offset 0 reads its first record, like no entry
+	}
+	files, err := ipc.SpoolFiles(spool)
+	require.NoError(t, err)
+	var got []string
+	for _, f := range orderClientSpoolsByHostTS(files, st) {
+		got = append(got, filepath.Base(f))
+	}
+	require.Equal(t, []string{
+		"client-11.ndjson", // 50
+		"client-10.ndjson", // 300
+		"client-9.ndjson",  // 900: its next unconsumed record, not its consumed 100
 	}, got)
 }

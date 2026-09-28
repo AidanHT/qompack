@@ -416,7 +416,8 @@ func newDrainer(cfg DrainConfig) *drainer {
 
 // Drain replays every spool-tier file under root's spool directory (task-3-spec.md drain.go):
 // wal-* first, lexically sorted as ipc.SpoolFiles lists them, then client-* in host order, by the
-// req.TS of each file's first record (orderClientSpoolsByHostTS, SP08-D3/D35).
+// req.TS of the first record each file still has to replay (orderClientSpoolsByHostTS,
+// SP08-D3/D35).
 // It is idempotent (state/drain.json records consumed offsets) and resumable: a cancelled Drain
 // persists its progress and returns (n, ctx.Err()), so the next call picks up exactly where it
 // stopped. Per-file errors are logged, counted, and never abort the rest of the drain.
@@ -448,8 +449,6 @@ func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	// Client spools in host order, so a spooled prompt's turn follows the order its host sent it.
-	files = orderClientSpoolsByHostTS(files)
 
 	gaps := &gapRecorder{}
 	st, err := dr.loadState()
@@ -466,6 +465,9 @@ func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 	}
 	// Past the gate: a wedge that returns later is a new one and gets announced again.
 	dr.wedgeNoted = false
+	// Client spools in host order, so a spooled prompt's turn follows the order its host sent it.
+	// Each is placed by the record it replays next, at its validated consumed offset.
+	files = orderClientSpoolsByHostTS(files, st)
 	listed := make(map[string]bool, len(files))
 	for _, path := range files {
 		listed[filepath.Base(path)] = true
