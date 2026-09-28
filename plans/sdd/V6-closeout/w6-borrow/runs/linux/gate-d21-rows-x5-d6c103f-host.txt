@@ -1,0 +1,34 @@
+run_id=cx-w6-borrow-d21-rows-x5-d6c103f-20260927T195819Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+rev=d6c103f
+commit=d6c103f1e3699e6a51178428de5c0fe38a551a0e
+bundle_sha256=ddd92ff6c212b0e2bb8752cec87957169f5cdb8daeff8d5220742ff4ec2a0e68
+host_started_utc=2026-09-27T19:58:46Z
+inner_args=--count 5 --timeout 50m --run ^TestSessionStartBudget_ -- ./internal/cli
+/work/cx-w6-borrow-d21-rows-x5-d6c103f-20260927T195819Z.bundle: OK
+run_id=cx-w6-borrow-d21-rows-x5-d6c103f-20260927T195819Z
+commit=d6c103f1e3699e6a51178428de5c0fe38a551a0e
+tree=a8447f96e3cac78d52e38f069606940fe4ab3eb5
+bundle_sha256=ddd92ff6c212b0e2bb8752cec87957169f5cdb8daeff8d5220742ff4ec2a0e68
+started_utc=2026-09-27T19:58:52Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=50m gomaxprocs=4 coload=0
+run=^TestSessionStartBudget_
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/cli  (pass=55 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/plans/sdd/V6-closeout/w6-borrow/runs/linux/cx-w6-borrow-d21-rows-x5-d6c103f-20260927T195819Z-artifacts
+exit=0

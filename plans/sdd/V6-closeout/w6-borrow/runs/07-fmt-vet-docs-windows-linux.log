@@ -1,0 +1,19 @@
+== HEAD 24eae18, started 17:44:15Z
+== go run ./tools/devtool fmt-check
+exit=0
+== go vet ./internal/cli/ ./internal/daemon/ ./internal/ipc/ ./test/fault/ ./test/platform/ ./test/security/
+exit=0
+== GOOS=linux go vet ./internal/cli/ ./internal/daemon/ ./internal/ipc/ ./test/fault/ ./test/platform/ ./test/security/
+exit=0
+== go test ./test/docs -count=1
+ok  	github.com/qompack/qompack/test/docs	2.066s
+exit=0
+== go run ./tools/devtool gen-mcp-docs --check
+gen-mcp-docs: docs/mcp-tools.md is up to date
+exit=0
+== go run ./tools/devtool gen-command-docs --check
+gen-command-docs: docs/commands.md is up to date
+exit=0
+== go run ./tools/devtool gen-config-docs --check
+gen-config-docs: docs/config-reference.md is up to date
+exit=0

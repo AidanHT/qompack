@@ -1,0 +1,4 @@
+== HEAD 24eae18, fake HOME/USERPROFILE, started 17:47:17Z: go test ./internal/ipc/ -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/ipc	23.284s
+exit=0
+ended 17:47:43Z

@@ -1,0 +1,10 @@
+run_id=cx-w6-borrow-lane-abab3-base-f6095e2-20260927T184233Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+rev=f6095e2
+commit=f6095e2704d55336e2e4eac1c2ffc82f566c423b
+bundle_sha256=a07f6cb81414bf0fa5c87feecfc284a71eb831727991fa4cd4d00bffe9185ed8
+host_started_utc=2026-09-27T18:43:03Z
+inner_args=--count 5 --timeout 20m --run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ -- ./internal/daemon
+host_finished_utc=2026-09-27T18:44:08Z
+container_exit=0

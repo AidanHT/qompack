@@ -1,0 +1,92 @@
+"""TEMPORARY (w6-borrow): classify every spooled row of the cold-start diagnostic by what its
+timeline shows (the zzdiag marks), per tree. Offsets are ms from the row's start; "hook" is the
+session-start hook's own first mark (hook-start), so borrow and doneBy are hook+8250 / hook+13500.
+
+Causes, first match wins:
+  no-time-left   no send-start: the steps before the dial used the whole budget
+  not-listening  the dial failed and no daemon was accepting yet
+  busy-pipe      the dial failed (i/o timeout) although a daemon was already accepting
+  write-failed   the dial succeeded but no reply was read (the request write, bounded by AckDeadline)
+  slow-startup   the dial succeeded, the reply timed out, and the daemon was not serving before doneBy
+  reply-late     the dial succeeded, the reply timed out, although the daemon was serving before doneBy
+Usage: python causes.py <log> ...
+"""
+import re
+import sys
+from collections import Counter, defaultdict
+
+
+def blocks(path):
+    """Yield (row-dict, timeline-lines) for every spooled row that has a TIMELINE."""
+    lines = open(path, encoding='utf-8', errors='replace').read().splitlines()
+    rows = {}
+    for l in lines:
+        if ' ROW mode=' in l:
+            d = {}
+            for k, v in re.findall(r'(\w[\w-]*)=\s*([^\s]+)', l):
+                d.setdefault(k, v)
+            rows[(d['mode'], d['source'], d['i'])] = d
+    i = 0
+    while i < len(lines):
+        m = re.search(r'TIMELINE mode=(\S+) source=(\S+) i=(\d+)', lines[i])
+        if m:
+            tl = []
+            i += 1
+            while i < len(lines) and re.match(r'\s+[+-]\s*\d+ms pid=', lines[i]):
+                tl.append(lines[i])
+                i += 1
+            yield rows.get((m.group(1), m.group(2), m.group(3))), tl
+            continue
+        i += 1
+
+
+def at(tl, tag, pid=None, arg=None):
+    for l in tl:
+        m = re.match(r'\s+\+?\s*(-?\d+)ms pid=(\d+) .*? ' + re.escape(tag) + r' \[(.*)\]$', l)
+        if m and (pid is None or m.group(2) == pid) and (arg is None or m.group(3) == arg):
+            return int(m.group(1)), m.group(3), m.group(2)
+    return None
+
+
+def classify(tl):
+    hs = at(tl, 'hook-start', arg='op session.start')
+    if not hs:
+        return 'no-hook-mark', {}
+    hook, _, hpid = hs
+    acc = at(tl, 'accepting')
+    srv = at(tl, 'serving')
+    info = {'hook': hook, 'accepting': acc[0] - hook if acc else None,
+            'serving': srv[0] - hook if srv else None}
+    send = at(tl, 'send-start', hpid)
+    if not send:
+        return 'no-time-left', info
+    info['send'] = send[0] - hook
+    con = at(tl, 'connect', hpid)
+    if con and con[1] != 'err <nil>':
+        if acc and acc[0] <= con[0]:
+            return 'busy-pipe', info
+        return 'not-listening', info
+    rep = at(tl, 'reply', hpid)
+    if not rep:
+        return 'write-failed', info
+    if srv is None or srv[0] - hook > 13500:
+        return 'slow-startup', info
+    return 'reply-late', info
+
+
+by_tree = defaultdict(Counter)
+detail = defaultdict(list)
+for f in sys.argv[1:]:
+    tree = 'before' if '-before-' in f else 'after'
+    for row, tl in blocks(f):
+        if not row or row.get('spooled') != 'true':
+            continue
+        cause, info = classify(tl)
+        by_tree[tree][cause] += 1
+        detail[tree].append(f"{f.split('diag-')[-1][:22]} {row['mode']}/{row['source']}/{row['i']}: {cause} "
+                            f"send={info.get('send')} accepting={info.get('accepting')} serving={info.get('serving')} "
+                            f"(ms from hook start)")
+for t in ('before', 'after'):
+    print(f"== {t}: {sum(by_tree[t].values())} spooled rows: {dict(by_tree[t])}")
+    for d in detail[t]:
+        print('   ' + d)

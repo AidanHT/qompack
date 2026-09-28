@@ -1,0 +1,76 @@
+== RED: git archive 24eae18 with the 'callsite-off' mutation of scratch mutate.py (the fix reverted), fake HOME, started 17:43:12Z
+applied callsite-off
+== mutation diff:
+--- a/internal/cli/sessionstart.go
++++ b/internal/cli/sessionstart.go
+@@ -86,5 +86,5 @@
+ 	if !st.DaemonEnabled {
+ 		return
+ 	}
+-	_, _ = daemon.EnsureRunningUntil(root, self, newHookLogger(root), clk, b.borrowBy, b.latestPoll)
++	_, _ = daemon.EnsureRunningUntil(root, self, newHookLogger(root), clk, b.preSendBy, b.latestPoll)
+ }
+== go test ./internal/cli/ -run '^TestSessionStartBudget_' -count=1 -v -timeout=10m
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.66s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.30s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (4.13s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== NAME  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+    sessionstart_budget_test.go:347: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/cli/sessionstart_budget_test.go:347
+        	Error:      	"{}\n" does not contain "late-daemon-answer"
+        	Test:       	TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+        	Messages:   	a daemon up at 4s is answered, not given up on
+=== NAME  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+    sessionstart_budget_test.go:347: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/cli/sessionstart_budget_test.go:347
+        	Error:      	"{}\n" does not contain "late-daemon-answer"
+        	Test:       	TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+        	Messages:   	a daemon up at 6s is answered, not given up on
+=== NAME  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+    sessionstart_budget_test.go:347: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/cli/sessionstart_budget_test.go:347
+        	Error:      	"{}\n" does not contain "late-daemon-answer"
+        	Test:       	TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+        	Messages:   	a daemon up at 8s is answered, not given up on
+--- FAIL: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- FAIL: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (4.71s)
+    --- FAIL: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (4.74s)
+    --- FAIL: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.76s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+    sessionstart_budget_test.go:384: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/cli/sessionstart_budget_test.go:384
+        	Error:      	"{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"<!-- qompack:rehydration-deferred -->\\nQompack could not deliver this compaction's rehydration (the Qompack daemon did not answer in time), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-host-contract_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).\"}}\n" does not contain "late-daemon-answer"
+        	Test:       	TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+        	Messages:   	the daemon's answer at its compact bound reaches the host
+--- FAIL: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (3.64s)
+=== NAME  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+    sessionstart_budget_test.go:363: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/cli/sessionstart_budget_test.go:363
+        	Error:      	"3.3428969s" is not greater than or equal to "8.25s"
+        	Test:       	TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+        	Messages:   	the poll runs to the borrow limit; the hook took 3.3428969s
+--- FAIL: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (3.77s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	19.873s
+FAIL
+exit=1

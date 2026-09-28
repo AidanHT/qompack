@@ -1,0 +1,53 @@
+== HEAD 24eae18, fake HOME/USERPROFILE under the w6-borrow scratch, started 17:40:58Z
+== go test ./internal/cli/ -run '^TestSessionStartBudget_' -count=1 -v -timeout=10m
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.66s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.30s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.66s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.06s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.06s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.06s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.32s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.06s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	32.001s
+exit=0
+== go test ./internal/ipc/ -run '^(TestClaimSpawn_RefusesTheHomeDirectory|TestLazySpawn_RefusesTheHomeDirectory)$' -count=1 -v
+=== RUN   TestClaimSpawn_RefusesTheHomeDirectory
+--- PASS: TestClaimSpawn_RefusesTheHomeDirectory (0.04s)
+=== RUN   TestLazySpawn_RefusesTheHomeDirectory
+--- PASS: TestLazySpawn_RefusesTheHomeDirectory (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	1.479s
+exit=0
+== go test ./internal/daemon/ -run '^(TestEnsureRunning_RefusesTheHomeDirectory|TestSpawnDetached_RefusesTheHomeDirectory|TestAcquireLock_RefusesTheHomeDirectory)$' -count=1 -v
+=== RUN   TestAcquireLock_RefusesTheHomeDirectory
+--- PASS: TestAcquireLock_RefusesTheHomeDirectory (0.04s)
+=== RUN   TestEnsureRunning_RefusesTheHomeDirectory
+--- PASS: TestEnsureRunning_RefusesTheHomeDirectory (0.18s)
+=== RUN   TestSpawnDetached_RefusesTheHomeDirectory
+--- PASS: TestSpawnDetached_RefusesTheHomeDirectory (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.471s
+exit=0

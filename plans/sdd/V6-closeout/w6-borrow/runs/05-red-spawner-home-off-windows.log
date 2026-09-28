@@ -1,0 +1,48 @@
+== RED: git archive 24eae18 with the 'spawner-home-off' mutation of scratch mutate.py (the fix reverted), fake HOME, started 17:43:44Z
+applied spawner-home-off
+== mutation diff:
+--- a/internal/daemon/spawn.go
++++ b/internal/daemon/spawn.go
+@@ -185,9 +185,6 @@
+ ) (spawned bool, err error) {
+ 	// D18: nothing is dialled, claimed or spawned for the home directory. Nothing is logged either:
+ 	// a hook's logger would write under the very directory the refusal keeps untouched.
+-	if rerr := refuseHomeRoot(projectRoot); rerr != nil {
+-		return false, fmt.Errorf("daemon: ensure running: %w", rerr)
+-	}
+ 	if log == nil {
+ 		log = logging.Nop()
+ 	}
+@@ -265,9 +262,6 @@
+ // self instead, as it was before staging existed, and reports that itself (Run).
+ func spawnDetached(projectRoot, self, home string, log logging.Logger) error {
+ 	// D18: no process is started, and no staged copy prepared, for the home directory.
+-	if err := refuseHomeRoot(projectRoot); err != nil {
+-		return fmt.Errorf("daemon: spawn: %w", err)
+-	}
+ 	program, stageErr := daemonProgram(self, home, os.Getenv(pluginRootEnv), stagingEnabled)
+ 	if stageErr != nil && log != nil {
+ 		log.Warn("daemon: could not stage the daemon binary; starting it from the plugin binary",
+== go test ./internal/daemon/ -run '^(TestEnsureRunning_RefusesTheHomeDirectory|TestSpawnDetached_RefusesTheHomeDirectory)$' -count=1 -v -timeout=10m
+=== RUN   TestEnsureRunning_RefusesTheHomeDirectory
+    spawn_home_test.go:74: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/daemon/spawn_home_test.go:74
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: the project root is the home directory"
+        	            	in chain: 
+        	Test:       	TestEnsureRunning_RefusesTheHomeDirectory
+--- FAIL: TestEnsureRunning_RefusesTheHomeDirectory (0.18s)
+=== RUN   TestSpawnDetached_RefusesTheHomeDirectory
+    spawn_home_test.go:105: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/daemon/spawn_home_test.go:105
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: the project root is the home directory"
+        	            	in chain: "daemon: spawn: exec: \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\TestSpawnDetached_RefusesTheHomeDirectory2126692462\\\\002\\\\never-spawned\": executable file not found in %PATH%"
+        	            		"exec: \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\TestSpawnDetached_RefusesTheHomeDirectory2126692462\\\\002\\\\never-spawned\": executable file not found in %PATH%"
+        	            		"executable file not found in %PATH%"
+        	Test:       	TestSpawnDetached_RefusesTheHomeDirectory
+--- FAIL: TestSpawnDetached_RefusesTheHomeDirectory (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.411s
+FAIL
+exit=1

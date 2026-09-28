@@ -493,8 +493,10 @@ func (c *client) Close() error {
 // project's daemon shares — session-start's EnsureRunning included: only a spawner that claims
 // <root>/.qompack/run/spawn.lock spawns; a claim younger than spawnLockStaleAfter means a spawn is
 // already underway and this client does nothing; an older one is presumed abandoned and reclaimed.
-// A lock that cannot be taken for any other reason makes this client give up quietly. A spawn that
-// fails to start releases its claim, so it holds no later spawner off.
+// A lock that cannot be taken for any other reason makes this client give up quietly — among them a
+// project root that is the home directory, for which ClaimSpawn takes no claim (D18), so this
+// client creates nothing under ~/.qompack and spawns nothing for it. A spawn that fails to start
+// releases its claim, so it holds no later spawner off.
 // The spawning client never waits for the daemon it launched — this method itself is called only
 // from a failure path that is about to spool and return.
 func (c *client) lazySpawn() {

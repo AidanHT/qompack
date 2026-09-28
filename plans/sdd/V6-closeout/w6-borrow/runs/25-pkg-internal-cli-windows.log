@@ -1,0 +1,4 @@
+== head d6c103f
+== $ go test ./internal/cli/ -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/cli	69.781s
+exit=0

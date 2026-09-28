@@ -1,0 +1,10 @@
+run_id=cx-w6-borrow-touched-race-d6c103f-20260927T200214Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+rev=d6c103f
+commit=d6c103f1e3699e6a51178428de5c0fe38a551a0e
+bundle_sha256=0c740f7adf89eea83c70f2d8904eae8c632a419e321d04c0aaba8c365e04c662
+host_started_utc=2026-09-27T20:02:35Z
+inner_args=--timeout 60m -- ./internal/daemon ./internal/cli
+host_finished_utc=2026-09-27T20:15:19Z
+container_exit=0

@@ -1,0 +1,133 @@
+== w6-borrow fix seat: red run of TestEnsureRunningUntil_ThePollEndsAtItsDeadline (both rows)
+== tree: 9522182 + the probe seam only (ensureRunningWith/probeBy, dials routed through it, loop logic unchanged)
+== $ go test ./internal/daemon/ -run '^TestEnsureRunningUntil_ThePollEndsAtItsDeadline$' -count=3 -v
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:539: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:539
+        	Error:      	Should be empty, but was [dial 39 of 39: 16.5533ms]
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+        	Messages:   	no dial of the poll may be bounded past its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:531: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:531
+        	Error:      	Should be false
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	a dial cut short at the end of the wait is no licence to spawn
+    spawn_lock_test.go:532: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:532
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	nothing is spawned while a daemon may be up and slow to accept
+    spawn_lock_test.go:539: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:539
+        	Error:      	Should be empty, but was [dial 35 of 44: 155.8429ms dial 36 of 44: 176.4043ms dial 37 of 44: 196.8912ms dial 38 of 44: 217.6603ms dial 39 of 44: 240.9543ms dial 40 of 44: 266.12ms dial 41 of 44: 291.1575ms dial 42 of 44: 315.8781ms dial 43 of 44: 341.1428ms dial 44 of 44: 365.8248ms]
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	no dial of the poll may be bounded past its deadline
+    spawn_lock_test.go:540: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:540
+        	Error:      	"366.3444ms" is not less than "250ms"
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	the poll ends at its deadline; it ended 366.3444ms past it
+    spawn_lock_test.go:543: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:543
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestEnsureRunningUntil_ThePollEndsAtItsDeadlineclaim_freed_near3230290025\\001\\.qompack\\run\\spawn.lock" exists
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	the claim taken on the freed lock is given back
+--- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.03s)
+    --- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.38s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:539: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:539
+        	Error:      	Should be empty, but was [dial 39 of 39: 18.9988ms]
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+        	Messages:   	no dial of the poll may be bounded past its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:531: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:531
+        	Error:      	Should be false
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	a dial cut short at the end of the wait is no licence to spawn
+    spawn_lock_test.go:532: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:532
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	nothing is spawned while a daemon may be up and slow to accept
+    spawn_lock_test.go:539: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:539
+        	Error:      	Should be empty, but was [dial 35 of 44: 161.0561ms dial 36 of 44: 181.5282ms dial 37 of 44: 202.1604ms dial 38 of 44: 222.4264ms dial 39 of 44: 242.5911ms dial 40 of 44: 265.8546ms dial 41 of 44: 290.4505ms dial 42 of 44: 315.8387ms dial 43 of 44: 340.6212ms dial 44 of 44: 365.4839ms]
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	no dial of the poll may be bounded past its deadline
+    spawn_lock_test.go:540: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:540
+        	Error:      	"365.9719ms" is not less than "250ms"
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	the poll ends at its deadline; it ended 365.9719ms past it
+    spawn_lock_test.go:543: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:543
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestEnsureRunningUntil_ThePollEndsAtItsDeadlineclaim_freed_near2994034819\\001\\.qompack\\run\\spawn.lock" exists
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	the claim taken on the freed lock is given back
+--- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.03s)
+    --- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.37s)
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== RUN   TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== PAUSE TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+=== CONT  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+    spawn_lock_test.go:539: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:539
+        	Error:      	Should be empty, but was [dial 39 of 39: 16.9731ms]
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end
+        	Messages:   	no dial of the poll may be bounded past its deadline
+=== NAME  TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+    spawn_lock_test.go:531: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:531
+        	Error:      	Should be false
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	a dial cut short at the end of the wait is no licence to spawn
+    spawn_lock_test.go:532: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:532
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	nothing is spawned while a daemon may be up and slow to accept
+    spawn_lock_test.go:539: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:539
+        	Error:      	Should be empty, but was [dial 35 of 44: 156.1341ms dial 36 of 44: 176.7203ms dial 37 of 44: 197.1485ms dial 38 of 44: 217.416ms dial 39 of 44: 240.5656ms dial 40 of 44: 266.0248ms dial 41 of 44: 290.5556ms dial 42 of 44: 315.818ms dial 43 of 44: 340.6778ms dial 44 of 44: 366.0056ms]
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	no dial of the poll may be bounded past its deadline
+    spawn_lock_test.go:540: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:540
+        	Error:      	"366.298ms" is not less than "250ms"
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	the poll ends at its deadline; it ended 366.298ms past it
+    spawn_lock_test.go:543: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:543
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestEnsureRunningUntil_ThePollEndsAtItsDeadlineclaim_freed_near4202698488\\001\\.qompack\\run\\spawn.lock" exists
+        	Test:       	TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end
+        	Messages:   	the claim taken on the freed lock is given back
+--- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline (0.00s)
+    --- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_held_to_the_end (1.03s)
+    --- FAIL: TestEnsureRunningUntil_ThePollEndsAtItsDeadline/claim_freed_near_the_end (1.38s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	4.388s
+FAIL
+exit=1

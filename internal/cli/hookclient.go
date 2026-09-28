@@ -286,14 +286,20 @@ type hookSpec struct {
 	// reply wait is cut to what is left when the steps before the dial ran over, so the whole
 	// invocation ends inside the timeout. Only session-start sets it; zero keeps the fixed deadlines.
 	hostTimeout time.Duration
+	// minReply is the least reply wait preSend's find/start step leaves when it borrows the reply
+	// wait's idle time (hookBudget.borrowBy, V6 close-out D21): session-start's is D9's compact bound
+	// (daemon.CompactAnswerBudget), so a compaction's answer at that bound is still heard. Zero lends
+	// nothing, and it has no effect without a hostTimeout.
+	minReply time.Duration
 	// preSend runs once, after the project root/state are final and before the client is
 	// constructed. Only session-start uses it, to call daemon.EnsureRunningUntil (§2.4: session-start
 	// is the designated daemon starter, off the hot path, with a generous hook timeout). self is
 	// env.Self threaded through explicitly (see cli.Env.Self's own doc comment) rather than read
 	// from a package-level seam. st is the same 32-byte state record doHook already read, so
 	// preSend can honour runtime.daemon.enabled without a second disk read (fix round 2, FR-6). b is
-	// the hook's budget: preSendBy is when it should return by, latestPoll when it must; both are
-	// zero when the hook has no hostTimeout.
+	// the hook's budget: returning by preSendBy keeps the full reply deadline, the find/start step may
+	// wait for a daemon until borrowBy, and latestPoll is when any wait must end; all are zero when
+	// the hook has no hostTimeout.
 	preSend func(root, self string, st ipc.State, clk core.Clock, b hookBudget)
 }
 
@@ -469,14 +475,14 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		}()
 
 		connectDeadline := hookConnectDeadline(spec, st)
-		budget := newHookBudget(began, spec.hostTimeout, spec.deadline, connectDeadline)
+		budget := newHookBudget(began, spec.hostTimeout, spec.deadline, connectDeadline, spec.minReply)
 		if spec.preSend != nil {
 			spec.preSend(root, env.Self, st, clk, budget)
 		}
 
 		addr, aerr := ipc.Resolve(root)
 		if aerr != nil {
-			_ = sp.Append(req)
+			spoolUnsent(sp, req, hookLog)
 			logQuiet(root, aerr, clk)
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
@@ -507,17 +513,16 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			deadline = hookSendDeadlineFloor
 		}
 
+		// With deadline <= 0 (D17b), the steps before the dial used the whole budget, so no answer
+		// could be waited for before the host's timeout. The request is spooled as a start that missed
+		// its deadline is, without dialling a daemon that would then answer into nothing, and the
+		// answer below is the one an unanswered start gets. The Warn says the spool took it, not that
+		// it was written: a spool that then fails to write it drops it and says so itself.
 		var resp ipc.Response
 		if deadline = budget.replyDeadline(time.Now(), deadline, connectDeadline); deadline > 0 {
 			resp, _ = c.Send(ctx, req, deadline)
-		} else {
-			// D17b: the steps before the dial used the whole budget, so no answer could be waited for
-			// before the host's timeout. The request is spooled as a start that missed its deadline
-			// is, without dialling a daemon that would then answer into nothing, and the answer below
-			// is the one an unanswered start gets.
-			_ = sp.Append(req)
-			hookLog.Warn("hook: no time left to wait for the daemon's answer; the request was spooled",
-				"op", string(spec.op), "overrun_ms", -deadline.Milliseconds())
+		} else if spoolUnsent(sp, req, hookLog) {
+			hookLog.Warn(noTimeLeftMsg, "op", string(spec.op), "overrun_ms", -deadline.Milliseconds())
 		}
 		respOut := hookio.Empty()
 		if resp.Output != nil {
@@ -564,6 +569,30 @@ func compactUnanswered(spec hookSpec, ev hookio.Event, degraded bool, st ipc.Sta
 	case cfg.Runtime.Mode == configModeOff || cfg.Runtime.Mode == configModePassive:
 		return false
 	case !cfg.Runtime.Migration.Reinjection.SessionStartCompact:
+		return false
+	}
+	return true
+}
+
+// unsentSpoolRefusedMsg is the Loud a hook writes when a request it spools without sending is
+// refused by the spool, and so is lost (spoolUnsent).
+const unsentSpoolRefusedMsg = "hook: the request could not be spooled and is lost"
+
+// noTimeLeftMsg is the Warn a hook writes when no time was left to wait for the daemon's answer and
+// the spool took the request unsent. Took, not wrote: spoolUnsent cannot tell the two apart.
+const noTimeLeftMsg = "hook: no time left to wait for the daemon's answer; the request was handed to the spool"
+
+// spoolUnsent hands req to the hook's spool on the branches where doHook sends nothing at all — no
+// address resolved, or no time left to wait for an answer — and reports whether the spool took it,
+// that is, did not refuse it. The client's own spool path counts and Louds a refused append (ipc's
+// appendToSpool); a refusal here was dropped silently (w5-coldstart review nit). The error Append
+// returns — the frame-size refusal, or a fault site's — means the request is lost, so that is
+// Louded here. A request the spool took was written, or was dropped on an ordinary write failure,
+// which spool.Append counts and Louds itself and reports as nil (§12.3): the two look the same from
+// here, so taken never means "spooled" (w6-borrow review).
+func spoolUnsent(sp ipc.SpoolWriter, req ipc.Request, log logging.Logger) (taken bool) {
+	if err := sp.Append(req); err != nil {
+		log.Loud(unsentSpoolRefusedMsg, "op", string(req.Op), "err", err)
 		return false
 	}
 	return true

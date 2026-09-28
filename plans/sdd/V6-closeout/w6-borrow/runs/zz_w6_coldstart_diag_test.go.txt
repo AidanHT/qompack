@@ -1,0 +1,525 @@
+package e2e
+
+// TEMPORARY DIAGNOSTIC for the w5-coldstart lane (D17). Never committed as a test: a copy is kept as
+// .go.txt evidence. It extends w3-startroute's cold-start diagnostic
+// (plans/sdd/V6-closeout/w3-startroute/runs/zz_startroute_coldstart_diag_test.go.txt):
+//
+//   - it runs against a tree instrumented with the (also temporary) internal/zzdiag marks, and sets
+//     ZZ_DIAG_DIR per row, so every hook and daemon process of the row writes a timestamped phase log;
+//   - ZZ_UP=marks (the default) detects "daemon serving" from the daemon's own "serving" mark instead
+//     of dialling the pipe every 10 ms: on Windows a dial against a listener that has not started
+//     serving takes the pipe's only instance, so the original prober competed with session-start for
+//     it. ZZ_UP=probe restores the original prober;
+//   - mode staged-warm: the plugin layout with a home whose staged copy already exists.
+//
+// Per row it reports the hook's wall time, whether session-start's own request was spooled, what the
+// hook answered, how many daemon processes the row started and how their lease went, and when the
+// first daemon started serving; notable rows also get their full phase timeline.
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/rehydrate"
+	"github.com/qompack/qompack/internal/testutil"
+)
+
+func zzwEnv(name, def string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return def
+}
+
+func zzwEnvInt(name string, def int) int {
+	if n, err := strconv.Atoi(os.Getenv(name)); err == nil && n > 0 {
+		return n
+	}
+	return def
+}
+
+type zzwRow struct {
+	mode, source string
+	i            int
+	wall         time.Duration
+	up           time.Duration
+	upOK         bool
+	spooled      bool
+	answer       string
+	probeMinted  bool
+	sessions     int
+	daemonMode   string
+	drop         string
+	daemons      int
+	lockHeld     int
+	leaseOK      int
+	presend      time.Duration
+	ssWall       time.Duration // the session-start process alone, as its host would time it
+	dialable     time.Duration // first "accepting" mark (fixed tree) or "serving" (pre-fix: the pipe takes no dial before it)
+	spawnStall   time.Duration // the longest spawn-start..spawn-started (process creation) in the row
+	overhead     time.Duration // ssWall minus the hook's own hook-start..hook-end span
+	timeline     []string
+}
+
+func zzwClassify(stdout []byte) string {
+	var out hookio.Output
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(stdout))), &out); err != nil {
+		return "unparseable"
+	}
+	ac := ""
+	if out.HookSpecificOutput != nil {
+		ac = out.HookSpecificOutput.AdditionalContext
+	}
+	var parts []string
+	switch {
+	case ac == "":
+		parts = append(parts, "{}")
+	case strings.HasPrefix(ac, daemon.DeferredNoteTag):
+		for _, r := range []string{daemon.DeferredNoAnswer, daemon.DeferredNotReady, daemon.DeferredFailed,
+			daemon.DeferredCheckpointUnreadable, daemon.DeferredStopping} {
+			if strings.Contains(ac, r) {
+				parts = append(parts, "note("+r+")")
+			}
+		}
+	case strings.Contains(ac, "# Qompack rehydration"):
+		parts = append(parts, "rehydration")
+	}
+	if strings.Contains(ac, "qompack-contract-probe") {
+		parts = append(parts, "probe")
+	}
+	if out.SystemMessage != "" {
+		parts = append(parts, "banner")
+	}
+	return strings.Join(parts, "+")
+}
+
+type zzwMark struct {
+	at   time.Time
+	pid  string
+	rest string
+}
+
+// zzwMarks reads every zzdiag log under dir. Times are UTC wall-clock of the day the row ran.
+func zzwMarks(dir string, day time.Time) []zzwMark {
+	var out []zzwMark
+	ents, _ := os.ReadDir(dir)
+	for _, e := range ents {
+		if !strings.HasSuffix(e.Name(), ".log") {
+			continue
+		}
+		f, err := os.Open(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		sc := bufio.NewScanner(f)
+		for sc.Scan() {
+			line := sc.Text()
+			fields := strings.SplitN(line, " ", 3)
+			if len(fields) < 3 {
+				continue
+			}
+			tm, err := time.Parse("15:04:05.000", fields[0])
+			if err != nil {
+				continue
+			}
+			at := time.Date(day.Year(), day.Month(), day.Day(), tm.Hour(), tm.Minute(), tm.Second(), tm.Nanosecond(), time.UTC)
+			out = append(out, zzwMark{at: at, pid: strings.TrimPrefix(fields[1], "pid="), rest: fields[2]})
+		}
+		_ = f.Close()
+	}
+	sort.SliceStable(out, func(a, b int) bool { return out[a].at.Before(out[b].at) })
+	return out
+}
+
+func zzwFirst(ms []zzwMark, tag string) (time.Time, bool) {
+	for _, m := range ms {
+		if strings.Contains(m.rest, " "+tag+" ") {
+			return m.at, true
+		}
+	}
+	return time.Time{}, false
+}
+
+func zzwOne(t *testing.T, bin, mode, source string, i int, warmHome, warmPluginRoot, warmPluginBin string) zzwRow {
+	t.Helper()
+	p := testutil.NewProject(t)
+	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
+	transcript := x14v5Transcript(t, p.Root)
+	sess := core.SessionID(fmt.Sprintf("sess-zzw-%s-%s-%d", mode, source, i))
+	env := e2eEnv(p)
+	runBin := bin
+	switch mode {
+	case "staged-cold":
+		pluginRoot, pluginBin := installPluginLayout(t, bin)
+		env["CLAUDE_PLUGIN_ROOT"] = pluginRoot
+		runBin = pluginBin
+	case "staged-warm":
+		env["CLAUDE_PLUGIN_ROOT"] = warmPluginRoot
+		env["HOME"], env["USERPROFILE"] = warmHome, warmHome
+		runBin = warmPluginBin
+	}
+
+	if source == "compact" {
+		obsRunHook(t, runBin, []string{"session-start"}, x14v5StartPayload(t, p.Root, sess, "startup", transcript), env)
+		seedAddr, err := ipc.Resolve(p.Root)
+		require.NoError(t, err)
+		require.Eventually(t, func() bool { return ipc.Probe(seedAddr, 20*time.Millisecond) },
+			90*time.Second, 50*time.Millisecond, "the seed's daemon never came up")
+		obsRunHook(t, runBin, []string{"observe", "prompt"},
+			x14v5PromptPayload(t, p.Root, sess, transcript, "Keep the config port at 8443."), env)
+		obsRunHook(t, runBin, []string{"checkpoint"}, cpPreCompactPayload(t, p.Root, sess), env)
+		require.Eventually(t, func() bool { return len(cpCheckpointArtifacts(t, p.Root)) > 0 },
+			60*time.Second, 50*time.Millisecond, "the seed PreCompact never sealed a checkpoint")
+		e2eShutdownIfReachable(t, p.Root)
+		if mode == "staged-cold" {
+			home := t.TempDir()
+			env["HOME"], env["USERPROFILE"] = home, home
+		}
+	}
+
+	diag := t.TempDir()
+	env["ZZ_DIAG_DIR"] = diag
+	addr, err := ipc.Resolve(p.Root)
+	require.NoError(t, err)
+	start := time.Now()
+	probeUp := os.Getenv("ZZ_UP") == "probe"
+	var upCh <-chan zzsUp
+	if probeUp {
+		upCh = zzsWaitUp(addr, start, 30*time.Second)
+	}
+	if mode == "prespawned" {
+		obsRunHook(t, runBin, []string{"observe", "tool"},
+			obsToolPayload(t, p.Root, sess, "toolu_zzw_prespawn", filepath.Join(p.Root, "a.txt"), "alpha"), env)
+	}
+	ssStart := time.Now()
+	stdout, stderr, code := Run(t, runBin, []string{"session-start"}, x14v5StartPayload(t, p.Root, sess, source, transcript), env)
+	wall := time.Since(start)
+	ssWall := time.Since(ssStart)
+	require.Equal(t, 0, code, "stderr:\n%s", stderr)
+	row := zzwRow{mode: mode, source: source, i: i, wall: wall, ssWall: ssWall,
+		spooled: slices.Contains(zzwSpooledOps(p.Root), string(ipc.OpSessionStart)),
+		answer:  zzwClassify(stdout)}
+	if probeUp {
+		up := <-upCh
+		row.up, row.upOK = up.d, up.ok
+	} else {
+		deadline := start.Add(30 * time.Second)
+		for {
+			if at, ok := zzwFirst(zzwMarks(diag, start.UTC()), "serving"); ok {
+				row.up, row.upOK = at.Sub(start), true
+				break
+			}
+			if time.Now().After(deadline) {
+				row.up = 30 * time.Second
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+	if row.upOK {
+		ok := false
+		dl := time.Now().Add(30 * time.Second)
+		for time.Now().Before(dl) {
+			if ipc.Probe(addr, 200*time.Millisecond) {
+				ok = true
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		if ok {
+			d2 := time.Now().Add(30 * time.Second)
+			for time.Now().Before(d2) {
+				x1v5AdminDrain(p.Root)
+				if !slices.Contains(zzwSpooledOps(p.Root), string(ipc.OpSessionStart)) {
+					break
+				}
+			}
+			row.daemonMode = e2eStatus(t, p.Root).Mode
+		}
+	}
+	ms := zzwMarks(diag, start.UTC())
+	pids := map[string]bool{}
+	var hookStart, hookEnd, presendStart, presendEnd time.Time
+	spawnAt := map[string]time.Time{}
+	for _, m := range ms {
+		switch {
+		case strings.Contains(m.rest, " daemon-enter "):
+			pids[m.pid] = true
+		case strings.Contains(m.rest, " run-lockheld "), strings.Contains(m.rest, " lease-result [err qompack: daemon lock already held]"):
+			row.lockHeld++
+		case strings.Contains(m.rest, " lease-result [err <nil>]"):
+			row.leaseOK++
+		case strings.Contains(m.rest, " hook-start [op session.start]"):
+			hookStart = m.at
+		case strings.Contains(m.rest, " hook-end ") && !hookStart.IsZero() && hookEnd.IsZero():
+			hookEnd = m.at
+		case strings.Contains(m.rest, " spawn-started "):
+			if at, ok := spawnAt[m.pid]; ok && m.at.Sub(at) > row.spawnStall {
+				row.spawnStall = m.at.Sub(at)
+			}
+		case strings.Contains(m.rest, " spawn-start "):
+			spawnAt[m.pid] = m.at
+		case strings.Contains(m.rest, " presend-start "):
+			presendStart = m.at
+		case strings.Contains(m.rest, " presend-end "):
+			presendEnd = m.at
+		}
+		row.timeline = append(row.timeline, fmt.Sprintf("%+7dms pid=%s %s", m.at.Sub(start).Milliseconds(), m.pid, m.rest))
+	}
+	if at, ok := zzwFirst(ms, "accepting"); ok {
+		row.dialable = at.Sub(start)
+	} else if at, ok := zzwFirst(ms, "serving"); ok {
+		row.dialable = at.Sub(start)
+	}
+	if !hookStart.IsZero() && !hookEnd.IsZero() {
+		row.overhead = row.ssWall - hookEnd.Sub(hookStart)
+	}
+	row.daemons = len(pids)
+	if !presendStart.IsZero() && !presendEnd.IsZero() {
+		row.presend = presendEnd.Sub(presendStart)
+	}
+	if stacks, _ := filepath.Glob(filepath.Join(diag, "*-stack-*.txt")); len(stacks) > 0 && row.upOK {
+		for _, st := range stacks {
+			b, _ := os.ReadFile(st)
+			row.timeline = append(row.timeline, "STACK "+filepath.Base(st)+":\n"+zzwStartupGoroutines(string(b)))
+		}
+	}
+	if !row.upOK {
+		out, _ := exec.Command("powershell.exe", "-NoProfile", "-Command",
+			"Get-CimInstance Win32_Process -Filter \"Name='qompack.exe'\" | Select-Object ProcessId,ParentProcessId,CreationDate,CommandLine | Format-List | Out-String -Width 400").CombinedOutput()
+		t.Logf("NOUP processes: %s", out)
+		stacks, _ := filepath.Glob(filepath.Join(diag, "*-stack-*.txt"))
+		for _, s := range stacks {
+			b, _ := os.ReadFile(s)
+			t.Logf("NOUP stack %s:\n%s", filepath.Base(s), b)
+		}
+		logDir := filepath.Join(p.Root, ".qompack", "logs")
+		les, _ := os.ReadDir(logDir)
+		for _, e := range les {
+			b, _ := os.ReadFile(filepath.Join(logDir, e.Name()))
+			t.Logf("NOUP log %s: %s", e.Name(), string(b))
+		}
+	}
+	h := contract.LoadHistory(contract.HistoryPath(p.Root))
+	row.probeMinted = h.Sentinel.Token != "" && h.Sentinel.Session == sess
+	row.sessions = h.SessionCount
+	if source == "compact" {
+		drops, _ := rehydrate.NewReporter(p.Root, logging.Nop()).CurrentDrops(context.Background(), sess)
+		if len(drops) > 0 {
+			d := drops[0].Detail
+			if len(d) > 60 {
+				d = d[:60]
+			}
+			row.drop = drops[0].Kind + ":" + d
+		}
+	}
+	e2eShutdownIfReachable(t, p.Root)
+	return row
+}
+
+// zzwStartupGoroutines keeps the goroutines of a stack dump that belong to the daemon's startup:
+// Run itself and anything under the drainer.
+func zzwStartupGoroutines(dump string) string {
+	var keep []string
+	for _, g := range strings.Split(dump, "\n\n") {
+		if strings.Contains(g, "(*daemon).Run(") || strings.Contains(g, "(*drainer)") || strings.Contains(g, "runDaemon") {
+			keep = append(keep, g)
+		}
+	}
+	return strings.Join(keep, "\n\n")
+}
+
+func zzwPct(ds []time.Duration, q float64) time.Duration {
+	if len(ds) == 0 {
+		return 0
+	}
+	s := slices.Clone(ds)
+	slices.Sort(s)
+	return s[int(float64(len(s)-1)*q)]
+}
+
+// zzwWarm returns a plugin layout and a home whose staged copy of it already exists: one throwaway
+// session-start stages it, and its daemon is shut down again.
+func zzwWarm(t *testing.T, bin string) (home, pluginRoot, pluginBin string) {
+	t.Helper()
+	home = t.TempDir()
+	pluginRoot, pluginBin = installPluginLayout(t, bin)
+	p := testutil.NewProject(t)
+	env := e2eEnv(p)
+	env["CLAUDE_PLUGIN_ROOT"] = pluginRoot
+	env["HOME"], env["USERPROFILE"] = home, home
+	transcript := x14v5Transcript(t, p.Root)
+	obsRunHook(t, pluginBin, []string{"session-start"}, x14v5StartPayload(t, p.Root, "sess-zzw-warmup", "startup", transcript), env)
+	addr, err := ipc.Resolve(p.Root)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool { return ipc.Probe(addr, 20*time.Millisecond) }, 90*time.Second, 50*time.Millisecond)
+	e2eShutdownIfReachable(t, p.Root)
+	staged, _ := filepath.Glob(filepath.Join(home, ".qompack", "bin", "*", "*"))
+	require.NotEmpty(t, staged, "the warm-up staged no copy")
+	return home, pluginRoot, pluginBin
+}
+
+func TestZZW5_ColdStart(t *testing.T) {
+	bin := Build(t)
+	iters := zzwEnvInt("ZZ_ITERS", 6)
+	modes := strings.Split(zzwEnv("ZZ_MODES", "unstaged,staged-cold,staged-warm,prespawned"), ",")
+	sources := strings.Split(zzwEnv("ZZ_SOURCES", "startup,resume,compact"), ",")
+
+	var stop atomic.Bool
+	if n := zzwEnvInt("ZZ_FSYNC_COLOAD", 0); n > 0 {
+		fdir := t.TempDir()
+		for g := range n {
+			go func() {
+				buf := make([]byte, 4096)
+				p := filepath.Join(fdir, fmt.Sprintf("f%d", g))
+				for !stop.Load() {
+					f, err := os.Create(p)
+					if err != nil {
+						return
+					}
+					_, _ = f.Write(buf)
+					_ = f.Sync()
+					_ = f.Close()
+				}
+			}()
+		}
+		t.Cleanup(func() { stop.Store(true) })
+	}
+	spinners := 0
+	if os.Getenv("ZZ_CPU_COLOAD") == "1" {
+		spinners = min(zzwEnvInt("ZZ_CPU_SPINNERS", 8), 8)
+		for range spinners {
+			go func() {
+				x := 0
+				for !stop.Load() {
+					x++
+				}
+				_ = x
+			}()
+		}
+		t.Cleanup(func() { stop.Store(true) })
+	}
+	t.Logf("GOOS=%s NumCPU=%d cpu-coload=%q spinners=%d fsync=%d iters=%d up=%q", runtime.GOOS, runtime.NumCPU(), os.Getenv("ZZ_CPU_COLOAD"),
+		spinners, zzwEnvInt("ZZ_FSYNC_COLOAD", 0), iters, zzwEnv("ZZ_UP", "marks"))
+
+	var rows []zzwRow
+	for _, mode := range modes {
+		if strings.HasPrefix(mode, "staged") && runtime.GOOS != "windows" {
+			continue
+		}
+		var wh, wr, wb string
+		if mode == "staged-warm" {
+			wh, wr, wb = zzwWarm(t, bin)
+		}
+		for _, source := range sources {
+			for i := range iters {
+				r := zzwOne(t, bin, mode, source, i, wh, wr, wb)
+				rows = append(rows, r)
+				t.Logf("ROW mode=%-11s source=%-7s i=%d wall=%5dms sswall=%5dms overhead=%4dms presend=%5dms dialable=%5dms stall=%4dms up=%5dms(ok=%v) spooled=%-5v daemons=%d leaseOK=%d lockHeld=%d answer=%-40s probe_minted=%-5v sessions=%d mode=%s drop=%q",
+					r.mode, r.source, r.i, r.wall.Milliseconds(), r.ssWall.Milliseconds(), r.overhead.Milliseconds(), r.presend.Milliseconds(), r.dialable.Milliseconds(), r.spawnStall.Milliseconds(), r.up.Milliseconds(), r.upOK, r.spooled,
+					r.daemons, r.leaseOK, r.lockHeld, r.answer, r.probeMinted, r.sessions, r.daemonMode, r.drop)
+				if !r.upOK || r.spooled || r.wall > 8*time.Second || r.leaseOK > 1 || os.Getenv("ZZ_TIMELINE") == "all" {
+					t.Logf("TIMELINE mode=%s source=%s i=%d\n%s", r.mode, r.source, r.i, strings.Join(r.timeline, "\n"))
+				}
+			}
+		}
+	}
+
+	type key struct{ mode, source string }
+	groups := map[key][]zzwRow{}
+	var keys []key
+	for _, r := range rows {
+		k := key{r.mode, r.source}
+		if _, ok := groups[k]; !ok {
+			keys = append(keys, k)
+		}
+		groups[k] = append(groups[k], r)
+	}
+	for _, k := range keys {
+		g := groups[k]
+		var walls, ups, pres, sswalls, overs []time.Duration
+		spooled, noup, extra, stalls := 0, 0, 0, 0
+		answers := map[string]int{}
+		for _, r := range g {
+			walls = append(walls, r.wall)
+			sswalls = append(sswalls, r.ssWall)
+			overs = append(overs, r.overhead)
+			ups = append(ups, r.up)
+			pres = append(pres, r.presend)
+			if r.spooled {
+				spooled++
+			}
+			if !r.upOK {
+				noup++
+			}
+			if r.daemons > 1 {
+				extra++
+			}
+			if r.spawnStall > time.Second {
+				stalls++
+			}
+			answers[r.answer]++
+		}
+		t.Logf("SUMMARY mode=%-11s source=%-7s n=%d spooled=%d noup=%d multi-daemon-rows=%d spawn-stalls>1s=%d sswall p50=%dms p90=%dms max=%dms overhead p50=%dms max=%dms wall p50=%dms p90=%dms max=%dms presend p50=%dms max=%dms up p50=%dms max=%dms answers=%v",
+			k.mode, k.source, len(g), spooled, noup, extra, stalls,
+			zzwPct(sswalls, 0.5).Milliseconds(), zzwPct(sswalls, 0.9).Milliseconds(), zzwPct(sswalls, 1).Milliseconds(),
+			zzwPct(overs, 0.5).Milliseconds(), zzwPct(overs, 1).Milliseconds(),
+			zzwPct(walls, 0.5).Milliseconds(), zzwPct(walls, 0.9).Milliseconds(),
+			zzwPct(walls, 1).Milliseconds(), zzwPct(pres, 0.5).Milliseconds(), zzwPct(pres, 1).Milliseconds(),
+			zzwPct(ups, 0.5).Milliseconds(), zzwPct(ups, 1).Milliseconds(), answers)
+	}
+}
+
+// zzwSpooledOps is the e2e helper spooledOps without its failure on a spool file the daemon removes
+// between the directory listing and the read (TEMPORARY, w6-borrow).
+func zzwSpooledOps(root string) []string {
+	var ops []string
+	_ = filepath.Walk(paths.Long(paths.Of(root).Spool), func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		b, rerr := os.ReadFile(p)
+		if rerr != nil {
+			return nil
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			var req struct {
+				Op string `json:"op"`
+			}
+			if json.Unmarshal([]byte(line), &req) == nil && req.Op != "" {
+				ops = append(ops, req.Op)
+			}
+		}
+		return nil
+	})
+	return ops
+}

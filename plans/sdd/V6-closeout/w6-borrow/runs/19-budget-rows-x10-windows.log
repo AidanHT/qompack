@@ -1,0 +1,306 @@
+== HEAD 24eae18, fake HOME/USERPROFILE, started 19:09:33Z, load: 48% CPU
+== go test ./internal/cli/ -run '^TestSessionStartBudget_' -count=10 -v -timeout=20m
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.73s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.33s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.68s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.13s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.17s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.14s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.37s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.26s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.86s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.51s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.91s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.43s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.31s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.69s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.70s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.53s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (4.30s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.60s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.96s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (5.04s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.77s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (9.59s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (9.20s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.96s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (4.44s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.49s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.73s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.12s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.15s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.17s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.41s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.14s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.69s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.32s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.70s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.15s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.12s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.17s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.44s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.27s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.84s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.54s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.97s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.39s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.36s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.37s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.62s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.28s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.85s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.43s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (4.07s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (5.42s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (7.43s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (9.62s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (9.07s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.74s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (4.38s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.44s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.67s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.13s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.15s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.14s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.59s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.31s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (4.15s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (4.14s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (4.18s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.12s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.11s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.12s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.35s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.07s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.74s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.34s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.70s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.20s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.27s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.14s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.42s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.13s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	332.989s
+exit=0
+ended 19:15:19Z

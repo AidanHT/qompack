@@ -1,0 +1,35 @@
+"""TEMPORARY (w6-borrow, third seat): how close each tree's rows came to needing the borrow. For
+every row of the cold-start diagnostic, the daemon's first "accepting" (or "serving") mark is taken
+relative to the session-start process's own start (dialable - (wall - sswall)); a row whose daemon
+became dialable after 3.25 s is one where f6095e2's pre-send deadline could already have passed
+(only the 1.5 s late-spawn grace could still catch it) and where the D21 borrow (to 8.25 s) applies.
+Usage: python nearmiss.py <log> ...
+"""
+import re
+import sys
+from collections import defaultdict
+
+def rows_of(path):
+    for l in open(path, encoding='utf-8', errors='replace').read().splitlines():
+        if ' ROW mode=' not in l:
+            continue
+        d = {}
+        for k, v in re.findall(r'(\w[\w-]*)=\s*([^\s]+)', l):
+            d.setdefault(k, v)
+        yield d
+
+def ms(v):
+    return int(re.sub(r'ms.*', '', v))
+
+by = defaultdict(list)
+for f in sys.argv[1:]:
+    tree = 'before' if '-before-' in f else 'after'
+    for r in rows_of(f):
+        rel = ms(r['dialable']) - (ms(r['wall']) - ms(r['sswall']))
+        by[tree].append((rel, r['mode'], r['source'], r['spooled'], ms(r['sswall'])))
+for t in ('before', 'after'):
+    xs = sorted(by[t], reverse=True)
+    print(f"== {t}: rows={len(xs)} daemon dialable after the hook began: max={xs[0][0]} ms; "
+          f"> 3.25 s: {sum(x[0] > 3250 for x in xs)}; > 8.25 s: {sum(x[0] > 8250 for x in xs)}")
+    for x in xs[:5]:
+        print(f"   {x[0]:6d} ms  {x[1]}/{x[2]} spooled={x[3]} sswall={x[4]} ms")

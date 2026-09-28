@@ -15,34 +15,52 @@ import "time"
 // too large, and the pre-send step's budget, which is what is left, shrinks for nothing.
 const hookExitReserve = 1500 * time.Millisecond
 
-// hookBudget is one hook invocation's share-out of its manifest timeout (D17b). doneBy is the
-// instant the hook's own work has to end by — the timeout less hookExitReserve, counted from
-// doHook's first statement — and preSendBy the instant preSend has to return by for the dial and the
-// full reply deadline to still fit before doneBy. latestPoll is the last instant a pre-send step may
-// still be waiting for a daemon: past it not even the dial fits before doneBy, let alone a reply. The
-// zero hookBudget bounds nothing: a hook with no hostTimeout keeps its fixed deadlines.
+// hookBudget is one hook invocation's share-out of its manifest timeout (D17b, D21), every instant
+// counted from doHook's first statement:
+//
+//   - doneBy is when the hook's own work has to end: the timeout less hookExitReserve;
+//   - preSendBy is the last instant a dial still leaves the full reply deadline before doneBy;
+//   - borrowBy is the last instant the find/start step (session-start's EnsureRunningUntil
+//     poll) may still be waiting for a daemon on its way. It may borrow the reply wait's idle
+//     time past preSendBy, but only so far that the reply keeps minReply plus the dial (D21: D9's
+//     compact bound, so a compaction's daemon that takes its whole bound to answer is still heard);
+//   - latestPoll is the last instant any pre-send step may still be waiting: past it not even the
+//     dial fits before doneBy. A daemon started late gets its classic wait up to there.
+//
+// The zero hookBudget bounds nothing: a hook with no hostTimeout keeps its fixed deadlines.
 type hookBudget struct {
 	preSendBy  time.Time
+	borrowBy   time.Time
 	latestPoll time.Time
 	doneBy     time.Time
 }
 
 // newHookBudget shares hostTimeout out from began: hookExitReserve at the end, before it the reply
 // deadline and the dial, and what is left before those — hostTimeout - hookExitReserve - reply -
-// connect — for everything up to and including preSend. A hostTimeout <= 0 bounds nothing.
-func newHookBudget(began time.Time, hostTimeout, reply, connect time.Duration) hookBudget {
+// connect — for everything up to and including preSend when the reply is to keep its full deadline.
+// minReply is the least reply wait the find/start step's borrowing must leave; borrowBy is then
+// doneBy - connect - minReply. A minReply <= 0, or one no shorter than reply, lends nothing:
+// borrowBy is preSendBy. A hostTimeout <= 0 bounds nothing.
+func newHookBudget(began time.Time, hostTimeout, reply, connect, minReply time.Duration) hookBudget {
 	if hostTimeout <= 0 {
 		return hookBudget{}
 	}
 	doneBy := began.Add(hostTimeout - hookExitReserve)
-	return hookBudget{preSendBy: doneBy.Add(-reply - connect), latestPoll: doneBy.Add(-connect), doneBy: doneBy}
+	preSendBy := doneBy.Add(-reply - connect)
+	borrowBy := preSendBy
+	if minReply > 0 && minReply < reply {
+		borrowBy = doneBy.Add(-minReply - connect)
+	}
+	return hookBudget{preSendBy: preSendBy, borrowBy: borrowBy, latestPoll: doneBy.Add(-connect), doneBy: doneBy}
 }
 
 // replyDeadline is how long a hook that dials at now may wait for its answer: reply, or what is
 // left before doneBy once the dial's own bound is taken off, whichever is shorter. It is reply
-// itself whenever preSend kept to preSendBy, and shorter only when the steps before the dial ran
-// over — staging a binary and the admission ahead of preSend are never cut short. A result at or
-// below zero means no answer can be waited for at all.
+// itself whenever preSend returned by preSendBy, and shorter when the find/start step borrowed idle
+// reply time or the steps before the dial ran over — staging a binary and the admission ahead of
+// preSend are never cut short. A find/start step that kept to borrowBy leaves minReply less only
+// the time from its return to now: its poll ends at borrowBy, and no tick or dial of the poll runs
+// past it (daemon.EnsureRunningUntil). A result at or below zero means no answer can be waited for.
 func (b hookBudget) replyDeadline(now time.Time, reply, connect time.Duration) time.Duration {
 	if b.doneBy.IsZero() {
 		return reply

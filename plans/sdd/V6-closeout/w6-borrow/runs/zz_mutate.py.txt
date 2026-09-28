@@ -1,0 +1,38 @@
+"""TEMPORARY (w6-borrow resume): revert one fix in the scratch export of the w6-borrow head, so each
+new row can be shown red without it. Never committed as code.
+Usage: python mutate.py <tree> <mutation>   (restore with `git show 24eae18:<file> > <tree>/<file>`)
+"""
+import sys
+
+tree, name = sys.argv[1], sys.argv[2]
+M = {
+    # D21 off: the budget lends nothing, so the find/start step stops at preSendBy (f6095e2's rule).
+    'borrow-off': [('internal/cli/hookbudget.go',
+                    '\tif minReply > 0 && minReply < reply {\n\t\tborrowBy = doneBy.Add(-minReply - connect)\n\t}\n',
+                    '')],
+    # D21 call site off: session-start's poll is bounded by preSendBy again (f6095e2's line).
+    'callsite-off': [('internal/cli/sessionstart.go',
+                      'clk, b.borrowBy, b.latestPoll)', 'clk, b.preSendBy, b.latestPoll)')],
+    # Spawn claim no longer refuses the home directory.
+    'claim-home-off': [('internal/ipc/spawnlock.go',
+                        '\tif refuseSpawnRoot(projectRoot) != nil {\n\t\treturn nil, SpawnUnclaimable\n\t}\n', '')],
+    # EnsureRunning and spawnDetached no longer refuse the home directory.
+    'spawner-home-off': [('internal/daemon/spawn.go',
+                          '\tif rerr := refuseHomeRoot(projectRoot); rerr != nil {\n'
+                          '\t\treturn false, fmt.Errorf("daemon: ensure running: %w", rerr)\n\t}\n', ''),
+                         ('internal/daemon/spawn.go',
+                          '\tif err := refuseHomeRoot(projectRoot); err != nil {\n'
+                          '\t\treturn fmt.Errorf("daemon: spawn: %w", err)\n\t}\n', '')],
+    # spoolUnsent drops the append error again, as `_ = sp.Append(req)` did.
+    'loud-off': [('internal/cli/hookclient.go',
+                  '\tif err := sp.Append(req); err != nil {\n'
+                  '\t\tlog.Loud(unsentSpoolRefusedMsg, "op", string(req.Op), "err", err)\n'
+                  '\t\treturn false\n\t}\n\treturn true\n',
+                  '\t_ = sp.Append(req)\n\t_ = log\n\treturn true\n')],
+}
+for rel, old, new in M[name]:
+    p = f'{tree}/{rel}'
+    s = open(p, encoding='utf-8', newline='').read()
+    assert s.count(old) == 1, (name, rel)
+    open(p, 'w', encoding='utf-8', newline='').write(s.replace(old, new))
+print('applied', name)

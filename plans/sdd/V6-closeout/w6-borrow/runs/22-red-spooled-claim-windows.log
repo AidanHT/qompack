@@ -1,0 +1,14 @@
+== w6-borrow fix seat: red run of TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled
+== tree: 1a3fa76 + this test only (hookclient.go unchanged)
+== $ go test ./internal/cli/ -run '^TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled$' -count=1 -v
+=== RUN   TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled
+    sessionstart_budget_test.go:225: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/cli/sessionstart_budget_test.go:225
+        	Error:      	"ts=2026-09-27T19:40:15.1291093Z level=loud msg=\"ipc: spool write failed — event dropped\" err=\"ipc: spool: mkdir: mkdir C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedA1955749016\\\\001\\\\.qompack\\\\spool: The system cannot find the path specified.\" path=C:\\Users\\Quant\\AppData\\Local\\Temp\\TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedA1955749016\\001\\.qompack\\spool\\client-70356.ndjson\nts=2026-09-27T19:40:15.1296358Z level=warn msg=\"hook: no time left to wait for the daemon's answer; the request was spooled\" op=session.start overrun_ms=352\n" should not contain "the request was spooled"
+        	Test:       	TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled
+        	Messages:   	a request the spool dropped is not logged as spooled
+--- FAIL: TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled (5.17s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	5.747s
+FAIL
+exit=1

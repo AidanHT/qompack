@@ -1,0 +1,4 @@
+== head d6c103f
+== $ go test ./test/docs/ -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/test/docs	5.726s
+exit=0

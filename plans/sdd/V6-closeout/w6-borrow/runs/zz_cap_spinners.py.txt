@@ -1,0 +1,29 @@
+"""TEMPORARY (w6-borrow, third seat): cap the cold-start diagnostic's in-test CPU co-load at 8
+spinner goroutines (ZZ_CPU_SPINNERS, at most 8) instead of NumCPU (22 here), per the owner's rule
+for load generators on this laptop. Applied to the diagnostic copy in both scratch exports; never
+committed as code. Usage: python cap_spinners.py <diag_test.go> ...
+"""
+import sys
+
+OLD = '''	if os.Getenv("ZZ_CPU_COLOAD") == "1" {
+		mult := zzwEnvInt("ZZ_LOAD_MULT", 1)
+		if mult > 1 {
+			runtime.GOMAXPROCS(mult * runtime.NumCPU())
+		}
+		for range mult * runtime.NumCPU() {
+'''
+NEW = '''	spinners := 0
+	if os.Getenv("ZZ_CPU_COLOAD") == "1" {
+		spinners = min(zzwEnvInt("ZZ_CPU_SPINNERS", 8), 8)
+		for range spinners {
+'''
+OLDLOG = '''	t.Logf("GOOS=%s NumCPU=%d cpu-coload=%q mult=%d fsync=%d iters=%d up=%q", runtime.GOOS, runtime.NumCPU(), os.Getenv("ZZ_CPU_COLOAD"),
+		zzwEnvInt("ZZ_LOAD_MULT", 1), zzwEnvInt("ZZ_FSYNC_COLOAD", 0), iters, zzwEnv("ZZ_UP", "marks"))'''
+NEWLOG = '''	t.Logf("GOOS=%s NumCPU=%d cpu-coload=%q spinners=%d fsync=%d iters=%d up=%q", runtime.GOOS, runtime.NumCPU(), os.Getenv("ZZ_CPU_COLOAD"),
+		spinners, zzwEnvInt("ZZ_FSYNC_COLOAD", 0), iters, zzwEnv("ZZ_UP", "marks"))'''
+for p in sys.argv[1:]:
+    s = open(p, encoding='utf-8', newline='').read()
+    assert s.count(OLD) == 1 and s.count(OLDLOG) == 1, p
+    s = s.replace(OLD, NEW).replace(OLDLOG, NEWLOG)
+    open(p, 'w', encoding='utf-8', newline='').write(s)
+    print('capped', p)

@@ -1,0 +1,7 @@
+== head d6c103f
+== $ go run ./tools/devtool fmt-check
+exit=0
+== $ go vet ./internal/daemon/ ./internal/cli/
+exit=0
+== $ GOOS=linux go vet ./internal/daemon/ ./internal/cli/
+exit=0
