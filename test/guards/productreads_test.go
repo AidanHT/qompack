@@ -81,6 +81,8 @@ var ordinaryReads = []ordinaryRead{
 		"same dr.mu; doctor reads it shared"},
 	{"internal/daemon/drain.go", "scanPendingBlobs", "a spool file, for drainFile's reason: the pass " +
 		"that removes spool files holds dr.mu, as this scan does"},
+	{"internal/daemon/drain_host_order.go", "firstRecordHostTS", "a spool file, for drainFile's reason: " +
+		"the pass orders its files under dr.mu, before it reads or removes any, and closes this handle first"},
 	{"internal/daemon/lock.go", "touchFile", "the lock holder's own heartbeat. A reclaimer removes " +
 		"daemon.hb only once it judges the holder gone, and a removal this handle refuses leaves the " +
 		"lock with a holder that is alive"},
