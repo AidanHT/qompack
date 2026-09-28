@@ -120,8 +120,8 @@ func heldOpenElsewhere(err error) bool {
 // the caller then runs self.
 //
 // Two spawners racing on one version both end on the same verified file: each writes its own
-// temporary copy and renames it into place, and a rename that loses to an existing file falls back
-// to verifying that file. A copy some other process is executing cannot be replaced on Windows,
+// temporary copy and installs it, which never replaces a file already in place (installStaged),
+// and an install that loses to an existing file falls back to verifying that file. A copy some other process is executing cannot be replaced on Windows,
 // but it verified when it was written and is left alone unless it no longer does. A copy held open
 // by a handle that does not share read cannot be checked while that handle lasts, and is reported
 // and kept rather than removed, since it may be the very copy a concurrent spawner has just
@@ -170,9 +170,9 @@ func stageBinary(self, home string) (string, error) {
 	return target, nil
 }
 
-// copyStaged writes self into a temporary file in dir, checks the copy hashes to sum, and renames it
-// to target. A rename refused because target now exists (another spawner won, or an older copy is
-// running) is accepted only if target verifies.
+// copyStaged writes self into a temporary file in dir, checks the copy hashes to sum, and installs
+// it at target (installStaged). An install refused because target now exists (another spawner won,
+// or an older copy is running) is accepted only if target verifies.
 func copyStaged(self, dir, target, sum string) (err error) {
 	src, err := os.Open(paths.Long(self))
 	if err != nil {
@@ -213,15 +213,41 @@ func copyStaged(self, dir, target, sum string) (err error) {
 	if err = os.Chmod(tmpPath, 0o500); err != nil {
 		return fmt.Errorf("daemon: sealing %s: %w", tmpPath, err)
 	}
-	if rerr := os.Rename(tmpPath, paths.Long(target)); rerr != nil {
+	if ierr := installStaged(tmpPath, paths.Long(target)); ierr != nil {
 		if verr := verifyStaged(target, sum); verr != nil {
-			err = fmt.Errorf("daemon: installing %s: %w (and the existing file: %w)", target, rerr, verr)
+			err = fmt.Errorf("daemon: installing %s: %w (and the existing file: %w)", target, ierr, verr)
 			return err
 		}
-		_ = os.Chmod(tmpPath, 0o600) // read-only files cannot be removed on Windows
-		_ = os.Remove(tmpPath)
 	}
+	removeStagedTemp(tmpPath)
 	return verifyStaged(target, sum)
+}
+
+// installStaged puts tmp, a sealed and verified temporary copy, in place at target, and never over
+// a file already there: a spawner that loses the install leaves the winner's copy as the very file
+// it is, so another spawner hashing that copy at the moment still finds the file it hashed
+// (verifyStagedThen's identity check; TestCopyStaged_NeverReplacesAnInstalledCopy). On Windows it
+// is a rename, which the installed copy's read-only seal refuses — MoveFileEx will not replace a
+// read-only file. Elsewhere a rename replaces an existing target without asking, so it is a hard
+// link instead, which fails when target exists; tmp stays behind as a second name for the copy,
+// for removeStagedTemp.
+func installStaged(tmp, target string) error {
+	if runtime.GOOS == "windows" {
+		return os.Rename(tmp, target)
+	}
+	return os.Link(tmp, target)
+}
+
+// removeStagedTemp removes tmp once installStaged is done with it, best effort: the temporary
+// copy of a spawner that lost the install, or, off Windows, the second name a successful install
+// leaves. A temporary copy is sealed read-only, which Windows will not remove until the bit is
+// cleared; elsewhere the seal does not stop a removal, and clearing it would unseal the installed
+// copy too when tmp is a second link to it.
+func removeStagedTemp(tmp string) {
+	if runtime.GOOS == "windows" {
+		_ = os.Chmod(tmp, 0o600)
+	}
+	_ = os.Remove(tmp)
 }
 
 // verifyStaged checks that target is a regular file — not a symbolic link, junction or other
