@@ -116,43 +116,42 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 (`handleAdminShutdown`'s `sync.Once` vs `daemon.Run`) and failures in `test/guards`,
 `test/integration` and `test/security` beyond the ingest family — assigned to the `linux` lane.
 
-## PAUSED 2026-09-27 00:45 (America/Toronto): resume here
+## PAUSED 2026-09-28 (overnight, America/Toronto): resume here
 
-Paused at the owner's request. Wave 6 (`wf_937a8468-45d`) was stopped with TaskStop about two
-hours in, before any implementer finished. The orphaned test processes it left were stopped:
-Windows `go test` trees, gate scripts, and test daemons under `%TEMP%`, plus every container
-process under `/work/cx-w6-*` and one orphaned e2e daemon. Nothing of the close-out is running.
-The container is up and holds only harmless zombies (PID 1 does not reap them). The keep-awake
-was released. Earlier pauses and restarts: 2026-09-25 23:20 overnight (waves 3/4, resumed
-2026-09-26 as `wf_85543bfd-f18`); 2026-09-26 17:45 host restart (wave 5, resumed as `wf_8f93ec11-36e`).
+Paused at the owner's request ("I will continue the work tomorrow"). Wave 8 (`wf_b1789f1b-147`) and the
+quiet-benchmark prep (`wf_c9df2ce4-e1d`) were stopped with TaskStop before either finished; their orphaned
+gate processes on Windows and in the container were killed. Nothing of the close-out is running; the
+container is up (only PID 1 and harmless zombies); Docker Desktop is left running; the keep-awake was released.
 
-**Integration head:** `closeout/integration` `4196798` in `../qompack-cx-int`, holding waves 1–5.
-Owner decisions D1–D24 are above.
+**Integration head:** `closeout/integration` `15e3a25` in `../qompack-cx-int`: waves 1-7, 7b, 8b, w7-docs and
+the inventory map merged. Decisions D1-D37 are above (D33: the coordinator decides; no questions to the owner).
 
-**Stopped mid-implementation, not yet reviewed.** Worktrees `../qompack-cx-w6-<ws>` (branch
-`closeout/w6-<ws>`, base `f6095e2`). Digests of each seat's actions are in `coordinator/digests/`.
+**Stopped mid-implementation, not yet reviewed:**
 
-| Workstream | Head at pause | State |
-|---|---|---|
-| `w6-borrow` (D21 borrow, spawner-side home refusal) | `24eae18`, 5 commits | Code done and lint green on both OSes; the full package runs had started |
-| `w6-config` (D22, shared config reads, test-home isolation plus a guard) | `89574c4`, 6 commits | Code done; the §3.2 pathstest note and the full runs remain |
-| `w6-ckptsync` (checkpoint and other missing barriers, D24 docs) | `e6bc7a8`, 13 commits | Barrier fixes across 9 writers; the audit table, cost measurement and full runs remain |
-| `w6-gcserial` (one GC pass per store) | `b9c2676`, 6 commits | Code done; the full runs remain |
-| `w6-linuxrows` (Linux load-sensitive rows) | `4894f4f`, 6 commits, plus uncommitted RED tests | Found product defects in drain budgets and the spool watcher, and the observer's graph was not written at stop; mid-step on a soft watcher budget |
+| Seat | Worktree / branch | Head at pause | State |
+|---|---|---|---|
+| `w8-sp08d3fix` (D35 SP08-D3) | `../qompack-cx-w8-sp08d3fix`, `closeout/w8-sp08d3fix` (base `17a42f6`) | `ed4f8d4`, 8 commits | Host-order replay, substitution notice, row to fixed, docs; verification was running |
+| `w8-stagerace` (Windows staging race + nits) | `../qompack-cx-w8-stagerace`, `closeout/w8-stagerace` (base `17a42f6`) | `01af836`, 4 commits | Staged-copy fixes, guard/doc nits; its Linux gate was killed (not evidence) |
+| quiet prep (C5.1/C5.2 script) | `../qompack-cx-w8-quiet`, `closeout/w8-quiet` (off verify/v6) | `f3a0435` + untracked `coordinator/quiet.sh` | phase3.sh cover declares co-load; quiet.sh drafted, not yet dry-run or reviewed |
 
-**Stopped again 2026-09-27 12:27** (owner needs the CPU; see dispatch row "6 resume"); relaunched on the owner's word as `wf_8e58c74e-b50` (row "6 resume 2").
+Digests: `coordinator/digests/w8-impl-sp08d3fix.txt`, `w8-impl-stagerace.txt`, `w8-prep-quiet.txt`.
 
-**To resume:**
+**To resume (in order):**
 
-1. `docker desktop start`, then `docker start qompack-v6-linux-verification` (both were stopped to free RAM). Hold a keep-awake (`coordinator/keepawake.ps1`), check `docker exec qompack-v6-linux-verification true`,
-   then launch `Workflow({scriptPath: "<repo>/plans/sdd/V6-closeout/coordinator/wave6-resume.js"})`.
-   It gives each seat a resume brief and runs implement → review → fix → verify.
-2. For each finished workstream, render and commit its report (`wfreport.py`, `shacheck.sh`) and merge it
-   into integration. Then run the lint subset and `runpatterns` (`rpwaive.py`), and the merge-overlap packages on a quiet host.
-3. Freeze the candidate (C3.1), then run Phase 3 with `coordinator/phase3.sh` on a quiet, awake host.
-4. Quiet C5.1/C5.2 benchmarks, then the Phase 2 carried-defect dispositions (owner).
-5. The live lane (`coordinator/live-uat.js`), then the confirmatory eval (sequentially).
-6. Phase 6 docs, the inventory and the report; Phase 7 per D4.
+1. Hold a keep-awake (`coordinator/keepawake.ps1`), check `docker exec qompack-v6-linux-verification true`.
+2. Launch `Workflow({scriptPath: "<repo>/plans/sdd/V6-closeout/coordinator/wave8-resume.js"})` and
+   `Workflow({scriptPath: "<repo>/plans/sdd/V6-closeout/coordinator/quiet-prep-resume.js"})` in parallel.
+3. When wave 8 finishes: render and commit its reports (`wfreport.py`, `shacheck.sh`, `rpwaive.py`), merge both
+   branches into integration (resolve conflicts with `git merge-file`, never `checkout --theirs`), run build,
+   vet (both OSes), fmt-check, the lint subset and test/guards. Merge `closeout/w8-quiet` into verify/v6.
+4. Freeze (C3.1, D34d): merge closeout/integration into verify/v6; the candidate is that commit, run from a
+   clean detached worktree (`../qompack-cx-cand`). Phase 3 with `coordinator/phase3.sh`: lane A (win-tree,
+   win-race, lint, cover, gens, fuzz, bundles) beside lane B (linux-tree, linux-e2e, linux-child), then alone:
+   win-timing, win-e2e-timing, linux-timing, linux-e2e-timing, then `coordinator/quiet.sh` (C5.1/C5.2), then
+   release-check. Heavy lanes overnight (owner's CPU by day).
+5. Phase 2 dispositions under D33 from the quiet numbers; Phase 4 live lane (`coordinator/live-uat.js`,
+   replace `__CANDIDATE__`/`__BUNDLE__`, keep the linux/amd64 bundle beside it); C5.5 eval; Phase 6 (inventory
+   from `inventory-map.tsv`, docs, V6 report, CHANGELOG); Phase 7 per D33.
 
 ## Where things stand (found at takeover)
 
