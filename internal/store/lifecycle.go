@@ -243,19 +243,49 @@ func RetentionRootsPath(projectRoot string) string {
 // the object was needed at that moment, and GC treats the file as a set. A producer that owns its
 // own journal (the daemon's delivery-lease file) need not call this at all; GC reads that journal
 // directly.
+//
+// "Durably" is a promise the producers build on: each declares a hash BEFORE it writes the artifact
+// that names the hash (the backup manifest, the mapping log, the drill record), so that a crash
+// between the two over-retains rather than under-retains. That ordering holds across a power cut
+// only if the declaration is on disk before the artifact is, so the line is synced — and the state
+// directory too when the append created the file — before this returns (paths.AppendLinesDurable).
 func AppendRetentionRoot(projectRoot string, r RetentionRoot) error {
-	if r.Hash.IsZero() {
-		return fmt.Errorf("%w: a retention root needs a hash", core.ErrContract)
+	return appendRetentionRoots(projectRoot, paths.Barriers{}, r)
+}
+
+// appendRetentionRoots declares every root in roots with one write and makes the batch durable with
+// one sync through b before it returns — one barrier for a backup's whole frontier rather than one
+// per hash. An empty batch writes nothing.
+func appendRetentionRoots(projectRoot string, b paths.Barriers, roots ...RetentionRoot) error {
+	if len(roots) == 0 {
+		return nil
 	}
-	if r.Class == "" {
-		return fmt.Errorf("%w: a retention root needs a class", core.ErrContract)
+	lines, err := encodeRetentionRoots(roots)
+	if err != nil {
+		return err
 	}
 	p := RetentionRootsPath(projectRoot)
 	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
 		return err
 	}
-	b, err := json.Marshal(r)
+	return b.AppendLinesDurable(p, lines)
+}
+
+// appendRetentionRootVolatile declares r without a sync. It is WriteCaptureSidecar's, and only
+// because nothing depends on that declaration being durable today: GC walks objects/ and never
+// records/, where the sidecar lives, and the declared hash is a digest in the capture domain
+// (captureSidecarHashDomain) that can never equal a chunk's or a root's address, so no pass can
+// collect anything this line protects. The sidecar itself is written through paths.WriteAtomic and
+// is durable. A sync here would put one more barrier on every captured delivery for no guarantee;
+// when GC learns to manage records/ (the sidecar's own comment anticipates it), this declaration
+// must become durable with it.
+func appendRetentionRootVolatile(projectRoot string, r RetentionRoot) error {
+	lines, err := encodeRetentionRoots([]RetentionRoot{r})
 	if err != nil {
+		return err
+	}
+	p := RetentionRootsPath(projectRoot)
+	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
 		return err
 	}
 	w, err := paths.AppendOnly(p)
@@ -263,8 +293,28 @@ func AppendRetentionRoot(projectRoot string, r RetentionRoot) error {
 		return err
 	}
 	defer func() { _ = w.Close() }()
-	_, err = w.Write(append(b, '\n'))
+	_, err = w.Write(lines)
 	return err
+}
+
+// encodeRetentionRoots validates roots and renders them as newline-terminated JSON lines, in order.
+func encodeRetentionRoots(roots []RetentionRoot) ([]byte, error) {
+	var buf bytes.Buffer
+	for _, r := range roots {
+		if r.Hash.IsZero() {
+			return nil, fmt.Errorf("%w: a retention root needs a hash", core.ErrContract)
+		}
+		if r.Class == "" {
+			return nil, fmt.Errorf("%w: a retention root needs a class", core.ErrContract)
+		}
+		b, err := json.Marshal(r)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(b)
+		buf.WriteByte('\n')
+	}
+	return buf.Bytes(), nil
 }
 
 // ── retention-roots.jsonl compaction ─────────────────────────────────────────────────────────

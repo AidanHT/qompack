@@ -131,18 +131,15 @@ const jsonRecordNewline = '\n'
 // trailing terminator would silently split one record into two lines on disk, which is exactly
 // the failure mode the one-record-per-line contract every reader assumes must never happen — and
 // rejects the write rather than trust that guarantee blindly.
+//
+// It syncs nothing: a line it returns from can still be lost to a power cut, and so can the file's
+// name when the append created the file. A log whose line something durable depends on uses
+// AppendJSONLDurable (barriers.go), which appends exactly the same bytes and then syncs them.
 func AppendJSONL(p string, v any) error {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
+	record, err := encodeJSONLRecord(p, v)
+	if err != nil {
 		return err
 	}
-	line := bytes.TrimSuffix(buf.Bytes(), []byte{jsonRecordNewline})
-	if bytes.IndexByte(line, jsonRecordNewline) >= 0 {
-		return fmt.Errorf("%w: AppendJSONL payload contains a raw newline: %s", core.ErrAppendOnly, p)
-	}
-
 	w, err := AppendOnly(p)
 	if err != nil {
 		return err
@@ -159,11 +156,28 @@ func AppendJSONL(p string, v any) error {
 	if err := TerminatePartialTail(w, p); err != nil {
 		return err
 	}
+	_, err = w.Write(record)
+	return err
+}
+
+// encodeJSONLRecord renders v as the one newline-terminated line AppendJSONL and AppendJSONLDurable
+// append: compact, HTML escaping off, and refused when the encoding would put a raw newline before
+// the terminator.
+func encodeJSONLRecord(p string, v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	line := bytes.TrimSuffix(buf.Bytes(), []byte{jsonRecordNewline})
+	if bytes.IndexByte(line, jsonRecordNewline) >= 0 {
+		return nil, fmt.Errorf("%w: AppendJSONL payload contains a raw newline: %s", core.ErrAppendOnly, p)
+	}
 	record := make([]byte, len(line)+1)
 	copy(record, line)
 	record[len(line)] = jsonRecordNewline
-	_, err = w.Write(record)
-	return err
+	return record, nil
 }
 
 // TerminatePartialTail writes a newline to w when p is non-empty and its last byte is not one.
@@ -207,7 +221,16 @@ func TerminatePartialTail(w io.Writer, p string) error {
 // would skip past a directory sitting at its artifact path — the V5 close-out's first CI run on
 // those runners found precisely that — so the existing entry is stat'ed and anything that is not
 // a regular file is reported as syscall.EISDIR (a directory) or fs.ErrInvalid, never ErrExist.
-func CreateNew(p string, b []byte) error {
+//
+// "Durably written" means the file's BYTES: CreateNew syncs the file and not its directory, so on
+// POSIX a power cut can still lose the new name. That is deliberate. A lock file (the daemon lock,
+// the spawn lock) is stale after a power cut whatever survives, and a directory fsync there would
+// only lengthen a cold start; a caller whose file must keep its name makes the name durable itself,
+// as checkpoint.Finalize does through AppendManifest before a MANIFEST line names the artifact.
+func CreateNew(p string, b []byte) error { return createNew(p, b, Barriers{}) }
+
+// createNew is CreateNew's body, issuing its file sync through x.
+func createNew(p string, b []byte, x Barriers) error {
 	f, err := OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
@@ -225,7 +248,7 @@ func CreateNew(p string, b []byte) error {
 		_ = f.Close()
 		return err
 	}
-	if err := f.Sync(); err != nil {
+	if err := x.syncFile(f); err != nil {
 		_ = f.Close()
 		return err
 	}

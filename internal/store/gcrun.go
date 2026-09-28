@@ -1768,6 +1768,13 @@ func (s *FSStore) clearGCState() {
 // concurrent writes. Retirement is an APPEND to index/roots.jsonl, never a rewrite of the line
 // that created the root (Qompack.md §7.4), so the file stays append-only and the original record
 // remains readable.
+//
+// The tombstones are synced before it returns, because the sweep that follows deletes the retired
+// roots' chunks and a deletion cannot be taken back. With the tombstones still in the page cache, a
+// power cut that kept the deletions would reopen an index serving those roots with their chunks
+// gone — a damaged-object answer and an fsck finding where the content had simply expired. One sync
+// per pass that retires anything; nothing depends on the order of the deletions themselves (an
+// undone deletion only resurrects an object the next pass collects again).
 func (s *FSStore) tombstoneDeadRoots(ctx context.Context, dead []core.Hash) error {
 	sort.Slice(dead, func(i, j int) bool { return gcHashLess(dead[i], dead[j]) })
 	for i, h := range dead {
@@ -1780,7 +1787,10 @@ func (s *FSStore) tombstoneDeadRoots(ctx context.Context, dead []core.Hash) erro
 			return err
 		}
 	}
-	return nil
+	if len(dead) == 0 {
+		return nil
+	}
+	return s.rootsW.sync()
 }
 
 // sweepArgs bundles one sweep's inputs, so the sweep signature stays readable.

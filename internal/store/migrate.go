@@ -297,6 +297,9 @@ type Migrator struct {
 	// Operator maintenance supplies a bounded streaming copy. The legacy engine
 	// retains its existing copy path when this optional implementation is nil.
 	copyBackupFile func(context.Context, string, string) (int64, string, error)
+	// barriers are the syncs retainRoots makes its declarations durable through. The zero value is the
+	// real thing; a test counts them or checks what exists when they run.
+	barriers paths.Barriers
 }
 
 // NewMigrator builds a Migrator over root, a PROJECT root (never <root>/.qompack), matching
@@ -346,18 +349,22 @@ func (m *Migrator) path(name string) string { return filepath.Join(m.l.Migrate, 
 //
 // The declaration is durable and append-only, and it is made BEFORE the artifact that references
 // the hash is written, so a crash between the two leaves an over-retained object rather than an
-// unprotected one. A zero hash is skipped rather than refused: it names nothing, so there is
-// nothing to retain, and failing a whole import over one would be a worse trade.
+// unprotected one. Durable means synced before this returns: the artifacts that follow (the backup
+// manifest above all, written through paths.WriteAtomic) are durable, and a power cut that kept one
+// and lost the declarations it depends on would leave GC free to collect what the artifact names.
+// Every hash goes out in one write with one sync. A zero hash is skipped rather than refused: it
+// names nothing, so there is nothing to retain, and failing a whole import over one would be a
+// worse trade.
 func (m *Migrator) retainRoots(reason string, hs ...core.Hash) error {
+	roots := make([]RetentionRoot, 0, len(hs))
 	for _, h := range hs {
 		if h.IsZero() {
 			continue
 		}
-		if err := AppendRetentionRoot(m.root, RetentionRoot{
-			Hash: h, Class: RetentionRollback, Reason: reason,
-		}); err != nil {
-			return fmt.Errorf("store: declare retention root %s: %w", h.Short(), err)
-		}
+		roots = append(roots, RetentionRoot{Hash: h, Class: RetentionRollback, Reason: reason})
+	}
+	if err := appendRetentionRoots(m.root, m.barriers, roots...); err != nil {
+		return fmt.Errorf("store: declare %d retention root(s): %w", len(roots), err)
 	}
 	return nil
 }
@@ -557,6 +564,14 @@ func (m *Migrator) importOne(ctx context.Context, snap LegacySnapshot, r LegacyR
 	}
 
 	// 4. frontier line.
+	//
+	// KNOWN BARRIER GAP, left behind the closed LegacyImportGate (w6-ckptsync review finding 5): this
+	// line is appended without a sync, and Import then commits the cursor past it with a durable
+	// WriteAtomic, so a power cut can keep the cursor and lose the line — the record is then never
+	// re-read, and parity refuses the cutover. The object (step 1) has no publication pass either. The
+	// batch's mapping lines must be made durable before each writeCursor, and the imported objects
+	// through a publication pass, before the gate passes;
+	// TestLegacyImportGate_StaysClosedUntilTheImportIsDurable holds the gate closed until then.
 	mp := ImportMapping{
 		Version: importMappingVersion, SnapshotID: snap.ID, LegacyID: r.ID, Position: r.Position,
 		Root: res.Root.Hash, ToolUseID: id, Tool: r.Tool, Path: r.Path,
@@ -1016,6 +1031,11 @@ func (m *Migrator) RecordNewFormatWrite(ctx context.Context, root core.Hash, leg
 		Version: newFormatWriteVersion, Root: root.String(), LegacyID: legacyID,
 		At: m.now(), First: len(prior) == 0,
 	}
+	// KNOWN BARRIER GAP, left behind the closed LegacyImportGate (w6-ckptsync review finding 5): this
+	// line is appended without a sync, while the handoff that records the first write below is
+	// durable, so a power cut can keep FirstNewWriteAt and lose the line it stands for. The line must
+	// be made durable before the handoff is written, before the gate passes (no production caller
+	// reaches this today; TestLegacyImportGate_StaysClosedUntilTheImportIsDurable).
 	if err := paths.AppendJSONL(m.path(newFormatFile), w); err != nil {
 		return NewFormatWrite{}, fmt.Errorf("store: record new-format write: %w", err)
 	}

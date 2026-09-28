@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -163,7 +162,21 @@ func CaptureSidecarPath(projectRoot string, id core.ObservationID) (string, erro
 // BEFORE any reference or frontier record, which is the first of publication order's three stages —
 // a reference that named a capture this call had not yet made durable would be a published handle
 // to an unavailable dependency after a crash between the two.
+//
+// Durable means the sidecar's name too. It lives in records/captures/<shard>/, and the shard
+// directory (or captures/ itself, for the project's first capture) is made on demand; WriteAtomic
+// syncs the shard directory after its rename, but on POSIX not the shard's own entry in captures/.
+// A power cut could then take the whole new shard — the capture and, later, its Published link —
+// while the frontier ACK that followed survived. So the directories this call creates are synced
+// into their parents (paths.Barriers.MkdirAll) before the sidecar is written: once per new shard
+// (at most 256 per project) and once for captures/, never per capture.
 func WriteCaptureSidecar(projectRoot string, sc CaptureSidecar) error {
+	return writeCaptureSidecar(projectRoot, sc, paths.Barriers{})
+}
+
+// writeCaptureSidecar is WriteCaptureSidecar, creating the sidecar's directories through b. The zero
+// Barriers is the real thing and all production uses; a test counts the directory syncs.
+func writeCaptureSidecar(projectRoot string, sc CaptureSidecar, b paths.Barriers) error {
 	if sc.ObservationID == "" {
 		return fmt.Errorf("%w: a capture sidecar needs an observation identity", core.ErrContract)
 	}
@@ -185,7 +198,7 @@ func WriteCaptureSidecar(projectRoot string, sc CaptureSidecar) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
+	if err := b.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 		return err
 	}
 	if err := paths.WriteAtomic(p, encoded, 0o600); err != nil {
@@ -196,8 +209,10 @@ func WriteCaptureSidecar(projectRoot string, sc CaptureSidecar) error {
 	}
 	// The declaration is what makes the evidence non-collectable under the retention contract,
 	// rather than relying on the sidecar simply living outside objects/. A GC that later learns to
-	// manage records/ inherits the protection with no further change here.
-	return AppendRetentionRoot(projectRoot, RetentionRoot{
+	// manage records/ inherits the protection — and must make this declaration durable when it does:
+	// today nothing can collect what it names, so it is appended without a sync (see
+	// appendRetentionRootVolatile for why that is the whole argument).
+	return appendRetentionRootVolatile(projectRoot, RetentionRoot{
 		Hash:   sc.BytesHash,
 		Class:  RetentionEvidence,
 		Reason: "capture sidecar " + string(sc.ObservationID),
