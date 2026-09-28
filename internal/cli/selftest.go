@@ -53,7 +53,8 @@ type selfTestReport struct {
 
 // runSelfTest implements `qompack self-test [--json]` (task-6-spec.md). It reports critical
 // check failures with a non-zero exit. It runs config load, .qompack/ writability, the append-only
-// guard, ipc.Resolve, daemon reachability, an admin.ping round trip, an ops-coverage summary, and
+// guard, ipc.Resolve, daemon reachability, an admin.ping round trip (both skipped, never spawning,
+// under runtime.daemon.enabled: false — selfTestDaemonDisabled), an ops-coverage summary, and
 // contract.StandardAssertions against a synthetic Env built from the persisted SessionHistory, in
 // that order, then reports a fixed-width table (or, under --json, {checks,mode,exit}). Exit 0 iff no
 // check failed at SevCritical.
@@ -141,10 +142,14 @@ func runSelfTestChecks(ctx context.Context, root string, env Env, clk core.Clock
 	addr, addrCheck := selfTestResolve(root)
 	checks = append(checks, addrCheck)
 
-	reachable := selfTestDaemonReachable(root, addr, env.Self, clk)
-	checks = append(checks, reachable)
-
-	checks = append(checks, selfTestAdminPing(root, addr, clk))
+	// runtime.daemon.enabled: false promises no resident process and no lock file
+	// (docs/release.md §4), so neither daemon check may spawn one or dial for one.
+	if cfg.Runtime.Daemon.Enabled {
+		checks = append(checks, selfTestDaemonReachable(root, addr, env.Self, clk))
+		checks = append(checks, selfTestAdminPing(root, addr, clk))
+	} else {
+		checks = append(checks, selfTestDaemonDisabled(addr)...)
+	}
 	checks = append(checks, selfTestOpsCoverage())
 
 	assertionChecks, mode := selfTestContractAssertions(ctx, root, cfg, clk)
@@ -326,6 +331,40 @@ func selfTestDaemonReachable(root string, addr ipc.Addr, self string, clk core.C
 		ID: "daemon.reachable", OK: true, Severity: contract.SevInfo,
 		Expected: "the daemon is reachable or spawnable", Observed: observed,
 	}
+}
+
+// selfTestDaemonSkipped is what both daemon checks observe when the configuration disables the
+// daemon: the check was not run, which is not a failure.
+const selfTestDaemonSkipped = "skipped: runtime.daemon.enabled is false"
+
+// selfTestDaemonDisabled reports daemon.reachable and admin.ping for a project whose configuration
+// sets runtime.daemon.enabled: false. It never calls daemon.EnsureRunning: a disabled daemon means
+// no resident process and no lock file (docs/release.md §4), and a daemon self-test started would
+// drain the spool the operator chose to leave alone, exactly as session-start's did before FR-6
+// (ensureDaemonRunning). Both checks pass as skipped by configuration.
+//
+// It still dials once (ipc.Probe creates nothing), because a daemon that answers anyway contradicts
+// the configuration: one started before the switch was set, or by hand with `qompack daemon`. That
+// is reported as a warning rather than hidden behind "skipped", and admin.ping is still not sent.
+func selfTestDaemonDisabled(addr ipc.Addr) []selfTestCheck {
+	reachable := selfTestCheck{
+		ID: "daemon.reachable", OK: true, Severity: contract.SevInfo,
+		Expected: "the daemon is reachable or spawnable", Observed: selfTestDaemonSkipped,
+	}
+	if ipc.Probe(addr, selfTestProbeTimeout) {
+		reachable = selfTestCheck{
+			ID: "daemon.reachable", Severity: contract.SevWarn,
+			Expected: "no daemon runs while runtime.daemon.enabled is false",
+			Observed: "a daemon is reachable although runtime.daemon.enabled is false",
+			Detail: "it was started before the switch was set, or by hand, and it drains the spool " +
+				"while it runs; it exits after runtime.daemon.idleExitSeconds with no live session, " +
+				"or end the process whose pid is in .qompack/run/daemon.lock",
+		}
+	}
+	return []selfTestCheck{reachable, {
+		ID: "admin.ping", OK: true, Severity: contract.SevInfo,
+		Expected: "admin.ping round trips OK:true", Observed: selfTestDaemonSkipped,
+	}}
 }
 
 func selfTestAdminPing(root string, addr ipc.Addr, clk core.Clock) selfTestCheck {
