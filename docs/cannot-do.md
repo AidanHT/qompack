@@ -369,6 +369,27 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** [docs/architecture.md §2](architecture.md#2-write-set-and-retention);
   `plans/00-ARCHITECTURE.md` §3.2 (owner decision D22).
 
+### A session's end can wait for the next session when the daemon is stopping
+
+- **Limit.** A `SessionEnd` whose `qompack flush` arrives while the project's daemon is stopping —
+  it has closed its listener but still holds `.qompack/run/daemon.lock`, as it does for a moment at
+  its idle exit — reaches no daemon. The flush starts a new daemon, which cannot take the lock and
+  exits, so nothing ends that session now: its end-of-session work (the observer's end of session,
+  the terminal-hook marker, the saved sketches, the store GC pass a session end runs) waits until a
+  daemon next starts for the project, normally with the next session there.
+- **Why.** Only the lock's holder may serve the project (one daemon per project), and a daemon that
+  has begun to stop does not serve again. The flush cannot wait for the stop to finish: the host
+  gives every plugin's `SessionEnd` hooks one shared 1.5 s budget
+  ([architecture §1](architecture.md#1-process-model)). The idle exit comes only after
+  `runtime.daemon.idleExitSeconds` with no live session, so there it takes a session that was silent
+  that long and then ended just as the daemon stopped.
+- **What Qompack does instead.** The flush is written to the project's client spool before the hook
+  exits, so it is replayed, not lost: the next daemon's drain replays it and ends the session the
+  way it ends one whose flush arrived live. The extra daemon is the "second `qompack daemon` that
+  exits at once" of [Troubleshooting](troubleshooting.md#7-daemon-problems).
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D35(c); `plans/sdd/V6-closeout/w7-spawnclaim/report.md`
+  (open issues).
+
 ### No cost or price guarantee
 
 - **Limit.** Qompack cannot tell you what a session cost. Reported usage is not an estimated price,

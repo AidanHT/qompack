@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/qompack/qompack/internal/paths"
 )
@@ -36,7 +37,9 @@ import (
 // placeholder into the command line, not into an environment variable). The copy is made once per
 // version and verified on every spawn — a regular file, not a link or reparse point, whose bytes
 // hash to the name it is filed under and to the spawning process's own executable — before
-// anything executes it; a copy that fails verification is replaced, never run. The plugin
+// anything executes it; a copy that fails verification is replaced, never run, except one held
+// open by another handle that does not share read, which is neither run nor removed
+// (stageBinary). The plugin
 // directory is then held only by short-lived hook processes and the session's own MCP server, both
 // of which end with the session.
 //
@@ -78,15 +81,53 @@ const stageTempPattern = ".stage-*"
 // errStagedMismatch is a staged copy whose bytes are not what its name says.
 var errStagedMismatch = errors.New("daemon: staged binary does not match its content address")
 
+// errStagedNotRegular is something other than a regular file — a link, a junction, a directory —
+// standing where a staged copy belongs.
+var errStagedNotRegular = errors.New("daemon: staged binary is not a regular file")
+
+// errStagedMoved is a staged copy removed, or removed and replaced, while it was being verified:
+// what was hashed is no longer what is filed at the target, so nothing was verified. It is
+// fs.ErrNotExist's, so stageBinary treats it as the missing copy it now is and makes its own.
+var errStagedMoved = fmt.Errorf("daemon: staged binary was removed or replaced while it was verified: %w",
+	fs.ErrNotExist)
+
+// winErrSharingViolation and winErrLockViolation are ERROR_SHARING_VIOLATION and
+// ERROR_LOCK_VIOLATION, the two refusals a read of a staged copy meets only while another handle
+// holds it: the first from a handle that does not share read, the second from a byte-range lock.
+// They are named here rather than pulled from golang.org/x/sys/windows because §2.5 closes the
+// runtime dependency list (spawn_windows.go), the reasoning internal/ipc/state.go records for its
+// own copy; heldOpenElsewhere gates them on runtime.GOOS, so their unrelated POSIX meanings (32 is
+// EPIPE, 33 EDOM) never apply.
+const (
+	winErrSharingViolation = syscall.Errno(32)
+	winErrLockViolation    = syscall.Errno(33)
+)
+
+// heldOpenElsewhere reports whether err is a read refused only because another handle holds the
+// file, a refusal that ends when that handle closes. It is always false off Windows, where opening
+// a file never depends on who else has it open.
+func heldOpenElsewhere(err error) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	var errno syscall.Errno
+	return errors.As(err, &errno) && (errno == winErrSharingViolation || errno == winErrLockViolation)
+}
+
 // stageBinary returns the path of a verified copy of self under paths.Global(home)/bin, making the
 // copy when it is missing or fails verification. It returns an error, and leaves nothing half
 // written behind, when home is empty, self cannot be read, or the copy cannot be made and verified;
 // the caller then runs self.
 //
 // Two spawners racing on one version both end on the same verified file: each writes its own
-// temporary copy and renames it into place, and a rename that loses to an existing file falls back
-// to verifying that file. A copy some other process is executing cannot be replaced on Windows,
-// but it verified when it was written and is left alone unless it no longer does.
+// temporary copy and installs it, which never replaces a file already in place (installStaged),
+// and an install that loses to an existing file falls back to verifying that file. A copy some
+// other process is executing cannot be replaced on Windows, but it verified when it was written
+// and is left alone unless it no longer does. A copy held open
+// by a handle that does not share read cannot be checked while that handle lasts, and is reported
+// and kept rather than removed, since it may be the very copy a concurrent spawner has just
+// verified and is about to start; any other copy that fails verification, including one that
+// cannot be read for a reason that does not pass, is removed and staged again.
 func stageBinary(self, home string) (string, error) {
 	if home == "" {
 		return "", errors.New("daemon: no home directory to stage the daemon binary under")
@@ -102,11 +143,19 @@ func stageBinary(self, home string) (string, error) {
 	switch verr := verifyStaged(target, sum); {
 	case verr == nil:
 		return target, nil
+	case heldOpenElsewhere(verr):
+		// Another handle holds the copy without sharing read, which says nothing about its bytes
+		// and lasts only as long as that handle. It is not run, and it is not removed either — a
+		// correct copy may be exactly what another spawner has verified and is about to start —
+		// so this spawn runs self and the next spawn checks the copy again.
+		return "", fmt.Errorf("daemon: verifying %s: %w", target, verr)
 	case !errors.Is(verr, fs.ErrNotExist):
-		// Something is filed under this version's name that is not this version — altered bytes,
-		// or a link standing where the file should be. It is removed before a verified copy takes
-		// its place, and never executed. The copy is sealed read-only, which Windows will not
-		// remove or replace until the bit is cleared.
+		// Something is filed under this version's name that is not shown to be this version —
+		// altered bytes, a link standing where the file should be, or a file no spawner can read
+		// (a denying access-control entry, a failing disk), which no other spawner can have
+		// verified either. It is removed before a verified copy takes its place, and never
+		// executed. The copy is sealed read-only, which Windows will not remove or replace until
+		// the bit is cleared.
 		_ = os.Chmod(paths.Long(target), 0o600)
 		if rerr := os.Remove(paths.Long(target)); rerr != nil && !errors.Is(rerr, fs.ErrNotExist) {
 			return "", fmt.Errorf("daemon: removing %s, which failed verification (%w): %w", target, verr, rerr)
@@ -122,9 +171,9 @@ func stageBinary(self, home string) (string, error) {
 	return target, nil
 }
 
-// copyStaged writes self into a temporary file in dir, checks the copy hashes to sum, and renames it
-// to target. A rename refused because target now exists (another spawner won, or an older copy is
-// running) is accepted only if target verifies.
+// copyStaged writes self into a temporary file in dir, checks the copy hashes to sum, and installs
+// it at target (installStaged). An install refused because target now exists (another spawner won,
+// or an older copy is running) is accepted only if target verifies.
 func copyStaged(self, dir, target, sum string) (err error) {
 	src, err := os.Open(paths.Long(self))
 	if err != nil {
@@ -165,34 +214,112 @@ func copyStaged(self, dir, target, sum string) (err error) {
 	if err = os.Chmod(tmpPath, 0o500); err != nil {
 		return fmt.Errorf("daemon: sealing %s: %w", tmpPath, err)
 	}
-	if rerr := os.Rename(tmpPath, paths.Long(target)); rerr != nil {
+	if ierr := installStaged(tmpPath, paths.Long(target)); ierr != nil {
 		if verr := verifyStaged(target, sum); verr != nil {
-			err = fmt.Errorf("daemon: installing %s: %w (and the existing file: %w)", target, rerr, verr)
+			err = fmt.Errorf("daemon: installing %s: %w (and the existing file: %w)", target, ierr, verr)
 			return err
 		}
-		_ = os.Chmod(tmpPath, 0o600) // read-only files cannot be removed on Windows
-		_ = os.Remove(tmpPath)
 	}
+	removeStagedTemp(tmpPath)
 	return verifyStaged(target, sum)
+}
+
+// installStaged puts tmp, a sealed and verified temporary copy, in place at target, and never over
+// a file already there: a spawner that loses the install leaves the winner's copy as the very file
+// it is, so another spawner hashing that copy at the moment still finds the file it hashed
+// (verifyStagedThen's identity check; TestCopyStaged_NeverReplacesAnInstalledCopy). On Windows it
+// is a rename, which the installed copy's read-only seal refuses — MoveFileEx will not replace a
+// read-only file. Elsewhere a rename replaces an existing target without asking, so it is a hard
+// link instead, which fails when target exists; tmp stays behind as a second name for the copy,
+// for removeStagedTemp.
+func installStaged(tmp, target string) error {
+	if runtime.GOOS == "windows" {
+		return os.Rename(tmp, target)
+	}
+	return os.Link(tmp, target)
+}
+
+// removeStagedTemp removes tmp once installStaged is done with it, best effort: the temporary
+// copy of a spawner that lost the install, or, off Windows, the second name a successful install
+// leaves. A temporary copy is sealed read-only, which Windows will not remove until the bit is
+// cleared; elsewhere the seal does not stop a removal, and clearing it would unseal the installed
+// copy too when tmp is a second link to it.
+func removeStagedTemp(tmp string) {
+	if runtime.GOOS == "windows" {
+		_ = os.Chmod(tmp, 0o600)
+	}
+	_ = os.Remove(tmp)
 }
 
 // verifyStaged checks that target is a regular file — not a symbolic link, junction or other
 // reparse point, which Lstat reports as something other than a regular file — whose contents hash
-// to sum.
-func verifyStaged(target, sum string) error {
+// to sum, and that the file hashed is still the one filed at target once the hash is done.
+//
+// The last check is what ties the hash to the name. The hash reads through a handle that shares
+// delete (see the open below), so a removal can land while it runs — pruneStaged from a spawner of
+// another plugin version during an update, or another spawner's removal of a copy it found wrong —
+// and the handle goes on reading the bytes it opened after the name has gone, or names another file.
+// Such a copy has not been verified however its bytes hash (errStagedMoved), so no spawn is handed a
+// path that holds nothing, or something never hashed
+// (TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed).
+func verifyStaged(target, sum string) error { return verifyStagedThen(target, sum, nil) }
+
+// verifyStagedThen is verifyStaged with afterHash, which runs once the copy has been hashed and
+// before anything else is checked; a test uses it to act on target at exactly that moment, and
+// every caller outside the tests passes nil.
+func verifyStagedThen(target, sum string, afterHash func()) error {
 	fi, err := os.Lstat(paths.Long(target))
 	if err != nil {
 		return err
 	}
 	if !fi.Mode().IsRegular() {
-		return fmt.Errorf("daemon: staged binary %s is not a regular file (%s)", target, fi.Mode().Type())
+		return fmt.Errorf("%w: %s (%s)", errStagedNotRegular, target, fi.Mode().Type())
 	}
-	got, err := fileSHA256(target)
+	// The copy is read through paths.OpenShared, whose handle shares delete as well as read and
+	// write. On Windows a plain os.Open does not, so it is refused with ERROR_SHARING_VIOLATION
+	// while any other handle holds the file with DELETE access — and the spawner whose rename has
+	// just installed a staged copy holds the renamed file exactly that way until MoveFileEx closes
+	// its handle. A spawner that lost that rename and verified the winner's copy through os.Open
+	// inside that window read a correct copy as a failed install
+	// (TestStageBinary_VerifiesACopyItsRenamerStillHolds). Sharing delete lets a removal land
+	// during the hash, which stillFiledAt below answers.
+	f, err := paths.OpenShared(target)
 	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	got, err := sha256Hex(f)
+	if err != nil {
+		return err
+	}
+	if afterHash != nil {
+		afterHash()
+	}
+	if err := stillFiledAt(f, target); err != nil {
 		return err
 	}
 	if got != sum {
 		return fmt.Errorf("%w: %s", errStagedMismatch, target)
+	}
+	return nil
+}
+
+// stillFiledAt checks that f, a handle on a staged copy, is still the file filed at target: an
+// Lstat of target that finds nothing, or a different file, is errStagedMoved. A link standing there
+// now is a different file too, since Lstat does not follow it.
+func stillFiledAt(f *os.File, target string) error {
+	held, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	now, err := os.Lstat(paths.Long(target))
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("%w: %s was removed", errStagedMoved, target)
+	case err != nil:
+		return err
+	case !os.SameFile(held, now):
+		return fmt.Errorf("%w: %s was replaced", errStagedMoved, target)
 	}
 	return nil
 }
@@ -231,15 +358,22 @@ func isSHA256Hex(s string) bool {
 	return err == nil && strings.ToLower(s) == s
 }
 
-// fileSHA256 is the lower-case hex SHA-256 of the file at p.
+// fileSHA256 is the lower-case hex SHA-256 of the file at p: the running plugin binary, whose hash
+// names its staged copy. A staged copy is hashed by verifyStagedThen instead, through its own
+// delete-sharing handle.
 func fileSHA256(p string) (string, error) {
 	f, err := os.Open(paths.Long(p))
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = f.Close() }()
+	return sha256Hex(f)
+}
+
+// sha256Hex is the lower-case hex SHA-256 of what remains to be read from r.
+func sha256Hex(r io.Reader) (string, error) {
 	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
+	if _, err := io.Copy(h, r); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
