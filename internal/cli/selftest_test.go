@@ -4,11 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -112,4 +117,115 @@ func TestSelfTest_RegisteredInAll(t *testing.T) {
 		}
 	}
 	t.Fatal("self-test is not registered in All()")
+}
+
+// TestSelfTest_DaemonDisabledStartsNoDaemon pins docs/release.md §4's promise for
+// runtime.daemon.enabled: false — "no resident process and no lock file" — against self-test, which
+// used to call daemon.EnsureRunning whenever no daemon answered, whatever the configuration said.
+// Env.Self names a path that does not exist, so an EnsureRunning attempt reaches SpawnDetached,
+// fails fast without starting anything, and logs "spawn failed": the same deterministic proxy
+// TestEnsureDaemonRunning_GatedOnDaemonEnabled uses for "EnsureRunning ran". CLAUDE_PLUGIN_ROOT is
+// cleared so no attempt could stage a binary under any home directory.
+func TestSelfTest_DaemonDisabledStartsNoDaemon(t *testing.T) {
+	t.Cleanup(contract.ResetProducers)
+	t.Setenv("CLAUDE_PLUGIN_ROOT", "")
+	// A manually removed root, not t.TempDir(): the hook logger self-test writes through keeps its
+	// log file open (see TestEnsureDaemonRunning_GatedOnDaemonEnabled), which would fail
+	// t.TempDir()'s own cleanup on Windows.
+	root, err := os.MkdirTemp("", "qompack-selftest-disabled-*")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	writeAdmissionConfig(t, root, `{"runtime":{"daemon":{"enabled":false}}}`)
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), []Cmd{{Name: "self-test", Run: runSelfTest}},
+		[]string{"qompack", "self-test", "--json"}, Env{
+			Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": root}),
+			Stdin:   bytes.NewReader(nil),
+			Clock:   testClock(),
+			HomeDir: t.TempDir(),
+			Self:    filepath.Join(t.TempDir(), "does-not-exist"),
+		}, &out, &errw)
+	require.Equal(t, ExitOK, code, "stderr=%s stdout=%s", errw.String(), out.String())
+
+	var report selfTestReport
+	require.NoError(t, json.Unmarshal(out.Bytes(), &report), "stdout=%s", out.String())
+	byID := map[string]selfTestCheck{}
+	for _, c := range report.Checks {
+		byID[c.ID] = c
+	}
+	for _, id := range []string{"daemon.reachable", "admin.ping"} {
+		c, ok := byID[id]
+		require.True(t, ok, "self-test must still report %s", id)
+		require.True(t, c.OK, "%s must be skipped by configuration, not failed: %+v", id, c)
+		require.Equal(t, contract.SevInfo, c.Severity, "%s: %+v", id, c)
+		require.Contains(t, c.Observed, "skipped", "%s: %+v", id, c)
+		require.Contains(t, c.Observed, "runtime.daemon.enabled", "%s: %+v", id, c)
+	}
+
+	run := paths.Of(root).Run
+	for _, name := range []string{"daemon.lock", "spawn.lock"} {
+		_, serr := os.Stat(filepath.Join(run, name))
+		require.True(t, os.IsNotExist(serr), "runtime.daemon.enabled=false must never create %s (stat err=%v)",
+			filepath.Join(run, name), serr)
+	}
+	logs, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
+	require.NoError(t, err)
+	for _, m := range logs {
+		b, rerr := os.ReadFile(m)
+		require.NoError(t, rerr)
+		require.NotContains(t, string(b), "spawn failed",
+			"runtime.daemon.enabled=false must never reach daemon.EnsureRunning/SpawnDetached")
+	}
+}
+
+// TestSelfTest_DaemonDisabledButReachableWarns covers the other half of the disabled branch: a
+// daemon that answers although runtime.daemon.enabled is false (started before the switch was set,
+// or by hand) contradicts the configuration, so daemon.reachable warns instead of reading
+// "skipped", and self-test still sends it nothing — admin.ping stays skipped by configuration.
+func TestSelfTest_DaemonDisabledButReachableWarns(t *testing.T) {
+	t.Cleanup(contract.ResetProducers)
+	t.Setenv("CLAUDE_PLUGIN_ROOT", "")
+	root, err := os.MkdirTemp("", "qompack-selftest-disabled-live-*")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	writeAdmissionConfig(t, root, `{"runtime":{"daemon":{"enabled":false}}}`)
+
+	var mu sync.Mutex
+	var ops []ipc.Op
+	replyDaemon(t, root, func(req ipc.Request) *hookio.Output {
+		mu.Lock()
+		defer mu.Unlock()
+		ops = append(ops, req.Op)
+		return nil
+	})
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), []Cmd{{Name: "self-test", Run: runSelfTest}},
+		[]string{"qompack", "self-test", "--json"}, Env{
+			Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": root}),
+			Stdin:   bytes.NewReader(nil),
+			Clock:   testClock(),
+			HomeDir: t.TempDir(),
+			Self:    filepath.Join(t.TempDir(), "does-not-exist"),
+		}, &out, &errw)
+	require.Equal(t, ExitOK, code, "a warning is not critical; stderr=%s stdout=%s", errw.String(), out.String())
+
+	var report selfTestReport
+	require.NoError(t, json.Unmarshal(out.Bytes(), &report), "stdout=%s", out.String())
+	byID := map[string]selfTestCheck{}
+	for _, c := range report.Checks {
+		byID[c.ID] = c
+	}
+	reachable := byID["daemon.reachable"]
+	require.False(t, reachable.OK, "a live daemon under a disabled configuration must not pass: %+v", reachable)
+	require.Equal(t, contract.SevWarn, reachable.Severity, "%+v", reachable)
+	require.Contains(t, reachable.Observed, "runtime.daemon.enabled is false", "%+v", reachable)
+
+	ping := byID["admin.ping"]
+	require.True(t, ping.OK, "%+v", ping)
+	require.Equal(t, selfTestDaemonSkipped, ping.Observed, "%+v", ping)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Empty(t, ops, "self-test must send a disabled daemon no request, only a liveness dial")
 }

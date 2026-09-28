@@ -1,0 +1,23 @@
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/disabled
+    daemon_disabled_clients_test.go:78: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7b-selftest/internal/cli/daemon_disabled_clients_test.go:78
+        	Error:      	Should be empty, but was [C:\Users\Quant\AppData\Local\Temp\TestDaemonClients_HonourDisabledDaemonOverStaleStatemcpdisable1220189420\001]
+        	Test:       	TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/disabled
+        	Messages:   	runtime.daemon.enabled=false must never spawn a daemon, whatever a stale state.bin says
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/enabled
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/disabled
+    daemon_disabled_clients_test.go:78: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7b-selftest/internal/cli/daemon_disabled_clients_test.go:78
+        	Error:      	Should be empty, but was [C:\Users\Quant\AppData\Local\Temp\TestDaemonClients_HonourDisabledDaemonOverStaleStatecommandsdi215888916\001]
+        	Test:       	TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/disabled
+        	Messages:   	runtime.daemon.enabled=false must never spawn a daemon, whatever a stale state.bin says
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/enabled
+--- FAIL: TestDaemonClients_HonourDisabledDaemonOverStaleState (0.20s)
+    --- FAIL: TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/disabled (0.06s)
+    --- PASS: TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/enabled (0.05s)
+    --- FAIL: TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/disabled (0.04s)
+    --- PASS: TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/enabled (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.611s
+FAIL

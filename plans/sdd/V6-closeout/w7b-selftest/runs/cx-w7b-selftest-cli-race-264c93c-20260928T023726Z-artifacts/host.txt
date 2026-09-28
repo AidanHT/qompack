@@ -1,0 +1,10 @@
+run_id=cx-w7b-selftest-cli-race-264c93c-20260928T023726Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7b-selftest
+rev=264c93c0
+commit=264c93c0bb89f64946df7bfc1139351f5d91db35
+bundle_sha256=8b03da279ed49bd420f811b8c6c51607a1e602bc613aebb37aa6ff04ccf2c3e9
+host_started_utc=2026-09-28T02:37:39Z
+inner_args=--timeout 30m -- ./internal/cli
+host_finished_utc=2026-09-28T02:39:12Z
+container_exit=0

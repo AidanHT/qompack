@@ -1,0 +1,11 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 434,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}
