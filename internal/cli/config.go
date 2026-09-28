@@ -20,11 +20,11 @@ const configViolationsFile = "config-violations.json"
 // LoadConfigAndReport is the single helper every composition root uses to load configuration.
 //
 // It exists because §11.3 splits one requirement across two packages that cannot see each other.
-// config.Load performs the per-leaf fallback and returns the evidence as warnings, but it can
-// neither log nor persist: §3.2 gives config the allow-set {core}, so it can reach neither
-// logging (which imports config, making the reverse edge a cycle) nor paths. The reporting half
-// therefore belongs to whoever called Load — and putting it here, rather than at each call site,
-// is what stops a caller from forgetting it.
+// config.Load performs the per-leaf fallback and returns the evidence as warnings, but it neither
+// logs nor persists: §3.2 keeps logging out of config's allow-set {core, paths} (logging imports
+// config, so the reverse edge would be a cycle), and config writes no file by design. The
+// reporting half therefore belongs to whoever called Load — and putting it here, rather than at
+// each call site, is what stops a caller from forgetting it.
 //
 // Every violation is reported through logging.Loud (§12: nothing degrades silently) and the typed
 // list is persisted to state/config-violations.json so /qompack:status and the next SessionStart
@@ -38,9 +38,10 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 
 	violations := config.ViolationsFromWarnings(warns)
 
-	// A KEYLESS warning is a whole layer that did not parse — config.Load's only keyless producer
-	// is `unparseable config: …` — so the file an operator edited is not in effect at all and every
-	// value from it is silently the default. That is finding F4-6: it reached the day log at Warn
+	// A KEYLESS warning is a whole layer that is not in effect — config.Load's two keyless producers
+	// are `unparseable config: …` and `unreadable config: …`, a file that exists and cannot be read
+	// — so the file an operator edited is not in effect at all and every value from it is silently
+	// the default. That is finding F4-6: it reached the day log at Warn
 	// and nothing stronger, so a corrupt .qompack/config.json stopped the daemon while LOUD.log,
 	// self-test and status all stayed clean. §13 invariant 10 makes it Loud. A warning that NAMES a
 	// key is the ordinary per-leaf case and stays a Warn; the §11.3 violations below are the ones

@@ -10,25 +10,27 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 	"github.com/qompack/qompack/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
-// TestMain removes the directories Build, buildNoInject and the installation rehearsal's bundle
-// assembly compiled into, and writes that rehearsal's record manifest. It lives here rather than in
-// a file of its own because it is a few lines of process lifecycle, and the artifacts it cleans up
-// are only ever used by the tests in this package.
+// TestMain isolates the user's home for every test here, removes the directories Build,
+// buildNoInject and the installation rehearsal's bundle assembly compiled into, and writes that
+// rehearsal's record manifest. It lives here rather than in a file of its own because it is a few
+// lines of process lifecycle, and the artifacts it cleans up are only ever used by the tests in
+// this package.
+//
+// The isolation is pathstest.Main: every binary and daemon these tests start inherits the
+// process's HOME and USERPROFILE, and no test may read or write the real ~/.qompack or ~/.claude
+// (test/guards' TestGuard_EveryHomeReachingTestPackageIsolatesHome). A child that must not inherit
+// a test's own t.Setenv changes starts from pathstest.Environ().
 //
 // writeInstallRecordIndex runs BEFORE the removals and only for a collecting run: the manifest has
 // to be written after the last case so that a case which fatalled before writing its own record
 // shows up as an absence in a document written afterwards, rather than as nothing at all.
 func TestMain(m *testing.M) {
-	code := m.Run()
-	writeInstallRecordIndex()
-	removeBuild()
-	removeNoInjectBuild()
-	removeInstallBundles()
-	os.Exit(code)
+	os.Exit(pathstest.Main(m, writeInstallRecordIndex, removeBuild, removeNoInjectBuild, removeInstallBundles))
 }
 
 // hookSubcommands is §7.3's six hook entry points paired with the host event name each answers.

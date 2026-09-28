@@ -12,6 +12,7 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -67,17 +68,15 @@ var (
 	bigFixtureErr  error
 )
 
-// TestMain exists solely to take the shared corpus away again.
+// TestMain isolates the user's home for every test here and takes the shared corpus away again.
 //
-// internal/mcp had no TestMain before this file, which is what makes adding one safe: nothing else
-// in the package depends on the default behaviour, and golden_test.go's -update flag registration
-// is defensive about a TestMain already owning the name either way. The cleanup runs BEFORE
-// os.Exit because os.Exit runs no deferred function.
-func TestMain(m *testing.M) {
-	code := m.Run()
-	closeBigFixture()
-	os.Exit(code)
-}
+// The isolation is pathstest.Main: this test binary links a package that resolves the home (the
+// store's calibration file, internal/hostperm's Claude Code settings), and no test may read or write
+// the real ~/.qompack or ~/.claude (test/guards' TestGuard_EveryHomeReachingTestPackageIsolatesHome).
+//
+// golden_test.go's -update flag registration is defensive about a TestMain owning the name. The
+// corpus cleanup runs inside Main, before os.Exit, because os.Exit runs no deferred function.
+func TestMain(m *testing.M) { os.Exit(pathstest.Main(m, closeBigFixture)) }
 
 // closeBigFixture releases the corpus's store handles and removes its directory. It is a no-op
 // when the corpus was never built, which is every -short run and every run whose -run pattern

@@ -151,8 +151,9 @@ var sharedReaders = []sharedReader{
 	// The V6 close-out's audit (w5-winfiles) of every product read of a file some writer replaces or
 	// removes. Each reader below took an ordinary handle on a file that another process, or another
 	// goroutine no lock of its own orders, replaces or removes; each was os.ReadFile or os.Open until
-	// that audit. Every other product read is classified in ordinaryReaders below, with the reason
-	// an ordinary handle is safe there, and TestGuard_EveryProductReadIsClassified keeps that true.
+	// that audit. Every other product read is classified in productreads_test.go's ordinaryReads,
+	// with the reason an ordinary handle is safe there, and TestGuard_EveryProductReadIsClassified
+	// keeps that true.
 	{
 		file:  "internal/contract/marker.go",
 		fn:    "readMarker",
@@ -272,6 +273,29 @@ var sharedReaders = []sharedReader{
 			"HEAD, and add, commit and the index-refreshing status editors run in the background " +
 			"rewrite an index of up to 64 MiB. The rename fails while this read holds an ordinary handle",
 	},
+	// Owner decision D22 (00-ARCHITECTURE.md §3.2): internal/config may import internal/paths, so
+	// the two config loaders now read config.json shared, which w5-winfiles could only record as a
+	// residual.
+	{
+		file:  "internal/config/load.go",
+		fn:    "Load",
+		holds: "<project>/.qompack/config.json and <home>/.qompack/config.json",
+		why: "the user's editor saving the file atomically, a new file renamed over the old one. An " +
+			"ordinary handle made that save fail while config.Load held the file (the daemon's reload, " +
+			"`config print`, doctor, self-test), and a read the save made fail was taken for a missing " +
+			"file, so the whole layer fell back to the defaults without a warning " +
+			"(TestLoad_ReadsThroughAnEditorsAtomicSaves)",
+	},
+	{
+		file:  "internal/config/capture_load.go",
+		fn:    "readCaptureConfig",
+		holds: "<project>/.qompack/config.json and <home>/.qompack/config.json",
+		why: "the same atomic save, on the hook path: an ordinary handle made the save or the hook's read " +
+			"fail, and under D8 a config the hook cannot read refuses the capture, so saving the config " +
+			"could make a hook record nothing. It reads through paths.OpenSharedLeaf, which also never " +
+			"follows a final link, so no Lstat/os.SameFile identity check is left for a save to land " +
+			"inside (TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves)",
+	},
 	{
 		file:  "test/fault/fault.go",
 		fn:    "flushAndAwaitEnd",
@@ -295,6 +319,7 @@ var (
 	requiredReads = map[string]bool{
 		"paths.ReadFileShared": true,
 		"paths.OpenShared":     true,
+		"paths.OpenSharedLeaf": true,
 	}
 )
 
@@ -377,6 +402,30 @@ func sample(p string) ([]byte, error) {
 		"the classifier must see both forbidden shapes; if it sees neither, every row above is vacuous")
 	require.Equal(t, []string{"paths.ReadFileShared"}, required,
 		"the classifier must also recognise the shared read, or a correct reader would fail the guard")
+
+	const values = `package p
+
+import (
+	"os"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+type reader struct{ open func(string) (*os.File, error) }
+
+func handsOn(p string) (reader, reader) {
+	return reader{open: paths.OpenSharedLeaf}, reader{open: os.Open}
+}
+`
+	f, err = parser.ParseFile(fset, "values.go", values, parser.SkipObjectResolution)
+	require.NoError(t, err)
+	fn = funcDeclNamed(f, "handsOn")
+	require.NotNil(t, fn)
+	forbidden, required = classifyReadCalls(fn)
+	require.Equal(t, []string{"os.Open"}, forbidden,
+		"an ordinary opener handed on as a value is the same forbidden read as a call to it")
+	require.Equal(t, []string{"paths.OpenSharedLeaf"}, required,
+		"a shared opener handed on as a value is the same shared read as a call to it")
 }
 
 // findFuncDecl parses path and returns the one function declared there under name. Exactly one
@@ -414,19 +463,18 @@ func funcDeclNamed(f *ast.File, name string) *ast.FuncDecl {
 	return nil
 }
 
-// classifyReadCalls walks fn's body and reports which forbidden and which required read calls it
-// makes, each sorted and de-duplicated. Nested function literals are included: a read moved into a
-// closure inside the same function is the same read.
+// classifyReadCalls walks fn's body and reports which forbidden and which required read functions it
+// uses, each sorted and de-duplicated. A use is a call or a reference to the function as a value —
+// an opener handed to a reader that calls it, as readCaptureConfig hands paths.OpenSharedLeaf to its
+// captureConfigReader — which is the same read, and the shape TestGuard_EveryProductReadIsClassified
+// already counts for os.Open. Nested function literals are included: a read moved into a closure
+// inside the same function is the same read.
 func classifyReadCalls(fn *ast.FuncDecl) (forbidden, required []string) {
 	seenBad := map[string]bool{}
 	seenGood := map[string]bool{}
 
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
+		sel, ok := n.(*ast.SelectorExpr)
 		if !ok || sel.Sel == nil {
 			return true
 		}
