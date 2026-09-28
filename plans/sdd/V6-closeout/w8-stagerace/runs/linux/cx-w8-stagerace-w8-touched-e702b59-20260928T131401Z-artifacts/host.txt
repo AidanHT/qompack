@@ -1,0 +1,10 @@
+run_id=cx-w8-stagerace-w8-touched-e702b59-20260928T131401Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace
+rev=e702b59
+commit=e702b599bdd65f61a76d95db644b990ddd464879
+bundle_sha256=d7441160f21846564049ee8adbeff3154283055f4bf9163151853e984304af94
+host_started_utc=2026-09-28T13:14:10Z
+inner_args=-- ./internal/daemon ./test/guards ./test/docs
+host_finished_utc=2026-09-28T13:29:50Z
+container_exit=1

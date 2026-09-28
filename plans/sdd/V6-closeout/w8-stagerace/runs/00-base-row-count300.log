@@ -1,0 +1,15 @@
+--- FAIL: TestStageBinary_ConcurrentSpawnersAgree (0.08s)
+    spawn_stage_test.go:179: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/spawn_stage_test.go:179
+        	Error:      	Received unexpected error:
+        	            	daemon: installing C:\Users\Quant\AppData\Local\Temp\TestStageBinary_ConcurrentSpawnersAgree1732420724\002\.qompack\bin\b4826e68d1bc982f5a453cc60a784a790e3bf60d4fc0e7f7b16da9b3df6e54e1\qompack.exe: rename C:\Users\Quant\AppData\Local\Temp\TestStageBinary_ConcurrentSpawnersAgree1732420724\002\.qompack\bin\b4826e68d1bc982f5a453cc60a784a790e3bf60d4fc0e7f7b16da9b3df6e54e1\.stage-304618060 C:\Users\Quant\AppData\Local\Temp\TestStageBinary_ConcurrentSpawnersAgree1732420724\002\.qompack\bin\b4826e68d1bc982f5a453cc60a784a790e3bf60d4fc0e7f7b16da9b3df6e54e1\qompack.exe: Access is denied. (and the existing file: open C:\Users\Quant\AppData\Local\Temp\TestStageBinary_ConcurrentSpawnersAgree1732420724\002\.qompack\bin\b4826e68d1bc982f5a453cc60a784a790e3bf60d4fc0e7f7b16da9b3df6e54e1\qompack.exe: The process cannot access the file because it is being used by another process.)
+        	Test:       	TestStageBinary_ConcurrentSpawnersAgree
+        	Messages:   	spawner 0
+--- FAIL: TestStageBinary_ConcurrentSpawnersAgree (0.09s)
+    spawn_stage_test.go:179: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/spawn_stage_test.go:179
+        	Error:      	Received unexpected error:
+        	            	daemon: installing C:\Users\Quant\AppData\Local\Temp\TestStageBinary_ConcurrentSpawnersAgree1710976320\002\.qompack\bin\28a7c69e24be2192c67478d4fb3cef2e6f9a6d9063646ebfd334564ec5bdbeee\qompack.exe: rename C:\Users\Quant\AppData\Local\Temp\TestStageBinary_ConcurrentSpawnersAgree1710976320\002\.qompack\bin\28a7c69e24be2192c67478d4fb3cef2e6f9a6d9063646ebfd334564ec5bdbeee\.stage-3383277177 C:\Users\Quant\AppData\Local\Temp\TestStageBinary_ConcurrentSpawnersAgree1710976320\002\.qompack\bin\28a7c69e24be2192c67478d4fb3cef2e6f9a6d9063646ebfd334564ec5bdbeee\qompack.exe: Access is denied. (and the existing file: open C:\Users\Quant\AppData\Local\Temp\TestStageBinary_ConcurrentSpawnersAgree1710976320\002\.qompack\bin\28a7c69e24be2192c67478d4fb3cef2e6f9a6d9063646ebfd334564ec5bdbeee\qompack.exe: The process cannot access the file because it is being used by another process.)
+        	Test:       	TestStageBinary_ConcurrentSpawnersAgree
+        	Messages:   	spawner 1
+FAIL

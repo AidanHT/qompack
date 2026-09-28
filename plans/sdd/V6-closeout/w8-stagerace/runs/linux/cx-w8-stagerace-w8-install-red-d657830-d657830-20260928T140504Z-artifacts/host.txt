@@ -1,0 +1,10 @@
+run_id=cx-w8-stagerace-w8-install-red-d657830-d657830-20260928T140504Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace
+rev=d6578301
+commit=d657830127ed3404399d40e19bb4bfebde3ed269
+bundle_sha256=07b2e395802d30c3c94a055f25994f47672c7ec4813524ca05adfef2aadda0bf
+host_started_utc=2026-09-28T14:05:09Z
+inner_args=--run ^(TestCopyStaged_NeverReplacesAnInstalledCopy|TestStageBinary_ConcurrentSpawnersAgree)$ --count 50 -- ./internal/daemon
+host_finished_utc=2026-09-28T14:05:31Z
+container_exit=1

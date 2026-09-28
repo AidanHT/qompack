@@ -1,0 +1,173 @@
+//go:build windows
+
+package daemon
+
+// TEMPORARY DIAGNOSTIC (w8-stagerace) — never committed. Replicates copyStaged's install step and,
+// the moment verifying the existing target fails, asks the kernel which processes hold it open.
+
+import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"testing"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+const diagFileProcessIdsUsingFileInformation = 47
+
+func diagHolders(p string) string {
+	u, _ := windows.UTF16PtrFromString(p)
+	h, err := windows.CreateFile(u, windows.FILE_READ_ATTRIBUTES,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil,
+		windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		return "attr-open: " + err.Error()
+	}
+	defer windows.CloseHandle(h)
+	buf := make([]byte, 4096)
+	var iosb windows.IO_STATUS_BLOCK
+	if st := windows.NtQueryInformationFile(h, &iosb, &buf[0], uint32(len(buf)), diagFileProcessIdsUsingFileInformation); st != nil {
+		return "query: " + st.Error()
+	}
+	n := binary.LittleEndian.Uint32(buf[0:4])
+	out := ""
+	for i := uint32(0); i < n; i++ {
+		pid := *(*uintptr)(unsafe.Pointer(&buf[8+8*i]))
+		out += fmt.Sprintf(" pid=%d(%s)", pid, diagProcName(uint32(pid)))
+	}
+	return fmt.Sprintf("n=%d%s self=%d", n, out, os.Getpid())
+}
+
+func diagProcName(pid uint32) string {
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+	if err != nil {
+		return "?" + err.Error()
+	}
+	defer windows.CloseHandle(h)
+	b := make([]uint16, 1024)
+	n := uint32(len(b))
+	if err := windows.QueryFullProcessImageName(h, 0, &b[0], &n); err != nil {
+		return "?"
+	}
+	return filepath.Base(windows.UTF16ToString(b[:n]))
+}
+
+var diagInstallMu sync.Mutex
+
+var diagShared bool
+
+func diagVerify(target, sum string) error {
+	if !diagShared {
+		return verifyStaged(target, sum)
+	}
+	f, err := paths.OpenShared(target)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+	if hex.EncodeToString(h.Sum(nil)) != sum {
+		return errors.New("mismatch")
+	}
+	return nil
+}
+
+func diagCopyStaged(t *testing.T, self, dir, target, sum string, serialize bool, rec func(string)) error {
+	src, err := os.Open(self)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	tmp, err := os.CreateTemp(dir, stageTempPattern)
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	h := sha256.New()
+	_, err = io.Copy(io.MultiWriter(tmp, h), src)
+	if err == nil {
+		err = tmp.Sync()
+	}
+	_ = tmp.Close()
+	if err != nil {
+		return err
+	}
+	if hex.EncodeToString(h.Sum(nil)) != sum {
+		return errors.New("sum")
+	}
+	if err := os.Chmod(tmpPath, 0o500); err != nil {
+		return err
+	}
+	if serialize {
+		diagInstallMu.Lock()
+		defer diagInstallMu.Unlock()
+	}
+	if rerr := os.Rename(tmpPath, paths.Long(target)); rerr != nil {
+		if verr := diagVerify(target, sum); verr != nil {
+			var errno syscall.Errno
+			if errors.As(verr, &errno) && errno == 32 {
+				rec("holders@verify-fail: " + diagHolders(target) + " | rename: " + rerr.Error())
+			}
+			rec("fail: " + verr.Error())
+			return fmt.Errorf("installing: %w (existing: %w)", rerr, verr)
+		}
+		_ = os.Chmod(tmpPath, 0o600)
+		_ = os.Remove(tmpPath)
+	}
+	return nil
+}
+
+func diagRun(t *testing.T, serialize bool, iters int) {
+	self := fakeSelf(t)
+	sum, err := fileSHA256(self)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fails atomic.Int64
+	var mu sync.Mutex
+	var notes []string
+	rec := func(s string) { mu.Lock(); notes = append(notes, s); mu.Unlock() }
+	for it := 0; it < iters; it++ {
+		home := t.TempDir()
+		dir := filepath.Join(paths.Global(home), stagedBinDir, sum)
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		target := filepath.Join(dir, stagedBinaryName+filepath.Ext(self))
+		var wg sync.WaitGroup
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := diagCopyStaged(t, self, dir, target, sum, serialize, rec); err != nil {
+					fails.Add(1)
+				}
+			}()
+		}
+		wg.Wait()
+	}
+	t.Logf("serialize=%v iters=%d spawner-failures=%d", serialize, iters, fails.Load())
+	for _, n := range notes {
+		t.Log(n)
+	}
+}
+
+func TestDiagStageRace_Concurrent(t *testing.T) { diagRun(t, false, 300) }
+func TestDiagStageRace_Serialized(t *testing.T) { diagRun(t, true, 300) }
+
+func TestDiagStageRace_SharedVerify(t *testing.T) { diagShared = true; defer func() { diagShared = false }(); diagRun(t, false, 900) }
