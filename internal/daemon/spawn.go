@@ -17,18 +17,23 @@ import (
 // runSpawnLockFileName mirrors ipc's own unexported spawnLockName ("spawn.lock"), the file every
 // spawner of a project's daemon claims inside <root>/.qompack/run before it launches one
 // (ipc.ClaimSpawn). ipc's copy cannot be reached from this package (it is unexported and ipc may not
-// import daemon — §3.2), so the literal is respelled here for the one caller that needs it: Run,
-// which deletes it once the daemon it names has actually come up.
+// import daemon — §3.2), so the literal is respelled here for the two places that delete it: Run,
+// once the daemon it names has actually come up, and Lock.Release, as the lock's owner lets go.
 const runSpawnLockFileName = "spawn.lock"
 
 // removeSpawnLockFile deletes <root>/.qompack/run/spawn.lock, if present (task-5-spec.md
-// daemon.go Run step 3: "delete run/spawn.lock after listen"). A spawner's claim is already
-// self-clearing via staleness, so this is a courtesy cleanup, not a correctness requirement — a
-// missing file is not an error. paths.CreateNew leaves the file read-only
-// (0o444/FILE_ATTRIBUTE_READONLY), which blocks deletion on Windows, so the mode is cleared first;
-// harmless on POSIX, where permissions never gate an unlink.
+// daemon.go Run step 3: "delete run/spawn.lock after listen"): the spawn the claim announced has
+// arrived, so the next spawner need not wait for the claim to go stale. Whatever claim is there
+// when daemon.lock is released is removed then too (Lock.Release, D27). A missing file is not an
+// error.
 func removeSpawnLockFile(root string) {
-	p := filepath.Join(paths.Of(root).Run, runSpawnLockFileName)
+	removeSpawnClaim(filepath.Join(paths.Of(root).Run, runSpawnLockFileName))
+}
+
+// removeSpawnClaim deletes the spawn.lock at p, if present. paths.CreateNew leaves the file
+// read-only (0o444/FILE_ATTRIBUTE_READONLY), which blocks deletion on Windows, so the mode is
+// cleared first; harmless on POSIX, where permissions never gate an unlink.
+func removeSpawnClaim(p string) {
 	_ = os.Chmod(paths.Long(p), 0o600)
 	_ = os.Remove(paths.Long(p))
 }
@@ -140,17 +145,18 @@ func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock)
 // EnsureRunningUntil is EnsureRunning bounded by session-start's hook budget (internal/cli
 // hookBudget, D17b and D21): its poll runs until until, the borrow limit — 8.25 s into the hook,
 // the last instant that still leaves the reply D9's compact bound (CompactAnswerBudget) plus the
-// dial — and never past latest, the last instant a reply could still follow. It ends there: no
-// tick or dial of the poll runs past its end (pollEnds), so a poll that ends at until leaves the
-// reply that bound in full; a daemon that comes up in its last tick is found by the hook's own dial. Everything before the
-// poll — the dial, the claim and a spawn, which on Windows stages the binary (spawn_stage.go) and
-// can stall in process creation for seconds on a loaded machine — is never cut short, and a daemon
-// this call started, or found already on its way, late still gets ensureRunningPollBound to come
-// up, the wait EnsureRunning has always given it, counted from its spawn or from the moment this
-// call found it on its way, up to latest; session-start then waits that much less for the reply. A
-// deadline that has already passed therefore still gets one dial and, when this call may spawn, its
-// spawn, so the session always gets a daemon started. Zero instants fall back to EnsureRunning's
-// bound.
+// dial — and never past latest, the last instant a reply could still follow. It ends there: no tick
+// or dial of the poll runs past its end (pollEnds), so a poll that ends at until leaves the reply
+// about that bound, less the poll's own return (a claim given back, say) and the dial's transit, an
+// edge D29 accepted; a daemon that comes up in its last tick is found by the hook's own dial.
+// Everything before the poll — the dial, the claim and a spawn, which on Windows stages the binary
+// (spawn_stage.go) and can stall in process creation for seconds on a loaded machine — is never cut
+// short, and a daemon this call started, or found already on its way, late still gets
+// ensureRunningPollBound to come up, the wait EnsureRunning has always given it, counted from its
+// spawn or from the moment this call found it on its way, up to latest; session-start then waits
+// that much less for the reply. A deadline that has already passed therefore still gets one dial
+// and, when this call may spawn, its spawn, so the session always gets a daemon started. Zero
+// instants fall back to EnsureRunning's bound.
 func EnsureRunningUntil(projectRoot, self string, log logging.Logger, clk core.Clock, until, latest time.Time) (spawned bool, err error) {
 	return ensureRunning(projectRoot, self, log, clk,
 		pollBound{until: until, after: ensureRunningPollBound, latest: latest}, detachedSpawner(log))

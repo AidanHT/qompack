@@ -67,7 +67,7 @@ var releasesWithNoSealResidual = []struct {
 			"method name on an unrelated type (SpawnDetached's body since C1.17 staged the binary)",
 	},
 	{
-		file: "internal/daemon/spawn.go", fn: "ensureRunning",
+		file: "internal/daemon/spawn.go", fn: "ensureRunningWith",
 		why: "ipc.SpawnLock.Release, which gives back run/spawn.lock when the spawn it claimed could " +
 			"not start, or was not needed because a daemon answered the dial after the claim (V6 " +
 			"close-out D17) — the spawn claim, not the singleton daemon.lock, and never a delivery journal",

@@ -207,6 +207,13 @@ asserting.
 - **No secure erasure.** Deleting `.qompack/` deletes the store; it does not promise anything about
   backups, copies or snapshotting filesystems.
 - **No automatic downgrade.** See §5.
+- **No code signing (open release item).** The release's binaries carry no Authenticode signature.
+  Windows Defender's machine-learning detection has flagged development builds of this tree as
+  `Trojan:Win32/Bearfoos.A!ml` and `B!ml` and blocked or quarantined them (V6 close-out decision
+  D32). An unsigned binary is more likely to be flagged, and a user can check one only against the
+  release's `checksums.txt` and its build-provenance attestation. Signing the Windows binaries
+  before a public release is open and unowned. What a user sees and does meanwhile is
+  [troubleshooting §7](troubleshooting.md#windows-defender-flags-qompackexe).
 - **No network and no telemetry**, now or by configuration — `docs/security.md` §9.
 - **The release workflow is unverified in the available evidence.** The `dist: dist/goreleaser` split (so `--clean` cannot
   delete `dist/bundle/**` or `dist/release-notes.md`) and the host-validation upload
