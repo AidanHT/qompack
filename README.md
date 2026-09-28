@@ -24,8 +24,10 @@ Qompack has not been released. Two version numbers exist and they do not agree:
 - the last git tag in this repository is `v0.2.0`;
 - `plugin/.claude-plugin/plugin.json` declares version `0.1.0`.
 
-Both are reported here as they stand. Release and versioning are SP-17 deliverables and neither
-number is changed by this page.
+Both are reported here as they stand. The owner has chosen **v0.3.0** as the release version (V6
+close-out decision D1): `internal/core.Version`, and with it the generated `plugin.json`, move to
+`0.3.0` in the release's own version commit ([docs/release.md](docs/release.md#1-procedure) §1).
+Until that commit lands, `qompack version` prints `0.1.0`.
 
 ## Supported environments
 
