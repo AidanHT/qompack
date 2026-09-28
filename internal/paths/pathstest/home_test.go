@@ -1,7 +1,10 @@
 package pathstest_test
 
 import (
+	"context"
+	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -112,4 +115,82 @@ func TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned(t *testing.T) {
 	require.NoError(t, err)
 	restore()
 	require.FileExists(t, marker, "control: with GOENV unset IsolateHome must ask the go command on PATH")
+}
+
+// TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder pins that the one `go env` IsolateHome
+// runs writes no Go telemetry into the home it runs under.
+//
+// That `go env` runs before the home moves, so under the caller's home. With no telemetry mode file
+// there the go command's mode is "local": it creates a counter file under
+// os.UserConfigDir()/go/telemetry/local and, holding no fresh upload token, starts a detached
+// telemetry sidecar that keeps writing there after `go env` has returned. When that home is a
+// directory the test process removes — the fake real home of
+// TestIsolateHome_RedirectsEveryHomeLookupAndPutsItBack — its t.TempDir cleanup raced the sidecar
+// and failed with "directory not empty" in the Linux non-root gate. The row points the user config
+// dir into a fake real home, gives that home a go env file whose GOMODCACHE only the go command can
+// report (the control that it ran), and requires that no telemetry directory appears there.
+func TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder(t *testing.T) {
+	realHome := t.TempDir()
+	t.Setenv("HOME", realHome)
+	t.Setenv("USERPROFILE", realHome)
+	t.Setenv("XDG_CONFIG_HOME", "")                                    // Linux: the config dir follows HOME
+	t.Setenv("APPDATA", filepath.Join(realHome, "AppData", "Roaming")) // Windows: the config dir is APPDATA
+	cfg, err := os.UserConfigDir()
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(cfg, realHome), "control: the user config dir must lie in the fake real home: %s", cfg)
+
+	fromEnvFile := filepath.Join(realHome, "modcache-from-go-env-file")
+	require.NoError(t, os.MkdirAll(filepath.Join(cfg, "go"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(cfg, "go", "env"), []byte("GOMODCACHE="+fromEnvFile+"\n"), 0o600))
+	for _, k := range []string{"GOENV", "GOMODCACHE"} {
+		t.Setenv(k, "") // restored at the end; unset now so the go command resolves them
+		require.NoError(t, os.Unsetenv(k))
+	}
+
+	restore, err := pathstest.IsolateHome()
+	require.NoError(t, err)
+	pinned := os.Getenv("GOMODCACHE")
+	restore()
+	require.Equal(t, fromEnvFile, pinned, "control: GOMODCACHE must be the go command's answer from the go env file")
+	require.NoDirExists(t, filepath.Join(cfg, "go", "telemetry"),
+		"the `go env` IsolateHome runs wrote Go telemetry into the home it ran under")
+}
+
+// TestIsolateHome_GoCommandsUnderTheIsolatedHomeLeaveNoTelemetry pins that a go command a test runs
+// in the isolated environment finds Go telemetry off and writes nothing into the isolated home,
+// which the restore function removes: a detached telemetry sidecar writing there would race that
+// removal. Where the user config dir follows the home (Linux with no XDG_CONFIG_HOME, macOS) the
+// helper leaves exactly one file there, the telemetry mode file; where it does not (Windows'
+// APPDATA) the go command's telemetry goes to the user's own config dir, which no test removes, and
+// the isolated home stays empty.
+func TestIsolateHome_GoCommandsUnderTheIsolatedHomeLeaveNoTelemetry(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "") // Linux: the config dir follows the (isolated) home
+	restore, err := pathstest.IsolateHome()
+	require.NoError(t, err)
+	defer restore()
+	home := pathstest.Home()
+	cfg, err := os.UserConfigDir()
+	require.NoError(t, err)
+	var want []string
+	inHome := strings.HasPrefix(cfg, home)
+	if inHome {
+		want = []string{filepath.Join(cfg, "go", "telemetry", "mode")}
+	}
+
+	cmd := exec.CommandContext(context.Background(), "go", "env", "GOTELEMETRY")
+	cmd.Env = pathstest.Environ()
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	if inHome {
+		require.Equal(t, "off", strings.TrimSpace(string(out)), "the go command must read the isolated home's mode file")
+	}
+
+	var files []string
+	require.NoError(t, filepath.WalkDir(home, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			files = append(files, p)
+		}
+		return err
+	}))
+	require.Equal(t, want, files, "a go command run under the isolated home left files there")
 }
