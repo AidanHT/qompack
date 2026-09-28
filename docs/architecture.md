@@ -581,6 +581,22 @@ dropped()`), and its smallest form is reserved before anything else is admitted,
 what is missing always fits. The complete list is persisted for `dropped()` regardless
 ([ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md)).
 
+**What "the verbatim original intent" guarantees (SP08-D3, owner decision D35).** Item 2 injects the
+L0 capture `prompt_<session>_0`, resolved by derived id: the session's first *captured* prompt,
+verbatim. Captured turns follow the order prompts reach the daemon and are never renumbered.
+Prompts the daemon took live are captured in arrival order, and prompts replayed from the hooks'
+client spools are replayed in host order: by the timestamp the hook stamped on each file's first
+record, never by the `client-<pid>` file name. So under the HotSpool submode and
+`runtime.daemon.enabled=false`, where every prompt is spooled, turn 0 is the host's first prompt.
+One race is outside that guarantee: a prompt spooled because its hook could not reach the daemon,
+overtaken by a later prompt that arrived live and was captured before a drain replayed the spool.
+Qompack does not claim to have captured the host's first request there. It says it may not have.
+Every prompt record carries its host timestamp. The late capture is counted
+(`observer.prompt_out_of_host_order`) and logged as a Warn naming the turn it came in behind. A
+rehydration whose turn 0 is not the session's earliest-stamped prompt adds a `user_intent_source`
+entry, `host_order`, to section 7, naming both records and the `expand(tool_use_id=…)` call for
+the host-first one ([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
+
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`
 §8.6. It is not the total restored native context, and nothing here claims the native input shrinks:
