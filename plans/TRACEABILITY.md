@@ -78,7 +78,7 @@ L0 remains implemented SP05/SP08, remediated by SP20. L1 remains SP06/SP04, reme
 | Todo/test/git/task signals and worker | SP12; Qompack cadence only unless a separate control is validated |
 | SessionEnd flush/GC | SP20; not sole cleanup/recovery path |
 | Eight MCP names recall/expand/re_read/already_tried/record_eliminated/timeline/why/dropped | SP13; protocol compatibility, authorization before previews/expansion, unavailable distinct from absence |
-| Seven command names status/recall/pin/checkpoint/why/dropped/eval | SP14; reuse APIs, evidence-qualified coverage and usage |
+| Six command names status/recall/pin/why/dropped/eval (`checkpoint` removed for 0.3.0 by D36, 2026-09-27; SP14-M3-01 retired with it and returns with any future checkpoint-now route) | SP14; reuse APIs, evidence-qualified coverage and usage |
 | New-result replacement | SP21; off until capture/recovery/schema tests, deterministic allowlist |
 | Manifest/install/tool discovery | SP19 canaries, SP17 installed release validation |
 
