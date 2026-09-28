@@ -105,12 +105,23 @@ except where noted):
   `checksums.txt` line verifies inside the cache, and the cached `bin/qompack.exe` is
   byte-identical to the assembled one. **Asserted.**
 - `plugins/data/<id>/` is **not** created by an install. It appears only once a plugin has run in a
-  live session, so `--keep-data` has nothing host-side to keep on a rehearsal host.
+  live session, so `--keep-data` has nothing host-side to keep on a rehearsal host. Where it does
+  exist, `uninstall` **without** `--keep-data` removes it: the CLI's help on 2.1.280 documents
+  `--keep-data` as "Preserve the plugin's persistent data directory
+  (~/.claude/plugins/data/{id}/)". Qompack writes nothing there (no Qompack code reads
+  `CLAUDE_PLUGIN_DATA`; your recorded sessions are in `.qompack/`, §6), so what that removes is
+  whatever the host itself put in the directory.
 
-Only `validate` and `list` accept `--json`. `install`, `update`, `uninstall` and every
-`marketplace` subcommand do not; their output is prose on stdout. `install`, `update` and
-`uninstall` accept `-y`/`--yes`, which the CLI documents as required when stdin or stdout is not a
-TTY (host-output observation).
+On Claude Code 2.1.280, `install`, `update` and `uninstall` accept `--json`: "Print one
+machine-readable result line on stdout instead of the human message (same exit codes)". For
+`uninstall` it cannot be combined with `--prune`. `validate`, `list` and `marketplace list` accept
+`--json` too; `marketplace add`, `update` and `remove` do not, and their output is prose on stdout.
+Task 8 ran on 2.1.263, where the three commands had no `--json`; their `--json` output is recorded
+from the CLI's help, not rehearsed. `-y`/`--yes` is documented as required when stdin or stdout is
+not a TTY, but for different prompts: on `install` and `update` it accepts a marketplace-declared
+command (a command-source install, or the `headersHelper` that fetches an archive) — a bundle
+installed from a local directory declares none — and on `uninstall` it skips the `--prune`
+confirmation (CLI help, 2.1.280).
 
 Your recorded sessions are **not** in the cache. They are in `<project>/.qompack/` and
 `~/.qompack/` — see §6.
@@ -180,8 +191,10 @@ claude plugin uninstall qompack -s user -y
 claude plugin uninstall qompack -s user --keep-data -y
 ```
 
-`--prune` (also remove the cached payload) is recorded from host docs, not rehearsed; it needs
-`-y` in non-interactive use.
+`--prune` is recorded from the CLI's help, not rehearsed: on 2.1.280 it "Also remove[s]
+auto-installed dependencies that are no longer needed", not the cached payload, and needs `-y` in
+non-interactive use. Without `--keep-data`, `uninstall` also removes the host's data directory for
+the plugin, `~/.claude/plugins/data/<id>/`, when one exists (§3).
 
 **On Claude Code 2.1.263 the payload cache is retained on both paths** — `--keep-data` and the
 default. The two commands are indistinguishable here because no `plugins/data/<id>/` is ever
@@ -195,7 +208,7 @@ separate `claude plugin marketplace remove <name>` (host-output observation).
 | --- | --- |
 | the host integration (`enabledPlugins` entry, `plugin list`) | removed |
 | the bundle's binaries and manifest under the host's cache | **retained** on both paths |
-| host-side plugin data under `~/.claude/plugins/data/<id>/` | not created by an install; `--keep-data` has nothing to keep |
+| host-side plugin data under `~/.claude/plugins/data/<id>/` | not created by an install; once a live session has created it, removed unless `--keep-data` (CLI help, 2.1.280) |
 | **`<project>/.qompack/` and `~/.qompack/` — your recorded sessions** | **retained. Always.** |
 | `~/.qompack/bin/<sha256>/qompack.exe` — Windows only: the copy of the binary the daemon runs from ([architecture §1](architecture.md#1-process-model)) | retained; a copy is pruned only when a newer version is staged, which never happens after an uninstall |
 
