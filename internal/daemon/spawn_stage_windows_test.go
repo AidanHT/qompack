@@ -3,6 +3,7 @@
 package daemon
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -98,12 +99,13 @@ func TestStageBinary_StartsACopyItsRenamerStillHolds(t *testing.T) {
 	require.NoError(t, err, "starting the verified copy: %s", out)
 }
 
-// TestStageBinary_NeverRemovesACopyItCannotRead: a copy that cannot be read for the moment — here a
-// handle that does not share read, which refuses even a delete-sharing reader — has not been shown
-// to be the wrong bytes, so it is neither run nor removed: staging fails, the spawn falls back to
-// the plugin binary (daemonProgram), and the copy stays for the next spawn. Removing it could pull
-// a correct copy out from under a spawner that verified it and is about to start it.
-func TestStageBinary_NeverRemovesACopyItCannotRead(t *testing.T) {
+// TestStageBinary_NeverRemovesACopyHeldOpen: a copy another handle holds without sharing read —
+// which refuses even a delete-sharing reader with ERROR_SHARING_VIOLATION for as long as it is open
+// — has not been shown to be the wrong bytes, so it is neither run nor removed: staging fails, the
+// spawn falls back to the plugin binary (daemonProgram), and the copy stays for the next spawn.
+// Removing it could pull a correct copy out from under a spawner that verified it and is about to
+// start it.
+func TestStageBinary_NeverRemovesACopyHeldOpen(t *testing.T) {
 	t.Parallel()
 	self, home := fakeSelf(t), t.TempDir()
 	staged, err := stageBinary(self, home)
@@ -113,6 +115,39 @@ func TestStageBinary_NeverRemovesACopyItCannotRead(t *testing.T) {
 	holdStaged(t, staged, windows.GENERIC_READ, windows.FILE_SHARE_DELETE)
 
 	_, err = stageBinary(self, home)
-	require.Error(t, err, "a copy that cannot be verified is never returned to be run")
+	require.ErrorIs(t, err, windows.ERROR_SHARING_VIOLATION, "a copy that cannot be verified is never returned to be run")
 	requireSameStagedFile(t, before, staged)
+}
+
+// TestStageBinary_RestagesACopyItCanNeverRead: only a copy held open is kept unread. One refused for
+// a reason that does not pass — here an access-control entry denying the file's data to everyone —
+// is refused as surely by every other spawner, so none can have verified it and none is about to
+// start it; keeping it would send every later spawn to the plugin binary for good, the D10 hazard
+// staging exists to remove. It is removed and staged again, as it was before w8-stagerace.
+func TestStageBinary_RestagesACopyItCanNeverRead(t *testing.T) {
+	t.Parallel()
+	self, home := fakeSelf(t), t.TempDir()
+	staged, err := stageBinary(self, home)
+	require.NoError(t, err)
+	denyReadingData(t, staged)
+	_, err = paths.OpenShared(staged)
+	require.ErrorIs(t, err, fs.ErrPermission, "precondition: the copy's data cannot be read")
+
+	again, err := stageBinary(self, home)
+	require.NoError(t, err, "an unreadable copy is replaced, not a reason to run the plugin binary")
+	require.Equal(t, staged, again)
+	require.NoError(t, verifyStaged(again, filepath.Base(filepath.Dir(again))))
+	requireSameBytes(t, self, again)
+}
+
+// denyReadingData replaces p's access-control list with one that denies FILE_READ_DATA to everyone
+// and allows everything else, so p's attributes can still be read and p can still be removed.
+func denyReadingData(t *testing.T, p string) {
+	t.Helper()
+	sd, err := windows.SecurityDescriptorFromString("D:P(D;;0x1;;;WD)(A;;FA;;;WD)")
+	require.NoError(t, err)
+	dacl, _, err := sd.DACL()
+	require.NoError(t, err)
+	require.NoError(t, windows.SetNamedSecurityInfo(p, windows.SE_FILE_OBJECT,
+		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, dacl, nil))
 }

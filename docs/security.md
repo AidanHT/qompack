@@ -81,12 +81,14 @@ lazy spawn — starts it from `<home>/.qompack/bin/<sha256>/qompack.exe` rather 
 the one place outside a project Qompack writes
 ([architecture §2](architecture.md#2-write-set-and-retention)) — sealed read-only, and it is checked
 before every spawn: a regular file, not a link, junction or other reparse point, whose SHA-256 matches both
-its directory name and the spawning process's own executable. A file shown to fail any of that is
-removed and replaced, never run, and a source that changes while it is being copied is never
-filed. A copy that cannot be read at that moment — another program holding it open without sharing
-read — proves nothing about its bytes, so it is neither run nor removed: that one spawn starts the
-daemon from the plugin binary, and the next spawn checks the copy again. The boundary is the same one the plugin directory already has: a process running as the same
-user could replace either file; another user cannot write either. On Linux and macOS nothing is
+its directory name and the spawning process's own executable, and still the file filed there once
+it has been hashed. A file that fails any of that is removed and replaced, never run — one that
+cannot be read at all, whatever the reason, included — and a source that changes while it is being
+copied is never filed. The one exception is a copy another program holds open without sharing
+read: that proves nothing about its bytes and passes when the program lets go, so it is neither run
+nor removed — that one spawn starts the daemon from the plugin binary, and the next spawn checks
+the copy again. The boundary is the same one the plugin directory already has: a process running as
+the same user could replace either file; another user cannot write either. On Linux and macOS nothing is
 copied and the daemon runs from the plugin binary.
 
 ## 2. Redaction: what it covers, and what it does not

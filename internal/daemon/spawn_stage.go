@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/qompack/qompack/internal/paths"
 )
@@ -36,8 +37,9 @@ import (
 // placeholder into the command line, not into an environment variable). The copy is made once per
 // version and verified on every spawn — a regular file, not a link or reparse point, whose bytes
 // hash to the name it is filed under and to the spawning process's own executable — before
-// anything executes it; a copy shown to hold other bytes is replaced, never run, and one that
-// cannot be read at the moment is not run either, nor removed (stageBinary). The plugin
+// anything executes it; a copy that fails verification is replaced, never run, except one held
+// open by another handle that does not share read, which is neither run nor removed
+// (stageBinary). The plugin
 // directory is then held only by short-lived hook processes and the session's own MCP server, both
 // of which end with the session.
 //
@@ -89,6 +91,29 @@ var errStagedNotRegular = errors.New("daemon: staged binary is not a regular fil
 var errStagedMoved = fmt.Errorf("daemon: staged binary was removed or replaced while it was verified: %w",
 	fs.ErrNotExist)
 
+// winErrSharingViolation and winErrLockViolation are ERROR_SHARING_VIOLATION and
+// ERROR_LOCK_VIOLATION, the two refusals a read of a staged copy meets only while another handle
+// holds it: the first from a handle that does not share read, the second from a byte-range lock.
+// They are named here rather than pulled from golang.org/x/sys/windows because §2.5 closes the
+// runtime dependency list (spawn_windows.go), the reasoning internal/ipc/state.go records for its
+// own copy; heldOpenElsewhere gates them on runtime.GOOS, so their unrelated POSIX meanings (32 is
+// EPIPE, 33 EDOM) never apply.
+const (
+	winErrSharingViolation = syscall.Errno(32)
+	winErrLockViolation    = syscall.Errno(33)
+)
+
+// heldOpenElsewhere reports whether err is a read refused only because another handle holds the
+// file, a refusal that ends when that handle closes. It is always false off Windows, where opening
+// a file never depends on who else has it open.
+func heldOpenElsewhere(err error) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	var errno syscall.Errno
+	return errors.As(err, &errno) && (errno == winErrSharingViolation || errno == winErrLockViolation)
+}
+
 // stageBinary returns the path of a verified copy of self under paths.Global(home)/bin, making the
 // copy when it is missing or fails verification. It returns an error, and leaves nothing half
 // written behind, when home is empty, self cannot be read, or the copy cannot be made and verified;
@@ -97,10 +122,11 @@ var errStagedMoved = fmt.Errorf("daemon: staged binary was removed or replaced w
 // Two spawners racing on one version both end on the same verified file: each writes its own
 // temporary copy and renames it into place, and a rename that loses to an existing file falls back
 // to verifying that file. A copy some other process is executing cannot be replaced on Windows,
-// but it verified when it was written and is left alone unless it no longer does. Only a copy
-// shown to be something else — other bytes, or not a regular file — is ever removed: one that
-// merely cannot be read is reported and kept, since it may be the very copy a concurrent spawner
-// has just verified and is about to start.
+// but it verified when it was written and is left alone unless it no longer does. A copy held open
+// by a handle that does not share read cannot be checked while that handle lasts, and is reported
+// and kept rather than removed, since it may be the very copy a concurrent spawner has just
+// verified and is about to start; any other copy that fails verification, including one that
+// cannot be read for a reason that does not pass, is removed and staged again.
 func stageBinary(self, home string) (string, error) {
 	if home == "" {
 		return "", errors.New("daemon: no home directory to stage the daemon binary under")
@@ -116,21 +142,23 @@ func stageBinary(self, home string) (string, error) {
 	switch verr := verifyStaged(target, sum); {
 	case verr == nil:
 		return target, nil
-	case errors.Is(verr, errStagedMismatch) || errors.Is(verr, errStagedNotRegular):
-		// Something is filed under this version's name that is not this version — altered bytes,
-		// or a link standing where the file should be. It is removed before a verified copy takes
-		// its place, and never executed. The copy is sealed read-only, which Windows will not
-		// remove or replace until the bit is cleared.
+	case heldOpenElsewhere(verr):
+		// Another handle holds the copy without sharing read, which says nothing about its bytes
+		// and lasts only as long as that handle. It is not run, and it is not removed either — a
+		// correct copy may be exactly what another spawner has verified and is about to start —
+		// so this spawn runs self and the next spawn checks the copy again.
+		return "", fmt.Errorf("daemon: verifying %s: %w", target, verr)
+	case !errors.Is(verr, fs.ErrNotExist):
+		// Something is filed under this version's name that is not shown to be this version —
+		// altered bytes, a link standing where the file should be, or a file no spawner can read
+		// (a denying access-control entry, a failing disk), which no other spawner can have
+		// verified either. It is removed before a verified copy takes its place, and never
+		// executed. The copy is sealed read-only, which Windows will not remove or replace until
+		// the bit is cleared.
 		_ = os.Chmod(paths.Long(target), 0o600)
 		if rerr := os.Remove(paths.Long(target)); rerr != nil && !errors.Is(rerr, fs.ErrNotExist) {
 			return "", fmt.Errorf("daemon: removing %s, which failed verification (%w): %w", target, verr, rerr)
 		}
-	case !errors.Is(verr, fs.ErrNotExist):
-		// The copy could not be read, which says nothing about its bytes: on Windows a handle that
-		// does not share read refuses every reader for as long as it is open. It is not run, and it
-		// is not removed either — a correct copy may be exactly what another spawner has verified
-		// and is about to start — so this spawn runs self and the copy is checked again next time.
-		return "", fmt.Errorf("daemon: verifying %s: %w", target, verr)
 	}
 	if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
 		return "", fmt.Errorf("daemon: creating %s: %w", dir, err)
