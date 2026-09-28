@@ -738,8 +738,8 @@ without it. The request kicked the daemon's client-spool watcher when it arrived
 compaction ran (`internal/daemon/spool_watch.go`); the watcher looks at the spool then and once more
 a check interval (2 s) later, and then waits for the next kick. If the spooled copy was written
 within about one interval of the request arriving, the watcher replays it about two intervals after
-that arrival. Otherwise the watcher picks it up about two intervals after the next request the daemon
-serves, for example the session's next prompt; failing that, the idle drain replays it once the
+that arrival. Otherwise the watcher picks it up about one interval (2 s) after the next request the
+daemon serves, for example the session's next prompt; failing that, the idle drain replays it once the
 project has been idle for `scheduler.idle.detectAfterSeconds` (120 s by default), or the session's
 flush or the next daemon's startup drain does. If the spool itself could not be written, that correction never comes:
 `.qompack/logs/LOUD.log` then has an `ipc: spool` line for the dropped request.
@@ -784,7 +784,7 @@ reach the daemon, and kicked the watcher when it arrived, before its processing 
 looks then and once more a check interval (2 s) later, and then waits for the next kick. If the
 spooled copy was written within about one interval of the start arriving, the watcher replays it
 about two intervals after that arrival. A start that was late because its processing was slow is
-usually spooled later than that, and the watcher picks it up about two intervals after the next
+usually spooled later than that, and the watcher picks it up about one interval (2 s) after the next
 request the daemon serves, for example the session's first prompt; failing that, the idle drain
 after `scheduler.idle.detectAfterSeconds`, the session's flush or the next daemon's startup drain
 replays it. Only one daemon is started per project
@@ -944,7 +944,12 @@ quietly processed the spool anyway"). No other command starts one either: `qompa
 reports its `daemon.reachable` and `admin.ping` rows as `skipped: runtime.daemon.enabled is false`
 (and `daemon.reachable` warns if a daemon answers anyway), and `qompack mcp` and the command
 frontends such as `qompack status` check the configuration as well as `.qompack/run/state.bin`,
-which a daemon that did not stop cleanly can leave saying the daemon is enabled. Observed on this
+which a daemon that did not stop cleanly can leave saying the daemon is enabled. And `qompack daemon`
+itself refuses to run in such a project, whoever starts it (an operator by hand, or an older
+binary's spawner): before it creates `.qompack/run/`, the lock or the socket, it exits non-zero with
+one line, `qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false
+(<layer>, <where it was set>); set runtime.daemon.enabled to true to enable it`
+(`internal/cli/daemon.go`, `refuseDisabledDaemon`). Observed on this
 tree: `qompack checkpoint` with empty stdin created a single spool file,
 `.qompack/spool/client-<pid>.ndjson` (the pid elided), with no `run/` directory and no daemon.
 Nothing drains that spool while the daemon stays disabled.
