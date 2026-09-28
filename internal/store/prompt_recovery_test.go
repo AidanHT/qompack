@@ -52,3 +52,34 @@ func TestSyncPublication_RequiresEveryRecoveryObjectAndOpenWriters(t *testing.T)
 	require.NoError(t, p.Store.Close())
 	require.ErrorIs(t, p.Store.SyncPublication(ctx, res.Root.Hash), core.ErrDegraded)
 }
+
+// TestEarliestPrompt_PicksTheEarliestHostStampedPromptOfTheSession: the rehydrator's check that
+// prompt_<s>_0 is the host-first prompt (SP08-D3, D35) reads the session's prompt with the lowest
+// TS, the lower turn on a tie, and nothing from another session or another tool.
+func TestEarliestPrompt_PicksTheEarliestHostStampedPromptOfTheSession(t *testing.T) {
+	p := newTestStore(t)
+	ctx := context.Background()
+
+	_, err := p.Store.EarliestPrompt(ctx, "s")
+	require.ErrorIs(t, err, core.ErrNotFound, "a session with no prompt has no earliest one")
+
+	for _, rec := range []ToolUseRecord{
+		{ID: "prompt_s_0", Session: "s", Turn: 0, TS: 200, Tool: "UserPromptSubmit"},
+		{ID: "prompt_s_1", Session: "s", Turn: 1, TS: 100, Tool: "UserPromptSubmit"},
+		{ID: "prompt_s_2", Session: "s", Turn: 2, TS: 100, Tool: "UserPromptSubmit"},
+		{ID: "tool", Session: "s", Turn: 1, TS: 50, Tool: "Read"},
+		{ID: "stop", Session: "s", Turn: 3, TS: 10, Tool: "SubagentStop"},
+		{ID: "prompt_other_0", Session: "other", Turn: 0, TS: 1, Tool: "UserPromptSubmit"},
+	} {
+		require.NoError(t, p.Store.RecordToolUse(ctx, rec))
+	}
+	got, err := p.Store.EarliestPrompt(ctx, "s")
+	require.NoError(t, err)
+	require.Equal(t, core.ToolUseID("prompt_s_1"), got.ID,
+		"lowest TS among this session's prompts, and the lower turn of two equal stamps")
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = p.Store.EarliestPrompt(cancelled, "s")
+	require.ErrorIs(t, err, context.Canceled)
+}
