@@ -19,7 +19,7 @@ const EnvelopeSchema = 1
 // Exit codes, mirroring the 00-ARCHITECTURE.md §2.3 policy table.
 //
 // They are declared here rather than read from internal/cli because the dependency runs the other
-// way: cli imports commands to route the seven §7.5 names, so commands cannot import cli back.
+// way: cli imports commands to route the shipped §7.5 names, so commands cannot import cli back.
 // cli.ExitOK/ExitError/ExitUsage remain the values the process actually returns; TestExitCodes_
 // MatchCLI in internal/cli pins the two tables together.
 const (

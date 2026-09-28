@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/pluginmanifest	1.148s
+exit=0

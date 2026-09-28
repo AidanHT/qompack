@@ -101,7 +101,6 @@ func TestAssembleBundle_Layout(t *testing.T) {
 				"BUNDLE.json",
 				"checksums.txt",
 				tc.wantBin,
-				"commands/checkpoint.md",
 				"commands/dropped.md",
 				"commands/eval.md",
 				"commands/pin.md",

@@ -17,14 +17,14 @@ import (
 // plugin/hooks/hooks.json.
 const goldenRoot = "../../testdata/golden"
 
-// TestManifest_GoldenBytes freezes the exact bytes of all ten generated files. Together with the
+// TestManifest_GoldenBytes freezes the exact bytes of all nine generated files. Together with the
 // `plugin-validate` CI job and `git diff --exit-code -- plugin/`, this is what makes silent
 // drift in the undocumented host contract (G9.3) impossible: a change to any key name, timeout,
 // or command string fails here first, in a diff a reviewer can read.
 func TestManifest_GoldenBytes(t *testing.T) {
 	files, err := pluginmanifest.Default(core.Version).Files()
 	require.NoError(t, err)
-	require.Len(t, files, 10)
+	require.Len(t, files, 9)
 
 	for rel, want := range files {
 		t.Run(rel, func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestManifest_GoldenBytes(t *testing.T) {
 // committed plugin/ tree must be exactly what the generator produces.
 func TestBundle_OnDiskMatchesGenerator(t *testing.T) {
 	repoRoot := "../.."
-	// The bundle is committed — ten tracked files under plugin/ — so its absence is a broken
+	// The bundle is committed — nine tracked files under plugin/ — so its absence is a broken
 	// checkout or a deleted directory, not a state worth tolerating. This used to skip, which was
 	// wrong twice over: it would have turned the one test that proves the shipped bundle matches
 	// its generator into a silent pass, and "plugin/ bundle not materialized in this tree" is a

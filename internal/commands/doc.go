@@ -1,4 +1,4 @@
-// Package commands holds the backends behind the seven `/qompack:*` slash commands of
+// Package commands holds the backends behind the six shipped `/qompack:*` slash commands of
 // 00-ARCHITECTURE.md §5.17. The markdown files in plugin/commands/ are thin shells that shell out
 // to the binary; the behaviour lives here, so the slash command and the equivalent `qompack`
 // subcommand can never drift apart.

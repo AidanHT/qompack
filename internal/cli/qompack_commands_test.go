@@ -43,10 +43,14 @@ func TestExitCodes_MatchTheCLITable(t *testing.T) {
 }
 
 // TestSlashCommands_AreDiscoverable is the installed-discoverability check: every §7.5 command the
-// manifest ships is reachable as the subcommand its markdown shells out to.
+// manifest ships is reachable as the subcommand its markdown shells out to, and that subcommand is
+// an ordinary one.
 //
-// checkpoint is the documented exception — it is a hook entry point, and giving the name a second
-// non-hook meaning is handoff edge H3.
+// There is no exception. /qompack:checkpoint used to be one: it shelled out to `qompack checkpoint`,
+// which is the PreCompact hook entry point — it reads a hook event from stdin and exits 0 whatever
+// happens — so the command wrote nothing and reported nothing while its description said "Write an
+// immutable checkpoint now". A shipped command whose route is a hook is a command that silently
+// does nothing, so the manifest may not ship one.
 func TestSlashCommands_AreDiscoverable(t *testing.T) {
 	t.Parallel()
 
@@ -60,11 +64,9 @@ func TestSlashCommands_AreDiscoverable(t *testing.T) {
 		require.True(t, ok, "/qompack:%s shells out to `qompack %s`, which is not registered",
 			doc.Name, doc.Subcommand)
 
-		if doc.Subcommand == "checkpoint" {
-			require.True(t, got.Hook, "checkpoint is still the PreCompact hook entry point (H3)")
-			continue
-		}
-		require.False(t, got.Hook, "%s must be an ordinary subcommand, not a hook", doc.Subcommand)
+		require.False(t, got.Hook, "/qompack:%s shells out to `qompack %s`, which is a hook entry "+
+			"point: it reads a hook event from stdin and exits 0, so the command would do nothing",
+			doc.Name, doc.Subcommand)
 		require.Equal(t, doc.Description, got.Summary,
 			"%s: the registered summary must be the installed description", doc.Subcommand)
 	}
@@ -170,11 +172,12 @@ func TestSlashCommands_HelpExitsZero(t *testing.T) {
 	}
 }
 
-// TestSlashCommands_CheckpointRemainsTheHook is the H3 state, asserted rather than assumed.
+// TestSlashCommands_CheckpointRemainsTheHook pins that `qompack checkpoint` is the PreCompact hook
+// and nothing else, now that no slash command shells out to it.
 //
 // The PreCompact hook must keep its exit-0-always contract: a non-zero exit from it surfaces noise
-// and can block the turn. Adding /qompack:checkpoint's own route to this name would give a hook a
-// second meaning, which is why it waits for the architecture pre-step.
+// and can block the turn. The shipped hooks.json still invokes exactly this name, so it must resolve
+// to exactly one entry, the hook.
 func TestSlashCommands_CheckpointRemainsTheHook(t *testing.T) {
 	t.Parallel()
 

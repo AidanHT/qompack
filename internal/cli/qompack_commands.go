@@ -29,19 +29,15 @@ const commandCallDeadline = 10 * time.Second
 // fallback when no daemon answers.
 const latencyFile = "latency.json"
 
-// slashCommandCmds routes the §7.5 command names that internal/commands implements.
+// slashCommandCmds routes every §7.5 command the plugin ships, one ordinary subcommand each.
 //
-// It does NOT include `checkpoint`. That name is already a hook entry point — PreCompact, in
-// hookCmds — and a hook subcommand always exits 0 and reads a hook event from stdin. Giving the
-// name a second, non-hook meaning needs the arch/checkpoint-now-subcommand pre-step, which is
-// SP-14's handoff edge H3 and is not this commit's to take. The frontend and its tests exist; it
-// reports unavailable until a route is bound, which is the true statement in the meantime.
+// `checkpoint` is not among them. That name is the PreCompact hook entry point, in hookCmds, and
+// the plugin ships no /qompack:checkpoint: a slash command routed to a hook would read no event,
+// exit 0 and write nothing (internal/pluginmanifest's commandSpecs; TestSlashCommands_AreDiscoverable
+// refuses a shipped command whose route is a hook).
 func slashCommandCmds() []Cmd {
 	var out []Cmd
 	for _, spec := range commands.Specs() {
-		if !spec.Routed() {
-			continue
-		}
 		out = append(out, Cmd{
 			Name:    spec.Subcommand,
 			Summary: spec.Summary,
@@ -142,9 +138,6 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 	client := newCommandClient(root, deps.Cfg, env, log, reg, clk)
 	deps.MCP = buildCommandMCPProxy(deps.Cfg, client, log)
 	deps.Status = commandStatusSources(ctx, root, client)
-
-	// CheckpointNow is deliberately left nil: there is no local-seal route (H3), so the checkpoint
-	// command reports unavailable rather than this file inventing one.
 
 	return deps, func() {
 		_ = client.Close()

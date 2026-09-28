@@ -13,6 +13,9 @@ import (
 // generator produced, because the check exists to catch a generator that silently stopped
 // emitting something — and a self-referential count cannot.
 //
+// wantCommands is six: §7.5 names seven commands and the bundle ships all but checkpoint, whose only
+// route is the PreCompact hook entry point (internal/pluginmanifest's commandSpecs says why).
+//
 // wantHookEvents is seven, not six: §7.3 names six hook ENTRY POINTS, but Stop and SubagentStop
 // are separate host events that both route to `observe stop`.
 //
@@ -22,14 +25,14 @@ import (
 // lands the eight tools of §8.7, so the assertion is made against mcp.ToolNames(), which is the
 // same list `tools/list` advertises and the same list docs/mcp-tools.md is generated from.
 const (
-	wantCommands   = 7
+	wantCommands   = 6
 	wantHookEvents = 7
 	wantMCPServers = 1
 	wantMCPTools   = 8
 )
 
 // taskPluginValidate regenerates the plugin bundle from internal/pluginmanifest and byte-compares
-// it against plugin/ on disk, asserting the 7 commands and 8 MCP tools are present.
+// it against plugin/ on disk, asserting the 6 commands and 8 MCP tools are present.
 //
 // This is the mechanism behind §3.4's promise that the manifest, the physical hooks.json and the
 // docs can never drift silently: the bundle has exactly one source, and CI fails if the committed
