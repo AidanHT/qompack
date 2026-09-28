@@ -469,6 +469,8 @@ These are run from a terminal rather than from a session. `qompack help` prints 
 rest of the layout) in the project directory it resolves, and starts that project's daemon. Running
 it in a directory that has never been used with Qompack is therefore a write, in that directory —
 verified by running the built binary in an empty scratch directory outside this repository.
+`qompack self-test` does the same: when no daemon answers, its `daemon.reachable` check starts one
+(`internal/cli/selftest.go`, `selfTestDaemonReachable`).
 `qompack config print` and `qompack version` did not create `.qompack/` or start a daemon in the
 same probe. The hook entry points (`checkpoint`, `flush`, `observe prompt|stop|tool`,
 `session-start`) are invoked by Claude Code and always exit 0 — but exiting 0 is not the same as
@@ -484,9 +486,9 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 | `config schema` | the configuration JSON Schema — the machine-readable counterpart to [docs/config-reference.md](config-reference.md) |
 | `self-test` | reports host-contract and subsystem checks as a table (or `{checks,mode,exit}` under `--json`); exits 1 for a critical failed check |
 | `doctor [--project <root>] [--json]` | version, scope, per-capability evidence, disabled controls and gaps; read-only |
-| `fsck [--project <root>] [--json] [--repair] [--yes]` | store, index, checkpoint and backup integrity; read-only unless `--repair --yes`, which performs five explicit additive repairs and deletes nothing |
+| `fsck [--project <root>] [--json] [--seal-check] [--repair] [--yes]` | store, index, checkpoint and backup integrity; read-only unless `--repair --yes`, which performs five explicit additive repairs and deletes nothing, or `--seal-check`, which also runs the full delivery-seal check and so takes the daemon lock |
 | `version` | the plugin version |
-| `admin delivery-seal [--project <root>] (--check \| --to v1)` | checks or converts the delivery journals' position seals. **The daemon must be stopped** |
+| `admin delivery-seal [--project <root>] (--check \| --to v1) [--accept-torn-slot --yes]` | checks or converts the delivery journals' position seals; `--accept-torn-slot --yes` accepts a seal with one valid and one torn slot when the journal holds a complete tail past it. **The daemon must be stopped** |
 | `backup create --project <root> --id <name> [--json]` | takes a consistent backup with the source daemon stopped |
 | `backup verify --project <root> --id <name> [--json]` | validates the named backup's manifest and bytes |
 | `backup restore --project <root> --id <name> --destination <fresh-project> [--json]` | restores into a fresh destination, proves same-build reads and runs integrity checks; source and later writes remain intact ([procedure](backup.md)) |
