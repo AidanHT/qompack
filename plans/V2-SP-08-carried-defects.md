@@ -509,3 +509,49 @@ this row fails neither, so it is counted and pinned now and resolved with SP08-D
 5. The evidence test inverted; the replay pin in `internal/daemon/prompt_record_test.go` ("a
    replayed observe.prompt must not record the prompt twice") rewritten to one record per
    ObservationID; X1's index promise restored to 65 or reconciled against the counter.
+
+**V6 close-out verification (2026-09-27, C2.1): still `deferred:V6-VERIFY`.** Checked on the
+integrated candidate `closeout/integration` `898bb8b` against the acceptance above, one item at a time.
+
+1. **Met.** A replayed prompt is captured verbatim inside `runIngested` under its lease, its frontier
+   is acknowledged only once the capture is durable, and a failed capture stays pending:
+   `TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero` (the inverted original evidence
+   test), `TestSP08D3_DistinctSameTextRepliesStayDistinct`, `TestSP08D3_CaptureFailureIsNotAcknowledged`,
+   `TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput`, and the restart cuts in `internal/observer`
+   (`TestV6Prompt_RestartRepairsIndexBeforeSidecarCut` and its siblings). Pass on Windows and in the
+   Linux container (non-root, `-race`).
+2. **Not met for client-spooled prompts.** Leased same-session arrivals publish in arrival order
+   (`TestPromptOrder_V6_OrderingGateGivesTurnZeroToEarliestLeasedArrival`). A prompt that reached only
+   its hook's client spool holds no lease until a drain reaches it, and nothing orders a replay by
+   `req.TS`, so its turn is its publication position, not its host position. The new evidence test
+   `TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero` shows both ways through the real
+   daemon: a host-first prompt spooled after a failed dial loses turn 0 to the live second prompt
+   (`live_second`), and two spooled prompts replay in `client-<pid>.ndjson` file-name order, which
+   `ipc.SpoolFiles` sorts as strings (`spool_file_order`). In both, the host's second prompt is
+   `prompt_<s>_0`. `readL0Intent` checks only the record's session and turn, so rehydration item 2
+   injects it as the verbatim original with no drop entry, which is this section's own silent
+   substitution. Neither resolution item 2 allows exists: no `req.TS` order (not even the minimum,
+   first record's TS per client file), and no rehydrator notice. `TestPromptOrder_V6_UnleasedEarlierSpooledIsSeparateUncertainty`
+   pins the same boundary below the drain, and the V6 design recorded it as unprovable
+   (`sdd/V6-remediation/prompt-order-publication-design.md`), but no owner ruled it out.
+   The client-spool watcher (C1.13) narrows the live case to a live prompt sent within about two
+   `spoolCheckInterval`s of the daemon's next served request. It does not help HotSpool: a HotSpool
+   session's hooks never dial, so they never kick the watcher, and its prompts accumulate one
+   client spool per hook process until a flush, another session's request or the idle drain. That
+   is the file-name-order case (reasoned from `internal/ipc/client.go` and
+   `internal/daemon/spool_watch.go`, not measured).
+3. **Not ruled.** Capture-by-drain is what ships. Given item 2, it is not yet acceptable for turn
+   order.
+4. **Met.** SP08-D2 is fixed. The derived tool/stop index-before-link cut now repairs its link without
+   a second record (`TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart`,
+   `TestDerivedPublication_V6_MissingLinkAfterSupersessionDrift`).
+5. **Met, with a stale comment.** The evidence test is inverted, and the replay pin in
+   `prompt_record_test.go` was rewritten. X1 (`test/e2e/v5_x01_test.go`) reconciles its index
+   against `observer.err.prompt.put`. That file's comments still say a WAL replay runs only the
+   sentinel scan, which is no longer true.
+
+Resolving the row needs an owner ruling on item 2. Either order replays by `req.TS` (per session,
+across client spools and against the live lane), or rule host order out and make the rehydrator
+honest: a Warn and a drop entry naming the substituted turn, and no §8.5 provenance claim, when a
+later-turn prompt of the session carries an earlier `req.TS` than `prompt_<s>_0`. Either change
+inverts the new evidence test.
