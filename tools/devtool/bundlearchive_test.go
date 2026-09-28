@@ -197,7 +197,7 @@ func TestArchiveMode(t *testing.T) {
 		"bin/qompack":              archiveBinMode,
 		"bin/qompack.exe":          archiveBinMode,
 		"BUNDLE.json":              archiveFileMode,
-		"commands/checkpoint.md":   archiveFileMode,
+		"commands/status.md":       archiveFileMode,
 		".claude-plugin/plugin.js": archiveFileMode,
 	} {
 		if got := archiveMode(name); got != want {

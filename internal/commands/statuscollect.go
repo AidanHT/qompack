@@ -13,14 +13,14 @@ import (
 )
 
 // StatusSchema is the version of the status.full document. It is separate from EnvelopeSchema:
-// the envelope is the same for all seven commands and changes rarely; this one changes whenever
+// the envelope is the same for every command and changes rarely; this one changes whenever
 // status gains or loses a section.
 const StatusSchema = 1
 
 // DaemonStatus mirrors internal/daemon.StatusSnapshot, the ipc.OpStatus payload.
 //
 // It is a mirror rather than the type itself because internal/commands does not import
-// internal/daemon: the seven frontends render what the daemon already computed and own no daemon
+// internal/daemon: the frontends render what the daemon already computed and own no daemon
 // logic, and pulling the package in would make that boundary invisible. The cost of a mirror is
 // that it can fall behind, so TestStatus_DaemonPayloadMirrorIsCurrent compares the two member for
 // member and fails the moment the daemon's own payload changes.

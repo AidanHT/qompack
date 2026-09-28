@@ -54,14 +54,19 @@ func TestManifest_CoversAllSixHooks(t *testing.T) {
 	}
 }
 
+// TestManifest_SevenCommands pins the shipped command list. Its name is historical and kept because
+// the V1/V3 verification plans quote it: §7.5 names seven commands, and the bundle ships six of
+// them. /qompack:checkpoint is not shipped — its only route, `qompack checkpoint`, is the PreCompact
+// hook entry point, so the command wrote nothing (V6 close-out w7b-checkpoint). Checkpoints are
+// written automatically before every compaction; docs/cannot-do.md says a manual one is not offered.
 func TestManifest_SevenCommands(t *testing.T) {
 	m := pluginmanifest.Default(testVersion)
 	names := make([]string, 0, len(m.Commands))
 	for _, c := range m.Commands {
 		names = append(names, c.Name)
 	}
-	require.Equal(t, []string{"status", "recall", "pin", "checkpoint", "why", "dropped", "eval"}, names,
-		"exactly the seven §7.5 commands, in §7.5 order")
+	require.Equal(t, []string{"status", "recall", "pin", "why", "dropped", "eval"}, names,
+		"the six shipped §7.5 commands, in §7.5 order; checkpoint is not shipped")
 }
 
 func TestManifest_CommandsShellOutToBinary(t *testing.T) {
@@ -108,7 +113,7 @@ func TestManifest_FilesAreStableBytes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, a, b, "generation must be deterministic")
 
-	require.Len(t, a, 10, "3 JSON files + 7 command docs")
+	require.Len(t, a, 9, "3 JSON files + 6 command docs")
 
 	for path, content := range a {
 		require.True(t, strings.HasSuffix(string(content), "\n"), "%s must end with a newline", path)

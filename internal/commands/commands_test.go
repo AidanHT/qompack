@@ -11,10 +11,11 @@ import (
 	"github.com/qompack/qompack/internal/config"
 )
 
-// wantCommands is the §5.17 list. It is written out here rather than read from commands.Names()
-// so the test actually pins the surface: comparing a list to itself would pass no matter what
-// SP-14 adds or drops.
-var wantCommands = []string{"status", "recall", "pin", "checkpoint", "why", "dropped", "eval"}
+// wantCommands is the shipped §5.17 list. It is written out here rather than read from
+// commands.Names() so the test actually pins the surface: comparing a list to itself would pass no
+// matter what SP-14 adds or drops. checkpoint is not in it: its only route is the PreCompact hook
+// entry point, so the command is not shipped (internal/pluginmanifest's commandSpecs says why).
+var wantCommands = []string{"status", "recall", "pin", "why", "dropped", "eval"}
 
 // TestAll_CoversEverySlashCommand checks the table is complete from wave 0. Completeness matters
 // because plugin/commands/*.md is generated from a typed source and diffed in CI: a missing entry
@@ -37,8 +38,8 @@ func TestAll_CoversEverySlashCommand(t *testing.T) {
 // working commands during precisely the period when asking it what state it is in matters most.
 //
 // The assertion is that every command gives a CLASSIFIED answer — not that it gives one specific
-// error. It used to require core.ErrNotImplemented from all seven, which was exactly right while
-// all seven were stubs and stops being right as SP-14 fills them in: an implemented command run
+// error. It used to require core.ErrNotImplemented from every command, which was exactly right
+// while all of them were stubs and stops being right as SP-14 fills them in: an implemented command run
 // with no dependencies reports unavailable, and one run without a required argument reports a
 // usage error. Both are honest, and neither is the panic or the silent empty success this test
 // exists to prevent.

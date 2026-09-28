@@ -469,16 +469,26 @@ host change could lift — as prepared proposals, none of which has been filed.
 
 These are the limits that can move. Each names the gate or the owner that would move it.
 
-### `/qompack:checkpoint` is not routed
+### No manual checkpoint command
 
-- **Limit.** `/qompack:checkpoint` is advertised but not reachable as a subcommand in this build.
-- **Why.** `qompack checkpoint` is the PreCompact hook entry point: it always exits 0 and reads a
-  hook event from stdin. A separate local-seal route needs an architecture pre-step (SP-14 handoff
-  edge H3), which is open by design.
-- **What Qompack does instead.** Checkpoints are written by the PreCompact hook on the host's
-  compaction boundary and by the scheduler; there is no manual route to one yet.
-- **Recorded at.** [docs/commands.md](commands.md#qompackcheckpoint) ("Not available in this
-  build"); `plans/V5-report.md` §29 item 3.
+- **Limit.** Qompack does not offer a manual checkpoint: there is no `/qompack:checkpoint` command,
+  and no `qompack` subcommand seals one on demand.
+- **Why.** The only route such a command could shell out to, `qompack checkpoint`, is the
+  `PreCompact` hook entry point: it reads a hook event from stdin and always exits 0. Earlier builds
+  shipped a `/qompack:checkpoint` command file that ran it, so the command wrote nothing and reported
+  nothing; it is no longer installed. A separate on-demand route has not been built, and it would
+  add little: the block injected after a compaction is built from the session's latest checkpoint,
+  which is normally the one that compaction sealed.
+- **What Qompack does instead.** Checkpoints are written automatically: by the `PreCompact` hook
+  just before every compaction, and on the checkpointer's own cadence during a session once enough
+  new work has accumulated. `qompack fsck` verifies the checkpoint tier against its manifest.
+  `/qompack:status` reports no checkpoint list or latest seq; it shows only the `checkpoint_finalize`
+  latency histogram and, once a cadence seal has happened, the `checkpoint.cadence.local_seal`
+  counter.
+- **Recorded at.** [docs/commands.md](commands.md) (the preamble: "There is no checkpoint
+  command"); [docs/user-guide.md](user-guide.md#checkpoints-are-automatic);
+  `internal/pluginmanifest/manifest.go` (`commandSpecs`); `plans/V5-report.md` §29 item 3 (the
+  SP-14 handoff edge H3 this closes by not shipping the command).
 
 ### No operator backup, restore or rollback command; `bench` unimplemented
 

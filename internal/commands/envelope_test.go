@@ -12,9 +12,9 @@ import (
 	"github.com/qompack/qompack/internal/pluginmanifest"
 )
 
-// section75Names is the §7.5 list, written out rather than read back from the package so the test
-// pins the surface instead of comparing it to itself.
-var section75Names = []string{"status", "recall", "pin", "checkpoint", "why", "dropped", "eval"}
+// section75Names is the shipped §7.5 list, written out rather than read back from the package so
+// the test pins the surface instead of comparing it to itself. §7.5's checkpoint is not shipped.
+var section75Names = []string{"status", "recall", "pin", "why", "dropped", "eval"}
 
 // TestCommandNames_MatchesSection75 is the retained wave-0 identity: SP-14 replaces bodies, never
 // entries. It also pins the order, because plugin/commands/*.md is generated from this list and a
@@ -53,10 +53,6 @@ func TestSpecs_PinInstalledSurface(t *testing.T) {
 		{
 			Name: "pin", Subcommand: "pin", ArgumentHint: "<text>",
 			Summary: "Pin an invariant so it is never summarized away",
-		},
-		{
-			Name: "checkpoint", Subcommand: "checkpoint", ArgumentHint: "[--reason <text>]",
-			Summary: "Write an immutable checkpoint now",
 		},
 		{
 			Name: "why", Subcommand: "why", ArgumentHint: "<decision-id>",
