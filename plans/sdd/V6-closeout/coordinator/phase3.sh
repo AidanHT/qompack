@@ -7,7 +7,8 @@
 #   win-timing  ci.yml's timing lane, -p 1, alone, no co-load   (D28: wall-clock rows judged in isolation)
 #   win-e2e-timing  test/e2e alone, no -race, no co-load        (D28: ci.yml's test-e2e job)
 #   lint        fmt-check, full devtool lint incl. stubskips, go vet (C3.5)
-#   cover       go run ./tools/devtool cover                    (C3.6)
+#   cover       go run ./tools/devtool cover, QOMPACK_UNDER_COLOAD=1 (C3.6: a coverage gate, not a
+#               timing gate, so it may run beside the Linux lane)
 #   gens        gen-*-docs --check, test/docs, licenses, govulncheck, build-all, plugin-validate,
 #               replay --ci (C3.7, C3.8, C3.10)
 #   fuzz        every nightly fuzz target for FUZZTIME (default 60s) (C3.9)
@@ -32,9 +33,12 @@ wrepo=$(cd "$repo" && pwd -W 2>/dev/null || pwd); wev=$(mkdir -p "$ev" && cd "$e
 head=$(git -C "$repo" rev-parse --short HEAD)
 V=${BUNDLE_VERSION:-0.3.0}
 tline=$(grep -E "^ *- run: go test -p 1 " "$repo/.github/workflows/ci.yml" | head -1)
-tpat=$(printf '%s' "$tline" | sed -E "s/.*-run '([^']*)'.*//")
+tpat=$(printf '%s' "$tline" | sed -E "s/.*-run '([^']*)'.*/\1/")
 tpkgs=$(printf '%s' "$tline" | sed -E "s/.*-run '[^']*' //")
 [ -n "$tpat" ] && [ -n "$tpkgs" ] || { echo "cannot read the timing lane from ci.yml" >&2; exit 2; }
+# The pattern must be the real row list: a wrong extraction still passes -n, and `go test -run` with a
+# pattern that matches nothing exits 0 ("no tests to run"), so an empty timing step would look green.
+case $tpat in *TestBudgetBF*) ;; *) echo "timing pattern from ci.yml lacks TestBudgetBF: $tpat" >&2; exit 2 ;; esac
 rc_all=0
 for step in "$@"; do
   case $step in
@@ -45,7 +49,7 @@ for step in "$@"; do
     lint) rec p3-fmt-check -- go run ./tools/devtool fmt-check
           rec p3-lint -- go run ./tools/devtool lint
           rec p3-vet -- go vet ./... ;;
-    cover) rec p3-cover -- go run ./tools/devtool cover ;;
+    cover) rec p3-cover -- env QOMPACK_UNDER_COLOAD=1 go run ./tools/devtool cover ;;
     gens) for g in gen-config-docs gen-mcp-docs gen-command-docs; do rec "p3-$g" -- go run ./tools/devtool $g --check; done
           rec p3-test-docs -- go test -count=1 ./test/docs/...
           rec p3-licenses -- go run ./tools/devtool licenses --check
