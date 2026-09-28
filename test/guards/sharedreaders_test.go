@@ -56,13 +56,17 @@ var sharedReaders = []sharedReader{
 		file:  "internal/ipc/spawnlock.go",
 		fn:    "readSpawnLock",
 		holds: "run/spawn.lock",
-		why:   "daemon.removeSpawnLockFile, which deletes the lock from the spawned daemon's own process once it is listening, and a competing spawner's reclaim of a stale lock",
+		why: "daemon.removeSpawnLockFile, which deletes the lock from the spawned daemon's own process once it " +
+			"is listening; a competing spawner's reclaim of a stale lock; and daemon.removeSpawnClaim from " +
+			"Lock.Release, which gives the claim back from daemon.lock's holder's process as it lets go " +
+			"(the winning daemon, the daemon command's writer lease, fsck, delivery-seal; D27)",
 	},
 	{
 		file:  "internal/ipc/spawnlock.go",
 		fn:    "removeSpawnLockIf",
 		holds: "run/spawn.lock",
-		why:   "the same two deleters: it reads the lock to check the claim is still the one it means to remove",
+		why: "the same three deleters (removeSpawnLockFile, the stale reclaim, and Lock.Release's " +
+			"removeSpawnClaim, D27): it reads the lock to check the claim is still the one it means to remove",
 	},
 	{
 		file:  "internal/daemon/spawn_stage.go",
@@ -136,7 +140,8 @@ var sharedReaders = []sharedReader{
 		fn:    "e2eSpawnInFlight",
 		holds: "run/spawn.lock",
 		why: "daemon.removeSpawnLockFile, the spawned daemon's single, unretried os.Remove of the marker " +
-			"once it listens. e2eAwaitSpawnInFlight polls through this helper for exactly that daemon " +
+			"once it listens, and daemon.removeSpawnClaim from Lock.Release as daemon.lock's holder lets " +
+			"go (D27). e2eAwaitSpawnInFlight polls through this helper for exactly that daemon " +
 			"(e2eShutdownIfReachable's spawn-in-flight wait), and a remove its read made fail leaves a " +
 			"marker that suppresses every later lazy spawn until it ages out of ipc's spawnLockStaleAfter",
 	},
