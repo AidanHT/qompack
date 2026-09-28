@@ -418,8 +418,9 @@ call that depends on it:
 - **Backup and restore.** Every directory of a backup tree, and the certification marker, is synced
   before the manifest certifies the backup; a restore syncs its staged tree before the rename that
   publishes it, and the destination after. `EnsureLayout` syncs the parent of every directory it
-  creates, and writes `.qompack/.gitignore` only after those syncs succeed, so the next call over a
-  layout whose syncs failed, or one another writer began (a hook's spool directory), syncs its
+  creates, removes `.qompack/.gitignore` before it adds a directory to a layout that has one, and
+  writes it only after those syncs succeed, so the next call over a layout whose syncs failed (in
+  this process or the next), or one another writer began (a hook's spool directory), syncs its
   entries again.
 
 Some files may lose their tail to a power cut by design, because nothing durable depends on them:
