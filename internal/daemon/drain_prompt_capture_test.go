@@ -183,7 +183,11 @@ func TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero(t *testing.T) 
 			const sess core.SessionID = "sess-sp08d3-spooled-first"
 			first := spD3Prompt(dd, root, sess, testDeliveryToken('a'), "first")
 			second := spD3Prompt(dd, root, sess, testDeliveryToken('b'), "second")
-			require.LessOrEqual(t, first.TS, second.TS, "the host sent \"first\" first")
+			// Host order lives in req.TS, the field a req.TS-ordered fix would read. Two
+			// back-to-back NowMilli calls can tie, so stamp the order explicitly: a tie would
+			// leave such a fix falling back to file-name or stable order.
+			second.TS = first.TS + 1
+			require.Less(t, first.TS, second.TS, "the host sent \"first\" first")
 			tc.deliver(t, dd, root, first, second)
 
 			// Both are captured (the V6 fix), in publication order rather than host order.
