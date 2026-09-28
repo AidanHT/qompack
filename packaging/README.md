@@ -201,7 +201,8 @@ These are deliberately unanswered here. Guessing at them is exactly what a matri
    Support/…` are ordinary; whether the host quotes the expanded command string is unverified.
 3. **Non-ASCII paths.** A plugin root containing non-ASCII characters, and the console code page a
    Windows host runs hooks under.
-4. **Long paths.** Windows `MAX_PATH` against a deep plugin root plus `commands/checkpoint.md`;
+4. **Long paths.** Windows `MAX_PATH` against a deep plugin root plus the bundle's longest path,
+   `.claude-plugin/plugin.json` (the longest command file is `commands/dropped.md`);
    `internal/paths` already carries the `\\?\` handling the product side needs, and whether the host
    applies the same is unverified.
 
