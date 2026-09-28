@@ -497,7 +497,7 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 
 **`doctor` and `fsck` are read-only diagnostics.** SP-17 implemented both. `qompack doctor` reports
 version, scope, per-capability evidence, disabled controls and gaps; `qompack fsck` verifies store,
-index, checkpoint and backup integrity across seventeen check classes. Both open the store read-only;
+index, checkpoint and backup integrity across eighteen check rows. Both open the store read-only;
 `fsck --repair` needs `--yes` and performs five explicit additive repairs that never delete anything
 ([docs/security.md §7](security.md#7-what-needs-an-operator-and-how-to-find-it),
 [docs/release.md §5](release.md#5-rollback)). `fsck` exits 0 when clean, 1 on a defect, 2 on a
