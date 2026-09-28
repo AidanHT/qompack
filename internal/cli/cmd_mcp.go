@@ -162,9 +162,9 @@ func newMCPClient(root string, cfg config.Config, env Env,
 	addr, _ := ipc.Resolve(root)
 	return ipc.NewClientWithOptions(addr, nopSpool{}, log, reg, ipc.ClientOptions{
 		ProjectRoot: root,
-		State:       ipc.ReadState(root, cfg),
+		State:       daemonClientState(root, cfg),
 		Self:        env.Self,
-		Spawn:       daemon.SpawnDetached,
+		Spawn:       spawnDaemon,
 		Clock:       clk,
 	})
 }

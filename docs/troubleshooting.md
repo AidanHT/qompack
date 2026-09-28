@@ -733,11 +733,16 @@ one that a stopping daemon never started records nothing at all; one its stop cu
 report that opens `not delivered: the Qompack daemon was shutting down, so no rehydration was built`.
 When the hook client wrote the note ("did not answer in time"), the daemon may still have answered,
 too late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
-and when the daemon replays it — its client-spool watcher a few seconds after the spool is written,
-else its idle drain once the project has been quiet for `scheduler.idle.detectAfterSeconds` (120 s
-by default), or its next start — it records the rehydration as undelivered and says the hook answered without it. If the spool itself
-could not be written, that correction never comes: `.qompack/logs/LOUD.log` then has an `ipc: spool`
-line for the dropped request.
+and when the daemon replays it, it records the rehydration as undelivered and says the hook answered
+without it. The request kicked the daemon's client-spool watcher when it arrived, before the
+compaction ran (`internal/daemon/spool_watch.go`); the watcher looks at the spool then and once more
+a check interval (2 s) later, and then waits for the next kick. If the spooled copy was written
+within about one interval of the request arriving, the watcher replays it about two intervals after
+that arrival. Otherwise the watcher picks it up about two intervals after the next request the daemon
+serves, for example the session's next prompt; failing that, the idle drain replays it once the
+project has been idle for `scheduler.idle.detectAfterSeconds` (120 s by default), or the session's
+flush or the next daemon's startup drain does. If the spool itself could not be written, that correction never comes:
+`.qompack/logs/LOUD.log` then has an `ipc: spool` line for the dropped request.
 
 **Action.** Recover in the session: the note lists the calls — `expand` of the session's first
 prompt, `recall` for anything captured, `dropped()` — and `.qompack/checkpoints/` holds the
@@ -766,15 +771,28 @@ and D21): the daemon must be listening within 8.25 s of the hook starting (or wi
 spawn that itself ran late), and its answer must arrive within the reply wait that follows — 10 s
 when the daemon was up within 3.25 s, less when it came up later, and about the 5 s a compaction
 may take when it came up just before 8.25 s. A start that misses either is
-spooled, not lost: the daemon replays it — its client-spool watcher a few seconds after the spool is
-written, else its idle drain once the project has been quiet for `scheduler.idle.detectAfterSeconds`
-(120 s by default), or its next start — and records the session, but a replayed start mints no probe and delivers no rehydration, because
-its answer could reach no one. Only one daemon is started per project however many hooks race to
-start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process that appears and exits at
-once, because it cannot take the project's singleton lock, means a spawner found neither a daemon
-answering its dial nor a spawn in flight while one was in fact starting or running: a spawn that
-took longer than the spawn lock's 10 s freshness window, or a hook whose short dial a busy daemon did
-not answer in time. Both are signs of heavy load.
+spooled, not lost: the daemon replays it and records the session, but a replayed start mints no probe
+and delivers no rehydration, because its answer could reach no one. Which drain replays it depends on
+why it was spooled. A start spooled because no daemon was listening never reached one, so it kicked
+nothing: the client-spool watcher looks at the spool only after a request the daemon served kicks
+it, and does not pick this start up. The startup drain of the daemon that comes up next does — the
+one this start launched, or a later session's — which replays the spool before that daemon serves
+anything (`internal/daemon/daemon.go`, `Run`). A line written after that drain had already read the
+spool, because the daemon came up just as the hook gave up, is replayed by the drain the daemon runs
+once it has served its first request (`redrainOnceServing`). A start whose answer came too late did
+reach the daemon, and kicked the watcher when it arrived, before its processing began; the watcher
+looks then and once more a check interval (2 s) later, and then waits for the next kick. If the
+spooled copy was written within about one interval of the start arriving, the watcher replays it
+about two intervals after that arrival. A start that was late because its processing was slow is
+usually spooled later than that, and the watcher picks it up about two intervals after the next
+request the daemon serves, for example the session's first prompt; failing that, the idle drain
+after `scheduler.idle.detectAfterSeconds`, the session's flush or the next daemon's startup drain
+replays it. Only one daemon is started per project
+however many hooks race to start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process
+that appears and exits at once, because it cannot take the project's singleton lock, means a spawner
+found neither a daemon answering its dial nor a spawn in flight while one was in fact starting or
+running: a spawn that took longer than the spawn lock's 10 s freshness window, or a hook whose short
+dial a busy daemon did not answer in time. Both are signs of heavy load.
 
 **Action.** None for a single occurrence: the session continues, and a compaction's note lists the
 recovery calls. If it recurs on every start, look at the machine's CPU and disk load when sessions
@@ -829,50 +847,6 @@ operator-facing stop path.
 `pid` appears in that project's `daemon.lock`; daemons are per project and another project's daemon
 is a different process.
 
----
-
-### Windows Defender flags `qompack.exe`
-
-**Symptom.** On Windows, Windows Security reports a threat in a Qompack binary, named
-`Trojan:Win32/Bearfoos.A!ml` or `Trojan:Win32/Bearfoos.B!ml`, and blocks or quarantines the file:
-the plugin's `bin\qompack.exe`, the daemon's staged copy under
-`%USERPROFILE%\.qompack\bin\<sha256>\`, or a binary you built from source. A blocked binary does
-not start: run by hand, Windows refuses it with "Operation did not complete successfully because
-the file contains a virus or potentially unwanted software", and a quarantined one is simply gone.
-The V6 close-out saw these detections on development builds of this tree (decision D32). Whether a
-release build is flagged, and what Claude Code shows when a hook's binary will not start, have not
-been observed.
-
-**Diagnose.** Windows Security, Virus & threat protection, Protection history lists the detection's
-name and the file it acted on. Then check that the file is the one the release shipped. Hash the
-release zip you installed from and compare it with that zip's line in the same release's
-`checksums.txt`:
-
-```powershell
-Get-FileHash -Algorithm SHA256 .\qompack-plugin-<version>-windows-amd64.zip
-```
-
-(`sha256sum --ignore-missing -c checksums.txt` does the same in Git Bash.) For an extracted bundle,
-`bin/qompack.exe` is listed in the bundle's own `checksums.txt` ([install §1](install.md)). The
-staged copy's directory is named by the copy's own SHA-256, and the daemon runs it only when its
-bytes hash to that name and to the plugin binary it was copied from, so the name printed by
-`Get-FileHash` on it must equal the directory's name and the `bin/qompack.exe` digest.
-
-**Meaning.** The names end in `!ml`: the detection comes from Defender's machine-learning
-heuristics, not from a signature of known malware. Qompack's binaries are not code-signed (an open
-release item, [release §7](release.md#7-not-claimed)), and an unsigned, newly built executable that
-spawns a background process and writes under the user profile is the kind of file such heuristics
-flag. A binary whose digest matches the release's `checksums.txt` is byte-for-byte the one the
-release published. One that matches nothing is not a Qompack release artifact: do not run it.
-
-**Action.** For a binary that matches the release's checksums, report the false positive to
-Microsoft through its file submission portal (<https://www.microsoft.com/en-us/wdsi/filesubmission>),
-as an incorrectly detected file, naming the detection. Restoring the file from quarantine or adding a
-Defender exclusion is your own decision: Qompack never adds one and needs none to be correct, and an
-exclusion turns off scanning for everything under the path it names. If you do add one, scope it to
-the one verified file or its directory. Qompack cannot work while its binary is blocked; until the
-detection is resolved, remove or disable the plugin ([Safe disable](#8-safe-disable)).
-
 ## 8. Safe disable
 
 Five steps, least invasive first. The first four are configuration keys, so each of those is
@@ -922,10 +896,14 @@ refuse that configuration rather than fall back to `auto` (§6); but `self-test`
 is spooled instead of sent (`internal/ipc/client.go`, `Send` step 2), and no daemon is spawned at
 session start (`internal/cli/sessionstart.go`, `ensureDaemonRunning`, whose comment explains that
 before this check existed a disabled-daemon project still got a resident process whose "idle drain
-quietly processed the spool anyway"). Observed on this tree: `qompack checkpoint` with empty stdin
-created a single spool file, `.qompack/spool/client-<pid>.ndjson` (the pid elided), with no `run/`
-directory and no daemon. Nothing drains that
-spool while the daemon stays disabled.
+quietly processed the spool anyway"). No other command starts one either: `qompack self-test`
+reports its `daemon.reachable` and `admin.ping` rows as `skipped: runtime.daemon.enabled is false`
+(and `daemon.reachable` warns if a daemon answers anyway), and `qompack mcp` and the command
+frontends such as `qompack status` check the configuration as well as `.qompack/run/state.bin`,
+which a daemon that did not stop cleanly can leave saying the daemon is enabled. Observed on this
+tree: `qompack checkpoint` with empty stdin created a single spool file,
+`.qompack/spool/client-<pid>.ndjson` (the pid elided), with no `run/` directory and no daemon.
+Nothing drains that spool while the daemon stays disabled.
 
 This is a *more* invasive setting than `mode = off` in one respect — it leaves work accumulating on
 disk rather than declining it — so prefer step 3 if your goal is "stop doing anything".
