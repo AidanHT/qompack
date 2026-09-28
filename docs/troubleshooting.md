@@ -733,10 +733,13 @@ one that a stopping daemon never started records nothing at all; one its stop cu
 report that opens `not delivered: the Qompack daemon was shutting down, so no rehydration was built`.
 When the hook client wrote the note ("did not answer in time"), the daemon may still have answered,
 too late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
-and when the daemon replays it — at its next idle drain, within 30 s, or its next start — it
-records the rehydration as undelivered and says the hook answered without it. If the spool itself
-could not be written, that correction never comes: `.qompack/logs/LOUD.log` then has an `ipc: spool`
-line for the dropped request.
+and when the daemon replays it, it records the rehydration as undelivered and says the hook answered
+without it. Because the daemon served that request, the request kicked the daemon's client-spool
+watcher, which replays the spooled copy about two check intervals (2 s each) after it was written
+(`internal/daemon/spool_watch.go`); failing that, the idle drain replays it once the project has been
+idle for `scheduler.idle.detectAfterSeconds` (120 s by default), or the session's flush or the next
+daemon's startup drain does. If the spool itself could not be written, that correction never comes:
+`.qompack/logs/LOUD.log` then has an `ipc: spool` line for the dropped request.
 
 **Action.** Recover in the session: the note lists the calls — `expand` of the session's first
 prompt, `recall` for anything captured, `dropped()` — and `.qompack/checkpoints/` holds the
@@ -765,14 +768,22 @@ and D21): the daemon must be listening within 8.25 s of the hook starting (or wi
 spawn that itself ran late), and its answer must arrive within the reply wait that follows — 10 s
 when the daemon was up within 3.25 s, less when it came up later, and about the 5 s a compaction
 may take when it came up just before 8.25 s. A start that misses either is
-spooled, not lost: the daemon replays it — at its next idle drain, within 30 s, or its next start —
-and records the session, but a replayed start mints no probe and delivers no rehydration, because
-its answer could reach no one. Only one daemon is started per project however many hooks race to
-start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process that appears and exits at
-once, because it cannot take the project's singleton lock, means a spawner found neither a daemon
-answering its dial nor a spawn in flight while one was in fact starting or running: a spawn that
-took longer than the spawn lock's 10 s freshness window, or a hook whose short dial a busy daemon did
-not answer in time. Both are signs of heavy load.
+spooled, not lost: the daemon replays it and records the session, but a replayed start mints no probe
+and delivers no rehydration, because its answer could reach no one. Which drain replays it depends on
+why it was spooled. A start spooled because no daemon was listening never reached one, so it kicked
+nothing: the client-spool watcher looks at the spool only after a request the daemon served kicks
+it, and does not pick this start up. The startup drain of the daemon that comes up next does — the
+one this start launched, or a later session's — which replays the spool before that daemon serves
+anything (`internal/daemon/daemon.go`, `Run`). A line written after that drain had already read the
+spool, because the daemon came up just as the hook gave up, is replayed by the drain the daemon runs
+once it has served its first request (`redrainOnceServing`). A start whose answer came too late did
+reach the daemon, which served it; that served request kicked the watcher, which replays the
+spooled copy about two check intervals after it was written. Only one daemon is started per project
+however many hooks race to start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process
+that appears and exits at once, because it cannot take the project's singleton lock, means a spawner
+found neither a daemon answering its dial nor a spawn in flight while one was in fact starting or
+running: a spawn that took longer than the spawn lock's 10 s freshness window, or a hook whose short
+dial a busy daemon did not answer in time. Both are signs of heavy load.
 
 **Action.** None for a single occurrence: the session continues, and a compaction's note lists the
 recovery calls. If it recurs on every start, look at the machine's CPU and disk load when sessions
@@ -876,10 +887,14 @@ refuse that configuration rather than fall back to `auto` (§6); but `self-test`
 is spooled instead of sent (`internal/ipc/client.go`, `Send` step 2), and no daemon is spawned at
 session start (`internal/cli/sessionstart.go`, `ensureDaemonRunning`, whose comment explains that
 before this check existed a disabled-daemon project still got a resident process whose "idle drain
-quietly processed the spool anyway"). Observed on this tree: `qompack checkpoint` with empty stdin
-created a single spool file, `.qompack/spool/client-<pid>.ndjson` (the pid elided), with no `run/`
-directory and no daemon. Nothing drains that
-spool while the daemon stays disabled.
+quietly processed the spool anyway"). No other command starts one either: `qompack self-test`
+reports its `daemon.reachable` and `admin.ping` rows as `skipped: runtime.daemon.enabled is false`
+(and `daemon.reachable` warns if a daemon answers anyway), and `qompack mcp` and the command
+frontends such as `qompack status` check the configuration as well as `.qompack/run/state.bin`,
+which a daemon that did not stop cleanly can leave saying the daemon is enabled. Observed on this
+tree: `qompack checkpoint` with empty stdin created a single spool file,
+`.qompack/spool/client-<pid>.ndjson` (the pid elided), with no `run/` directory and no daemon.
+Nothing drains that spool while the daemon stays disabled.
 
 This is a *more* invasive setting than `mode = off` in one respect — it leaves work accumulating on
 disk rather than declining it — so prefer step 3 if your goal is "stop doing anything".
