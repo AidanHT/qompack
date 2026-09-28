@@ -121,8 +121,9 @@ func heldOpenElsewhere(err error) bool {
 //
 // Two spawners racing on one version both end on the same verified file: each writes its own
 // temporary copy and installs it, which never replaces a file already in place (installStaged),
-// and an install that loses to an existing file falls back to verifying that file. A copy some other process is executing cannot be replaced on Windows,
-// but it verified when it was written and is left alone unless it no longer does. A copy held open
+// and an install that loses to an existing file falls back to verifying that file. A copy some
+// other process is executing cannot be replaced on Windows, but it verified when it was written
+// and is left alone unless it no longer does. A copy held open
 // by a handle that does not share read cannot be checked while that handle lasts, and is reported
 // and kept rather than removed, since it may be the very copy a concurrent spawner has just
 // verified and is about to start; any other copy that fails verification, including one that

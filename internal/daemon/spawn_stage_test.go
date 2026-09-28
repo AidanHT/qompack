@@ -109,7 +109,8 @@ func TestStageBinary_ReplacesATamperedCopy(t *testing.T) {
 
 // TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed: verification vouches for the file
 // filed at the target, not for bytes a handle can still read once that file has gone. The hash reads
-// through a handle that shares delete (fileSHA256), so a removal can land while it runs —
+// through a handle that shares delete (verifyStagedThen's paths.OpenShared), so a removal can land
+// while it runs —
 // pruneStaged from a spawner of another plugin version during an update, or another spawner's
 // removal of a copy it found wrong — and a copy removed, or removed and replaced, in that moment is
 // not verified however its bytes hash: the error is fs.ErrNotExist's, on which stageBinary makes and
