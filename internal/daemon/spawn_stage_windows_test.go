@@ -4,6 +4,7 @@ package daemon
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -78,6 +79,23 @@ func TestStageBinary_VerifiesACopyItsRenamerStillHolds(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, staged, again)
 	requireSameStagedFile(t, before, staged)
+}
+
+// TestStageBinary_StartsACopyItsRenamerStillHolds: the other half of the race — a spawner that has
+// verified a copy starts it even while the spawner whose rename installed it still holds the file
+// with DELETE access. The image open CreateProcess makes shares delete, so the renamer's handle
+// cannot turn a verified copy into a failed start; only verification was ever refused. The test
+// binary stands in for the daemon (it runs no tests and exits 0).
+func TestStageBinary_StartsACopyItsRenamerStillHolds(t *testing.T) {
+	t.Parallel()
+	exe, err := os.Executable()
+	require.NoError(t, err)
+	staged, err := stageBinary(exe, t.TempDir())
+	require.NoError(t, err)
+	holdLikeARenamer(t, staged)
+
+	out, err := exec.Command(staged, "-test.run=^$").CombinedOutput()
+	require.NoError(t, err, "starting the verified copy: %s", out)
 }
 
 // TestStageBinary_NeverRemovesACopyItCannotRead: a copy that cannot be read for the moment — here a
