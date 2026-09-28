@@ -734,11 +734,14 @@ report that opens `not delivered: the Qompack daemon was shutting down, so no re
 When the hook client wrote the note ("did not answer in time"), the daemon may still have answered,
 too late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
 and when the daemon replays it, it records the rehydration as undelivered and says the hook answered
-without it. Because the daemon served that request, the request kicked the daemon's client-spool
-watcher, which replays the spooled copy about two check intervals (2 s each) after it was written
-(`internal/daemon/spool_watch.go`); failing that, the idle drain replays it once the project has been
-idle for `scheduler.idle.detectAfterSeconds` (120 s by default), or the session's flush or the next
-daemon's startup drain does. If the spool itself could not be written, that correction never comes:
+without it. The request kicked the daemon's client-spool watcher when it arrived, before the
+compaction ran (`internal/daemon/spool_watch.go`); the watcher looks at the spool then and once more
+a check interval (2 s) later, and then waits for the next kick. If the spooled copy was written
+within about one interval of the request arriving, the watcher replays it about two intervals after
+that arrival. Otherwise the watcher picks it up about two intervals after the next request the daemon
+serves, for example the session's next prompt; failing that, the idle drain replays it once the
+project has been idle for `scheduler.idle.detectAfterSeconds` (120 s by default), or the session's
+flush or the next daemon's startup drain does. If the spool itself could not be written, that correction never comes:
 `.qompack/logs/LOUD.log` then has an `ipc: spool` line for the dropped request.
 
 **Action.** Recover in the session: the note lists the calls — `expand` of the session's first
@@ -777,8 +780,14 @@ one this start launched, or a later session's — which replays the spool before
 anything (`internal/daemon/daemon.go`, `Run`). A line written after that drain had already read the
 spool, because the daemon came up just as the hook gave up, is replayed by the drain the daemon runs
 once it has served its first request (`redrainOnceServing`). A start whose answer came too late did
-reach the daemon, which served it; that served request kicked the watcher, which replays the
-spooled copy about two check intervals after it was written. Only one daemon is started per project
+reach the daemon, and kicked the watcher when it arrived, before its processing began; the watcher
+looks then and once more a check interval (2 s) later, and then waits for the next kick. If the
+spooled copy was written within about one interval of the start arriving, the watcher replays it
+about two intervals after that arrival. A start that was late because its processing was slow is
+usually spooled later than that, and the watcher picks it up about two intervals after the next
+request the daemon serves, for example the session's first prompt; failing that, the idle drain
+after `scheduler.idle.detectAfterSeconds`, the session's flush or the next daemon's startup drain
+replays it. Only one daemon is started per project
 however many hooks race to start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process
 that appears and exits at once, because it cannot take the project's singleton lock, means a spawner
 found neither a daemon answering its dial nor a spawn in flight while one was in fact starting or
