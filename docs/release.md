@@ -15,7 +15,10 @@ current failure records.
 
 1. **Bump `internal/core.Version`** in its own commit. This is a gate, not a convenience: the
    release check refuses a tag whose version does not already equal the constant, so the binary can
-   never report a version no commit in this repository declared.
+   never report a version no commit in this repository declared. `plugin.json`'s `version` is
+   generated from the same constant (`internal/pluginmanifest`), so the same commit carries
+   `go run ./tools/devtool plugin-validate --write`'s regenerated `plugin/` tree; the gate's
+   `plugin-validate` step fails until it does.
 2. **Fill `CHANGELOG.md`'s `[Unreleased]` section** and rename it to the version.
 3. **Run the gate locally** — `go run ./tools/devtool release-check` — and fix whatever it stops on.
 4. **Tag and push the tag.** `.github/workflows/release.yml` is tag-triggered on `v*`.
