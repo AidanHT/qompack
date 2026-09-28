@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
@@ -445,4 +447,125 @@ func TestEnsureRunningUntil_APassedDeadlineStillStartsADaemon(t *testing.T) {
 	require.True(t, spawned, "a passed deadline cuts the wait, never the spawn")
 	require.EqualValues(t, 1, f.calls.Load())
 	require.Less(t, time.Since(began), ensureRunningPollBound, "with no reply possible it does not wait")
+}
+
+// pollEndsWait is how far ahead of the call TestEnsureRunningUntil_ThePollEndsAtItsDeadline puts
+// its deadline: four post-claim dials, long enough that the dial and the claim before the poll
+// never outlast it, so the poll's deadline is the instant the row gives it.
+const pollEndsWait = 4 * spawnClaimDialTimeout
+
+// pollEndsFreedBefore is how long before that deadline the row's daemon frees the claim that
+// announced it: half a post-claim dial, so the dial after the claim this call then takes cannot
+// have its full bound inside the wait.
+const pollEndsFreedBefore = spawnClaimDialTimeout / 2
+
+// hungDaemonDials stands in for the dials of a daemon that listens and never accepts, a hung one,
+// or on Windows a pipe whose every instance is claimed: each dial waits out its whole bound and
+// fails. It records the instant each dial was bounded to.
+type hungDaemonDials struct {
+	mu  sync.Mutex
+	bys []time.Time
+}
+
+func (h *hungDaemonDials) probe(_ ipc.Addr, by time.Time) bool {
+	h.mu.Lock()
+	h.bys = append(h.bys, by)
+	h.mu.Unlock()
+	wait := time.NewTimer(time.Until(by))
+	defer wait.Stop()
+	<-wait.C
+	return false
+}
+
+// dials returns the instants every dial so far was bounded to, in order.
+func (h *hungDaemonDials) dials() []time.Time {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]time.Time(nil), h.bys...)
+}
+
+// TestEnsureRunningUntil_ThePollEndsAtItsDeadline (w6-borrow review): session-start's poll for a
+// daemon on its way ends at the instant it is given, the borrow limit (D21), because that is what
+// leaves the reply D9's compact bound. No dial the poll makes may run past it, and neither may the
+// wait for its next tick. The daemon a fresh claim announced listens and never accepts. In the
+// first row its claim is held to the end, so only the poll's own dials run; in the second the
+// daemon frees the claim as Run does just before the deadline, so this call claims it and makes
+// the longer dial after a claim, which must be cut short there too, and a dial cut short is no
+// licence to spawn: a daemon may be up and slow to accept.
+func TestEnsureRunningUntil_ThePollEndsAtItsDeadline(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		freed bool
+	}{
+		{name: "claim_held_to_the_end"},
+		{name: "claim_freed_near_the_end", freed: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			clk := newFakeClock(epoch)
+			lockPath := writeSpawnLock(t, root, clk.Now())
+			f := newFakeDaemons(t)
+			dials := &hungDaemonDials{}
+
+			until := time.Now().Add(pollEndsWait)
+			freedDone := make(chan struct{})
+			if tc.freed {
+				freed := time.AfterFunc(time.Until(until.Add(-pollEndsFreedBefore)), func() {
+					removeSpawnLockFile(root)
+					close(freedDone)
+				})
+				t.Cleanup(func() { freed.Stop() })
+			} else {
+				close(freedDone)
+			}
+
+			spawned, err := ensureRunningWith(root, "self", logging.Nop(), clk,
+				pollBound{until: until, after: spawnLockMissBound, latest: until.Add(spawnLockTestBound)},
+				f.spawnNever, dials.probe)
+			over := time.Since(until)
+			require.ErrorIs(t, err, core.ErrNotFound, "no daemon answered within the wait")
+			got := dials.dials()
+			require.Greater(t, len(got), 2, "the poll dialled")
+			// Each contract is checked on its own, so one run shows every way the poll overran.
+			assert.False(t, spawned, "a dial cut short at the end of the wait is no licence to spawn")
+			assert.Zero(t, f.calls.Load(), "nothing is spawned while a daemon may be up and slow to accept")
+			var past []string
+			for i, by := range got[1:] { // got[0] is the dial before the poll, which is never cut short
+				if by.After(until) {
+					past = append(past, fmt.Sprintf("dial %d of %d: %s", i+1, len(got)-1, by.Sub(until)))
+				}
+			}
+			assert.Empty(t, past, "no dial of the poll may be bounded past its deadline")
+			// How long after its deadline the call returned is a measurement, not a judgement (ADR
+			// 0010): the dials and the spawn it may not make are pinned above, the wait for a tick
+			// by TestWaitForTick_EndsAtTheDeadlineNotTheTick, and what is left is the claim's file
+			// I/O and the OS scheduling this process, which a co-loaded machine stretched to 0.5 s.
+			t.Logf("the poll returned %s after its deadline", over)
+			<-freedDone
+			if tc.freed {
+				assert.NoFileExists(t, lockPath, "the claim taken on the freed lock is given back")
+			} else {
+				assert.FileExists(t, lockPath, "another spawner's claim is left alone")
+			}
+		})
+	}
+}
+
+// TestWaitForTick_EndsAtTheDeadlineNotTheTick (w6-borrow review): the poll's wait for its next tick
+// ends at the poll's deadline when that comes first, and then no dial may follow; a tick that comes
+// first lets the poll dial. The slow ticker here would tick only at spawnLockTestBound, so a wait
+// that ran to the tick instead of the deadline takes 5 s against a deadline 200 ms away, a margin
+// no scheduling delay on a loaded machine comes near.
+func TestWaitForTick_EndsAtTheDeadlineNotTheTick(t *testing.T) {
+	slow := time.NewTicker(spawnLockTestBound)
+	defer slow.Stop()
+	began := time.Now()
+	require.False(t, waitForTick(slow, began.Add(spawnLockMissBound)), "no dial may follow a wait that reached the deadline")
+	require.Less(t, time.Since(began), spawnLockTestBound/2, "the wait ended at the deadline, not at the tick")
+	require.False(t, waitForTick(slow, time.Now()), "a deadline that has come gets no wait and no dial")
+
+	fast := time.NewTicker(ensureRunningPollInterval)
+	defer fast.Stop()
+	require.True(t, waitForTick(fast, time.Now().Add(spawnLockTestBound)), "a tick before the deadline lets the poll dial")
 }

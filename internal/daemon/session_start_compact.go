@@ -73,11 +73,13 @@ import (
 //
 // It is one third of the SessionStart hook's manifest timeout (15 s, so 5 s). The hook client's own
 // reply deadline is two thirds of that timeout (10 s), and it covers more than this route: the
-// client's process start, the daemon start session-start may perform (EnsureRunning polls for up to
-// 1.5 s after a spawn), admission, the dial, and the reply's transit back. Answering by half of the
-// client's deadline leaves the other half for all of that, so under load the host receives the
-// daemon's answer — a rehydration or the note — rather than the client's {}. It is a bound on a
-// wait, not a latency budget: the target is the rig's distribution, well inside it.
+// client's process start, the daemon start session-start may perform, admission, the dial, and the
+// reply's transit back. Answering by half of the client's deadline leaves the other half for all of
+// that, so under load the host receives the daemon's answer — a rehydration or the note — rather
+// than the client's {}. The client keeps its side of that (owner decision D21): its daemon start
+// may borrow the reply wait's idle time, but only until the reply still has this bound plus the
+// dial (internal/cli hookBudget.borrowBy). It is a bound on a wait, not a latency budget: the
+// target is the rig's distribution, well inside it.
 func compactAnswerBudget() time.Duration {
 	const fraction = 3
 	ms := manifestHookTimeoutMs(hookEventNameSessionStart)

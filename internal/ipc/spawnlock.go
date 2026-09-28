@@ -33,8 +33,10 @@ const (
 	// way; the caller waits for it, or leaves it to arrive, and spawns nothing.
 	SpawnInFlight
 	// SpawnUnclaimable: the lock could not be taken for a reason other than contention — the run
-	// directory could not be created, say. What that means is the caller's rule: a hook's lazy spawn
-	// gives up quietly, session-start's EnsureRunning, the designated starter, spawns regardless.
+	// directory could not be created, say, or the project root is the home directory (D18). What
+	// that means is the caller's rule: a hook's lazy spawn gives up quietly, session-start's
+	// EnsureRunning, the designated starter, spawns regardless — after refusing the home directory
+	// itself.
 	SpawnUnclaimable
 )
 
@@ -58,9 +60,16 @@ type SpawnLock struct {
 // than spawnLockStaleAfter is still reclaimed, so garbage never blocks spawning for longer than a
 // stale stamp would. A stamp dated after clk's now is judged the same way: a clock stepped back, or
 // a stamp that only looks like one, must not read as fresh until its date comes round.
+//
+// No claim is ever taken for the home directory (owner decision D18, refuseSpawnRoot): its
+// .qompack is the user-global layer, so not even run/ is created there, and the claim is
+// SpawnUnclaimable.
 func ClaimSpawn(projectRoot string, clk core.Clock) (*SpawnLock, SpawnClaim) {
 	if clk == nil {
 		clk = core.SystemClock()
+	}
+	if refuseSpawnRoot(projectRoot) != nil {
+		return nil, SpawnUnclaimable
 	}
 	runDir := paths.Of(projectRoot).Run
 	// A spawner may be the very first process to touch this project's .qompack tree (a cold daemon
@@ -93,6 +102,16 @@ func ClaimSpawn(projectRoot string, clk core.Clock) (*SpawnLock, SpawnClaim) {
 		}
 	}
 	return nil, SpawnInFlight
+}
+
+// refuseSpawnRoot returns the D18 refusal, which wraps paths.ErrHomeRoot, when projectRoot is this
+// process's home directory — HOME or USERPROFILE, the homes daemon.AcquireLock refuses — and nil
+// otherwise. Every entry point in internal/cli refuses that root before it spawns anything, and a
+// spawned daemon refuses it at its lock; the spawners ask as well (V6 close-out w6-borrow), so a
+// future caller that skips the entry check still creates no spawn.lock under ~/.qompack and starts
+// no daemon for it.
+func refuseSpawnRoot(projectRoot string) error {
+	return paths.RefuseHome(projectRoot, paths.HomeDirs(os.Getenv)...)
 }
 
 // Release removes the claim, if spawn.lock still holds it. A claim that went stale and was reclaimed

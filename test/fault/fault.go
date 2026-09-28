@@ -812,9 +812,11 @@ const (
 	probeTimeout = 250 * time.Millisecond
 	// roundTripDeadline bounds one admin request's connect and ACK.
 	roundTripDeadline = 5 * time.Second
-	// daemonUpBound is how long a case waits for session-start's daemon to answer a dial. It is
-	// longer than daemon.SpawnPollBound on purpose: EnsureRunning has already waited that long, so
-	// anything still outstanding is a cold start on a loaded machine.
+	// daemonUpBound is how long a case waits for session-start's daemon to answer a dial. It is far
+	// longer than session-start's own wait on purpose: its EnsureRunningUntil has already polled
+	// until the hook budget's borrow limit, 8.25 s after the hook began (V6 close-out D21), or for
+	// daemon.SpawnPollBound after a spawn that itself ran late, so anything still outstanding is a
+	// cold start on a loaded machine.
 	daemonUpBound = 60 * time.Second
 	// daemonPollTick is the interval every poll here re-asks on. A ticker, not time.Sleep, per
 	// §6.1's wall-clock-sleep ban (devtool lint's sleepcheck sub-check).
