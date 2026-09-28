@@ -3,6 +3,7 @@ package observer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
@@ -41,6 +42,71 @@ func WithPromptCaptureOnly(ctx context.Context) context.Context {
 func promptCaptureOnly(ctx context.Context) bool {
 	v, _ := ctx.Value(promptCaptureOnlyKey{}).(bool)
 	return v
+}
+
+// promptHostTSKey carries the host timestamp of the delivery being captured.
+type promptHostTSKey struct{}
+
+// WithHostTS attaches the host timestamp of the prompt delivery being captured — ipc.Request.TS,
+// which the hook client stamps before any transport attempt — so the capture can record when the
+// host sent the prompt rather than when a worker or a drain replay got to it (SP08-D3, owner
+// decision D35). A zero or negative stamp is no stamp, and the capture keeps the observer's clock.
+func WithHostTS(ctx context.Context, ts core.UnixMilli) context.Context {
+	if ts <= 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, promptHostTSKey{}, ts)
+}
+
+// hostTSFrom returns the stamp WithHostTS attached, or 0.
+func hostTSFrom(ctx context.Context) core.UnixMilli {
+	ts, _ := ctx.Value(promptHostTSKey{}).(core.UnixMilli)
+	return ts
+}
+
+// counterPromptOutOfHostOrder counts prompt captures that landed behind a turn their host sent
+// later: the live-vs-spool race owner decision D35 rules out of the host-order guarantee.
+const counterPromptOutOfHostOrder = "observer.prompt_out_of_host_order"
+
+// notePromptHostOrder reports a prompt captured at turn behind an already-published turn its host
+// sent later (SP08-D3, owner decision D35). Replayed client spools are drained in host order, but a
+// prompt that reached only its hook's spool can still be published after a later prompt that
+// arrived live. Published turns are not re-numbered: turn order stays publication order, and each
+// record carries its host timestamp (recordPromptDurable), so the substitution is counted and
+// warned here and internal/rehydrate names it where it would otherwise present a later prompt as the
+// session's original request.
+//
+// The walk goes down from the previous turn and stops at the first prompt record stamped no later
+// than this one, so a capture in host order costs one index lookup. A turn with no prompt record (a
+// SubagentStop's turn, a capture an unleased caller lost) is stepped over. The warning names the
+// lowest turn the walk found stamped later: that is where the order first breaks.
+func (o *observer) notePromptHostOrder(ctx context.Context, s core.SessionID, turn core.TurnIndex) {
+	ts := hostTSFrom(ctx)
+	if ts <= 0 || turn == 0 {
+		return
+	}
+	substituted := core.TurnIndex(-1)
+	for t := turn - 1; t >= 0; t-- {
+		rec, err := o.opt.Store.ToolUse(ctx, VerbatimPromptID(s, t))
+		if err != nil {
+			if errors.Is(err, core.ErrNotFound) {
+				continue
+			}
+			break // best effort: the rehydrator's own check does not depend on this walk
+		}
+		if rec.TS <= ts {
+			break
+		}
+		substituted = t
+	}
+	if substituted < 0 {
+		return
+	}
+	o.count(counterPromptOutOfHostOrder)
+	o.opt.Log.Warn("observer: prompt captured after a turn its host sent later; turns stay in "+
+		"publication order",
+		"session", string(s), "id", string(VerbatimPromptID(s, turn)),
+		"substituted_id", string(VerbatimPromptID(s, substituted)))
 }
 
 // A leased prompt has synthetic arguments bound to its delivery, not just its
@@ -149,8 +215,15 @@ func (o *observer) recordPromptDurable(ctx context.Context, st *sessionState, e 
 	}
 	_, preview := store.ArgsDigest(promptArgs(e.Prompt))
 	digest := promptDeliveryDigest(e.Prompt, obs)
+	// The record carries the host's timestamp when the daemon passed one (WithHostTS): turn order is
+	// publication order, and the host stamp is what still shows the order the host sent prompts in
+	// (SP08-D3, D35). The DAG node and the session features keep the observer's clock below.
+	recTS := now
+	if h := hostTSFrom(ctx); h > 0 {
+		recTS = h
+	}
 	rec := store.ToolUseRecord{
-		ID: id, Session: e.SessionID, Turn: st.Turn, TS: now, Tool: userPromptSubmit,
+		ID: id, Session: e.SessionID, Turn: st.Turn, TS: recTS, Tool: userPromptSubmit,
 		ArgsDigest: digest, ArgsPreview: preview,
 		Root: res.Root.Hash, Bytes: int64(len(body)), Tokens: tok, Status: store.StatusOK,
 		Observation: obs,

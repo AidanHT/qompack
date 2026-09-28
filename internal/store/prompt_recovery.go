@@ -2,10 +2,20 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"github.com/qompack/qompack/internal/core"
 )
+
+// promptScanLimit bounds the tool-use index a prompt capability below will scan in full. Past it
+// the scan is unavailable (core.ErrDegraded), never a partial answer. It is the bound PromptFrontier
+// has always had, shared with EarliestPrompt rather than restated.
+const promptScanLimit = 1 << 18
+
+// promptTool is the Tool a verbatim prompt capture is recorded under (observer's userPromptSubmit;
+// store may not import observer, 00-ARCHITECTURE.md §3.2).
+const promptTool = "UserPromptSubmit"
 
 // PromptRecovery is an optional capability for leased prompt delivery. The digest
 // includes the delivery identity in the prompt's synthetic arguments; the wire
@@ -25,8 +35,7 @@ func (s *FSStore) PromptFrontier(ctx context.Context, session core.SessionID, di
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	const limit = 1 << 18
-	if len(s.toolUse) > limit {
+	if len(s.toolUse) > promptScanLimit {
 		return 0, ToolUseRecord{}, core.ErrDegraded
 	}
 	var next core.TurnIndex
@@ -42,13 +51,13 @@ func (s *FSStore) PromptFrontier(ctx context.Context, session core.SessionID, di
 		if turn < 0 || turn == math.MaxInt {
 			return 0, ToolUseRecord{}, core.ErrDegraded
 		}
-		if rec.Tool == "UserPromptSubmit" || rec.Tool == "SubagentStop" {
+		if rec.Tool == promptTool || rec.Tool == "SubagentStop" {
 			turn++
 		}
 		if turn > next {
 			next = turn
 		}
-		if rec.Tool == "UserPromptSubmit" && rec.ArgsDigest == digest {
+		if rec.Tool == promptTool && rec.ArgsDigest == digest {
 			if found.ID != "" {
 				return 0, ToolUseRecord{}, core.ErrDegraded
 			}
@@ -56,4 +65,46 @@ func (s *FSStore) PromptFrontier(ctx context.Context, session core.SessionID, di
 		}
 	}
 	return next, found, nil
+}
+
+// PromptOrder is an optional capability internal/rehydrate uses to check that prompt_<s>_0 is the
+// prompt the host sent first (SP08-D3, owner decision D35). A prompt's turn is its publication
+// position, and a prompt that reached only a hook's client spool can be published after one its
+// host sent later; its record's TS is the host's stamp, so the earliest-stamped prompt shows the
+// order the turn numbers cannot.
+type PromptOrder interface {
+	EarliestPrompt(context.Context, core.SessionID) (ToolUseRecord, error)
+}
+
+// EarliestPrompt returns session's UserPromptSubmit record with the lowest TS, the lower turn of two
+// equal stamps, or core.ErrNotFound when the session has none. Like PromptFrontier it is one bounded
+// scan of the loaded index: past promptScanLimit records it is core.ErrDegraded.
+func (s *FSStore) EarliestPrompt(ctx context.Context, session core.SessionID) (ToolUseRecord, error) {
+	if err := s.use(); err != nil {
+		return ToolUseRecord{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ToolUseRecord{}, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.toolUse) > promptScanLimit {
+		return ToolUseRecord{}, core.ErrDegraded
+	}
+	var best *ToolUseRecord
+	for _, rec := range s.toolUse {
+		if err := ctx.Err(); err != nil {
+			return ToolUseRecord{}, err
+		}
+		if rec.Session != session || rec.Tool != promptTool {
+			continue
+		}
+		if best == nil || rec.TS < best.TS || (rec.TS == best.TS && rec.Turn < best.Turn) {
+			best = rec
+		}
+	}
+	if best == nil {
+		return ToolUseRecord{}, fmt.Errorf("%w: no prompt for session %s", core.ErrNotFound, session)
+	}
+	return *best, nil
 }
