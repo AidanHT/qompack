@@ -233,6 +233,33 @@ func TestStageBinary_ConcurrentSpawnersAgree(t *testing.T) {
 	require.Len(t, entries, 1, "no spawner's temporary copy is left behind")
 }
 
+// TestCopyStaged_NeverReplacesAnInstalledCopy: a spawner that loses the install to a copy already
+// in place leaves that very file there — not a replacement with equal bytes — still sealed, and
+// removes its own temporary copy. A spawner verifying the installed copy at that moment then keeps
+// verifying the file it hashed (verifyStagedThen's identity check), where a replacement would
+// fail its check for no fault in the copy: on Linux os.Rename replaces an existing target, and
+// TestStageBinary_ConcurrentSpawnersAgree failed so there ("was replaced", w8-stagerace review
+// fix, runs/linux). Windows refuses the replace already, because the copy is sealed read-only.
+func TestCopyStaged_NeverReplacesAnInstalledCopy(t *testing.T) {
+	t.Parallel()
+	self, home := fakeSelf(t), t.TempDir()
+	staged, err := stageBinary(self, home)
+	require.NoError(t, err)
+	before, err := os.Lstat(staged)
+	require.NoError(t, err)
+
+	require.NoError(t, copyStaged(self, filepath.Dir(staged), staged, filepath.Base(filepath.Dir(staged))))
+
+	now, err := os.Lstat(staged)
+	require.NoError(t, err)
+	require.True(t, os.SameFile(before, now), "the installed copy was replaced by the losing spawner's")
+	require.Zero(t, now.Mode().Perm()&0o200, "the installed copy lost its read-only seal")
+	entries, err := os.ReadDir(filepath.Dir(staged))
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "the losing spawner's temporary copy is removed")
+	requireSameBytes(t, self, staged)
+}
+
 // TestDaemonProgram_StagesOnlyWhereEnabled: the program SpawnDetached starts is the staged copy
 // where staging is enabled (Windows) and the hook runs from inside CLAUDE_PLUGIN_ROOT; the binary
 // itself elsewhere, and when it is not a plugin's (a build tree, a test's temporary directory, which
