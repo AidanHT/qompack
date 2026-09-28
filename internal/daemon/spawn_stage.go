@@ -232,8 +232,16 @@ func isSHA256Hex(s string) bool {
 }
 
 // fileSHA256 is the lower-case hex SHA-256 of the file at p.
+//
+// It reads through paths.OpenShared, whose handle shares delete as well as read and write. On
+// Windows a plain os.Open does not, so it is refused with ERROR_SHARING_VIOLATION while any other
+// handle holds p with DELETE access — and the spawner whose rename has just installed a staged copy
+// holds the renamed file exactly that way until MoveFileEx closes its handle. A spawner that lost
+// that rename and verified the winner's copy through os.Open inside that window read a correct
+// copy as a failed install (TestStageBinary_VerifiesACopyItsRenamerStillHolds). Sharing delete
+// takes nothing from verification: the hash is still of the bytes the handle reads.
 func fileSHA256(p string) (string, error) {
-	f, err := os.Open(paths.Long(p))
+	f, err := paths.OpenShared(p)
 	if err != nil {
 		return "", err
 	}
