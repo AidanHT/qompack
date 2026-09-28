@@ -1,0 +1,10 @@
+run_id=cx-w8-sp08d3fix-sp08d3fix-review-7509f1f-20260928T143209Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-sp08d3fix
+rev=7509f1fb
+commit=7509f1fb26f1e6e553ca6f9f8e6eb16306812a4b
+bundle_sha256=411ec302d4b966e25b7fd010b84cdf259a23a2b6408fd3e0802dbf70909ab3f4
+host_started_utc=2026-09-28T14:32:15Z
+inner_args=--timeout 30m -- ./internal/daemon ./internal/ipc ./test/guards
+host_finished_utc=2026-09-28T14:39:39Z
+container_exit=1

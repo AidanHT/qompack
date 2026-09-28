@@ -1,0 +1,21 @@
+run_id=cx-w8-sp08d3fix-sp08d3fix-review-7509f1f-20260928T143209Z
+commit=7509f1fb26f1e6e553ca6f9f8e6eb16306812a4b
+tree=1c4f0d32391ba256dc48494010e7f40f9bc40e9a
+bundle_sha256=411ec302d4b966e25b7fd010b84cdf259a23a2b6408fd3e0802dbf70909ab3f4
+started_utc=2026-09-28T14:32:19Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-28T14:39:39Z

@@ -1,0 +1,94 @@
+=== RUN   TestE2ESpoolSubmodeEndToEnd
+--- PASS: TestE2ESpoolSubmodeEndToEnd (1.58s)
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (5.23s)
+=== RUN   TestE2E_VerbatimPromptSurvivesRestart
+--- PASS: TestE2E_VerbatimPromptSurvivesRestart (7.55s)
+=== RUN   TestUserIntent_FirstPromptIDMatchesObserver
+--- PASS: TestUserIntent_FirstPromptIDMatchesObserver (0.00s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (2.82s)
+=== RUN   TestE2E_SpooledSessionStartNeverDegradesTheProject
+--- PASS: TestE2E_SpooledSessionStartNeverDegradesTheProject (2.25s)
+=== RUN   TestV3_VerbatimPromptBecomesEliminationEvidence
+--- PASS: TestV3_VerbatimPromptBecomesEliminationEvidence (0.16s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (7.05s)
+=== RUN   TestV3_LiveSessionWriteSetAndAppendOnly
+    v3_x09_test.go:269: x09: the flush's "observer: gc" line came 3.846s after the flush, behind 88 spool lines left for its daemon to replay (bound 7m57s; waited up to 7m57s, cut to the test binary's -timeout: false)
+    v3_x09_test.go:408: x9: 09/1b/091bb2759ec84d071b3856f1807cbb96edd418da931fae1ac0b6e15d819a7cf4.zst appeared during flush; published by index/roots.jsonl line (root=sha256:2e008f5634f080239d5e2f10c4b439c87cb4a7c15a167bbd82dbaa52b3992ab1 eph=false)
+    v3_x09_test.go:408: x9: 10/19/1019afcf28f3d219ca0bd2e529378cb49bc6905f016f1695d1506730589fe1bc.zst appeared during flush; published by index/roots.jsonl line (root=sha256:57fe953f086dbbc03ce378d9d9005ad1ab42297c85141f9157cdb8fa740c716f eph=true)
+    v3_x09_test.go:408: x9: 10/c9/10c9961e240ac272f5717b7b0ef252a807219293eee59fe5e712c5233cc1a4e7.zst appeared during flush; published by index/roots.jsonl line (root=sha256:30ac5132428545f4179650a1d2fbeba365fef08706ed90781d6963d69a2f2346 eph=true)
+    v3_x09_test.go:408: x9: 17/f5/17f53289fffb5fc504ad2d2f8abc5a3f0a0faa51b5d6228cf4940e01b6427371.zst appeared during flush; published by index/roots.jsonl line (root=sha256:e8996b4919330a3f3f178453b9561aa66c0ad07069b5f292e84e3e35c9cf183f eph=false)
+    v3_x09_test.go:408: x9: 25/74/257452ee0c83698679c07f077f6bfca00015cd1a50ab8efbde9fcc63cf3192f5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:42634d5457006995f45bfe30dc3aed2992ccf69bcbf6d82acc0bb94b21b68559 eph=true)
+    v3_x09_test.go:408: x9: 33/3a/333a16a57508b1fc0f59379e9a2c8250bd75ce7a0bb323fefbc4c0978df607bf.zst appeared during flush; published by index/roots.jsonl line (root=sha256:d744f135ee6bca51d80371f553b5baa21d260d92f86ba91368b475107ce0e64d eph=false)
+    v3_x09_test.go:408: x9: 47/6f/476fac1915db0c06b98097781b444f4e4b20204e974770ff4272a520ddfd002e.zst appeared during flush; published by index/roots.jsonl line (root=sha256:b4e39ffeaad50c7af19d07c69c22be492061ec4eb283f32e37265253951c1abb eph=true)
+    v3_x09_test.go:408: x9: 49/f9/49f936ad488eba482bdca295835ce089630e407a46c2354a553c9481d969a0b8.zst appeared during flush; published by index/roots.jsonl line (root=sha256:5371a166b72a681a0dc9d390ef3dcc1ff3cbaa3c8e181d7e86c372d567fa1401 eph=true)
+    v3_x09_test.go:408: x9: 5e/a0/5ea0ddb4329e1c37ef35c9ea22f5e4dc4793161d8154d6a09fca443cbb8ec11a.zst appeared during flush; published by index/roots.jsonl line (root=sha256:03ca6978ef8f6f64d98bfa93c7df5cf1e2ec6c5794756d5931d36b1222d75308 eph=false)
+    v3_x09_test.go:408: x9: 68/f5/68f508fe12a945b948de9db35f49a9364332b2b865386bb594147ccb9bf5aacc.zst appeared during flush; published by index/roots.jsonl line (root=sha256:b3fae3949f008585bbe2c13a61ec9597172295d0063ac0c50702939c74c78cb8 eph=false)
+    v3_x09_test.go:408: x9: 70/16/7016de58e0694b2ab76ec1551beff223f961cab88bcfe3e904ca0157c1c51bfb.zst appeared during flush; published by index/roots.jsonl line (root=sha256:c222e2995706299bc6d1e5d5bed201d7ea358c72be4ed5afdb6b8ab033600ec0 eph=true)
+    v3_x09_test.go:408: x9: 72/57/7257a9d3db6a87ff2121b5d325ca0749030cfbc2abdcdf6a80f63ec4500a0e62.zst appeared during flush; published by index/roots.jsonl line (root=sha256:b02954fa2c95a0f80c25768edbed4c63887aaa41b680740e2c8a3d151287a907 eph=false)
+    v3_x09_test.go:408: x9: 73/1c/731ccde03581a48a82117dafcd74e95eee6c088839ee3c23d59c01a8ada82432.zst appeared during flush; published by index/roots.jsonl line (root=sha256:737a312003554c38a5993e37d982d1c52223dc9f4b300d410803e4cc8711ef5a eph=false)
+    v3_x09_test.go:408: x9: 7d/36/7d36701baea7915e2d6e91aca06f4d70f95f18dbec47eb2008c628368d260a81.zst appeared during flush; published by index/roots.jsonl line (root=sha256:334d209973f5548a270508a025e8a9ee63eb9fe85dbba41a68b0486e8112adc0 eph=true)
+    v3_x09_test.go:408: x9: 85/11/8511287a6f992787f6a698da8f78ff9d5f830c1a50010da1818361a7b9b90110.zst appeared during flush; published by index/roots.jsonl line (root=sha256:68035e7c6da15141fba7b5c612816a7f58577c289c3cbc9941e980140bd50171 eph=true)
+    v3_x09_test.go:408: x9: 87/d4/87d49836cc5cbce1188321b21fae43472cc33665cb57f88654295e60d02cf5ad.zst appeared during flush; published by index/roots.jsonl line (root=sha256:61744640ded1027e31e46346d323817504d6102c5a02bb2f8be0ca6d8a0f7d83 eph=true)
+    v3_x09_test.go:408: x9: 89/64/8964a0b8535abb494ad668fee223ee2e2433ca20eceb596e2d339f2add83ddc5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:237f5293c93624f20683ac4420f2be9ec5d5a85cfcc22712d4e66b83faf68652 eph=false)
+    v3_x09_test.go:408: x9: 8c/46/8c463572270df39eb6eef17b57cdf113c2ed2e4b41a9b175a216196ca8c8a019.zst appeared during flush; published by index/roots.jsonl line (root=sha256:9e73fa1eb17364ae951ba7af251f43b0f68e8bee3aa9056e6a3eeee5a82370bb eph=false)
+    v3_x09_test.go:408: x9: 8e/1d/8e1d6e5405b3ce74f2d004076adc3cddf50075c2a3be31c9a554d56892df5a95.zst appeared during flush; published by index/roots.jsonl line (root=sha256:78ba1cddb2278a2d195ce733265306ef293ca155c944bfcb073cd60fbd43d8c8 eph=true)
+    v3_x09_test.go:408: x9: 92/29/9229466816f78d82b9b3ce2eef3414d76f1e736c483b069a0d035f6d7c91c29c.zst appeared during flush; published by index/roots.jsonl line (root=sha256:94d4661dc6b155dc66d1405f04dbb64862e85ab13e43a0427adb55510e838c99 eph=false)
+    v3_x09_test.go:408: x9: 99/e1/99e1b8623330e0bcb522ca45fa8fa699f30ec41d1a297ea00b4e10a87a0232f4.zst appeared during flush; published by index/roots.jsonl line (root=sha256:a81efb90bbbcfaab86780ee1bb66f182d88bf1d886bf27590c4450e5dcc6b63f eph=false)
+    v3_x09_test.go:408: x9: a2/1f/a21f8c7cb2ec48039083e996472a14876371b79e4ce2293b472104965c81151b.zst appeared during flush; published by index/roots.jsonl line (root=sha256:7693cc58694bf0b57e0dc419a828a316ff0f85d82e3715b15a847272add6404c eph=false)
+    v3_x09_test.go:408: x9: a8/37/a837a6928e709fc5541d78da77c84bfd3551cebd2301d35343732adc226dc46c.zst appeared during flush; published by index/roots.jsonl line (root=sha256:c0567c7084e479281aaf850afed9a3ffe67c2e0fc3f1e84c4973cde09f561aa6 eph=false)
+    v3_x09_test.go:408: x9: b1/8b/b18b8cccd6544269657b170716c2f9683234590d5b41797d8100d70bcfc08376.zst appeared during flush; published by index/roots.jsonl line (root=sha256:849bf9c8e92b9db8d8649288bb7537df91aae80dfc646ea41f83f11288a8cc4e eph=true)
+    v3_x09_test.go:408: x9: b2/e3/b2e3d31a9be084a9ece08d1ea8e748d0e8776942cb054d910a8b5de8f4da76f5.zst appeared during flush; published by index/roots.jsonl line (root=sha256:1a7badf79a7f2ad5062a341c49740d63582536a6ef3d3703c163eff080e2b211 eph=true)
+    v3_x09_test.go:408: x9: b9/b5/b9b5f093a784f64577d06a7f7de5d733c6ddf8ea765bf05c9077465fc9bcb7fd.zst appeared during flush; published by index/roots.jsonl line (root=sha256:c0ec9dc17c10acdc8d23bd253bc683c9771d2764cf10be910affe84cb3bb6a23 eph=false)
+    v3_x09_test.go:408: x9: ce/ed/ceed3ddcfa48176f229df5d20a5c5a69e028a77ecfc5a6be506ff61581e7f23b.zst appeared during flush; published by index/roots.jsonl line (root=sha256:b91ea5ba38083bbf145f8ecac1230f2d455b9b2f589cf7541f410ff37fd823f6 eph=false)
+    v3_x09_test.go:408: x9: d0/a6/d0a601be43b09b444ad6873320e0efdb1ae4600f1f9478755a8437601dba6894.zst appeared during flush; published by index/roots.jsonl line (root=sha256:f011f48073c6c94b1e41cea65a94b06b67784801d2cccf18380aff39696cc48d eph=true)
+    v3_x09_test.go:408: x9: d1/a8/d1a8d0c27259e60d2fb0ad5a548691a3736ed2143ece72a5a01581376c18bf31.zst appeared during flush; published by index/roots.jsonl line (root=sha256:a1083e766f68c878e9fb80aeed12ba55119d6f56c16addaa7da871f409358348 eph=true)
+    v3_x09_test.go:408: x9: e1/94/e1948c52934243dbf8ca46972299c85e0a2211e9b1581000f5d0102c2098c0c3.zst appeared during flush; published by index/roots.jsonl line (root=sha256:8e1a8ea21602a71ed4faef4c3be8b92cd4fd59c7abcce8b14246cde88dc4e95e eph=true)
+    v3_x09_test.go:408: x9: e6/41/e641339872fd77787254195a47edac2dd329a1eff165ff26c4970afea48346c8.zst appeared during flush; published by index/roots.jsonl line (root=sha256:97293f05a5a2a30e62995f58bc8dde834408b85d752918e1c685c7f4c1372783 eph=true)
+    v3_x09_test.go:408: x9: ef/d2/efd2176dbd1202132d1214051485188dc111998ef874c0e8e00af32f3d56a3df.zst appeared during flush; published by index/roots.jsonl line (root=sha256:00b27eb3ab7bb8667e6fede28dd885ea6d8fcfbe3db5302b800c460481fa2932 eph=true)
+    v3_x09_test.go:408: x9: f2/07/f2073b26f38ca38584efed10e239c383b845f5eb4a709a3d251568e10400fac9.zst appeared during flush; published by index/roots.jsonl line (root=sha256:ce58217fe231f2874c97d924d106e584f4e89f43fe0fcdad3e33dbd2fe79eb3d eph=true)
+    v3_x09_test.go:408: x9: f4/72/f472a13564760311083e3b87ab95fbe84f1ba3bbeae23de1d8e7015c790ced7e.zst appeared during flush; published by index/roots.jsonl line (root=sha256:e33fe7d9140ded45fee0043715653de75dee6769e583a78e2de97697bae31e61 eph=false)
+    v3_x09_test.go:408: x9: fc/70/fc70887949bac5f76760fea634813b47491e0b21a473b9fbe353e18956dc9584.zst appeared during flush; published by index/roots.jsonl line (root=sha256:25f0eeaaf5fa503a61271c10c0ac4affae87ac4cf36be183c0fb474b0d5c8faa eph=true)
+    v3_x09_test.go:408: x9: fd/e1/fde17080b83014f9b702c20637240c7e48ae707efdb627ea22b0e231b424d63a.zst appeared during flush; published by index/roots.jsonl line (root=sha256:e037737d3ee05041e2244a8e4244b8e3c4e6cf811d86e271ec8cbd0424a5ad1e eph=true)
+--- PASS: TestV3_LiveSessionWriteSetAndAppendOnly (21.83s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (16.03s)
+=== RUN   TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback
+=== RUN   TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/the_hook's_fallback_spool_beside_the_daemon's_WAL
+=== RUN   TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/a_client-externalized_blob_beside_the_daemon's_WAL
+=== RUN   TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/a_LOUD_line_beside_the_day_log
+=== RUN   TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/a_quiet_hook_failure_beside_the_day_log
+=== RUN   TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/a_set-aside_draft_beside_the_live_one
+--- PASS: TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback (2.39s)
+    --- PASS: TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/the_hook's_fallback_spool_beside_the_daemon's_WAL (0.44s)
+    --- PASS: TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/a_client-externalized_blob_beside_the_daemon's_WAL (0.44s)
+    --- PASS: TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/a_LOUD_line_beside_the_day_log (0.50s)
+    --- PASS: TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/a_quiet_hook_failure_beside_the_day_log (0.50s)
+    --- PASS: TestV4_X13DaemonWriteSetSetsAsideOnlyTheHookFallback/a_set-aside_draft_beside_the_live_one (0.50s)
+=== RUN   TestV5_ObserveToStatusRoundTrip
+=== RUN   TestV5_ObserveToStatusRoundTrip/live
+    v5_x01_test.go:543: V5 4.1 live: index_tool_uses=65 hook_controlled.N=65 l0_ingest.N=65 B-A p99=114688us (estimated) B-B p99=98304us (observed)
+=== RUN   TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot
+=== RUN   TestV5_ObserveToStatusRoundTrip/nothing_observed_is_reported_as_unknown
+--- PASS: TestV5_ObserveToStatusRoundTrip (8.15s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/live (0.00s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot (0.04s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/nothing_observed_is_reported_as_unknown (0.03s)
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/full_reference
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/degraded
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/daemon_disabled
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/admission_switch_refused
+    v5_x15_test.go:612: testutil: configuration warning: key="runtime.migration.replacement.newResult" invalid value, using default: true not in false (C:\Users\Quant\AppData\Local\Temp\TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresentad1434586031\002\project\.qompack\config.json:1)
+    v5_x15_test.go:649: v5 §4.15: runtime.migration.replacement.newResult refused by gate "M4 admission (T21 pipeline, pass-through and recovery)" (SP-21)
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/config_corrupt_refuses_capture
+--- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent (8.65s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/full_reference (0.35s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/degraded (2.26s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/daemon_disabled (4.34s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/admission_switch_refused (0.13s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/config_corrupt_refuses_capture (1.56s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	83.932s
