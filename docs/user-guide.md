@@ -407,8 +407,8 @@ compaction, resume or fork does not promote an obsolete intent into a current on
 user intent is resolved by derived id from the verbatim first captured prompt, never by relevance
 search, and where the capture layer and the checkpoint disagree the capture layer wins and the
 disagreement is logged loudly ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §10). The
-first captured prompt is the host's first except in one spool race, and a rehydration names that
-case when it happens
+first captured prompt is the host's first except in a spool race and under hook pid reuse, and a
+rehydration names either case when it happens
 ([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
 
 **The recorded partial.** `plans/V5-report.md` §24 records the uncertainty gate as **partial**: it
