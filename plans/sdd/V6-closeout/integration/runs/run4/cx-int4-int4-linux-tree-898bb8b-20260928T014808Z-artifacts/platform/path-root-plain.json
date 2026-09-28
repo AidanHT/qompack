@@ -1,0 +1,16 @@
+{
+  "name": "path-root-plain",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "f81a30f2bfc81e805526fae2797fb4ece734c17a0d7460babb4d3576ef6db3a7"
+  },
+  "outcome": "verified",
+  "reason": "an ordinary ASCII project root (the control)",
+  "detail": "root=\"/tmp/qompack-platform-910365149/plain-project\" (45 chars); six hooks exit 0 with parseable hookio.Output; /tmp/qompack-platform-910365149/plain-project/.qompack exists; daemon reachable at /tmp/qompack-10001/72a077795a29.sock; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [/tmp/qompack-platform-910365149/plain-project/.qompack/ /tmp/qompack-platform-910365149/home/.qompack/]"
+}

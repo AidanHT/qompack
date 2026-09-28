@@ -1,0 +1,14 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/integration": {
+   "result": "fail",
+   "passed": 0,
+   "failed": [
+    "TestIntegration_HotPathWarmWithRealResidentState",
+    "TestIntegration_HotPathWarmWithRealResidentState"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

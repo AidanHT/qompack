@@ -1,0 +1,13 @@
+{
+  "name": "plugin_validate",
+  "capability": "observation",
+  "scope": "installed_cli",
+  "outcome": "skipped",
+  "reason": "no `claude` executable on PATH, so the host's own plugin validator could not be run; the repository validator (`devtool plugin-validate`) is complementary and does not certify installed packaging",
+  "target": {
+    "provider": "unknown",
+    "platform": "linux/amd64",
+    "date": "2026-09-28T02:04:41Z"
+  },
+  "recorded_at": "2026-09-28T02:04:41Z"
+}

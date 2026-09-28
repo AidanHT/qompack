@@ -1,0 +1,118 @@
+run_id=cx-int4-int4-linux-tree-898bb8b-20260928T014808Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int
+rev=898bb8b
+commit=898bb8b27b0b29370e6198aeab73763f1c5f498a
+bundle_sha256=0776d1d01ba1b33dd5f847fe702459828d4950a075c980417bfbaeec9cb7b74a
+host_started_utc=2026-09-28T01:48:16Z
+inner_args=--coload --timeout 60m -- ALL-NON-E2E
+/work/cx-int4-int4-linux-tree-898bb8b-20260928T014808Z.bundle: OK
+run_id=cx-int4-int4-linux-tree-898bb8b-20260928T014808Z
+commit=898bb8b27b0b29370e6198aeab73763f1c5f498a
+tree=e1d448b8717edd75cdb26f8a94e005982a74de97
+bundle_sha256=0776d1d01ba1b33dd5f847fe702459828d4950a075c980417bfbaeec9cb7b74a
+started_utc=2026-09-28T01:48:21Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=60m gomaxprocs=4 coload=1
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+go: writing stat cache: open /go/pkg/mod/cache/download/github.com/qompack/qompack/@v/v0.0.0-20260928013511-898bb8b27b0b.info747234537.tmp: permission denied
+SKIP      github.com/qompack/qompack/cmd/qompack  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/admission  (pass=127 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/analyzer  (pass=111 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/analyzer/analyzertest  (pass=20 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/canon  (pass=732 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/canon/canontest  (pass=15 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=436 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/checkpoint/checkpointtest  (pass=3 fail=0 skip=2)
+PASS      github.com/qompack/qompack/internal/chunk  (pass=125 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/chunk/chunktest  (pass=8 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/cli  (pass=427 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/commands  (pass=126 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/config  (pass=332 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/contract  (pass=160 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/contract/contracttest  (pass=29 fail=0 skip=4)
+PASS      github.com/qompack/qompack/internal/core  (pass=27 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1536 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/dag  (pass=171 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/dag/dagtest  (pass=45 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/eval  (pass=407 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/eval/evaltest  (pass=5 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/grammar  (pass=180 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/grammar/grammartest  (pass=19 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/hookio  (pass=112 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/hostperm  (pass=111 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/ipc  (pass=152 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/ipc/ipctest  (pass=40 fail=0 skip=6)
+PASS      github.com/qompack/qompack/internal/logging  (pass=12 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/mcp  (pass=387 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/mcp/mcptest  (pass=23 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/negknow  (pass=400 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/negknow/negknowtest  (pass=12 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/obs  (pass=25 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/observer  (pass=561 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/observer/observertest  (pass=25 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/paths  (pass=215 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/paths/pathstest  (pass=2 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/pins  (pass=62 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/pins/pinstest  (pass=1 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/pluginmanifest  (pass=29 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/redact  (pass=226 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/redact/redacttest  (pass=18 fail=0 skip=2)
+PASS      github.com/qompack/qompack/internal/rehydrate  (pass=196 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/rehydrate/rehydratetest  (pass=14 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/rules  (pass=41 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/rules/rulestest  (pass=5 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/scheduler  (pass=210 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/scheduler/schedulertest  (pass=25 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/sketch  (pass=380 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/sketch/sketchtest  (pass=126 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/skills  (pass=21 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/skills/skillstest  (pass=6 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/state  (pass=37 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/store  (pass=872 fail=0 skip=4)
+PASS      github.com/qompack/qompack/internal/store/storetest  (pass=14 fail=0 skip=2)
+PASS      github.com/qompack/qompack/internal/symbols  (pass=89 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/symbols/symbolstest  (pass=6 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/testutil  (pass=53 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/tokens  (pass=121 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/tokens/tokenstest  (pass=4 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/bench/hotpath  (pass=55 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/canary  (pass=5 fail=0 skip=6)
+PASS      github.com/qompack/qompack/test/dedup  (pass=2 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/fault  (pass=56 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/guards  (pass=192 fail=9 skip=0)
+    FAIL TestGuard_AReleasedLockReportsItsSealResidual/every_release_in_internal/daemon_is_accounted_for
+    FAIL TestGuard_AReleasedLockReportsItsSealResidual
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution
+FAIL      github.com/qompack/qompack/test/integration  (pass=69 fail=1 skip=0)
+    FAIL TestIntegration_HotPathWarmWithRealResidentState
+PASS      github.com/qompack/qompack/test/platform  (pass=14 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/release  (pass=8 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/replay  (pass=93 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/replay/l3policy  (pass=6 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/security  (pass=30 fail=0 skip=0)
+PASS      github.com/qompack/qompack/tools/devtool  (pass=333 fail=0 skip=0)
+PASS      github.com/qompack/qompack/tools/lint/nomagic  (pass=2 fail=0 skip=0)
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/plans/sdd/V6-closeout/integration/runs/run4/cx-int4-int4-linux-tree-898bb8b-20260928T014808Z-artifacts
+exit=1

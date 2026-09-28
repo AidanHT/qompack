@@ -1,0 +1,13 @@
+{
+  "name": "new_result_replacement",
+  "capability": "new_result_replacement",
+  "scope": "installed_session",
+  "outcome": "skipped",
+  "reason": "replacing a delivered tool result cannot be probed in an active session (M0-03), and the exact supported output shapes are not established; the capability stays off pending the SP-21 capture/retrieval/schema gate. Fallback in force: pass-through: the host's original result is delivered unchanged",
+  "target": {
+    "provider": "unknown",
+    "platform": "linux/amd64",
+    "date": "2026-09-28T02:04:41Z"
+  },
+  "recorded_at": "2026-09-28T02:04:41Z"
+}

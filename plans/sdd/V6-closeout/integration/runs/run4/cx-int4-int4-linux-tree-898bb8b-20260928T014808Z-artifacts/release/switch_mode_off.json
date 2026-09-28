@@ -1,0 +1,19 @@
+{
+  "name": "switch_mode_off",
+  "capability": "switch",
+  "scope": "installed_bundle",
+  "switch": "runtime.mode",
+  "value": "off",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "f81a30f2bfc81e805526fae2797fb4ece734c17a0d7460babb4d3576ef6db3a7"
+  },
+  "outcome": "verified",
+  "reason": "runtime.mode off recorded nothing, started no daemon, and every hook still exited 0",
+  "detail": "all six hooks exit 0 with empty or parseable JSON with no additionalContext; 0 file(s) under objects+index; no daemon lock file was ever created. `config print --json` reports runtime.mode=off (status --json is not used: this switch starts no daemon). Not duplicated here: internal/cli/hooks_test.go and internal/daemon's own mode tests pin the short-circuit at the seam"
+}
