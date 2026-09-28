@@ -33,9 +33,12 @@ wrepo=$(cd "$repo" && pwd -W 2>/dev/null || pwd); wev=$(mkdir -p "$ev" && cd "$e
 head=$(git -C "$repo" rev-parse --short HEAD)
 V=${BUNDLE_VERSION:-0.3.0}
 tline=$(grep -E "^ *- run: go test -p 1 " "$repo/.github/workflows/ci.yml" | head -1)
-tpat=$(printf '%s' "$tline" | sed -E "s/.*-run '([^']*)'.*//")
+tpat=$(printf '%s' "$tline" | sed -E "s/.*-run '([^']*)'.*/\1/")
 tpkgs=$(printf '%s' "$tline" | sed -E "s/.*-run '[^']*' //")
 [ -n "$tpat" ] && [ -n "$tpkgs" ] || { echo "cannot read the timing lane from ci.yml" >&2; exit 2; }
+# The pattern must be the real row list: a wrong extraction still passes -n, and `go test -run` with a
+# pattern that matches nothing exits 0 ("no tests to run"), so an empty timing step would look green.
+case $tpat in *TestBudgetBF*) ;; *) echo "timing pattern from ci.yml lacks TestBudgetBF: $tpat" >&2; exit 2 ;; esac
 rc_all=0
 for step in "$@"; do
   case $step in
