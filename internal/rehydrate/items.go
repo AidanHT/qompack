@@ -2,6 +2,7 @@ package rehydrate
 
 import (
 	"context"
+	"errors"
 	"io"
 	"path/filepath"
 	"sort"
@@ -17,6 +18,7 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/rules"
 	"github.com/qompack/qompack/internal/skills"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // ── the builder seam ──
@@ -334,7 +336,12 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	log := loggerOf(d)
 	fallback := strings.TrimSpace(r.Checkpoint.UserIntent.Original)
 
-	text, ok := readL0Intent(ctx, r, d)
+	text, rec0, ok := readL0Intent(ctx, r, d)
+	if ok {
+		if drop, substituted := hostOrderNotice(ctx, r, d, rec0); substituted {
+			b.drops = append(b.drops, drop)
+		}
+	}
 	switch {
 	case !ok:
 		// Degraded but correct: §8.5 guarantees the checkpoint's copy is itself verbatim-from-L0
@@ -418,31 +425,31 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 // the derived id means SP-08's id scheme drifted, and injecting a record this slice cannot vouch
 // for is worse than injecting the checkpoint copy. That case is a Warn, because it is a contract
 // drift rather than an ordinary absence.
-func readL0Intent(ctx context.Context, r Request, d Deps) (string, bool) {
+func readL0Intent(ctx context.Context, r Request, d Deps) (string, store.ToolUseRecord, bool) {
 	if d.Store == nil {
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 	log := loggerOf(d)
 
 	rec, err := d.Store.ToolUse(ctx, firstPromptID(r.Session))
 	if err != nil || rec.Root == (core.Hash{}) {
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 	if rec.Session != r.Session || rec.Turn != 0 {
 		log.Warn("rehydrate: L0 prompt record does not match its derived id; using the checkpoint copy",
 			"session", string(r.Session), "got_session", string(rec.Session), "turn", int(rec.Turn))
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 
 	rc, err := d.Store.Open(ctx, rec.Root)
 	if err != nil || rc == nil {
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 	raw, readErr := io.ReadAll(io.LimitReader(rc, maxIntentBytes))
 	closeErr := rc.Close()
 	if readErr != nil {
 		log.Debug("rehydrate: L0 prompt read failed", "err", readErr.Error())
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 	if closeErr != nil {
 		log.Debug("rehydrate: L0 prompt close failed", "err", closeErr.Error())
@@ -452,9 +459,55 @@ func readL0Intent(ctx context.Context, r Request, d Deps) (string, bool) {
 	// prompt; §8.5's tagging exists precisely so that material is identifiable and ignorable.
 	text := strings.TrimSpace(checkpoint.StripInjections(string(trimToRuneBoundary(raw))))
 	if text == "" {
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
-	return text, true
+	return text, rec, true
+}
+
+// hostOrderDropID is the drop ID of the notice hostOrderNotice writes, under
+// dropKindUserIntentSource: it qualifies where item 2's original came from.
+const hostOrderDropID = "host_order"
+
+// hostOrderNotice reports whether prompt_<s>_0 (rec0) is NOT the prompt its host sent first, and
+// the drop entry that says so (SP08-D3, owner decision D35).
+//
+// prompt_<s>_0 is the session's first PUBLISHED prompt. The daemon replays client spools in host
+// order, but a prompt that reached only its hook's spool can still be published after a later prompt
+// that arrived live; D35 rules that race out of the host-order guarantee and does not re-number
+// published turns. Each prompt record carries its host timestamp, so a later turn stamped earlier
+// than turn 0 is the substitution this item would otherwise present, silently, as the original
+// request. Item 2 still injects turn 0 — it is the verbatim capture its heading names — and this
+// entry says which record the host sent first and how to read it.
+//
+// The check needs the store's PromptOrder capability (one bounded index scan, once per
+// rehydration); a store without it answers as before. A store that has it but cannot answer is
+// logged, and no substitution is claimed on a guess.
+func hostOrderNotice(ctx context.Context, r Request, d Deps, rec0 store.ToolUseRecord) (checkpoint.DropEntry, bool) {
+	po, ok := d.Store.(store.PromptOrder)
+	if !ok {
+		return checkpoint.DropEntry{}, false
+	}
+	log := loggerOf(d)
+	first, err := po.EarliestPrompt(ctx, r.Session)
+	if err != nil {
+		if !errors.Is(err, core.ErrNotFound) {
+			log.Warn("rehydrate: could not check that the L0 original is the host's first prompt",
+				"session", string(r.Session), "err", err.Error())
+		}
+		return checkpoint.DropEntry{}, false
+	}
+	if first.ID == rec0.ID || first.TS >= rec0.TS {
+		return checkpoint.DropEntry{}, false
+	}
+	log.Warn("rehydrate: the L0 original is not the host's first prompt of the session",
+		"session", string(r.Session), "substituted_id", string(rec0.ID), "host_first_id", string(first.ID))
+	return checkpoint.DropEntry{
+		Kind: dropKindUserIntentSource, ID: hostOrderDropID,
+		Detail: string(rec0.ID) + " is this session's first captured prompt, not the first its host " +
+			"sent: " + string(first.ID) + " carries an earlier host timestamp and was captured after " +
+			"it, so the original request may be that one" +
+			restoreClause("expand(tool_use_id="+string(first.ID)+")"),
+	}, true
 }
 
 // buildEliminations is item 3: the top-N eliminations by slice relevance, plus the standing
