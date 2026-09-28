@@ -238,10 +238,13 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	// The flush is the session's last hook, so its own lazy spawn is the only thing that can bring
 	// a daemon back, and a fresh spawn.lock makes it stand aside (internal/ipc ClaimSpawn: a spawn
 	// in flight). Under load a hook's 5 ms connect deadline expires often enough that some hook of
-	// the session spawns a daemon that loses the lock to the running one and exits, and its claim
-	// stays fresh for e2eSpawnLockStaleAfter. A flush inside that window started nothing, and no
-	// daemon ever ran: Linux, -race, CPU and fsync co-load, "observer: gc" never logged in 300 s.
-	// So the row lets any such claim lapse first; the flush's own spawn is then what it tests.
+	// the session spawns a daemon. One that lost the lock to the running daemon used to leave its
+	// claim fresh for e2eSpawnLockStaleAfter, so a flush inside that window started nothing and no
+	// daemon ever ran (Linux, -race, CPU and fsync co-load: "observer: gc" never logged in 300 s).
+	// The running daemon now gives that claim back as it releases its lock (V6 close-out D27). A
+	// claim can still be fresh here when a hook's spawn was still starting as the daemon shut down;
+	// that daemon then takes the lock, and the row waits for it to listen (or its claim to lapse),
+	// so the flush reaches a daemon that is up rather than racing one mid-start.
 	x9AwaitNoSpawnInFlight(t, p.Root)
 	pending := x9UnconsumedSpoolLines(t, p.Root)
 	flushed := time.Now()
@@ -1054,13 +1057,13 @@ func x9UnconsumedSpoolLines(t *testing.T, root string) int {
 }
 
 // x9AwaitNoSpawnInFlight waits until root holds no spawn.lock the product still counts as a spawn in
-// flight (e2eSpawnInFlight). No hook runs while it waits, and only a hook's lazy spawn makes a claim,
-// so a claim present now lapses within e2eSpawnLockStaleAfter of now; the bound adds one tick of
-// polling to that.
+// flight (e2eSpawnInFlight): the daemon it announced has listened and deleted it, or it has lapsed.
+// No hook runs while it waits, and only a hook's lazy spawn makes a claim, so a claim present now is
+// gone within e2eSpawnLockStaleAfter of now; the bound adds one tick of polling to that.
 func x9AwaitNoSpawnInFlight(t *testing.T, root string) {
 	t.Helper()
 	if e2eSpawnInFlight(root) {
-		t.Logf("x09: a spawn.lock claim was fresh before the flush with no hook running; waiting for it to lapse")
+		t.Logf("x09: a spawn.lock claim was fresh before the flush with no hook running; waiting for its daemon or its lapse")
 	}
 	require.Eventually(t, func() bool { return !e2eSpawnInFlight(root) },
 		e2eSpawnLockStaleAfter+e2eLazySpawnSettleTick, e2eLazySpawnSettleTick,
