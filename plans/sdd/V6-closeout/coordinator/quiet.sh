@@ -45,11 +45,22 @@
 # benchmark's presence on both revisions: one missing on a side is recorded there and not run on
 # that side.
 #
-# Real home. Every package measured isolates its home (pathstest.Main) or uses b.TempDir(), and the
-# hot-path harness makes its own temp HOME/USERPROFILE. As a check, homeguard.py (beside this file)
-# snaps ~/.claude and ~/.qompack (hashes and names only) before the first step and checks them after
-# the last one; a difference is a WARNING in quiet-run.txt; the check output lands in the evidence
-# directory, and the snap (it lists installed plugins) stays in work.
+# Real home. On the candidate every package measured isolates its home (pathstest.Main) or uses
+# b.TempDir(), and the hot-path harness makes its own temp HOME/USERPROFILE; cf31e01 predates
+# pathstest.Main. So every Windows C5.2 benchmark binary, on both sides alike, runs with HOME and
+# USERPROFILE set to a fresh $work/home-<side> and QOMPACK_HOME and CLAUDE_CONFIG_DIR unset (GOPATH
+# and GOMODCACHE keep their real values); whatever lands there is listed in home-writes-<side>.txt.
+# On Linux the gate's non-root user never sees the owner's home. As a check, homeguard.py (beside
+# this file) snaps ~/.claude and ~/.qompack (hashes and names only) before the first step and checks
+# them after the last one; a difference is a WARNING in quiet-run.txt; the check output lands in the
+# evidence directory, and the snap (it lists installed plugins) stays in work.
+#
+# Host checks. The candidate repo must have no tracked change (its gate script and pinned go.mod are
+# read from the working tree); its full `git status` is recorded. Each load sample prints a WARNING
+# when Windows CPU is above QUIET_MAX_CPU (15) % or the container's 1-minute load average is above
+# QUIET_MAX_LOAD (1.0): a warning, not a gate, so a busy host cannot pass for a quiet one unnoticed.
+# The Windows clones, like the Linux ones, are checked clean after the step and their binaries are
+# hashed again.
 #
 # Budget overrides, for dry runs only (the defaults are the checklist's):
 #   QUIET_ITERATIONS (5000)   C5.1 --iterations
@@ -60,6 +71,7 @@
 #   QUIET_BENCH_FILTER        ERE a benchmark name must match to run (e.g. '^BenchmarkGetChunk$')
 #   QUIET_WORK                scratch directory for host clones and binaries (default: mktemp -d)
 #   QUIET_CONTAINER (qompack-v6-linux-verification), QUIET_LXUSER (qompack-test)
+#   QUIET_MAX_CPU (15), QUIET_MAX_LOAD (1.0)   idle thresholds for the load WARNING
 set -u
 if [ $# -lt 4 ]; then sed -n '2,/^set -u$/p' "$0" | sed '$d' >&2; exit 2; fi
 repo=$1; base=$2; ev=$3; shift 3
@@ -76,6 +88,11 @@ winpath() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else pr
 mkdir -p "$ev" || exit 2
 wrepo=$(winpath "$(cd "$repo" && pwd)"); wev=$(winpath "$(cd "$ev" && pwd)")
 cand=$(git -C "$wrepo" rev-parse --verify 'HEAD^{commit}') || exit 2
+cand_status=$(git -C "$wrepo" status --porcelain) || exit 2
+if [ -n "$(git -C "$wrepo" status --porcelain --untracked-files=no)" ]; then
+  echo "refusing: the candidate repo $wrepo has tracked changes (its gate and pinned tools are read from it):" >&2
+  git -C "$wrepo" status --porcelain --untracked-files=no >&2; exit 2
+fi
 base_sha=$(git -C "$wrepo" rev-parse --verify "$base^{commit}") || { echo "unknown base revision $base" >&2; exit 2; }
 mkdir "$wev/.quiet.lock" 2>/dev/null || { echo "refusing: $wev/.quiet.lock exists (another quiet.sh?)" >&2; exit 2; }
 trap 'rmdir "$wev/.quiet.lock" 2>/dev/null' EXIT
@@ -216,11 +233,25 @@ clone_side() {
 }
 
 load() { # a load sample for the run record: Windows CPU % and the container's load average
-  local w l
+  local w l why
   w=$(powershell -NoProfile -Command "(Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average" 2>/dev/null | tr -d '\r')
   l=$(docker exec "$ctr" cat /proc/loadavg 2>/dev/null)
   say "load $1 $(date -u +%H:%M:%SZ): windows_cpu_pct=${w:-?} linux_loadavg=${l:-?}"
+  why=$(awk -v w="${w:-}" -v l="${l%% *}" -v mc="${QUIET_MAX_CPU:-15}" -v ml="${QUIET_MAX_LOAD:-1.0}" 'BEGIN {
+    if (w != "" && w + 0 > mc + 0) r = "windows_cpu_pct " w " > " mc
+    if (l != "" && l + 0 > ml + 0) r = (r == "" ? "" : r "; ") "linux 1-min load " l " > " ml
+    print r }')
+  [ -n "$why" ] && say "WARNING: host not idle at $1 ($why); timings from here may not be quiet"
+  return 0
 }
+# win_after <evidence-dir> <side>: the Windows clone must still be clean after the step.
+win_after() {
+  git -C "$work/src-$2" status --porcelain > "$1/source-status-after-$2.txt" 2>&1
+  [ -s "$1/source-status-after-$2.txt" ] && say "WARNING: $work/src-$2 changed during the run"
+  landed "clone check ($2): $1/source-status-after-$2.txt"
+}
+# isoenv <side>: the argv prefix a Windows C5.2 benchmark binary runs under (see "Real home").
+isoenv() { printf '%s\n' env -u QOMPACK_HOME -u CLAUDE_CONFIG_DIR "HOME=$work/home-$1" "USERPROFILE=$work/home-$1" "GOPATH=$gopath" "GOMODCACHE=$gomodcache"; }
 
 # lx_prepare <step-dir> <side> <label> <pkg...>: the per-revision gate run; writes <side>.runid.
 lx_prepare() {
@@ -378,6 +409,7 @@ step_c51_win() {
   rec "$src" "$wev" c51-win-bf -- go test -p 1 -count=1 -timeout=30m -run '^TestBudgetBF$' -v ./internal/mcp
   rcf=$?; load after-c51-win-bf
   landed "c51-win B-F: $wev/c51-win-bf.log (the \"B-F over\" line; record $wev/c51-win-bf.json)"
+  win_after "$wev" candidate
   [ $rc -eq 0 ] && return $rcf
   return $rc
 }
@@ -418,9 +450,11 @@ step_c52_win() {
     done
   done
   (cd "$bin" && sha256sum */*.test.exe) > "$d/binaries.sha256" 2>&1
+  for side in base candidate; do rm -rf "$work/home-$side"; mkdir -p "$work/home-$side"; done
   for f in "$bin"/*/*.test.exe; do  # warm-up, discarded: the first exec pays the AV scan
     [ -f "$f" ] || continue; side=${f%/*}; side=${side##*/}; pkg=${f##*/}; pkg=${pkg%.test.exe}
-    (cd "$work/src-$side/internal/$pkg" && "$f" -test.run '^$' -test.bench '^$' > /dev/null 2>&1 < /dev/null)
+    # shellcheck disable=SC2046
+    (cd "$work/src-$side/internal/$pkg" && $(isoenv "$side") "$f" -test.run '^$' -test.bench '^$' > /dev/null 2>&1 < /dev/null)
   done
   load before-c52-win
   r=1
@@ -429,7 +463,8 @@ step_c52_win() {
       for side in $(order "$r"); do
         side_has "$side" "$pkg" || continue
         [ -f "$bin/$side/$pkg.test.exe" ] || { say "c52-win: no $side binary for $pkg"; rc_s=1; continue; }
-        rec "$work/src-$side/internal/$pkg" "$d" "c52-win-r$r-$side-$pkg-$bt" -- "$bin/$side/$pkg.test.exe" \
+        # shellcheck disable=SC2046
+        rec "$work/src-$side/internal/$pkg" "$d" "c52-win-r$r-$side-$pkg-$bt" -- $(isoenv "$side") "$bin/$side/$pkg.test.exe" \
           -test.run '^$' -test.bench "$re" -test.benchtime "$bt" -test.benchmem -test.count "$PERCALL" -test.timeout 90m || rc_s=1
       done
     done < "$work/units"
@@ -438,9 +473,17 @@ step_c52_win() {
   done
   c52_analyse "$d" win || rc_s=1
   while read -r side pkg name; do
-    rec "$work/src-$side/internal/$pkg" "$d" "c52-win-diag-$side-$pkg-$name" -- "$bin/$side/$pkg.test.exe" \
+    # shellcheck disable=SC2046
+    rec "$work/src-$side/internal/$pkg" "$d" "c52-win-diag-$side-$pkg-$name" -- $(isoenv "$side") "$bin/$side/$pkg.test.exe" \
       -test.run '^$' -test.bench "^Benchmark$name\$" -test.benchtime 1x -test.v -test.timeout 30m
   done < "$d/incomplete.txt"
+  (cd "$bin" && sha256sum */*.test.exe) > "$d/binaries-after.sha256" 2>&1
+  cmp -s "$d/binaries.sha256" "$d/binaries-after.sha256" || say "WARNING: c52-win binaries changed during the run"
+  for side in base candidate; do
+    win_after "$d" "$side"
+    (cd "$work/home-$side" && find . -type f) > "$d/home-writes-$side.txt" 2>&1
+  done
+  landed "c52-win binaries: $d/binaries.sha256 (after: $d/binaries-after.sha256); isolated-home writes: $d/home-writes-*.txt"
   return $rc_s
 }
 step_c52_linux() {
@@ -464,7 +507,9 @@ step_c52_linux() {
     [ -f "$d/$side.runid" ] || continue; rid=$(cat "$d/$side.runid")
     for pkg in $(cut -d' ' -f1 "$work/units" | sort -u); do
       side_has "$side" "$pkg" || continue
-      docker exec "$ctr" runuser -u "$lxuser" -- env -i sh -c '. "$0"; cd "$1" || exit 2; shift; exec "$@"'         "/work/$rid-artifacts/env.sh" "/work/$rid/internal/$pkg" "/work/$rid-artifacts/bin/$pkg.test"         -test.run '^$' -test.bench '^$' > /dev/null 2>&1 < /dev/null
+      docker exec "$ctr" runuser -u "$lxuser" -- env -i sh -c '. "$0"; cd "$1" || exit 2; shift; exec "$@"' \
+        "/work/$rid-artifacts/env.sh" "/work/$rid/internal/$pkg" "/work/$rid-artifacts/bin/$pkg.test" \
+        -test.run '^$' -test.bench '^$' > /dev/null 2>&1 < /dev/null
     done
   done
   load before-c52-linux
@@ -500,7 +545,14 @@ step_c52_linux() {
   echo "iterations=$ITER rounds=$ROUNDS percall=$PERCALL benchtime=${QUIET_BENCHTIME:-per row} pkgs=${QUIET_PKGS:-all} filter=${QUIET_BENCH_FILTER:-none}"
   echo "QOMPACK_UNDER_COLOAD unset; work=$work container=$ctr user=$lxuser"
   go version; nproc 2>/dev/null
+  echo "candidate repo git status --porcelain (tracked changes refused above):"
+  printf '%s\n' "${cand_status:-  (clean)}"
 } >> "$info"
+gopath=$(go env GOPATH); gomodcache=$(go env GOMODCACHE)
+# isoenv's words are split unquoted, so none of its paths may hold whitespace.
+for v in "$work" "$gopath" "$gomodcache"; do
+  case $v in *[[:space:]]*) echo "refusing: path with whitespace: $v" >&2; exit 2 ;; esac
+done
 landed "run record: $info"
 guard="$work/homeguard-$(date -u +%Y%m%dT%H%M%SZ).json"
 python "$(winpath "$here")/homeguard.py" snap "$guard" > /dev/null || { echo "homeguard snap failed" >&2; exit 2; }
