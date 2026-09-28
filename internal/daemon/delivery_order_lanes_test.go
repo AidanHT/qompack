@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -188,6 +189,170 @@ func TestDeliveryOrder_LaneOverflowIsDrainedOnRequest(t *testing.T) {
 	require.Eventually(t, func() bool { return liveOrderAcked(dd, leases) == k }, liveOrderBound, liveOrderTick,
 		"the refused jobs were never drained: %s", liveOrderDiag{dd, leases})
 	liveOrderRequireTurns(t, o, sess, k)
+}
+
+// TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (F8 under load): the drain
+// the lanes ask for runs under idleRunBudget, and on a loaded host its pass can run out of that
+// budget before it has published every job the lanes refused. Nothing asked again: the lane had run
+// dry and dropped its overflow when it asked, and the cut pass's release woke no lane, because the
+// session had none left. The refused jobs then waited for the session's next arrival, a flush or
+// DetectAfterSeconds of project-wide idleness — the waits F8 exists to remove. Under -race and CPU
+// co-load on Linux TestDeliveryOrder_LaneOverflowIsDrainedOnRequest met exactly that one run in
+// six: one requested pass, one line published, "context deadline exceeded" after 2.26 s, and the
+// last refused job never drained. Here the drain's first attempt at the first refused job takes
+// longer than the whole pass budget, as a publication on such a host does, so the pass has no budget
+// left for the other two. The requester must ask for another pass, and the rest must publish in
+// arrival order without anyone draining.
+func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *testing.T) {
+	dd, o, root := laneTestDaemon(t)
+	const sess core.SessionID = "sess-overflow-cut-short"
+	const perSession, k = 2, 5
+	laneTestSetLanes(dd, laneCapacity, perSession)
+	cfg := dd.drainConfig()
+	dispatch := cfg.Dispatch
+	var cut atomic.Bool
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Event != nil && req.Event.Prompt == "p2" && cut.CompareAndSwap(false, true) {
+			// Slower than the whole pass budget: whatever the pass does with this line, it has no
+			// budget left for the next one.
+			timer := time.NewTimer(idleRunBudget + time.Second)
+			defer timer.Stop()
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				return ipc.Response{Err: ctx.Err().Error()}
+			}
+		}
+		return dispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	run, open := liveOrderPromptGate(t, dd.runIngested, "p0")
+	liveOrderWorkers(t, dd, 2, run)
+	laneTestStartDrainRequests(t, dd)
+	t.Cleanup(open)
+
+	leases := make([]deliveryLease, k)
+	for i := range k {
+		req := spD3Prompt(dd, root, sess, orderNonce(i), fmt.Sprintf("p%d", i))
+		acceptPrompt(t, dd, req)
+		leases[i] = liveOrderLease(t, dd, req.Nonce)
+	}
+	require.Eventually(t, func() bool { return dd.m.Counter(counterOrderingLaneFull).Value() == k-perSession },
+		liveOrderBound, liveOrderTick, "every job past the session's share is refused while its lane is busy")
+
+	open()
+	require.Eventually(t, func() bool { return liveOrderAcked(dd, leases) == k }, liveOrderBound, liveOrderTick,
+		"the refused jobs a pass cut short by its budget left were never drained: %s", liveOrderDiag{dd, leases})
+	require.True(t, cut.Load(), "the requested pass met the slow publication and ran out of its budget")
+	require.Equal(t, int64(1), dd.m.Counter(counterOrderingDrainRequested).Value(),
+		"the lanes asked once; the second pass is the requester's own, for the pass it saw cut short")
+	liveOrderRequireTurns(t, o, sess, k)
+}
+
+// TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget (F8 under heavier load): asking
+// again is not enough when one line's publication takes longer than the whole pass budget. The
+// budget cancelled the line it was publishing, every pass, so each pass it asked for again cut the
+// same line and nothing ever published: with CPU and fsync co-load on top of two other gate runs,
+// TestDeliveryOrder_LaneOverflowIsDrainedOnRequest failed 4 times in 16 at 4 of 5 acknowledged, its
+// log showing pass after pass end "context deadline exceeded" after about 2.6 s with the same prompt
+// capture "not durable" each time. The daemon's own worst case for one line is drainLineDeadline,
+// longer than the pass budget (idleRunBudget). Here every attempt at the second refused job takes a
+// second longer than the whole budget and well inside drainLineDeadline, as such a publication does;
+// a requested pass must give a line it has started its own deadline, and stop starting lines once
+// its budget is spent. The row counts the attempts cancelled inside their slow part: the pass budget
+// did that to every attempt, and a line's own deadline, which ends after it, cannot. (An attempt can
+// still run out of its own deadline after the slow part on a loaded host and be tried again; that is
+// the per-line deadline doing its job, not the budget.)
+func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing.T) {
+	dd, o, root := laneTestDaemon(t)
+	const sess core.SessionID = "sess-overflow-slow-line"
+	const perSession, k = 2, 5
+	slow := idleRunBudget + time.Second // longer than a pass's budget, inside drainLineDeadline
+	require.Less(t, slow, drainLineDeadline, "fixture: the slow line must fit its own deadline")
+	laneTestSetLanes(dd, laneCapacity, perSession)
+	cfg := dd.drainConfig()
+	dispatch := cfg.Dispatch
+	var attempts, cutInside atomic.Int32
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Event != nil && req.Event.Prompt == "p3" {
+			attempts.Add(1)
+			timer := time.NewTimer(slow)
+			defer timer.Stop()
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				cutInside.Add(1)
+				return ipc.Response{Err: ctx.Err().Error()}
+			}
+		}
+		return dispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	run, open := liveOrderPromptGate(t, dd.runIngested, "p0")
+	liveOrderWorkers(t, dd, 2, run)
+	laneTestStartDrainRequests(t, dd)
+	t.Cleanup(open)
+
+	leases := make([]deliveryLease, k)
+	for i := range k {
+		req := spD3Prompt(dd, root, sess, orderNonce(i), fmt.Sprintf("p%d", i))
+		acceptPrompt(t, dd, req)
+		leases[i] = liveOrderLease(t, dd, req.Nonce)
+	}
+	require.Eventually(t, func() bool { return dd.m.Counter(counterOrderingLaneFull).Value() == k-perSession },
+		liveOrderBound, liveOrderTick, "every job past the session's share is refused while its lane is busy")
+
+	open()
+	require.Eventually(t, func() bool { return liveOrderAcked(dd, leases) == k }, liveOrderBound, liveOrderTick,
+		"a refused job slower than a pass's budget was never drained: %s", liveOrderDiag{dd, leases})
+	require.Positive(t, attempts.Load(), "fixture: the drain met the slow line")
+	require.Zero(t, cutInside.Load(),
+		"no pass cancelled the slow line inside its slow part: the budget never cuts a line it started")
+	liveOrderRequireTurns(t, o, sess, k)
+}
+
+// TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress: the requester asks for another
+// pass itself after a pass that stopped with work left, because nothing else asks for it. It asked
+// again after every pass that ended "deadline exceeded", and a line that runs out of its own
+// drainLineDeadline ends a pass that way too: a line whose dispatch never finishes then made the
+// requester run pass after pass for as long as the daemon lived, each spending the line's whole
+// deadline under the drain's mutex, where before this branch it stopped after one. A pass stopped by
+// its budget has consumed a line, and a pass a line's deadline stopped asks again only if it
+// published a line first, so every pass the requester asks for itself follows one that made progress.
+// Here a line that never finishes follows one that publishes: the first pass publishes and asks
+// again; the next meets only the line that never finishes, and must not.
+func TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	ahead := liveOrderTool(dd, root, "sess-requested-ahead", 1)
+	wedged := liveOrderTool(dd, root, "sess-requested-wedged", 2)
+	cfg := dd.drainConfig()
+	dispatch := cfg.Dispatch
+	var attempts atomic.Int32
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Nonce == wedged.Nonce {
+			attempts.Add(1)
+			<-ctx.Done() // never finishes: only the line's own deadline ends it
+			return ipc.Response{Err: ctx.Err().Error()}
+		}
+		return dispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	// Pass order is lexical: the line that publishes first, then the one that never finishes.
+	writeHookSpool(t, root, "client-8501.ndjson", ahead)
+	writeHookSpool(t, root, "client-8502.ndjson", wedged)
+	ctx := context.Background()
+
+	dd.requestedDrainPass(ctx)
+	require.True(t, spoolWatchPublished(dd, ahead.Nonce), "fixture: the first pass published the line ahead")
+	require.Equal(t, 1, len(dd.ing.drainKick), "a pass that made progress and stopped with work left asks again")
+	<-dd.ing.drainKick // the requester takes it, as drainOnRequest does
+
+	dd.requestedDrainPass(ctx)
+	require.Positive(t, attempts.Load(), "fixture: a pass met the line that never finishes")
+	require.False(t, spoolWatchPublished(dd, wedged.Nonce), "fixture: the line never finishes")
+	require.Zero(t, len(dd.ing.drainKick),
+		"a pass that published nothing before a line ran out of its own deadline must not ask again: that "+
+			"line would keep the requester running passes for as long as the daemon lives")
 }
 
 // TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (F3, F5): when the committed

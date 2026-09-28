@@ -40,11 +40,13 @@ type IdleController interface {
 }
 
 // idleTask is one registration: a name (used for replace-in-place, dedup and the act. prefix
-// rule), a priority (ascending order = run order) and the function itself.
+// rule), a priority (ascending order = run order) and the function itself. paced marks a task that
+// honours what is left of the budget itself (registerPaced).
 type idleTask struct {
-	name string
-	prio int
-	fn   func(context.Context) error
+	name  string
+	prio  int
+	fn    func(context.Context) error
+	paced bool
 }
 
 // idleController is the real IdleController (task-5-spec.md idle.go).
@@ -91,17 +93,34 @@ const defaultIdleDetectAfterSeconds = 120 //nomagic:allow mirrors config.Default
 // Register adds fn to run when idle, replacing any existing task of the same name in place (its
 // priority is updated and the list re-sorted), or appending a new one. Lower prio runs first.
 func (c *idleController) Register(name string, prio int, fn func(ctx context.Context) error) {
+	c.register(idleTask{name: name, prio: prio, fn: fn})
+}
+
+// registerPaced is Register for a drain pass (the idle drain): RunOnce hands it what is left of the
+// budget as a pass budget (withPassBudget) instead of a context deadline. The pass then finishes
+// the line it started under that line's own drainLineDeadline and starts no other once the budget
+// is spent. A deadline cancelled the line in flight: a spooled delivery whose publication took
+// longer than the budget was cut by every idle pass, and every spool after it in pass order was
+// never reached, a session's SessionEnd flush included
+// (TestIdleDrain_ALineSlowerThanTheIdleBudgetIsPublishedAndDoesNotStrandTheRest). Cancelling the
+// context RunOnce is given still ends the pass, and the line in it, at once.
+func (c *idleController) registerPaced(name string, prio int, fn func(ctx context.Context) error) {
+	c.register(idleTask{name: name, prio: prio, fn: fn, paced: true})
+}
+
+// register adds t, replacing any existing task of the same name in place.
+func (c *idleController) register(t idleTask) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for i, t := range c.tasks {
-		if t.name == name {
-			c.tasks[i] = idleTask{name: name, prio: prio, fn: fn}
+	for i, have := range c.tasks {
+		if have.name == t.name {
+			c.tasks[i] = t
 			c.sortLocked()
 			return
 		}
 	}
-	c.tasks = append(c.tasks, idleTask{name: name, prio: prio, fn: fn})
+	c.tasks = append(c.tasks, t)
 	c.sortLocked()
 }
 
@@ -140,7 +159,9 @@ func (c *idleController) IsIdle(now core.UnixMilli) bool {
 }
 
 // RunOnce runs registered tasks in priority order until budget is spent, giving each task a
-// sub-context of budget-elapsed, recovering panics per task (which excludes that task from ran),
+// sub-context of budget-elapsed (a paced task gets that as a pass budget instead: registerPaced,
+// which is how the idle drain can run past the budget by the line it finishes), recovering panics
+// per task (which excludes that task from ran),
 // and skipping any "act."-prefixed task when the current mode does not MayAct(). Elapsed time is
 // measured through the injected Clock, not time.Now, so a test can simulate a task "consuming the
 // whole budget" by advancing a FakeClock inside the task's own function body rather than
@@ -161,7 +182,15 @@ func (c *idleController) RunOnce(ctx context.Context, budget time.Duration) ([]s
 		if remain <= 0 {
 			break
 		}
-		tctx, cancel := context.WithTimeout(ctx, remain)
+		var tctx context.Context
+		cancel := func() {}
+		if t.paced {
+			// A pass budget, not a deadline (registerPaced): the line in flight when it runs out is
+			// finished under its own drainLineDeadline.
+			tctx = withPassBudget(ctx, remain)
+		} else {
+			tctx, cancel = context.WithTimeout(ctx, remain)
+		}
 		panicked, err := c.runTask(tctx, t)
 		cancel()
 		if panicked {

@@ -176,3 +176,43 @@ func TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending(t *te
 		})
 	}
 }
+
+// TestIdleDrain_ALineSlowerThanTheIdleBudgetIsPublishedAndDoesNotStrandTheRest: RunOnce hands each
+// idle task what is left of idleRunBudget, and gave the drain task that as a context deadline, which
+// cancelled the line the pass was publishing. A spooled delivery whose publication took longer than
+// the budget — a capture on a host with a deep fsync queue — was cancelled by every idle pass, and
+// every spool after it in pass order was never reached: under -race with CPU and fsync co-load on
+// Linux the flush's daemon in TestV3_LiveSessionWriteSetAndAppendOnly logged "ObservePrompt capture
+// not durable" and "idle task returned an error name=drain err=context deadline exceeded" at every
+// idle tick for minutes, with the session's SessionEnd flush stranded in a client spool behind it
+// and no "observer: gc" line in 300 s (runs/linux-diag, the x09 diagnostic's third iteration). The
+// idle drain must give the line it started its own drainLineDeadline, as a requested or watcher pass
+// does (withPassBudget), so the slow line publishes and the next pass reaches the spool behind it.
+// The row counts the attempts cancelled inside the slow part, which the idle budget did to every
+// attempt and a line's own deadline cannot.
+func TestIdleDrain_ALineSlowerThanTheIdleBudgetIsPublishedAndDoesNotStrandTheRest(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	slowReq := liveOrderTool(dd, root, "sess-idle-slow", 1)
+	behind := liveOrderTool(dd, root, "sess-idle-behind", 2)
+	slow := idleRunBudget + time.Second // longer than the idle budget, inside drainLineDeadline
+	require.Less(t, slow, drainLineDeadline, "fixture: the slow line must fit its own deadline")
+	counts := spoolWatchSlowDrain(dd, map[string]bool{slowReq.Nonce: true}, slow)
+	// Pass order is lexical: the slow spool comes first, the other waits behind it.
+	writeSpoolLines(t, root, "client-8401.ndjson", slowReq)
+	writeSpoolLines(t, root, "client-8402.ndjson", behind)
+
+	ctx := context.Background()
+	deadline := time.Now().Add(liveOrderBound)
+	for !spoolWatchPublished(dd, slowReq.Nonce) || !spoolWatchPublished(dd, behind.Nonce) {
+		require.True(t, time.Now().Before(deadline),
+			"idle passes never published the slow line and the spool behind it: slow=%v behind=%v, %d attempts, %d cut inside the slow part",
+			spoolWatchPublished(dd, slowReq.Nonce), spoolWatchPublished(dd, behind.Nonce),
+			counts.attempts.Load(), counts.cutInside.Load())
+		ran, err := dd.idle.RunOnce(ctx, idleRunBudget)
+		require.NoError(t, err)
+		require.Contains(t, ran, idleTaskDrain, "fixture: the idle pass ran the drain")
+	}
+	require.Positive(t, counts.attempts.Load(), "fixture: an idle pass met the slow line")
+	require.Zero(t, counts.cutInside.Load(),
+		"no idle pass cancelled the slow line inside its slow part: the budget never cuts a line it started")
+}

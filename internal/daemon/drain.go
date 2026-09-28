@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -28,6 +29,107 @@ import (
 // drainLineDeadline bounds how long Drain waits for a single dispatched request to return
 // (task-3-spec.md drain.go: "a per-line context deadline of 5s").
 const drainLineDeadline = 5 * time.Second
+
+// passBudgetKey carries a budgeted pass's budget on its context (withPassBudget).
+type passBudgetKey struct{}
+
+// passBudget is a budgeted pass's end, whether the pass has consumed a line yet, and, once the budget
+// has stopped the pass, the spool files it left unfinished (notePassLeft).
+type passBudget struct {
+	end      time.Time
+	consumed atomic.Bool
+	// left holds the base names of the spool files the pass had not finished when its budget stopped
+	// it: the one it stopped in or before, and every one after it. It is written by the pass and read
+	// by whoever made the budget once the pass has returned (leftUnfinished).
+	left map[string]bool
+}
+
+// leftUnfinished reports whether the pass the budget belonged to stopped on it before it had finished
+// the spool file base. A pass that finished, or stopped for any other reason, left none.
+func (b *passBudget) leftUnfinished(base string) bool {
+	return b.left[base]
+}
+
+// errPassBudgetSpent ends a budgeted pass between two lines once its budget is spent. It wraps
+// context.DeadlineExceeded, so every caller that stops on a spent context stops on it too, and a
+// caller that asks again after a pass its budget cut short (drainOnRequest) sees one.
+var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: %w", context.DeadlineExceeded)
+
+// withPassBudget returns ctx carrying a budget for the pass it is handed to: once budget has passed
+// and the pass has consumed at least one line, it starts no further line; a line it has started keeps
+// its own drainLineDeadline. A deadline on the pass's context cancelled the line in flight instead,
+// so a line whose publication took longer than the budget (a capture on a host with a deep fsync
+// queue) was cancelled by every pass and published by none
+// (TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget), and a pass whose own
+// bookkeeping outlasted the budget on such a host (listing, progress state and the spool syncs
+// before its first line) reached no line at all, however often it was asked again. A budgeted pass
+// therefore always consumes a line when it can, and runs past its budget by that bookkeeping and at
+// most one line's drainLineDeadline. Cancelling ctx still ends the pass, and the line in it, at once.
+// The budget is on real time, as a context deadline is, never on the daemon's clock. It is the pass's
+// alone: what the pass hands a line to runs without it (withoutPassBudget).
+func withPassBudget(ctx context.Context, budget time.Duration) context.Context {
+	pass, _ := newPassBudget(ctx, budget)
+	return pass
+}
+
+// newPassBudget is withPassBudget that also returns the budget, for a caller that reads what the
+// pass left unfinished once it has returned (passBudget.leftUnfinished: the client-spool watcher).
+func newPassBudget(ctx context.Context, budget time.Duration) (context.Context, *passBudget) {
+	b := &passBudget{end: time.Now().Add(budget)}
+	return context.WithValue(ctx, passBudgetKey{}, b), b
+}
+
+// passStopped reports why a pass must start no further line: ctx's own error, or errPassBudgetSpent
+// once a budget withPassBudget set has passed and the pass has consumed a line
+// (notePassConsumed). Once it answers non-nil it never answers nil again.
+func passStopped(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil && b.consumed.Load() && !time.Now().Before(b.end) {
+		return errPassBudgetSpent
+	}
+	return nil
+}
+
+// notePassConsumed records that the pass ctx carries has consumed a line, which lets its budget end it
+// (passStopped). A pass without a budget ignores it.
+func notePassConsumed(ctx context.Context) {
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil {
+		b.consumed.Store(true)
+	}
+}
+
+// notePassLeft records on the budget ctx carries, when err says that budget stopped the pass, the
+// spool files the pass left unfinished: files, the one it stopped in or before and every one after it
+// in pass order (passBudget.leftUnfinished). Any other stop records nothing.
+func notePassLeft(ctx context.Context, err error, files []string) {
+	b, _ := ctx.Value(passBudgetKey{}).(*passBudget)
+	if b == nil || !errors.Is(err, errPassBudgetSpent) {
+		return
+	}
+	b.left = make(map[string]bool, len(files))
+	for _, path := range files {
+		b.left[filepath.Base(path)] = true
+	}
+}
+
+// withoutPassBudget returns ctx with no pass budget on it, keeping its cancellation and every other
+// value. A budget belongs to the pass that set it and ends at the pass's boundary, where the pass hands
+// a line on (dispatchPending): the handler that publishes the line runs under the line's own
+// drainLineDeadline, and the session end a replayed flush starts runs under the ends' lifetime with no
+// budget but its own. A context value outlives the context.WithoutCancel that detaches a session end
+// from the pass (launchSessionEnd), and by the time the end drains the budget is spent and the pass
+// has consumed a line, so an end started from a budgeted pass ran its settle and final drains under
+// that spent budget: both stopped at their first spool file, the flush's spool was never absorbed and
+// its recovery marker stayed at stage "drain"
+// (TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget).
+func withoutPassBudget(ctx context.Context) context.Context {
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, passBudgetKey{}, (*passBudget)(nil))
+}
 
 // drainReadBufferBytes sizes the buffered reader Drain scans each spool file with.
 const drainReadBufferBytes = 64 << 10 // 64 KiB
@@ -376,12 +478,13 @@ func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 		return dr.unpersisted(gaps, errors.Join(stopErr, err))
 	}
 
-	for _, path := range files {
+	for i, path := range files {
 		if clientOnly && !isClientSpoolName(filepath.Base(path)) {
 			continue
 		}
-		if ctx.Err() != nil {
-			stopErr = errors.Join(stopErr, ctx.Err())
+		if err := passStopped(ctx); err != nil {
+			stopErr = errors.Join(stopErr, err)
+			notePassLeft(ctx, err, files[i:])
 			break
 		}
 		n, ferr := dr.drainFile(ctx, path, st, gaps)
@@ -391,6 +494,7 @@ func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 		}
 		if errors.Is(ferr, context.Canceled) || errors.Is(ferr, context.DeadlineExceeded) {
 			stopErr = errors.Join(stopErr, ferr)
+			notePassLeft(ctx, ferr, files[i:])
 			break
 		}
 		if dr.cfg.Metrics != nil {
@@ -514,6 +618,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	var deferred []deferredLine
 
 	consume := func(start, next int64) {
+		notePassConsumed(ctx)
 		if start != offset {
 			// Consumed out of order; the front rolls over it later. Bounded (item 3): past the roll-
 			// forward memory cap we stop recording it — the line is already dispatched and ACKED, so a
@@ -623,12 +728,12 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	// fixpoint. It never blocks: a line that is still deferred is simply kept for a later pass.
 	reattempt := func() error {
 		for {
-			if err := ctx.Err(); err != nil {
+			if err := passStopped(ctx); err != nil {
 				return err
 			}
 			progressed := false
 			for idx := 0; idx < len(deferred); {
-				if err := ctx.Err(); err != nil {
+				if err := passStopped(ctx); err != nil {
 					return err
 				}
 				done, _, dispatched, changed, err := processOne(deferred[idx])
@@ -661,11 +766,9 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 
 readLoop:
 	for {
-		select {
-		case <-ctx.Done():
+		if passStopped(ctx) != nil {
 			canceled = true
 			break readLoop
-		default:
 		}
 
 		raw, err := r.ReadBytes('\n')
@@ -862,7 +965,7 @@ readLoop:
 	// reports those bytes as pending from the record instead, which is where that case is answered.
 	gaps.hold(base, size-fs.Size)
 	if canceled {
-		return count, ctx.Err()
+		return count, passStopped(ctx)
 	}
 	if readErr != nil {
 		// Persist the progress this pass DID make before surfacing the error. fs.Offset advances
@@ -1262,8 +1365,11 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 		return "", core.ErrDegraded
 	}
 	resolved = verdict.Request
+	// The pass's budget stays with the pass (withoutPassBudget): what the line is handed to below, a
+	// session end or the handler, runs under its own bounds.
+	lineCtx := withoutPassBudget(ctx)
 	if leased && resolved.Op == ipc.OpFlush && dr.cfg.Seen != nil && dr.cfg.EndSession != nil &&
-		dr.cfg.EndSession(ctx, resolved, key, lease) {
+		dr.cfg.EndSession(lineCtx, resolved, key, lease) {
 		return "", errSessionEndStarted
 	}
 	// Only an observation has a capture to publish. A control line — a session start, checkpoint or
@@ -1278,7 +1384,7 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 			return "", fmt.Errorf("daemon: drain: capture not durable: %w", err)
 		}
 	}
-	dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
+	dctx, cancel := context.WithTimeout(lineCtx, drainLineDeadline)
 	defer cancel()
 	if leased {
 		// A replayed flush settles only the arrivals before its own (sessionEndArrival).

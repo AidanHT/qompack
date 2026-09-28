@@ -32,7 +32,10 @@ import (
 //
 // A spool a pass could not consume — its line waits on an earlier arrival of its session that is
 // still publishing, which is the usual reason, or on one nothing will ever publish — is passed over
-// again after twice the previous wait (spoolRetryAfter): 2, 4, 8, ... intervals. The retries end once
+// again after twice the previous wait (spoolRetryAfter): 2, 4, 8, ... intervals. A pass that stopped
+// because its budget was spent (withPassBudget: it finishes the line it started, then starts no
+// other) judged nothing about the spools it left unfinished, so those are due again at the next look;
+// the ones it reached and finished keep the doubling wait. The retries end once
 // the spool has been waiting for its first pass for longer than the idle drain's own horizon
 // (DetectAfterSeconds): past it the idle drain, a drain the lanes ask for (the pass leased the line,
 // so its session's next arrival parks behind it and asks), the session's flush or a restart takes
@@ -175,7 +178,7 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 	}
 	present := make(map[string]bool, len(listed))
 	unsettled := false
-	var due []*spoolWatchEntry
+	due := map[string]*spoolWatchEntry{}
 	for _, de := range listed {
 		if !de.Type().IsRegular() || !isClientSpoolName(de.Name()) {
 			continue
@@ -195,7 +198,7 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 		}
 		e.settled = true
 		if ok, _ := e.retryDue(now, w.horizon); ok {
-			due = append(due, e)
+			due[base] = e
 		}
 	}
 	for base := range entries {
@@ -208,18 +211,29 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 		if d.m != nil {
 			d.m.Counter(counterSpoolWatchDrains).Add(1)
 		}
-		pass, cancel := context.WithTimeout(ctx, idleRunBudget)
+		// A pass budget, not a deadline (withPassBudget): the line the pass is publishing when the
+		// budget runs out keeps its own drainLineDeadline and is published.
+		pass, budget := newPassBudget(ctx, idleRunBudget)
 		if dr := d.drain.Load(); dr != nil {
 			if _, perr := dr.DrainClientSpools(pass); perr != nil && ctx.Err() == nil {
 				d.log.Debug("daemon: a client-spool pass ended early", "err", perr)
 			}
 		}
-		cancel()
-		for _, e := range due {
+		// A spool the pass left unfinished because its budget was spent has not been found
+		// unconsumable: the pass may never have reached it. It is due again at the next look rather
+		// than after the doubling wait meant for a spool a pass could not consume. A spool the pass
+		// reached and finished without consuming it was found so, however the pass ended, and keeps
+		// that wait (TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached). The horizon still
+		// runs from each one's first pass.
+		for base, e := range due {
 			if e.passes == 0 {
 				e.first = now
 			}
 			e.passes++
+			if budget.leftUnfinished(base) {
+				e.next = now
+				continue
+			}
 			e.next = now.Add(spoolRetryAfter(w.every, e.passes))
 		}
 	}
