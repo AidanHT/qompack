@@ -94,6 +94,17 @@ class HomeGuardTest(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("lost pre-existing ['bin/aaa/']", out)
 
+    def test_qompack_absent_at_snap_then_created_is_info(self):
+        shutil.rmtree(os.path.join(self.home, ".qompack"))
+        os.remove(self.snap)
+        self.assertEqual(self.run_("snap")[0], 0)
+        os.makedirs(os.path.join(self.home, ".qompack", "logs"))
+        os.makedirs(os.path.join(self.home, ".qompack", "bin", "abc"))
+        rc, out = self.run_("check")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("INFO  .qompack/ gained", out)
+        self.assertNotIn("lost pre-existing", out)
+
     def test_credentials_never_opened(self):
         opened = []
         real_open = builtins.open

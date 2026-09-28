@@ -13,7 +13,8 @@ listings are taken. CLAUDE_CONFIG_DIR is deliberately ignored: the real profile 
 
 ~/.qompack is listed by name only (top level and bin/). Entries a run ADDS there (the D10 staged
 daemon copies, logs/) are reported as INFO, not failures; an entry that existed at snap time and is
-gone is a failure, because the run must never delete the user's global Qompack state.
+gone is a failure, because the run must never delete the user's global Qompack state. A home with
+no ~/.qompack at snap time counts as an empty listing, so the first session creating it is INFO.
 
 check prints hashes (12 hex chars) and counts, and names entries only when they differ, so its
 output can be committed as evidence. The snap file itself lists the operator's installed plugins:
@@ -99,7 +100,8 @@ def check(path, home):
         else:
             bad = True
             print(f"DIFF  {tree}/ lost {sorted(a - b)} gained {sorted(b - a)}")
-    a, b = set(before["qompack"]), set(now["qompack"])
+    # "<absent>" means no ~/.qompack at all: an empty set, so a run creating it is only INFO.
+    a, b = set(before["qompack"]) - {"<absent>"}, set(now["qompack"]) - {"<absent>"}
     if a - b:
         bad = True
         print(f"DIFF  .qompack/ lost pre-existing {sorted(a - b)}")
