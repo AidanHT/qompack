@@ -164,6 +164,26 @@ func projectEstablished(l paths.Layout) bool {
 	return err == nil && fi.IsDir()
 }
 
+// spawnDaemon is the spawner the lazily spawning clients of `qompack mcp` and the command frontends
+// hand ipc: daemon.SpawnDetached, a variable only so a test can observe whether a spawn was reached
+// without starting a process.
+var spawnDaemon = daemon.SpawnDetached
+
+// daemonClientState is the State a lazily spawning client of `qompack mcp` or the command frontends
+// is built with: state.bin as ipc.ReadState reads it, with DaemonEnabled also requiring the loaded
+// configuration's runtime.daemon.enabled, exactly as the hook path does (doHook, FR-6).
+//
+// state.bin records the DaemonEnabled of the daemon that wrote it, and a daemon that died without a
+// clean stop leaves it behind. Trusting it alone let a record written while the daemon was enabled
+// spawn a daemon for a project whose configuration has since disabled it, which docs/release.md §4
+// promises never happens ("no resident process and no lock file"). A client whose State says the
+// daemon is disabled never dials and never spawns (ipc.Client.Send, step 2).
+func daemonClientState(root string, cfg config.Config) ipc.State {
+	st := ipc.ReadState(root, cfg)
+	st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
+	return st
+}
+
 // newCommandClient builds the transport the frontends reach the daemon over.
 //
 // It is the same lazy-spawn seam `qompack mcp` uses, and for the same reason: the daemon owns the
@@ -175,9 +195,9 @@ func newCommandClient(root string, cfg config.Config, env Env,
 	addr, _ := ipc.Resolve(root)
 	return ipc.NewClientWithOptions(addr, nopSpool{}, log, reg, ipc.ClientOptions{
 		ProjectRoot: root,
-		State:       ipc.ReadState(root, cfg),
+		State:       daemonClientState(root, cfg),
 		Self:        env.Self,
-		Spawn:       daemon.SpawnDetached,
+		Spawn:       spawnDaemon,
 		Clock:       clk,
 	})
 }
