@@ -162,7 +162,12 @@ A hook that cannot reach the daemon, or whose acknowledgement comes too late, ap
 its own client spool and still exits 0. While requests keep arriving, the daemon's client-spool
 watcher replays such a spool about two check intervals after it was written and retries one that
 must still wait for an earlier delivery of its session (C1.13); the startup, flush, idle and
-operator drains replay whatever is left.
+operator drains replay whatever is left. The idle drain runs once the project has had no activity
+for `scheduler.idle.detectAfterSeconds` (120 s by default), looked at on a tick of at most 30 s.
+The watcher's passes, the idle drain and a drain the ingest's lanes ask for share a soft 2 s pass
+budget (owner decision D31, `idleRunBudget`): once it is spent a pass starts no new line, and the
+line in progress finishes under its own 5 s `drainLineDeadline` rather than being cut. The drains a
+session end runs for itself are not budgeted.
 
 A replayed request is one whose hook has already answered the host without the daemon, so a replay
 does the request's bookkeeping and nothing the host would have to see. A replayed `SessionStart`
