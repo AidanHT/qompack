@@ -1,0 +1,10 @@
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1542 fail=0 skip=1)
+FAIL      github.com/qompack/qompack/test/guards  (pass=195 fail=7 skip=0)
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)

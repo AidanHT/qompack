@@ -1,0 +1,13 @@
+TEMPORARY DIAGNOSTIC (w8-stagerace, 2026-09-28, never committed as a test): negative control for
+TestStageBinary_StartsACopyItsRenamerStillHolds. A temporary windows test in internal/daemon staged
+the test binary, then held the staged copy with DELETE|SYNCHRONIZE access sharing only
+write+delete (not read), and started it. Result (the file was removed after the run):
+
+=== RUN   TestDiagW8ExecRefusedByNonSharedHolder
+    zz_diag_w8_exec_windows_test.go:26: exec with a holder that does not share read: err=fork/exec C:\Users\Quant\AppData\Local\Temp\TestDiagW8ExecRefusedByNonSharedHolder856854436\001\.qompack\bin\3c0ce45d45a0f446cddae1a4966427fb173e8d985e970161ae26f3ffe7c6f0a0\qompack.exe: The process cannot access the file because it is being used by another process. out=""
+--- PASS: TestDiagW8ExecRefusedByNonSharedHolder (0.20s)
+PASS
+
+So CreateProcess's image open IS subject to share modes, and the renamer-shaped holder (DELETE
+access, sharing read+write+delete) in the committed row does not refuse it: the start half of the
+race is safe, only verification through os.Open was ever refused.
