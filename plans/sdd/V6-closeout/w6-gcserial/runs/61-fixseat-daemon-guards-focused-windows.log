@@ -1,0 +1,85 @@
+# cmd: go test ./internal/daemon -run '^(TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass|TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot)$' -count=3 -v
+# then: go test ./test/guards -run '^(TestGuard_StoreGCRunsOnlyInsideTheDaemon|TestGuard_GCCallScannerSeesEveryShape|TestGuard_HotFilesAreReadWithDeleteSharing|TestGuard_SharedReaderScannerSeesAForbiddenCall)$' -count=1 -v
+# commit: ffa6ae7 (product tree identical to 4b33c19); host: windows, co-loaded; review-fix seat re-confirmation
+# exit: 0 and 0; finished by: 2026-09-27T19:49:38Z
+=== RUN   TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot
+--- PASS: TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot (3.62s)
+=== RUN   TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass
+--- PASS: TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass (1.97s)
+=== RUN   TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot
+--- PASS: TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot (8.63s)
+=== RUN   TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass
+--- PASS: TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass (2.70s)
+=== RUN   TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot
+--- PASS: TestDeliveryReaders_V6_GCAtEveryRotationStepKeepsEveryUnsettledRoot (5.80s)
+=== RUN   TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass
+--- PASS: TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass (6.56s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	29.698s
+# ---- guards ----
+=== RUN   TestGuard_StoreGCRunsOnlyInsideTheDaemon
+--- PASS: TestGuard_StoreGCRunsOnlyInsideTheDaemon (2.49s)
+=== RUN   TestGuard_GCCallScannerSeesEveryShape
+--- PASS: TestGuard_GCCallScannerSeesEveryShape (0.00s)
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/spawnlock.go:readSpawnLock
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/spawnlock.go:removeSpawnLockIf
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/marker.go:readMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/cli/qompack_commands.go:readPersistedMetrics
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/flush.go:loadStoreState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/capture_sidecar.go:ReadCaptureSidecar
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/lifecycle.go:CompactRetentionRoots
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/gcrun.go:loadGCState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/gcrun.go:pendingMarkerRoot
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/tokens/calibrate.go:loadCalibEntry
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/tokens/calibrate.go:persist
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/sketch/io.go:LoadWithLog
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/scheduler_state.go:readStateFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/handlers.go:LoadSessionRecovery
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/blob.go:readBlob
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/checkpoint/gitindex.go:readGitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/fault/fault.go:flushAndAwaitEnd
+--- PASS: TestGuard_HotFilesAreReadWithDeleteSharing (0.35s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/spawnlock.go:readSpawnLock (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/spawnlock.go:removeSpawnLockIf (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.04s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.04s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight (0.05s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/marker.go:readMarker (0.01s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/cli/qompack_commands.go:readPersistedMetrics (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/flush.go:loadStoreState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/capture_sidecar.go:ReadCaptureSidecar (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/lifecycle.go:CompactRetentionRoots (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/gcrun.go:loadGCState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/gcrun.go:pendingMarkerRoot (0.01s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/tokens/calibrate.go:loadCalibEntry (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/tokens/calibrate.go:persist (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/sketch/io.go:LoadWithLog (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/scheduler_state.go:readStateFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/handlers.go:LoadSessionRecovery (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/blob.go:readBlob (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/checkpoint/gitindex.go:readGitState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/fault/fault.go:flushAndAwaitEnd (0.04s)
+=== RUN   TestGuard_SharedReaderScannerSeesAForbiddenCall
+--- PASS: TestGuard_SharedReaderScannerSeesAForbiddenCall (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	3.124s

@@ -1,0 +1,10 @@
+run_id=cx-w6-gcserial-full-store-4b33c19-20260927T174141Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial
+rev=4b33c19
+commit=4b33c19f8853f3f0d5821f8f1f8dc6b9b8df5c54
+bundle_sha256=51f53e61b6303c8c041f3758201d39bad4120d6a768a12e28f8313c5385c62f7
+host_started_utc=2026-09-27T17:41:56Z
+inner_args=--timeout 60m -- ./internal/store
+host_finished_utc=2026-09-27T17:56:48Z
+container_exit=0

@@ -1,0 +1,14 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/fault": {
+   "result": "fail",
+   "passed": 54,
+   "failed": [
+    "TestFault_PublicationBoundaries/object_written_index_line_absent",
+    "TestFault_PublicationBoundaries"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

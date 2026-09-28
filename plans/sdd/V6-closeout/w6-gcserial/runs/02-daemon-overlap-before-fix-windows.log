@@ -1,0 +1,15 @@
+# cmd: go test ./internal/daemon -run '^TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass$' -count=1 -v
+# commit: f6095e2 + uncommitted test file internal/daemon/session_end_gc_test.go (no fix)
+=== RUN   TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass
+    session_end_gc_test.go:88: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial/internal/daemon/session_end_gc_test.go:88
+        	Error:      	Not equal: 
+        	            	expected: int(1)
+        	            	actual  : int32(2)
+        	Test:       	TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass
+        	Messages:   	a session end's GC pass ran while the idle scheduler's pass was still in the middle of its work
+--- FAIL: TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass (1.15s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.520s
+FAIL
+# exit: 1

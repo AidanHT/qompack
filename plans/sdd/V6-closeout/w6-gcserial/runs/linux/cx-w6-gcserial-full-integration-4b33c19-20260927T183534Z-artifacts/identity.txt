@@ -1,0 +1,21 @@
+run_id=cx-w6-gcserial-full-integration-4b33c19-20260927T183534Z
+commit=4b33c19f8853f3f0d5821f8f1f8dc6b9b8df5c54
+tree=59cb41bade1cde032f6b05b3d9b3c3dc998aa5c9
+bundle_sha256=86f93aebe962ddf3aeb58168c73495182130447a0c60a203ff540299f92c90f2
+started_utc=2026-09-27T18:35:58Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=60m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T18:57:44Z

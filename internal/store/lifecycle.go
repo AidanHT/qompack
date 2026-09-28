@@ -309,10 +309,12 @@ type RetentionCompaction struct {
 // on a later pass instead, and no declaration is ever lost to the race. Callers should still run it
 // at a quiescent point — the end of a GC pass, which is what wires it in.
 //
-// The read is shared (paths.ReadFileShared). The end of a GC pass is quiescent for this pass only:
-// session ends run concurrently since C1.15 and each runs a GC, so another pass's compaction can
-// replace the file while this one reads it, and on Windows an ordinary handle would fail that
-// replace (test/guards' sharedReaders).
+// The end of a GC pass is quiescent for GC: a store's passes run one at a time (gcgate.go), so no
+// other pass's compaction replaces the file while this one reads it. The read stays shared
+// (paths.ReadFileShared, test/guards' sharedReaders) because this function is exported and takes a
+// project root rather than a store: a caller outside a GC pass, or a pass on a second writable handle
+// of the project, is not ordered by that gate, and on Windows an ordinary handle would fail its
+// replace.
 func CompactRetentionRoots(projectRoot string) (RetentionCompaction, error) {
 	p := RetentionRootsPath(projectRoot)
 	before, err := paths.ReadFileShared(p)

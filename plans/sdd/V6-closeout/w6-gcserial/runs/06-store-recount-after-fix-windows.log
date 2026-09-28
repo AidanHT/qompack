@@ -1,0 +1,15 @@
+# cmd: go test ./internal/store -run '^TestGC_OverlappingCallsCountAResumedCursorOnce$' -count=3 -v
+# tree: b9c2676 plus the uncommitted test (committed next as the test commit)
+# host: windows, co-loaded
+=== RUN   TestGC_OverlappingCallsCountAResumedCursorOnce
+    gc_serial_test.go:270: removed 336 objects; the calls reported 336 and 0 deleted; Stats.Bytes 1761, on disk 1761
+--- PASS: TestGC_OverlappingCallsCountAResumedCursorOnce (13.04s)
+=== RUN   TestGC_OverlappingCallsCountAResumedCursorOnce
+    gc_serial_test.go:270: removed 336 objects; the calls reported 336 and 0 deleted; Stats.Bytes 1761, on disk 1761
+--- PASS: TestGC_OverlappingCallsCountAResumedCursorOnce (19.14s)
+=== RUN   TestGC_OverlappingCallsCountAResumedCursorOnce
+    gc_serial_test.go:270: removed 336 objects; the calls reported 336 and 0 deleted; Stats.Bytes 1761, on disk 1761
+--- PASS: TestGC_OverlappingCallsCountAResumedCursorOnce (27.76s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	60.286s
+# exit: 0

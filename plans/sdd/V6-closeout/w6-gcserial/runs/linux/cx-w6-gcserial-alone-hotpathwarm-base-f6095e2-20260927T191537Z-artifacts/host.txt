@@ -1,0 +1,10 @@
+run_id=cx-w6-gcserial-alone-hotpathwarm-base-f6095e2-20260927T191537Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial
+rev=f6095e2
+commit=f6095e2704d55336e2e4eac1c2ffc82f566c423b
+bundle_sha256=43215617ebd4fa711fd2953d03073ea1cfbde0ece61af0a655292a1807f90081
+host_started_utc=2026-09-27T19:15:52Z
+inner_args=--run ^TestIntegration_HotPathWarmWithRealResidentState$ --timeout 60m -- ./test/integration
+host_finished_utc=2026-09-27T19:21:38Z
+container_exit=1

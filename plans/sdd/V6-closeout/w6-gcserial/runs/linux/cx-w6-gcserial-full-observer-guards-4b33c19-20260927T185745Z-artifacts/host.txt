@@ -1,0 +1,10 @@
+run_id=cx-w6-gcserial-full-observer-guards-4b33c19-20260927T185745Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial
+rev=4b33c19
+commit=4b33c19f8853f3f0d5821f8f1f8dc6b9b8df5c54
+bundle_sha256=f1d5686c7187a05206e0f28c56e33bac33669e0a760e6e2063968542f5d2e970
+host_started_utc=2026-09-27T18:57:58Z
+inner_args=--timeout 60m -- ./internal/observer ./test/guards
+host_finished_utc=2026-09-27T19:04:50Z
+container_exit=1

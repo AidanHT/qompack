@@ -1,0 +1,58 @@
+# cmd: go test ./internal/store -run '^(TestGC_OverlappingCallsCountAResumedCursorOnce|TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass|TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule|TestGC_DeadlineBudgetRepricesAfterAMissedWindow|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestReadOnly_EveryExportedMethodIsClassified)$' -count=2 -v
+# commit: 4b33c19; host: windows, co-loaded
+# started: 2026-09-27T17:44:37Z
+=== RUN   TestGC_OverlappingCallsCountAResumedCursorOnce
+    gc_serial_test.go:270: removed 336 objects; the calls reported 336 and 0 deleted; Stats.Bytes 1761, on disk 1761
+--- PASS: TestGC_OverlappingCallsCountAResumedCursorOnce (6.57s)
+=== RUN   TestGC_DeadlineTruncatesAndResumes
+--- PASS: TestGC_DeadlineTruncatesAndResumes (23.41s)
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack
+--- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack (0.00s)
+=== RUN   TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule
+--- PASS: TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule (0.00s)
+=== RUN   TestGC_DeadlineBudgetRepricesAfterAMissedWindow
+--- PASS: TestGC_DeadlineBudgetRepricesAfterAMissedWindow (0.00s)
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1518: calibration 292.8381ms…321.9658ms over 3072 objects (fastest of 4); first check 33.3137ms (measured 33.3137ms); window 8.79x, slack 2.96x; check interval 38.72512ms; budget 98.770039ms; overshoot 17.254761ms after 767 objects on attempt 1 of 5; limit 77.45024ms
+--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (80.27s)
+=== RUN   TestReadOnly_EveryExportedMethodIsClassified
+=== PAUSE TestReadOnly_EveryExportedMethodIsClassified
+=== CONT  TestReadOnly_EveryExportedMethodIsClassified
+--- PASS: TestReadOnly_EveryExportedMethodIsClassified (0.03s)
+=== RUN   TestGC_OverlappingCallsCountAResumedCursorOnce
+    gc_serial_test.go:270: removed 336 objects; the calls reported 336 and 0 deleted; Stats.Bytes 1761, on disk 1761
+--- PASS: TestGC_OverlappingCallsCountAResumedCursorOnce (6.63s)
+=== RUN   TestGC_DeadlineTruncatesAndResumes
+--- PASS: TestGC_DeadlineTruncatesAndResumes (23.61s)
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack
+--- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack (0.00s)
+=== RUN   TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule
+--- PASS: TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule (0.00s)
+=== RUN   TestGC_DeadlineBudgetRepricesAfterAMissedWindow
+--- PASS: TestGC_DeadlineBudgetRepricesAfterAMissedWindow (0.00s)
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1518: calibration 370.8181ms…429.8716ms over 3072 objects (fastest of 4); first check 41.512ms (measured 41.512ms); window 8.93x, slack 2.99x; check interval 40.353024ms; budget 124.070145ms; overshoot 37.185255ms after 1023 objects on attempt 1 of 5; limit 80.706048ms
+--- PASS: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (59.43s)
+=== RUN   TestReadOnly_EveryExportedMethodIsClassified
+=== PAUSE TestReadOnly_EveryExportedMethodIsClassified
+=== CONT  TestReadOnly_EveryExportedMethodIsClassified
+--- PASS: TestReadOnly_EveryExportedMethodIsClassified (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	200.235s
+# exit: 0
