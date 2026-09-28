@@ -203,6 +203,7 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 		if recErr := o.recordPromptDurable(ctx, st, e, res, body, now, obs); recErr != nil {
 			return hookio.Empty(), recErr
 		}
+		o.notePromptHostOrder(ctx, e.SessionID, st.Turn)
 	}
 
 	// 6. §8.1 item 6, the user half of the action stream.
