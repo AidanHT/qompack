@@ -1027,8 +1027,12 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 		// restored. The returned Output is discarded — a replay never injects (no late output). A
 		// prompt that reached the daemon only by replay is therefore captured, not lost, which is the
 		// defect; and because the turn advances here, a later live prompt can no longer take turn 0.
+		// The host's own timestamp rides along (WithHostTS): the turn is publication order, and the
+		// record's host stamp is what shows a spooled prompt published behind one its host sent later
+		// (SP08-D3, owner decision D35).
 		if d.svc.ObservePrompt != nil {
-			if _, err := d.svc.ObservePrompt(observer.WithPromptCaptureOnly(ctx), *ev); err != nil {
+			capCtx := observer.WithPromptCaptureOnly(observer.WithHostTS(ctx, req.TS))
+			if _, err := d.svc.ObservePrompt(capCtx, *ev); err != nil {
 				d.log.Warn("daemon: ObservePrompt capture not durable; WAL retained for retry")
 				return ipc.Response{Err: "prompt capture failed"}
 			}
