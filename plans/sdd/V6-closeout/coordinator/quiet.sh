@@ -183,7 +183,7 @@ c52_plan() {
   : > "$work/rows"
   benches | while read -r pkg name bt src; do
     c=$(has "$cand" "$pkg" "$name"); b=$(has "$base_sha" "$pkg" "$name")
-    printf 'internal/%s\tBenchmark%s\t%s\t%s\t%s\t%s\n' "$pkg" "$name" "$bt" "$c" "$b" "$src" >> "$names"
+    printf 'internal/%s\tBenchmark%s\t%s\t%s\t%s\t%s\n' "$pkg" "$name" "${QUIET_BENCHTIME:-$bt}" "$c" "$b" "$src" >> "$names"
     [ "$c" = no ] && echo "WARNING: Benchmark$name is not on the candidate ($src)" | tee -a "$info"
     [ "$c$b" = nono ] && continue
     if [ -n "${QUIET_PKGS:-}" ]; then case " $QUIET_PKGS " in *" $pkg "*) ;; *) continue ;; esac; fi
@@ -254,13 +254,18 @@ lx_after() { # <step-dir> <side>: the clone must still be clean; binaries are ha
   docker exec "$ctr" sh -c "cd /work/$rid-artifacts && sha256sum bin/* 2>/dev/null" > "$d/binaries-$2.sha256"
 }
 
-# c52_analyse <step-dir> <os>: base.txt/candidate.txt, paired.txt, and the pinned benchstat.
+# c52_analyse <step-dir> <os>: base.txt/candidate.txt, paired.txt, completeness.tsv, the pinned
+# benchstat. Go prints nothing for a benchmark that calls b.Skip (no -test.v), so every selected row
+# is checked against the samples actually parsed: each side that has the benchmark must yield
+# ROUNDS x PERCALL ns/op samples for every full name under it (sub-benchmarks count separately).
+# A row with none is NO-RESULT, one with fewer is SHORT; either fails the step, and the row is run
+# once more with -test.v -test.benchtime 1x (c52-<os>-diag-*.log) so the skip reason is on record.
 c52_analyse() {
-  local d o
+  local d o rc_a
   d=$1; o=$2
-  python - "$d" "$o" > "$d/paired.txt" <<'EOF'
+  python - "$d" "$o" "$work/rows" "$((ROUNDS * PERCALL))" "$base_sha" > "$d/paired.txt" <<'EOF'
 import math, os, re, statistics, sys
-d, osn = sys.argv[1], sys.argv[2]
+d, osn, rowsf, want, base_sha = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5][:12]
 pat = re.compile(r'^c52-%s-r(\d+)-(base|candidate)-(.+)\.log$' % osn)
 runs = sorted((int(m.group(1)), m.group(3), m.group(2), f) for f in os.listdir(d) for m in [pat.match(f)] if m)
 line = re.compile(r'^(Benchmark\S+?)(?:-\d+)?\s+\d+\s+(.*\S)\s*$')
@@ -299,7 +304,10 @@ print('%-58s %5s %11s %11s %8s %7s %7s %10s %10s %9s %9s' % ('benchmark', 'pairs
 for b in sorted(data):
     sb, sc = data[b].get('base'), data[b].get('candidate')
     if not sb or not sc:
-        print('%-58s absent on %s' % (b, 'base' if not sb else 'candidate'))
+        if not sb:
+            print('%-58s candidate only: no sample on base %s, so no quiet before/after' % (b, base_sha))
+        else:
+            print('%-58s base only: no sample on the candidate' % b)
         continue
     rs = []
     for r in sorted(set(sb) & set(sc)):
@@ -313,15 +321,49 @@ for b in sorted(data):
     print('%-58s %5d %11s %11s %8.3f %7s %7.3f %10s %10s %9s %9s' % (b, len(rs), fmt(med(sb, 'ns/op')), fmt(med(sc, 'ns/op')), g,
           '%d/%d' % (k, n), signp(k, n), '-' if ab is None else '%g' % ab, '-' if ac is None else '%g' % ac,
           '-' if pb is None else '%g' % pb, '-' if pc is None else '%g' % pc))
+# Completeness: every selected row, on each side that has it.
+bad = 0
+with open(os.path.join(d, 'completeness.tsv'), 'w', encoding='utf-8', newline='\n') as cf, \
+        open(os.path.join(d, 'incomplete.txt'), 'w', encoding='utf-8', newline='\n') as inc:
+    cf.write('package\tbenchmark\tside\tstatus\tsamples\n')
+    print()
+    print('Completeness (%d ns/op samples expected per side and full name; NO-RESULT/SHORT fail the step):' % want)
+    for l in open(rowsf, encoding='utf-8'):
+        pkg, _, name, hc, hb = l.split()
+        top = 'Benchmark' + name
+        for side, has in (('base', hb), ('candidate', hc)):
+            if has != 'yes':
+                st, got = ('CANDIDATE-ONLY' if side == 'base' else 'NOT-ON-CANDIDATE'), '-'
+            else:
+                full = [f for f in data if f.split('/')[0] == top and side in data[f]]
+                counts = [sum(len(rd.get('ns/op', [])) for rd in data[f][side].values()) for f in full]
+                if not full:
+                    st, got = 'NO-RESULT', '0'
+                elif min(counts) < want:
+                    st, got = 'SHORT', ','.join('%s=%d' % (f, c) for f, c in zip(full, counts) if c < want)
+                else:
+                    st, got = 'OK', '%d name(s) x %d' % (len(full), want)
+            cf.write('internal/%s\t%s\t%s\t%s\t%s\n' % (pkg, top, side, st, got))
+            if st in ('NO-RESULT', 'SHORT'):
+                bad += 1
+                inc.write('%s %s %s\n' % (side, pkg, name))
+                print('%-58s %s on %s (%s)' % (top, st, side, got))
+            elif st == 'CANDIDATE-ONLY':
+                print('%-58s not on base %s: candidate only, no quiet before/after' % (top, base_sha))
+    print('%d incomplete side(s)' % bad)
+sys.exit(1 if bad else 0)
 EOF
-  say "c52-$o paired analysis exit=$?"
+  rc_a=$?
+  say "c52-$o paired analysis and completeness exit=$rc_a"
+  [ $rc_a -ne 0 ] && say "c52-$o: incomplete rows, see $d/completeness.tsv (diagnostics: $d/c52-$o-diag-*.log)"
   rec "$wrepo" "$d" "c52-$o-benchstat" -- go run -modfile=tools/pinned/go.mod golang.org/x/perf/cmd/benchstat \
     "base=$d/base.txt" "candidate=$d/candidate.txt"
   rec "$wrepo" "$d" "c52-$o-benchstat-csv" -- go run -modfile=tools/pinned/go.mod golang.org/x/perf/cmd/benchstat \
     -format csv "base=$d/base.txt" "candidate=$d/candidate.txt"
   landed "c52-$o raw samples: $d/base.txt $d/candidate.txt (per call: $d/c52-$o-r*-*.log + .json)"
   landed "c52-$o benchstat: $d/c52-$o-benchstat.log (csv: $d/c52-$o-benchstat-csv.log)"
-  landed "c52-$o paired ABBA table: $d/paired.txt"
+  landed "c52-$o paired ABBA table: $d/paired.txt; per-row completeness: $d/completeness.tsv"
+  return $rc_a
 }
 
 step_c51_win() {
@@ -394,7 +436,11 @@ step_c52_win() {
     load "after-c52-win-round-$r"
     r=$((r + 1))
   done
-  c52_analyse "$d" win
+  c52_analyse "$d" win || rc_s=1
+  while read -r side pkg name; do
+    rec "$work/src-$side/internal/$pkg" "$d" "c52-win-diag-$side-$pkg-$name" -- "$bin/$side/$pkg.test.exe" \
+      -test.run '^$' -test.bench "^Benchmark$name\$" -test.benchtime 1x -test.v -test.timeout 30m
+  done < "$d/incomplete.txt"
   return $rc_s
 }
 step_c52_linux() {
@@ -436,7 +482,12 @@ step_c52_linux() {
     r=$((r + 1))
   done
   for side in base candidate; do [ -f "$d/$side.runid" ] && lx_after "$d" "$side"; done
-  c52_analyse "$d" linux
+  c52_analyse "$d" linux || rc_s=1
+  while read -r side pkg name; do
+    rid=$(cat "$d/$side.runid")
+    lx_rec "$d" "$side" "c52-linux-diag-$side-$pkg-$name" "/work/$rid/internal/$pkg" "/work/$rid-artifacts/bin/$pkg.test" \
+      -test.run '^$' -test.bench "^Benchmark$name\$" -test.benchtime 1x -test.v -test.timeout 30m
+  done < "$d/incomplete.txt"
   landed "c52-linux clone checks: $d/source-status-after-*.txt, binaries $d/binaries-*.sha256"
   return $rc_s
 }
