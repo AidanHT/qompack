@@ -1,0 +1,8 @@
+=== RUN   TestE2E_ObserverThroughDaemon
+--- PASS: TestE2E_ObserverThroughDaemon (9.54s)
+=== RUN   TestE2E_VerbatimPromptSurvivesRestart
+--- PASS: TestE2E_VerbatimPromptSurvivesRestart (7.99s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (25.13s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	43.020s

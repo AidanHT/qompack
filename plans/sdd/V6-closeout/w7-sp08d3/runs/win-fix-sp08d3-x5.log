@@ -1,0 +1,72 @@
+=== RUN   TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero
+--- PASS: TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero (0.49s)
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order
+--- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero (0.83s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second (0.43s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order (0.40s)
+=== RUN   TestSP08D3_DistinctSameTextRepliesStayDistinct
+--- PASS: TestSP08D3_DistinctSameTextRepliesStayDistinct (0.45s)
+=== RUN   TestSP08D3_CaptureFailureIsNotAcknowledged
+--- PASS: TestSP08D3_CaptureFailureIsNotAcknowledged (0.23s)
+=== RUN   TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput
+--- PASS: TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput (0.10s)
+=== RUN   TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero
+--- PASS: TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero (0.36s)
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order
+--- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero (0.90s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second (0.43s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order (0.47s)
+=== RUN   TestSP08D3_DistinctSameTextRepliesStayDistinct
+--- PASS: TestSP08D3_DistinctSameTextRepliesStayDistinct (0.47s)
+=== RUN   TestSP08D3_CaptureFailureIsNotAcknowledged
+--- PASS: TestSP08D3_CaptureFailureIsNotAcknowledged (0.25s)
+=== RUN   TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput
+--- PASS: TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput (0.12s)
+=== RUN   TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero
+--- PASS: TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero (0.47s)
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order
+--- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero (1.03s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second (0.48s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order (0.55s)
+=== RUN   TestSP08D3_DistinctSameTextRepliesStayDistinct
+--- PASS: TestSP08D3_DistinctSameTextRepliesStayDistinct (0.53s)
+=== RUN   TestSP08D3_CaptureFailureIsNotAcknowledged
+--- PASS: TestSP08D3_CaptureFailureIsNotAcknowledged (0.27s)
+=== RUN   TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput
+--- PASS: TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput (0.12s)
+=== RUN   TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero
+--- PASS: TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero (0.48s)
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order
+--- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero (0.99s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second (0.50s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order (0.48s)
+=== RUN   TestSP08D3_DistinctSameTextRepliesStayDistinct
+--- PASS: TestSP08D3_DistinctSameTextRepliesStayDistinct (0.48s)
+=== RUN   TestSP08D3_CaptureFailureIsNotAcknowledged
+--- PASS: TestSP08D3_CaptureFailureIsNotAcknowledged (0.28s)
+=== RUN   TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput
+--- PASS: TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput (0.12s)
+=== RUN   TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero
+--- PASS: TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero (0.46s)
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second
+=== RUN   TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order
+--- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero (1.12s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second (0.52s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order (0.59s)
+=== RUN   TestSP08D3_DistinctSameTextRepliesStayDistinct
+--- PASS: TestSP08D3_DistinctSameTextRepliesStayDistinct (0.50s)
+=== RUN   TestSP08D3_CaptureFailureIsNotAcknowledged
+--- PASS: TestSP08D3_CaptureFailureIsNotAcknowledged (0.26s)
+=== RUN   TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput
+--- PASS: TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput (0.12s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	11.796s

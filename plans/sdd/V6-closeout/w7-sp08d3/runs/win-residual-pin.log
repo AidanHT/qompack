@@ -1,0 +1,8 @@
+=== RUN   TestCarriedDefect_SP08D3_SpooledFirstPromptLosesTurnZeroToALiveSecond
+=== RUN   TestCarriedDefect_SP08D3_SpooledFirstPromptLosesTurnZeroToALiveSecond/live_second
+=== RUN   TestCarriedDefect_SP08D3_SpooledFirstPromptLosesTurnZeroToALiveSecond/spool_file_order
+--- PASS: TestCarriedDefect_SP08D3_SpooledFirstPromptLosesTurnZeroToALiveSecond (1.57s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledFirstPromptLosesTurnZeroToALiveSecond/live_second (0.81s)
+    --- PASS: TestCarriedDefect_SP08D3_SpooledFirstPromptLosesTurnZeroToALiveSecond/spool_file_order (0.76s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.890s

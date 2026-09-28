@@ -1,0 +1,60 @@
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/subagent
+=== RUN   TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/tool
+--- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart (1.26s)
+    --- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/subagent (0.79s)
+    --- PASS: TestDerivedPublication_V6_IndexBeforeLinkCutDuplicatesAcrossRestart/tool (0.47s)
+=== RUN   TestDerivedPublication_V6_MissingLinkAfterSupersessionDrift
+--- PASS: TestDerivedPublication_V6_MissingLinkAfterSupersessionDrift (0.94s)
+=== RUN   TestOnUserPrompt_ReplyOnlyRecordsNothing
+--- PASS: TestOnUserPrompt_ReplyOnlyRecordsNothing (0.00s)
+=== RUN   TestOnUserPrompt_WorkerRecordsAndAdvancesTurn
+--- PASS: TestOnUserPrompt_WorkerRecordsAndAdvancesTurn (0.00s)
+=== RUN   TestOnUserPrompt_LeasedCaptureFailurePropagates
+--- PASS: TestOnUserPrompt_LeasedCaptureFailurePropagates (0.16s)
+=== RUN   TestOnUserPrompt_UnleasedCaptureFailureIsSoftAndAdvances
+--- PASS: TestOnUserPrompt_UnleasedCaptureFailureIsSoftAndAdvances (0.00s)
+=== RUN   TestOnUserPrompt_EmptyPromptIsNotATurn
+--- PASS: TestOnUserPrompt_EmptyPromptIsNotATurn (0.00s)
+=== RUN   TestOnUserPrompt_WarningDoesNotDependOnWorkerScheduling
+--- PASS: TestOnUserPrompt_WarningDoesNotDependOnWorkerScheduling (0.02s)
+=== RUN   TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct
+=== RUN   TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct/first
+=== RUN   TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct/different
+--- PASS: TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct (1.19s)
+    --- PASS: TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct/first (0.58s)
+    --- PASS: TestV6Prompt_NewDeliveryAfterUnpersistedRestartStaysDistinct/different (0.61s)
+=== RUN   TestV6Prompt_RestartRepairsIndexBeforeSidecarCut
+--- PASS: TestV6Prompt_RestartRepairsIndexBeforeSidecarCut (1.13s)
+=== RUN   TestV6Prompt_PublishedMissingObjectIsNotAcknowledged
+--- PASS: TestV6Prompt_PublishedMissingObjectIsNotAcknowledged (0.29s)
+=== RUN   TestOnUserPrompt_StoresVerbatim
+--- PASS: TestOnUserPrompt_StoresVerbatim (0.01s)
+=== RUN   TestOnUserPrompt_VerbatimAgainstARealStore
+--- PASS: TestOnUserPrompt_VerbatimAgainstARealStore (0.22s)
+=== RUN   TestOnUserPrompt_RecordsIndexEntry
+--- PASS: TestOnUserPrompt_RecordsIndexEntry (0.01s)
+=== RUN   TestOnUserPrompt_TurnIncrements
+--- PASS: TestOnUserPrompt_TurnIncrements (0.01s)
+=== RUN   TestOnUserPrompt_DAGNodeAndSegmentEdge
+--- PASS: TestOnUserPrompt_DAGNodeAndSegmentEdge (0.01s)
+=== RUN   TestOnUserPrompt_NeverRegenerated
+--- PASS: TestOnUserPrompt_NeverRegenerated (0.62s)
+=== RUN   TestOnUserPrompt_EmptyPromptIgnored
+--- PASS: TestOnUserPrompt_EmptyPromptIgnored (0.00s)
+=== RUN   TestOnUserPrompt_GrammarSymbolAppended
+--- PASS: TestOnUserPrompt_GrammarSymbolAppended (0.00s)
+=== RUN   TestOnUserPrompt_ThrashWarningInFullMode
+--- PASS: TestOnUserPrompt_ThrashWarningInFullMode (0.01s)
+=== RUN   TestOnUserPrompt_NoThrashWarningInPassiveMode
+--- PASS: TestOnUserPrompt_NoThrashWarningInPassiveMode (0.02s)
+=== RUN   TestOnUserPrompt_ThrashWarnedOncePerRule
+--- PASS: TestOnUserPrompt_ThrashWarnedOncePerRule (0.05s)
+=== RUN   TestOnUserPrompt_PutFailureStillIncrementsTurn
+--- PASS: TestOnUserPrompt_PutFailureStillIncrementsTurn (0.00s)
+=== RUN   TestVerbatimPromptID
+--- PASS: TestVerbatimPromptID (0.00s)
+=== RUN   TestOnUserPrompt_BackwardSliceReachesThePrompt
+--- PASS: TestOnUserPrompt_BackwardSliceReachesThePrompt (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	6.446s

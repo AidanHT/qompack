@@ -1,0 +1,8 @@
+=== RUN   TestV6_LostFilePathDoesNotBecomePathlessAuthority
+--- PASS: TestV6_LostFilePathDoesNotBecomePathlessAuthority (3.32s)
+=== RUN   TestV6_DedupDoesNotLaunderARestrictedHash
+--- PASS: TestV6_DedupDoesNotLaunderARestrictedHash (5.90s)
+=== RUN   TestV6_HashRefusesStoreWithoutProvenance
+--- PASS: TestV6_HashRefusesStoreWithoutProvenance (0.22s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	10.922s

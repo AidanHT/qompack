@@ -1,0 +1,11 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/security": {
+   "result": "pass",
+   "passed": 30,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

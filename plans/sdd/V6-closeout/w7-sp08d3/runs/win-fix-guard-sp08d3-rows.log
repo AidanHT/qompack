@@ -1,0 +1,76 @@
+=== RUN   TestCarriedDefects_ManifestIsWellFormed
+=== PAUSE TestCarriedDefects_ManifestIsWellFormed
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== PAUSE TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== CONT  TestCarriedDefects_ManifestIsWellFormed
+=== CONT  TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D7
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP10-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP09-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D6
+--- PASS: TestCarriedDefects_ManifestIsWellFormed (0.10s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D7 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP10-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP09-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D6 (0.00s)
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP10-D1
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP09-D1
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP20-D2
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D3
+--- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence (75.83s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D1 (15.59s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP10-D1 (14.53s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP09-D1 (15.47s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP20-D2 (15.03s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D3 (15.13s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	76.167s
