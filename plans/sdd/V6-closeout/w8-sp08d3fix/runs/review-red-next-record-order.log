@@ -1,0 +1,36 @@
+--- FAIL: TestDrainOrder_PartlyConsumedClientSpoolOrdersByNextRecord (0.04s)
+    drain_host_order_test.go:89: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-sp08d3fix/internal/daemon/drain_host_order_test.go:89
+        	Error:      	Not equal: 
+        	            	expected: []string{"client-11.ndjson", "client-10.ndjson", "client-9.ndjson"}
+        	            	actual  : []string{"client-11.ndjson", "client-9.ndjson", "client-10.ndjson"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -2,4 +2,4 @@
+        	            	  (string) (len=16) "client-11.ndjson",
+        	            	- (string) (len=16) "client-10.ndjson",
+        	            	- (string) (len=15) "client-9.ndjson"
+        	            	+ (string) (len=15) "client-9.ndjson",
+        	            	+ (string) (len=16) "client-10.ndjson"
+        	            	 }
+        	Test:       	TestDrainOrder_PartlyConsumedClientSpoolOrdersByNextRecord
+--- FAIL: TestSP08D3_PartlyConsumedReusedSpoolReplaysInHostOrder (0.33s)
+    drain_pid_reuse_test.go:102: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-sp08d3fix/internal/daemon/drain_pid_reuse_test.go:102
+        	Error:      	Not equal: 
+        	            	expected: "first"
+        	            	actual  : "second"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-first
+        	            	+second
+        	Test:       	TestSP08D3_PartlyConsumedReusedSpoolReplaysInHostOrder
+        	Messages:   	prompt_<s>_0
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.071s
+FAIL

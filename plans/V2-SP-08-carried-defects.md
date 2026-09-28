@@ -555,3 +555,81 @@ across client spools and against the live lane), or rule host order out and make
 honest: a Warn and a drop entry naming the substituted turn, and no §8.5 provenance claim, when a
 later-turn prompt of the session carries an earlier `req.TS` than `prompt_<s>_0`. Either change
 inverts the new evidence test.
+
+**V6 close-out resolution (2026-09-27, C2.1, owner decision D35): `fixed`.** Branch
+`closeout/w8-sp08d3fix`, cut from `closeout/integration` `17a42f6`. D35, a coordinator decision
+under D33, ruled the two open items. Client spools are replayed in host order, and capture-by-drain
+is accepted for HotSpool and daemon-disabled mode (item 3). The residual live-vs-spool race is
+ruled out of the host-order guarantee. The product must say so rather than claim provenance, and it
+must not re-number published turns (item 2's second resolution, taken for that race alone).
+
+What shipped:
+
+1. **Host-order replay.** `orderClientSpoolsByHostTS` (`internal/daemon/drain_host_order.go`) runs
+   on every drain pass, `Drain` and the watcher's `DrainClientSpools` alike. It orders the
+   `client-<pid>.ndjson` files by the `req.TS` of the first record each file still has to replay,
+   the record at its validated consumed offset (byte 0 for a file the drain has not started), and
+   the file name only breaks a tie. WAL segments keep their place ahead of the client files, and
+   each file is still read front to back. A file whose next record has no readable stamp, such as
+   one its hook is still writing, sorts after every stamped file.
+2. **Host stamps on prompt records.** `runIngested` passes `req.TS` to the capture
+   (`observer.WithHostTS`), and `recordPromptDurable` records it as the prompt record's `TS`. The
+   DAG node and the session features keep the observer's clock. A caller that passes no stamp
+   records the clock, as before.
+3. **Capture-time notice.** `notePromptHostOrder` (`internal/observer/prompt_delivery.go`) runs when
+   a prompt is captured at turn `k` behind an earlier-published turn stamped later. It counts the
+   capture in `observer.prompt_out_of_host_order` and logs a Warn naming the lowest such turn.
+4. **Rehydrator notice.** `hostOrderNotice` (`internal/rehydrate/items.go`) runs when item 2 injects
+   the L0 record `prompt_<s>_0`. It asks the store for the session's earliest-stamped prompt. That
+   is a new optional capability, `store.PromptOrder` / `FSStore.EarliestPrompt`: one scan bounded by
+   the limit `PromptFrontier` already had, now shared as `promptScanLimit`. When that prompt is a
+   later turn stamped earlier, item 2 still injects `prompt_<s>_0` verbatim. It adds a Warn and a
+   drop entry, `user_intent_source` / `host_order`, naming both records and
+   `expand(tool_use_id=…)` for the host-first one. A store that cannot answer is logged, and no
+   substitution is claimed.
+5. **Docs.** `docs/architecture.md` §7, `docs/cannot-do.md` ("The first captured prompt is not
+   always the first prompt the host sent") and `docs/user-guide.md` now state the shipped
+   guarantee. They no longer imply that turn 0 is always the host's first prompt.
+
+Evidence: `TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero` is inverted. It keeps its
+historical name, because committed close-out reports quote it in `-run` patterns. Its
+`spool_file_order` subtest shows host order through the real daemon: `client-9` (stamped first)
+becomes turn 0 ahead of `client-10`, and nothing is flagged. Its `live_second` subtest shows the
+honest notice. Turn 0 stays the live prompt, both records carry their host stamps, the counter
+reads 1, and a real `rehydrate.Build` over the daemon's store emits the `host_order` entry naming
+both ids. Focused rows: `TestDrainOrder_ClientSpoolsReplayByFirstRecordHostTS` (daemon),
+`TestPromptHostOrder_RecordCarriesTheHostTimestamp`,
+`TestPromptHostOrder_HostEarlierCaptureIsCountedAndNamed` and
+`TestPromptHostOrder_NamesTheEarliestOvertakenTurn` (observer),
+`TestUserIntent_HostEarlierLaterTurnIsNamed`, `TestUserIntent_HostOrderAgreementReportsNothing` and
+`TestUserIntent_HostOrderUnverifiableIsWarnedNotGuessed` (rehydrate), and
+`TestEarliestPrompt_PicksTheEarliestHostStampedPromptOfTheSession` (store). The fix round added
+`TestDrainOrder_PartlyConsumedClientSpoolOrdersByNextRecord`,
+`TestSP08D3_PartlyConsumedReusedSpoolReplaysInHostOrder` and
+`TestSP08D3_ReusedSpoolWithinOnePassIsNamed` (daemon) for the pid-reuse case below. The stale X1 comments
+in `test/e2e/v5_x01_test.go` now describe the V6 capture path.
+
+Residuals, recorded rather than fixed:
+
+- The live-vs-spool race itself, as D35 ruled. The client-spool watcher bounds it to a live prompt
+  sent within about two `spoolCheckInterval`s (2 s each) of the daemon's next served request.
+- The host-order check runs only when item 2 injects the L0 record. When that record is unavailable,
+  item 2 injects the checkpoint copy under its existing `user_intent_source` / `l0` entry, which
+  already says so. Checkpoint seeding does not record which turn it took the original from, the
+  optional clause of item 2's second resolution; D35 did not require it.
+- Within one client spool file, records keep file order, as D35 specifies. The file is named by pid
+  alone (`internal/ipc/spool.go`) and opened for append, and it stays until a drain consumes it. So
+  a later hook that reuses the pid appends to an earlier hook's file, and one file then holds
+  records from several hook processes. Windows reuses pids quickly, and under
+  `runtime.daemon.enabled=false` spools accumulate until a daemon drains them, so this is an
+  ordinary case there, not a corner. Across passes it is fixed: a partly consumed file is placed by
+  the record it replays next, not by the one an earlier pass consumed. Within one pass it is not.
+  The file is placed by its first record, and a later record appended by the pid-reusing hook is
+  replayed with it, ahead of another file's earlier one. That can move any turn, turn 0 included,
+  when the file's first record belongs to another session or is not a prompt.
+  `TestSP08D3_ReusedSpoolWithinOnePassIsNamed` pins it. The capture is then counted in
+  `observer.prompt_out_of_host_order` and warned, and the rehydrator names the substitution, with
+  no live prompt involved. The counter and Warn therefore count any capture behind a later-stamped
+  turn. The live-vs-spool race and pid-reused spool files are its two known sources. Only a
+  per-record merge across files, or a spool name unique per hook process, would close it; D35
+  specified neither.

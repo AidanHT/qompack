@@ -1,0 +1,6 @@
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/internal/observer
+github.com/qompack/qompack/internal/rehydrate
+github.com/qompack/qompack/internal/store
+github.com/qompack/qompack/internal/ipc
+github.com/qompack/qompack/test/guards

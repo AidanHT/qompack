@@ -64,15 +64,16 @@ const (
 )
 
 // x1v5PromptPutErrCounter is the daemon-served counter that reconciles the index against the
-// prompt half of the mix. observe.prompt always ACKs, and the daemon runs the observer's
-// ObservePrompt synchronously under internal/daemon/handlers.go promptReplyDeadline; when the
-// deadline wins, the cancelled context makes the verbatim store.PutBytes return, the observer
-// absorbs that through soft() — a Warn to the day log plus this counter, never a LOUD line and
-// never a spool — and skips the index record (internal/observer/prompt.go, stagePromptPut). WAL
-// replay of an observe.prompt runs only the sentinel scan, so no later Drain can recover it.
-// So production promises 61 index records, not 65: each prompt either lands its record or bumps
-// this counter, exactly once, and the wait below is on that sum. The name is
-// internal/observer/observer.go counterErrPrefix ("observer.err.") + prompt.go stagePromptPut
+// prompt half of the mix. Since the V6 SP08-D3 fix the observe.prompt reply path records nothing:
+// it returns only the thrash warning, under internal/daemon/handlers.go promptReplyDeadline. The
+// verbatim capture runs in the ingest worker off the WAL line the route appended
+// (internal/daemon/daemon.go runIngested), and a WAL or client-spool replay of an observe.prompt
+// runs that same capture, so a later Drain does recover a prompt the worker did not capture. A
+// capture whose verbatim store.PutBytes fails bumps this counter (internal/observer/prompt.go,
+// stagePromptPut): a leased delivery is then left unacknowledged for a later replay, and an
+// unleased one is soft-dropped for good, never with a LOUD line and never a spool. So production
+// promises 61 index records, not 65, and the wait below is on records plus this counter. The name
+// is internal/observer/observer.go counterErrPrefix ("observer.err.") + prompt.go stagePromptPut
 // ("prompt.put"), spelled here because both are unexported.
 const x1v5PromptPutErrCounter = "observer.err.prompt.put"
 
@@ -269,8 +270,8 @@ func x1v5TryStatus(root string) (daemon.StatusSnapshot, error) {
 	return snap, json.Unmarshal(resp.Data, &snap)
 }
 
-// x1v5PromptsLost is the daemon's own count of prompts whose verbatim capture lost the reply
-// deadline (x1v5PromptPutErrCounter), or -1 when the daemon could not be asked.
+// x1v5PromptsLost is the daemon's own count of prompt captures whose verbatim store write failed
+// (x1v5PromptPutErrCounter), or -1 when the daemon could not be asked.
 func x1v5PromptsLost(root string) int64 {
 	snap, err := x1v5TryStatus(root)
 	if err != nil {
@@ -386,13 +387,13 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 	// Drive Drain through admin.drain on every poll, exactly as the v4 rig drives it in-process
 	// (WaitIndexed), so the wait is on the observer's work and never on the tick.
 	//
-	// A prompt is the exception (x1v5PromptPutErrCounter): it is always ACKed, never spooled, and
-	// under co-load its verbatim capture can lose the daemon's reply deadline, in which case its
-	// index record is soft-dropped for good and the daemon says so only through that counter. So
-	// the wait cannot be on 65 index lines — on a loaded machine that is a wait on something that
-	// will never happen — and is instead on: every tool/stop record landed, no client spool left,
-	// and every prompt accounted for as either a record or a counted soft-drop. Nothing is then in
-	// flight when the authoritative reads below are taken.
+	// A prompt is the exception (x1v5PromptPutErrCounter): its capture runs in the worker behind
+	// the ACK, and a capture whose verbatim store write fails is counted there rather than NAKed,
+	// and is not recovered at all when its delivery was unleased. So the wait cannot be on 65 index
+	// lines — on a loaded machine that is a wait on something that may never happen — and is
+	// instead on: every tool/stop record landed, no client spool left, and every prompt accounted
+	// for as either a record or a counted capture failure. Nothing is then in flight when the
+	// authoritative reads below are taken.
 	diag := x1v5WaitDiag{root: p.Root, hookControlled: hookControlled, l0Ingest: l0Ingest}
 	require.Eventually(t, func() bool {
 		x1v5AdminDrain(p.Root)

@@ -1,0 +1,15 @@
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== PAUSE TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== CONT  TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D1
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP10-D1
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP09-D1
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP20-D2
+--- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence (73.89s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D1 (19.41s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP10-D1 (20.05s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP09-D1 (18.11s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP20-D2 (16.25s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	74.175s
+exit=0
