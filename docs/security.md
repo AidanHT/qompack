@@ -78,8 +78,9 @@ process running the plugin's own binary — inside `CLAUDE_PLUGIN_ROOT`, or laid
 `bin/qompack.exe` with `.claude-plugin/plugin.json` beside `bin/`, which covers `qompack mcp`'s
 lazy spawn — starts it from `<home>/.qompack/bin/<sha256>/qompack.exe` rather than the plugin's
 `bin/qompack.exe` (`internal/daemon/spawn_stage.go`). The copy lives under the user's own profile —
-the one place outside a project Qompack writes (§3.3) — sealed read-only, and it is checked before
-every spawn: a regular file, not a link, junction or other reparse point, whose SHA-256 matches both
+the one place outside a project Qompack writes
+([architecture §2](architecture.md#2-write-set-and-retention)) — sealed read-only, and it is checked
+before every spawn: a regular file, not a link, junction or other reparse point, whose SHA-256 matches both
 its directory name and the spawning process's own executable. A file that fails any of that is
 removed and replaced, never run, and a source that changes while it is being copied is never
 filed. The boundary is the same one the plugin directory already has: a process running as the same
@@ -240,7 +241,7 @@ These do **not** heal, and the product says so rather than pretending otherwise 
 
 ## 7. What needs an operator, and how to find it
 
-Run **`qompack fsck`** (integrity, seventeen check classes, read-only by default) and **`qompack
+Run **`qompack fsck`** (integrity, eighteen check rows, read-only by default) and **`qompack
 doctor`** (capability, version, scope and control rows). Between them they name every state below.
 `fsck --repair --yes` performs five explicit repairs and no others: quarantine a damaged object,
 regenerate `index/files.json`, regenerate `pins/invariants.json`, rebuild `tried.bloom` from active
