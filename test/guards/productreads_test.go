@@ -88,6 +88,9 @@ var ordinaryReads = []ordinaryRead{
 	{"internal/daemon/spawn.go", "spawnDetached", "os.DevNull"},
 	{"internal/daemon/spawn_stage.go", "copyStaged", "the running plugin binary, read once to stage a " +
 		"copy; no Qompack process replaces or removes it"},
+	{"internal/daemon/spawn_stage.go", "fileSHA256", "the running plugin binary, hashed to name its " +
+		"staged copy; no Qompack process replaces or removes it. Staged copies, which spawners do " +
+		"remove, are read by verifyStagedThen through paths.OpenShared (sharedReaders)"},
 	{"internal/dag/log.go", "load", "dag/deps.jsonl, read once when the daemon opens its graph and " +
 		"before that graph's first Compact can replace it; the daemon lock keeps every other writer " +
 		"out, and backup reads it shared"},
