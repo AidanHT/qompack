@@ -16,7 +16,7 @@ in [docs/install.md](install.md), and its security and recovery posture in
 hooks, writes a checkpoint at `PreCompact`, and — after the compaction — injects one bounded,
 checkpoint-derived block through `SessionStart` with `source=compact`
 ([docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration)). Everything else it
-offers is on demand: seven slash commands and eight MCP tools that read what was recorded.
+offers is on demand: six slash commands and eight MCP tools that read what was recorded.
 
 Three things it does not do, each recorded where
 [docs/architecture.md §10](architecture.md#10-what-is-not-supported) names it:
@@ -47,22 +47,22 @@ instead ([docs/troubleshooting.md](troubleshooting.md#qompack-is-inactive-in-the
 
 ## Slash commands
 
-Qompack installs seven slash commands. Each shells out to the `qompack` binary, so
+Qompack installs six slash commands. Each shells out to the `qompack` binary, so
 `/qompack:status` and `qompack status` are the same code. The inventory, every flag and the exact
 help text are in [docs/commands.md](commands.md); this section says what each one is *for* and what
 it can report.
 
-Two things are true of all seven, per that page's preamble:
+Two things are true of all six, per that page's preamble:
 
 - `--json` emits a versioned envelope instead of text; `--help` prints the usage block.
-- Exit codes are `0` success, `2` a malformed invocation, `1` anything else — except a hook entry
-  point, which is the only kind of subcommand that always exits `0` (`internal/cli/dispatch.go`).
+- Exit codes are `0` success, `2` a malformed invocation, `1` anything else. None of the six is a
+  hook entry point; those are the only subcommands that always exit `0` (`internal/cli/dispatch.go`).
 
 A third rule holds where a frontend finds nothing to answer from: it reports that it is unavailable
 and exits `1` instead of inventing an answer. `/qompack:eval` in a project with no evaluation
-artifacts is the everyday case. It is not how `/qompack:checkpoint` behaves — see below — because
-that name resolves to a hook, not to a frontend (`internal/commands`,
-`internal/cli/qompack_commands.go`).
+artifacts is the everyday case.
+
+There is no checkpoint command — see [Checkpoints are automatic](#checkpoints-are-automatic) below.
 
 ### `/qompack:status`
 
@@ -102,32 +102,28 @@ Pins are read directly from the append-only pin store, so `--list` answers even 
 not running (`internal/cli/qompack_commands.go`). Exit `2` if the flags do not form a valid
 invocation, `1` if the pin could not be written, `0` otherwise.
 
-### `/qompack:checkpoint`
+### Checkpoints are automatic
 
-Installed, and **not yet routed** in this build. The command file ships and the host offers it —
-`plugin/commands/checkpoint.md` runs `qompack checkpoint` — but that name is already the
-`PreCompact` hook entry point (`internal/cli/hooks.go`, registered `Hook: true`), and no separate
-local-seal route exists yet. `docs/commands.md` marks the subcommand column **not yet routed** for
-exactly this reason, and `internal/cli/qompack_commands.go` declines to give the name a second
-meaning: doing so needs the arch pre-step recorded as SP-14 handoff edge H3
-(`plans/V5-report.md` §29 item 3).
+There is no `/qompack:checkpoint` command, and a manual checkpoint is not offered yet. Qompack
+writes a checkpoint automatically at `PreCompact`, just before every compaction, and on its own
+cadence during a session once enough new work has accumulated
+([docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration)). The block injected
+after a compaction is built from the session's latest checkpoint, which is normally the one that
+compaction sealed, so a checkpoint taken by hand earlier would be superseded before anything read
+it.
 
-So invoking it does not write a checkpoint on demand; it runs the hook. A hook reads a hook event
-from stdin and **always exits `0`**, whatever happens inside it — `internal/cli/hooks.go` and the
-exit-code policy in `internal/cli/dispatch.go` ("the ONLY code a hook subcommand may ever return"),
-pinned by `internal/cli/qompack_commands_test.go`. Checkpoints are written at `PreCompact`, by the
-hook, from the event the host supplies.
+Earlier builds shipped a `/qompack:checkpoint` command file that ran `qompack checkpoint`. That name
+is the `PreCompact` hook entry point (`internal/cli/hooks.go`, registered `Hook: true`): it reads a
+hook event from stdin and **always exits `0`**, so the command wrote no checkpoint and reported
+nothing. It is no longer installed, and [docs/cannot-do.md](cannot-do.md#no-manual-checkpoint-command)
+records the limit.
 
-**Typing it by hand is still a write.** Observed on this tree, running the built binary with empty
-stdin in a fresh directory outside the repository: it printed `{}` and exited `0` — and it created
-the full `.qompack/` layout there and started that project's daemon. No checkpoint was written
-(`.qompack/checkpoints` was empty), but the empty payload was classified and recorded as a capture,
-and the run's own state was persisted. So an interactive invocation is a write in that directory,
-not a no-op; it is simply not a way to take a checkpoint.
-
-A frontend for a checkpoint-now command does exist (`internal/commands/cmd_checkpoint.go`, which
-reports unavailable when its dependency is nil), but nothing routes to it in this build, so that is
-not the behaviour you get from typing the command.
+**Typing `qompack checkpoint` by hand is still a write.** Observed on this tree, running the built
+binary with empty stdin in a fresh directory outside the repository: it printed `{}` and exited `0`
+— and it created the full `.qompack/` layout there and started that project's daemon. No checkpoint
+was written (`.qompack/checkpoints` was empty), but the empty payload was classified and recorded as
+a capture, and the run's own state was persisted. It is a hook entry point, not a way to take a
+checkpoint.
 
 ### `/qompack:why`
 
