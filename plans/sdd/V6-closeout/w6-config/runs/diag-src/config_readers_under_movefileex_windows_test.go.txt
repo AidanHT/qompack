@@ -1,0 +1,167 @@
+//go:build windows
+
+package config_test
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"testing"
+	"time"
+
+	"golang.org/x/sys/windows"
+
+	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/paths"
+)
+
+var zzNtStatus = windows.NewLazySystemDLL("ntdll.dll").NewProc("RtlGetLastNtStatus")
+
+// TestZZDiagConfigUnderMoveFileEx is a TEMPORARY diagnostic (third seat, never committed). The
+// atomic-save test's movefileex writer saves config.json while DIAG_READER reads it in a loop:
+// readshared (paths.ReadFileShared + JSON check), load (config.Load; a wrong answer is split by
+// whether Load warned "unparseable"), capture (config.LoadForCapture), lstat (os.Lstat alone).
+func TestZZDiagConfigUnderMoveFileEx(t *testing.T) {
+	rounds, _ := strconv.Atoi(os.Getenv("DIAG_ROUNDS"))
+	if rounds == 0 {
+		rounds = 10
+	}
+	reads, _ := strconv.Atoi(os.Getenv("DIAG_READS"))
+	if reads == 0 {
+		reads = 2000
+	}
+	mode := os.Getenv("DIAG_READER")
+	code := func(err error) string {
+		var en syscall.Errno
+		if errors.As(err, &en) {
+			return fmt.Sprintf("errno %d", uintptr(en))
+		}
+		return err.Error()
+	}
+	total := map[string]int{}
+	var mu sync.Mutex
+	add := func(k string) { mu.Lock(); total[k]++; mu.Unlock() }
+	for r := 0; r < rounds; r++ {
+		env := baseEnv(t)
+		path := captureConfigPath(env.ProjectRoot)
+		tmp := path + ".save-tmp"
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(`{"checkpoint":{"budgetTokens":9000}}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		var stop atomic.Bool
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 1; !stop.Load(); i++ {
+				body := fmt.Appendf(nil, `{"checkpoint":{"budgetTokens":%d}}`, 9000+i%2)
+				if err := os.WriteFile(tmp, body, 0o600); err != nil {
+					add("writer tmp " + code(err))
+					continue
+				}
+				if err := os.Rename(tmp, path); err != nil {
+					add("writer rename " + code(err))
+				} else {
+					add("writer rename ok")
+				}
+			}
+		}()
+		func() {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			for n := 0; n < reads; n++ {
+				switch mode {
+				case "readshared", "readshared-paced", "lstat-paced":
+					if mode != "readshared" {
+						time.Sleep(2 * time.Millisecond)
+					}
+					if mode == "lstat-paced" {
+						if _, err := os.Lstat(path); err != nil {
+							st, _, _ := zzNtStatus.Call()
+							add(fmt.Sprintf("lstat %s (ntstatus %#x)", code(err), uint32(st)))
+							continue
+						}
+						add("lstat ok")
+						continue
+					}
+					b, err := paths.ReadFileShared(path)
+					if err != nil {
+						st, _, _ := zzNtStatus.Call()
+						add(fmt.Sprintf("read %s (ntstatus %#x)", code(err), uint32(st)))
+						continue
+					}
+					var v struct {
+						Checkpoint struct{ BudgetTokens int }
+					}
+					if err := json.Unmarshal(b, &v); err != nil {
+						add(fmt.Sprintf("read BAD JSON len=%d", len(b)))
+						continue
+					}
+					if v.Checkpoint.BudgetTokens != 9000 && v.Checkpoint.BudgetTokens != 9001 {
+						add(fmt.Sprintf("read WRONG VALUE %d", v.Checkpoint.BudgetTokens))
+						continue
+					}
+					add("read ok")
+				case "lstat":
+					if _, err := os.Lstat(path); err != nil {
+						st, _, _ := zzNtStatus.Call()
+						add(fmt.Sprintf("lstat %s (ntstatus %#x)", code(err), uint32(st)))
+						continue
+					}
+					add("lstat ok")
+				case "capture", "capture-paced":
+					if mode == "capture-paced" {
+						time.Sleep(2 * time.Millisecond)
+					}
+					cfg, _, _, _, err := config.LoadForCapture(env)
+					switch {
+					case err != nil:
+						add("capture refused: " + err.Error())
+					case cfg.Checkpoint.BudgetTokens != 9000 && cfg.Checkpoint.BudgetTokens != 9001:
+						add(fmt.Sprintf("capture WRONG %d (layer dropped)", cfg.Checkpoint.BudgetTokens))
+					default:
+						add("capture ok")
+					}
+				default:
+					cfg, _, warns, err := config.Load(env)
+					switch {
+					case err != nil:
+						add("load err")
+					case cfg.Checkpoint.BudgetTokens != 9000 && cfg.Checkpoint.BudgetTokens != 9001:
+						unp := false
+						for _, w := range warns {
+							if strings.Contains(w.Message, "unparseable") {
+								unp = true
+							}
+						}
+						add(fmt.Sprintf("load WRONG %d unparseable-warning=%v nwarn=%d", cfg.Checkpoint.BudgetTokens, unp, len(warns)))
+					default:
+						add("load ok")
+					}
+				}
+			}
+		}()
+		stop.Store(true)
+		wg.Wait()
+	}
+	keys := make([]string, 0, len(total))
+	for k := range total {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		t.Logf("reader=%s %s: %d", mode, k, total[k])
+	}
+}

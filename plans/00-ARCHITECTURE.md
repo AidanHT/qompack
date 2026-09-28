@@ -561,7 +561,8 @@ are exhaustive; anything not listed is forbidden.
 | Package | May import |
 |---|---|
 | `core` | — (nothing in `internal/`) |
-| `paths`, `config` | `core` |
+| `paths` | `core` |
+| `config` | `core` `paths` *(amended by owner decision D22, 2026-09-26; see below)* |
 | `logging`, `obs` | `core` `paths` `config` |
 | *(the five above are the **foundation**; every package below may also import all of them)* | |
 | `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler`, `pluginmanifest`, `state`, `admission`, `hostperm` | foundation only |
@@ -592,6 +593,39 @@ declared alongside the others.
 allow-set and its composition-root set is an error there — so a new `internal/` package cannot
 land without an amendment commit to this section *and* the matching entry in `importrules.go`.
 The two must be edited together; the checker is not permitted to be a superset of the table.
+
+**`config` may import `paths` (owner decision D22, 2026-09-26, V6 close-out `w6-config`).** Until
+D22, `config` was allowed `core` alone. That kept its loaders from naming the user-global root
+through `paths.Global`, so they spelled `<home>/.qompack` by hand, and from reading `config.json`
+through `paths.ReadFileShared`. The hand spelling only risked drift, which a `test/guards` row held
+in check. The ordinary read was a defect. On Windows an `os.ReadFile` handle carries no
+`FILE_SHARE_DELETE`, so an editor's atomic save that renamed a new `config.json` over the old one
+while a hook was reading it failed either the save or the read. The hook path treats a config file
+it cannot read as a refusal (D8), so saving the config could make a hook record nothing. The
+amendment adds one edge. `paths` imports only `core`, so `config → paths` closes no cycle: `logging`
+and `obs` already import both, and `paths` imports neither `config` nor anything that does. What
+stays out is unchanged: `config` still may not import `logging` (which imports `config`) or `obs`.
+The hook path's loader reads through `paths.OpenSharedLeaf`, an addition to `paths` made for it.
+That open grants the same delete sharing and also refuses a final link itself. The loader's old
+Lstat-then-`os.SameFile` identity check refused whenever a save landed between its two halves, and
+the no-follow open leaves no such window. What no reader can close is the moment in which Windows
+reports the name missing while a rename replaces it: a read then finds no file, as it would a
+deleted one. On the hook path a file the pre-check found and the open then did not is looked for
+again, within a bounded budget, before the layer is taken for missing (w6-config review), so the
+residual is a first look that falls inside that moment. `docs/architecture.md` §2 and
+`docs/cannot-do.md` record it.
+
+**`paths/pathstest` isolates a test process's home (V6 close-out `w6-config`).** It is a `<pkg>test`
+subpackage under rule (c) of `importrules.go`, so it needs no entry of its own, and it imports
+nothing from `internal/`. That is what lets the in-package tests of any package use it without a
+cycle, which `testutil` (it imports `store`, `config` and most of the tree) cannot offer.
+`pathstest.Main`, called from `TestMain`, points `HOME` and `USERPROFILE` at a temporary directory
+and unsets `QOMPACK_HOME` and `CLAUDE_CONFIG_DIR` for the whole test process, so no test reads or
+writes the real `~/.qompack` or `~/.claude`. `~/.qompack` is in §13 invariant 7's write set for the
+product serving its user, not for a test, whose calibration samples would overwrite the user's real
+factor; `~/.claude` is in no write set. `test/guards` requires it of every package whose test binary
+links a package that resolves the home, and proves it against a fake home holding a poisoned
+`config.json`, `calibration.json` and Claude Code settings file.
 
 **`hostperm` (V6 close-out C1.9, V6-HOST-1) is foundation-only by the same construction.** It reads
 Claude Code's settings files and evaluates their `permissions.deny`/`permissions.ask` Read rules for

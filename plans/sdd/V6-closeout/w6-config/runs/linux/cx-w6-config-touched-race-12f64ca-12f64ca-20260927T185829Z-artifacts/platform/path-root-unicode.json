@@ -1,0 +1,16 @@
+{
+  "name": "path-root-unicode",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "outcome": "verified",
+  "reason": "a project root containing non-ASCII characters",
+  "detail": "root=\"/tmp/qompack-platform-1072063353/prøjekt-日本-ünï\" (54 chars); six hooks exit 0 with parseable hookio.Output; /tmp/qompack-platform-1072063353/prøjekt-日本-ünï/.qompack exists; daemon reachable at /tmp/qompack-10001/2afe3a557eb8.sock; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [/tmp/qompack-platform-1072063353/prøjekt-日本-ünï/.qompack/ /tmp/qompack-platform-1072063353/home/.qompack/]"
+}

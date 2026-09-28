@@ -1,0 +1,169 @@
+//go:build windows
+
+package paths_test
+
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"testing"
+	"time"
+
+	"encoding/binary"
+	"math/bits"
+
+	"golang.org/x/sys/windows"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// zzPosixOnly is paths.posixReplace copied verbatim in effect (FileRenameInfoEx with
+// REPLACE_IF_EXISTS|POSIX_SEMANTICS through a DELETE handle on the source), with NO os.Rename
+// fallback, so a save that POSIX rename cannot do is reported instead of redone by MoveFileEx.
+func zzPosixOnly(tmp, p string) error {
+	name, err := windows.UTF16FromString(`\??\` + p)
+	if err != nil {
+		return err
+	}
+	src, err := windows.UTF16PtrFromString(tmp)
+	if err != nil {
+		return err
+	}
+	h, err := windows.CreateFile(src, windows.DELETE|windows.SYNCHRONIZE,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = windows.CloseHandle(h) }()
+	ps := bits.UintSize / 8
+	nameOff := 2*ps + 4
+	buf := make([]byte, nameOff+len(name)*2)
+	binary.LittleEndian.PutUint32(buf, windows.FILE_RENAME_REPLACE_IF_EXISTS|windows.FILE_RENAME_POSIX_SEMANTICS)
+	binary.LittleEndian.PutUint32(buf[2*ps:], uint32((len(name)-1)*2))
+	for i, u := range name {
+		binary.LittleEndian.PutUint16(buf[nameOff+i*2:], u)
+	}
+	return windows.SetFileInformationByHandle(h, windows.FileRenameInfoEx, &buf[0], uint32(len(buf)))
+}
+
+// TestZZDiagReplaceWindowTimeline2 is a TEMPORARY diagnostic (third seat, never committed). Like the
+// second seat's replace-window diagnostic, a writer replaces config.json (DIAG_WRITER movefileex or
+// posix) while a monitor only Lstats it. Here both sides timestamp events, so each run of
+// not-found answers is matched to the save attempts around it (outcome and errno).
+func TestZZDiagReplaceWindowTimeline2(t *testing.T) {
+	rounds, _ := strconv.Atoi(os.Getenv("DIAG_ROUNDS"))
+	if rounds == 0 {
+		rounds = 10
+	}
+	saves, _ := strconv.Atoi(os.Getenv("DIAG_SAVES"))
+	if saves == 0 {
+		saves = 2000
+	}
+	writer := os.Getenv("DIAG_WRITER")
+	code := func(err error) string {
+		if err == nil {
+			return "ok"
+		}
+		var en syscall.Errno
+		if errors.As(err, &en) {
+			return fmt.Sprintf("errno %d", uintptr(en))
+		}
+		return err.Error()
+	}
+	type save struct {
+		start, end time.Time
+		res        string
+	}
+	type run struct {
+		start, end time.Time
+		n          int
+	}
+	var totalRuns, totalMiss int
+	for r := 0; r < rounds; r++ {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "config.json")
+		tmp := path + ".save-tmp"
+		if err := os.WriteFile(path, []byte(`{"v":0}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		var stop atomic.Bool
+		var wg sync.WaitGroup
+		var runs []run
+		var other int
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var cur *run
+			for !stop.Load() {
+				_, err := os.Lstat(path)
+				now := time.Now()
+				if errors.Is(err, fs.ErrNotExist) {
+					if cur == nil {
+						runs = append(runs, run{start: now})
+						cur = &runs[len(runs)-1]
+					}
+					cur.end = now
+					cur.n++
+				} else {
+					if err != nil {
+						other++
+					}
+					cur = nil
+				}
+			}
+		}()
+		log := make([]save, 0, saves)
+		for i := 1; i <= saves; i++ {
+			body := fmt.Appendf(nil, `{"v":%d}`, i)
+			s := save{start: time.Now()}
+			var err error
+			if writer == "posix" {
+				err = paths.WriteAtomic(path, body, 0o600)
+			} else if writer == "posixonly" {
+				if err = os.WriteFile(tmp, body, 0o600); err == nil {
+					err = zzPosixOnly(tmp, path)
+				}
+			} else if err = os.WriteFile(tmp, body, 0o600); err == nil {
+				err = os.Rename(tmp, path)
+			} else {
+				err = fmt.Errorf("tmp write: %w", err)
+			}
+			s.end = time.Now()
+			s.res = code(err)
+			log = append(log, s)
+		}
+		stop.Store(true)
+		wg.Wait()
+		tally := map[string]int{}
+		for _, s := range log {
+			tally[s.res]++
+		}
+		t.Logf("round %d save results: %v", r, tally)
+		for _, m := range runs {
+			totalRuns++
+			totalMiss += m.n
+			// the saves overlapping or immediately preceding the miss run
+			desc := ""
+			for j, s := range log {
+				if s.end.Before(m.start.Add(-20*time.Millisecond)) || s.start.After(m.end.Add(5*time.Millisecond)) {
+					continue
+				}
+				desc += fmt.Sprintf(" [#%d %s %s..%s]", j+1, s.res,
+					s.start.Sub(m.start).Round(time.Microsecond), s.end.Sub(m.start).Round(time.Microsecond))
+			}
+			t.Logf("round %d: miss run of %d Lstats lasting %s; saves around it (times rel. to run start):%s",
+				r, m.n, m.end.Sub(m.start).Round(time.Microsecond), desc)
+		}
+		if other > 0 {
+			t.Logf("round %d: %d other Lstat errors", r, other)
+		}
+	}
+	t.Logf("writer=%s: %d miss runs, %d not-found Lstats over %d rounds", writer, totalRuns, totalMiss, rounds)
+}

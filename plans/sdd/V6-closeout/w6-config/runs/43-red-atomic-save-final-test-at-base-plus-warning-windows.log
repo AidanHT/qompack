@@ -1,0 +1,41 @@
+# DIAGNOSTIC INTERMEDIATE: git archive f6095e2 (base, ordinary reads) + the fix's unreadable-file warning in config.Load + the final atomic_save_test.go; Windows; co-loaded host
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:225: 2000 loads: 900 and 684 answered the two saved versions, 0 found no file (the filesystem reported config.json absent during a rename-replace), 416 wrong; 409 saves attempted, 44 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesposix-rename2477664538\001\.qompack\tmp\wa-1707121873 C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesposix-rename2477664538\001\.qompack\config.json: Access is denied.)
+    atomic_save_test.go:229: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/s3/basew/internal/config/atomic_save_test.go:229
+        	Error:      	Should be zero, but was 416
+        	Test:       	TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+        	Messages:   	of 2000 loads under atomic saves, 416 refused, warned or answered a version the writer never saved (first: refused: qompack: running in degraded mode: capture configuration unavailable: the project config file is not a bounded regular file)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:225: 2000 loads: 476 and 1213 answered the two saved versions, 0 found no file (the filesystem reported config.json absent during a rename-replace), 311 wrong; 1920 saves attempted, 1079 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex114264500\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex114264500\001\.qompack\config.json: Access is denied.)
+    atomic_save_test.go:229: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/s3/basew/internal/config/atomic_save_test.go:229
+        	Error:      	Should be zero, but was 311
+        	Test:       	TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+        	Messages:   	of 2000 loads under atomic saves, 311 refused, warned or answered a version the writer never saved (first: refused: qompack: running in degraded mode: capture configuration unavailable: the project config file is not a bounded regular file)
+--- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (59.29s)
+    --- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (30.76s)
+    --- FAIL: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (28.52s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:225: 2000 loads: 883 and 907 answered the two saved versions, 0 found no file (the filesystem reported config.json absent during a rename-replace), 210 wrong; 581 saves attempted, 80 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesposix-rename2867241068\001\.qompack\tmp\wa-945694330 C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesposix-rename2867241068\001\.qompack\config.json: Access is denied.)
+    atomic_save_test.go:229: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/s3/basew/internal/config/atomic_save_test.go:229
+        	Error:      	Should be zero, but was 210
+        	Test:       	TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+        	Messages:   	of 2000 loads under atomic saves, 210 refused, warned or answered a version the writer never saved (first: 1 warning(s) or violation(s): the file was not read cleanly)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:225: 2000 loads: 665 and 760 answered the two saved versions, 0 found no file (the filesystem reported config.json absent during a rename-replace), 575 wrong; 2187 saves attempted, 1134 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex3718085976\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex3718085976\001\.qompack\config.json: Access is denied.)
+    atomic_save_test.go:229: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/s3/basew/internal/config/atomic_save_test.go:229
+        	Error:      	Should be zero, but was 575
+        	Test:       	TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+        	Messages:   	of 2000 loads under atomic saves, 575 refused, warned or answered a version the writer never saved (first: 1 warning(s) or violation(s): the file was not read cleanly)
+--- FAIL: TestLoad_ReadsThroughAnEditorsAtomicSaves (33.42s)
+    --- FAIL: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (18.41s)
+    --- FAIL: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (15.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	100.239s
+FAIL
+exit=1

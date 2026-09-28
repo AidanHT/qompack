@@ -1,0 +1,12 @@
+# HEAD ecadcf4 + the new TestLoad_UnreadableFileWarns only (product unchanged); Windows
+=== RUN   TestLoad_UnreadableFileWarns
+    load_test.go:317: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/load_test.go:317
+        	Error:      	"[]" should have 2 item(s), but has 0
+        	Test:       	TestLoad_UnreadableFileWarns
+        	Messages:   	one warning per layer that exists and could not be read: []
+--- FAIL: TestLoad_UnreadableFileWarns (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	1.484s
+FAIL
+exit=1

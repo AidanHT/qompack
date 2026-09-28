@@ -1,0 +1,28 @@
+{
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "records": [
+    "hook-exec-form",
+    "hook-launcher-forms",
+    "optimizations-disabled-fresh-project",
+    "optimizations-unknown-settings-version",
+    "path-plugin-root-spaces-unicode",
+    "path-root-long",
+    "path-root-mixed-case",
+    "path-root-plain",
+    "path-root-spaces",
+    "path-root-unicode",
+    "restrict-readonly-bundle-dir",
+    "restrict-readonly-project-root",
+    "restrict-readonly-qompack-dir",
+    "restrict-unwritable-home"
+  ]
+}

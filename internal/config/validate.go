@@ -12,8 +12,9 @@ import (
 // internal/cli owns the enforcement (its own hookCaptureMaxBytes: neither stale state nor user
 // configuration may enlarge the capture read beyond it) and keeps its own literal deliberately, so
 // the bound stays independent of whatever configuration happens to say. This package cannot import
-// that one — §3.2 gives config the allow-set {core} — so the two are kept in step by a test in
-// internal/cli that asserts they are equal rather than by an import.
+// that one — §3.2 gives config the allow-set {core, paths}, and cli is a composition root — so the
+// two are kept in step by a test in internal/cli that asserts they are equal rather than by an
+// import.
 //
 // It exists because of finding S-2: runtime.hotPath.maxPayloadBytes was bounded only from BELOW, so
 // a configured value above the cap validated cleanly, `config print` echoed the operator's number,

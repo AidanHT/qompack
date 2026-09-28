@@ -7,12 +7,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 const (
@@ -21,6 +24,22 @@ const (
 	captureConfigMaxValue = 64 << 10
 	captureConfigMaxRules = 256
 )
+
+// captureConfigGoneBudget is how long readCaptureConfig keeps looking for a config.json that its
+// Lstat found and its open then did not, before it takes the file for deleted. The bound is the
+// owner's to approve (V6 close-out w6-config, listed for approval with this derivation).
+//
+// Derivation: on the development host (Windows 11, NTFS, co-loaded), a rename that replaces
+// config.json left the name missing for 18.8 to 115.4 ms in every episode measured, whichever rename
+// the writer used (plans/sdd/V6-closeout/w6-config/runs/50-52: seven episodes in 140,000 saves), and
+// the file was back afterwards. 250 ms is a little over twice the longest, for a host more loaded
+// than the one measured. If it is too short, a save whose absent moment outlasts it makes that one
+// hook use the configuration without the file, which is what happened at every such moment before
+// the re-check. If it is too long, a hook whose config.json really was deleted between its Lstat
+// and its open waits this long once, polling the name with Lstat calls that yield between them (one
+// core busy for the budget), before it records under the configuration without the file. Neither
+// case touches a hook whose Lstat finds the file and opens it, or finds no file at all.
+const captureConfigGoneBudget = 250 * time.Millisecond
 
 // capturePolicySection is the configuration subtree the capture privacy policy is compiled from
 // (internal/redact's CapturePolicies reads runtime.redact.enabled and runtime.redact.patterns).
@@ -80,8 +99,10 @@ const (
 // would either read unbounded input or capture under a weaker privacy policy than the operator wrote:
 //
 //   - a root that is not absolute (refuseRoots);
-//   - a config file that is not a bounded regular leaf: a directory, a link, over 1 MiB, or swapped
-//     between stat and open (refuseFileLeaf);
+//   - a config file that is not a bounded regular leaf: a directory, a link, a FIFO or device, or
+//     over 1 MiB, including a leaf swapped for one of those while it was being opened
+//     (refuseFileLeaf). An atomic save that replaces one regular file with another is not a swap:
+//     the read takes the old file or the new one (readCaptureConfig, owner decision D22);
 //   - a config file that is not one strict JSONC object: malformed, not UTF-8, an unterminated
 //     comment or string, an unpaired surrogate escape, an empty trailing comma, a duplicate key in
 //     either spelling, nesting past 128, a number JSON cannot represent (refuseFileJSONC). A layer
@@ -258,28 +279,120 @@ func decodeCaptureMap(merged map[string]any) (Config, bool) {
 	return cfg, true
 }
 
+// readCaptureConfig reads one config layer for the hook path: the file's bytes, or missing when there
+// is no file, with ok false when the file is not a bounded regular leaf (refuseFileLeaf).
+//
+// The Lstat is a cheap pre-check that keeps a directory, a FIFO or a device from being opened at all.
+// What is trusted is the open and the handle's own Stat. paths.OpenSharedLeaf never follows a final
+// link, so the handle is the file the path named when the open resolved it, and it grants delete
+// sharing, so an editor's atomic save — a new file renamed over config.json — lands while a hook
+// holds the file and never fails the hook's read. The old sequence (Lstat, os.Open, os.SameFile)
+// failed on both counts on Windows: an ordinary handle made the save or the read fail, and a save
+// landing between the Lstat and the identity check made the paths disagree, and either way D8
+// refused the capture (owner decision D22, TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves).
+// A leaf swapped for a link, a directory or anything else between the Lstat and the open is still
+// refused: the open refuses the link, and the handle's Stat refuses the rest. So is a file that
+// exists and cannot be opened for any reason but absence (a permission refusal): it is never taken
+// for a missing one.
+//
+// A file the Lstat does not find is missing, at once. That is every hook in a project with no
+// config file, and it is also where the one residual lies: on Windows a rename that replaces
+// config.json can leave the name missing for tens of milliseconds (plans/sdd/V6-closeout/w6-config/
+// runs/50-52), and an Lstat that falls into that moment finds no file, as it would a deleted one
+// (docs/cannot-do.md).
+//
+// A file the Lstat found and the open then did not is different: that is positive evidence the file
+// exists, and taking the layer for missing would capture under a weaker privacy policy than the
+// operator wrote (a runtime.mode of off, or a runtime.redact addition, in the file being saved). An
+// atomic save is the ordinary way it happens, and refusing then would be the fail-closed hook D22
+// exists to prevent. So the reader looks again, for at most captureConfigGoneBudget: the file that
+// comes back is read, or refused if it is not a bounded regular file or cannot be opened; the layer
+// is missing only if the name stayed absent throughout; and a name that keeps coming back while
+// every open misses is refused when the budget runs out
+// (TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen).
 func readCaptureConfig(path string) ([]byte, bool, bool) {
-	info, err := os.Lstat(path)
+	return captureConfigReader{
+		lstat: os.Lstat,
+		open:  paths.OpenSharedLeaf,
+		clock: core.SystemClock(),
+		yield: runtime.Gosched,
+	}.read(path)
+}
+
+// captureConfigReader is readCaptureConfig's view of the filesystem and of time, a seam so its unit
+// tests can script what each call finds and how long the re-check has run.
+//
+// The re-check yields between attempts and measures its budget on the clock rather than waiting on
+// it: 00-ARCHITECTURE.md §6.1 bans wall-clock sleeps, and internal/ipc's ReadState and
+// internal/store's renameObject ride out a Windows rename's contention the same way.
+type captureConfigReader struct {
+	lstat func(string) (os.FileInfo, error)
+	open  func(string) (*os.File, error)
+	clock core.Clock
+	yield func()
+}
+
+// read is readCaptureConfig; see there.
+func (r captureConfigReader) read(path string) ([]byte, bool, bool) {
+	info, err := r.lstat(path)
 	if os.IsNotExist(err) {
 		return nil, true, true
 	}
-	if err != nil || !info.Mode().IsRegular() || info.Size() > captureConfigMaxBytes {
+	if err != nil || !boundedRegular(info) {
 		return nil, false, false
 	}
-	f, err := os.Open(path)
+	b, gone, ok := r.openAndRead(path)
+	if !gone {
+		return b, false, ok
+	}
+	began := r.clock.Now()
+	seen := false
+	for r.clock.Since(began) < captureConfigGoneBudget {
+		r.yield()
+		info, err := r.lstat(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil || !boundedRegular(info) {
+			return nil, false, false
+		}
+		seen = true
+		if b, gone, ok := r.openAndRead(path); !gone {
+			return b, false, ok
+		}
+	}
+	if seen {
+		return nil, false, false
+	}
+	return nil, true, true
+}
+
+// openAndRead opens path with the reader's open and reads it whole: the bytes and ok, or gone when
+// the open found no file.
+func (r captureConfigReader) openAndRead(path string) (b []byte, gone, ok bool) {
+	f, err := r.open(path)
+	if os.IsNotExist(err) {
+		return nil, true, false
+	}
 	if err != nil {
 		return nil, false, false
 	}
 	defer f.Close()
 	opened, err := f.Stat()
-	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) || opened.Size() > captureConfigMaxBytes {
+	if err != nil || !boundedRegular(opened) {
 		return nil, false, false
 	}
-	b, err := io.ReadAll(io.LimitReader(f, captureConfigMaxBytes+1))
+	b, err = io.ReadAll(io.LimitReader(f, captureConfigMaxBytes+1))
 	if err != nil || len(b) > captureConfigMaxBytes {
 		return nil, false, false
 	}
 	return b, false, true
+}
+
+// boundedRegular reports whether fi is a regular file (not a link, directory, FIFO or device) within
+// the capture loader's size bound.
+func boundedRegular(fi os.FileInfo) bool {
+	return fi.Mode().IsRegular() && fi.Size() <= captureConfigMaxBytes
 }
 
 func decodeCaptureConfig(raw []byte) ([]byte, map[string]any, bool) {

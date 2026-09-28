@@ -1,0 +1,17 @@
+{
+  "name": "archive_trust_parent_directory_replaced_by_link_outside",
+  "capability": "archive_trust",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "outcome": "verified",
+  "reason": "for parent_directory_replaced_by_link_outside, neither expand-by-id nor re_read-by-path materialized content for the escaping address; no byte of the file outside the project root appeared in any response, no refusal echoed the offending path, and the stored objects were untouched.",
+  "detail": "escape built with os.Symlink; envelopes: expand=denied(found=false) re_read=denied(found=false) recall=non_json({\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"refresh token rotati…)"
+}

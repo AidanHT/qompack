@@ -1,0 +1,38 @@
+#!/bin/sh
+# fullrun.sh MAKETREE RUNTREE LABEL LOG -- go-test-args...   (w6-config third seat, scratch only)
+# Like proofrun.sh, but the poisoned fake home is built from MAKETREE and go test runs in RUNTREE.
+set -u
+maketree=$1; runtree=$2; label=$3; log=$4; shift 4
+[ "$1" = "--" ] && shift
+here=$(cd "$(dirname "$0")" && pwd)
+fake=$here/fakehome-$label
+rm -rf "$fake"; mkdir -p "$fake"
+fakew=$(cygpath -w "$fake" 2>/dev/null || printf '%s' "$fake")
+gopath=$(cd "$runtree" && go env GOPATH); gomod=$(cd "$runtree" && go env GOMODCACHE)
+gocache=$(cd "$runtree" && go env GOCACHE); goenvf=$(cd "$runtree" && go env GOENV)
+mkdir -p "$maketree/tools/poisonhome"; cp "$here/poisonhome/main.go" "$maketree/tools/poisonhome/main.go"
+snap() { (cd "$fake" && find .qompack .claude -mindepth 0 2>/dev/null | LC_ALL=C sort | while IFS= read -r p; do
+	if [ -f "$p" ]; then printf '%s f %s %s %s\n' "$p" "$(stat -c %s "$p")" "$(stat -c %Y "$p")" "$(sha256sum "$p" | cut -d' ' -f1)"
+	else printf '%s d\n' "$p"; fi; done); }
+{
+	echo "# run '$label': go test in $runtree ($(git -C "$runtree" rev-parse --short HEAD 2>/dev/null), status: $(git -C "$runtree" status --porcelain 2>/dev/null | wc -l) changed paths)"
+	echo "# poisoned fake real home: $fakew; HOME, USERPROFILE, QOMPACK_HOME, CLAUDE_CONFIG_DIR point into it; GOPATH=$gopath GOMODCACHE=$gomod GOCACHE=$gocache GOENV=$goenvf pinned"
+	(cd "$maketree" && go run ./tools/poisonhome "$fakew") 2>&1
+	echo "# poisoned files:"; cat "$fake/.qompack/config.json"; echo; cat "$fake/.qompack/calibration.json"; echo; cat "$fake/.claude/settings.json"; echo
+	echo "# snapshot before:"; snap
+	echo "# started $(date -u +%Y-%m-%dT%H:%M:%SZ): go test $*"
+} > "$log" 2>&1
+rm -rf "$maketree/tools/poisonhome"
+snap > "$here/snap-$label-before.txt"
+(cd "$runtree" && HOME="$fakew" USERPROFILE="$fakew" QOMPACK_HOME="$fakew\.qompack" CLAUDE_CONFIG_DIR="$fakew\.claude" \
+	GOPATH="$gopath" GOMODCACHE="$gomod" GOCACHE="$gocache" GOENV="$goenvf" go test "$@" >> "$log" 2>&1)
+code=$?
+snap > "$here/snap-$label-after.txt"
+{
+	echo "# finished $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+	echo "go-test-exit=$code"
+	echo "# fake real home .qompack/.claude diff (before -> after); empty means untouched:"
+	diff "$here/snap-$label-before.txt" "$here/snap-$label-after.txt"
+	echo "diff-exit=$?"
+} >> "$log" 2>&1
+exit "$code"

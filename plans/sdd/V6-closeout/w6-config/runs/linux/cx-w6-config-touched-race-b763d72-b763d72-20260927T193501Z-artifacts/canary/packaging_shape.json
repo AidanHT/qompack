@@ -1,0 +1,13 @@
+{
+  "name": "packaging_shape",
+  "capability": "observation",
+  "scope": "repository",
+  "outcome": "verified",
+  "reason": "repository-level: the committed plugin/hooks/hooks.json declares the 7 events internal/pluginmanifest declares, across 7 exec-form command entries, each launching ${CLAUDE_PLUGIN_ROOT}/bin/qompack with args and a timeout; plugin/.mcp.json launches the same binary. Installed-host version at the time of this record: unknown (no `claude` on PATH). This is the packaging SHAPE, not evidence that an installed host resolves it.",
+  "target": {
+    "provider": "unknown",
+    "platform": "linux/amd64",
+    "date": "2026-09-27T19:46:38Z"
+  },
+  "recorded_at": "2026-09-27T19:46:38Z"
+}

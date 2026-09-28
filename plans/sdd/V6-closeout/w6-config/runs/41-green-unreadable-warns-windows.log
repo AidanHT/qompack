@@ -1,0 +1,12 @@
+# worktree on ecadcf4 + config.Load unreadable-file warning; Windows
+=== RUN   TestLoad_UnparseableFileWarns
+--- PASS: TestLoad_UnparseableFileWarns (0.01s)
+=== RUN   TestLoad_UnreadableFileWarns
+--- PASS: TestLoad_UnreadableFileWarns (0.04s)
+=== RUN   TestLoad_MissingFilesAreNotErrors
+--- PASS: TestLoad_MissingFilesAreNotErrors (0.00s)
+=== RUN   TestLoad_NilGetenvAndFlagsAreSafe
+--- PASS: TestLoad_NilGetenvAndFlagsAreSafe (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	1.798s
+exit=0

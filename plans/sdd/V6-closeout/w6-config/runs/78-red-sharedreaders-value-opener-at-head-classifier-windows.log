@@ -1,0 +1,12 @@
+# fix seat (w6-config), 2026-09-27: readCaptureConfig hands paths.OpenSharedLeaf to its captureConfigReader as a value (gocritic unlambda refuses the wrapping closure). HEAD's classifyReadCalls counts calls only, so the sharedReaders row for readCaptureConfig reads it as a function that no longer reads shared. Windows.
+    sharedreaders_test.go:353: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/sharedreaders_test.go:353
+        	Error:      	Should NOT be empty, but was []
+        	Test:       	TestGuard_HotFilesAreReadWithDeleteSharing/internal/config/capture_load.go:readCaptureConfig
+        	Messages:   	readCaptureConfig no longer calls paths.ReadFileShared or paths.OpenShared. It reads <project>/.qompack/config.json and <home>/.qompack/config.json, which the same atomic save, on the hook path: an ordinary handle made the save or the hook's read fail, and under D8 a config the hook cannot read refuses the capture, so saving the config could make a hook record nothing. It reads through paths.OpenSharedLeaf, which also never follows a final link, so no Lstat/os.SameFile identity check is left for a save to land inside (TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves) replaces or deletes underneath it, so its handle must grant delete sharing. If this function genuinely stopped reading that file, delete its row from sharedReaders in the same change rather than leaving a guard that checks nothing.
+--- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing (0.08s)
+    --- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing/internal/config/capture_load.go:readCaptureConfig (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.364s
+FAIL
+exit=1

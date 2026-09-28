@@ -3,35 +3,34 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"math"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/qompack/qompack/internal/paths"
 )
 
-// storeDirName and configFileName spell the two config files' locations: the store directory
-// paths.Global(home) and paths.Of(root).Dot name, and the file inside it. §3.2 gives config the
-// allow-set {core}, so it cannot import paths to ask for either; test/guards'
-// TestGuard_ConfigFilesAreWhereThePathsLayoutPutsThem holds the two spellings together instead.
-const (
-	storeDirName   = ".qompack"
-	configFileName = "config.json"
-)
+// configFileName is the config file's name inside each of the two directories that hold one:
+// paths.Global(home), the user-global layer, and paths.Of(root).Dot, the project store. paths owns
+// both directories (00-ARCHITECTURE.md §3.2 lets config import it since owner decision D22).
+const configFileName = "config.json"
 
 // UserConfigPath returns the user-global config file, <home>/.qompack/config.json: the file named
 // config.json in paths.Global(home), the cross-project layer (§3.3). The project root's
 // QOMPACK_PROJECT_ROOT override and .git walk never apply to it.
 func UserConfigPath(home string) string {
-	return filepath.Join(home, storeDirName, configFileName)
+	return filepath.Join(paths.Global(home), configFileName)
 }
 
 // ProjectConfigPath returns the project config file, <root>/.qompack/config.json: the file named
 // config.json in paths.Of(root).Dot.
 func ProjectConfigPath(root string) string {
-	return filepath.Join(root, storeDirName, configFileName)
+	return filepath.Join(paths.Of(root).Dot, configFileName)
 }
 
 // Load composes five layers, deep-merged per leaf key, lowest precedence first: built-in
@@ -41,10 +40,23 @@ func ProjectConfigPath(root string) string {
 // through the returned []Warning instead, because a hook that dies on bad config takes
 // observability with it (§11.3).
 //
-// Load never logs and never writes a file: §3.2 gives `config` the allow-set {core}, so it
-// cannot reach logging.Loud (logging imports config, so the reverse edge would be a cycle) or
-// paths.WriteAtomic (config cannot import paths either). Reporting the returned Warnings and
-// Violations is the caller's job — see ViolationsFromWarnings.
+// Both files are read with paths.ReadFileShared. The user or their editor writes them, and an
+// editor's atomic save renames a new file over the old one: on Windows an ordinary os.ReadFile
+// handle carries no FILE_SHARE_DELETE, so a save landing during the read either failed the save or
+// failed the read, and a failed read was taken for a missing file — the whole layer fell back to the
+// defaults without a word (TestLoad_ReadsThroughAnEditorsAtomicSaves; owner decision D22).
+//
+// Only a file that does not exist is an absent layer. A file that exists and cannot be read — a
+// directory named config.json, a permission refusal, another process holding it exclusively — is a
+// keyless "unreadable config" Warning naming the file, as an unparseable one is, and the layer is
+// not applied (TestLoad_UnreadableFileWarns). What no reader can tell apart from absence is the
+// moment during a rename-replace in which the filesystem itself reports the name missing; see
+// docs/architecture.md on the user-global layer.
+//
+// Load never logs and never writes a file. It cannot reach logging.Loud — logging imports config,
+// so the reverse edge would be a cycle (§3.2) — and it writes nothing by design: reporting the
+// returned Warnings and Violations, and persisting them, is the caller's job — see
+// ViolationsFromWarnings.
 func Load(env Env) (Config, Provenance, []Warning, error) {
 	if env.ProjectRoot == "" {
 		return Config{}, nil, nil, fmt.Errorf("config: Env.ProjectRoot must not be empty")
@@ -68,13 +80,22 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 		deepMerge(merged, layer, "", prov, origin, loc, lines, &warns)
 	}
 
-	userPath := UserConfigPath(env.HomeDir)
-	projectPath := ProjectConfigPath(env.ProjectRoot)
-	if b, err := os.ReadFile(userPath); err == nil {
-		apply(b, OriginUserFile, userPath)
-	}
-	if b, err := os.ReadFile(projectPath); err == nil {
-		apply(b, OriginProjectFile, projectPath)
+	for _, layer := range []struct {
+		path   string
+		origin Origin
+	}{
+		{UserConfigPath(env.HomeDir), OriginUserFile},
+		{ProjectConfigPath(env.ProjectRoot), OriginProjectFile},
+	} {
+		b, err := paths.ReadFileShared(layer.path)
+		switch {
+		case err == nil:
+			apply(b, layer.origin, layer.path)
+		case !errors.Is(err, fs.ErrNotExist):
+			warns = append(warns, Warning{
+				Key: "", Message: "unreadable config: " + err.Error(), Location: layer.path,
+			})
+		}
 	}
 	applyEnv(merged, env.Getenv, prov, &warns)
 	applyFlags(merged, env.Flags, prov, &warns)

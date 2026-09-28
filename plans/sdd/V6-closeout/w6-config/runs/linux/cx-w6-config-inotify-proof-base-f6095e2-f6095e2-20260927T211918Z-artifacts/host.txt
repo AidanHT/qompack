@@ -1,0 +1,10 @@
+run_id=cx-w6-config-inotify-proof-base-f6095e2-f6095e2-20260927T211918Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config
+rev=f6095e2
+commit=f6095e2704d55336e2e4eac1c2ffc82f566c423b
+bundle_sha256=1f7157e444ca5960d9630737c6eea0a68d7d63d9ab4c6a0d727e5280d4d5e3d5
+host_started_utc=2026-09-27T21:19:22Z
+inner_args=--no-race --env HOME=/work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z --env USERPROFILE=/work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z --env QOMPACK_HOME=/work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.qompack --env CLAUDE_CONFIG_DIR=/work/cx-w6-config-fakehome-inotify-proof-base-f6095e2-20260927T211915Z/.claude --env GOCACHE=/home/qompack-test/.cache/go-build -- ./internal/cli ./internal/tokens ./internal/hostperm ./internal/mcp
+host_finished_utc=2026-09-27T21:20:37Z
+container_exit=0

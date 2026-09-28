@@ -1,0 +1,10 @@
+run_id=cx-w6-config-daemon-alone-b763d72-b763d72-20260927T201208Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config
+rev=b763d72
+commit=b763d728ded3e6d6369a6e72d66bd0d125bb1120
+bundle_sha256=2972e5811488af22ac1d54b5a8e1a4d1744b24f80764d7a2df78f696c5341aba
+host_started_utc=2026-09-27T20:12:30Z
+inner_args=--run ^(TestStop_IsNotHeldBehindASessionEndsDrain|TestDeliveryOrder_LaneOverflowIsDrainedOnRequest)$ --count 3 -- ./internal/daemon
+host_finished_utc=2026-09-27T20:13:30Z
+container_exit=0

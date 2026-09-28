@@ -193,6 +193,33 @@ token-estimator calibration file, a fallback log directory for a project whose o
 written, and — on Windows — the daemon's staged executable, `bin/<sha256>/qompack.exe`, §1).
 `test/guards/writeset_test.go` runs all six hooks and fails on any write outside these two trees.
 
+Qompack only reads `config.json`, in both trees; you or your editor write it. Every read takes a
+handle with delete sharing: `paths.ReadFileShared`, or on the hook path `paths.OpenSharedLeaf`, which
+also never follows a final symlink or junction. So an editor that saves by renaming a new file over
+the old one never makes a hook's read fail. Such a failure matters because a hook that cannot read
+its configuration records nothing (owner decision D8). The shared reads need `internal/config` to
+import `internal/paths`, which owner decision D22 allows (`plans/00-ARCHITECTURE.md` §3.2). A file
+that exists and still cannot be read — a directory named `config.json`, a permission refusal —
+is never taken for a missing one: `config.Load` reports it as a `loud` "unreadable config" warning,
+and the hook path refuses it.
+
+Two limits remain, both on Windows. An editor that renames with the legacy `MoveFileEx` cannot
+replace a file while any process holds it open, even with delete sharing, so that save can be
+refused while a hook is reading the file. The editor reports the refusal, the hook still reads the
+version on disk, and saving again succeeds. And a rename that replaces `config.json` can leave the
+name missing for tens of milliseconds while it runs, whichever rename the editor uses: measured on
+the development host, about one save in every 10,000 to 40,000 did, for 18 to 115 ms, with no reader
+holding the file (`plans/sdd/V6-closeout/w6-config/runs/`). A hook that saw the file and then could
+not open it looks again for up to 250 ms: it reads the file that comes back, refuses one that comes
+back and cannot be read, and goes on without that layer only if the file stays gone throughout. A
+hook whose first look falls inside that moment, and a `config.Load` (the daemon's reload,
+`config print`), find no file, exactly as they would if you had deleted it, and use the
+configuration without that layer: the defaults, or the user-global file for a missing project file.
+That one delivery is then recorded, or not, under that configuration: a `runtime.mode` of `off` or a
+`runtime.redact` addition in the file being saved does not apply to it. A reader that has not seen
+the file cannot tell that moment from a deleted file, and looking again after every miss would
+delay every hook in a project that has no `config.json`, so it is not refused.
+
 The two trees never coincide. A project root is resolved from `QOMPACK_PROJECT_ROOT`, else the
 nearest enclosing `.git`, else the working directory, and each of those can name the home directory
 itself: a session started there, one started below a home that is a git work tree (a dotfiles

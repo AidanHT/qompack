@@ -1,0 +1,10 @@
+run_id=cx-w6-config-fixseat-touched-race-e72369c-20260927T220304Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config
+rev=e72369c
+commit=e72369c1800c8c2c4536cda5b8525e41f66eae09
+bundle_sha256=9d82c2f34a70e9e8a35ac6e41738e345bf07bf99ae1b701b7845e1b52a8aeba7
+host_started_utc=2026-09-27T22:03:08Z
+inner_args=-- ./internal/config ./test/guards ./test/docs
+host_finished_utc=2026-09-27T22:04:48Z
+container_exit=1

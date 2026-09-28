@@ -1,0 +1,13 @@
+{
+  "name": "invalid_hook_payload",
+  "capability": "observation",
+  "scope": "repository",
+  "outcome": "verified",
+  "reason": "repository-level: 6 hook entry points × 5 malformed, empty, non-object and oversized (5242880 bytes) payloads against this build's own binary in a temporary project with the daemon disabled. Every invocation exited 0 with empty-or-parseable stdout. Installed-host payload production is unverified.",
+  "target": {
+    "provider": "unknown",
+    "platform": "linux/amd64",
+    "date": "2026-09-27T19:46:37Z"
+  },
+  "recorded_at": "2026-09-27T19:46:38Z"
+}
