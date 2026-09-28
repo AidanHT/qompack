@@ -481,7 +481,10 @@ These are the limits that can move. Each names the gate or the owner that would 
   which is normally the one that compaction sealed.
 - **What Qompack does instead.** Checkpoints are written automatically: by the `PreCompact` hook
   just before every compaction, and on the checkpointer's own cadence during a session once enough
-  new work has accumulated. `/qompack:status` and `qompack fsck` report the checkpoint store.
+  new work has accumulated. `qompack fsck` verifies the checkpoint tier against its manifest.
+  `/qompack:status` reports no checkpoint list or latest seq; it shows only the `checkpoint_finalize`
+  latency histogram and, once a cadence seal has happened, the `checkpoint.cadence.local_seal`
+  counter.
 - **Recorded at.** [docs/commands.md](commands.md) (the preamble: "There is no checkpoint
   command"); [docs/user-guide.md](user-guide.md#checkpoints-are-automatic);
   `internal/pluginmanifest/manifest.go` (`commandSpecs`); `plans/V5-report.md` §29 item 3 (the
