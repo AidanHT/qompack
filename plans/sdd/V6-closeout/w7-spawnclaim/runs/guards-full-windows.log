@@ -1,0 +1,12 @@
+# go test -count=1 ./test/guards @ c1f1a3a3 (Windows, loaded machine)
+# exit=1: only TestCarriedDefects_WaveReportRequiresResolution rows fail (pre-existing on 898bb8b, report checkpoint status, not this workstream); TestGuard_AReleasedLockReportsItsSealResidual passes
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.20s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP06-D2 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP10-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP09-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP20-D2 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D3 (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	206.384s
+FAIL
