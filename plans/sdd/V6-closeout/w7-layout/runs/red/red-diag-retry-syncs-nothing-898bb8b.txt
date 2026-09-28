@@ -1,0 +1,24 @@
+=== RUN   TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout
+    barriers_retry_test.go:148: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-layout/internal/paths/barriers_retry_test.go:148
+        	Error:      	Not equal: 
+        	            	expected: []string{"dir:eval", "dir:.qompack", "dir:001"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,6 +1,2 @@
+        	            	-([]string) (len=3) {
+        	            	- (string) (len=8) "dir:eval",
+        	            	- (string) (len=12) "dir:.qompack",
+        	            	- (string) (len=7) "dir:001"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout
+        	Messages:   	backup/'s entry was never made durable, so the next process must sync .qompack
+--- FAIL: TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.487s
+FAIL

@@ -1,0 +1,24 @@
+{"Time":"2026-09-28T02:20:48.765475298Z","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-09-28T02:20:48.808235475Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain"}
+{"Time":"2026-09-28T02:20:48.808286253Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain\n"}
+{"Time":"2026-09-28T02:20:51.235487643Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (2.43s)\n"}
+{"Time":"2026-09-28T02:20:51.235531318Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Elapsed":2.43}
+{"Time":"2026-09-28T02:20:51.236962581Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain"}
+{"Time":"2026-09-28T02:20:51.236999791Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain\n"}
+{"Time":"2026-09-28T02:20:54.387097144Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (3.15s)\n"}
+{"Time":"2026-09-28T02:20:54.387151321Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Elapsed":3.15}
+{"Time":"2026-09-28T02:20:54.388463644Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain"}
+{"Time":"2026-09-28T02:20:54.388490767Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain\n"}
+{"Time":"2026-09-28T02:20:56.528390791Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (2.14s)\n"}
+{"Time":"2026-09-28T02:20:56.528458693Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Elapsed":2.14}
+{"Time":"2026-09-28T02:20:56.53067873Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain"}
+{"Time":"2026-09-28T02:20:56.530726548Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain\n"}
+{"Time":"2026-09-28T02:20:58.655214676Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (2.12s)\n"}
+{"Time":"2026-09-28T02:20:58.655281359Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Elapsed":2.12}
+{"Time":"2026-09-28T02:20:58.656870343Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain"}
+{"Time":"2026-09-28T02:20:58.656898689Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain\n"}
+{"Time":"2026-09-28T02:21:01.304562096Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Output":"--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (2.65s)\n"}
+{"Time":"2026-09-28T02:21:01.304637369Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStop_IsNotHeldBehindASessionEndsDrain","Elapsed":2.65}
+{"Time":"2026-09-28T02:21:01.30524985Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"PASS\n"}
+{"Time":"2026-09-28T02:21:02.313668174Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"ok  \tgithub.com/qompack/qompack/internal/daemon\t13.548s\n"}
+{"Time":"2026-09-28T02:21:02.313723983Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":13.548}
