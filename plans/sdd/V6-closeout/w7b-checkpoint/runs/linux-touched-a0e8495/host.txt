@@ -1,0 +1,10 @@
+run_id=cx-w7b-checkpoint-touched-a0e8495-20260928T023843Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7b-checkpoint
+rev=a0e84956
+commit=a0e84956114b5757e47b6d8467674f631337c841
+bundle_sha256=14083240cee9bc0dea497e91b9187419266eb9e9abc7f8bcf70b4dd8c30f9229
+host_started_utc=2026-09-28T02:38:49Z
+inner_args=--timeout 30m -- ./internal/cli ./internal/commands ./internal/pluginmanifest ./tools/devtool ./test/docs
+host_finished_utc=2026-09-28T02:40:16Z
+container_exit=0

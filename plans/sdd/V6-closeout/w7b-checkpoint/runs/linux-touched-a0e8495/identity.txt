@@ -1,0 +1,21 @@
+run_id=cx-w7b-checkpoint-touched-a0e8495-20260928T023843Z
+commit=a0e84956114b5757e47b6d8467674f631337c841
+tree=1962f0d1c1b17fe0fdf8688c47788044cd257797
+bundle_sha256=14083240cee9bc0dea497e91b9187419266eb9e9abc7f8bcf70b4dd8c30f9229
+started_utc=2026-09-28T02:38:54Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-28T02:40:16Z

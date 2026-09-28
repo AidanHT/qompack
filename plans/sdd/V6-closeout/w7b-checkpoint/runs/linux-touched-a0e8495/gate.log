@@ -1,0 +1,40 @@
+run_id=cx-w7b-checkpoint-touched-a0e8495-20260928T023843Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7b-checkpoint
+rev=a0e84956
+commit=a0e84956114b5757e47b6d8467674f631337c841
+bundle_sha256=14083240cee9bc0dea497e91b9187419266eb9e9abc7f8bcf70b4dd8c30f9229
+host_started_utc=2026-09-28T02:38:49Z
+inner_args=--timeout 30m -- ./internal/cli ./internal/commands ./internal/pluginmanifest ./tools/devtool ./test/docs
+/work/cx-w7b-checkpoint-touched-a0e8495-20260928T023843Z.bundle: OK
+run_id=cx-w7b-checkpoint-touched-a0e8495-20260928T023843Z
+commit=a0e84956114b5757e47b6d8467674f631337c841
+tree=1962f0d1c1b17fe0fdf8688c47788044cd257797
+bundle_sha256=14083240cee9bc0dea497e91b9187419266eb9e9abc7f8bcf70b4dd8c30f9229
+started_utc=2026-09-28T02:38:54Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+go: writing stat cache: open /go/pkg/mod/cache/download/github.com/qompack/qompack/@v/v0.0.0-20260928023746-a0e84956114b.info440242755.tmp: permission denied
+PASS      github.com/qompack/qompack/internal/cli  (pass=427 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/commands  (pass=116 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/pluginmanifest  (pass=28 fail=0 skip=0)
+PASS      github.com/qompack/qompack/tools/devtool  (pass=333 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w7b/checkpoint/linux/cx-w7b-checkpoint-touched-a0e8495-20260928T023843Z-artifacts
+exit=0
+exit=0

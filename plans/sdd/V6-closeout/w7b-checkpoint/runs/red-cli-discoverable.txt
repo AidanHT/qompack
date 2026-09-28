@@ -1,0 +1,9 @@
+--- FAIL: TestSlashCommands_AreDiscoverable (0.00s)
+    qompack_commands_test.go:67: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7b-checkpoint/internal/cli/qompack_commands_test.go:67
+        	Error:      	Should be false
+        	Test:       	TestSlashCommands_AreDiscoverable
+        	Messages:   	/qompack:checkpoint shells out to `qompack checkpoint`, which is a hook entry point: it reads a hook event from stdin and exits 0, so the command would do nothing
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.265s
+FAIL

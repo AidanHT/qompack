@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/cli	61.485s
+exit=0
