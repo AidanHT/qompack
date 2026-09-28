@@ -123,6 +123,78 @@ func TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero(t *testing.T) {
 		"a live job through runIngested is not a counted replay loss")
 }
 
+// TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero pins the half of SP08-D3 the
+// V6 fix does not close (acceptance item 2): turn order is publication order, and a prompt that
+// reached only a hook's client spool is published in an order that is not the host's. The ordering
+// gate orders LEASED arrivals only, a client-spool line is leased when a drain reaches it, and
+// nothing orders a replay by req.TS. So the host's second prompt becomes prompt_<s>_0 — the id
+// internal/rehydrate serves as the verbatim original, checking only its session and turn — and the
+// host-first prompt is captured at turn 1, in two ways:
+//
+//   - live_second: the first prompt's hook could not reach the daemon and spooled it; the second
+//     arrives live and its worker publishes it before any drain replays the spool.
+//   - spool_file_order: both prompts were spooled, each by its own hook process into its own
+//     client-<pid>.ndjson; ipc.SpoolFiles drains client spools in file-name order, and a pid says
+//     nothing about time (nor does an unpadded decimal sort as a number).
+//
+// Neither of item 2's resolutions (a req.TS order, or a rehydrator that stops presenting a later
+// turn as the original) exists yet. This asserts TODAY's wrong outcome on purpose: fixing the
+// residual makes it fail, and the CARRIED-DEFECTS.tsv row must then move to fixed with this test
+// inverted.
+func TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// deliver hands the daemon the host's two prompts, first then second, and returns once
+		// both have been published.
+		deliver func(t *testing.T, dd *daemon, root string, first, second ipc.Request)
+	}{
+		{"live_second", func(t *testing.T, dd *daemon, root string, first, second ipc.Request) {
+			writeSpoolLine(t, root, "client-7.ndjson", first)
+			_, err := dd.deliveryJournal()
+			require.NoError(t, err)
+			resp := dd.dispatchOp(context.Background(), second)
+			require.True(t, resp.OK, "the live prompt is accepted: %+v", resp)
+			drainRing(t, dd)
+			n, err := dd.Drain(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, 1, n, "the spooled prompt is replayed once, after the live one published")
+		}},
+		{"spool_file_order", func(t *testing.T, dd *daemon, root string, first, second ipc.Request) {
+			// Host order: pid 9's hook spooled first, pid 10's second. "client-10" sorts first.
+			writeSpoolLine(t, root, "client-9.ndjson", first)
+			writeSpoolLine(t, root, "client-10.ndjson", second)
+			n, err := dd.Drain(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, 2, n, "both spooled prompts are replayed in one pass")
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			_, dd, o := wireTestDaemon(t, root, nil)
+			lock := lockFor(t, dd, root)
+			t.Cleanup(func() { _ = lock.Release() })
+			spD3Drainer(dd, root)
+			t.Cleanup(func() {
+				grace, cancel := context.WithTimeout(context.Background(), promptRecordWait)
+				defer cancel()
+				dd.stopPromptRecordings(grace)
+			})
+
+			const sess core.SessionID = "sess-sp08d3-spooled-first"
+			first := spD3Prompt(dd, root, sess, testDeliveryToken('a'), "first")
+			second := spD3Prompt(dd, root, sess, testDeliveryToken('b'), "second")
+			require.LessOrEqual(t, first.TS, second.TS, "the host sent \"first\" first")
+			tc.deliver(t, dd, root, first, second)
+
+			// Both are captured (the V6 fix), in publication order rather than host order.
+			require.Equal(t, "second", spD3PromptText(t, o, observer.VerbatimPromptID(sess, 0)),
+				"SP08-D3 residual: the host's second prompt takes turn 0, the rehydrator's verbatim original")
+			require.Equal(t, "first", spD3PromptText(t, o, observer.VerbatimPromptID(sess, 1)),
+				"SP08-D3 residual: the host-first prompt is captured at turn 1")
+		})
+	}
+}
+
 // TestSP08D3_DistinctSameTextRepliesStayDistinct: two replayed prompts with IDENTICAL text are two
 // turns, not one. There is no content-based dedup — turn identity keeps them apart.
 func TestSP08D3_DistinctSameTextRepliesStayDistinct(t *testing.T) {
