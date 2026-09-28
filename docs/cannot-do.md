@@ -269,21 +269,28 @@ host change could lift — as prepared proposals, none of which has been filed.
   verbatim original intent, is the prompt the host sent first. A prompt's turn is the order it was
   captured in. Prompts that reach the daemon live are captured in arrival order, and prompts
   replayed from the hooks' client spools (the HotSpool submode, `runtime.daemon.enabled=false`, a
-  hook that could not reach the daemon) are replayed in the order their hooks stamped them. One case
-  falls outside both. A prompt's hook could not reach the daemon and spooled it, then a later prompt
-  arrived live and was captured before a drain replayed the spool. The later prompt is then turn 0.
+  hook that could not reach the daemon) are replayed in the order their hooks stamped them. Two
+  cases fall outside both. In the first, a prompt's hook could not reach the daemon and spooled it,
+  then a later prompt arrived live and was captured before a drain replayed the spool. In the
+  second, a spool file is named by the hook's pid, so a later hook that reuses the pid appends to an
+  earlier hook's file. One drain pass replays a file's records in file order, so that later prompt
+  can be replayed ahead of another file's earlier one. Either way the later prompt can take turn 0.
 - **Why.** The daemon cannot see a prompt that exists only in a hook's spool, so it cannot hold the
-  live prompt back for it without waiting on a file that may never appear. Captured turns are never
-  renumbered, because every later artifact is numbered against them. The V6 close-out's owner
-  decision D35 ruled this race out of the host-order guarantee.
-- **What Qompack does instead.** Every prompt record carries the host's timestamp. A capture that
-  lands behind a turn its host sent later is counted (`observer.prompt_out_of_host_order`) and
-  logged as a Warn naming the turn it came in behind. A rehydration whose turn 0 is not the session's
-  earliest-stamped prompt says so. Section 7 carries a `user_intent_source` entry, `host_order`,
-  naming both records and the `expand(tool_use_id=…)` call for the host-first one. The client-spool
-  watcher limits the window: once the daemon serves another request, a spooled prompt is replayed
-  within about two check intervals of 2 s each, so only a live prompt sent inside that window can
-  come in ahead of it.
+  live prompt back for it without waiting on a file that may never appear. Replay is ordered file by
+  file, and a file shared by two hooks through pid reuse keeps its own record order. Captured turns
+  are never renumbered, because every later artifact is numbered against them. The V6 close-out's
+  owner decision D35 ruled the live race out of the host-order guarantee and specified the
+  file-by-file order.
+- **What Qompack does instead.** Every prompt record carries the host's timestamp. Any capture that
+  lands behind a turn its host sent later, from either source, is counted
+  (`observer.prompt_out_of_host_order`) and logged as a Warn naming the turn it came in behind. A
+  rehydration whose turn 0 is not the session's earliest-stamped prompt says so. Section 7 carries
+  a `user_intent_source` entry, `host_order`, naming both records and the `expand(tool_use_id=…)`
+  call for the host-first one. The client-spool watcher limits the live race's window: once the
+  daemon serves another request, a spooled prompt is replayed within about two check intervals of
+  2 s each, so only a live prompt sent inside that window can come in ahead of it. A spool file
+  that a pid-reusing hook appended to after a drain had begun it is placed by the record the next
+  drain replays from it, so reuse reorders prompts only when both hooks spooled before one pass.
 - **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);
   `plans/CARRIED-DEFECTS.tsv`; [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
 
