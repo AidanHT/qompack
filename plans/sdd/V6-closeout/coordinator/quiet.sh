@@ -116,6 +116,12 @@ negknow IngestMCPRealStore 1s w6-ckptsync Linux paired timing (D26 record_elimin
 daemon IngestAccept 1s w6-ckptsync Linux paired timing (control)
 daemon IngestAcceptLeased 1s w6-ckptsync Linux paired timing (control)
 daemon IngestAcceptExternalized 1s w6-ckptsync Linux paired timing (D26, 1 MiB payloads in B-B)
+daemon FeaturesFrom 1s D37 1.12.17 (SP-12 scheduler benches, daemon half: scheduler_bench_test.go)
+daemon ReclaimableIndexBuild_5000Blocks 1s D37 1.12.17 (SP-12 scheduler benches, daemon half)
+daemon AssembleCandidates_2000ToolUses 1s D37 1.12.17 (SP-12 scheduler benches, daemon half)
+daemon RuntimeEvaluate_2000ToolUses_32Candidates 1s D37 1.12.17 (SP-12 scheduler benches, daemon half)
+daemon SchedulerTap_ObserveTool 1s D37 1.12.17 (SP-12 scheduler benches, daemon half)
+cli HookNoop_InProcess 1s D37 1.1.27 (SP-01 "Benchmarks with budgets": B-A headroom, < 3 ms/op)
 canon Run_Bash100KB 1s perfobs §2/§6 (canon BenchmarkRun_*); D37 1.4.14
 canon Run_GoTest 1s perfobs §2/§6 (canon BenchmarkRun_*); D37 1.4.14
 canon Run_KeepDeltas 1s perfobs §2/§6 (canon BenchmarkRun_*); D37 1.4.14
@@ -128,10 +134,10 @@ chunk SplitStream_4MiB 1s D37 1.4.14 (chunk family)
 symbols Enclosing_100KB 1s D37 1.4.14 (symbols family)
 symbols Extract_100KB 1s D37 1.4.14 (symbols family)
 symbols References_100KB_50Names 1s D37 1.4.14 (symbols family)
-obs Histogram_Observe 1s D37 1.1.16
-config ConfigLoad_ColdNoFiles 1s D37 1.1.27
-paths IsHome_AProjectBelowHome 1s D37 1.1.27 (config/paths/core/devtool family)
-paths PathsWriteAtomic_4KB 1s D37 1.1.27 (config/paths/core/devtool family)
+obs Histogram_Observe 1s D37 1.1.16; SP-01 "Benchmarks with budgets" (< 100 ns/op)
+config ConfigLoad_ColdNoFiles 1s D37 1.1.27; SP-01 "Benchmarks with budgets" (< 2 ms/op)
+paths IsHome_AProjectBelowHome 1s D37 1.1.27's package family (config/paths/core/devtool); not an SP-01 row
+paths PathsWriteAtomic_4KB 1s D37 1.1.27; SP-01 "Benchmarks with budgets" (< 2 ms/op)
 eval BeladyDetail_400Turns 1s D37 1.2.12 (E-1..E-5)
 eval BreakpointOPT_256Candidates 1s D37 1.2.12 (E-1..E-5)
 eval Compare_400Actions 1s D37 1.2.12 (E-1..E-5)
@@ -140,7 +146,7 @@ sketch RebuildBloom5000 1s D37 1.3.7
 sketch L0SketchUpdate 1s inventory 1.3.16 (C5.2-mapped; 0-alloc hot-path sketch update)
 dag CrossingEdges 1s D37 1.7.8
 dag BackwardSlice5000 1s D37 1.7.10
-hostperm Evaluate 1s D37 1.12.17 (inventory-map symbol)
+hostperm Evaluate 1s D37 1.12.17 (inventory-map.tsv's symbol; a name collision, kept as listed)
 scheduler Evaluate_64Candidates 1s D37 1.12.17 and 1.16.11 (scheduler family)
 scheduler BOCDObserve_4Features 1s D37 1.12.17 and 1.16.11 (scheduler family)
 scheduler BOCDMarshal 1s D37 1.12.17 and 1.16.11 (scheduler family)
