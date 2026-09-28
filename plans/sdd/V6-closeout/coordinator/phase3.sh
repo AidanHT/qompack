@@ -7,7 +7,8 @@
 #   win-timing  ci.yml's timing lane, -p 1, alone, no co-load   (D28: wall-clock rows judged in isolation)
 #   win-e2e-timing  test/e2e alone, no -race, no co-load        (D28: ci.yml's test-e2e job)
 #   lint        fmt-check, full devtool lint incl. stubskips, go vet (C3.5)
-#   cover       go run ./tools/devtool cover                    (C3.6)
+#   cover       go run ./tools/devtool cover, QOMPACK_UNDER_COLOAD=1 (C3.6: a coverage gate, not a
+#               timing gate, so it may run beside the Linux lane)
 #   gens        gen-*-docs --check, test/docs, licenses, govulncheck, build-all, plugin-validate,
 #               replay --ci (C3.7, C3.8, C3.10)
 #   fuzz        every nightly fuzz target for FUZZTIME (default 60s) (C3.9)
@@ -45,7 +46,7 @@ for step in "$@"; do
     lint) rec p3-fmt-check -- go run ./tools/devtool fmt-check
           rec p3-lint -- go run ./tools/devtool lint
           rec p3-vet -- go vet ./... ;;
-    cover) rec p3-cover -- go run ./tools/devtool cover ;;
+    cover) rec p3-cover -- env QOMPACK_UNDER_COLOAD=1 go run ./tools/devtool cover ;;
     gens) for g in gen-config-docs gen-mcp-docs gen-command-docs; do rec "p3-$g" -- go run ./tools/devtool $g --check; done
           rec p3-test-docs -- go test -count=1 ./test/docs/...
           rec p3-licenses -- go run ./tools/devtool licenses --check
