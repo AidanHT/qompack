@@ -89,6 +89,11 @@ type FileWriter struct {
 	// their next Begin — losing their accumulated state while their segments stay flagged
 	// encoded-once and therefore unreachable forever.
 	issuedSeq core.CheckpointSeq
+	// barriers are the durability calls Finalize seals a checkpoint through: the artifact's file sync
+	// (paths.CreateNew) and the directory and MANIFEST syncs (paths.AppendManifest). The zero value
+	// is the real thing and is all production ever uses; a test sets it to count the barriers or to
+	// cut the seal at one of them the way a power loss would (export_test.go).
+	barriers paths.Barriers
 	// begins holds one admission gate per session, so the whole of Begin — the file read, the
 	// manifest read and the four source reads included — is serialized per session. w.mu itself
 	// must NOT be held across that I/O, and without a second gate Begin is a check-then-act: two

@@ -348,6 +348,12 @@ type ledger struct {
 	// opened for appending. Every append goes through it under mu.
 	f      io.WriteCloser
 	closed bool
+	// barriers are what syncAcknowledged makes an acknowledged record durable through (durable.go):
+	// the log's file sync and, once per ledger lifetime, the records directory's. The zero value is
+	// the real thing and is all production uses; a test counts or cuts them. logNameDurable records
+	// that the directory barrier has succeeded. Both are guarded by mu.
+	barriers       paths.Barriers
+	logNameDurable bool
 	// pending reports that a bloom rebuild is owed (rebuildOnStale == "nextIdle").
 	pending bool
 	// seq is the rebuild generation. It is seeded at Open from paths.HighestBloomBackupSeq so it

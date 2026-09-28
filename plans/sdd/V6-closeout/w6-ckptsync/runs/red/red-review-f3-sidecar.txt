@@ -1,0 +1,12 @@
+# RED in the worktree at b51664b plus the new test, before the fix:
+# go test ./internal/store -run '^TestCaptureSidecar_AWriterSyncsAShardAnotherWriterIsStillSyncing$' -count=1 -v
+=== RUN   TestCaptureSidecar_AWriterSyncsAShardAnotherWriterIsStillSyncing
+    capture_sidecar_durability_test.go:134: 
+        	Error Trace:	<worktree>/internal/store/capture_sidecar_durability_test.go:134
+        	Error:      	[]string(nil) does not contain "dir:captures"
+        	Test:       	TestCaptureSidecar_AWriterSyncsAShardAnotherWriterIsStillSyncing
+        	Messages:   	the second writer syncs the shard's entry itself; the first writer's barrier had not returned
+--- FAIL: TestCaptureSidecar_AWriterSyncsAShardAnotherWriterIsStillSyncing (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.307s
+FAIL

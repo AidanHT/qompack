@@ -1,0 +1,1011 @@
+=== RUN   TestBudget_QueryHit
+    bench_test.go:655: BenchmarkQueryHit: 3.737µs CPU/op over 393015 iterations (best of 1) against a 50µs budget
+    bench_test.go:655: BenchmarkQueryHit: 3.872µs wall/op over 393015 iterations (best of 1) against a 50µs budget
+--- PASS: TestBudget_QueryHit (3.31s)
+=== RUN   TestBudget_QueryMiss
+    bench_test.go:659: BenchmarkQueryMiss: 2.117µs CPU/op over 523809 iterations (best of 1) against a 5µs budget
+    bench_test.go:659: BenchmarkQueryMiss: 2.294µs wall/op over 523809 iterations (best of 1) against a 5µs budget
+--- PASS: TestBudget_QueryMiss (3.74s)
+=== RUN   TestBudget_Record
+    bench_test.go:686: BenchmarkRecord: 79.687µs CPU/op over 10000 iterations (best of 1) against a 5ms budget
+    bench_test.go:686: BenchmarkRecord: 112.034µs wall/op over 10000 iterations (best of 1) against a 5ms budget
+--- PASS: TestBudget_Record (1.29s)
+=== RUN   TestBudget_RebuildBloom
+    bench_test.go:718: BenchmarkRebuildBloom: 17.755681ms CPU/op over 44 iterations (best of 1) against a 50ms budget
+    bench_test.go:718: BenchmarkRebuildBloom: 23.559318ms wall/op over 44 iterations (best of 1) against a 50ms budget
+--- PASS: TestBudget_RebuildBloom (1.65s)
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: attempt 1 is 12.710168ms wall/op and 7.03125ms CPU/op, over the 10ms ceiling on a gated clock — retrying
+    bench_test.go:744: BenchmarkRefreshStaleness: attempt 2 is 12.030904ms wall/op and 7.451923ms CPU/op, over the 10ms ceiling on a gated clock — retrying
+    bench_test.go:744: BenchmarkRefreshStaleness: attempt 3 is 10.699483ms wall/op and 7.624246ms CPU/op, over the 10ms ceiling on a gated clock — retrying
+    bench_test.go:744: BenchmarkRefreshStaleness: 7.03125ms CPU/op over 100 iterations (best of 3) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 10.699483ms wall/op over 166 iterations (best of 3) against a 10ms budget
+    bench_test.go:744: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync/internal/negknow/bench_test.go:441
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync/internal/negknow/bench_test.go:744
+        	Error:      	"10.699483ms" is not less than or equal to "10ms"
+        	Test:       	TestBudget_RefreshStaleness
+        	Messages:   	BenchmarkRefreshStaleness: 10.699483ms wall/op exceeds the §11.2 budget of 10ms
+--- FAIL: TestBudget_RefreshStaleness (12.04s)
+=== RUN   TestBudget_Open
+    bench_test.go:834: BenchmarkOpen: 130.208333ms CPU/op over 6 iterations (best of 1) against a 300ms budget
+    bench_test.go:834: BenchmarkOpen: 189.601283ms wall/op over 6 iterations (best of 1) against a 300ms budget
+--- PASS: TestBudget_Open (6.65s)
+=== RUN   TestBudget_DetectorScan
+    bench_test.go:966: BenchmarkDetectorScan: 1.87106ms CPU/op over 476 iterations (best of 1) against a 5ms budget
+    bench_test.go:966: BenchmarkDetectorScan: 2.153923ms wall/op over 476 iterations (best of 1) against a 5ms budget
+--- PASS: TestBudget_DetectorScan (3.23s)
+=== RUN   TestMemoryFootprint
+    bench_test.go:1013: resident memory for 5000 records: 3964808 bytes (792.96 B/record) against a 5242880-byte budget
+--- PASS: TestMemoryFootprint (0.34s)
+=== RUN   TestMaxAutoDepsCap
+--- PASS: TestMaxAutoDepsCap (0.06s)
+=== RUN   TestRebuildBloom_ActiveOnly
+--- PASS: TestRebuildBloom_ActiveOnly (0.04s)
+=== RUN   TestRebuildBloom_ExcludesForeignSession
+--- PASS: TestRebuildBloom_ExcludesForeignSession (0.05s)
+=== RUN   TestRebuildBloom_HonoursConfiguredCapacity
+--- PASS: TestRebuildBloom_HonoursConfiguredCapacity (0.07s)
+=== RUN   TestRebuildBloom_Resizes
+--- PASS: TestRebuildBloom_Resizes (0.10s)
+=== RUN   TestBloomFileSize
+--- PASS: TestBloomFileSize (0.06s)
+=== RUN   TestRebuildBloom_Persistence
+--- PASS: TestRebuildBloom_Persistence (0.08s)
+=== RUN   TestRebuildBloom_SeqResumesFromDisk
+--- PASS: TestRebuildBloom_SeqResumesFromDisk (0.07s)
+=== RUN   TestRebuildBloom_PersistenceFailureReseedsSeq
+--- PASS: TestRebuildBloom_PersistenceFailureReseedsSeq (0.11s)
+=== RUN   TestOpen_UnsizedBloomIsRebuilt
+--- PASS: TestOpen_UnsizedBloomIsRebuilt (0.07s)
+=== RUN   TestOpen_UnsizedBloomWithRecordsRebuilds
+--- PASS: TestOpen_UnsizedBloomWithRecordsRebuilds (0.06s)
+=== RUN   TestOpen_ZeroBloomConfigIsQuiet
+--- PASS: TestOpen_ZeroBloomConfigIsQuiet (0.04s)
+=== RUN   TestOpen_OutOfRangeBloomConfigIsLoud
+--- PASS: TestOpen_OutOfRangeBloomConfigIsLoud (0.05s)
+=== RUN   TestRebuildBloom_OneBakGeneration
+--- PASS: TestRebuildBloom_OneBakGeneration (0.05s)
+=== RUN   TestBloomLoadFailure_RebuildsFromRecords
+--- PASS: TestBloomLoadFailure_RebuildsFromRecords (0.07s)
+=== RUN   TestBloomLoad_ColdStartIsQuiet
+--- PASS: TestBloomLoad_ColdStartIsQuiet (0.04s)
+=== RUN   TestBloomLoadFailure_NoRecords_NeverFalsePositive
+    bloom_test.go:473: [rapid] OK, passed 100 tests (4.2838ms)
+--- PASS: TestBloomLoadFailure_NoRecords_NeverFalsePositive (0.08s)
+=== RUN   TestBloomUndercount_TriggersRebuild
+--- PASS: TestBloomUndercount_TriggersRebuild (0.09s)
+=== RUN   TestBloomOvercount_SchedulesRebuild
+--- PASS: TestBloomOvercount_SchedulesRebuild (0.07s)
+=== RUN   TestHealth
+--- PASS: TestHealth (0.04s)
+=== RUN   TestHealth_BlindIsZeroed
+--- PASS: TestHealth_BlindIsZeroed (0.04s)
+=== RUN   TestRoundUpPow2
+--- PASS: TestRoundUpPow2 (0.00s)
+=== RUN   TestRebuildBloom_NeverFromCheckpoint
+--- PASS: TestRebuildBloom_NeverFromCheckpoint (0.13s)
+=== RUN   TestRebuildBloom_UsesSanctionedDoor
+--- PASS: TestRebuildBloom_UsesSanctionedDoor (0.01s)
+=== RUN   TestApproachClass_Table
+=== RUN   TestApproachClass_Table/plain
+=== RUN   TestApproachClass_Table/synonyms_and_lemma
+=== RUN   TestApproachClass_Table/bump
+=== RUN   TestApproachClass_Table/disable_pooling
+=== RUN   TestApproachClass_Table/raise
+=== RUN   TestApproachClass_Table/four_tokens
+=== RUN   TestApproachClass_Table/blank
+=== RUN   TestApproachClass_Table/all_stopwords
+--- PASS: TestApproachClass_Table (0.00s)
+    --- PASS: TestApproachClass_Table/plain (0.00s)
+    --- PASS: TestApproachClass_Table/synonyms_and_lemma (0.00s)
+    --- PASS: TestApproachClass_Table/bump (0.00s)
+    --- PASS: TestApproachClass_Table/disable_pooling (0.00s)
+    --- PASS: TestApproachClass_Table/raise (0.00s)
+    --- PASS: TestApproachClass_Table/four_tokens (0.00s)
+    --- PASS: TestApproachClass_Table/blank (0.00s)
+    --- PASS: TestApproachClass_Table/all_stopwords (0.00s)
+=== RUN   TestApproachClass_SynonymFixpoint
+--- PASS: TestApproachClass_SynonymFixpoint (0.00s)
+=== RUN   TestApproachClass_SilentERestore
+=== RUN   TestApproachClass_SilentERestore/enlarging
+=== RUN   TestApproachClass_SilentERestore/memoizing
+=== RUN   TestApproachClass_SilentERestore/disabling
+=== RUN   TestApproachClass_SilentERestore/reducing
+=== RUN   TestApproachClass_SilentERestore/upgrading
+=== RUN   TestApproachClass_SilentERestore/migrating
+=== RUN   TestApproachClass_SilentERestore/removing
+=== RUN   TestApproachClass_SilentERestore/deleting
+=== RUN   TestApproachClass_SilentERestore/downgrading
+=== RUN   TestApproachClass_SilentERestore/cached
+=== RUN   TestApproachClass_SilentERestore/increasing
+=== RUN   TestApproachClass_SilentERestore/rewriting
+=== RUN   TestApproachClass_SilentERestore/introducing
+--- PASS: TestApproachClass_SilentERestore (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/enlarging (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/memoizing (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/disabling (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/reducing (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/upgrading (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/migrating (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/removing (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/deleting (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/downgrading (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/cached (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/increasing (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/rewriting (0.00s)
+    --- PASS: TestApproachClass_SilentERestore/introducing (0.00s)
+=== RUN   TestApproachClass_DoubledConsonantLimitation
+--- PASS: TestApproachClass_DoubledConsonantLimitation (0.00s)
+=== RUN   TestApproachClass_Deterministic
+    classify_test.go:109: [rapid] OK, passed 100 tests (4.7955ms)
+--- PASS: TestApproachClass_Deterministic (0.00s)
+=== RUN   TestApproachClass_Bounded
+    classify_test.go:142: [rapid] OK, passed 100 tests (1.0749ms)
+--- PASS: TestApproachClass_Bounded (0.00s)
+=== RUN   TestApproachClass_Empty
+--- PASS: TestApproachClass_Empty (0.00s)
+=== RUN   TestLemma
+=== RUN   TestLemma/timeouts
+=== RUN   TestLemma/retries
+=== RUN   TestLemma/indices
+=== RUN   TestLemma/pass
+=== RUN   TestLemma/is
+=== RUN   TestLemma/increasing
+=== RUN   TestLemma/widened
+--- PASS: TestLemma (0.00s)
+    --- PASS: TestLemma/timeouts (0.00s)
+    --- PASS: TestLemma/retries (0.00s)
+    --- PASS: TestLemma/indices (0.00s)
+    --- PASS: TestLemma/pass (0.00s)
+    --- PASS: TestLemma/is (0.00s)
+    --- PASS: TestLemma/increasing (0.00s)
+    --- PASS: TestLemma/widened (0.00s)
+=== RUN   TestNodeIDGolden
+--- PASS: TestNodeIDGolden (0.06s)
+=== RUN   TestEmitDAG_GraphErrorsAreSwallowed
+--- PASS: TestEmitDAG_GraphErrorsAreSwallowed (0.05s)
+=== RUN   TestEmitDAG_NilGraphIsANoOp
+--- PASS: TestEmitDAG_NilGraphIsANoOp (0.04s)
+=== RUN   TestDetector_PatternP
+--- PASS: TestDetector_PatternP (0.19s)
+=== RUN   TestDetector_SameClassNoEmit
+--- PASS: TestDetector_SameClassNoEmit (0.08s)
+=== RUN   TestDetector_NoRevertNoEmit
+--- PASS: TestDetector_NoRevertNoEmit (0.07s)
+=== RUN   TestDetector_TestPassBreaksPattern
+--- PASS: TestDetector_TestPassBreaksPattern (0.08s)
+=== RUN   TestDetector_WindowExceeded
+--- PASS: TestDetector_WindowExceeded (0.08s)
+=== RUN   TestDetector_OneEmissionPerEdit
+--- PASS: TestDetector_OneEmissionPerEdit (0.05s)
+=== RUN   TestDetector_DepsFromDAG
+--- PASS: TestDetector_DepsFromDAG (0.07s)
+=== RUN   TestDetector_DepsFallback
+--- PASS: TestDetector_DepsFallback (0.06s)
+=== RUN   TestDetector_NoEvidenceDropped
+--- PASS: TestDetector_NoEvidenceDropped (0.08s)
+=== RUN   TestDetector_Since
+--- PASS: TestDetector_Since (0.05s)
+=== RUN   TestDetector_DoesNotAppend
+--- PASS: TestDetector_DoesNotAppend (0.05s)
+=== RUN   TestDetector_TerminatesOnCyclicGraph
+--- PASS: TestDetector_TerminatesOnCyclicGraph (0.06s)
+=== RUN   TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered
+=== RUN   TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/record_eliminated
+=== RUN   TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/pin_--eliminated
+--- PASS: TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered (0.27s)
+    --- PASS: TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/record_eliminated (0.11s)
+    --- PASS: TestIngest_AnAcknowledgedEliminationIsDurableBeforeItIsAnswered/pin_--eliminated (0.15s)
+=== RUN   TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged
+=== RUN   TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/record_eliminated
+=== RUN   TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/pin_--eliminated
+--- PASS: TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged (0.08s)
+    --- PASS: TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/record_eliminated (0.04s)
+    --- PASS: TestIngest_AnEliminationWhoseSyncFailsIsNotAcknowledged/pin_--eliminated (0.04s)
+=== RUN   TestRecord_AnUnacknowledgedSourcePaysNoBarrier
+--- PASS: TestRecord_AnUnacknowledgedSourcePaysNoBarrier (0.06s)
+=== RUN   TestIngestMCP_PublishesItsEvidenceThroughTheRealStore
+--- PASS: TestIngestMCP_PublishesItsEvidenceThroughTheRealStore (0.17s)
+=== RUN   TestFakeStoreScripting
+--- PASS: TestFakeStoreScripting (0.00s)
+=== RUN   TestIngestMCP_Full
+--- PASS: TestIngestMCP_Full (0.05s)
+=== RUN   TestIngestMCP_AutoDeps
+--- PASS: TestIngestMCP_AutoDeps (0.05s)
+=== RUN   TestIngestMCP_UnknownDepSkipped
+--- PASS: TestIngestMCP_UnknownDepSkipped (0.06s)
+=== RUN   TestIngestMCP_BadScope
+--- PASS: TestIngestMCP_BadScope (0.06s)
+=== RUN   TestIngestMCP_NoStore_RequireEvidence
+--- PASS: TestIngestMCP_NoStore_RequireEvidence (0.05s)
+=== RUN   TestIngestPin_EvidenceText
+--- PASS: TestIngestPin_EvidenceText (0.06s)
+=== RUN   TestIngestPin_BadEvidenceText
+--- PASS: TestIngestPin_BadEvidenceText (0.06s)
+=== RUN   TestIngestUserStatement_Matches
+--- PASS: TestIngestUserStatement_Matches (0.05s)
+=== RUN   TestIngestUserStatement_ApostropheVariants
+=== RUN   TestIngestUserStatement_ApostropheVariants/that_didnt_work
+=== RUN   TestIngestUserStatement_ApostropheVariants/that_didn't_work
+=== RUN   TestIngestUserStatement_ApostropheVariants/that_didn’t_work
+--- PASS: TestIngestUserStatement_ApostropheVariants (0.13s)
+    --- PASS: TestIngestUserStatement_ApostropheVariants/that_didnt_work (0.04s)
+    --- PASS: TestIngestUserStatement_ApostropheVariants/that_didn't_work (0.05s)
+    --- PASS: TestIngestUserStatement_ApostropheVariants/that_didn’t_work (0.04s)
+=== RUN   TestIngestUserStatement_NoTarget
+--- PASS: TestIngestUserStatement_NoTarget (0.04s)
+=== RUN   TestIngestUserStatement_NoMatch
+--- PASS: TestIngestUserStatement_NoMatch (0.04s)
+=== RUN   TestObserve_AppendsSignals
+--- PASS: TestObserve_AppendsSignals (0.06s)
+=== RUN   TestObserve_RingBounded
+--- PASS: TestObserve_RingBounded (0.34s)
+=== RUN   TestObserve_AfterCloseIsRefused
+--- PASS: TestObserve_AfterCloseIsRefused (0.04s)
+=== RUN   TestSince_CopiesRingEntries
+--- PASS: TestSince_CopiesRingEntries (0.03s)
+=== RUN   TestSince_FiltersByTurn
+--- PASS: TestSince_FiltersByTurn (0.05s)
+=== RUN   TestOpenReturnsMaintainer
+--- PASS: TestOpenReturnsMaintainer (0.04s)
+=== RUN   TestOpenReturnsObservationSource
+--- PASS: TestOpenReturnsObservationSource (0.05s)
+=== RUN   TestKeyDerivation_MatchesBufferConstruction
+    keys_perf_test.go:84: [rapid] OK, passed 100 tests (2.7805ms)
+--- PASS: TestKeyDerivation_MatchesBufferConstruction (0.00s)
+=== RUN   TestKeyDerivation_FreshSlices
+--- PASS: TestKeyDerivation_FreshSlices (0.00s)
+=== RUN   TestRebuildWith_DerivedKeysMatchFreshOnes
+--- PASS: TestRebuildWith_DerivedKeysMatchFreshOnes (0.06s)
+=== RUN   TestQuery_Absent
+--- PASS: TestQuery_Absent (0.05s)
+=== RUN   TestQuery_Active
+--- PASS: TestQuery_Active (0.06s)
+=== RUN   TestQuery_ActiveViaSynonym
+--- PASS: TestQuery_ActiveViaSynonym (0.06s)
+=== RUN   TestQuery_Stale_FlagNote
+--- PASS: TestQuery_Stale_FlagNote (0.07s)
+=== RUN   TestQuery_Stale_Drop
+--- PASS: TestQuery_Stale_Drop (0.09s)
+=== RUN   TestQuery_StaleBeforeRebuild
+--- PASS: TestQuery_StaleBeforeRebuild (0.07s)
+=== RUN   TestQuery_BloomOnly
+--- PASS: TestQuery_BloomOnly (0.05s)
+=== RUN   TestQuery_UnknownStatusIsBloomOnly
+--- PASS: TestQuery_UnknownStatusIsBloomOnly (0.09s)
+=== RUN   TestQuery_PrefersActiveOverStale
+--- PASS: TestQuery_PrefersActiveOverStale (0.07s)
+=== RUN   TestQuery_ScopeSession_OtherSessionHidden
+--- PASS: TestQuery_ScopeSession_OtherSessionHidden (0.09s)
+=== RUN   TestQuery_ScopeSession_OtherSessionHidden_NextIdle
+--- PASS: TestQuery_ScopeSession_OtherSessionHidden_NextIdle (0.07s)
+=== RUN   TestQuery_ScopeProject_CrossSession
+--- PASS: TestQuery_ScopeProject_CrossSession (0.07s)
+=== RUN   TestQuery_ScopeProject_ExcludesSessionScoped
+--- PASS: TestQuery_ScopeProject_ExcludesSessionScoped (0.07s)
+=== RUN   TestRecord_RequireEvidence
+--- PASS: TestRecord_RequireEvidence (0.05s)
+=== RUN   TestRecord_EvidenceOptional
+--- PASS: TestRecord_EvidenceOptional (0.05s)
+=== RUN   TestRecord_Idempotent
+--- PASS: TestRecord_Idempotent (0.11s)
+=== RUN   TestRecord_IdempotentAcrossTimestamps
+--- PASS: TestRecord_IdempotentAcrossTimestamps (0.11s)
+=== RUN   TestRecord_ReRecordAfterStaleIsNotDeduped
+--- PASS: TestRecord_ReRecordAfterStaleIsNotDeduped (0.10s)
+=== RUN   TestRecord_RedactsBeforeCanonicalizing
+--- PASS: TestRecord_RedactsBeforeCanonicalizing (0.12s)
+=== RUN   TestRecord_RejectsPresetStale
+--- PASS: TestRecord_RejectsPresetStale (0.09s)
+=== RUN   TestRecord_DescriptorRecomputed
+--- PASS: TestRecord_DescriptorRecomputed (0.06s)
+=== RUN   TestGetActiveAll
+--- PASS: TestGetActiveAll (0.09s)
+=== RUN   TestTopActive
+--- PASS: TestTopActive (0.08s)
+=== RUN   TestAnswerMCPResult
+=== RUN   TestAnswerMCPResult/active
+=== RUN   TestAnswerMCPResult/stale
+=== RUN   TestAnswerMCPResult/absent
+=== RUN   TestAnswerMCPResult/active_with_nil_record
+=== RUN   TestAnswerMCPResult/unavailable
+=== RUN   TestAnswerMCPResult/uncertain
+=== RUN   TestAnswerMCPResult/uncertain_with_record
+--- PASS: TestAnswerMCPResult (0.00s)
+    --- PASS: TestAnswerMCPResult/active (0.00s)
+    --- PASS: TestAnswerMCPResult/stale (0.00s)
+    --- PASS: TestAnswerMCPResult/absent (0.00s)
+    --- PASS: TestAnswerMCPResult/active_with_nil_record (0.00s)
+    --- PASS: TestAnswerMCPResult/unavailable (0.00s)
+    --- PASS: TestAnswerMCPResult/uncertain (0.00s)
+    --- PASS: TestAnswerMCPResult/uncertain_with_record (0.00s)
+=== RUN   TestBlindMode
+--- PASS: TestBlindMode (0.08s)
+=== RUN   TestClose_Idempotent
+--- PASS: TestClose_Idempotent (0.08s)
+=== RUN   TestClosedLedgerRejectsWrites
+--- PASS: TestClosedLedgerRejectsWrites (0.10s)
+=== RUN   TestConcurrentRecordQuery
+--- PASS: TestConcurrentRecordQuery (0.16s)
+=== RUN   TestPick_PrefersLatestThenGreatestID
+--- PASS: TestPick_PrefersLatestThenGreatestID (0.00s)
+=== RUN   TestDedupHex_SeparatesFields
+--- PASS: TestDedupHex_SeparatesFields (0.00s)
+=== RUN   TestReplayLogSized_MatchesUnsized
+--- PASS: TestReplayLogSized_MatchesUnsized (0.08s)
+=== RUN   TestReplayCapacityHint_NeverUndercutsCanonicalRecords
+--- PASS: TestReplayCapacityHint_NeverUndercutsCanonicalRecords (0.10s)
+=== RUN   TestOpen_ReservesInProportionToTheFile
+    log_sized_test.go:157: blank lines: 1000000 filler bytes, Open allocated 2654136, retained 21440
+    log_sized_test.go:167: control lines: 6892000 filler bytes, retained 21456
+--- PASS: TestOpen_ReservesInProportionToTheFile (0.64s)
+=== RUN   TestReplayLog_Golden
+--- PASS: TestReplayLog_Golden (0.02s)
+=== RUN   TestReplayLog_Corrupt
+--- PASS: TestReplayLog_Corrupt (0.00s)
+=== RUN   TestReplayLog_TruncatedTail
+--- PASS: TestReplayLog_TruncatedTail (0.00s)
+=== RUN   TestReplayLog_DuplicateAdd
+--- PASS: TestReplayLog_DuplicateAdd (0.00s)
+=== RUN   TestReplayLog_BareRecordLine
+--- PASS: TestReplayLog_BareRecordLine (0.00s)
+=== RUN   TestReplayLog_OrphanStale
+--- PASS: TestReplayLog_OrphanStale (0.00s)
+=== RUN   TestReplayLog_EmptyIDIsCorrupt
+--- PASS: TestReplayLog_EmptyIDIsCorrupt (0.00s)
+=== RUN   TestReplayLog_SinglePassRecovery
+=== RUN   TestReplayLog_SinglePassRecovery/unrecognized_op_with_a_conflicting_record_key
+=== RUN   TestReplayLog_SinglePassRecovery/stale_flip_with_a_conflicting_record_key_still_applies
+=== RUN   TestReplayLog_SinglePassRecovery/stale_flip_whose_own_control_fields_are_undecodable
+=== RUN   TestReplayLog_SinglePassRecovery/record_line_with_a_mistyped_because_key_still_materializes
+=== RUN   TestReplayLog_SinglePassRecovery/record_line_with_a_mistyped_op_key_is_corrupt,_as_it_always_was
+=== RUN   TestReplayLog_SinglePassRecovery/record_line_with_a_conflicting_record_field_is_corrupt
+=== RUN   TestReplayLog_SinglePassRecovery/line_that_is_not_JSON_is_corrupt
+--- PASS: TestReplayLog_SinglePassRecovery (0.00s)
+    --- PASS: TestReplayLog_SinglePassRecovery/unrecognized_op_with_a_conflicting_record_key (0.00s)
+    --- PASS: TestReplayLog_SinglePassRecovery/stale_flip_with_a_conflicting_record_key_still_applies (0.00s)
+    --- PASS: TestReplayLog_SinglePassRecovery/stale_flip_whose_own_control_fields_are_undecodable (0.00s)
+    --- PASS: TestReplayLog_SinglePassRecovery/record_line_with_a_mistyped_because_key_still_materializes (0.00s)
+    --- PASS: TestReplayLog_SinglePassRecovery/record_line_with_a_mistyped_op_key_is_corrupt,_as_it_always_was (0.00s)
+    --- PASS: TestReplayLog_SinglePassRecovery/record_line_with_a_conflicting_record_field_is_corrupt (0.00s)
+    --- PASS: TestReplayLog_SinglePassRecovery/line_that_is_not_JSON_is_corrupt (0.00s)
+=== RUN   TestAppendOnly_Enforced
+--- PASS: TestAppendOnly_Enforced (0.05s)
+=== RUN   TestOpenLog_CreatesRecordsDir
+--- PASS: TestOpenLog_CreatesRecordsDir (0.02s)
+=== RUN   TestAppendLine_NoInteriorNewline
+    log_test.go:384: [rapid] OK, passed 100 tests (47.6386ms)
+--- PASS: TestAppendLine_NoInteriorNewline (0.05s)
+=== RUN   TestReplayLog_ReadErrorIsReturned
+--- PASS: TestReplayLog_ReadErrorIsReturned (0.00s)
+=== RUN   TestDecodeRecordLineFast_CanonicalLinesAccepted
+--- PASS: TestDecodeRecordLineFast_CanonicalLinesAccepted (0.00s)
+=== RUN   TestDecodeRecordLineFast_Boundary
+=== RUN   TestDecodeRecordLineFast_Boundary/minimal_canonical_line
+=== RUN   TestDecodeRecordLineFast_Boundary/empty_stale_because_decodes_to_an_empty,_non-nil_slice
+=== RUN   TestDecodeRecordLineFast_Boundary/stale_since_without_stale_because
+=== RUN   TestDecodeRecordLineFast_Boundary/zero_stale_since
+=== RUN   TestDecodeRecordLineFast_Boundary/minus_zero
+=== RUN   TestDecodeRecordLineFast_Boundary/largest_source
+=== RUN   TestDecodeRecordLineFast_Boundary/eighteen-digit_integer
+=== RUN   TestDecodeRecordLineFast_Boundary/every_single-character_escape
+=== RUN   TestDecodeRecordLineFast_Boundary/DEL_is_an_ordinary_byte
+=== RUN   TestDecodeRecordLineFast_Boundary/source_past_uint8
+=== RUN   TestDecodeRecordLineFast_Boundary/nineteen-digit_integer_is_left_to_encoding/json
+=== RUN   TestDecodeRecordLineFast_Boundary/integer_overflowing_int64
+=== RUN   TestDecodeRecordLineFast_Boundary/leading_zero
+=== RUN   TestDecodeRecordLineFast_Boundary/fraction
+=== RUN   TestDecodeRecordLineFast_Boundary/exponent
+=== RUN   TestDecodeRecordLineFast_Boundary/negative_source
+=== RUN   TestDecodeRecordLineFast_Boundary/unicode_escape
+=== RUN   TestDecodeRecordLineFast_Boundary/surrogate_escape
+=== RUN   TestDecodeRecordLineFast_Boundary/invalid_surrogate_escape
+=== RUN   TestDecodeRecordLineFast_Boundary/unknown_escape
+=== RUN   TestDecodeRecordLineFast_Boundary/raw_control_byte
+=== RUN   TestDecodeRecordLineFast_Boundary/invalid_UTF-8
+=== RUN   TestDecodeRecordLineFast_Boundary/truncated_UTF-8_sequence
+=== RUN   TestDecodeRecordLineFast_Boundary/null_string
+=== RUN   TestDecodeRecordLineFast_Boundary/null_depends_on
+=== RUN   TestDecodeRecordLineFast_Boundary/null_stale_because
+=== RUN   TestDecodeRecordLineFast_Boundary/whitespace_between_tokens
+=== RUN   TestDecodeRecordLineFast_Boundary/uppercase_key_json_would_still_match
+=== RUN   TestDecodeRecordLineFast_Boundary/keys_out_of_order
+=== RUN   TestDecodeRecordLineFast_Boundary/missing_key
+=== RUN   TestDecodeRecordLineFast_Boundary/duplicate_key
+=== RUN   TestDecodeRecordLineFast_Boundary/extra_key
+=== RUN   TestDecodeRecordLineFast_Boundary/op_key:_a_control_line
+=== RUN   TestDecodeRecordLineFast_Boundary/trailing_garbage
+=== RUN   TestDecodeRecordLineFast_Boundary/second_value
+=== RUN   TestDecodeRecordLineFast_Boundary/truncated
+=== RUN   TestDecodeRecordLineFast_Boundary/dep_with_extra_key
+=== RUN   TestDecodeRecordLineFast_Boundary/trailing_comma_in_array
+=== RUN   TestDecodeRecordLineFast_Boundary/not_an_object
+--- PASS: TestDecodeRecordLineFast_Boundary (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/minimal_canonical_line (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/empty_stale_because_decodes_to_an_empty,_non-nil_slice (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/stale_since_without_stale_because (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/zero_stale_since (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/minus_zero (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/largest_source (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/eighteen-digit_integer (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/every_single-character_escape (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/DEL_is_an_ordinary_byte (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/source_past_uint8 (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/nineteen-digit_integer_is_left_to_encoding/json (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/integer_overflowing_int64 (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/leading_zero (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/fraction (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/exponent (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/negative_source (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/unicode_escape (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/surrogate_escape (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/invalid_surrogate_escape (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/unknown_escape (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/raw_control_byte (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/invalid_UTF-8 (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/truncated_UTF-8_sequence (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/null_string (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/null_depends_on (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/null_stale_because (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/whitespace_between_tokens (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/uppercase_key_json_would_still_match (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/keys_out_of_order (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/missing_key (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/duplicate_key (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/extra_key (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/op_key:_a_control_line (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/trailing_garbage (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/second_value (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/truncated (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/dep_with_extra_key (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/trailing_comma_in_array (0.00s)
+    --- PASS: TestDecodeRecordLineFast_Boundary/not_an_object (0.00s)
+=== RUN   TestDecodeRecordLineFast_RecordGenProperty
+    logline_test.go:175: [rapid] OK, passed 100 tests (7.4259ms)
+--- PASS: TestDecodeRecordLineFast_RecordGenProperty (0.01s)
+=== RUN   TestDecodeRecordLineFast_MutationProperty
+    logline_test.go:205: [rapid] OK, passed 100 tests (531.7µs)
+--- PASS: TestDecodeRecordLineFast_MutationProperty (0.00s)
+=== RUN   TestWireInterner_Bounded
+--- PASS: TestWireInterner_Bounded (0.00s)
+=== RUN   TestParseHash_AgreesWithCore
+    open_cost_test.go:44: [rapid] OK, passed 100 tests (3.2516ms)
+--- PASS: TestParseHash_AgreesWithCore (0.00s)
+=== RUN   TestParseHashOrZero_DoesNotAllocate
+--- PASS: TestParseHashOrZero_DoesNotAllocate (0.00s)
+=== RUN   TestReindex_AllocatesNoPerRecordKeys
+--- PASS: TestReindex_AllocatesNoPerRecordKeys (0.06s)
+=== RUN   TestRebuildWith_KeysOnlyFromOpensReindex
+--- PASS: TestRebuildWith_KeysOnlyFromOpensReindex (0.01s)
+=== RUN   TestRecordJSON_Golden
+--- PASS: TestRecordJSON_Golden (0.00s)
+=== RUN   TestRecordJSON_RoundTrip
+    record_test.go:190: [rapid] OK, passed 100 tests (56.5433ms)
+--- PASS: TestRecordJSON_RoundTrip (0.06s)
+=== RUN   TestRecordJSON_NilDependsOn
+--- PASS: TestRecordJSON_NilDependsOn (0.00s)
+=== RUN   TestRecordJSON_MissingFields
+--- PASS: TestRecordJSON_MissingFields (0.00s)
+=== RUN   TestRecordJSON_BadDepHash
+--- PASS: TestRecordJSON_BadDepHash (0.00s)
+=== RUN   TestRecordJSON_UnparseableEvidence
+--- PASS: TestRecordJSON_UnparseableEvidence (0.00s)
+=== RUN   TestSourceKind_RoundTrip
+--- PASS: TestSourceKind_RoundTrip (0.00s)
+=== RUN   TestSourceKind_WireFormIsInteger
+--- PASS: TestSourceKind_WireFormIsInteger (0.00s)
+=== RUN   TestNormalizeRecord_Bounds
+--- PASS: TestNormalizeRecord_Bounds (0.00s)
+=== RUN   TestNormalizeRecord_Redact
+--- PASS: TestNormalizeRecord_Redact (0.00s)
+=== RUN   TestNormalizeRecord_DepsDedupedAndSorted
+--- PASS: TestNormalizeRecord_DepsDedupedAndSorted (0.00s)
+=== RUN   TestRecordID_Stable
+--- PASS: TestRecordID_Stable (0.00s)
+=== RUN   TestScanOrder_MatchesStableSort
+    scan_order_test.go:67: [rapid] OK, passed 100 tests (2.1985ms)
+--- PASS: TestScanOrder_MatchesStableSort (0.00s)
+=== RUN   TestScanOrder_BenchCorpus
+--- PASS: TestScanOrder_BenchCorpus (0.01s)
+=== RUN   TestMatchPattern_MatchesWindowScan
+    scan_order_test.go:161: [rapid] OK, passed 100 tests (2.6186ms)
+--- PASS: TestMatchPattern_MatchesWindowScan (0.00s)
+=== RUN   TestMatchPattern_BenchCorpus
+--- PASS: TestMatchPattern_BenchCorpus (0.01s)
+=== RUN   TestRefreshStaleness_Flips
+--- PASS: TestRefreshStaleness_Flips (0.05s)
+=== RUN   TestRefreshStaleness_NoChange
+--- PASS: TestRefreshStaleness_NoChange (0.06s)
+=== RUN   TestRefreshStaleness_SingleChangedSinceCall
+--- PASS: TestRefreshStaleness_SingleChangedSinceCall (0.08s)
+=== RUN   TestRefreshStaleness_GroupsByBecause
+--- PASS: TestRefreshStaleness_GroupsByBecause (0.04s)
+=== RUN   TestRefreshStaleness_MultiDep
+--- PASS: TestRefreshStaleness_MultiDep (0.08s)
+=== RUN   TestRefreshStaleness_NilStore
+--- PASS: TestRefreshStaleness_NilStore (0.04s)
+=== RUN   TestRefreshStaleness_StoreError
+--- PASS: TestRefreshStaleness_StoreError (0.05s)
+=== RUN   TestRefreshStaleness_StoreErrorRecovers
+--- PASS: TestRefreshStaleness_StoreErrorRecovers (0.05s)
+=== RUN   TestMarkStale_Idempotent
+--- PASS: TestMarkStale_Idempotent (0.04s)
+=== RUN   TestMarkStale_UnknownID
+--- PASS: TestMarkStale_UnknownID (0.04s)
+=== RUN   TestRebuildOnStale_Immediate
+--- PASS: TestRebuildOnStale_Immediate (0.05s)
+=== RUN   TestRebuildOnStale_NextIdle
+--- PASS: TestRebuildOnStale_NextIdle (0.06s)
+=== RUN   TestRebuildOnStale_Never
+--- PASS: TestRebuildOnStale_Never (0.04s)
+=== RUN   TestMaintenanceTask_Shape
+--- PASS: TestMaintenanceTask_Shape (0.04s)
+=== RUN   TestOpenRefreshBounded
+--- PASS: TestOpenRefreshBounded (0.32s)
+=== RUN   TestApplies_TheZeroRequestIsARefusal
+=== PAUSE TestApplies_TheZeroRequestIsARefusal
+=== RUN   TestReusability_ZeroIsWithheld
+=== PAUSE TestReusability_ZeroIsWithheld
+=== RUN   TestApplies_SameSessionNeedsNoGrant
+=== PAUSE TestApplies_SameSessionNeedsNoGrant
+=== RUN   TestApplies_DifferentRepositoryIsDeniedByEveryGrant
+=== PAUSE TestApplies_DifferentRepositoryIsDeniedByEveryGrant
+=== RUN   TestApplies_AccessOutcomeIsNeverReportedAsAbsence
+=== PAUSE TestApplies_AccessOutcomeIsNeverReportedAsAbsence
+=== RUN   TestGrant_Valid_Table
+=== PAUSE TestGrant_Valid_Table
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt
+=== RUN   TestApplies_AccumulatesEveryUnmetRequirement
+=== PAUSE TestApplies_AccumulatesEveryUnmetRequirement
+=== RUN   TestApplies_AllowUnsettledIsTheOnlyWayToCarryAnotherSessionsGuess
+=== PAUSE TestApplies_AllowUnsettledIsTheOnlyWayToCarryAnotherSessionsGuess
+=== RUN   TestApplies_AttributionNeverRises
+=== PAUSE TestApplies_AttributionNeverRises
+=== RUN   TestApplies_OriginAndObservationsAreReportedOnEveryResult
+=== PAUSE TestApplies_OriginAndObservationsAreReportedOnEveryResult
+=== RUN   TestApplies_AMovedVersionDoesNotBlockReuse
+=== PAUSE TestApplies_AMovedVersionDoesNotBlockReuse
+=== RUN   TestApplies_UnobservedScopeNamesTheSideThatIsMissing
+=== PAUSE TestApplies_UnobservedScopeNamesTheSideThatIsMissing
+=== RUN   TestApplies_TheHappyPathIsUnqualified
+=== PAUSE TestApplies_TheHappyPathIsUnqualified
+=== RUN   TestSplitTarget_Table
+=== RUN   TestSplitTarget_Table/path_and_symbol
+=== RUN   TestSplitTarget_Table/bare_path
+=== RUN   TestSplitTarget_Table/drive_letter
+=== RUN   TestSplitTarget_Table/hash_separator
+=== RUN   TestSplitTarget_Table/line_number_dropped
+=== RUN   TestSplitTarget_Table/line_number_zero
+=== RUN   TestSplitTarget_Table/line_number_over_empty_prefix
+=== RUN   TestSplitTarget_Table/empty
+=== RUN   TestSplitTarget_Table/symbol_only
+--- PASS: TestSplitTarget_Table (0.00s)
+    --- PASS: TestSplitTarget_Table/path_and_symbol (0.00s)
+    --- PASS: TestSplitTarget_Table/bare_path (0.00s)
+    --- PASS: TestSplitTarget_Table/drive_letter (0.00s)
+    --- PASS: TestSplitTarget_Table/hash_separator (0.00s)
+    --- PASS: TestSplitTarget_Table/line_number_dropped (0.00s)
+    --- PASS: TestSplitTarget_Table/line_number_zero (0.00s)
+    --- PASS: TestSplitTarget_Table/line_number_over_empty_prefix (0.00s)
+    --- PASS: TestSplitTarget_Table/empty (0.00s)
+    --- PASS: TestSplitTarget_Table/symbol_only (0.00s)
+=== RUN   TestDescriptorKey_Golden
+=== RUN   TestDescriptorKey_Golden/widen-timeout/src/auth.ts
+=== RUN   TestDescriptorKey_Golden/widen-pool-timeout/src/auth.ts
+=== RUN   TestDescriptorKey_Golden/widen-pool-timeout/src/auth.ts#01
+=== RUN   TestDescriptorKey_Golden/widen-pool-timeout/src/auth.ts#02
+=== RUN   TestDescriptorKey_Golden/disable-pool/src/auth.ts
+=== RUN   TestDescriptorKey_Golden/rewrite-refreshtoken-parallel-retry/src/a.ts
+=== RUN   TestDescriptorKey_Golden/widen-pool-timeout/c:/proj/src/auth.ts
+=== RUN   TestDescriptorKey_Golden/upgrade-module/pkg/mod.go
+=== RUN   TestDescriptorKey_Golden/unclassified/
+=== RUN   TestDescriptorKey_Golden/unclassified/#01
+=== RUN   TestDescriptorKey_Golden/enable-cache/internal/store/store.go
+=== RUN   TestDescriptorKey_Golden/widen-pool-timeout-retry/internal/dag/graph.go
+=== RUN   TestDescriptorKey_Golden/downgrade-dependency/cmd/qompack/main.go
+=== RUN   TestDescriptorKey_Golden/shrink-lock-timeout/src/db.ts
+=== RUN   TestDescriptorKey_Golden/downgrade-pgbouncer-version/docker-compose.yml
+=== RUN   TestDescriptorKey_Golden/enable-index-join-column/src/index.ts
+=== RUN   TestDescriptorKey_Golden/patch-sdk/src/auth.ts
+=== RUN   TestDescriptorKey_Golden/disable-flaky-assertion/test/e2e/run.sh
+=== RUN   TestDescriptorKey_Golden/cache-resolver/src/cache.ts
+=== RUN   TestDescriptorKey_Golden/make-handler-parallel/src/worker.ts
+=== RUN   TestDescriptorKey_Golden/downgrade-toolchain/go.mod
+=== RUN   TestDescriptorKey_Golden/unclassified/src/auth.ts
+=== RUN   TestDescriptorKey_Golden/widen/readme.md
+=== RUN   TestDescriptorKey_Golden/supercalifragilisticexpi-pipeline/src/verylong.ts
+--- PASS: TestDescriptorKey_Golden (0.02s)
+    --- PASS: TestDescriptorKey_Golden/widen-timeout/src/auth.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/widen-pool-timeout/src/auth.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/widen-pool-timeout/src/auth.ts#01 (0.00s)
+    --- PASS: TestDescriptorKey_Golden/widen-pool-timeout/src/auth.ts#02 (0.00s)
+    --- PASS: TestDescriptorKey_Golden/disable-pool/src/auth.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/rewrite-refreshtoken-parallel-retry/src/a.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/widen-pool-timeout/c:/proj/src/auth.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/upgrade-module/pkg/mod.go (0.00s)
+    --- PASS: TestDescriptorKey_Golden/unclassified/ (0.00s)
+    --- PASS: TestDescriptorKey_Golden/unclassified/#01 (0.00s)
+    --- PASS: TestDescriptorKey_Golden/enable-cache/internal/store/store.go (0.00s)
+    --- PASS: TestDescriptorKey_Golden/widen-pool-timeout-retry/internal/dag/graph.go (0.00s)
+    --- PASS: TestDescriptorKey_Golden/downgrade-dependency/cmd/qompack/main.go (0.00s)
+    --- PASS: TestDescriptorKey_Golden/shrink-lock-timeout/src/db.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/downgrade-pgbouncer-version/docker-compose.yml (0.00s)
+    --- PASS: TestDescriptorKey_Golden/enable-index-join-column/src/index.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/patch-sdk/src/auth.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/disable-flaky-assertion/test/e2e/run.sh (0.00s)
+    --- PASS: TestDescriptorKey_Golden/cache-resolver/src/cache.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/make-handler-parallel/src/worker.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/downgrade-toolchain/go.mod (0.00s)
+    --- PASS: TestDescriptorKey_Golden/unclassified/src/auth.ts (0.00s)
+    --- PASS: TestDescriptorKey_Golden/widen/readme.md (0.00s)
+    --- PASS: TestDescriptorKey_Golden/supercalifragilisticexpi-pipeline/src/verylong.ts (0.00s)
+=== RUN   TestDescriptorGolden_CoversTheRequiredShapes
+--- PASS: TestDescriptorGolden_CoversTheRequiredShapes (0.00s)
+=== RUN   TestMatchKey_IgnoresReason
+--- PASS: TestMatchKey_IgnoresReason (0.00s)
+=== RUN   TestMatchKey_SeparatorInjection
+--- PASS: TestMatchKey_SeparatorInjection (0.00s)
+=== RUN   TestReasonHash_Normalization
+--- PASS: TestReasonHash_Normalization (0.00s)
+=== RUN   TestKey_Length
+--- PASS: TestKey_Length (0.00s)
+=== RUN   TestKey_NoAliasing
+    descriptor_test.go:263: [rapid] OK, passed 100 tests (1.0871ms)
+--- PASS: TestKey_NoAliasing (0.00s)
+=== RUN   TestDescriptorJSON_Standalone
+--- PASS: TestDescriptorJSON_Standalone (0.00s)
+=== RUN   TestDescriptorJSON_SymbolAndReasonHashLeniency
+--- PASS: TestDescriptorJSON_SymbolAndReasonHashLeniency (0.00s)
+=== RUN   TestCanonicalizeAt_NormalizesAbsolutePaths
+--- PASS: TestCanonicalizeAt_NormalizesAbsolutePaths (0.04s)
+=== RUN   TestLifecycleEvent_Valid_ClosedSet
+=== PAUSE TestLifecycleEvent_Valid_ClosedSet
+=== RUN   TestLifecycle_Disposition_Table
+=== PAUSE TestLifecycle_Disposition_Table
+=== RUN   TestDisposition_LiveIsTheOnlyPermissiveValue
+=== PAUSE TestDisposition_LiveIsTheOnlyPermissiveValue
+=== RUN   TestDisposition_String_Table
+=== PAUSE TestDisposition_String_Table
+=== RUN   TestLifecycle_ExpiryDeclared
+=== PAUSE TestLifecycle_ExpiryDeclared
+=== RUN   TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway
+=== PAUSE TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway
+=== RUN   TestApplies_LifecycleRefusalsEvenInsideOneSession
+=== PAUSE TestApplies_LifecycleRefusalsEvenInsideOneSession
+=== RUN   TestRecord_RoundTripsFrozenEliminationFixture
+--- PASS: TestRecord_RoundTripsFrozenEliminationFixture (0.00s)
+=== RUN   TestRecord_MatchesCheckpointFixtureEliminatedEntry
+--- PASS: TestRecord_MatchesCheckpointFixtureEliminatedEntry (0.00s)
+=== RUN   TestDescriptorKey_Stable
+--- PASS: TestDescriptorKey_Stable (0.00s)
+=== RUN   TestDescriptorKey_DomainSeparatesAdjacentFields
+--- PASS: TestDescriptorKey_DomainSeparatesAdjacentFields (0.00s)
+=== RUN   TestDescriptorKey_DifferentReasonHashDiffers
+--- PASS: TestDescriptorKey_DifferentReasonHashDiffers (0.00s)
+=== RUN   TestLedgerConformance
+=== RUN   TestLedgerConformance/negknow.Open/shape
+=== RUN   TestLedgerConformance/negknow.Open/behaviour
+=== RUN   TestLedgerConformance/negknow.Open/behaviour/three_way_absent_active_stale
+=== RUN   TestLedgerConformance/negknow.Open/behaviour/scope_isolation
+=== RUN   TestLedgerConformance/negknow.Open/behaviour/require_evidence
+=== RUN   TestLedgerConformance/negknow.Open/behaviour/stale_note_text
+=== RUN   TestLedgerConformance/negknow.Open/behaviour/bloom_rebuilt_from_active_records_only
+=== RUN   TestLedgerConformance/negknow.Open/behaviour/bloomonly_consistency
+=== RUN   TestLedgerConformance/negknow.Open/behaviour/bloomonly_on_a_synthetic_false_positive
+=== RUN   TestLedgerConformance/negknow.Open/behaviour/maintainer_surface
+--- PASS: TestLedgerConformance (0.43s)
+    --- PASS: TestLedgerConformance/negknow.Open/shape (0.04s)
+    --- PASS: TestLedgerConformance/negknow.Open/behaviour (0.34s)
+        --- PASS: TestLedgerConformance/negknow.Open/behaviour/three_way_absent_active_stale (0.04s)
+        --- PASS: TestLedgerConformance/negknow.Open/behaviour/scope_isolation (0.04s)
+        --- PASS: TestLedgerConformance/negknow.Open/behaviour/require_evidence (0.04s)
+        --- PASS: TestLedgerConformance/negknow.Open/behaviour/stale_note_text (0.03s)
+        --- PASS: TestLedgerConformance/negknow.Open/behaviour/bloom_rebuilt_from_active_records_only (0.04s)
+        --- PASS: TestLedgerConformance/negknow.Open/behaviour/bloomonly_consistency (0.04s)
+        --- PASS: TestLedgerConformance/negknow.Open/behaviour/bloomonly_on_a_synthetic_false_positive (0.07s)
+        --- PASS: TestLedgerConformance/negknow.Open/behaviour/maintainer_surface (0.04s)
+=== RUN   TestRecordContractFixtures
+    negknow_test.go:214: platform: QOMPACK_RECORD_CONTRACTS not set; recorder only
+--- SKIP: TestRecordContractFixtures (0.00s)
+=== RUN   TestThreeWayAnswerFixture
+--- PASS: TestThreeWayAnswerFixture (0.06s)
+=== RUN   TestThreeWayAnswerFixture_PinsEachState
+--- PASS: TestThreeWayAnswerFixture_PinsEachState (0.00s)
+=== RUN   TestNewRepositoryID_IdentityIsObservedNotGuessed
+=== PAUSE TestNewRepositoryID_IdentityIsObservedNotGuessed
+=== RUN   TestNewRepositoryID_RootCommitCaseFolds
+=== PAUSE TestNewRepositoryID_RootCommitCaseFolds
+=== RUN   TestNewWorktreeID_ScopedToItsRepository
+=== PAUSE TestNewWorktreeID_ScopedToItsRepository
+=== RUN   TestRelate_Table
+=== PAUSE TestRelate_Table
+=== RUN   TestRelation_Narrower_RefusesTheTwoNonRelations
+=== PAUSE TestRelation_Narrower_RefusesTheTwoNonRelations
+=== RUN   TestRelation_String_Table
+=== PAUSE TestRelation_String_Table
+=== RUN   TestVersions_Table
+=== PAUSE TestVersions_Table
+=== RUN   TestReuseScope_Unobserved_NamesEveryGap
+=== PAUSE TestReuseScope_Unobserved_NamesEveryGap
+=== RUN   TestScopeAndStatusConstants_MatchDocumentedWireStrings
+--- PASS: TestScopeAndStatusConstants_MatchDocumentedWireStrings (0.00s)
+=== CONT  TestApplies_TheZeroRequestIsARefusal
+=== CONT  TestApplies_LifecycleRefusalsEvenInsideOneSession
+=== CONT  TestRelation_Narrower_RefusesTheTwoNonRelations
+--- PASS: TestApplies_TheZeroRequestIsARefusal (0.00s)
+=== CONT  TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway
+=== CONT  TestReuseScope_Unobserved_NamesEveryGap
+=== RUN   TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/expired
+=== PAUSE TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/expired
+=== RUN   TestApplies_LifecycleRefusalsEvenInsideOneSession/corrected
+=== CONT  TestDisposition_String_Table
+=== PAUSE TestApplies_LifecycleRefusalsEvenInsideOneSession/corrected
+=== RUN   TestApplies_LifecycleRefusalsEvenInsideOneSession/deleted
+=== CONT  TestLifecycleEvent_Valid_ClosedSet
+=== PAUSE TestApplies_LifecycleRefusalsEvenInsideOneSession/deleted
+=== CONT  TestApplies_TheHappyPathIsUnqualified
+=== CONT  TestDisposition_LiveIsTheOnlyPermissiveValue
+=== CONT  TestReusability_ZeroIsWithheld
+=== CONT  TestApplies_SameSessionNeedsNoGrant
+=== RUN   TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/deleted
+=== PAUSE TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/deleted
+=== RUN   TestApplies_LifecycleRefusalsEvenInsideOneSession/superseded
+=== RUN   TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/superseded
+=== PAUSE TestApplies_LifecycleRefusalsEvenInsideOneSession/superseded
+=== PAUSE TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/superseded
+=== RUN   TestApplies_LifecycleRefusalsEvenInsideOneSession/expired
+=== RUN   TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/corrected
+=== PAUSE TestApplies_LifecycleRefusalsEvenInsideOneSession/expired
+=== PAUSE TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/corrected
+=== RUN   TestApplies_LifecycleRefusalsEvenInsideOneSession/uninterpretable
+=== RUN   TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/unknown_event
+=== PAUSE TestApplies_LifecycleRefusalsEvenInsideOneSession/uninterpretable
+=== RUN   TestApplies_LifecycleRefusalsEvenInsideOneSession/live
+=== PAUSE TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/unknown_event
+=== PAUSE TestApplies_LifecycleRefusalsEvenInsideOneSession/live
+=== CONT  TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/expired
+=== CONT  TestApplies_LifecycleRefusalsEvenInsideOneSession/live
+=== CONT  TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/corrected
+=== CONT  TestLifecycle_Disposition_Table
+=== RUN   TestLifecycle_Disposition_Table/the_zero_lifecycle_is_live
+=== PAUSE TestLifecycle_Disposition_Table/the_zero_lifecycle_is_live
+=== CONT  TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/deleted
+=== CONT  TestApplies_LifecycleRefusalsEvenInsideOneSession/corrected
+=== CONT  TestApplies_LifecycleRefusalsEvenInsideOneSession/superseded
+=== CONT  TestNewWorktreeID_ScopedToItsRepository
+=== CONT  TestApplies_LifecycleRefusalsEvenInsideOneSession/deleted
+=== CONT  TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/unknown_event
+=== CONT  TestNewRepositoryID_RootCommitCaseFolds
+=== CONT  TestNewRepositoryID_IdentityIsObservedNotGuessed
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt/no_grant_at_all
+=== CONT  TestApplies_UnobservedScopeNamesTheSideThatIsMissing
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt/no_grant_at_all
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_grant_for_another_repository
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_grant_for_another_repository
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_grant_too_narrow_for_the_relation
+=== CONT  TestApplies_AMovedVersionDoesNotBlockReuse
+=== CONT  TestApplies_OriginAndObservationsAreReportedOnEveryResult
+=== CONT  TestApplies_AttributionNeverRises
+=== CONT  TestApplies_AllowUnsettledIsTheOnlyWayToCarryAnotherSessionsGuess
+=== CONT  TestVersions_Table
+=== CONT  TestApplies_AccumulatesEveryUnmetRequirement
+=== CONT  TestApplies_DifferentRepositoryIsDeniedByEveryGrant
+=== CONT  TestGrant_Valid_Table
+=== CONT  TestApplies_AccessOutcomeIsNeverReportedAsAbsence
+=== RUN   TestGrant_Valid_Table/unknown_repository
+=== PAUSE TestGrant_Valid_Table/unknown_repository
+=== RUN   TestApplies_AccessOutcomeIsNeverReportedAsAbsence/denied
+=== RUN   TestGrant_Valid_Table/missing_authority
+=== PAUSE TestGrant_Valid_Table/missing_authority
+=== PAUSE TestApplies_AccessOutcomeIsNeverReportedAsAbsence/denied
+=== RUN   TestGrant_Valid_Table/unrecognized_authority
+=== PAUSE TestGrant_Valid_Table/unrecognized_authority
+=== RUN   TestGrant_Valid_Table/a_hypothesis_cannot_authorize_itself
+=== RUN   TestApplies_AccessOutcomeIsNeverReportedAsAbsence/unavailable
+=== PAUSE TestGrant_Valid_Table/a_hypothesis_cannot_authorize_itself
+=== PAUSE TestApplies_AccessOutcomeIsNeverReportedAsAbsence/unavailable
+=== RUN   TestGrant_Valid_Table/a_tool_observation_cannot_authorize_reuse_either
+=== RUN   TestApplies_AccessOutcomeIsNeverReportedAsAbsence/corrupt
+=== PAUSE TestApplies_AccessOutcomeIsNeverReportedAsAbsence/corrupt
+=== PAUSE TestGrant_Valid_Table/a_tool_observation_cannot_authorize_reuse_either
+=== RUN   TestApplies_AccessOutcomeIsNeverReportedAsAbsence/expired
+=== RUN   TestGrant_Valid_Table/a_grant_covering_no_reusable_relation
+=== PAUSE TestApplies_AccessOutcomeIsNeverReportedAsAbsence/expired
+=== CONT  TestLifecycle_ExpiryDeclared
+=== RUN   TestApplies_AccessOutcomeIsNeverReportedAsAbsence/uncertain
+=== PAUSE TestApplies_AccessOutcomeIsNeverReportedAsAbsence/uncertain
+=== CONT  TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/superseded
+=== RUN   TestApplies_AccessOutcomeIsNeverReportedAsAbsence/absent
+=== PAUSE TestApplies_AccessOutcomeIsNeverReportedAsAbsence/absent
+=== RUN   TestLifecycle_Disposition_Table/a_declared_expiry_still_in_the_future_is_live
+=== CONT  TestApplies_AccessOutcomeIsNeverReportedAsAbsence/denied
+=== CONT  TestApplies_LifecycleRefusalsEvenInsideOneSession/uninterpretable
+=== CONT  TestApplies_AccessOutcomeIsNeverReportedAsAbsence/unavailable
+=== CONT  TestRelate_Table
+=== PAUSE TestLifecycle_Disposition_Table/a_declared_expiry_still_in_the_future_is_live
+=== RUN   TestRelate_Table/two_unobserved_scopes_are_unknown,_not_identical
+=== RUN   TestLifecycle_Disposition_Table/expiry_is_inclusive:_the_timestamp_itself_is_already_expired
+=== CONT  TestApplies_LifecycleRefusalsEvenInsideOneSession/expired
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_grant_too_narrow_for_the_relation
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt/unsettled_evidence_without_an_unsettled_grant
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt/unsettled_evidence_without_an_unsettled_grant
+--- PASS: TestRelation_Narrower_RefusesTheTwoNonRelations (0.00s)
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_candidate_extraction_is_unsettled_too
+--- PASS: TestDisposition_String_Table (0.00s)
+--- PASS: TestLifecycleEvent_Valid_ClosedSet (0.00s)
+--- PASS: TestReuseScope_Unobserved_NamesEveryGap (0.00s)
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_candidate_extraction_is_unsettled_too
+--- PASS: TestApplies_TheHappyPathIsUnqualified (0.00s)
+--- PASS: TestDisposition_LiveIsTheOnlyPermissiveValue (0.00s)
+--- PASS: TestReusability_ZeroIsWithheld (0.00s)
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt/evidence_whose_authority_this_build_cannot_read_is_unsettled
+=== PAUSE TestGrant_Valid_Table/a_grant_covering_no_reusable_relation
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt/evidence_whose_authority_this_build_cannot_read_is_unsettled
+=== CONT  TestApplies_AccessOutcomeIsNeverReportedAsAbsence/absent
+=== RUN   TestGrant_Valid_Table/a_grant_cannot_name_the_unrelated_relation
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt/an_undeclared_evidence_expiry
+=== PAUSE TestGrant_Valid_Table/a_grant_cannot_name_the_unrelated_relation
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt/an_undeclared_evidence_expiry
+=== RUN   TestGrant_Valid_Table/an_unbounded_grant
+=== PAUSE TestGrant_Valid_Table/an_unbounded_grant
+=== RUN   TestApplies_CrossScopeRequiresAGrantThatCoversIt/degraded_dependency_coverage
+=== PAUSE TestApplies_CrossScopeRequiresAGrantThatCoversIt/degraded_dependency_coverage
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt/no_grant_at_all
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt/evidence_whose_authority_this_build_cannot_read_is_unsettled
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt/degraded_dependency_coverage
+=== CONT  TestApplies_AccessOutcomeIsNeverReportedAsAbsence/uncertain
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt/an_undeclared_evidence_expiry
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_candidate_extraction_is_unsettled_too
+=== RUN   TestGrant_Valid_Table/a_lapsed_grant
+=== PAUSE TestGrant_Valid_Table/a_lapsed_grant
+=== CONT  TestGrant_Valid_Table/unknown_repository
+=== CONT  TestGrant_Valid_Table/a_grant_covering_no_reusable_relation
+=== CONT  TestGrant_Valid_Table/missing_authority
+=== CONT  TestApplies_AccessOutcomeIsNeverReportedAsAbsence/expired
+=== CONT  TestGrant_Valid_Table/a_tool_observation_cannot_authorize_reuse_either
+=== CONT  TestGrant_Valid_Table/an_unbounded_grant
+=== CONT  TestApplies_AccessOutcomeIsNeverReportedAsAbsence/corrupt
+=== CONT  TestGrant_Valid_Table/a_grant_cannot_name_the_unrelated_relation
+=== CONT  TestGrant_Valid_Table/a_lapsed_grant
+=== CONT  TestRelation_String_Table
+--- PASS: TestApplies_SameSessionNeedsNoGrant (0.00s)
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt/unsettled_evidence_without_an_unsettled_grant
+--- PASS: TestRelation_String_Table (0.00s)
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_grant_too_narrow_for_the_relation
+--- PASS: TestNewWorktreeID_ScopedToItsRepository (0.00s)
+--- PASS: TestNewRepositoryID_RootCommitCaseFolds (0.00s)
+--- PASS: TestNewRepositoryID_IdentityIsObservedNotGuessed (0.00s)
+--- PASS: TestApplies_UnobservedScopeNamesTheSideThatIsMissing (0.00s)
+--- PASS: TestApplies_AMovedVersionDoesNotBlockReuse (0.00s)
+--- PASS: TestApplies_OriginAndObservationsAreReportedOnEveryResult (0.00s)
+=== CONT  TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_grant_for_another_repository
+--- PASS: TestApplies_AllowUnsettledIsTheOnlyWayToCarryAnotherSessionsGuess (0.00s)
+--- PASS: TestVersions_Table (0.00s)
+--- PASS: TestApplies_DifferentRepositoryIsDeniedByEveryGrant (0.00s)
+=== CONT  TestGrant_Valid_Table/a_hypothesis_cannot_authorize_itself
+--- PASS: TestApplies_AccumulatesEveryUnmetRequirement (0.00s)
+--- PASS: TestLifecycle_ExpiryDeclared (0.00s)
+=== CONT  TestGrant_Valid_Table/unrecognized_authority
+--- PASS: TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway (0.00s)
+    --- PASS: TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/expired (0.00s)
+    --- PASS: TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/corrected (0.00s)
+    --- PASS: TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/deleted (0.00s)
+    --- PASS: TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/unknown_event (0.00s)
+    --- PASS: TestDisposition_OmissionsNameTheCauseAndNeverSayReuseAnyway/superseded (0.00s)
+=== PAUSE TestLifecycle_Disposition_Table/expiry_is_inclusive:_the_timestamp_itself_is_already_expired
+=== PAUSE TestRelate_Table/two_unobserved_scopes_are_unknown,_not_identical
+=== RUN   TestLifecycle_Disposition_Table/a_declared_expiry_in_the_past
+--- PASS: TestApplies_LifecycleRefusalsEvenInsideOneSession (0.00s)
+    --- PASS: TestApplies_LifecycleRefusalsEvenInsideOneSession/live (0.00s)
+    --- PASS: TestApplies_LifecycleRefusalsEvenInsideOneSession/corrected (0.00s)
+    --- PASS: TestApplies_LifecycleRefusalsEvenInsideOneSession/superseded (0.00s)
+    --- PASS: TestApplies_LifecycleRefusalsEvenInsideOneSession/deleted (0.00s)
+    --- PASS: TestApplies_LifecycleRefusalsEvenInsideOneSession/uninterpretable (0.00s)
+    --- PASS: TestApplies_LifecycleRefusalsEvenInsideOneSession/expired (0.00s)
+=== RUN   TestRelate_Table/an_unobserved_origin_is_unknown_even_against_a_fully_observed_target
+=== PAUSE TestRelate_Table/an_unobserved_origin_is_unknown_even_against_a_fully_observed_target
+--- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt (0.00s)
+    --- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt/no_grant_at_all (0.00s)
+    --- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt/degraded_dependency_coverage (0.00s)
+    --- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt/evidence_whose_authority_this_build_cannot_read_is_unsettled (0.00s)
+    --- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt/an_undeclared_evidence_expiry (0.00s)
+    --- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_candidate_extraction_is_unsettled_too (0.00s)
+    --- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_grant_too_narrow_for_the_relation (0.00s)
+    --- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt/a_grant_for_another_repository (0.00s)
+    --- PASS: TestApplies_CrossScopeRequiresAGrantThatCoversIt/unsettled_evidence_without_an_unsettled_grant (0.00s)
+=== RUN   TestRelate_Table/different_repositories_are_unrelated
+=== PAUSE TestRelate_Table/different_repositories_are_unrelated
+--- PASS: TestApplies_AccessOutcomeIsNeverReportedAsAbsence (0.00s)
+    --- PASS: TestApplies_AccessOutcomeIsNeverReportedAsAbsence/denied (0.00s)
+    --- PASS: TestApplies_AccessOutcomeIsNeverReportedAsAbsence/unavailable (0.00s)
+    --- PASS: TestApplies_AccessOutcomeIsNeverReportedAsAbsence/absent (0.00s)
+    --- PASS: TestApplies_AccessOutcomeIsNeverReportedAsAbsence/uncertain (0.00s)
+    --- PASS: TestApplies_AccessOutcomeIsNeverReportedAsAbsence/expired (0.00s)
+    --- PASS: TestApplies_AccessOutcomeIsNeverReportedAsAbsence/corrupt (0.00s)
+=== RUN   TestRelate_Table/one_session_is_the_narrowest_relation
+--- PASS: TestApplies_AttributionNeverRises (0.00s)
+=== PAUSE TestLifecycle_Disposition_Table/a_declared_expiry_in_the_past
+=== RUN   TestLifecycle_Disposition_Table/deletion_outranks_a_live_expiry
+=== PAUSE TestRelate_Table/one_session_is_the_narrowest_relation
+=== PAUSE TestLifecycle_Disposition_Table/deletion_outranks_a_live_expiry
+=== RUN   TestLifecycle_Disposition_Table/supersession_outranks_a_live_expiry
+=== RUN   TestRelate_Table/one_worktree,_two_sessions
+--- PASS: TestGrant_Valid_Table (0.00s)
+    --- PASS: TestGrant_Valid_Table/unknown_repository (0.00s)
+    --- PASS: TestGrant_Valid_Table/a_grant_covering_no_reusable_relation (0.00s)
+    --- PASS: TestGrant_Valid_Table/missing_authority (0.00s)
+    --- PASS: TestGrant_Valid_Table/a_tool_observation_cannot_authorize_reuse_either (0.00s)
+    --- PASS: TestGrant_Valid_Table/an_unbounded_grant (0.00s)
+    --- PASS: TestGrant_Valid_Table/a_grant_cannot_name_the_unrelated_relation (0.00s)
+    --- PASS: TestGrant_Valid_Table/a_lapsed_grant (0.00s)
+    --- PASS: TestGrant_Valid_Table/a_hypothesis_cannot_authorize_itself (0.00s)
+    --- PASS: TestGrant_Valid_Table/unrecognized_authority (0.00s)
+=== PAUSE TestRelate_Table/one_worktree,_two_sessions
+=== PAUSE TestLifecycle_Disposition_Table/supersession_outranks_a_live_expiry
+=== RUN   TestRelate_Table/two_worktrees_sharing_a_branch_name
+=== RUN   TestLifecycle_Disposition_Table/correction_outranks_a_passed_expiry
+=== PAUSE TestLifecycle_Disposition_Table/correction_outranks_a_passed_expiry
+=== RUN   TestLifecycle_Disposition_Table/an_unrecognized_event_is_uncertain,_never_live
+=== PAUSE TestRelate_Table/two_worktrees_sharing_a_branch_name
+=== PAUSE TestLifecycle_Disposition_Table/an_unrecognized_event_is_uncertain,_never_live
+=== RUN   TestRelate_Table/one_repository,_nothing_narrower_agrees
+=== RUN   TestLifecycle_Disposition_Table/an_unknown_event_is_uncertain_even_with_a_live_expiry
+=== PAUSE TestRelate_Table/one_repository,_nothing_narrower_agrees
+=== RUN   TestRelate_Table/blank_sessions_do_not_match_each_other
+=== PAUSE TestRelate_Table/blank_sessions_do_not_match_each_other
+=== PAUSE TestLifecycle_Disposition_Table/an_unknown_event_is_uncertain_even_with_a_live_expiry
+=== RUN   TestRelate_Table/blank_worktrees_do_not_match_each_other
+=== PAUSE TestRelate_Table/blank_worktrees_do_not_match_each_other
+=== CONT  TestLifecycle_Disposition_Table/supersession_outranks_a_live_expiry
+=== RUN   TestRelate_Table/blank_branches_do_not_match_each_other
+=== CONT  TestLifecycle_Disposition_Table/an_unrecognized_event_is_uncertain,_never_live
+=== CONT  TestLifecycle_Disposition_Table/the_zero_lifecycle_is_live
+=== PAUSE TestRelate_Table/blank_branches_do_not_match_each_other
+=== CONT  TestLifecycle_Disposition_Table/deletion_outranks_a_live_expiry
+=== RUN   TestRelate_Table/a_moved_version_does_not_change_the_structural_relation
+=== CONT  TestLifecycle_Disposition_Table/correction_outranks_a_passed_expiry
+=== CONT  TestLifecycle_Disposition_Table/expiry_is_inclusive:_the_timestamp_itself_is_already_expired
+=== CONT  TestLifecycle_Disposition_Table/a_declared_expiry_still_in_the_future_is_live
+=== PAUSE TestRelate_Table/a_moved_version_does_not_change_the_structural_relation
+=== CONT  TestRelate_Table/two_unobserved_scopes_are_unknown,_not_identical
+=== CONT  TestLifecycle_Disposition_Table/an_unknown_event_is_uncertain_even_with_a_live_expiry
+=== CONT  TestLifecycle_Disposition_Table/a_declared_expiry_in_the_past
+--- PASS: TestLifecycle_Disposition_Table (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/supersession_outranks_a_live_expiry (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/the_zero_lifecycle_is_live (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/an_unrecognized_event_is_uncertain,_never_live (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/deletion_outranks_a_live_expiry (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/correction_outranks_a_passed_expiry (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/expiry_is_inclusive:_the_timestamp_itself_is_already_expired (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/a_declared_expiry_still_in_the_future_is_live (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/an_unknown_event_is_uncertain_even_with_a_live_expiry (0.00s)
+    --- PASS: TestLifecycle_Disposition_Table/a_declared_expiry_in_the_past (0.00s)
+=== CONT  TestRelate_Table/two_worktrees_sharing_a_branch_name
+=== CONT  TestRelate_Table/blank_branches_do_not_match_each_other
+=== CONT  TestRelate_Table/one_repository,_nothing_narrower_agrees
+=== CONT  TestRelate_Table/a_moved_version_does_not_change_the_structural_relation
+=== CONT  TestRelate_Table/blank_worktrees_do_not_match_each_other
+=== CONT  TestRelate_Table/an_unobserved_origin_is_unknown_even_against_a_fully_observed_target
+=== CONT  TestRelate_Table/one_worktree,_two_sessions
+=== CONT  TestRelate_Table/one_session_is_the_narrowest_relation
+=== CONT  TestRelate_Table/different_repositories_are_unrelated
+=== CONT  TestRelate_Table/blank_sessions_do_not_match_each_other
+--- PASS: TestRelate_Table (0.00s)
+    --- PASS: TestRelate_Table/two_unobserved_scopes_are_unknown,_not_identical (0.00s)
+    --- PASS: TestRelate_Table/two_worktrees_sharing_a_branch_name (0.00s)
+    --- PASS: TestRelate_Table/one_repository,_nothing_narrower_agrees (0.00s)
+    --- PASS: TestRelate_Table/blank_branches_do_not_match_each_other (0.00s)
+    --- PASS: TestRelate_Table/a_moved_version_does_not_change_the_structural_relation (0.00s)
+    --- PASS: TestRelate_Table/an_unobserved_origin_is_unknown_even_against_a_fully_observed_target (0.00s)
+    --- PASS: TestRelate_Table/blank_worktrees_do_not_match_each_other (0.00s)
+    --- PASS: TestRelate_Table/one_worktree,_two_sessions (0.00s)
+    --- PASS: TestRelate_Table/one_session_is_the_narrowest_relation (0.00s)
+    --- PASS: TestRelate_Table/blank_sessions_do_not_match_each_other (0.00s)
+    --- PASS: TestRelate_Table/different_repositories_are_unrelated (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	41.929s
+FAIL
+exit=1

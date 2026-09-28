@@ -29,6 +29,11 @@
 //     do.
 //   - appendonly.go — the append-only guard itself: IsProtected, OpenFile, AppendOnly,
 //     AppendJSONL, CreateNew and ReplaceBloom.
-//   - manifest.go — CheckpointPath, ManifestPath and the checkpoints/MANIFEST.jsonl reader/
-//     writer built on top of AppendJSONL.
+//   - manifest.go — CheckpointPath, ManifestPath and the checkpoints/MANIFEST.jsonl reader.
+//   - barriers.go — Barriers, the file and directory syncs a sealing write issues, and the writes
+//     that must be durable before they return: AppendJSONLDurable, AppendLinesDurable, MkdirAll
+//     (directories made on demand, synced into their parents), and AppendManifest, the manifest's
+//     only writer, which syncs the indexed artifact's name before the line and the line before it
+//     returns. SyncDir (atomic.go) is the directory barrier; on Windows it is a no-op by owner
+//     decision D24, and its comment states the NTFS-journaling premise and the residual risk.
 package paths

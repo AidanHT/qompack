@@ -1,0 +1,40 @@
+=== RUN   TestPinsAReportedChangeSurvivesAPowerCut
+=== RUN   TestPinsAReportedChangeSurvivesAPowerCut/first_pin_creates_the_log
+    durability_test.go:165: 
+        	Error Trace:	<scratch>/red-pins/internal/pins/durability_test.go:165
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestPinsAReportedChangeSurvivesAPowerCut/first_pin_creates_the_log
+        	Messages:   	a change reported done is still true after a power cut
+=== RUN   TestPinsAReportedChangeSurvivesAPowerCut/a_later_pin
+    durability_test.go:165: 
+        	Error Trace:	<scratch>/red-pins/internal/pins/durability_test.go:165
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestPinsAReportedChangeSurvivesAPowerCut/a_later_pin
+        	Messages:   	a change reported done is still true after a power cut
+=== RUN   TestPinsAReportedChangeSurvivesAPowerCut/a_removal
+    durability_test.go:165: 
+        	Error Trace:	<scratch>/red-pins/internal/pins/durability_test.go:165
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestPinsAReportedChangeSurvivesAPowerCut/a_removal
+        	Messages:   	a change reported done is still true after a power cut
+--- FAIL: TestPinsAReportedChangeSurvivesAPowerCut (0.15s)
+    --- FAIL: TestPinsAReportedChangeSurvivesAPowerCut/first_pin_creates_the_log (0.05s)
+    --- FAIL: TestPinsAReportedChangeSurvivesAPowerCut/a_later_pin (0.03s)
+    --- FAIL: TestPinsAReportedChangeSurvivesAPowerCut/a_removal (0.07s)
+=== RUN   TestPinsAnAppendWhoseSyncIsCutIsNotReported
+    durability_test.go:188: 
+        	Error Trace:	<scratch>/red-pins/internal/pins/durability_test.go:188
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestPinsAnAppendWhoseSyncIsCutIsNotReported
+--- FAIL: TestPinsAnAppendWhoseSyncIsCutIsNotReported (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/pins	2.460s
+FAIL

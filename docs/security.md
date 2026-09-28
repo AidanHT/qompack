@@ -299,6 +299,23 @@ Open at this release, stated here rather than left to discovery.
 - **On Windows, a daemon lock cannot be told live from stale by inspection alone** (R5-4). The
   staleness window in §5 is how a dead holder is reclaimed; `fsck`'s daemon row reports a lock
   nothing answers behind as STALE and disables no check.
+- **On Windows, durability across a power cut rests on NTFS journaling (owner decision D24).** On
+  POSIX every promise Qompack makes — a sealed checkpoint, an acknowledged delivery, a published
+  capture, a pin, a recorded elimination — is backed by a sync of the file and of the directory that
+  names it ([Architecture §4](architecture.md#4-publication-and-durability)). On Windows the
+  directory sync is a no-op. NTFS journals metadata, not file contents: every creation, rename,
+  deletion and size change is one logged transaction, so a power cut never tears a directory entry,
+  while bytes written since a file's last flush can be lost. Each of those promises ends with a file
+  flush, which writes the file's bytes and forces the journal out past the directory change it
+  depends on. What a power cut can still take is what follows the last flush on the volume: the
+  most recent replacement of a derived file (a `state/` document, `pins/invariants.json`, a draft, a
+  restore's final rename) can revert to its previous complete version, and a removed file can
+  reappear. A backup's certification is exposed the same way: the rename of its manifest and the
+  removal of its certification-pending marker are the last steps of `qompack backup`, no flush
+  follows them, and a power cut just after the command reports the backup certified can leave it
+  without its manifest or with the marker back. Verification refuses such a backup, so it is never
+  restored from as certified; it must be taken again. Nothing Qompack guarantees depends on more than
+  that. The premise has not been tested with a real power cut.
 - **One platform, one host.** Every measurement on this page is windows/amd64 with one Claude Code
   version. The five other release targets are cross-compiled and untested at this level — see
   `docs/release.md` for the supported-scope table, which is generated from records rather than

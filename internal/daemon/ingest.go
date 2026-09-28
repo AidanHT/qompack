@@ -3,8 +3,11 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -156,6 +159,12 @@ type ingest struct {
 	// them per segment; nothing else sets them.
 	writeWAL func(*os.File, []byte) (int, error)
 	syncWAL  func(*os.File) error
+	// syncSpoolDir makes the spool directory's entries durable when a WAL segment handle is opened
+	// and after an externalized payload is synced: paths.SyncDir in production (a no-op on Windows,
+	// D24). syncBlobFile makes an externalized payload's bytes durable: syncSpoolFile in production.
+	// They are fields so a test can observe them.
+	syncSpoolDir func(string) error
+	syncBlobFile func(string) error
 
 	ring chan job
 	seen *seenSet
@@ -197,24 +206,27 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 	}
 
 	return &ingest{
-		root:      root,
-		cfg:       cfg,
-		log:       log,
-		m:         m,
-		clk:       clk,
-		spoolDir:  paths.Of(root).Spool,
-		histBB:    histName(obs.BB),
-		histBC:    histName(obs.BC),
-		wals:      map[core.SessionID]*walFile{},
-		synced:    map[string]int64{},
-		walQ:      groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
-		writeWAL:  (*os.File).Write,
-		syncWAL:   (*os.File).Sync,
-		ring:      make(chan job, ringCapacity),
-		seen:      newSeenSet(seenCapacity),
-		lanes:     newDispatchLanes(laneCapacity, laneSessionCapacity),
-		wake:      make(chan struct{}, 1),
-		drainKick: make(chan struct{}, 1),
+		root:     root,
+		cfg:      cfg,
+		log:      log,
+		m:        m,
+		clk:      clk,
+		spoolDir: paths.Of(root).Spool,
+		histBB:   histName(obs.BB),
+		histBC:   histName(obs.BC),
+		wals:     map[core.SessionID]*walFile{},
+		synced:   map[string]int64{},
+		walQ:     groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
+		writeWAL: (*os.File).Write,
+		syncWAL:  (*os.File).Sync,
+
+		syncSpoolDir: paths.SyncDir,
+		syncBlobFile: syncSpoolFile,
+		ring:         make(chan job, ringCapacity),
+		seen:         newSeenSet(seenCapacity),
+		lanes:        newDispatchLanes(laneCapacity, laneSessionCapacity),
+		wake:         make(chan struct{}, 1),
+		drainKick:    make(chan struct{}, 1),
 	}
 }
 
@@ -320,6 +332,9 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 // session's WAL and synced, then the delivery's lease, and the job that carries both. It queues
 // nothing.
 func (i *ingest) makeDurable(req ipc.Request, line []byte) (job, error) {
+	if err := i.syncExternalized(req); err != nil {
+		return job{}, err
+	}
 	if err := i.appendWAL(req.Session, line); err != nil {
 		return job{}, err
 	}
@@ -340,6 +355,58 @@ func (i *ingest) makeDurable(req ipc.Request, line []byte) (job, error) {
 		lease:  lease,
 		leased: leased,
 	}, nil
+}
+
+// syncExternalized makes a client-externalized payload durable before the WAL line that refers to
+// it is, and so before the ACK. A request whose tool response was too large to send inline carries
+// only a descriptor; the bytes are in spool/blob-<pid>-<n>.bin, which the hook wrote and closed
+// without a sync, and the job that reads them runs after the ACK. On POSIX a power cut between the two
+// could keep the durable WAL line and lose the blob (or keep its name with none of its bytes: a
+// delayed-allocation file comes back empty), and the capture the ACK called durable — always one of
+// the largest a session makes — could never be published. So the blob's bytes are synced and then
+// the spool directory, for its name, before the line is appended.
+//
+// Only a well-formed descriptor naming a regular file costs anything: an ordinary request has no
+// blob, and a missing or malformed one is left to readBlob to report, exactly as before — there is
+// nothing here to make durable. The name is Lstat'ed before anything opens it, because a descriptor
+// is caller-supplied: a directory, a symbolic link or a FIFO at that name is not a blob the shipped
+// client wrote, readBlob refuses it by the same test, and opening a FIFO for writing would block the
+// ingest until some reader appeared. A sync that fails fails the delivery, which is not ACKed; the
+// hook's own fallback keeps the line and the blob stays in place for it.
+func (i *ingest) syncExternalized(req ipc.Request) error {
+	name, ok := externalizedBlob(req)
+	if !ok {
+		return nil
+	}
+	blobPath := filepath.Join(i.spoolDir, name)
+	if fi, err := os.Lstat(paths.Long(blobPath)); err != nil || !fi.Mode().IsRegular() {
+		return nil
+	}
+	if err := i.syncBlobFile(blobPath); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("daemon: ingest: sync externalized payload: %w", err)
+	}
+	if err := i.syncSpoolDir(i.spoolDir); err != nil {
+		return fmt.Errorf("daemon: ingest: sync spool directory for an externalized payload: %w", err)
+	}
+	return nil
+}
+
+// externalizedBlob reports the blob file a client-externalized request's descriptor names, under the
+// same rules readBlob reads it by: a descriptor for the tool response, on a request with an event, and
+// a name the shipped client could have written.
+func externalizedBlob(req ipc.Request) (string, bool) {
+	if len(req.Raw) == 0 || req.Event == nil {
+		return "", false
+	}
+	var ref blobRef
+	if err := json.Unmarshal(req.Raw, &ref); err != nil || ref.Blob == "" ||
+		ref.Field != drainBlobToolResponse || !safeBlobName(ref.Blob) {
+		return "", false
+	}
+	return ref.Blob, true
 }
 
 // acceptDurable makes a CONTROL delivery — a SessionEnd flush — durable exactly as Accept makes an
@@ -609,6 +676,14 @@ func (i *ingest) rotateWALLocked(sess core.SessionID, wf *walFile) error {
 
 // openWALLocked opens (creating if needed) the WAL segment file for sess at wf's current
 // rotation sequence. mu must be held.
+//
+// It syncs the spool directory before it hands the handle back, and that is part of the WAL being
+// the durability boundary (§2.4). The ACK a hook gets is sent after its line's Sync, and on POSIX a
+// file's Sync does not make the file's NAME durable: a segment created for a new session or by a
+// rotation, whose directory entry a power cut then took, would lose every line an ACK had already
+// called durable. Once per opened handle is enough — a directory sync makes every entry that exists
+// when it runs durable — and it also covers a segment an earlier daemon created and never synced the
+// directory of. One directory sync per session per daemon lifetime, and per rotation, not per line.
 func (i *ingest) openWALLocked(sess core.SessionID, wf *walFile) error {
 	if err := os.MkdirAll(paths.Long(i.spoolDir), 0o700); err != nil {
 		return fmt.Errorf("daemon: ingest: mkdir spool: %w", err)
@@ -621,6 +696,10 @@ func (i *ingest) openWALLocked(sess core.SessionID, wf *walFile) error {
 	f, ok := wc.(*os.File)
 	if !ok {
 		return fmt.Errorf("daemon: ingest: AppendOnly returned a non-*os.File writer")
+	}
+	if err := i.syncSpoolDir(i.spoolDir); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("daemon: ingest: sync spool directory: %w", err)
 	}
 	wf.w = f
 	wf.name = filepath.Base(p)

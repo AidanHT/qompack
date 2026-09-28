@@ -1,0 +1,8 @@
+PASS      github.com/qompack/qompack/internal/paths  (pass=209 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/pins  (pass=62 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/config  (pass=311 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/negknow  (pass=400 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=436 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/store  (pass=861 fail=0 skip=4)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1519 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/cli  (pass=419 fail=0 skip=0)

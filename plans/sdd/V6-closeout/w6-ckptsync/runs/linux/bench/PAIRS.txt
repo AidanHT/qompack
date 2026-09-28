@@ -1,0 +1,37 @@
+runs:
+  round 1 base: cx-w6-ckptsync-benchq-r1-1-base-74bdcd7-20260927T191441Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 1 head: cx-w6-ckptsync-benchq-r1-2-head-312e15a-20260927T191629Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 2 base: cx-w6-ckptsync-benchq-r2-2-base-74bdcd7-20260927T192044Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 2 head: cx-w6-ckptsync-benchq-r2-1-head-312e15a-20260927T191849Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 3 base: cx-w6-ckptsync-benchq-r3-1-base-74bdcd7-20260927T192210Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 3 head: cx-w6-ckptsync-benchq-r3-2-head-312e15a-20260927T192336Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 4 base: cx-w6-ckptsync-benchq-r4-2-base-74bdcd7-20260927T192722Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 4 head: cx-w6-ckptsync-benchq-r4-1-head-312e15a-20260927T192537Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 5 base: cx-w6-ckptsync-benchq-r5-1-base-74bdcd7-20260927T192917Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 5 head: cx-w6-ckptsync-benchq-r5-2-head-312e15a-20260927T193056Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 6 base: cx-w6-ckptsync-benchq-r6-2-base-74bdcd7-20260927T193417Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+  round 6 head: cx-w6-ckptsync-benchq-r6-1-head-312e15a-20260927T193239Z-artifacts (go_test_exit=0
+exit=0); samples per bench: BenchmarkIngestAccept=5, BenchmarkIngestAcceptExternalized=5, BenchmarkIngestAcceptLeased=5, BenchmarkIngestMCPRealStore=5, BenchmarkRecord=5
+
+benchmark                                 base median ns/op  head median ns/op ratio (geo) head slower      p
+BenchmarkIngestAccept                              26475418           25779470       1.131     3/6      1.000
+    per-round head/base: 2.518 0.843 0.901 0.562 1.864 1.043
+BenchmarkIngestAcceptExternalized                  26416072           58797644       2.324     6/6      0.031
+    per-round head/base: 2.790 1.985 2.180 1.363 3.049 3.144
+BenchmarkIngestAcceptLeased                        58737437           48857328       0.892     2/6      0.688
+    per-round head/base: 0.924 0.712 0.974 0.608 1.112 1.161
+BenchmarkIngestMCPRealStore                        56346142          202581190       3.586     6/6      0.031
+    per-round head/base: 3.521 3.863 4.358 3.506 2.713 3.772
+BenchmarkRecord                                       79044              71950       0.898     3/6      1.000
+    per-round head/base: 0.524 1.363 1.096 0.842 1.086 0.729

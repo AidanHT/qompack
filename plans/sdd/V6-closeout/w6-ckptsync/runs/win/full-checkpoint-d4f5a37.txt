@@ -1,0 +1,918 @@
+=== RUN   TestDraftAccessorsReflectState
+--- PASS: TestDraftAccessorsReflectState (0.00s)
+=== RUN   TestSetCurrentWorkMarksExplicitAndPersists
+--- PASS: TestSetCurrentWorkMarksExplicitAndPersists (0.01s)
+=== RUN   TestSetCacheAndAddDropsAccumulate
+--- PASS: TestSetCacheAndAddDropsAccumulate (0.01s)
+=== RUN   TestOpenQuestionMutatorsDedupAndCap
+--- PASS: TestOpenQuestionMutatorsDedupAndCap (0.23s)
+=== RUN   TestSnapshotIsDeepCopy
+--- PASS: TestSnapshotIsDeepCopy (0.00s)
+=== RUN   TestDraftPersistRoundTrip
+--- PASS: TestDraftPersistRoundTrip (0.02s)
+=== RUN   TestEstimatedTokensPricesTheSnapshot
+--- PASS: TestEstimatedTokensPricesTheSnapshot (0.00s)
+=== RUN   TestRelPathIsProjectRelativeForwardSlash
+--- PASS: TestRelPathIsProjectRelativeForwardSlash (0.00s)
+=== RUN   TestFirstSentenceSplitter
+--- PASS: TestFirstSentenceSplitter (0.00s)
+=== RUN   TestTruncRunesCutsAtRuneBoundary
+--- PASS: TestTruncRunesCutsAtRuneBoundary (0.00s)
+=== RUN   TestFeatureSummarySortsKeysAscending
+--- PASS: TestFeatureSummarySortsKeysAscending (0.00s)
+=== RUN   TestNodesInRangeIsOneScanFilteredByKindAndTurn
+--- PASS: TestNodesInRangeIsOneScanFilteredByKindAndTurn (0.00s)
+=== RUN   TestOpenDraftsAndDraftForAndColdSources
+--- PASS: TestOpenDraftsAndDraftForAndColdSources (0.00s)
+=== RUN   TestRetireDraftIsIdempotentAndKeyedOnIdentity
+--- PASS: TestRetireDraftIsIdempotentAndKeyedOnIdentity (0.01s)
+=== RUN   TestKeepResolvableToolsStatsEachChunkOnceAndNeverTheRoot
+--- PASS: TestKeepResolvableToolsStatsEachChunkOnceAndNeverTheRoot (0.09s)
+=== RUN   TestKeepResolvableToolsVerdictsMatchTheDefinition
+--- PASS: TestKeepResolvableToolsVerdictsMatchTheDefinition (0.12s)
+=== RUN   TestFocusStandingTemplateVerbatim
+--- PASS: TestFocusStandingTemplateVerbatim (0.00s)
+=== RUN   TestFocusStandingOnlyWhenAllOptionsOff
+--- PASS: TestFocusStandingOnlyWhenAllOptionsOff (0.00s)
+=== RUN   TestFocusIncrementalSpanNamesPathAndTurn
+--- PASS: TestFocusIncrementalSpanNamesPathAndTurn (0.00s)
+=== RUN   TestFocusOmitsSpanWhenFrontierZero
+--- PASS: TestFocusOmitsSpanWhenFrontierZero (0.00s)
+=== RUN   TestFocusOmitsSpanWhenConfigDisabled
+--- PASS: TestFocusOmitsSpanWhenConfigDisabled (0.00s)
+=== RUN   TestFocusContainsSentinel
+--- PASS: TestFocusContainsSentinel (0.00s)
+=== RUN   TestFocusForwardSlashesOnWindows
+--- PASS: TestFocusForwardSlashesOnWindows (0.00s)
+=== RUN   TestFocusCappedAtFourThousandBytes
+--- PASS: TestFocusCappedAtFourThousandBytes (0.00s)
+=== RUN   TestFocusFirstLineIsAProbePhrase
+--- PASS: TestFocusFirstLineIsAProbePhrase (0.00s)
+=== RUN   TestFocusTrimsTrailingWhitespace
+--- PASS: TestFocusTrimsTrailingWhitespace (0.00s)
+=== RUN   TestFocusTemplatesAreVerbatimConstants
+--- PASS: TestFocusTemplatesAreVerbatimConstants (0.00s)
+=== RUN   TestGitIndexV2ParsesEntries
+--- PASS: TestGitIndexV2ParsesEntries (0.00s)
+=== RUN   TestGitIndexV3ExtendedFlags
+--- PASS: TestGitIndexV3ExtendedFlags (0.00s)
+=== RUN   TestGitIndexV4Unsupported
+--- PASS: TestGitIndexV4Unsupported (0.03s)
+=== RUN   TestGitIndexTruncated
+--- PASS: TestGitIndexTruncated (0.00s)
+=== RUN   TestGitIndexUnknownMagic
+--- PASS: TestGitIndexUnknownMagic (0.00s)
+=== RUN   TestGitIndexOver64MiBIsUnsupported
+--- PASS: TestGitIndexOver64MiBIsUnsupported (0.00s)
+=== RUN   TestGitIndexNoGitDirSentinel
+--- PASS: TestGitIndexNoGitDirSentinel (0.00s)
+=== RUN   TestGitHeadDetached
+--- PASS: TestGitHeadDetached (0.00s)
+=== RUN   TestGitIndexSaturatedPathLengthParses
+--- PASS: TestGitIndexSaturatedPathLengthParses (0.00s)
+=== RUN   TestGitIndexCraftedCorruptions
+=== RUN   TestGitIndexCraftedCorruptions/path_terminator_missing
+=== RUN   TestGitIndexCraftedCorruptions/nul_inside_claimed_path
+=== RUN   TestGitIndexCraftedCorruptions/saturated_path_unterminated
+=== RUN   TestGitIndexCraftedCorruptions/extended_flags_overrun
+--- PASS: TestGitIndexCraftedCorruptions (0.00s)
+    --- PASS: TestGitIndexCraftedCorruptions/path_terminator_missing (0.00s)
+    --- PASS: TestGitIndexCraftedCorruptions/nul_inside_claimed_path (0.00s)
+    --- PASS: TestGitIndexCraftedCorruptions/saturated_path_unterminated (0.00s)
+    --- PASS: TestGitIndexCraftedCorruptions/extended_flags_overrun (0.00s)
+=== RUN   TestGitDirFileMalformed
+=== RUN   TestGitDirFileMalformed/no_prefix
+=== RUN   TestGitDirFileMalformed/empty_gitdir
+--- PASS: TestGitDirFileMalformed (0.03s)
+    --- PASS: TestGitDirFileMalformed/no_prefix (0.02s)
+    --- PASS: TestGitDirFileMalformed/empty_gitdir (0.01s)
+=== RUN   TestMaxSeqIsZeroWithoutManifest
+--- PASS: TestMaxSeqIsZeroWithoutManifest (0.01s)
+=== RUN   TestMaxSeqIsLargestSeqNotLastLine
+--- PASS: TestMaxSeqIsLargestSeqNotLastLine (0.10s)
+=== RUN   TestMaxSeqSurfacesAMalformedManifestLoudly
+--- PASS: TestMaxSeqSurfacesAMalformedManifestLoudly (0.04s)
+=== RUN   TestSeqFromFilename
+--- PASS: TestSeqFromFilename (0.00s)
+=== RUN   TestSeqFromFilenameRoundTripsCheckpointPath
+--- PASS: TestSeqFromFilenameRoundTripsCheckpointPath (0.01s)
+=== RUN   TestMigrateStepsThroughEveryVersionInOrder
+--- PASS: TestMigrateStepsThroughEveryVersionInOrder (0.00s)
+=== RUN   TestMigrateStopsAtTheTargetVersion
+--- PASS: TestMigrateStopsAtTheTargetVersion (0.00s)
+=== RUN   TestMigrateReportsAMissingStep
+--- PASS: TestMigrateReportsAMissingStep (0.00s)
+=== RUN   TestMigrateSurfacesAStepsOwnError
+--- PASS: TestMigrateSurfacesAStepsOwnError (0.00s)
+=== RUN   TestMigrateRejectsAMigrationThatDoesNotAdvanceTheVersion
+--- PASS: TestMigrateRejectsAMigrationThatDoesNotAdvanceTheVersion (0.00s)
+=== RUN   TestMigrateWalksAChainLongerThanSixtyFourSteps
+--- PASS: TestMigrateWalksAChainLongerThanSixtyFourSteps (0.00s)
+=== RUN   TestPkgObserversAreNeverNil
+--- PASS: TestPkgObserversAreNeverNil (0.00s)
+=== RUN   TestSetObserversLastWriteWins
+--- PASS: TestSetObserversLastWriteWins (0.00s)
+=== RUN   TestNopRegistrySatisfiesTheWholeInterface
+--- PASS: TestNopRegistrySatisfiesTheWholeInterface (0.00s)
+=== RUN   TestNopHistogramResets
+--- PASS: TestNopHistogramResets (0.00s)
+=== RUN   TestValidatePointersCostDoesNotGrowWithRootDepth
+--- PASS: TestValidatePointersCostDoesNotGrowWithRootDepth (0.12s)
+=== RUN   TestValidatePointersFollowsADirectorySymlinkLikeNorm
+    validate_cost_test.go:129: platform: symlinks unavailable in this environment: symlink C:\Users\Quant\AppData\Local\Temp\TestValidatePointersFollowsADirectorySymlinkLikeNorm590285046\001\b C:\Users\Quant\AppData\Local\Temp\TestValidatePointersFollowsADirectorySymlinkLikeNorm590285046\001\link: A required privilege is not held by the client.
+--- SKIP: TestValidatePointersFollowsADirectorySymlinkLikeNorm (0.00s)
+=== RUN   TestValidatePointersFollowsAFileSymlinkLikeNorm
+    validate_cost_test.go:147: platform: symlinks unavailable in this environment: symlink C:\Users\Quant\AppData\Local\Temp\TestValidatePointersFollowsAFileSymlinkLikeNorm2383433142\001\a.txt C:\Users\Quant\AppData\Local\Temp\TestValidatePointersFollowsAFileSymlinkLikeNorm2383433142\001\alias.txt: A required privilege is not held by the client.
+--- SKIP: TestValidatePointersFollowsAFileSymlinkLikeNorm (0.00s)
+=== RUN   TestValidatePointersMatchesTheIndexTheWayTheFilesystemMatchesNames
+--- PASS: TestValidatePointersMatchesTheIndexTheWayTheFilesystemMatchesNames (0.00s)
+=== RUN   TestValidatePointersMissingFile
+--- PASS: TestValidatePointersMissingFile (0.00s)
+=== RUN   TestValidatePointersDirectory
+--- PASS: TestValidatePointersDirectory (0.00s)
+=== RUN   TestValidatePointersEscape
+--- PASS: TestValidatePointersEscape (0.01s)
+=== RUN   TestValidatePointersDirtyAgainstIndex
+--- PASS: TestValidatePointersDirtyAgainstIndex (0.01s)
+=== RUN   TestValidatePointersDirtyOnMTimeAlone
+--- PASS: TestValidatePointersDirtyOnMTimeAlone (0.01s)
+=== RUN   TestValidatePointersUntracked
+--- PASS: TestValidatePointersUntracked (0.00s)
+=== RUN   TestValidatePointersCleanFileProducesNoDrop
+--- PASS: TestValidatePointersCleanFileProducesNoDrop (0.00s)
+=== RUN   TestGitDirAsFileWorktree
+--- PASS: TestGitDirAsFileWorktree (0.02s)
+=== RUN   TestValidatePointersNoGitDir
+--- PASS: TestValidatePointersNoGitDir (0.00s)
+=== RUN   TestValidatePointersUnreadableHeadDegradesBranchOnly
+--- PASS: TestValidatePointersUnreadableHeadDegradesBranchOnly (0.00s)
+=== RUN   TestValidatePointersCancelledContext
+--- PASS: TestValidatePointersCancelledContext (0.00s)
+=== RUN   TestExtractFromEdgeExplains
+    decisions_test.go:131: fixture (a) minted id: dec_0c8ef1f060d8  evidence: sha256:f7d88e3d0eb4a31185ee3e8f39e303db69f36a6c1a733bac8feb1d1660a011f7
+--- PASS: TestExtractFromEdgeExplains (0.07s)
+=== RUN   TestExtractFromElimination
+    decisions_test.go:159: fixture (b) minted id: dec_5b47e3e1c23f  evidence: sha256:b71b45fa142411b699958a4466ad3cbe169771e488e92c57ac08122b3791b2c5
+--- PASS: TestExtractFromElimination (0.06s)
+=== RUN   TestExtractFromDecisionPin
+    decisions_test.go:191: fixture (c) minted id: dec_de66d8d8fa69  evidence: sha256:0000000000000000000000000000000000000000000000000000000000000000
+--- PASS: TestExtractFromDecisionPin (0.04s)
+=== RUN   TestDecisionIDIsStableAndDeterministic
+--- PASS: TestDecisionIDIsStableAndDeterministic (0.00s)
+=== RUN   TestExtractDeduplicatesByID
+--- PASS: TestExtractDeduplicatesByID (0.09s)
+=== RUN   TestExtractRanksBySliceScore
+--- PASS: TestExtractRanksBySliceScore (0.10s)
+=== RUN   TestExtractEmitsDecisionNodesAndEdges
+--- PASS: TestExtractEmitsDecisionNodesAndEdges (0.07s)
+=== RUN   TestExtractCapsAtSixtyFour
+--- PASS: TestExtractCapsAtSixtyFour (3.60s)
+=== RUN   TestExtractRespectsFromTurn
+--- PASS: TestExtractRespectsFromTurn (0.09s)
+=== RUN   TestExtractEliminationTurnMapping
+--- PASS: TestExtractEliminationTurnMapping (0.07s)
+=== RUN   TestExtractSurvivesEmissionFailure
+--- PASS: TestExtractSurvivesEmissionFailure (0.09s)
+=== RUN   TestExtractSurvivesStoreReadFailure
+--- PASS: TestExtractSurvivesStoreReadFailure (0.10s)
+=== RUN   TestExtractDecisionTargetAndRuneCaps
+--- PASS: TestExtractDecisionTargetAndRuneCaps (0.10s)
+=== RUN   TestExtractVerbForTargets
+--- PASS: TestExtractVerbForTargets (0.10s)
+=== RUN   TestExtractValidatesSourcesAndContext
+--- PASS: TestExtractValidatesSourcesAndContext (0.05s)
+=== RUN   TestFinalizeSealsThroughItsBarriersInOrder
+=== RUN   TestFinalizeSealsThroughItsBarriersInOrder/prior=0
+=== RUN   TestFinalizeSealsThroughItsBarriersInOrder/prior=1
+--- PASS: TestFinalizeSealsThroughItsBarriersInOrder (0.42s)
+    --- PASS: TestFinalizeSealsThroughItsBarriersInOrder/prior=0 (0.18s)
+    --- PASS: TestFinalizeSealsThroughItsBarriersInOrder/prior=1 (0.24s)
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/power-loss
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/power-loss
+--- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed (5.01s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/process-crash (0.26s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/power-loss (0.18s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/process-crash (0.23s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/power-loss (0.19s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/process-crash (0.20s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/power-loss (0.19s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/process-crash (0.20s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/power-loss (0.20s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/process-crash (0.17s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/power-loss (0.20s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/process-crash (0.17s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/power-loss (0.20s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/process-crash (0.32s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/power-loss (0.24s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/process-crash (0.29s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/power-loss (0.28s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/process-crash (0.26s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/power-loss (0.24s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/process-crash (0.25s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/power-loss (0.24s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/process-crash (0.23s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/power-loss (0.27s)
+=== RUN   TestFinalizeSealsWhenItsSegmentMarksCannotBeSynced
+--- PASS: TestFinalizeSealsWhenItsSegmentMarksCannotBeSynced (0.19s)
+=== RUN   TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice
+=== RUN   TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_manifest's_sync_fails
+=== RUN   TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_sync_fails
+=== RUN   TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_name_fails
+--- PASS: TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice (0.63s)
+    --- PASS: TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_manifest's_sync_fails (0.25s)
+    --- PASS: TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_sync_fails (0.20s)
+    --- PASS: TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_name_fails (0.18s)
+=== RUN   TestFinalizeRetriesPastAClaimedSequenceNumber
+--- PASS: TestFinalizeRetriesPastAClaimedSequenceNumber (0.16s)
+=== RUN   TestFinalizeFallsBackToTheConfiguredBudget
+--- PASS: TestFinalizeFallsBackToTheConfiguredBudget (0.15s)
+=== RUN   TestFinalizeDropsToolPointersTheStoreNoLongerHolds
+--- PASS: TestFinalizeDropsToolPointersTheStoreNoLongerHolds (0.15s)
+=== RUN   TestColdPreCompactSealsEvenWhenSegmentsCannotBeListed
+--- PASS: TestColdPreCompactSealsEvenWhenSegmentsCannotBeListed (0.14s)
+=== RUN   TestPreCompactUsesTheLiveDraftWhenOneIsOpen
+--- PASS: TestPreCompactUsesTheLiveDraftWhenOneIsOpen (0.17s)
+=== RUN   TestDraftQuestionsSplitUserFromDerivedAcrossAResume
+--- PASS: TestDraftQuestionsSplitUserFromDerivedAcrossAResume (0.11s)
+=== RUN   TestFinalizeKeepsToolPointersWhoseRootTheStoreHolds
+--- PASS: TestFinalizeKeepsToolPointersWhoseRootTheStoreHolds (0.13s)
+=== RUN   TestFinalizeDropsAToolPointerWhoseChunkFileIsGone
+--- PASS: TestFinalizeDropsAToolPointerWhoseChunkFileIsGone (0.13s)
+=== RUN   TestFinalizeWritesAnImmutableArtifact
+--- PASS: TestFinalizeWritesAnImmutableArtifact (0.13s)
+=== RUN   TestFinalizeAppendsAManifestLineThatVerifies
+--- PASS: TestFinalizeAppendsAManifestLineThatVerifies (0.13s)
+=== RUN   TestFinalizeArtifactUnmarshalsAsTheDraftItSealed
+--- PASS: TestFinalizeArtifactUnmarshalsAsTheDraftItSealed (0.12s)
+=== RUN   TestFinalizeRetiresTheDraftAndOpensItsSuccessor
+--- PASS: TestFinalizeRetiresTheDraftAndOpensItsSuccessor (0.13s)
+=== RUN   TestFinalizeSecondCallClaimsTheNextSequence
+--- PASS: TestFinalizeSecondCallClaimsTheNextSequence (0.18s)
+=== RUN   TestFinalizeRefusesANilDraft
+--- PASS: TestFinalizeRefusesANilDraft (0.05s)
+=== RUN   TestFinalizeRefusesAnAbortedDraft
+--- PASS: TestFinalizeRefusesAnAbortedDraft (0.11s)
+=== RUN   TestFinalizeReopensTheDraftWhenTheArtifactNeverLands
+--- PASS: TestFinalizeReopensTheDraftWhenTheArtifactNeverLands (0.10s)
+=== RUN   TestFinalizeRemovesPointersThatNoLongerResolve
+--- PASS: TestFinalizeRemovesPointersThatNoLongerResolve (0.16s)
+=== RUN   TestFinalizeKeepsADirtyPointer
+--- PASS: TestFinalizeKeepsADirtyPointer (0.16s)
+=== RUN   TestFinalizeMaterializesPins
+--- PASS: TestFinalizeMaterializesPins (0.12s)
+=== RUN   TestFinalizeArtifactIsCanonicalJSON
+--- PASS: TestFinalizeArtifactIsCanonicalJSON (0.13s)
+=== RUN   TestFrontierAdvanceCutsResidualSpan
+    finalize_test.go:515: residual span: on=10 off=60 ratio=0.1667
+--- PASS: TestFrontierAdvanceCutsResidualSpan (0.24s)
+=== RUN   TestAdvanceRefusesASealedDraft
+--- PASS: TestAdvanceRefusesASealedDraft (0.20s)
+=== RUN   TestBeginChainsToTheLatestSealedCheckpointByDefault
+--- PASS: TestBeginChainsToTheLatestSealedCheckpointByDefault (0.15s)
+=== RUN   TestBeginSkipsASequenceNumberWhoseArtifactAlreadyExists
+--- PASS: TestBeginSkipsASequenceNumberWhoseArtifactAlreadyExists (0.17s)
+=== RUN   TestWriterConformanceSuite
+=== RUN   TestWriterConformanceSuite/checkpoint.OpenWriter/shape
+=== RUN   TestWriterConformanceSuite/checkpoint.OpenWriter/behaviour
+=== RUN   TestWriterConformanceSuite/checkpoint.OpenWriter/behaviour/begin_advance_finalize_produces_a_verifiable_ref
+=== RUN   TestWriterConformanceSuite/checkpoint.OpenWriter/behaviour/advance_is_the_dpi_guard
+=== RUN   TestWriterConformanceSuite/checkpoint.OpenWriter/behaviour/abort_writes_nothing
+--- PASS: TestWriterConformanceSuite (0.57s)
+    --- PASS: TestWriterConformanceSuite/checkpoint.OpenWriter/shape (0.14s)
+    --- PASS: TestWriterConformanceSuite/checkpoint.OpenWriter/behaviour (0.33s)
+        --- PASS: TestWriterConformanceSuite/checkpoint.OpenWriter/behaviour/begin_advance_finalize_produces_a_verifiable_ref (0.12s)
+        --- PASS: TestWriterConformanceSuite/checkpoint.OpenWriter/behaviour/advance_is_the_dpi_guard (0.11s)
+        --- PASS: TestWriterConformanceSuite/checkpoint.OpenWriter/behaviour/abort_writes_nothing (0.10s)
+=== RUN   TestCheckpoint_DecodesFrozenFixture
+--- PASS: TestCheckpoint_DecodesFrozenFixture (0.00s)
+=== RUN   TestCheckpoint_RoundTripsFrozenFixture
+--- PASS: TestCheckpoint_RoundTripsFrozenFixture (0.00s)
+=== RUN   TestCheckpointGolden_ContainsNoCodeBlocks
+--- PASS: TestCheckpointGolden_ContainsNoCodeBlocks (0.00s)
+=== RUN   TestCheckpointGolden_HasNoTrailingWhitespaceDrift
+--- PASS: TestCheckpointGolden_HasNoTrailingWhitespaceDrift (0.00s)
+=== RUN   TestFrontierAdvancer_ReusesFileWriterLiveDraft
+--- PASS: TestFrontierAdvancer_ReusesFileWriterLiveDraft (0.06s)
+=== RUN   TestFrontierAdvancer_RetriesOneSealedDraft
+--- PASS: TestFrontierAdvancer_RetriesOneSealedDraft (0.00s)
+=== RUN   TestFrontierAdvancer_ReportsRepeatedSealedDraft
+--- PASS: TestFrontierAdvancer_ReportsRepeatedSealedDraft (0.00s)
+=== RUN   TestFrontierAdvancer_CancellationAndEmptyBatchDoNotBegin
+=== RUN   TestFrontierAdvancer_CancellationAndEmptyBatchDoNotBegin/canceled
+=== RUN   TestFrontierAdvancer_CancellationAndEmptyBatchDoNotBegin/empty
+--- PASS: TestFrontierAdvancer_CancellationAndEmptyBatchDoNotBegin (0.00s)
+    --- PASS: TestFrontierAdvancer_CancellationAndEmptyBatchDoNotBegin/canceled (0.00s)
+    --- PASS: TestFrontierAdvancer_CancellationAndEmptyBatchDoNotBegin/empty (0.00s)
+=== RUN   TestFrontierAdvancer_PreservesPartialDPIGuardOutcome
+--- PASS: TestFrontierAdvancer_PreservesPartialDPIGuardOutcome (0.06s)
+=== RUN   TestFrontierAdvancer_CancellationBetweenLifecycleCalls
+=== RUN   TestFrontierAdvancer_CancellationBetweenLifecycleCalls/sources
+=== RUN   TestFrontierAdvancer_CancellationBetweenLifecycleCalls/begin
+--- PASS: TestFrontierAdvancer_CancellationBetweenLifecycleCalls (0.00s)
+    --- PASS: TestFrontierAdvancer_CancellationBetweenLifecycleCalls/sources (0.00s)
+    --- PASS: TestFrontierAdvancer_CancellationBetweenLifecycleCalls/begin (0.00s)
+=== RUN   TestNoForbiddenImports
+--- PASS: TestNoForbiddenImports (0.00s)
+=== RUN   TestImportViolationClassifier
+--- PASS: TestImportViolationClassifier (0.00s)
+=== RUN   TestStripInjections_RemovesWholeSpans
+=== RUN   TestStripInjections_RemovesWholeSpans/empty
+=== RUN   TestStripInjections_RemovesWholeSpans/no_tags_is_the_identity
+=== RUN   TestStripInjections_RemovesWholeSpans/one_span_is_removed_entirely
+=== RUN   TestStripInjections_RemovesWholeSpans/surrounding_text_survives
+=== RUN   TestStripInjections_RemovesWholeSpans/an_empty_span_is_removed
+--- PASS: TestStripInjections_RemovesWholeSpans (0.00s)
+    --- PASS: TestStripInjections_RemovesWholeSpans/empty (0.00s)
+    --- PASS: TestStripInjections_RemovesWholeSpans/no_tags_is_the_identity (0.00s)
+    --- PASS: TestStripInjections_RemovesWholeSpans/one_span_is_removed_entirely (0.00s)
+    --- PASS: TestStripInjections_RemovesWholeSpans/surrounding_text_survives (0.00s)
+    --- PASS: TestStripInjections_RemovesWholeSpans/an_empty_span_is_removed (0.00s)
+=== RUN   TestStripInjections_IsNonGreedy
+--- PASS: TestStripInjections_IsNonGreedy (0.00s)
+=== RUN   TestStripInjections_MissingCloseTagDropsToEnd
+=== RUN   TestStripInjections_MissingCloseTagDropsToEnd/open_tag_with_no_close_tag
+=== RUN   TestStripInjections_MissingCloseTagDropsToEnd/open_tag_truncated_mid-tag
+=== RUN   TestStripInjections_MissingCloseTagDropsToEnd/a_complete_span_followed_by_an_unterminated_one
+--- PASS: TestStripInjections_MissingCloseTagDropsToEnd (0.00s)
+    --- PASS: TestStripInjections_MissingCloseTagDropsToEnd/open_tag_with_no_close_tag (0.00s)
+    --- PASS: TestStripInjections_MissingCloseTagDropsToEnd/open_tag_truncated_mid-tag (0.00s)
+    --- PASS: TestStripInjections_MissingCloseTagDropsToEnd/a_complete_span_followed_by_an_unterminated_one (0.00s)
+=== RUN   TestStripInjections_StrayCloseTagIsOrdinaryText
+--- PASS: TestStripInjections_StrayCloseTagIsOrdinaryText (0.00s)
+=== RUN   TestStripInjections_RecognizesEverySeqAndVersion
+--- PASS: TestStripInjections_RecognizesEverySeqAndVersion (0.00s)
+=== RUN   TestStripInjections_IsIdempotent
+--- PASS: TestStripInjections_IsIdempotent (0.00s)
+=== RUN   TestInjectionTags_AreTheFrozenSpellings
+--- PASS: TestInjectionTags_AreTheFrozenSpellings (0.00s)
+=== RUN   TestStripInjectionsPairedBlock
+--- PASS: TestStripInjectionsPairedBlock (0.00s)
+=== RUN   TestStripInjectionsUnmatchedOpen
+--- PASS: TestStripInjectionsUnmatchedOpen (0.00s)
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/empty
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/no_tags
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/one_whole_span
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/text_on_both_sides
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/empty_span
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/two_adjacent_spans_are_two_spans
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/open_tag_with_no_close_tag
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/open_tag_truncated_mid-tag
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/complete_span_then_unterminated_one
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/stray_close_tag_is_ordinary_text
+=== RUN   TestStripInjectionsCountAgreesWithStripInjections/older_schema_version_span
+--- PASS: TestStripInjectionsCountAgreesWithStripInjections (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/empty (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/no_tags (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/one_whole_span (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/text_on_both_sides (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/empty_span (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/two_adjacent_spans_are_two_spans (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/open_tag_with_no_close_tag (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/open_tag_truncated_mid-tag (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/complete_span_then_unterminated_one (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/stray_close_tag_is_ordinary_text (0.00s)
+    --- PASS: TestStripInjectionsCountAgreesWithStripInjections/older_schema_version_span (0.00s)
+=== RUN   TestStripInjectionsLeavesCleanTextAlone
+    inject_test.go:265: [rapid] OK, passed 100 tests (8.6938ms)
+--- PASS: TestStripInjectionsLeavesCleanTextAlone (0.01s)
+=== RUN   TestStripInjectionsSpliceDeletesOnlyTheAssembledPrefix
+=== RUN   TestStripInjectionsSpliceDeletesOnlyTheAssembledPrefix/an_ordinary_html_comment_downstream_does_not_terminate_the_artifact
+=== RUN   TestStripInjectionsSpliceDeletesOnlyTheAssembledPrefix/hundreds_of_bytes_of_prose_survive_an_arrow_that_follows_them
+=== RUN   TestStripInjectionsSpliceDeletesOnlyTheAssembledPrefix/an_unmatched_close_tag_downstream_stays_ordinary_text,_arrow_and_all
+--- PASS: TestStripInjectionsSpliceDeletesOnlyTheAssembledPrefix (0.00s)
+    --- PASS: TestStripInjectionsSpliceDeletesOnlyTheAssembledPrefix/an_ordinary_html_comment_downstream_does_not_terminate_the_artifact (0.00s)
+    --- PASS: TestStripInjectionsSpliceDeletesOnlyTheAssembledPrefix/hundreds_of_bytes_of_prose_survive_an_arrow_that_follows_them (0.00s)
+    --- PASS: TestStripInjectionsSpliceDeletesOnlyTheAssembledPrefix/an_unmatched_close_tag_downstream_stays_ordinary_text,_arrow_and_all (0.00s)
+=== RUN   TestStripInjectionsSpliceKeepsTrailingText
+--- PASS: TestStripInjectionsSpliceKeepsTrailingText (0.00s)
+=== RUN   TestMigrateV1IsIdentity
+=== RUN   TestMigrateV1IsIdentity/contracts/checkpoint/want/0001.json
+=== RUN   TestMigrateV1IsIdentity/checkpoints/0001-minimal.json
+=== RUN   TestMigrateV1IsIdentity/checkpoints/0002-full.json
+=== RUN   TestMigrateV1IsIdentity/checkpoints/0003-truncated.json
+=== RUN   TestMigrateV1IsIdentity/checkpoints/0004-tier1-over-budget.json
+--- PASS: TestMigrateV1IsIdentity (0.00s)
+    --- PASS: TestMigrateV1IsIdentity/contracts/checkpoint/want/0001.json (0.00s)
+    --- PASS: TestMigrateV1IsIdentity/checkpoints/0001-minimal.json (0.00s)
+    --- PASS: TestMigrateV1IsIdentity/checkpoints/0002-full.json (0.00s)
+    --- PASS: TestMigrateV1IsIdentity/checkpoints/0003-truncated.json (0.00s)
+    --- PASS: TestMigrateV1IsIdentity/checkpoints/0004-tier1-over-budget.json (0.00s)
+=== RUN   TestMigrateRejectsFutureVersion
+--- PASS: TestMigrateRejectsFutureVersion (0.00s)
+=== RUN   TestMigrateRejectsMissingVersion
+=== RUN   TestMigrateRejectsMissingVersion/null_version
+=== RUN   TestMigrateRejectsMissingVersion/string_version
+=== RUN   TestMigrateRejectsMissingVersion/zero_version
+=== RUN   TestMigrateRejectsMissingVersion/negative_version
+=== RUN   TestMigrateRejectsMissingVersion/array_not_object
+=== RUN   TestMigrateRejectsMissingVersion/not_json_at_all
+=== RUN   TestMigrateRejectsMissingVersion/fractional_version
+=== RUN   TestMigrateRejectsMissingVersion/empty_object
+--- PASS: TestMigrateRejectsMissingVersion (0.00s)
+    --- PASS: TestMigrateRejectsMissingVersion/null_version (0.00s)
+    --- PASS: TestMigrateRejectsMissingVersion/string_version (0.00s)
+    --- PASS: TestMigrateRejectsMissingVersion/zero_version (0.00s)
+    --- PASS: TestMigrateRejectsMissingVersion/negative_version (0.00s)
+    --- PASS: TestMigrateRejectsMissingVersion/array_not_object (0.00s)
+    --- PASS: TestMigrateRejectsMissingVersion/not_json_at_all (0.00s)
+    --- PASS: TestMigrateRejectsMissingVersion/fractional_version (0.00s)
+    --- PASS: TestMigrateRejectsMissingVersion/empty_object (0.00s)
+=== RUN   TestGoldenCheckpointsContainNoCodeBlocks
+=== RUN   TestGoldenCheckpointsContainNoCodeBlocks/0001-minimal.json
+=== RUN   TestGoldenCheckpointsContainNoCodeBlocks/0002-full.json
+=== RUN   TestGoldenCheckpointsContainNoCodeBlocks/0003-truncated.json
+=== RUN   TestGoldenCheckpointsContainNoCodeBlocks/0004-tier1-over-budget.json
+--- PASS: TestGoldenCheckpointsContainNoCodeBlocks (0.00s)
+    --- PASS: TestGoldenCheckpointsContainNoCodeBlocks/0001-minimal.json (0.00s)
+    --- PASS: TestGoldenCheckpointsContainNoCodeBlocks/0002-full.json (0.00s)
+    --- PASS: TestGoldenCheckpointsContainNoCodeBlocks/0003-truncated.json (0.00s)
+    --- PASS: TestGoldenCheckpointsContainNoCodeBlocks/0004-tier1-over-budget.json (0.00s)
+=== RUN   TestCodeLineHeuristicFires
+--- PASS: TestCodeLineHeuristicFires (0.00s)
+=== RUN   TestPreCompactSealsACheckpointAndReturnsInstructions
+--- PASS: TestPreCompactSealsACheckpointAndReturnsInstructions (0.12s)
+=== RUN   TestPreCompactInstructionsCarryTheIncrementalSpan
+--- PASS: TestPreCompactInstructionsCarryTheIncrementalSpan (0.17s)
+=== RUN   TestPreCompactOmitsTheSpanWhenDisabled
+--- PASS: TestPreCompactOmitsTheSpanWhenDisabled (0.13s)
+=== RUN   TestPreCompactWritesTheDebugArtifact
+--- PASS: TestPreCompactWritesTheDebugArtifact (0.12s)
+=== RUN   TestPreCompactFinalizesEvenWhenTheDeadlineHasPassed
+--- PASS: TestPreCompactFinalizesEvenWhenTheDeadlineHasPassed (0.12s)
+=== RUN   TestPreCompactOnAColdSessionBeginsAndSeals
+--- PASS: TestPreCompactOnAColdSessionBeginsAndSeals (0.18s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.54s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.13s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.13s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.13s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.15s)
+=== RUN   TestColdPreCompactCatchesUpInOneBatchOldestFirst
+--- PASS: TestColdPreCompactCatchesUpInOneBatchOldestFirst (0.16s)
+=== RUN   TestPreCompactReportsTruncationButNotPointerDrops
+--- PASS: TestPreCompactReportsTruncationButNotPointerDrops (0.18s)
+=== RUN   TestPreCompactExtraDropsAndOpenQuestionsReachTheArtifact
+--- PASS: TestPreCompactExtraDropsAndOpenQuestionsReachTheArtifact (0.16s)
+=== RUN   TestPreCompactNamesTheContiguousFrontierInTheSpan
+--- PASS: TestPreCompactNamesTheContiguousFrontierInTheSpan (0.15s)
+=== RUN   TestPromote_SameEpochIsRefused
+=== PAUSE TestPromote_SameEpochIsRefused
+=== RUN   TestPromote_AnEarlierTargetIsRefused
+=== PAUSE TestPromote_AnEarlierTargetIsRefused
+=== RUN   TestPromote_FrequencyWithoutOutcomesIsWithheld
+=== PAUSE TestPromote_FrequencyWithoutOutcomesIsWithheld
+=== RUN   TestPromote_AnEmptyDemandRecordIsWithheld
+=== PAUSE TestPromote_AnEmptyDemandRecordIsWithheld
+=== RUN   TestPromote_ATelemetryGapAlsoWithholds
+=== PAUSE TestPromote_ATelemetryGapAlsoWithholds
+=== RUN   TestPromote_AMeasuredMissIsRefused
+=== PAUSE TestPromote_AMeasuredMissIsRefused
+=== RUN   TestPromote_TooFewExpansionsIsWithheld
+=== PAUSE TestPromote_TooFewExpansionsIsWithheld
+=== RUN   TestPromote_UnusableEvidenceIsRefused
+=== PAUSE TestPromote_UnusableEvidenceIsRefused
+=== RUN   TestPromote_OverflowLeavesADropEntry
+=== PAUSE TestPromote_OverflowLeavesADropEntry
+=== RUN   TestPromote_AZeroOverheadPromotesNothing
+=== PAUSE TestPromote_AZeroOverheadPromotesNothing
+=== RUN   TestPromote_DisabledStillEvaluatesButAppliesNothing
+=== PAUSE TestPromote_DisabledStillEvaluatesButAppliesNothing
+=== RUN   TestPromote_ApplyDoesNotMutateTheArchivedCheckpoint
+=== PAUSE TestPromote_ApplyDoesNotMutateTheArchivedCheckpoint
+=== RUN   TestPromote_ApplyOrdersPromotedFirstAndKeepsTheRestStable
+=== PAUSE TestPromote_ApplyOrdersPromotedFirstAndKeepsTheRestStable
+=== RUN   TestPromote_PromotedPointersSurviveTruncation
+=== PAUSE TestPromote_PromotedPointersSurviveTruncation
+=== RUN   TestPromote_EveryNonAppliedResultExplainsItself
+=== PAUSE TestPromote_EveryNonAppliedResultExplainsItself
+=== RUN   TestPromote_IsDeterministic
+=== PAUSE TestPromote_IsDeterministic
+=== RUN   TestPromote_ANilEstimatorReportsItsOwnBlindness
+=== PAUSE TestPromote_ANilEstimatorReportsItsOwnBlindness
+=== RUN   TestPromote_NoCandidatesIsAnEmptyPlan
+=== PAUSE TestPromote_NoCandidatesIsAnEmptyPlan
+=== RUN   TestPublicationFailureRetainsThePreviousCheckpoint
+--- PASS: TestPublicationFailureRetainsThePreviousCheckpoint (0.17s)
+=== RUN   TestRollbackToAPriorCheckpointWhenTheNewestIsCorrupt
+--- PASS: TestRollbackToAPriorCheckpointWhenTheNewestIsCorrupt (0.15s)
+=== RUN   TestLatestOverAWhollyUnverifiableStoreIsNotFound
+--- PASS: TestLatestOverAWhollyUnverifiableStoreIsNotFound (0.11s)
+=== RUN   TestResolveLatestReportsTheFallbackItTook
+--- PASS: TestResolveLatestReportsTheFallbackItTook (0.14s)
+=== RUN   TestResolveChainStopsAtAMissingAncestorWithAReason
+--- PASS: TestResolveChainStopsAtAMissingAncestorWithAReason (0.14s)
+=== RUN   TestResolveLatestOnAnEmptyStoreIsNotFound
+--- PASS: TestResolveLatestOnAnEmptyStoreIsNotFound (0.04s)
+=== RUN   TestResolveHonoursCancellation
+--- PASS: TestResolveHonoursCancellation (0.11s)
+=== RUN   TestLegacyFormatCheckpointsStayReadable
+--- PASS: TestLegacyFormatCheckpointsStayReadable (0.15s)
+=== RUN   TestCommittedFrontierIsBackedByDurableEvidence
+--- PASS: TestCommittedFrontierIsBackedByDurableEvidence (0.14s)
+=== RUN   TestListIsAscendingAndCarriesManifestFields
+--- PASS: TestListIsAscendingAndCarriesManifestFields (0.12s)
+=== RUN   TestReaderRefLeavesWriterOnlyFieldsZero
+--- PASS: TestReaderRefLeavesWriterOnlyFieldsZero (0.04s)
+=== RUN   TestListRejectsMalformedManifestLine
+--- PASS: TestListRejectsMalformedManifestLine (0.05s)
+=== RUN   TestGetDetectsManifestMismatch
+--- PASS: TestGetDetectsManifestMismatch (0.06s)
+=== RUN   TestGetMissingArtifactIsContract
+--- PASS: TestGetMissingArtifactIsContract (0.04s)
+=== RUN   TestGetAbsentSeqIsNotFound
+--- PASS: TestGetAbsentSeqIsNotFound (0.04s)
+=== RUN   TestLatestFallsBackToParent
+--- PASS: TestLatestFallsBackToParent (0.07s)
+=== RUN   TestLatestInheritsAnotherSessionsChain
+--- PASS: TestLatestInheritsAnotherSessionsChain (0.10s)
+=== RUN   TestLatestNotFoundWhenNothingVerifies
+--- PASS: TestLatestNotFoundWhenNothingVerifies (0.07s)
+=== RUN   TestLatestOnEmptyStoreIsNotFound
+--- PASS: TestLatestOnEmptyStoreIsNotFound (0.04s)
+=== RUN   TestChainReturnsOldestFirst
+--- PASS: TestChainReturnsOldestFirst (0.05s)
+=== RUN   TestChainOfRootIsItself
+--- PASS: TestChainOfRootIsItself (0.03s)
+=== RUN   TestChainRejectsCycle
+--- PASS: TestChainRejectsCycle (0.06s)
+=== RUN   TestChainRejectsUnparseableParent
+--- PASS: TestChainRejectsUnparseableParent (0.05s)
+=== RUN   TestVerifyReturnsMismatchedSeqs
+--- PASS: TestVerifyReturnsMismatchedSeqs (0.09s)
+=== RUN   TestVerifyIsEmptyNotNilWhenClean
+--- PASS: TestVerifyIsEmptyNotNilWhenClean (0.05s)
+=== RUN   TestVerifyRejectsMalformedManifestLine
+--- PASS: TestVerifyRejectsMalformedManifestLine (0.05s)
+=== RUN   TestReaderConformanceSuite
+=== RUN   TestReaderConformanceSuite/checkpoint.OpenReader/shape
+=== RUN   TestReaderConformanceSuite/checkpoint.OpenReader/behaviour
+=== RUN   TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/latest_and_get_agree_and_round_trip_the_schema
+=== RUN   TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/list_is_ascending_and_chain_walks_parents
+=== RUN   TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/verify_reports_no_mismatch_on_an_untampered_store
+=== RUN   TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/an_absent_seq_is_err_not_found
+=== RUN   TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/no_checkpoint_carries_a_code_block
+--- PASS: TestReaderConformanceSuite (0.37s)
+    --- PASS: TestReaderConformanceSuite/checkpoint.OpenReader/shape (0.06s)
+    --- PASS: TestReaderConformanceSuite/checkpoint.OpenReader/behaviour (0.26s)
+        --- PASS: TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/latest_and_get_agree_and_round_trip_the_schema (0.05s)
+        --- PASS: TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/list_is_ascending_and_chain_walks_parents (0.05s)
+        --- PASS: TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/verify_reports_no_mismatch_on_an_untampered_store (0.05s)
+        --- PASS: TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/an_absent_seq_is_err_not_found (0.05s)
+        --- PASS: TestReaderConformanceSuite/checkpoint.OpenReader/behaviour/no_checkpoint_carries_a_code_block (0.05s)
+=== RUN   TestOpenReaderAcceptsNilObservers
+--- PASS: TestOpenReaderAcceptsNilObservers (0.02s)
+=== RUN   TestReaderRejectsUnparseableManifestDigest
+--- PASS: TestReaderRejectsUnparseableManifestDigest (0.05s)
+=== RUN   TestReaderHonoursContextCancellation
+--- PASS: TestReaderHonoursContextCancellation (0.04s)
+=== RUN   TestChainSurfacesAMismatchedAncestor
+--- PASS: TestChainSurfacesAMismatchedAncestor (0.05s)
+=== RUN   TestChainOfAbsentSeqIsNotFound
+--- PASS: TestChainOfAbsentSeqIsNotFound (0.04s)
+=== RUN   TestChainRejectsAMissingAncestor
+--- PASS: TestChainRejectsAMissingAncestor (0.05s)
+=== RUN   TestListAndGetRejectAMalformedManifest
+--- PASS: TestListAndGetRejectAMalformedManifest (0.03s)
+=== RUN   TestGetRefusesANewerSchemaVersion
+--- PASS: TestGetRefusesANewerSchemaVersion (0.05s)
+=== RUN   TestChainStopsAtTheDepthCapWithoutReportingCorruption
+--- PASS: TestChainStopsAtTheDepthCapWithoutReportingCorruption (34.32s)
+=== RUN   TestListThenVerifyLoudsEachIntegrityDefectOnce
+--- PASS: TestListThenVerifyLoudsEachIntegrityDefectOnce (0.10s)
+=== RUN   TestMinimalGoldenIsReproducible
+--- PASS: TestMinimalGoldenIsReproducible (0.00s)
+=== RUN   TestSchemaFieldOrderIsImportanceOrder
+--- PASS: TestSchemaFieldOrderIsImportanceOrder (0.00s)
+=== RUN   TestGoldenCheckpointRoundTrip
+=== RUN   TestGoldenCheckpointRoundTrip/0001-minimal.json
+=== RUN   TestGoldenCheckpointRoundTrip/0002-full.json
+=== RUN   TestGoldenCheckpointRoundTrip/0003-truncated.json
+=== RUN   TestGoldenCheckpointRoundTrip/0004-tier1-over-budget.json
+--- PASS: TestGoldenCheckpointRoundTrip (0.00s)
+    --- PASS: TestGoldenCheckpointRoundTrip/0001-minimal.json (0.00s)
+    --- PASS: TestGoldenCheckpointRoundTrip/0002-full.json (0.00s)
+    --- PASS: TestGoldenCheckpointRoundTrip/0003-truncated.json (0.00s)
+    --- PASS: TestGoldenCheckpointRoundTrip/0004-tier1-over-budget.json (0.00s)
+=== RUN   TestEmptySlicesSerializeAsArrays
+=== RUN   TestEmptySlicesSerializeAsArrays/zero_checkpoint
+=== RUN   TestEmptySlicesSerializeAsArrays/a_decision_and_an_elimination_that_carry_no_nested_collections
+--- PASS: TestEmptySlicesSerializeAsArrays (0.00s)
+    --- PASS: TestEmptySlicesSerializeAsArrays/zero_checkpoint (0.00s)
+    --- PASS: TestEmptySlicesSerializeAsArrays/a_decision_and_an_elimination_that_carry_no_nested_collections (0.00s)
+=== RUN   TestMarshalLeavesTheCallersCheckpointAlone
+--- PASS: TestMarshalLeavesTheCallersCheckpointAlone (0.00s)
+=== RUN   TestBlockedOnNullIsExplicit
+--- PASS: TestBlockedOnNullIsExplicit (0.00s)
+=== RUN   TestHashMarshalsAsSha256Prefix
+--- PASS: TestHashMarshalsAsSha256Prefix (0.00s)
+=== RUN   TestEliminatedCarriesEverySection85Key
+--- PASS: TestEliminatedCarriesEverySection85Key (0.00s)
+=== RUN   TestUnmarshalDropsUnknownFields
+--- PASS: TestUnmarshalDropsUnknownFields (0.00s)
+=== RUN   TestUnmarshalPropagatesErrors
+--- PASS: TestUnmarshalPropagatesErrors (0.00s)
+=== RUN   TestCreatedNowUsesFrozenLayout
+--- PASS: TestCreatedNowUsesFrozenLayout (0.00s)
+=== RUN   TestSourceSetValidateNamesEveryMissingField
+=== RUN   TestSourceSetValidateNamesEveryMissingField/Store
+=== RUN   TestSourceSetValidateNamesEveryMissingField/Segments
+=== RUN   TestSourceSetValidateNamesEveryMissingField/Ledger
+=== RUN   TestSourceSetValidateNamesEveryMissingField/Pins
+=== RUN   TestSourceSetValidateNamesEveryMissingField/Graph
+=== RUN   TestSourceSetValidateNamesEveryMissingField/Grammar
+=== RUN   TestSourceSetValidateNamesEveryMissingField/Tokens
+--- PASS: TestSourceSetValidateNamesEveryMissingField (0.00s)
+    --- PASS: TestSourceSetValidateNamesEveryMissingField/Store (0.00s)
+    --- PASS: TestSourceSetValidateNamesEveryMissingField/Segments (0.00s)
+    --- PASS: TestSourceSetValidateNamesEveryMissingField/Ledger (0.00s)
+    --- PASS: TestSourceSetValidateNamesEveryMissingField/Pins (0.00s)
+    --- PASS: TestSourceSetValidateNamesEveryMissingField/Graph (0.00s)
+    --- PASS: TestSourceSetValidateNamesEveryMissingField/Grammar (0.00s)
+    --- PASS: TestSourceSetValidateNamesEveryMissingField/Tokens (0.00s)
+=== RUN   TestMigrateRejectsMalformedJSON
+--- PASS: TestMigrateRejectsMalformedJSON (0.00s)
+=== RUN   TestMigrateRejectsVersionBelowOne
+--- PASS: TestMigrateRejectsVersionBelowOne (0.00s)
+=== RUN   TestUnmarshalRejectsAMigrationFailure
+--- PASS: TestUnmarshalRejectsAMigrationFailure (0.00s)
+=== RUN   TestUnmarshalToleratesUnknownFields
+--- PASS: TestUnmarshalToleratesUnknownFields (0.00s)
+=== RUN   TestBeginSetsAsideADraftWhoseSeqIsAlreadyClaimed
+--- PASS: TestBeginSetsAsideADraftWhoseSeqIsAlreadyClaimed (0.19s)
+=== RUN   TestBeginIgnoresADraftFileItCannotDecode
+--- PASS: TestBeginIgnoresADraftFileItCannotDecode (0.06s)
+=== RUN   TestBeginRejectsAnIncompleteSourceSet
+--- PASS: TestBeginRejectsAnIncompleteSourceSet (0.04s)
+=== RUN   TestAbortIsIdempotent
+--- PASS: TestAbortIsIdempotent (0.06s)
+=== RUN   TestSourceSetCarriesNoText
+--- PASS: TestSourceSetCarriesNoText (0.00s)
+=== RUN   TestSourceSetValidateAcceptsALedgerAccessor
+--- PASS: TestSourceSetValidateAcceptsALedgerAccessor (0.00s)
+=== RUN   TestSourceSetResolveCallsTheAccessorIn
+=== RUN   TestSourceSetResolveCallsTheAccessorIn/an_accessor_that_resolves_to_nothing_is_reported,_not_dereferenced
+=== RUN   TestSourceSetResolveCallsTheAccessorIn/a_resolved_accessor_materializes_the_handle
+=== RUN   TestSourceSetResolveCallsTheAccessorIn/a_handle_already_present_wins_and_the_accessor_is_never_called
+--- PASS: TestSourceSetResolveCallsTheAccessorIn (0.00s)
+    --- PASS: TestSourceSetResolveCallsTheAccessorIn/an_accessor_that_resolves_to_nothing_is_reported,_not_dereferenced (0.00s)
+    --- PASS: TestSourceSetResolveCallsTheAccessorIn/a_resolved_accessor_materializes_the_handle (0.00s)
+    --- PASS: TestSourceSetResolveCallsTheAccessorIn/a_handle_already_present_wins_and_the_accessor_is_never_called (0.00s)
+=== RUN   TestSourceSetValidateZeroNamesStore
+--- PASS: TestSourceSetValidateZeroNamesStore (0.00s)
+=== RUN   TestPackageFunctionsWorkWithoutObservers
+--- PASS: TestPackageFunctionsWorkWithoutObservers (0.00s)
+=== RUN   TestSetSourcesReportsARejection
+--- PASS: TestSetSourcesReportsARejection (0.10s)
+=== RUN   TestAMissingGoldenIsReportedNotRecorded
+--- PASS: TestAMissingGoldenIsReportedNotRecorded (0.00s)
+=== RUN   TestTruncateConformance
+=== RUN   TestTruncateConformance/real/shape
+=== RUN   TestTruncateConformance/real/behaviour
+=== RUN   TestTruncateConformance/real/behaviour/a_generous_budget_drops_nothing
+=== RUN   TestTruncateConformance/real/behaviour/tier1_is_never_truncated
+=== RUN   TestTruncateConformance/real/behaviour/tier3_is_exhausted_before_tier2
+=== RUN   TestTruncateConformance/real/behaviour/shrinking_the_budget_never_restores_content
+=== RUN   TestTruncateConformance/real/behaviour/truncate_is_deterministic_and_does_not_mutate_its_input
+--- PASS: TestTruncateConformance (0.02s)
+    --- PASS: TestTruncateConformance/real/shape (0.00s)
+    --- PASS: TestTruncateConformance/real/behaviour (0.01s)
+        --- PASS: TestTruncateConformance/real/behaviour/a_generous_budget_drops_nothing (0.00s)
+        --- PASS: TestTruncateConformance/real/behaviour/tier1_is_never_truncated (0.00s)
+        --- PASS: TestTruncateConformance/real/behaviour/tier3_is_exhausted_before_tier2 (0.00s)
+        --- PASS: TestTruncateConformance/real/behaviour/shrinking_the_budget_never_restores_content (0.01s)
+        --- PASS: TestTruncateConformance/real/behaviour/truncate_is_deterministic_and_does_not_mutate_its_input (0.00s)
+=== RUN   TestTruncateDropsTierThreeFirst
+--- PASS: TestTruncateDropsTierThreeFirst (0.00s)
+=== RUN   TestTruncateDropsToolPointersBeforeFilePointers
+--- PASS: TestTruncateDropsToolPointersBeforeFilePointers (0.00s)
+=== RUN   TestTruncateDropsPointersTailFirst
+--- PASS: TestTruncateDropsPointersTailFirst (0.00s)
+=== RUN   TestTruncateReachesTierTwoOnlyAfterTierThree
+--- PASS: TestTruncateReachesTierTwoOnlyAfterTierThree (0.00s)
+=== RUN   TestTruncateStopsMidDecisionsKeepingNewest
+--- PASS: TestTruncateStopsMidDecisionsKeepingNewest (0.00s)
+=== RUN   TestTruncateEmptiesAlternativesBeforeDroppingDecisions
+--- PASS: TestTruncateEmptiesAlternativesBeforeDroppingDecisions (0.00s)
+=== RUN   TestTruncateNeverTouchesTierOne
+--- PASS: TestTruncateNeverTouchesTierOne (0.00s)
+=== RUN   TestTruncateHonoursConfiguredNeverList
+--- PASS: TestTruncateHonoursConfiguredNeverList (0.00s)
+=== RUN   TestTruncateZeroBudgetIsUnlimited
+--- PASS: TestTruncateZeroBudgetIsUnlimited (0.00s)
+=== RUN   TestTruncateDropEntriesAreComplete
+--- PASS: TestTruncateDropEntriesAreComplete (0.00s)
+=== RUN   TestTruncateCapsOpenQuestionDetailAtPointerWhyMaxRunes
+--- PASS: TestTruncateCapsOpenQuestionDetailAtPointerWhyMaxRunes (0.00s)
+=== RUN   TestTruncateNextStepIsTheFinalCutThatFits
+--- PASS: TestTruncateNextStepIsTheFinalCutThatFits (0.00s)
+=== RUN   TestTruncateIsMonotone
+    truncate_test.go:653: [rapid] OK, passed 100 tests (77.133ms)
+--- PASS: TestTruncateIsMonotone (0.08s)
+=== RUN   TestGoldenTruncationFixtures
+--- PASS: TestGoldenTruncationFixtures (0.00s)
+=== RUN   TestBeginWithAParentRecordsItsFilename
+--- PASS: TestBeginWithAParentRecordsItsFilename (0.16s)
+=== RUN   TestBeginOnALiveDraftAdoptsANewParent
+--- PASS: TestBeginOnALiveDraftAdoptsANewParent (0.08s)
+=== RUN   TestAdvanceReportsAnUnknownSegment
+--- PASS: TestAdvanceReportsAnUnknownSegment (0.05s)
+=== RUN   TestAdvanceOnAFailedSegmentReadStillPersistsTheDraft
+--- PASS: TestAdvanceOnAFailedSegmentReadStillPersistsTheDraft (0.11s)
+=== RUN   TestAdvanceIsANoOpForAnEmptyBatch
+--- PASS: TestAdvanceIsANoOpForAnEmptyBatch (0.05s)
+=== RUN   TestBeginDoesNotRewriteAnUnchangedLiveDraft
+--- PASS: TestBeginDoesNotRewriteAnUnchangedLiveDraft (0.05s)
+=== RUN   TestAdvanceDoesNotDuplicateTheNarrativeWhenAMarkFails
+--- PASS: TestAdvanceDoesNotDuplicateTheNarrativeWhenAMarkFails (0.16s)
+=== RUN   TestAdvanceReencodingTheSameSegmentIsIdempotent
+--- PASS: TestAdvanceReencodingTheSameSegmentIsIdempotent (0.13s)
+=== RUN   TestDraftOpenQuestionsDedupeAndSurviveAPersistRoundTrip
+--- PASS: TestDraftOpenQuestionsDedupeAndSurviveAPersistRoundTrip (0.09s)
+=== RUN   TestSetCurrentWorkStopsAdvanceFromDerivingIt
+--- PASS: TestSetCurrentWorkStopsAdvanceFromDerivingIt (0.13s)
+=== RUN   TestBeginValidatesSources
+--- PASS: TestBeginValidatesSources (0.05s)
+=== RUN   TestBeginSeedsTierOneFromSources
+--- PASS: TestBeginSeedsTierOneFromSources (0.12s)
+=== RUN   TestBeginFiltersEliminationsToSessionAndProjectScope
+--- PASS: TestBeginFiltersEliminationsToSessionAndProjectScope (0.07s)
+=== RUN   TestBeginInheritsOriginalIntentFromParent
+--- PASS: TestBeginInheritsOriginalIntentFromParent (0.10s)
+=== RUN   TestBeginResumesPersistedDraft
+--- PASS: TestBeginResumesPersistedDraft (0.09s)
+=== RUN   TestBeginDiscardsDraftWithClaimedSeq
+--- PASS: TestBeginDiscardsDraftWithClaimedSeq (0.12s)
+=== RUN   TestAdvanceEncodesClosedSegmentsOnly
+--- PASS: TestAdvanceEncodesClosedSegmentsOnly (0.15s)
+=== RUN   TestAdvanceIsDPIGuarded
+--- PASS: TestAdvanceIsDPIGuarded (0.15s)
+=== RUN   TestAdvanceStripsInjectionsFromStoredPrompts
+--- PASS: TestAdvanceStripsInjectionsFromStoredPrompts (0.17s)
+=== RUN   TestAdvanceReadsPromptTextThroughToolUseRecordFallback
+--- PASS: TestAdvanceReadsPromptTextThroughToolUseRecordFallback (0.17s)
+=== RUN   TestAdvanceExcludesSupersededAndEphemeralTools
+--- PASS: TestAdvanceExcludesSupersededAndEphemeralTools (0.16s)
+=== RUN   TestAdvancePointersCarryNoContent
+--- PASS: TestAdvancePointersCarryNoContent (0.14s)
+=== RUN   TestAdvanceIsIdempotentForSameSeq
+--- PASS: TestAdvanceIsIdempotentForSameSeq (0.13s)
+=== RUN   TestAbortLeavesEncodedMarksIntact
+--- PASS: TestAbortLeavesEncodedMarksIntact (0.11s)
+=== RUN   TestAdvanceKeepsPointersNewestFirst
+--- PASS: TestAdvanceKeepsPointersNewestFirst (0.15s)
+=== RUN   TestAdvanceDerivesOpenQuestionsFromStaleEliminations
+--- PASS: TestAdvanceDerivesOpenQuestionsFromStaleEliminations (0.16s)
+=== RUN   TestAdvanceDerivesCurrentWorkGoalFromLatestPrompt
+--- PASS: TestAdvanceDerivesCurrentWorkGoalFromLatestPrompt (0.17s)
+=== RUN   TestSetCurrentWorkSuppressesDerivation
+--- PASS: TestSetCurrentWorkSuppressesDerivation (0.39s)
+=== RUN   TestAdvanceKeepsTheFrontierContiguousAcrossAGap
+--- PASS: TestAdvanceKeepsTheFrontierContiguousAcrossAGap (0.15s)
+=== RUN   TestBeginGivesEveryOpenDraftItsOwnSequenceNumber
+--- PASS: TestBeginGivesEveryOpenDraftItsOwnSequenceNumber (0.09s)
+=== RUN   TestBeginIsSerializedPerSession
+--- PASS: TestBeginIsSerializedPerSession (0.07s)
+=== RUN   TestBeginBeginsUnchainedWhenTheDerivedParentCannotBeRead
+--- PASS: TestBeginBeginsUnchainedWhenTheDerivedParentCannotBeRead (0.15s)
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/empty
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/dot
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/dotdot
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/traversal
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/forward_slash
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/back_slash
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/drive_colon
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/nul_byte
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/newline
+=== RUN   TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/too_long
+--- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent (0.71s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/empty (0.07s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/dot (0.07s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/dotdot (0.07s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/traversal (0.08s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/forward_slash (0.07s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/back_slash (0.07s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/drive_colon (0.07s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/nul_byte (0.07s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/newline (0.07s)
+    --- PASS: TestBeginRejectsASessionIDThatIsNotASafeFilenameComponent/too_long (0.07s)
+=== RUN   TestBeginWritesNoDraftOutsideTheQompackDirectory
+--- PASS: TestBeginWritesNoDraftOutsideTheQompackDirectory (0.07s)
+=== RUN   TestAdvanceRoutesToolSummariesThroughFromStore
+--- PASS: TestAdvanceRoutesToolSummariesThroughFromStore (0.16s)
+=== CONT  TestPromote_PromotedPointersSurviveTruncation
+=== CONT  TestPromote_ATelemetryGapAlsoWithholds
+=== CONT  TestPromote_ApplyDoesNotMutateTheArchivedCheckpoint
+=== CONT  TestPromote_AZeroOverheadPromotesNothing
+=== CONT  TestPromote_DisabledStillEvaluatesButAppliesNothing
+=== CONT  TestPromote_UnusableEvidenceIsRefused
+--- PASS: TestPromote_ATelemetryGapAlsoWithholds (0.00s)
+=== CONT  TestPromote_TooFewExpansionsIsWithheld
+--- PASS: TestPromote_UnusableEvidenceIsRefused (0.00s)
+--- PASS: TestPromote_ApplyDoesNotMutateTheArchivedCheckpoint (0.00s)
+--- PASS: TestPromote_TooFewExpansionsIsWithheld (0.00s)
+=== CONT  TestPromote_AMeasuredMissIsRefused
+=== CONT  TestPromote_ApplyOrdersPromotedFirstAndKeepsTheRestStable
+=== CONT  TestPromote_AnEmptyDemandRecordIsWithheld
+=== CONT  TestPromote_FrequencyWithoutOutcomesIsWithheld
+=== CONT  TestPromote_AnEarlierTargetIsRefused
+=== CONT  TestPromote_ANilEstimatorReportsItsOwnBlindness
+=== CONT  TestPromote_OverflowLeavesADropEntry
+=== CONT  TestPromote_NoCandidatesIsAnEmptyPlan
+=== CONT  TestPromote_IsDeterministic
+=== CONT  TestPromote_SameEpochIsRefused
+=== CONT  TestPromote_EveryNonAppliedResultExplainsItself
+--- PASS: TestPromote_AZeroOverheadPromotesNothing (0.00s)
+--- PASS: TestPromote_IsDeterministic (0.00s)
+--- PASS: TestPromote_DisabledStillEvaluatesButAppliesNothing (0.00s)
+--- PASS: TestPromote_AMeasuredMissIsRefused (0.00s)
+--- PASS: TestPromote_AnEmptyDemandRecordIsWithheld (0.00s)
+--- PASS: TestPromote_FrequencyWithoutOutcomesIsWithheld (0.00s)
+--- PASS: TestPromote_ApplyOrdersPromotedFirstAndKeepsTheRestStable (0.00s)
+--- PASS: TestPromote_ANilEstimatorReportsItsOwnBlindness (0.00s)
+--- PASS: TestPromote_EveryNonAppliedResultExplainsItself (0.00s)
+--- PASS: TestPromote_AnEarlierTargetIsRefused (0.00s)
+--- PASS: TestPromote_NoCandidatesIsAnEmptyPlan (0.00s)
+--- PASS: TestPromote_OverflowLeavesADropEntry (0.00s)
+--- PASS: TestPromote_SameEpochIsRefused (0.00s)
+--- PASS: TestPromote_PromotedPointersSurviveTruncation (0.00s)
+=== RUN   FuzzParseGitIndex
+=== RUN   FuzzParseGitIndex/seed#0
+=== RUN   FuzzParseGitIndex/seed#1
+=== RUN   FuzzParseGitIndex/seed#2
+=== RUN   FuzzParseGitIndex/seed#3
+=== RUN   FuzzParseGitIndex/seed#4
+=== RUN   FuzzParseGitIndex/seed#5
+=== RUN   FuzzParseGitIndex/seed#6
+--- PASS: FuzzParseGitIndex (0.00s)
+    --- PASS: FuzzParseGitIndex/seed#0 (0.00s)
+    --- PASS: FuzzParseGitIndex/seed#1 (0.00s)
+    --- PASS: FuzzParseGitIndex/seed#2 (0.00s)
+    --- PASS: FuzzParseGitIndex/seed#3 (0.00s)
+    --- PASS: FuzzParseGitIndex/seed#4 (0.00s)
+    --- PASS: FuzzParseGitIndex/seed#5 (0.00s)
+    --- PASS: FuzzParseGitIndex/seed#6 (0.00s)
+=== RUN   FuzzStripInjections
+=== RUN   FuzzStripInjections/seed#0
+=== RUN   FuzzStripInjections/seed#1
+=== RUN   FuzzStripInjections/seed#2
+=== RUN   FuzzStripInjections/seed#3
+=== RUN   FuzzStripInjections/seed#4
+=== RUN   FuzzStripInjections/seed#5
+=== RUN   FuzzStripInjections/seed#6
+=== RUN   FuzzStripInjections/seed#7
+=== RUN   FuzzStripInjections/seed#8
+=== RUN   FuzzStripInjections/seed#9
+=== RUN   FuzzStripInjections/seed#10
+=== RUN   FuzzStripInjections/seed#11
+=== RUN   FuzzStripInjections/seed#12
+=== RUN   FuzzStripInjections/seed#13
+=== RUN   FuzzStripInjections/seed#14
+=== RUN   FuzzStripInjections/seed#15
+=== RUN   FuzzStripInjections/seed#16
+--- PASS: FuzzStripInjections (0.00s)
+    --- PASS: FuzzStripInjections/seed#0 (0.00s)
+    --- PASS: FuzzStripInjections/seed#1 (0.00s)
+    --- PASS: FuzzStripInjections/seed#2 (0.00s)
+    --- PASS: FuzzStripInjections/seed#3 (0.00s)
+    --- PASS: FuzzStripInjections/seed#4 (0.00s)
+    --- PASS: FuzzStripInjections/seed#5 (0.00s)
+    --- PASS: FuzzStripInjections/seed#6 (0.00s)
+    --- PASS: FuzzStripInjections/seed#7 (0.00s)
+    --- PASS: FuzzStripInjections/seed#8 (0.00s)
+    --- PASS: FuzzStripInjections/seed#9 (0.00s)
+    --- PASS: FuzzStripInjections/seed#10 (0.00s)
+    --- PASS: FuzzStripInjections/seed#11 (0.00s)
+    --- PASS: FuzzStripInjections/seed#12 (0.00s)
+    --- PASS: FuzzStripInjections/seed#13 (0.00s)
+    --- PASS: FuzzStripInjections/seed#14 (0.00s)
+    --- PASS: FuzzStripInjections/seed#15 (0.00s)
+    --- PASS: FuzzStripInjections/seed#16 (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	61.127s

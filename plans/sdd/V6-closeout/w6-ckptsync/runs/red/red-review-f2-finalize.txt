@@ -1,0 +1,28 @@
+# RED in the worktree at b51664b plus the new test, before the fix:
+# go test ./internal/checkpoint -run '^TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice$' -count=1 -v
+=== RUN   TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice
+=== RUN   TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_manifest's_sync_fails
+    finalize_durability_test.go:547: 
+        	Error Trace:	<worktree>/internal/checkpoint/finalize_durability_test.go:547
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_manifest's_sync_fails
+        	Messages:   	no segment is re-pointed at a second checkpoint
+=== RUN   TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_sync_fails
+    finalize_durability_test.go:547: 
+        	Error Trace:	<worktree>/internal/checkpoint/finalize_durability_test.go:547
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_sync_fails
+        	Messages:   	no segment is re-pointed at a second checkpoint
+=== RUN   TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_name_fails
+    finalize_durability_test.go:547: 
+        	Error Trace:	<worktree>/internal/checkpoint/finalize_durability_test.go:547
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_name_fails
+        	Messages:   	no segment is re-pointed at a second checkpoint
+--- FAIL: TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice (1.17s)
+    --- FAIL: TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_manifest's_sync_fails (0.51s)
+    --- FAIL: TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_sync_fails (0.35s)
+    --- FAIL: TestFinalizeABarrierFailingAfterTheLineDoesNotSealTwice/the_new_manifest's_name_fails (0.31s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	1.433s
+FAIL

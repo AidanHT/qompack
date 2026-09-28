@@ -1,0 +1,56 @@
+"""Pair the ABBA bench runs: per benchmark, the median ns/op of each run, head/base per round, and an
+exact two-sided sign test over the rounds. Usage: python bench-pairs.py <runs/linux/bench dir>"""
+import glob, json, math, os, re, statistics, sys
+
+d = sys.argv[1]
+line_re = re.compile(r'^(Benchmark\w+)-\d+\s+(\d+)\s+([\d.]+) ns/op', re.M)
+runs = {}
+for art in sorted(glob.glob(os.path.join(d, '*-artifacts'))):
+    m = re.search(r'benchq-r(\d+)-(\d)-(base|head)-', os.path.basename(art))
+    if not m:
+        continue
+    rnd, side = int(m.group(1)), m.group(3)
+    text = {}
+    with open(os.path.join(art, 'test.jsonl'), encoding='utf-8', errors='replace') as f:
+        for raw in f:
+            try:
+                ev = json.loads(raw)
+            except ValueError:
+                continue
+            if ev.get('Action') == 'output':
+                text.setdefault(ev.get('Package', ''), []).append(ev.get('Output', ''))
+    samples = {}
+    for pkg, parts in text.items():
+        for name, n, ns in line_re.findall(''.join(parts)):
+            samples.setdefault(name, []).append(float(ns))
+    exit_txt = open(os.path.join(art, 'exit.txt')).read().strip() if os.path.exists(os.path.join(art, 'exit.txt')) else '?'
+    runs[(rnd, side)] = (samples, exit_txt, os.path.basename(art))
+
+def sign_p(k, n):
+    if n == 0:
+        return 1.0
+    tail = sum(math.comb(n, i) for i in range(0, min(k, n - k) + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+
+rounds = sorted({r for r, _ in runs})
+names = sorted({b for (s, _, _) in runs.values() for b in s})
+print('runs:')
+for key in sorted(runs):
+    s, ex, name = runs[key]
+    print(f'  round {key[0]} {key[1]}: {name} ({ex}); samples per bench: ' + ', '.join(f'{b}={len(v)}' for b, v in sorted(s.items())))
+print()
+print(f'{"benchmark":40s} {"base median ns/op":>18s} {"head median ns/op":>18s} {"ratio (geo)":>11s} {"head slower":>11s} {"p":>6s}')
+for b in names:
+    ratios, bm, hm = [], [], []
+    for r in rounds:
+        if (r, 'base') in runs and (r, 'head') in runs:
+            bs, hs = runs[(r, 'base')][0].get(b), runs[(r, 'head')][0].get(b)
+            if bs and hs:
+                bmed, hmed = statistics.median(bs), statistics.median(hs)
+                bm.append(bmed); hm.append(hmed); ratios.append(hmed / bmed)
+    if not ratios:
+        continue
+    geo = math.exp(sum(math.log(x) for x in ratios) / len(ratios))
+    slower = sum(1 for x in ratios if x > 1)
+    print(f'{b:40s} {statistics.median(bm):18.0f} {statistics.median(hm):18.0f} {geo:11.3f} {slower:>5d}/{len(ratios):<5d} {sign_p(slower, len(ratios)):6.3f}')
+    print('    per-round head/base: ' + ' '.join(f'{x:.3f}' for x in ratios))

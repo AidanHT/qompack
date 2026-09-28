@@ -1,0 +1,12 @@
+=== RUN   TestGC_TombstonesAreDurableBeforeTheSweepDeletesTheirChunks
+    gc_tombstone_durability_test.go:87: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync/internal/store/gc_tombstone_durability_test.go:87
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestGC_TombstonesAreDurableBeforeTheSweepDeletesTheirChunks
+        	Messages:   	the retired root stays retired: its tombstone was durable before its chunks were deleted
+--- FAIL: TestGC_TombstonesAreDurableBeforeTheSweepDeletesTheirChunks (0.16s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.449s
+FAIL

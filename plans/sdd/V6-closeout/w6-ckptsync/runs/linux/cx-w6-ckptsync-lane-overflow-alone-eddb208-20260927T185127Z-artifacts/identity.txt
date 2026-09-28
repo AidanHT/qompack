@@ -1,0 +1,21 @@
+run_id=cx-w6-ckptsync-lane-overflow-alone-eddb208-20260927T185127Z
+commit=eddb208c7b9b4e200dcf3acbdfe3c4c7ef955f7b
+tree=3fd01d3d0ba7f67368ba16505845ed692c11f2a6
+bundle_sha256=e50e2150d1a5ac29ba2e7b79c9f297cb3d029ed5f4b3954096e2766519c8e2a1
+started_utc=2026-09-27T18:51:59Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=10 timeout=30m gomaxprocs=4 coload=0
+run=^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-27T18:53:01Z

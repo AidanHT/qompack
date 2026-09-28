@@ -357,6 +357,19 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 		return BackupManifest{}, fmt.Errorf("store: backup %q: %w", id, err)
 	}
 
+	// The manifest certifies the tree, and it is durable the moment WriteAtomic returns. So every name
+	// in the tree is made durable before it: each copied file synced its own bytes, but on POSIX not
+	// its directory entry, nor the entries of the directories the copy made. A power cut that kept
+	// the manifest and lost one of those names would leave a certified backup that no longer
+	// verifies — a loss the operator would learn of only when restoring from it. backup/ is synced
+	// too, for this backup's own directory entry.
+	if err := syncTreeDirs(dir, m.barriers); err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup %q: sync tree: %w", id, err)
+	}
+	if err := m.barriers.DirBarrier(m.l.Backup); err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup %q: sync %s: %w", id, m.l.Backup, err)
+	}
+
 	b, err := json.Marshal(man)
 	if err != nil {
 		return BackupManifest{}, fmt.Errorf("store: encode backup manifest: %w", err)
@@ -365,6 +378,47 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 		return BackupManifest{}, err
 	}
 	return man, nil
+}
+
+// syncTreeDirs makes every name in the tree under root durable: it syncs each directory in the tree
+// through b, every directory after all of its descendants and root last, so that once it returns a
+// power cut cannot take any entry the tree holds. A root that does not exist has nothing to sync.
+// Symbolic links are not followed; a backup or restore tree holds none (maintNoFollow).
+//
+// It is the barrier for a writer that builds a whole tree before one step certifies or publishes
+// it — TakeBackup before its manifest, Maintenance.Restore before its publishing rename — and it
+// costs one directory sync per directory, once per backup or restore.
+func syncTreeDirs(root string, b paths.Barriers) error {
+	walkRoot := paths.Long(root)
+	if _, err := os.Lstat(walkRoot); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	var dirs []string
+	err := filepath.WalkDir(walkRoot, func(p string, d fs.DirEntry, werr error) error {
+		if werr != nil {
+			return werr
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		rel, rerr := filepath.Rel(walkRoot, p)
+		if rerr != nil {
+			return rerr
+		}
+		dirs = append(dirs, filepath.Join(root, rel))
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	// WalkDir lists a directory before everything under it, so the reverse lists every directory
+	// after all of its descendants.
+	for i := len(dirs) - 1; i >= 0; i-- {
+		if err := b.DirBarrier(dirs[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // refuseIfTheProjectMoved compares the pre-copy frontier, captured bytes, and

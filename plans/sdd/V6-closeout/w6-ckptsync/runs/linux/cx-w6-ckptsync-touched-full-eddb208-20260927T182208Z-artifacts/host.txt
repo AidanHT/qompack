@@ -1,0 +1,10 @@
+run_id=cx-w6-ckptsync-touched-full-eddb208-20260927T182208Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync
+rev=eddb208
+commit=eddb208c7b9b4e200dcf3acbdfe3c4c7ef955f7b
+bundle_sha256=12b52900b139d41ea355f5990d9a14b77304cbe60a20096e24b8e1ddb9bfb30a
+host_started_utc=2026-09-27T18:22:27Z
+inner_args=--timeout 90m -- ./internal/paths ./internal/pins ./internal/negknow ./internal/checkpoint ./internal/store ./internal/daemon ./internal/cli
+host_finished_utc=2026-09-27T18:45:49Z
+container_exit=1

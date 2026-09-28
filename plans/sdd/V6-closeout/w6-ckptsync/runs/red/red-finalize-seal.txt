@@ -1,0 +1,252 @@
+=== RUN   TestFinalizeSealsThroughItsBarriersInOrder
+=== RUN   TestFinalizeSealsThroughItsBarriersInOrder/prior=0
+    finalize_durability_test.go:380: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:380
+        	Error:      	Not equal: 
+        	            	expected: []string{"file:0001.json", "marks", "dir:checkpoints", "file:MANIFEST.jsonl", "dir:checkpoints"}
+        	            	actual  : []string{"file:0001.json"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,7 +1,3 @@
+        	            	-([]string) (len=5) {
+        	            	- (string) (len=14) "file:0001.json",
+        	            	- (string) (len=5) "marks",
+        	            	- (string) (len=15) "dir:checkpoints",
+        	            	- (string) (len=19) "file:MANIFEST.jsonl",
+        	            	- (string) (len=15) "dir:checkpoints"
+        	            	+([]string) (len=1) {
+        	            	+ (string) (len=14) "file:0001.json"
+        	            	 }
+        	Test:       	TestFinalizeSealsThroughItsBarriersInOrder/prior=0
+        	Messages:   	artifact bytes, segment marks, artifact name, MANIFEST line, and the manifest's name when the seal created it — each exactly once, in that order
+=== RUN   TestFinalizeSealsThroughItsBarriersInOrder/prior=1
+    finalize_durability_test.go:380: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:380
+        	Error:      	Not equal: 
+        	            	expected: []string{"file:0002.json", "marks", "dir:checkpoints", "file:MANIFEST.jsonl"}
+        	            	actual  : []string{"file:0002.json"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,6 +1,3 @@
+        	            	-([]string) (len=4) {
+        	            	- (string) (len=14) "file:0002.json",
+        	            	- (string) (len=5) "marks",
+        	            	- (string) (len=15) "dir:checkpoints",
+        	            	- (string) (len=19) "file:MANIFEST.jsonl"
+        	            	+([]string) (len=1) {
+        	            	+ (string) (len=14) "file:0002.json"
+        	            	 }
+        	Test:       	TestFinalizeSealsThroughItsBarriersInOrder/prior=1
+        	Messages:   	artifact bytes, segment marks, artifact name, MANIFEST line, and the manifest's name when the seal created it — each exactly once, in that order
+--- FAIL: TestFinalizeSealsThroughItsBarriersInOrder (0.81s)
+    --- FAIL: TestFinalizeSealsThroughItsBarriersInOrder/prior=0 (0.43s)
+    --- FAIL: TestFinalizeSealsThroughItsBarriersInOrder/prior=1 (0.36s)
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/power-loss
+    finalize_durability_test.go:426: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:426
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Not equal: 
+        	            	expected: "sealed"
+        	            	actual  : "absent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(checkpoint_test.sealOutcome) (len=6) "sealed"
+        	            	+(checkpoint_test.sealOutcome) (len=6) "absent"
+        	            	 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/power-loss
+        	Messages:   	PreCompact returned nil, so the checkpoint must survive the cut
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/power-loss
+    finalize_durability_test.go:451: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:451
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Should be true
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/power-loss
+        	Messages:   	the resumed seal leaves the segment marked, so no later draft re-encodes it
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/process-crash
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/process-crash
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/power-loss
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/power-loss
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/process-crash
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/process-crash
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/power-loss
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/power-loss
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/process-crash
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/process-crash
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/power-loss
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/power-loss
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/process-crash
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/process-crash
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/power-loss
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/power-loss
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/power-loss
+    finalize_durability_test.go:426: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:426
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Not equal: 
+        	            	expected: "sealed"
+        	            	actual  : "absent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(checkpoint_test.sealOutcome) (len=6) "sealed"
+        	            	+(checkpoint_test.sealOutcome) (len=6) "absent"
+        	            	 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/power-loss
+        	Messages:   	PreCompact returned nil, so the checkpoint must survive the cut
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/process-crash
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/power-loss
+    finalize_durability_test.go:451: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:451
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Should be true
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/power-loss
+        	Messages:   	the resumed seal leaves the segment marked, so no later draft re-encodes it
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/process-crash
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/process-crash
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/power-loss
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/power-loss
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/process-crash
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/process-crash
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/power-loss
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/power-loss
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/process-crash
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/process-crash
+        	Messages:   	a cut seal is reported failed, never sealed
+=== RUN   TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/power-loss
+    finalize_durability_test.go:414: 
+        	Error Trace:	<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:414
+        	            				<scratch>/red-finalize/internal/checkpoint/finalize_durability_test.go:400
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected power cut"
+        	            	in chain: 
+        	Test:       	TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/power-loss
+        	Messages:   	a cut seal is reported failed, never sealed
+--- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed (8.99s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/process-crash (0.45s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=0/power-loss (0.59s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/process-crash (0.54s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=1/power-loss (0.46s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/process-crash (0.38s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=2/power-loss (0.45s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/process-crash (0.46s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=3/power-loss (0.32s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/process-crash (0.34s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=4/power-loss (0.27s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/process-crash (0.29s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=0/cut=5/power-loss (0.30s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/process-crash (0.57s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=0/power-loss (0.38s)
+    --- PASS: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/process-crash (0.40s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=1/power-loss (0.56s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/process-crash (0.42s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=2/power-loss (0.33s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/process-crash (0.32s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=3/power-loss (0.39s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/process-crash (0.35s)
+    --- FAIL: TestFinalizeCutAtEveryBarrierLeavesTheCheckpointAbsentOrSealed/prior=1/cut=4/power-loss (0.41s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	10.435s
+FAIL

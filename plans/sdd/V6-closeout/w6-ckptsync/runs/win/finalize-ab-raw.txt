@@ -1,0 +1,12 @@
+round 1 base BenchmarkFinalize-22    	       5	 266297860 ns/op
+round 1 head BenchmarkFinalize-22    	       5	 215055660 ns/op
+round 2 head BenchmarkFinalize-22    	       5	 156422880 ns/op
+round 2 base BenchmarkFinalize-22    	       5	 159950920 ns/op
+round 3 base BenchmarkFinalize-22    	       5	 106910720 ns/op
+round 3 head BenchmarkFinalize-22    	       5	 132173320 ns/op
+round 4 head BenchmarkFinalize-22    	       5	 125296120 ns/op
+round 4 base BenchmarkFinalize-22    	       5	 181397620 ns/op
+round 5 base BenchmarkFinalize-22    	       5	 152500240 ns/op
+round 5 head BenchmarkFinalize-22    	       5	 123664820 ns/op
+round 6 head BenchmarkFinalize-22    	       5	 134319580 ns/op
+round 6 base BenchmarkFinalize-22    	       5	 115641580 ns/op

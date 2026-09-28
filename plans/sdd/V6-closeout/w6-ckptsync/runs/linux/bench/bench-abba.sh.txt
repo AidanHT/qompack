@@ -1,0 +1,27 @@
+#!/bin/sh
+# Paired ABBA timing of the w6-ckptsync cost benchmarks on Linux, through the committed gate script.
+# usage: bench-abba.sh <base-sha> <head-sha> <rounds>
+W=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync
+OUT=$W/plans/sdd/V6-closeout/w6-ckptsync/runs/linux/bench
+LOG=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/ckptsync/benchq-abba.log
+B=$1; H=$2; R=$3
+mkdir -p "$OUT"
+cd "$W" || exit 2
+RE='-bench=^(BenchmarkIngestAccept|BenchmarkIngestAcceptLeased|BenchmarkIngestAcceptExternalized|BenchmarkIngestMCPRealStore|BenchmarkRecord)$'
+run() { # side sha label
+	echo "start $3 $(date -u +%H:%M:%S)" >> "$LOG"
+	timeout 1200 sh plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh --prefix cx-w6-ckptsync --repo "$W" --out "$OUT" \
+		"$2" "$3" --no-race --run '^$' --count 5 --timeout 30m --env "GOFLAGS=$RE" \
+		-- ./internal/daemon ./internal/negknow >> "$LOG" 2>&1
+	echo "done $3 exit=$? $(date -u +%H:%M:%S)" >> "$LOG"
+}
+i=${4:-1}
+while [ $i -le "$R" ]; do
+	if [ $((i % 2)) -eq 1 ]; then
+		run B "$B" "benchq-r$i-1-base"; run H "$H" "benchq-r$i-2-head"
+	else
+		run H "$H" "benchq-r$i-1-head"; run B "$B" "benchq-r$i-2-base"
+	fi
+	i=$((i + 1))
+done
+echo ABBADONE >> "$LOG"

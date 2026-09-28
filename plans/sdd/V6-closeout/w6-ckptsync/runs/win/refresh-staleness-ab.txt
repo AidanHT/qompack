@@ -1,0 +1,44 @@
+head exit=0
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 2.305381ms wall/op over 524 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (1.81s)
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 3.935359ms wall/op over 537 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.71s)
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 5.651156ms wall/op over 264 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.62s)
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 4.946943ms wall/op over 235 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.51s)
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 5.262486ms wall/op over 238 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.51s)
+base exit=0
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 2.478538ms wall/op over 468 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (1.80s)
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 4.506793ms wall/op over 262 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.13s)
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 5.08755ms wall/op over 256 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.47s)
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 4.852453ms wall/op over 232 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.35s)
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 5.122351ms wall/op over 240 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.48s)
+base exit=0
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 2.612204ms wall/op over 542 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.03s)
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 4.880952ms wall/op over 403 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.75s)
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 5.000268ms wall/op over 235 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.46s)
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 5.160187ms wall/op over 228 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.47s)
+base:     bench_test.go:744: BenchmarkRefreshStaleness: 5.587782ms wall/op over 229 iterations (best of 1) against a 10ms budget
+base: --- PASS: TestBudget_RefreshStaleness (2.55s)
+head exit=0
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 2.694349ms wall/op over 426 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.01s)
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 4.217705ms wall/op over 477 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.65s)
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 6.023111ms wall/op over 235 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.67s)
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 5.472178ms wall/op over 223 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.59s)
+head:     bench_test.go:744: BenchmarkRefreshStaleness: 5.018348ms wall/op over 218 iterations (best of 1) against a 10ms budget
+head: --- PASS: TestBudget_RefreshStaleness (2.43s)

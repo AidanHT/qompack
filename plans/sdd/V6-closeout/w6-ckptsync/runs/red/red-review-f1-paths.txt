@@ -1,0 +1,114 @@
+# RED in the worktree at b51664b plus the new test, before the fix:
+# go test ./internal/paths -run '^(TestAppendLinesDurable_RetriesADirectoryBarrierThatFailed|TestAppendLinesDurable_SyncsTheNameOfAFileItDidNotCreate|TestBarriersMkdirAll_RetriesAParentSyncThatFailed|TestEnsureLayout_RetriesABarrierThatFailed|TestEnsureLayout_SyncsALayoutAnotherWriterStarted)$' -count=1 -v
+=== RUN   TestAppendLinesDurable_RetriesADirectoryBarrierThatFailed
+    barriers_retry_test.go:37: 
+        	Error Trace:	<worktree>/internal/paths/barriers_retry_test.go:37
+        	Error:      	Not equal: 
+        	            	expected: []string{"file:log.jsonl", "dir:001"}
+        	            	actual  : []string{"file:log.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,3 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=14) "file:log.jsonl",
+        	            	- (string) (len=7) "dir:001"
+        	            	+([]string) (len=1) {
+        	            	+ (string) (len=14) "file:log.jsonl"
+        	            	 }
+        	Test:       	TestAppendLinesDurable_RetriesADirectoryBarrierThatFailed
+        	Messages:   	the file's name was never made durable, so this append must sync its directory
+--- FAIL: TestAppendLinesDurable_RetriesADirectoryBarrierThatFailed (0.04s)
+=== RUN   TestAppendLinesDurable_SyncsTheNameOfAFileItDidNotCreate
+    barriers_retry_test.go:55: 
+        	Error Trace:	<worktree>/internal/paths/barriers_retry_test.go:55
+        	Error:      	Not equal: 
+        	            	expected: []string{"file:log.jsonl", "dir:001"}
+        	            	actual  : []string{"file:log.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,3 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=14) "file:log.jsonl",
+        	            	- (string) (len=7) "dir:001"
+        	            	+([]string) (len=1) {
+        	            	+ (string) (len=14) "file:log.jsonl"
+        	            	 }
+        	Test:       	TestAppendLinesDurable_SyncsTheNameOfAFileItDidNotCreate
+--- FAIL: TestAppendLinesDurable_SyncsTheNameOfAFileItDidNotCreate (0.03s)
+=== RUN   TestBarriersMkdirAll_RetriesAParentSyncThatFailed
+=== RUN   TestBarriersMkdirAll_RetriesAParentSyncThatFailed/the_shard's_entry_failed
+    barriers_retry_test.go:88: 
+        	Error Trace:	<worktree>/internal/paths/barriers_retry_test.go:88
+        	Error:      	Not equal: 
+        	            	expected: []string{"dir:captures", "dir:001"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,5 +1,2 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=12) "dir:captures",
+        	            	- (string) (len=7) "dir:001"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestBarriersMkdirAll_RetriesAParentSyncThatFailed/the_shard's_entry_failed
+        	Messages:   	a directory whose entry the failed call did not make durable is synced by the next call
+=== RUN   TestBarriersMkdirAll_RetriesAParentSyncThatFailed/captures'_entry_failed
+    barriers_retry_test.go:88: 
+        	Error Trace:	<worktree>/internal/paths/barriers_retry_test.go:88
+        	Error:      	Not equal: 
+        	            	expected: []string{"dir:001"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,2 @@
+        	            	-([]string) (len=1) {
+        	            	- (string) (len=7) "dir:001"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestBarriersMkdirAll_RetriesAParentSyncThatFailed/captures'_entry_failed
+        	Messages:   	a directory whose entry the failed call did not make durable is synced by the next call
+--- FAIL: TestBarriersMkdirAll_RetriesAParentSyncThatFailed (0.01s)
+    --- FAIL: TestBarriersMkdirAll_RetriesAParentSyncThatFailed/the_shard's_entry_failed (0.00s)
+    --- FAIL: TestBarriersMkdirAll_RetriesAParentSyncThatFailed/captures'_entry_failed (0.00s)
+=== RUN   TestEnsureLayout_RetriesABarrierThatFailed
+    barriers_retry_test.go:109: 
+        	Error Trace:	<worktree>/internal/paths/barriers_retry_test.go:109
+        	Error:      	Target error should be in err chain:
+        	            	expected: "file does not exist"
+        	            	in chain: 
+        	Test:       	TestEnsureLayout_RetriesABarrierThatFailed
+        	Messages:   	a layout whose barriers failed is not marked complete
+--- FAIL: TestEnsureLayout_RetriesABarrierThatFailed (0.03s)
+=== RUN   TestEnsureLayout_SyncsALayoutAnotherWriterStarted
+    barriers_retry_test.go:134: 
+        	Error Trace:	<worktree>/internal/paths/barriers_retry_test.go:134
+        	Error:      	Not equal: 
+        	            	expected: []string{"dir:eval", "dir:.qompack", "dir:001"}
+        	            	actual  : []string{"dir:eval", "dir:.qompack"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,5 +1,4 @@
+        	            	-([]string) (len=3) {
+        	            	+([]string) (len=2) {
+        	            	  (string) (len=8) "dir:eval",
+        	            	- (string) (len=12) "dir:.qompack",
+        	            	- (string) (len=7) "dir:001"
+        	            	+ (string) (len=12) "dir:.qompack"
+        	            	 }
+        	Test:       	TestEnsureLayout_SyncsALayoutAnotherWriterStarted
+--- FAIL: TestEnsureLayout_SyncsALayoutAnotherWriterStarted (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.561s
+FAIL

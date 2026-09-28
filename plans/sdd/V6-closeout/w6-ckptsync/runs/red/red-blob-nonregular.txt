@@ -1,0 +1,13 @@
+# RED at e6bc7a8 + the new test only (no fix): go test ./internal/daemon -run '^TestIngest_AnExternalizedDescriptorNamingANonRegularFileIsNotOpened$' -count=1
+--- FAIL: TestIngest_AnExternalizedDescriptorNamingANonRegularFileIsNotOpened (0.29s)
+    ingest_wal_dirsync_test.go:135: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync/internal/daemon/ingest_wal_dirsync_test.go:135
+        	Error:      	Received unexpected error:
+        	            	daemon: ingest: accept: daemon: ingest: sync externalized payload: open C:\Users\Quant\AppData\Local\Temp\TestIngest_AnExternalizedDescriptorNamingANonRegularFileIsNotOpe1872343477\001\.qompack\spool\blob-9-1.bin: is a directory
+        	Test:       	TestIngest_AnExternalizedDescriptorNamingANonRegularFileIsNotOpened
+        	Messages:   	a descriptor naming a directory is accepted, as before the barrier; readBlob refuses it later
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	4.096s
+FAIL
+
+[exited with code 0]

@@ -1,0 +1,47 @@
+# RED at 9086913 archive + the new tests + capture_sidecar.go's b.MkdirAll routing, with paths.Barriers.MkdirAll stubbed to a bare os.MkdirAll (no parent syncs):
+# go test ./internal/paths ./internal/store -run '^(TestBarriersMkdirAll_SyncsTheParentOfEveryDirectoryItCreates|TestCaptureSidecar_ANewShardIsDurableBeforeTheSidecarIsWritten)$' -count=1 -v
+=== RUN   TestBarriersMkdirAll_SyncsTheParentOfEveryDirectoryItCreates
+    barriers_test.go:185: 
+        	Error Trace:	<scratch>/red-sidecar/internal/paths/barriers_test.go:185
+        	Error:      	Not equal: 
+        	            	expected: []string{"dir:captures", "dir:001"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,5 +1,2 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=12) "dir:captures",
+        	            	- (string) (len=7) "dir:001"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestBarriersMkdirAll_SyncsTheParentOfEveryDirectoryItCreates
+        	Messages:   	ab's entry in captures/, then captures' entry in its parent
+--- FAIL: TestBarriersMkdirAll_SyncsTheParentOfEveryDirectoryItCreates (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.818s
+=== RUN   TestCaptureSidecar_ANewShardIsDurableBeforeTheSidecarIsWritten
+    capture_sidecar_durability_test.go:65: 
+        	Error Trace:	<scratch>/red-sidecar/internal/store/capture_sidecar_durability_test.go:65
+        	Error:      	Not equal: 
+        	            	expected: []string{"dir:captures", "dir:records"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,5 +1,2 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=12) "dir:captures",
+        	            	- (string) (len=11) "dir:records"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestCaptureSidecar_ANewShardIsDurableBeforeTheSidecarIsWritten
+        	Messages:   	the first capture syncs its shard's entry in captures/ and captures' entry in records/
+--- FAIL: TestCaptureSidecar_ANewShardIsDurableBeforeTheSidecarIsWritten (0.20s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.781s
+FAIL

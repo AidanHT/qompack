@@ -1,0 +1,14 @@
+# RED at dc17169 archive + segments_durability_test.go + segments.go with Sync's index/ barrier removed (the pre-fix file-sync-only Sync):
+# go test ./internal/store -run '^TestSegmentLog_SyncMakesTheLogsNameDurableOnce$' -count=1 -v
+=== RUN   TestSegmentLog_SyncMakesTheLogsNameDurableOnce
+    segments_durability_test.go:61: 
+        	Error Trace:	<scratch>/red-seg2/internal/store/segments_durability_test.go:61
+        	Error:      	Target error should be in err chain:
+        	            	expected: "injected index/ sync failure"
+        	            	in chain: 
+        	Test:       	TestSegmentLog_SyncMakesTheLogsNameDurableOnce
+        	Messages:   	a failed directory barrier fails the Sync
+--- FAIL: TestSegmentLog_SyncMakesTheLogsNameDurableOnce (0.09s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.364s
+FAIL
