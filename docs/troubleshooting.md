@@ -772,9 +772,15 @@ written, else its idle drain once the project has been quiet for `scheduler.idle
 its answer could reach no one. Only one daemon is started per project however many hooks race to
 start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process that appears and exits at
 once, because it cannot take the project's singleton lock, means a spawner found neither a daemon
-answering its dial nor a spawn in flight while one was in fact starting or running: a spawn that
-took longer than the spawn lock's 10 s freshness window, or a hook whose short dial a busy daemon did
-not answer in time. Both are signs of heavy load.
+answering its dial nor a spawn in flight while one was in fact starting or running. There are three
+causes: a spawn that took longer than the spawn lock's 10 s freshness window; a hook whose short
+dial a busy daemon did not answer in time; or a daemon (or an operator command holding the lock,
+such as `fsck`) that let the lock go while another spawn was still starting, which gives that
+spawn's claim back (V6 close-out D27), so the next spawner starts one more daemon and the lock
+turns it away. The first two are signs of heavy load; the third costs one extra process and
+nothing else. A daemon that is stopping — its idle exit, say — also turns a new one away until it
+has let go, and a `SessionEnd` that arrives in that moment waits in the spool for the next session
+([cannot-do](cannot-do.md#a-sessions-end-can-wait-for-the-next-session-when-the-daemon-is-stopping)).
 
 **Action.** None for a single occurrence: the session continues, and a compaction's note lists the
 recovery calls. If it recurs on every start, look at the machine's CPU and disk load when sessions
