@@ -33,11 +33,17 @@
 #
 # C5.2 method (as perfstore, perfobs and w6-ckptsync): each revision's test binaries are built once
 # per package, then run alternately in ABBA rounds (odd rounds base first, even rounds candidate
-# first), with a package's two sides back to back and one -count=PERCALL sample each. Samples per
-# side = ROUNDS x PERCALL = C5.2's -count 5. Outputs per OS: base.txt and candidate.txt (raw -bench
-# text), benchstat from the repo's pinned tool (tools/pinned/go.mod), and paired.txt (per-round
-# candidate/base ratio, geomean, exact sign test). c52-names.tsv records every listed benchmark's
-# presence on both revisions: one missing on a side is recorded there and not run on that side.
+# first), with a package's two sides back to back and one -count=PERCALL sample each. Each binary is
+# run once, unrecorded, before round 1 (first exec of a fresh .test.exe pays Defender's scan).
+# Samples per side = ROUNDS x PERCALL = 10 by default, above C5.2's -count 5 on purpose: with 5,
+# benchstat prints no confidence interval ("need >= 6 samples"), the exact sign test cannot go
+# below p=0.0625, and perfobs requires -count >= 10 for the OnToolUse fixtures before SP08-D1 (B-C,
+# D20) relies on them; its three fixtures are sub-benchmarks, so each gets 10 per side. ROUNDS
+# must be even so each side goes first equally often. Outputs per OS: base.txt and candidate.txt
+# (raw -bench text), benchstat from the repo's pinned tool (tools/pinned/go.mod), and paired.txt
+# (per-round candidate/base ratio, geomean, exact sign test). c52-names.tsv records every listed
+# benchmark's presence on both revisions: one missing on a side is recorded there and not run on
+# that side.
 #
 # Real home. Every package measured isolates its home (pathstest.Main) or uses b.TempDir(), and the
 # hot-path harness makes its own temp HOME/USERPROFILE. As a check, homeguard.py (beside this file)
@@ -47,7 +53,7 @@
 #
 # Budget overrides, for dry runs only (the defaults are the checklist's):
 #   QUIET_ITERATIONS (5000)   C5.1 --iterations
-#   QUIET_ROUNDS (5)          ABBA rounds
+#   QUIET_ROUNDS (10)         ABBA rounds; must be even (balanced order)
 #   QUIET_PERCALL (1)         -test.count per call
 #   QUIET_BENCHTIME           replaces every row's -test.benchtime
 #   QUIET_PKGS                space-separated package names C5.2 is limited to (e.g. "store")
@@ -75,7 +81,9 @@ mkdir "$wev/.quiet.lock" 2>/dev/null || { echo "refusing: $wev/.quiet.lock exist
 trap 'rmdir "$wev/.quiet.lock" 2>/dev/null' EXIT
 work=$(winpath "${QUIET_WORK:-$(mktemp -d)}"); mkdir -p "$work" || exit 2
 rm -f "$work/units" "$work/rows"  # the benchmark plan is per invocation (a reused QUIET_WORK)
-ITER=${QUIET_ITERATIONS:-5000}; ROUNDS=${QUIET_ROUNDS:-5}; PERCALL=${QUIET_PERCALL:-1}
+ITER=${QUIET_ITERATIONS:-5000}; ROUNDS=${QUIET_ROUNDS:-10}; PERCALL=${QUIET_PERCALL:-1}
+case $ROUNDS in ''|*[!0-9]*) echo "QUIET_ROUNDS must be a positive even number" >&2; exit 2 ;; esac
+[ "$ROUNDS" -gt 0 ] && [ $((ROUNDS % 2)) -eq 0 ] || { echo "QUIET_ROUNDS must be a positive even number (ABBA balance): $ROUNDS" >&2; exit 2; }
 ctr=${QUIET_CONTAINER:-qompack-v6-linux-verification}; lxuser=${QUIET_LXUSER:-qompack-test}
 gate="$wrepo/plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh"
 man="$wev/quiet-manifest.txt"; info="$wev/quiet-run.txt"
@@ -368,6 +376,10 @@ step_c52_win() {
     done
   done
   (cd "$bin" && sha256sum */*.test.exe) > "$d/binaries.sha256" 2>&1
+  for f in "$bin"/*/*.test.exe; do  # warm-up, discarded: the first exec pays the AV scan
+    [ -f "$f" ] || continue; side=${f%/*}; side=${side##*/}; pkg=${f##*/}; pkg=${pkg%.test.exe}
+    (cd "$work/src-$side/internal/$pkg" && "$f" -test.run '^$' -test.bench '^$' > /dev/null 2>&1 < /dev/null)
+  done
   load before-c52-win
   r=1
   while [ "$r" -le "$ROUNDS" ]; do
@@ -400,6 +412,13 @@ step_c52_linux() {
     for p in $pk; do
       pkg=${p#./internal/}
       lx_rec "$d" "$side" "c52-linux-build-$side-$pkg" "/work/$rid" go test -c -o "/work/$rid-artifacts/bin/$pkg.test" "$p" || rc_s=1
+    done
+  done
+  for side in base candidate; do  # warm-up, discarded (page cache, first exec)
+    [ -f "$d/$side.runid" ] || continue; rid=$(cat "$d/$side.runid")
+    for pkg in $(cut -d' ' -f1 "$work/units" | sort -u); do
+      side_has "$side" "$pkg" || continue
+      docker exec "$ctr" runuser -u "$lxuser" -- env -i sh -c '. "$0"; cd "$1" || exit 2; shift; exec "$@"'         "/work/$rid-artifacts/env.sh" "/work/$rid/internal/$pkg" "/work/$rid-artifacts/bin/$pkg.test"         -test.run '^$' -test.bench '^$' > /dev/null 2>&1 < /dev/null
     done
   done
   load before-c52-linux
