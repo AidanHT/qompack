@@ -82,7 +82,8 @@ uninstall removes the old version's directory the same way. There, a process run
 own binary starts the daemon from a copy instead: `<home>/.qompack/bin/<sha256>/qompack.exe`,
 named by the binary's own SHA-256, made once per version and verified on every spawn — a regular
 file, not a link or reparse point, whose bytes hash to its name and to the spawning process's own
-executable — and replaced rather than run when it does not verify
+executable — and replaced rather than run when it is shown to hold anything else; one that cannot
+be read at the moment is not run either, and that spawn falls back to the plugin binary
 (`internal/daemon/spawn_stage.go`). The plugin's binary is recognised either inside
 `CLAUDE_PLUGIN_ROOT`, which the host sets for every plugin hook, or by the plugin's layout —
 `bin/qompack.exe` with `.claude-plugin/plugin.json` beside `bin/` — because the daemon is also

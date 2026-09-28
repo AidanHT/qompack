@@ -800,7 +800,8 @@ binary — `session-start`, a hook's lazy spawn, or the `qompack mcp` server's �
 verified copy under the user's `.qompack\bin` instead, and only the session's own hook processes and
 MCP server — which end with the session — ever run from the plugin directory. A daemon from a build
 before this change, or one started after the copy failed (a full disk, an unwritable `.qompack`
-under the user profile), still holds the directory until it exits.
+under the user profile, a copy another program held open so that it could not be checked), still
+holds the directory until it exits.
 
 **Action.** Wait for the daemon's idle exit (below), or end that one process by its `pid`, then retry
 the update or removal. If the LOUD line is there, fix what stopped the copy — the directory

@@ -36,7 +36,8 @@ import (
 // placeholder into the command line, not into an environment variable). The copy is made once per
 // version and verified on every spawn — a regular file, not a link or reparse point, whose bytes
 // hash to the name it is filed under and to the spawning process's own executable — before
-// anything executes it; a copy that fails verification is replaced, never run. The plugin
+// anything executes it; a copy shown to hold other bytes is replaced, never run, and one that
+// cannot be read at the moment is not run either, nor removed (stageBinary). The plugin
 // directory is then held only by short-lived hook processes and the session's own MCP server, both
 // of which end with the session.
 //
@@ -78,6 +79,10 @@ const stageTempPattern = ".stage-*"
 // errStagedMismatch is a staged copy whose bytes are not what its name says.
 var errStagedMismatch = errors.New("daemon: staged binary does not match its content address")
 
+// errStagedNotRegular is something other than a regular file — a link, a junction, a directory —
+// standing where a staged copy belongs.
+var errStagedNotRegular = errors.New("daemon: staged binary is not a regular file")
+
 // stageBinary returns the path of a verified copy of self under paths.Global(home)/bin, making the
 // copy when it is missing or fails verification. It returns an error, and leaves nothing half
 // written behind, when home is empty, self cannot be read, or the copy cannot be made and verified;
@@ -86,7 +91,10 @@ var errStagedMismatch = errors.New("daemon: staged binary does not match its con
 // Two spawners racing on one version both end on the same verified file: each writes its own
 // temporary copy and renames it into place, and a rename that loses to an existing file falls back
 // to verifying that file. A copy some other process is executing cannot be replaced on Windows,
-// but it verified when it was written and is left alone unless it no longer does.
+// but it verified when it was written and is left alone unless it no longer does. Only a copy
+// shown to be something else — other bytes, or not a regular file — is ever removed: one that
+// merely cannot be read is reported and kept, since it may be the very copy a concurrent spawner
+// has just verified and is about to start.
 func stageBinary(self, home string) (string, error) {
 	if home == "" {
 		return "", errors.New("daemon: no home directory to stage the daemon binary under")
@@ -102,7 +110,7 @@ func stageBinary(self, home string) (string, error) {
 	switch verr := verifyStaged(target, sum); {
 	case verr == nil:
 		return target, nil
-	case !errors.Is(verr, fs.ErrNotExist):
+	case errors.Is(verr, errStagedMismatch) || errors.Is(verr, errStagedNotRegular):
 		// Something is filed under this version's name that is not this version — altered bytes,
 		// or a link standing where the file should be. It is removed before a verified copy takes
 		// its place, and never executed. The copy is sealed read-only, which Windows will not
@@ -111,6 +119,12 @@ func stageBinary(self, home string) (string, error) {
 		if rerr := os.Remove(paths.Long(target)); rerr != nil && !errors.Is(rerr, fs.ErrNotExist) {
 			return "", fmt.Errorf("daemon: removing %s, which failed verification (%w): %w", target, verr, rerr)
 		}
+	case !errors.Is(verr, fs.ErrNotExist):
+		// The copy could not be read, which says nothing about its bytes: on Windows a handle that
+		// does not share read refuses every reader for as long as it is open. It is not run, and it
+		// is not removed either — a correct copy may be exactly what another spawner has verified
+		// and is about to start — so this spawn runs self and the copy is checked again next time.
+		return "", fmt.Errorf("daemon: verifying %s: %w", target, verr)
 	}
 	if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
 		return "", fmt.Errorf("daemon: creating %s: %w", dir, err)
@@ -185,7 +199,7 @@ func verifyStaged(target, sum string) error {
 		return err
 	}
 	if !fi.Mode().IsRegular() {
-		return fmt.Errorf("daemon: staged binary %s is not a regular file (%s)", target, fi.Mode().Type())
+		return fmt.Errorf("%w: %s (%s)", errStagedNotRegular, target, fi.Mode().Type())
 	}
 	got, err := fileSHA256(target)
 	if err != nil {

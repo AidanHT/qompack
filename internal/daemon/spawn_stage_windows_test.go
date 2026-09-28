@@ -79,3 +79,22 @@ func TestStageBinary_VerifiesACopyItsRenamerStillHolds(t *testing.T) {
 	require.Equal(t, staged, again)
 	requireSameStagedFile(t, before, staged)
 }
+
+// TestStageBinary_NeverRemovesACopyItCannotRead: a copy that cannot be read for the moment — here a
+// handle that does not share read, which refuses even a delete-sharing reader — has not been shown
+// to be the wrong bytes, so it is neither run nor removed: staging fails, the spawn falls back to
+// the plugin binary (daemonProgram), and the copy stays for the next spawn. Removing it could pull
+// a correct copy out from under a spawner that verified it and is about to start it.
+func TestStageBinary_NeverRemovesACopyItCannotRead(t *testing.T) {
+	t.Parallel()
+	self, home := fakeSelf(t), t.TempDir()
+	staged, err := stageBinary(self, home)
+	require.NoError(t, err)
+	before, err := os.Lstat(staged)
+	require.NoError(t, err)
+	holdStaged(t, staged, windows.GENERIC_READ, windows.FILE_SHARE_DELETE)
+
+	_, err = stageBinary(self, home)
+	require.Error(t, err, "a copy that cannot be verified is never returned to be run")
+	requireSameStagedFile(t, before, staged)
+}
