@@ -125,7 +125,7 @@ func TestRun_WithoutJSONWritesNoEnvelope(t *testing.T) {
 	require.Empty(t, out.String())
 }
 
-// TestRun_ExitCodesCoverEveryCommand ties dispatch to the §2.3 table for all seven names at once.
+// TestRun_ExitCodesCoverEveryCommand ties dispatch to the §2.3 table for every shipped name at once.
 func TestRun_ExitCodesCoverEveryCommand(t *testing.T) {
 	t.Parallel()
 

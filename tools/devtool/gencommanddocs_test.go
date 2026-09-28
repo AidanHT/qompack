@@ -21,9 +21,10 @@ import (
 // make sure the --check half can fail, and that the page cannot advertise a command the binary
 // does not route.
 
-// section75Order is the §7.5 order, written out rather than read from commands.Names(), so this
-// file compares the surface against the design document instead of against itself.
-var section75Order = []string{"status", "recall", "pin", "checkpoint", "why", "dropped", "eval"}
+// section75Order is the §7.5 order of the shipped commands, written out rather than read from
+// commands.Names(), so this file compares the surface against the design document instead of
+// against itself. §7.5's checkpoint is not shipped: its only route is the PreCompact hook.
+var section75Order = []string{"status", "recall", "pin", "why", "dropped", "eval"}
 
 // TestGenCommandDocs_RendersEverySection75Command keeps the page complete.
 func TestGenCommandDocs_RendersEverySection75Command(t *testing.T) {
@@ -71,29 +72,24 @@ func TestGenCommandDocs_MatchesTheInstalledHelp(t *testing.T) {
 // TestGenCommandDocs_DoesNotAdvertiseAnUnroutedCommand is the "unsafe unsupported features not
 // advertised" rule.
 //
-// checkpoint has a working frontend and no route to reach it by. A page that listed it beside the
-// six that do work would be believed, and a user would conclude the command was broken rather than
-// absent.
+// Every command the page lists is one the plugin installs and the binary routes, under the
+// subcommand the page names. /qompack:checkpoint used to be listed as "not yet routed" beside six
+// that worked, while the installed command shelled out to the PreCompact hook and wrote nothing. It
+// is no longer shipped, so the unrouted rendering is retired with it: the page must neither list it
+// nor carry the marker, and it must say where checkpoints come from instead.
 func TestGenCommandDocs_DoesNotAdvertiseAnUnroutedCommand(t *testing.T) {
 	got, err := renderCommandDoc()
 	require.NoError(t, err)
 	page := string(got)
 
-	var unrouted int
 	for _, s := range commands.Specs() {
-		note := commands.RouteNote(s.Name)
-		if note == "" {
-			require.Contains(t, page, "| `/qompack:"+s.Name+"` | `qompack "+s.Subcommand+"` |",
-				"%s is routed and must be listed as such", s.Name)
-			continue
-		}
-		unrouted++
-		require.Contains(t, page, "| `/qompack:"+s.Name+"` | **not yet routed** |",
-			"%s has no route and the table must say so", s.Name)
-		require.Contains(t, page, "> **Not available in this build.** "+note,
-			"%s must carry its own explanation, not a bare marker", s.Name)
+		require.Contains(t, page, "| `/qompack:"+s.Name+"` | `qompack "+s.Subcommand+"` |",
+			"%s is routed and must be listed as such", s.Name)
 	}
-	require.Positive(t, unrouted, "if every command is routed, retire the unrouted rendering")
+	require.NotContains(t, page, "not yet routed", "the page must not list a command with no route")
+	require.NotContains(t, page, "/qompack:checkpoint", "the plugin ships no checkpoint command")
+	require.Contains(t, page, "writes a checkpoint automatically before\nevery compaction",
+		"the page must say where checkpoints come from, since there is no command for one")
 }
 
 // TestGenCommandDocs_CommittedPageIsCurrent is the --check half, run here so a stale page fails

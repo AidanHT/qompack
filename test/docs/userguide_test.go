@@ -100,13 +100,19 @@ func sectionOf(lines []string, token string) ([]string, bool) {
 	return lines[start:], true
 }
 
-// TestUserGuideMarksCheckpointAsUnrouted ties the guide's statement to the generated page rather
-// than to a fixed expectation: the condition is read out of docs/commands.md's own table row, so
-// when SP-14's H3 route lands and the row stops saying "not yet routed", this test starts
-// requiring the guide to stop saying it too. Neither direction is hard-coded.
+// TestUserGuideMarksCheckpointAsUnrouted ties the guide's statement about /qompack:checkpoint to
+// the generated page rather than to a fixed expectation. Its name is historical (the SP-18 plan
+// quotes it): the command was once installed and "not yet routed".
+//
+// The condition is read out of docs/commands.md. While the page has a table row for the command,
+// the guide's section must say "not yet routed" exactly when the row does. When the page has no
+// row — the plugin ships no checkpoint command, which is this build — the guide must not document
+// one under its own heading, and must say plainly that a manual checkpoint is not offered, so a
+// reader who looks for the command learns where checkpoints come from instead.
 func TestUserGuideMarksCheckpointAsUnrouted(t *testing.T) {
 	const command = "/qompack:checkpoint"
 	const phrase = "not yet routed"
+	const notOffered = "a manual checkpoint is not offered yet"
 
 	var row string
 	for _, l := range readLines(t, filepath.Join(repoRoot(t), "docs", "commands.md")) {
@@ -115,12 +121,27 @@ func TestUserGuideMarksCheckpointAsUnrouted(t *testing.T) {
 			break
 		}
 	}
+	lines := defenced(t, userGuidePath(t))
+
 	if row == "" {
-		t.Fatalf("docs/commands.md: no table row for %s: the generated page changed shape", command)
+		if _, documented := sectionOf(lines, command); documented {
+			t.Errorf("%s: docs/commands.md lists no %s, so the guide must not document it under a "+
+				"heading of its own", userGuideRel, command)
+		}
+		section, ok := sectionOf(lines, "Checkpoints are automatic")
+		if !ok {
+			t.Fatalf("%s: no \"Checkpoints are automatic\" section saying where checkpoints come from",
+				userGuideRel)
+		}
+		body := strings.Join(section, " ")
+		if !strings.Contains(strings.Join(strings.Fields(body), " "), notOffered) {
+			t.Errorf("%s: the \"Checkpoints are automatic\" section must say %q", userGuideRel, notOffered)
+		}
+		return
 	}
 	unrouted := strings.Contains(row, phrase)
 
-	section, ok := sectionOf(defenced(t, userGuidePath(t)), command)
+	section, ok := sectionOf(lines, command)
 	if !ok {
 		t.Fatalf("%s: no section for %s", userGuideRel, command)
 	}

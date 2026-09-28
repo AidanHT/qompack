@@ -177,7 +177,16 @@ func HookEntryPoints() []HookEntryPoint {
 	return out
 }
 
-// commandSpecs is the §7.5 command list: exactly seven, in the order §7.5 states them.
+// commandSpecs is the shipped §7.5 command list, in the order §7.5 states them: six of its seven.
+//
+// §7.5's checkpoint command is not shipped. Its only route would be `qompack checkpoint`, and that
+// name is the PreCompact hook entry point (hookSpecs above): it reads a hook event from stdin and
+// exits 0 whatever happens, so a /qompack:checkpoint that shelled out to it wrote nothing while
+// saying "Write an immutable checkpoint now". Checkpoints are sealed automatically before every
+// compaction and on the checkpointer's own cadence, and rehydration reads the session's latest
+// checkpoint — the one the compaction itself sealed — so a manual seal taken earlier is superseded
+// before anything reads it. docs/cannot-do.md records that a manual checkpoint is not offered
+// (V6 close-out w7b-checkpoint).
 var commandSpecs = []CommandDoc{
 	{
 		Name:         "status",
@@ -196,12 +205,6 @@ var commandSpecs = []CommandDoc{
 		Description:  "Pin an invariant so it is never summarized away",
 		ArgumentHint: "<text>",
 		Subcommand:   "pin",
-	},
-	{
-		Name:         "checkpoint",
-		Description:  "Write an immutable checkpoint now",
-		ArgumentHint: "[--reason <text>]",
-		Subcommand:   "checkpoint",
 	},
 	{
 		Name:         "why",
