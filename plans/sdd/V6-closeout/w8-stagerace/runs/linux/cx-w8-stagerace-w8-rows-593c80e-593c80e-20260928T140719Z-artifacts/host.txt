@@ -1,0 +1,10 @@
+run_id=cx-w8-stagerace-w8-rows-593c80e-593c80e-20260928T140719Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace
+rev=593c80e2
+commit=593c80e2a1d6df8db8bc240b5e08c0506e6c4cf3
+bundle_sha256=065dec6b4ed2c019c17e868c0b3104c0be109b39d7d307388e55f17cb868416f
+host_started_utc=2026-09-28T14:07:24Z
+inner_args=--run ^(TestCopyStaged_NeverReplacesAnInstalledCopy|TestStageBinary_ConcurrentSpawnersAgree|TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed)$ --count 50 -- ./internal/daemon
+host_finished_utc=2026-09-28T14:07:49Z
+container_exit=0

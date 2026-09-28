@@ -1,0 +1,5 @@
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/internal/ipc
+github.com/qompack/qompack/internal/cli
+github.com/qompack/qompack/test/guards
+github.com/qompack/qompack/test/docs

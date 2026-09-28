@@ -1,0 +1,21 @@
+run_id=cx-w8-stagerace-w8-install-red-d657830-d657830-20260928T140504Z
+commit=d657830127ed3404399d40e19bb4bfebde3ed269
+tree=71338a35fe97fef7bc2c664f19b07a64bac6d18b
+bundle_sha256=07b2e395802d30c3c94a055f25994f47672c7ec4813524ca05adfef2aadda0bf
+started_utc=2026-09-28T14:05:13Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=50 timeout=30m gomaxprocs=4 coload=0
+run=^(TestCopyStaged_NeverReplacesAnInstalledCopy|TestStageBinary_ConcurrentSpawnersAgree)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-28T14:05:30Z
