@@ -65,7 +65,8 @@ func Of(root string) Layout {
 // migrate and backup —
 // with 0o700 permissions (eval/replay and eval/opt bring l.Eval itself into existence as their
 // parent). It then writes <root>/.qompack/.gitignore containing exactly "*\n" through
-// WriteAtomic, unless that file already exists, so a repeated call is idempotent.
+// WriteAtomic, unless that file already exists and the call created nothing, so a repeated call is
+// idempotent.
 //
 // Every directory it creates is made durable before it returns: the parent of each one is synced,
 // deepest first, up to the project root when .qompack itself is new. Every durability promise the
@@ -75,13 +76,23 @@ func Of(root string) Layout {
 // newer build adds a directory), never per call.
 //
 // The .gitignore doubles as the layout's durability marker, because it is written only AFTER every
-// sync has succeeded (w6-ckptsync review finding 1). A call that finds no .gitignore therefore takes
-// none of the existing directories as durable, and syncs the parent of every one this process has
-// not already made durable itself: the call after one whose sync failed — in this process or in the
-// next one, since an EnsureLayout failure ends the daemon's start — and the first call over a tree
-// some other writer began, such as the .qompack/spool a hook creates with a plain mkdir before any
-// daemon has run. A directory this process created and has not yet synced (the process's entry
-// ledger, entries.go) is synced whatever the marker says.
+// sync has succeeded (w6-ckptsync review finding 1), and a call that finds a marked layout missing a
+// directory removes it BEFORE creating anything (w6-ckptsync verification). A present marker thus
+// always means the last call to create a layout directory had all its syncs succeed. A call that
+// finds no .gitignore takes none of the existing directories as durable, and syncs the parent of
+// every one this process has not already made durable itself: the call after one whose sync failed
+// — in this process or in the next one, since an EnsureLayout failure ends the daemon's start, and
+// whether the failed call built a fresh layout or added a directory to a marked one — and the first
+// call over a tree some other writer began, such as the .qompack/spool a hook creates with a plain
+// mkdir before any daemon has run. A directory this process created and has not yet synced (the
+// process's entry ledger, entries.go) is synced whatever the marker says.
+//
+// Unmarking rather than syncing every layout parent on every call keeps the steady state at one Stat
+// and one Lstat per directory: store.Open and negknow's ledger run EnsureLayout too, not only the
+// daemon's start. The window between the unmark and the re-mark costs a few directory syncs, during
+// which git would see .qompack if it looked; a process that stats the marker just before another
+// process's unmark takes that process's new directory as durable, the same cross-process stance
+// Barriers.MkdirAll takes and states.
 func EnsureLayout(l Layout) error { return Barriers{}.EnsureLayout(l) }
 
 // EnsureLayout is the package function of the same name, issuing its directory syncs through x.
@@ -102,6 +113,7 @@ func (x Barriers) EnsureLayout(l Layout) error {
 	// names collects every directory whose entry this call must make durable, including the ones
 	// MkdirAll creates on the way (.qompack itself, eval/).
 	var names []string
+	missing := false
 	for _, d := range append([]string{l.Dot, l.Eval}, dirs...) {
 		_, err := os.Lstat(Long(d))
 		st, _ := entries.look(d)
@@ -109,9 +121,18 @@ func (x Barriers) EnsureLayout(l Layout) error {
 		case errors.Is(err, fs.ErrNotExist):
 			entries.creating(d)
 			names = append(names, d)
+			missing = true
 		case st == entryPending, unmarked && st != entryDurable:
 			names = append(names, d)
 		}
+	}
+	// A marked layout that is missing a directory is unmarked BEFORE the directory is created, so a
+	// call whose sync then fails leaves no marker vouching for the new name to the next process.
+	if missing && !unmarked {
+		if err := os.Remove(Long(gitignore)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("paths: EnsureLayout: unmark %s: %w", gitignore, err)
+		}
+		unmarked = true
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(Long(d), 0o700); err != nil {
