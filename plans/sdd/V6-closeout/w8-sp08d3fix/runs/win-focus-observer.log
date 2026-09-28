@@ -1,0 +1,9 @@
+=== RUN   TestPromptHostOrder_RecordCarriesTheHostTimestamp
+--- PASS: TestPromptHostOrder_RecordCarriesTheHostTimestamp (1.25s)
+=== RUN   TestPromptHostOrder_HostEarlierCaptureIsCountedAndNamed
+--- PASS: TestPromptHostOrder_HostEarlierCaptureIsCountedAndNamed (0.52s)
+=== RUN   TestPromptHostOrder_NamesTheEarliestOvertakenTurn
+--- PASS: TestPromptHostOrder_NamesTheEarliestOvertakenTurn (0.87s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	3.689s
+exit=0

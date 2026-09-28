@@ -1,0 +1,58 @@
+== NC1: drain without orderClientSpoolsByHostTS (temporary diagnostic edit, reverted)
+1
+--- FAIL: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero (3.18s)
+    --- FAIL: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order (1.23s)
+        drain_prompt_capture_test.go:203: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-sp08d3fix/internal/daemon/drain_prompt_capture_test.go:203
+            	Error:      	Not equal: 
+            	            	expected: "first"
+            	            	actual  : "second"
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1 +1 @@
+            	            	-first
+            	            	+second
+            	Test:       	TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order
+            	Messages:   	prompt_<s>_0
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	4.320s
+FAIL
+NC1 exit=1
+== NC2: capture without WithHostTS (temporary diagnostic edit, reverted)
+1
+--- FAIL: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero (1.59s)
+    --- FAIL: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second (0.71s)
+        drain_prompt_capture_test.go:213: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-sp08d3fix/internal/daemon/drain_prompt_capture_test.go:213
+            	Error:      	Not equal: 
+            	            	expected: 1790601566014
+            	            	actual  : 1790601566202
+            	Test:       	TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second
+            	Messages:   	prompt_<s>_0 records its host timestamp
+    --- FAIL: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order (0.88s)
+        drain_prompt_capture_test.go:213: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-sp08d3fix/internal/daemon/drain_prompt_capture_test.go:213
+            	Error:      	Not equal: 
+            	            	expected: 1790601566722
+            	            	actual  : 1790601566931
+            	Test:       	TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/spool_file_order
+            	Messages:   	prompt_<s>_0 records its host timestamp
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.915s
+FAIL
+NC2 exit=1
+== NC3: rehydrator without hostOrderNotice (temporary diagnostic edit, reverted)
+1
+--- FAIL: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero (1.59s)
+    --- FAIL: TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second (0.67s)
+        drain_prompt_capture_test.go:234: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-sp08d3fix/internal/daemon/drain_prompt_capture_test.go:234
+            	Error:      	"[]" should have 1 item(s), but has 0
+            	Test:       	TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero/live_second
+            	Messages:   	the rehydrator names the substitution: [{Kind:elimination_source ID:ledger Detail:no elimination ledger is wired; using the checkpoint's frozen copy} {Kind:path_rule ID:unavailable Detail:no rule scanner is wired; path-scoped rules were not restored} {Kind:nested_claude_md ID:unavailable Detail:no rule scanner is wired; nested CLAUDE.md files were not restored} {Kind:skill ID:unavailable Detail:no skill indexer is wired; the compact skill index was not restored}]
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.937s
+FAIL
+NC3 exit=1
