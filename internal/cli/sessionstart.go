@@ -62,9 +62,10 @@ func sessionStartHostTimeout() time.Duration {
 const defaultSessionStartHostTimeout = 15 * time.Second
 
 // ensureDaemonRunning calls daemon.EnsureRunningUntil for session-start's preSend seam, bounding its
-// poll by the hook's budget: the borrow limit (hookBudget.borrowBy, D21), which leaves the reply at
-// least the compact bound, and the last instant a reply could still follow, up to which a daemon
-// started late still gets its classic wait.
+// poll by the hook's budget: the borrow limit (hookBudget.borrowBy, D21), which leaves the reply
+// about the compact bound (less the poll's return and the dial's transit, an edge D29 accepted), and
+// the last instant a reply could still follow, up to which a daemon started late still gets its
+// classic wait.
 //
 // It is a no-op under the daemon-down fault site (task-6-spec.md's table: that site's whole point
 // is that nothing is listening AND nothing may be spawned in response), whenever self is ""
