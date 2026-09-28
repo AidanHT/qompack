@@ -121,6 +121,61 @@ func TestEnsureLayout_RetriesABarrierThatFailed(t *testing.T) {
 	require.Empty(t, again.steps)
 }
 
+// TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout: a layout already marked durable
+// can still gain a directory — a newer build adds one, or an operator removed one. When the call
+// that re-creates it has its parent sync fail, the retry is a NEW process (an EnsureLayout error ends
+// the daemon's start), whose ledger knows nothing of the directory. The marker must not vouch for it:
+// the failed call leaves the layout unmarked, so the next process syncs every entry again.
+func TestEnsureLayout_RetriesABarrierThatFailedOverAMarkedLayout(t *testing.T) {
+	root := t.TempDir()
+	l := paths.Of(root)
+	gitignore := filepath.Join(l.Dot, ".gitignore")
+	require.NoError(t, paths.EnsureLayout(l))
+	require.FileExists(t, gitignore)
+	require.NoError(t, os.Remove(paths.Long(l.Backup)))
+
+	failed := &barrierLog{failAt: 1}
+	require.ErrorIs(t, failed.barriers().EnsureLayout(l), errBarrier)
+	require.Equal(t, []string{"dir:.qompack"}, failed.steps)
+	require.DirExists(t, l.Backup, "the failed call created the directory before its sync")
+	_, err := os.Lstat(paths.Long(gitignore))
+	require.ErrorIs(t, err, os.ErrNotExist, "a layout with a directory whose barrier failed is not marked")
+
+	paths.ForgetEntriesUnder(root) // the retry is a fresh process
+
+	retry := &barrierLog{}
+	require.NoError(t, retry.barriers().EnsureLayout(l))
+	require.Equal(t, []string{"dir:eval", "dir:.qompack", "dir:" + filepath.Base(root)}, retry.steps,
+		"backup/'s entry was never made durable, so the next process must sync .qompack")
+	require.FileExists(t, gitignore)
+
+	again := &barrierLog{}
+	require.NoError(t, again.barriers().EnsureLayout(l))
+	require.Empty(t, again.steps)
+}
+
+// TestEnsureLayout_ReMarksALayoutOnceItsNewDirectoryIsDurable: when the call that re-creates a
+// missing directory in a marked layout succeeds, it syncs only that directory's parent and marks the
+// layout again, so the steady state stays free.
+func TestEnsureLayout_ReMarksALayoutOnceItsNewDirectoryIsDurable(t *testing.T) {
+	root := t.TempDir()
+	l := paths.Of(root)
+	gitignore := filepath.Join(l.Dot, ".gitignore")
+	require.NoError(t, paths.EnsureLayout(l))
+	require.NoError(t, os.Remove(paths.Long(l.Backup)))
+	paths.ForgetEntriesUnder(root) // a later process, as after an upgrade or an operator's removal
+
+	b := &barrierLog{}
+	require.NoError(t, b.barriers().EnsureLayout(l))
+	require.Equal(t, []string{"dir:.qompack"}, b.steps)
+	require.FileExists(t, gitignore)
+
+	paths.ForgetEntriesUnder(root)
+	again := &barrierLog{}
+	require.NoError(t, again.barriers().EnsureLayout(l))
+	require.Empty(t, again.steps, "a marked, complete layout costs a fresh process no sync")
+}
+
 // TestEnsureLayout_SyncsALayoutAnotherWriterStarted: .qompack can come into existence without
 // EnsureLayout — a hook spooling before any daemon has run creates .qompack/spool with a plain
 // mkdir, and syncs nothing. The first EnsureLayout over such a tree finds no .gitignore, so it takes
