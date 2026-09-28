@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-diag-thinslice-load2-61493b6-20260927T025024Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows/diagclone
+rev=61493b6
+commit=61493b65526ea5d5ac7c32a349f846435c77045a
+bundle_sha256=6c2c3247eb707330bb9c89b9bf66ebe561869301ea1b1031f451e336e09e7498
+host_started_utc=2026-09-27T02:50:48Z
+inner_args=--count 8 --timeout 60m --run ^TestE2E_ThinSliceDropsControlOnlyEdges$ -- ./test/e2e
+host_finished_utc=2026-09-27T02:59:08Z
+container_exit=1

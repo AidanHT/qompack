@@ -1,0 +1,10 @@
+run_id=cx-w2-lifetime-fixseat-daemon-full-race-657a31c-20260925T233855Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime
+rev=HEAD
+commit=657a31c214ff071eee55bc92b5e276643faaceb5
+bundle_sha256=5abc2a5b03a535ab9844b427602e5bc7dd91249991d2c0993c84a0125b4f3719
+host_started_utc=2026-09-25T23:39:02Z
+inner_args=--timeout 30m -- ./internal/daemon ./internal/cli
+host_finished_utc=2026-09-25T23:53:33Z
+container_exit=0

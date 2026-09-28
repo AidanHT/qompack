@@ -1,0 +1,15 @@
+# per-commit build + vet (bisectability) over b070bbe..HEAD, each commit exported with git archive (internal cmd test tools go.mod go.sum plugin)
+3536f12 fix(daemon): publish no capture sidecar for a control line: build+vet exit=0
+11b2eac fix(store): classify legacy control-line sidecars as known: build+vet exit=0
+4c06d82 fix(daemon): answer SessionEnd once durable, end it asynchronously: build+vet exit=0
+c4d27e2 fix(cli): send the SessionEnd flush fire-and-forget: build+vet exit=0
+677b847 fix(daemon): serialize the session recovery record's rewrites: build+vet exit=0
+06d82c9 fix(daemon): mark an acknowledged flush for recovery before it answers: build+vet exit=0
+ae1e728 fix(daemon): replay client spools while their session is active: build+vet exit=0
+5261a15 test(e2e): wait for the daemon's session end after a flush hook: build+vet exit=0
+af3ed3c docs: record the asynchronous SessionEnd and client-spool watcher: build+vet exit=0
+1d7578b test(fault): wait for the daemon's session end after a flush hook: build+vet exit=0
+0bdbf9e test(integration): read the degraded session's store after its end: build+vet exit=0
+cc15f21 test(e2e): let X09's flush cross the frontier with no sidecar: build+vet exit=0
+9091f74 fix(daemon): name the spool watcher's counter for what gosec allows: build+vet exit=0
+3edc200 test(fault): let seed and recovery sessions finish their end: build+vet exit=0

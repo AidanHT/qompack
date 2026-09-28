@@ -2,7 +2,7 @@
 
 **A Claude Code plugin for evidence-backed checkpointing and retrieval.**
 
-*Design document v1.5 — planning revision, 2026-09-06.*
+*Design document v1.7 — six-command revision, 2026-09-27.*
 
 ## 0. Executive summary
 
@@ -316,7 +316,7 @@ Reuse the existing `.qompack/` object/index/record/checkpoint layout and product
 
 ### 7.5 Plugin manifest sketch
 
-No manifest/configuration snippet is generated here. Future SP-19/SP-17 compare the actual package, launcher paths, seven hooks, seven commands and MCP initialization against the supported Claude CLI validation path, then disposable installed-plugin canaries. Repository JSON parsing alone does not validate the installed plugin. [Plugin reference](https://code.claude.com/docs/en/plugins-reference)
+No manifest/configuration snippet is generated here. Future SP-19/SP-17 compare the actual package, launcher paths, seven hooks, six commands (0.3.0 ships no manual checkpoint command) and MCP initialization against the supported Claude CLI validation path, then disposable installed-plugin canaries. Repository JSON parsing alone does not validate the installed plugin. [Plugin reference](https://code.claude.com/docs/en/plugins-reference)
 
 ## 8. Component specifications
 
@@ -344,7 +344,7 @@ SP-10 builds from durable evidence and explicit current state, preserving compat
 
 ### 8.6 L5 — Rehydrator
 
-SP-11 emits whole records under a Qompack-added budget including wrappers, handles and report overhead. The old 8–12K target is additional context, not a replacement for native restored context or a first-turn saving guarantee. Current authority and exact exceptions take precedence over obsolete intent. Overflow is explicit and recoverable. Coverage states and timestamps do not certify complete native loading or model compliance. Scoped instructions need target semantics, not automatic pointer-directory restoration. The retained SP-11 mechanism re-reads path-scoped rules and nested `CLAUDE.md` files from disk — a nested file counts when its directory contains, or is an ancestor to, a pointer-set file, stopping before the project root (v1.4, 2026-08-26, pinned by the shipped conformance suite) — and v1.5 qualifies that restoration as scoped and coverage-reported, never a completeness claim.
+SP-11 emits whole records under a Qompack-added budget including wrappers, handles and report overhead. That budget has a second, fixed bound (v1.6, owner decision D5): the whole post-compaction `additionalContext` — payload, wrapper, separators, handles, overflow report and the contract probe — stays within 9,500 characters, counted as the host counts them (UTF-16 code units), under Claude Code's 10,000-character hook-field cap, past which the host substitutes a file path and a 2,000-character preview it does not ask the model to read. The ceiling is a host constant, not configuration; the token budget may only bound the payload lower. The old 8–12K target is additional context, not a replacement for native restored context or a first-turn saving guarantee; at the shipped defaults the ceiling binds first. Current authority and exact exceptions take precedence over obsolete intent. Overflow is explicit and recoverable: a record that does not fit is left out whole, never cut, and named with the retrieval call that restores it, in a bounded list with a counted remainder that itself fits inside the ceiling. Coverage states and timestamps do not certify complete native loading or model compliance. Scoped instructions need target semantics, not automatic pointer-directory restoration. The retained SP-11 mechanism re-reads path-scoped rules and nested `CLAUDE.md` files from disk — a nested file counts when its directory contains, or is an ancestor to, a pointer-set file, stopping before the project root (v1.4, 2026-08-26, pinned by the shipped conformance suite) — and v1.5 qualifies that restoration as scoped and coverage-reported, never a completeness claim.
 
 ### 8.7 L6 — Retrieval tools (MCP)
 
@@ -489,6 +489,10 @@ Preserve and integrate completed SP-10–13 first; accept the combined baseline;
 The v1.1–v1.4 entries below are preserved historical change records, not current runtime promises. v1.5 supersedes their unsupported guarantees and configuration conclusions.
 
 **Numbering note.** The planning-only revision was drafted as "v1.4" against the `verify/v3` snapshot (`7f92af5`), before SP-11's v1.4 of 2026-08-26 had reached the combined baseline; SP-19 M0-01 numbers it v1.5 on that baseline. A "v1.4" in `internal/rules`, ADR 0011 and the v1.4 section of `plans/QOMPACK-ERRATA.md` means SP-11's §8.6 widening, which stands.
+
+**v1.7 — 2026-09-27, six commands: no manual checkpoint in 0.3.0 (coordinator decisions D33, D36).** §7.5 counted seven commands. The seventh, `/qompack:checkpoint`, shelled out to `qompack checkpoint`, which is the PreCompact hook entry point: it reads a hook event from stdin and always exits 0, so the command sealed and reported nothing. Rehydration reads the checkpoint PreCompact seals at that compaction, so a manual seal would be superseded before anything read it, and the command no longer ships (V6 close-out w7b-checkpoint, option B). §7.5 now counts six commands; the seven hooks, the PreCompact checkpoint and the automatic cadence seals are unchanged. A future checkpoint-now route brings the command back, with its exit criterion SP14-M3-01; `${CLAUDE_SESSION_ID}` in plugin commands (Claude Code 2.1.280) can bind it to the session. Revised under D33, which delegates the owner's remaining decisions to the V6 close-out coordinator. No other section moved; `plans/QOMPACK-ERRATA.md` records what was checked.
+
+**v1.6 — 2026-09-22, rehydration fits the host's additionalContext cap (owner decision D5).** Claude Code delivers a hook's `additionalContext` whole only up to 10,000 characters and replaces anything longer with a file path and a 2,000-character preview that it does not ask the model to read; a real 2.1.280 session confirmed it, and the frozen full rehydration fixture rendered to 32,049 characters. §8.6 now bounds the whole compact `additionalContext` at 9,500 host characters (UTF-16 code units, the unit the host's own code measures), as a host constant beside the token budget, with whole records in the existing importance order and every omission named with its restoring call in an overflow report that fits the ceiling. No other section moved. ADR 0011 §21 records the implementation; `plans/QOMPACK-ERRATA.md` records what was checked.
 
 **v1.5 — 2026-09-06, planning-only evidence migration.** Reconciled actual waves and active worktrees; corrected host capability, fidelity, authority, cost and algorithm claims; mapped M0–M7 to existing plans plus SP-19/20/21; specified future verification/rollback. No code, configuration, runtime tests, branches, commits or data migration performed. See `plans/QOMPACK-ERRATA.md` and `plans/MIGRATION-EVIDENCE.md`.
 

@@ -1,0 +1,21 @@
+run_id=cx-w4-syncs-fixseat-daemon-durable-61baf28-20260926T174737Z
+commit=61baf28c359f1214690b88b5f8bd621d20ed8636
+tree=6d959668d72b3b8fc88c3d91d93be901131b6751
+bundle_sha256=ed838b90b89ad58f1bfac5e11c631526496b61be58bd48af1451ca84d1df881c
+started_utc=2026-09-26T17:48:23Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^(TestObserverDurablePublisherFailureRemainsDrainRetryable|TestStoreWrapperDropsTheDurablePublisherCapability|TestObserverAtomicPublicationFailureRemainsDrainRetryable|TestStoreWrapperDropsTheSupersedingCapability)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T17:49:09Z

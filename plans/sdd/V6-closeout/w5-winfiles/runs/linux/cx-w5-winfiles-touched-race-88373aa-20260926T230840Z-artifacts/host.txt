@@ -1,0 +1,10 @@
+run_id=cx-w5-winfiles-touched-race-88373aa-20260926T230840Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles
+rev=88373aa
+commit=88373aaf54485acd058dd5b8e6a41a5f90a7ac71
+bundle_sha256=215cd66788d351863730f805a582237533c7eadfa5d65a980caff6030375c3c1
+host_started_utc=2026-09-26T23:08:49Z
+inner_args=-- ./internal/paths ./internal/contract ./internal/tokens ./internal/sketch ./internal/config ./internal/checkpoint ./internal/store ./internal/cli ./internal/daemon ./test/guards
+host_finished_utc=2026-09-26T23:29:38Z
+container_exit=1

@@ -1,16 +1,13 @@
 package main
 
 import (
-	"archive/tar"
 	"archive/zip"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 )
 
 // An archive is the shippable spelling of a bundle, and it exists for exactly one reason: a
@@ -19,15 +16,18 @@ import (
 // modification time between the bytes this repository produces and the bytes a host reads — so
 // everything below is about removing those three interpositions again rather than accepting them.
 //
+// Every target ships a .zip, because a Claude Code marketplace `archive` source is a "Zip archive
+// downloaded over HTTPS" (plugin-marketplaces, fetched 2026-09-22) and C7.5 publishes each target's
+// archive as one. The four POSIX targets used to ship .tar.gz; a zip carries the same normalised
+// Unix modes in its external attributes (creator host Unix), so bin/ stays 0755 in the archive.
+// Whether Claude Code's own extractor restores that bit on linux/darwin is unverified until a
+// published pre-release is installed on such a host (packaging/README.md §9).
+//
 // Member paths are bundle-RELATIVE: the archive root is the plugin root, exactly as the directory
 // root is (packaging/README.md §1), so `claude --plugin-dir <dir>` finds `.claude-plugin/plugin.json`
-// at the top. An archive that wrapped its contents in one more directory would need the host to
-// strip a level nobody documented.
+// at the top — and "Claude Code looks for .claude-plugin/ at the top of the archive, then inside a
+// single top-level folder", so the root layout is the one it tries first.
 const (
-	// archiveEpoch is the modification time every member carries. Unix 0 rather than the file's
-	// own mtime: a real mtime is the single largest source of two archives of the same tree
-	// disagreeing, and nothing downstream reads it — BUNDLE.json carries the provenance.
-	archiveEpoch = 0
 	// zipDOSEpochDate is 1980-01-01 in MS-DOS date encoding ((year-1980)<<9 | month<<5 | day).
 	// The zip format cannot express Unix 0, and a zeroed date field decodes to month 0 / day 0,
 	// which some extractors reject. This is the earliest date the format has.
@@ -41,16 +41,16 @@ const (
 	archiveFileMode = 0o644
 )
 
-// archiveName is the archive a target's bundle directory is packed into, beside it in --out.
-func archiveName(dirName, goos string) string {
-	if goos == "windows" {
-		return dirName + ".zip"
-	}
-	return dirName + ".tar.gz"
+// archiveName is the archive a target's bundle directory is packed into, beside it in --out. It is
+// a .zip on every target; goos is kept so a future per-target format has one place to change.
+func archiveName(dirName, _ string) string {
+	return dirName + ".zip"
 }
 
-// removeStaleArchives deletes leftover *.zip, *.tar.gz and checksums.txt under outDir so a
-// previous version's archive cannot survive into extra_files unchecksummed.
+// removeStaleArchives deletes leftover *.zip, *.tar.gz, checksums.txt and marketplace.json under
+// outDir so a previous version's archive — or a marketplace document pinning a previous version's
+// digests — cannot survive into extra_files. *.tar.gz stays in the sweep because releases before
+// C7.5 wrote them into the same directory.
 func removeStaleArchives(outDir string) error {
 	entries, err := os.ReadDir(outDir)
 	if err != nil {
@@ -64,7 +64,8 @@ func removeStaleArchives(outDir string) error {
 			continue
 		}
 		name := e.Name()
-		if name == checksumsFileName || strings.HasSuffix(name, ".zip") || strings.HasSuffix(name, ".tar.gz") {
+		if name == checksumsFileName || name == marketplaceFileName ||
+			strings.HasSuffix(name, ".zip") || strings.HasSuffix(name, ".tar.gz") {
 			if err := os.Remove(filepath.Join(outDir, name)); err != nil {
 				return fmt.Errorf("removing stale %s: %w", name, err)
 			}
@@ -125,7 +126,7 @@ func archiveMode(slash string) os.FileMode {
 	return archiveFileMode
 }
 
-// writeArchive packs dir into an archive beside it and returns the archive's path.
+// writeArchive packs dir into a zip beside it and returns the archive's path.
 func writeArchive(dir, goos string) (string, error) {
 	members, err := archiveMembers(dir)
 	if err != nil {
@@ -139,11 +140,7 @@ func writeArchive(dir, goos string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if goos == "windows" {
-		err = writeZip(f, members)
-	} else {
-		err = writeTarGz(f, members)
-	}
+	err = writeZip(f, members)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
@@ -178,40 +175,6 @@ func writeZip(w io.Writer, members []archiveMember) error {
 		}
 	}
 	return zw.Close()
-}
-
-// writeTarGz writes the members as a USTAR tar inside a gzip stream with an empty header.
-//
-// FormatUSTAR is named rather than inferred: the PAX format archive/tar would otherwise choose for
-// a long name or a sub-second time writes extended header records, and those records are one more
-// thing that can differ between two packings of the same tree. Uid/Gid/Uname/Gname are left zero
-// and empty so nothing about the packing machine's accounts reaches the artifact.
-func writeTarGz(w io.Writer, members []archiveMember) error {
-	gz := gzip.NewWriter(w)
-	// Name and ModTime are the two fields a gzip header can carry about the machine that wrote
-	// it. Both are cleared: an empty name and a zero ModTime encode as zero bytes.
-	gz.Name, gz.Comment, gz.ModTime = "", "", time.Time{}
-	tw := tar.NewWriter(gz)
-	for _, m := range members {
-		h := &tar.Header{
-			Typeflag: tar.TypeReg,
-			Name:     m.Name,
-			Mode:     int64(m.Mode.Perm()),
-			Size:     m.Size,
-			ModTime:  time.Unix(archiveEpoch, 0).UTC(),
-			Format:   tar.FormatUSTAR,
-		}
-		if err := tw.WriteHeader(h); err != nil {
-			return fmt.Errorf("%s: %w", m.Name, err)
-		}
-		if err := copyFileInto(tw, m.Path); err != nil {
-			return err
-		}
-	}
-	if err := tw.Close(); err != nil {
-		return err
-	}
-	return gz.Close()
 }
 
 // copyFileInto streams one member's bytes into the archive writer.

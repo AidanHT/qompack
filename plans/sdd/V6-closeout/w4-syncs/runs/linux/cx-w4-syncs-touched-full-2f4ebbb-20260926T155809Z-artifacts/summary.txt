@@ -1,0 +1,3 @@
+FAIL      github.com/qompack/qompack/internal/store  (pass=844 fail=1 skip=4)
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+PASS      github.com/qompack/qompack/internal/observer  (pass=557 fail=0 skip=0)

@@ -1,0 +1,14 @@
+=== RUN   TestZZStartroute_ColdStart
+    zz_startroute_coldstart_diag_test.go:275: GOOS=windows NumCPU=22 cpu-coload="1" iters=8
+    zz_startroute_coldstart_diag_test.go:286: ROW mode=prespawned  source=startup i=0 wall= 5956ms up= 8150ms(ok=true) spooled=true  answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_startroute_coldstart_diag_test.go:286: ROW mode=prespawned  source=startup i=1 wall= 3860ms up=12666ms(ok=true) spooled=true  answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_startroute_coldstart_diag_test.go:286: ROW mode=prespawned  source=startup i=2 wall= 3369ms up= 9113ms(ok=true) spooled=true  answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_startroute_coldstart_diag_test.go:286: ROW mode=prespawned  source=startup i=3 wall= 2064ms up= 2271ms(ok=true) spooled=false answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_startroute_coldstart_diag_test.go:286: ROW mode=prespawned  source=startup i=4 wall= 4099ms up= 6316ms(ok=true) spooled=true  answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_startroute_coldstart_diag_test.go:286: ROW mode=prespawned  source=startup i=5 wall= 2733ms up= 4409ms(ok=true) spooled=true  answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_startroute_coldstart_diag_test.go:286: ROW mode=prespawned  source=startup i=6 wall= 3440ms up= 4073ms(ok=true) spooled=true  answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_startroute_coldstart_diag_test.go:286: ROW mode=prespawned  source=startup i=7 wall= 3267ms up= 5020ms(ok=true) spooled=true  answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_startroute_coldstart_diag_test.go:321: SUMMARY mode=prespawned  source=startup n=8 spooled=7 wall p50=3369ms max=5956ms up p50=5020ms max=12666ms answers=map[probe:1 {}:7] not-full=0
+--- PASS: TestZZStartroute_ColdStart (136.65s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	136.909s

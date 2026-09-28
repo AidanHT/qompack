@@ -1,0 +1,14 @@
+=== head afa1475 start 2026-09-22T20:59:00-04:00 cpu=42 tests=7
+        	Messages:   	B-F breached over 2000 tool uses / ~39 MB: limit=250ms n=200 p50=61.44ms p95=393.216ms p99=524.288ms max=10.547203s
+--- FAIL: TestBudgetBF (227.66s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	238.646s
+FAIL
+exit=1
+=== base 7f80138-archive start 2026-09-22T21:03:05-04:00 cpu=85 tests=6
+        	Messages:   	B-F breached over 2000 tool uses / ~39 MB: limit=250ms n=200 p50=98.304ms p95=786.432ms p99=1.835008s max=9.231822s
+--- FAIL: TestBudgetBF (281.30s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	304.630s
+FAIL
+exit=1

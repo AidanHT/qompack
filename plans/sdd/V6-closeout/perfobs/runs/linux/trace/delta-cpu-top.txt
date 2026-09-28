@@ -1,0 +1,56 @@
+File: observer.test
+Build ID: 5d6343d4289b02e67b7eb26331db7b66423eb1e2
+Type: cpu
+Time: 2026-09-22 22:37:10 UTC
+Duration: 22.36s, Total samples = 6.98s (31.22%)
+Active filters:
+   focus=onToolUse$
+Showing nodes accounting for 3.80s, 54.44% of 6.98s total
+Dropped 162 nodes (cum <= 0.03s)
+Showing top 45 nodes out of 157
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      6.61s 94.70%  github.com/qompack/qompack/internal/obs.Timed
+         0     0%     0%      6.61s 94.70%  github.com/qompack/qompack/internal/observer.(*observer).OnToolUse
+         0     0%     0%      6.61s 94.70%  github.com/qompack/qompack/internal/observer.(*observer).OnToolUse.func1
+     0.01s  0.14%  0.14%      6.61s 94.70%  github.com/qompack/qompack/internal/observer.(*observer).onToolUse
+         0     0%  0.14%      6.61s 94.70%  github.com/qompack/qompack/internal/observer.(*observer).timed
+         0     0%  0.14%      6.61s 94.70%  github.com/qompack/qompack/internal/observer.BenchmarkOnToolUse_TestOutput256KB.func1
+         0     0%  0.14%      6.61s 94.70%  github.com/qompack/qompack/internal/observer.runOnToolUseBench
+         0     0%  0.14%      6.61s 94.70%  testing.(*B).runN
+         0     0%  0.14%      6.55s 93.84%  testing.(*B).launch
+         0     0%  0.14%      6.33s 90.69%  github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+     0.01s  0.14%  0.29%      3.43s 49.14%  regexp.(*Regexp).doExecute
+     0.01s  0.14%  0.43%      3.29s 47.13%  github.com/qompack/qompack/internal/redact.(*rx).Redact
+         0     0%  0.43%      2.92s 41.83%  regexp.(*Regexp).FindAllSubmatchIndex
+         0     0%  0.43%      2.92s 41.83%  regexp.(*Regexp).allMatches
+     0.27s  3.87%  4.30%      2.84s 40.69%  regexp.(*machine).match
+         0     0%  4.30%      2.51s 35.96%  github.com/qompack/qompack/internal/canon.(*registry).Run
+     1.37s 19.63% 23.93%      1.68s 24.07%  regexp.(*machine).add
+     0.01s  0.14% 24.07%      1.67s 23.93%  github.com/qompack/qompack/internal/canon.(*registry).collect
+         0     0% 24.07%      1.64s 23.50%  github.com/qompack/qompack/internal/canon.MatchesOf
+         0     0% 24.07%      1.22s 17.48%  github.com/qompack/qompack/internal/canon.ruleMatches
+     0.01s  0.14% 24.21%      1.20s 17.19%  github.com/qompack/qompack/internal/canon.forEachLine
+     0.02s  0.29% 24.50%      0.92s 13.18%  github.com/qompack/qompack/internal/canon.ruleMatches.func1
+     0.36s  5.16% 29.66%      0.79s 11.32%  regexp.(*machine).step
+         0     0% 29.66%      0.75s 10.74%  github.com/qompack/qompack/internal/canon.testRunnerCanon.Matches
+         0     0% 29.66%      0.70s 10.03%  github.com/qompack/qompack/internal/sketch.MinHash (inline)
+         0     0% 29.66%      0.70s 10.03%  github.com/qompack/qompack/internal/sketch.minHashWithStats
+     0.02s  0.29% 29.94%      0.66s  9.46%  bytes.Contains (inline)
+         0     0% 29.94%      0.66s  9.46%  github.com/qompack/qompack/internal/sketch.bottomKShingles
+     0.12s  1.72% 31.66%      0.66s  9.46%  github.com/qompack/qompack/internal/sketch.distinctBelow
+     0.11s  1.58% 33.24%      0.64s  9.17%  bytes.Index
+     0.02s  0.29% 33.52%      0.58s  8.31%  regexp.(*Regexp).backtrack
+     0.05s  0.72% 34.24%      0.57s  8.17%  bytes.IndexByte (inline)
+     0.01s  0.14% 34.38%      0.53s  7.59%  github.com/qompack/qompack/internal/canon.appendPlainLineSpans
+         0     0% 34.38%      0.50s  7.16%  regexp.(*Regexp).FindSubmatchIndex
+     0.26s  3.72% 38.11%      0.50s  7.16%  regexp.(*Regexp).tryBacktrack
+     0.03s  0.43% 38.54%      0.49s  7.02%  github.com/qompack/qompack/internal/canon.(*reRule).triggered
+     0.49s  7.02% 45.56%      0.49s  7.02%  indexbytebody
+     0.03s  0.43% 45.99%      0.46s  6.59%  github.com/qompack/qompack/internal/canon.(*reRule).hasLiteral
+         0     0% 45.99%      0.45s  6.45%  github.com/qompack/qompack/internal/redact.rule.mayMatch
+     0.03s  0.43% 46.42%      0.43s  6.16%  regexp/syntax.(*Inst).MatchRune (inline)
+     0.02s  0.29% 46.70%      0.41s  5.87%  github.com/qompack/qompack/internal/sketch.hashShingles
+     0.16s  2.29% 49.00%      0.40s  5.73%  regexp/syntax.(*Inst).MatchRunePos
+     0.38s  5.44% 54.44%      0.39s  5.59%  github.com/qompack/qompack/internal/sketch.fnv1a64 (inline)
+         0     0% 54.44%      0.28s  4.01%  github.com/qompack/qompack/internal/store.(*FSStore).admitRecovery
+         0     0% 54.44%      0.27s  3.87%  github.com/qompack/qompack/internal/store.(*FSStore).putDeltas

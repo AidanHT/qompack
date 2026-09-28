@@ -1,0 +1,16 @@
+# run: 10-resource-cost-windows
+# commit: 8509447f0230fdca4afec70a63c05cfa1c1907c3
+# platform: windows/amd64 go version go1.26.6 windows/amd64; co-loaded shared host (other agents running)
+# started: 2026-09-23T00:24:19Z
+# command: go test ./internal/daemon -run '^$' -bench '^BenchmarkDeliveryRolloverResourceCost$' -benchtime 1x -timeout 150m -daemon.rollover.out=plans/sdd/V6-closeout/rollover/runs/10-resource-cost-windows.json
+--- FAIL: BenchmarkDeliveryRolloverResourceCost
+    delivery_rollover_resource_bench_test.go:131: open plans/sdd/V6-closeout/rollover/runs/10-resource-cost-windows.json: The system cannot find the path specified.
+FAIL
+exit status 1
+FAIL	github.com/qompack/qompack/internal/daemon	2899.998s
+FAIL
+# exit: 1
+# NOTE (added after the run): the benchmark measured for 2,900 s and then failed only at writing its
+# figures: the relative -daemon.rollover.out path resolves against internal/daemon, where go test
+# runs the binary, and the metrics are printed only on success, so every figure was lost. Fixed in
+# 0873c45 (figures logged as one line first); re-run as 10b.

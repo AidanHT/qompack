@@ -1,0 +1,20 @@
+[
+  {
+    "_file": "delivery-leases.jsonl",
+    "arrival": 1,
+    "delivery": "4c2e8e9be3372e85bd0c1ba8e7f0647eb7413fe6b97b658e104ca81492304859",
+    "observation_id": "sha256:a490107776b345f63710554b50b6db7aafe5c937adf2bf83547240cc1bc74276",
+    "request": "sha256:a96a395fb7f072147b54179228654c7bd470c0535ae1a3f46038c5da7c306562",
+    "session": "sess-drill-after-restore",
+    "v": 1
+  },
+  {
+    "_file": "delivery-leases.jsonl",
+    "arrival": 1,
+    "delivery": "66d1e753ef62f1c1dd34178ff1d9cdabbdd6612a16600592e68cc0e6edd74a7b",
+    "observation_id": "sha256:e8f924bc5874a16e66d55875ca92803b5846d28d3626be3c8e2554ae2fa0afa6",
+    "request": "sha256:9459560f212e7c4b08a131f510db21076276ff46ef8f3172ae37370a7acf5f5f",
+    "session": "sess-drill-history",
+    "v": 1
+  }
+]

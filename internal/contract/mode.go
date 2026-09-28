@@ -8,8 +8,10 @@ type Mode uint8
 // ModeDegradedPassive is §12.1's contract-failure state: L0 and L1 keep running (observe, chunk,
 // store, sketches, DAG, verbatim capture, elimination records — the store stays correct and the
 // session's data is not lost), and everything that ACTS is off (no additionalContext injection, no
-// customInstructions, no scheduler-initiated checkpoints, no drop report). ModeOff is the operator
-// decision — runtime.mode = "off" — not a state the monitor ever enters on its own.
+// scheduler-initiated checkpoints, no drop report). §12.1's list also names customInstructions, the
+// PreCompact focus instruction; C1.18 retired it in every mode, because no host accepts one.
+// ModeOff is the operator decision — runtime.mode = "off" — not a state the monitor ever enters on
+// its own.
 const (
 	ModeFull Mode = iota
 	ModeDegradedPassive
@@ -46,8 +48,9 @@ func ParseMode(s string) (Mode, bool) {
 	return ModeFull, false
 }
 
-// MayAct reports whether m permits Qompack to act on the session: inject additionalContext, emit
-// customInstructions, let the scheduler initiate a checkpoint, or produce a drop report (§12.1).
+// MayAct reports whether m permits Qompack to act on the session: inject additionalContext, let the
+// scheduler initiate a checkpoint, or produce a drop report (§12.1; the customInstructions §12.1
+// also lists is retired in every mode, C1.18).
 // Only ModeFull may act — ModeDegradedPassive keeps L0/L1 recording but turns every acting path
 // off, and ModeOff is the operator's own instruction to do nothing at all.
 func (m Mode) MayAct() bool {

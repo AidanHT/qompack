@@ -102,7 +102,7 @@ func ReadFileShared(p string) ([]byte, error) {
 //
 // Errors have os.OpenFile's shape, an *os.PathError carrying the platform error.
 func OpenSharedRW(p string) (*os.File, error) {
-	if root, ok := rootOf(p); ok && IsProtected(root, p) {
+	if ownerOf(p).protected {
 		return nil, fmt.Errorf("%w: in-place write on %s", core.ErrAppendOnly, p)
 	}
 	return openSharedRW(Long(p))

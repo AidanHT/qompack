@@ -1,0 +1,9 @@
+--- FAIL: TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached (2.26s)
+    spool_watch_test.go:399: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/spool_watch_test.go:399
+        	Error:      	Should be false
+        	Test:       	TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached
+        	Messages:   	a blocked spool the budget-stopped pass reached keeps its back-off (next pass at Sep 27 17:38:49.950153, now Sep 27 17:38:49.950153)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	2.484s
+FAIL

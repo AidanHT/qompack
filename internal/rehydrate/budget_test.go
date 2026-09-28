@@ -9,6 +9,7 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/tokens"
 )
 
 // The three budget paths no other test in this package reaches: the unset-request min-fill, the
@@ -40,43 +41,88 @@ func ckLongEvolution(n int) checkpoint.Checkpoint {
 	return cp
 }
 
+// byteEstimator prices one token per byte. It is dear enough that minTokens is reached before the
+// host character ceiling (tokens >= characters for any text), which is the regime min-fill was
+// written for; the baseline (len+3)/4 estimator now meets the ceiling first (D5).
+type byteEstimator struct{ fakeEstimator }
+
+func (byteEstimator) Estimate(b []byte, _ tokens.Class) core.Tokens       { return core.Tokens(len(b)) }
+func (byteEstimator) EstimateString(s string, _ tokens.Class) core.Tokens { return core.Tokens(len(s)) }
+
+// TestBuild_MinFillReadmitsUnits pins min-fill in both regimes the payload can be bounded in.
+//
+// D5 changed which bound an unset build meets first. Under the baseline estimator the host
+// character ceiling holds about 2,350 tokens, far below minTokens, so "fill to about minTokens" is
+// no longer reachable there by design: min-fill re-admits toward the CEILING instead. Under an
+// estimator dear enough that minTokens comes first, the original claim stands unchanged, threshold
+// included. The mechanism asserted in both is the same: an unset call re-admits what its shares
+// dropped, a named budget is never min-filled, and a re-admitted unit leaves the drop report.
 func TestBuild_MinFillReadmitsUnits(t *testing.T) {
 	cp := ckLongEvolution(300)
-	d := fullDeps(t, cp)
+	cfg := testCfg().Runtime.Rehydrate
 
-	// An UNSET budget is the daemon's own call. clampBudget answers it with maxTokens, and the
-	// min-fill pass then re-admits toward minTokens.
-	unset := requestFor(t, cp, 0)
-	got, err := Build(context.Background(), unset, d)
-	require.NoError(t, err)
+	t.Run("minTokens_binds_first", func(t *testing.T) {
+		d := fullDeps(t, cp)
+		d.Tokens = byteEstimator{}
 
-	cfg := unset.Cfg.Runtime.Rehydrate
-	require.LessOrEqual(t, int(got.Tokens), cfg.MaxTokens, "min-fill may never exceed the hard cap")
-	// Re-admission stops at the first pending unit the remaining slack cannot cover, so the total
-	// lands just under minTokens rather than exactly on it. One unit of headroom is the whole
-	// tolerance this assertion needs.
-	require.GreaterOrEqual(t, int(got.Tokens), cfg.MinTokens-128,
-		"an unset budget with material to spare must fill to about minTokens, not stop at the share")
+		// An UNSET budget is the daemon's own call. clampBudget answers it with maxTokens, and the
+		// min-fill pass then re-admits toward minTokens.
+		got, err := Build(context.Background(), requestFor(t, cp, 0), d)
+		require.NoError(t, err)
+		require.LessOrEqual(t, int(got.Tokens), cfg.MaxTokens, "min-fill may never exceed the hard cap")
+		require.LessOrEqual(t, hostChars(got.Text), PayloadCeilingChars, "nor the host ceiling")
+		// Re-admission stops at the first pending unit the remaining slack cannot cover, so the total
+		// lands just under minTokens rather than exactly on it. One unit of headroom is the whole
+		// tolerance this assertion needs.
+		require.GreaterOrEqual(t, int(got.Tokens), cfg.MinTokens-128,
+			"an unset budget with material to spare must fill to about minTokens, not stop at the share")
 
-	// The same checkpoint under a NAMED budget of exactly minTokens gets no min-fill: raising a
-	// caller's ask is precisely what the hard cap forbids, so it stops at its shares instead.
-	named := requestFor(t, cp, core.Tokens(cfg.MinTokens))
-	stopped, err := Build(context.Background(), named, fullDeps(t, cp))
-	require.NoError(t, err)
-	require.Less(t, int(stopped.Tokens), int(got.Tokens),
-		"a named budget must not be min-filled, so it carries strictly less than the unset call")
+		d = fullDeps(t, cp)
+		d.Tokens = byteEstimator{}
+		stopped, err := Build(context.Background(), requestFor(t, cp, core.Tokens(cfg.MinTokens)), d)
+		require.NoError(t, err)
+		// The same checkpoint under a NAMED budget of exactly minTokens gets no min-fill: raising a
+		// caller's ask is precisely what the hard cap forbids, so it stops at its shares instead.
+		require.Less(t, int(stopped.Tokens), int(got.Tokens),
+			"a named budget must not be min-filled, so it carries strictly less than the unset call")
+		requireMinFillShape(t, got, stopped)
+	})
 
-	// What min-fill re-admitted is off the drop report, not merely rendered: a payload that
-	// injects a unit AND reports it dropped is telling the agent two different things.
-	rendered := got.Text
+	t.Run("host_ceiling_binds_first", func(t *testing.T) {
+		got, err := Build(context.Background(), requestFor(t, cp, 0), fullDeps(t, cp))
+		require.NoError(t, err)
+		require.Less(t, int(got.Tokens), cfg.MinTokens,
+			"fixture sanity: under the baseline estimator the ceiling is met long before minTokens")
+		// Filled to the ceiling, to within the one unit the remaining room could not cover.
+		unitChars := hostChars(quoteLines(cp.UserIntent.Evolution[len(cp.UserIntent.Evolution)-1]))
+		require.LessOrEqual(t, hostChars(got.Text), PayloadCeilingChars)
+		require.GreaterOrEqual(t, hostChars(got.Text), PayloadCeilingChars-unitChars,
+			"an unset budget with material to spare must fill to the host ceiling, not stop at the share")
+
+		stopped, err := Build(context.Background(), requestFor(t, cp, core.Tokens(cfg.MinTokens)), fullDeps(t, cp))
+		require.NoError(t, err)
+		// Both calls now meet the same ceiling, so their SIZES no longer tell them apart: what the
+		// named call's shares leave over flows to item 7, which lists more omissions. What min-fill
+		// changes is the CONTENT — the unset call carries strictly more of the ranked material.
+		const delta = "> Narrowed the failure window again: "
+		require.Greater(t, strings.Count(got.Text, delta), strings.Count(stopped.Text, delta),
+			"a named budget must not be min-filled, so it carries strictly fewer re-admitted deltas")
+		requireMinFillShape(t, got, stopped)
+	})
+}
+
+// requireMinFillShape is what min-fill must leave behind in either regime: whatever it re-admitted
+// is off the drop report rather than merely rendered — a payload that injects a unit AND reports it
+// dropped is telling the agent two different things.
+func requireMinFillShape(t *testing.T, got, stopped Result) {
+	t.Helper()
 	for _, e := range got.Dropped {
 		if e.Kind == dropKindUserIntentEvolution {
 			continue
 		}
-		require.NotContains(t, rendered, e.ID)
+		require.NotContains(t, got.Text, e.ID)
 	}
-	require.Less(t, len(got.Dropped), len(stopped.Dropped),
-		"re-admitted units must leave the drop report")
+	require.Less(t, len(got.Dropped), len(stopped.Dropped), "re-admitted units must leave the drop report")
 }
 
 // TestBuild_LatestEvolutionSurvivesTruncation is the current-authority rule item 2 must obey.

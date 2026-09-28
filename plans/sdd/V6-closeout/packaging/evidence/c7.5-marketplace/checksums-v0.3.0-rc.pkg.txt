@@ -1,0 +1,6 @@
+f9d9699881b0f7cc8b488771f3c46268d7e919046a589fb3749b9b44a7cb00b6  qompack-plugin-0.3.0-rc.pkg-darwin-amd64.zip
+ceff848894c8cb5fafc5e212c22dc73be9d3fe8fadb8e8c615d00e82a2b5f1a1  qompack-plugin-0.3.0-rc.pkg-darwin-arm64.zip
+896c96a933a8ee24baee3005804c9fcdea86cbbcbdf33fd620f69b386656cee0  qompack-plugin-0.3.0-rc.pkg-linux-amd64.zip
+8c1eaa4727ec06e295195f7130272ae6552e12113463b4ffecb084afda2e15cf  qompack-plugin-0.3.0-rc.pkg-linux-arm64.zip
+b203bdae873ad12d28c48007094e6f01cd669a0462cb2712752979223878b13d  qompack-plugin-0.3.0-rc.pkg-windows-amd64.zip
+41ff95e0fd548546316db23ba11bb63ade04f7e8396147b40e06792496c161ef  qompack-plugin-0.3.0-rc.pkg-windows-arm64.zip

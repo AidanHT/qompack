@@ -1,0 +1,55 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1543,
+   "failed": [],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/internal/observer": {
+   "result": "pass",
+   "passed": 564,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/rehydrate": {
+   "result": "pass",
+   "passed": 201,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/store": {
+   "result": "pass",
+   "passed": 873,
+   "failed": [],
+   "skipped": [
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/backslashes_become_slashes",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/mixed_separators_and_..",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/windows_absolute",
+    "TestRenameObject_ContentionIsRetriedThenReported"
+   ]
+  },
+  "github.com/qompack/qompack/internal/ipc": {
+   "result": "pass",
+   "passed": 152,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "fail",
+   "passed": 193,
+   "failed": [
+    "TestCarriedDefects_WaveReportRequiresResolution/SP06-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP10-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP09-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

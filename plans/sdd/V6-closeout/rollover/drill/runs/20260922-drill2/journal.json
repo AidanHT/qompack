@@ -1,0 +1,1241 @@
+{
+  "meta": {
+    "run_id": "20260922-drill2",
+    "started_at": "2026-09-22T20:23:18.023639-04:00",
+    "identity": {
+      "container": "qompack-v6-linux-verification",
+      "commit": "8509447f0230fdca4afec70a63c05cfa1c1907c3",
+      "platform": "Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux\nuid=0(root) gid=0(root) groups=0(root)\ngo version go1.26.6 linux/amd64\n",
+      "old_sha256": "8cb4c0bcc3b98626a625cf0cf53898bab4316effd3d41820f85c3f38fa096bd0",
+      "old_sha_match": true,
+      "old_version": "v0.2.0-640-g301a8e9",
+      "old_version_match": true,
+      "old_source_has_segments": false,
+      "old_source_has_v2_seal_reader": true,
+      "cur_version": "drill-cur-8509447f0230",
+      "cur_sha256": "a81ff22f52e5f04c698a023ad1f96a57511ac93c533ffab922fca49cb9bc54c5",
+      "producer_version": "drill-producer-8509447f0230",
+      "producer_sha256": "6d3485d4428c7ff0839cb51fdd8d71a631abc1461e17685d303d5a81c716c0aa"
+    },
+    "finished_at": "2026-09-22T20:30:22.526664-04:00",
+    "drill_root_in_container": "/work/cx-rollover-drill-20260922-drill2"
+  },
+  "steps": [
+    {
+      "seq": 1,
+      "name": "build",
+      "argv": [
+        "(build cur + producer)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 322,
+      "stderr_bytes": 1160,
+      "note": "",
+      "at": "2026-09-22T20:23:49.872813-04:00"
+    },
+    {
+      "seq": 2,
+      "name": "control-session-start",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "session-start"
+      ],
+      "exit": 0,
+      "stdout_bytes": 140,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:00.322227-04:00"
+    },
+    {
+      "seq": 3,
+      "name": "control-daemon-up",
+      "argv": [
+        "(wait lock)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5,
+      "stderr_bytes": 0,
+      "note": "pid=33334",
+      "at": "2026-09-22T20:24:01.900574-04:00"
+    },
+    {
+      "seq": 4,
+      "name": "control-observe-toolu_drill_00",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:02.317855-04:00"
+    },
+    {
+      "seq": 5,
+      "name": "control-observe-toolu_drill_01",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:02.792117-04:00"
+    },
+    {
+      "seq": 6,
+      "name": "control-observe-toolu_drill_02",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:03.293584-04:00"
+    },
+    {
+      "seq": 7,
+      "name": "control-observe-toolu_drill_03",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:03.593559-04:00"
+    },
+    {
+      "seq": 8,
+      "name": "control-observe-toolu_drill_04",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:03.840635-04:00"
+    },
+    {
+      "seq": 9,
+      "name": "control-observe-toolu_drill_05",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:04.235830-04:00"
+    },
+    {
+      "seq": 10,
+      "name": "control-observe-toolu_drill_06",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:04.516425-04:00"
+    },
+    {
+      "seq": 11,
+      "name": "control-observe-toolu_drill_07",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:04.873892-04:00"
+    },
+    {
+      "seq": 12,
+      "name": "control-observe-toolu_drill_08",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:05.186015-04:00"
+    },
+    {
+      "seq": 13,
+      "name": "control-observe-toolu_drill_09",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:24:05.508008-04:00"
+    },
+    {
+      "seq": 14,
+      "name": "control-indexed",
+      "argv": [
+        "(wait index)"
+      ],
+      "exit": 1,
+      "stdout_bytes": 11,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:06.131299-04:00"
+    },
+    {
+      "seq": 15,
+      "name": "control-flush",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "flush"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:21.742433-04:00"
+    },
+    {
+      "seq": 16,
+      "name": "stop-control",
+      "argv": [
+        "kill",
+        "-TERM",
+        "33334"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "at": "2026-09-22T20:26:27.571988-04:00"
+    },
+    {
+      "seq": 17,
+      "name": "producer-session-start",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "session-start"
+      ],
+      "exit": 0,
+      "stdout_bytes": 140,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:28.830159-04:00"
+    },
+    {
+      "seq": 18,
+      "name": "producer-daemon-up",
+      "argv": [
+        "(wait lock)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5,
+      "stderr_bytes": 0,
+      "note": "pid=35551",
+      "at": "2026-09-22T20:26:29.300904-04:00"
+    },
+    {
+      "seq": 19,
+      "name": "producer-observe-toolu_drill_00",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:29.605416-04:00"
+    },
+    {
+      "seq": 20,
+      "name": "producer-observe-toolu_drill_01",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:29.823428-04:00"
+    },
+    {
+      "seq": 21,
+      "name": "producer-observe-toolu_drill_02",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:30.031008-04:00"
+    },
+    {
+      "seq": 22,
+      "name": "producer-observe-toolu_drill_03",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:30.269524-04:00"
+    },
+    {
+      "seq": 23,
+      "name": "producer-observe-toolu_drill_04",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:30.528805-04:00"
+    },
+    {
+      "seq": 24,
+      "name": "producer-observe-toolu_drill_05",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:30.939764-04:00"
+    },
+    {
+      "seq": 25,
+      "name": "producer-observe-toolu_drill_06",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:31.229876-04:00"
+    },
+    {
+      "seq": 26,
+      "name": "producer-observe-toolu_drill_07",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:31.488716-04:00"
+    },
+    {
+      "seq": 27,
+      "name": "producer-observe-toolu_drill_08",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:31.756301-04:00"
+    },
+    {
+      "seq": 28,
+      "name": "producer-observe-toolu_drill_09",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:26:32.264762-04:00"
+    },
+    {
+      "seq": 29,
+      "name": "producer-indexed",
+      "argv": [
+        "(wait index)"
+      ],
+      "exit": 1,
+      "stdout_bytes": 11,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:28:32.821402-04:00"
+    },
+    {
+      "seq": 30,
+      "name": "producer-flush",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/producer",
+        "flush"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:28:48.147096-04:00"
+    },
+    {
+      "seq": 31,
+      "name": "stop-producer",
+      "argv": [
+        "kill",
+        "-TERM",
+        "35551"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "at": "2026-09-22T20:28:56.972664-04:00"
+    },
+    {
+      "seq": 32,
+      "name": "cur-A-fsck",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "fsck",
+        "--project",
+        "/work/cx-rollover-drill-20260922-drill2/projectA",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 4056,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:28:59.263865-04:00",
+      "saved": "cur-A-fsck.json"
+    },
+    {
+      "seq": 33,
+      "name": "cur-A-fsck-seal",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "fsck",
+        "--project",
+        "/work/cx-rollover-drill-20260922-drill2/projectA",
+        "--json",
+        "--seal-check"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3902,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:28:59.804106-04:00",
+      "saved": "cur-A-fsck-seal.json"
+    },
+    {
+      "seq": 34,
+      "name": "cur-A-recall",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "recall",
+        "QOMPACK-DRILL-HISTORY-00-5c1e",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 860,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:10.274535-04:00"
+    },
+    {
+      "seq": 35,
+      "name": "stop-cur-A-recall",
+      "argv": [
+        "kill",
+        "-TERM",
+        "37026"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "at": "2026-09-22T20:29:13.318761-04:00"
+    },
+    {
+      "seq": 36,
+      "name": "cur-backup-create",
+      "argv": [
+        "backup",
+        "create",
+        "--id",
+        "rotated"
+      ],
+      "exit": 0,
+      "stdout_bytes": 16267,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:20.510154-04:00",
+      "saved": "backup-create.json"
+    },
+    {
+      "seq": 37,
+      "name": "cur-backup-verify",
+      "argv": [
+        "backup",
+        "verify",
+        "--id",
+        "rotated"
+      ],
+      "exit": 0,
+      "stdout_bytes": 16267,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:21.873611-04:00",
+      "saved": "backup-verify.json"
+    },
+    {
+      "seq": 38,
+      "name": "cur-backup-restore",
+      "argv": [
+        "backup",
+        "restore",
+        "--id",
+        "rotated",
+        "--destination",
+        "restored"
+      ],
+      "exit": 1,
+      "stdout_bytes": 3435,
+      "stderr_bytes": 115,
+      "note": "",
+      "at": "2026-09-22T20:29:29.147037-04:00",
+      "saved": "backup-restore.json"
+    },
+    {
+      "seq": 39,
+      "name": "cur-restored-before-restart-fsck-seal",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "fsck",
+        "--project",
+        "/work/cx-rollover-drill-20260922-drill2/restored",
+        "--json",
+        "--seal-check"
+      ],
+      "exit": 1,
+      "stdout_bytes": 4031,
+      "stderr_bytes": 57,
+      "note": "",
+      "at": "2026-09-22T20:29:30.404620-04:00",
+      "saved": "cur-restored-before-restart-fsck-seal.json"
+    },
+    {
+      "seq": 40,
+      "name": "cur-restored-new-session-start",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "session-start"
+      ],
+      "exit": 0,
+      "stdout_bytes": 140,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:31.491018-04:00"
+    },
+    {
+      "seq": 41,
+      "name": "cur-restored-new-daemon-up",
+      "argv": [
+        "(wait lock)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5,
+      "stderr_bytes": 0,
+      "note": "pid=37217",
+      "at": "2026-09-22T20:29:32.020042-04:00"
+    },
+    {
+      "seq": 42,
+      "name": "cur-restored-new-observe-toolu_drill_restored_new",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:32.340306-04:00"
+    },
+    {
+      "seq": 43,
+      "name": "cur-restored-new-indexed",
+      "argv": [
+        "(wait index)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 7,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:34.471048-04:00"
+    },
+    {
+      "seq": 44,
+      "name": "cur-restored-new-flush",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "flush"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:37.719132-04:00"
+    },
+    {
+      "seq": 45,
+      "name": "stop-cur-restored-new",
+      "argv": [
+        "kill",
+        "-TERM",
+        "37217"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "at": "2026-09-22T20:29:40.250591-04:00"
+    },
+    {
+      "seq": 46,
+      "name": "cur-restored-hist-session-start",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "session-start"
+      ],
+      "exit": 0,
+      "stdout_bytes": 140,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:41.728138-04:00"
+    },
+    {
+      "seq": 47,
+      "name": "cur-restored-hist-daemon-up",
+      "argv": [
+        "(wait lock)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5,
+      "stderr_bytes": 0,
+      "note": "pid=37338",
+      "at": "2026-09-22T20:29:42.546701-04:00"
+    },
+    {
+      "seq": 48,
+      "name": "cur-restored-hist-observe-toolu_drill_restored_hist",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:42.917093-04:00"
+    },
+    {
+      "seq": 49,
+      "name": "cur-restored-hist-indexed",
+      "argv": [
+        "(wait index)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 7,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:44.050292-04:00"
+    },
+    {
+      "seq": 50,
+      "name": "cur-restored-hist-flush",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "flush"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:47.130874-04:00"
+    },
+    {
+      "seq": 51,
+      "name": "stop-cur-restored-hist",
+      "argv": [
+        "kill",
+        "-TERM",
+        "37338"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "at": "2026-09-22T20:29:49.573298-04:00"
+    },
+    {
+      "seq": 52,
+      "name": "cur-restored-after-restart-fsck-seal",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "fsck",
+        "--project",
+        "/work/cx-rollover-drill-20260922-drill2/restored",
+        "--json",
+        "--seal-check"
+      ],
+      "exit": 1,
+      "stdout_bytes": 4368,
+      "stderr_bytes": 57,
+      "note": "",
+      "at": "2026-09-22T20:29:50.248082-04:00",
+      "saved": "cur-restored-after-restart-fsck-seal.json"
+    },
+    {
+      "seq": 53,
+      "name": "cur-restored-recall",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "recall",
+        "QOMPACK-DRILL-HISTORY-00-5c1e",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout_bytes": 859,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:51.303430-04:00"
+    },
+    {
+      "seq": 54,
+      "name": "stop-cur-restored-recall",
+      "argv": [
+        "kill",
+        "-TERM",
+        "37486"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "at": "2026-09-22T20:29:53.721469-04:00"
+    },
+    {
+      "seq": 55,
+      "name": "copy-for-old",
+      "argv": [
+        "cp",
+        "-a",
+        "projectA",
+        "oldcopy"
+      ],
+      "exit": 0,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:54.483641-04:00"
+    },
+    {
+      "seq": 56,
+      "name": "old-fsck",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "fsck",
+        "--project",
+        "/work/cx-rollover-drill-20260922-drill2/oldcopy",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout_bytes": 3701,
+      "stderr_bytes": 57,
+      "note": "",
+      "at": "2026-09-22T20:29:55.682392-04:00",
+      "saved": "old-fsck.json"
+    },
+    {
+      "seq": 57,
+      "name": "old-delivery-seal-check",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "admin",
+        "delivery-seal",
+        "--check"
+      ],
+      "exit": 1,
+      "stdout_bytes": 63,
+      "stderr_bytes": 261,
+      "note": "",
+      "at": "2026-09-22T20:29:56.206500-04:00"
+    },
+    {
+      "seq": 58,
+      "name": "old-session-start",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "session-start"
+      ],
+      "exit": 0,
+      "stdout_bytes": 140,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:57.998129-04:00"
+    },
+    {
+      "seq": 59,
+      "name": "old-daemon-up",
+      "argv": [
+        "(wait lock)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5,
+      "stderr_bytes": 0,
+      "note": "pid=37692",
+      "at": "2026-09-22T20:29:58.892571-04:00"
+    },
+    {
+      "seq": 60,
+      "name": "old-observe-toolu_drill_old",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:29:59.721990-04:00"
+    },
+    {
+      "seq": 61,
+      "name": "old-indexed",
+      "argv": [
+        "(wait index)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 7,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:30:00.185205-04:00"
+    },
+    {
+      "seq": 62,
+      "name": "old-flush",
+      "argv": [
+        "/work/compat-old-linux-301a8e9",
+        "flush"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:30:03.791216-04:00"
+    },
+    {
+      "seq": 63,
+      "name": "stop-old",
+      "argv": [
+        "kill",
+        "-TERM",
+        "37692"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "at": "2026-09-22T20:30:05.147839-04:00"
+    },
+    {
+      "seq": 64,
+      "name": "cur-oldcopy-fsck-seal",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "fsck",
+        "--project",
+        "/work/cx-rollover-drill-20260922-drill2/oldcopy",
+        "--json",
+        "--seal-check"
+      ],
+      "exit": 1,
+      "stdout_bytes": 4366,
+      "stderr_bytes": 57,
+      "note": "",
+      "at": "2026-09-22T20:30:06.444799-04:00",
+      "saved": "cur-oldcopy-fsck-seal.json"
+    },
+    {
+      "seq": 65,
+      "name": "cur-oldcopy-session-start",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "session-start"
+      ],
+      "exit": 0,
+      "stdout_bytes": 140,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:30:07.663411-04:00"
+    },
+    {
+      "seq": 66,
+      "name": "cur-oldcopy-daemon-up",
+      "argv": [
+        "(wait lock)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 5,
+      "stderr_bytes": 0,
+      "note": "pid=37947",
+      "at": "2026-09-22T20:30:08.830051-04:00"
+    },
+    {
+      "seq": 67,
+      "name": "cur-oldcopy-observe-toolu_drill_after_old",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "observe",
+        "tool"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:30:09.333575-04:00"
+    },
+    {
+      "seq": 68,
+      "name": "cur-oldcopy-indexed",
+      "argv": [
+        "(wait index)"
+      ],
+      "exit": 0,
+      "stdout_bytes": 7,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:30:11.071594-04:00"
+    },
+    {
+      "seq": 69,
+      "name": "cur-oldcopy-flush",
+      "argv": [
+        "/work/cx-rollover-drill-20260922-drill2/cur",
+        "flush"
+      ],
+      "exit": 0,
+      "stdout_bytes": 3,
+      "stderr_bytes": 0,
+      "note": "",
+      "at": "2026-09-22T20:30:14.444736-04:00"
+    },
+    {
+      "seq": 70,
+      "name": "stop-cur-oldcopy",
+      "argv": [
+        "kill",
+        "-TERM",
+        "37947"
+      ],
+      "exit": 0,
+      "stdout_bytes": 21,
+      "stderr_bytes": 0,
+      "note": "SIGTERM; lock cleared",
+      "at": "2026-09-22T20:30:18.259755-04:00"
+    }
+  ],
+  "verdicts": {
+    "fixture_rotated": {
+      "status": "PROVEN",
+      "detail": "a real (threshold-patched) daemon leased every delivery with dense arrivals across several rotations, and froze the archived legacy segment's seals",
+      "evidence": {
+        "active_segment": 4,
+        "lease_files": [
+          "delivery-leases.jsonl",
+          "delivery-segments/00000000000000000001/delivery-leases.jsonl",
+          "delivery-segments/00000000000000000002/delivery-leases.jsonl",
+          "delivery-segments/00000000000000000003/delivery-leases.jsonl"
+        ],
+        "history_leases": 10,
+        "dense": true,
+        "frozen_legacy_seal": "{\"format\":\"qompack.delivery.frozen-seal.v1\",\"segment\":0,\"bytes\":912,\"count\":3,\"chain\":\"sha256:355cc835b0c12304806b86f133a443e8d7cc96f277273007df31d6472da60fcb\"}"
+      }
+    },
+    "capture_through_rotation": {
+      "status": "FAILED",
+      "detail": "the rotating producer indexed at least what the non-rotating control indexed from the same hook flow (both are recorded; a shortfall in both is the base's, not the rollover's)",
+      "evidence": {
+        "producer_indexed": [
+          "toolu_drill_00",
+          "toolu_drill_01",
+          "toolu_drill_02",
+          "toolu_drill_04",
+          "toolu_drill_05",
+          "toolu_drill_06",
+          "toolu_drill_08",
+          "toolu_drill_09"
+        ],
+        "control_indexed": [
+          "toolu_drill_00",
+          "toolu_drill_01",
+          "toolu_drill_02",
+          "toolu_drill_03",
+          "toolu_drill_04",
+          "toolu_drill_05",
+          "toolu_drill_06",
+          "toolu_drill_07",
+          "toolu_drill_08",
+          "toolu_drill_09"
+        ],
+        "producer_wait_all_indexed": false,
+        "control_leases": 11,
+        "control_dense": true
+      }
+    },
+    "current_certifies_rotated_store": {
+      "status": "PROVEN",
+      "detail": "cur fsck (read-only and --seal-check) certifies the rotated store; recall finds the history",
+      "evidence": {
+        "fsck_exit": 0,
+        "fsck_seal_exit": 0,
+        "delivery_row": {
+          "id": "delivery",
+          "ok": true,
+          "severity": 0,
+          "scanned": 3,
+          "count": 0,
+          "detail": [
+            "state/delivery-lease-position.json is the frozen seal of the archived legacy segment (3 entries, 912 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "state/delivery-ack-position.json is the frozen seal of the archived legacy segment (0 entries, 0 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project"
+          ]
+        },
+        "delivery_row_seal": {
+          "id": "delivery",
+          "ok": true,
+          "severity": 0,
+          "scanned": 3,
+          "count": 0,
+          "detail": [
+            "state/delivery-lease-position.json is the frozen seal of the archived legacy segment (3 entries, 912 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "state/delivery-ack-position.json is the frozen seal of the archived legacy segment (0 entries, 0 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "the full dual-reader seal check passed"
+          ]
+        },
+        "recall_found": true,
+        "fsck_changed_delivery_state": {
+          "added": [
+            "state/delivery-generations/pages/4c/4c048c8531b7e13b26b55c4865e778b5473b8dc893a727b978f3a9862a9afe96.root",
+            "state/delivery-generations/pages/b4/b49616f98b6ffee5f38b64273d22b7bbacf54b841ecbe68cc7ef9018dda29a07.root",
+            "state/delivery-generations/pages/d3/d3244eb488f4a4c580f5d29821a9f4b5d8a26c012b2b78a1a980d7b7d48172dc.root",
+            "state/delivery-generations/pages/packs/309993cceea5027f.pack",
+            "state/delivery-generations/pages/packs/43ae92179f347704.pack",
+            "state/delivery-generations/pages/packs/9c317a59f65af1da.pack"
+          ],
+          "removed": [],
+          "changed": [
+            "state/delivery-generations/manifest-head.json",
+            "state/delivery-generations/manifest.jsonl",
+            "state/delivery-segments/00000000000000000004/delivery-ack-position.json",
+            "state/delivery-segments/00000000000000000004/delivery-acks.jsonl",
+            "state/delivery-segments/00000000000000000004/delivery-lease-position.json",
+            "state/delivery-segments/00000000000000000004/delivery-leases.jsonl"
+          ]
+        }
+      }
+    },
+    "backup_restore_segmented": {
+      "status": "FAILED",
+      "detail": "backup create/verify/restore of the rotated store; the restored copy certifies, restarts, and continues identities densely; the archived history is preserved byte for byte",
+      "evidence": {
+        "create": true,
+        "verify": true,
+        "restore": false,
+        "restored_delivery_state_identical": true,
+        "manifest_covers_every_delivery_file": true,
+        "uncovered": [],
+        "fsck_seal_before_restart": {
+          "id": "delivery",
+          "ok": true,
+          "severity": 0,
+          "scanned": 3,
+          "count": 0,
+          "detail": [
+            "state/delivery-lease-position.json is the frozen seal of the archived legacy segment (3 entries, 912 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "state/delivery-ack-position.json is the frozen seal of the archived legacy segment (0 entries, 0 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "the full dual-reader seal check passed"
+          ]
+        },
+        "fsck_seal_after_restart": {
+          "id": "delivery",
+          "ok": true,
+          "severity": 0,
+          "scanned": 3,
+          "count": 0,
+          "detail": [
+            "state/delivery-lease-position.json is the frozen seal of the archived legacy segment (3 entries, 912 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "state/delivery-ack-position.json is the frozen seal of the archived legacy segment (0 entries, 0 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "the full dual-reader seal check passed"
+          ]
+        },
+        "new_session_arrival": 1,
+        "history_arrival_after_restart": 12,
+        "history_arrival_before": 10,
+        "recall_history_after_restore": true,
+        "restart_sessions_indexed": [
+          true,
+          true
+        ],
+        "dense_after_restart": [
+          true,
+          true
+        ],
+        "earlier_segments_untouched_by_restart": true
+      }
+    },
+    "old_reader_refuses_or_degrades_safely": {
+      "status": "PROVEN",
+      "detail": "the pre-segment 301a8e9 build, run against a rotated store, changed no delivery-state file: no identity re-minted, no arrival reassigned, no evidence truncated",
+      "evidence": {
+        "old_fsck_exit": 1,
+        "old_fsck_delivery_row": {
+          "id": "delivery",
+          "ok": false,
+          "severity": 1,
+          "scanned": 3,
+          "count": 2,
+          "detail": [
+            "state/delivery-lease-position.json parses as JSON and carries no version",
+            "state/delivery-ack-position.json parses as JSON and carries no version",
+            "the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project"
+          ]
+        },
+        "old_delivery_seal_check_exit": 1,
+        "old_hook_session_indexed": true,
+        "delivery_state_delta": {
+          "added": [],
+          "removed": [],
+          "changed": []
+        },
+        "whole_store_delta": {
+          "added": [
+            "objects/10/ca/10ca8aaec01775f73f22dd7ccf2c1ab5decc2e2c3cd4cf5779d63adf2a1bf033.zst",
+            "objects/a3/38/a338d2fba1a4d08f507f8fa917b51a02cfbf45637b639535cf384ea5b31b76aa.zst"
+          ],
+          "removed": [
+            "objects/f1/74/f174a31ee8b6904665710641765a1ba0cce1cbbc6ca7c0a82863760b6a925f2c.zst"
+          ],
+          "changed": [
+            "dag/deps.jsonl",
+            "index/files.json",
+            "index/files.jsonl",
+            "index/roots.jsonl",
+            "index/segments.jsonl",
+            "index/sessions.jsonl",
+            "index/tool_use.jsonl",
+            "logs/qompack-20260923.log",
+            "metrics/latency.json",
+            "run/marker.json",
+            "sketches/explore.hll",
+            "sketches/touch.cms",
+            "state/bocd.json",
+            "state/chunktokens.bin",
+            "state/gc-live.bin",
+            "state/history.json",
+            "state/observations.json",
+            "state/observer.json",
+            "state/scheduler.json",
+            "state/session-recovery.json",
+            "state/store.json"
+          ]
+        }
+      }
+    },
+    "current_continues_after_old_binary": {
+      "status": "PROVEN",
+      "detail": "after the old build ran, cur certifies the copy and resumes the history's arrivals at the one the producer left next (the old build consumed none); input the old build refused and retained is leased by cur, densely",
+      "evidence": {
+        "fsck_seal": {
+          "id": "delivery",
+          "ok": true,
+          "severity": 0,
+          "scanned": 3,
+          "count": 0,
+          "detail": [
+            "state/delivery-lease-position.json is the frozen seal of the archived legacy segment (3 entries, 912 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "state/delivery-ack-position.json is the frozen seal of the archived legacy segment (0 entries, 0 bytes); the store has rotated to segment 4, whose journals --seal-check reads",
+            "the full dual-reader seal check passed"
+          ]
+        },
+        "history_arrival_before": 10,
+        "history_arrival_after": 12,
+        "dense": true,
+        "leased_after_old": [
+          [
+            "sess-drill-history",
+            11
+          ],
+          [
+            "sess-drill-history",
+            12
+          ]
+        ],
+        "cur_session_indexed": true
+      }
+    }
+  }
+}

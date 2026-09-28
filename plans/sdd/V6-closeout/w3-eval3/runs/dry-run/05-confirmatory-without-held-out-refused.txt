@@ -1,0 +1,8 @@
+$ env -u QOMPACK_LIVE_EVAL go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks-v2.json --arms stock,qompack --install plugin-dir --bundle dist/live-bundle-eval3/qompack-plugin-0.3.0-eval3.dryrun-windows-amd64 --known-open-defects none --max-sessions 40 --confirmatory --dry-run
+live-eval: run 20260926T022538Z-2a9730: 28 trial(s) of task set qompack-live-v2 (d59dc09d15ed, fixture tree a5f57b1e2045) on claude-sonnet-5, arms stock,qompack, install plugin-dir
+live-eval: known open defects: none (the operator, by live-eval --known-open-defects when the run was planned; preregistration section 9)
+live-eval: bundle 0.3.0-eval3.dryrun at commit b8916388fc9dcebecf524b851b324becd94068f7 (dirty=false), BUNDLE.json sha256 0d4018b2ac0e77f39bc72c9cda802620d41bf12367596cb1aa38cb7b4232418c, at C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w3-eval3\dist\live-bundle-eval3\qompack-plugin-0.3.0-eval3.dryrun-windows-amd64
+live-eval: not the confirmatory design: it excluded the held-out tasks; it planned 7 of the task set's 10 tasks
+devtool: live-eval: live-eval: --confirmatory: this plan is not the pre-registered confirmatory design (plans/sdd/V6-closeout/eval/preregistration.md), so no session is planned: it excluded the held-out tasks; it planned 7 of the task set's 10 tasks
+exit status 1
+exit=1

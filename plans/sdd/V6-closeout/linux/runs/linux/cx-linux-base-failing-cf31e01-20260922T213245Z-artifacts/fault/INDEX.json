@@ -1,0 +1,22 @@
+{
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "794ba99a393e26ee1c4f8481d30a84c53025a0e22f62ab70ff73ec0047456136"
+  },
+  "records": [
+    "child_hook_stdin_eof",
+    "child_hook_stdin_garbage",
+    "child_subagent_stop_without_result",
+    "lifecycle_duplicate_tool_use",
+    "lifecycle_frontier_state_is_explicit",
+    "lifecycle_out_of_order_sessionend",
+    "v6_backup_corrupt_or_unknown_schema_refused",
+    "v6_backup_refuses_live_writer_and_target_conflict",
+    "v6_backup_roundtrip_preserves_source"
+  ]
+}

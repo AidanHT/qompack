@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_duplicate_precompact",
+  "phase": "lifecycle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "boundary": "the same PreCompact delivered twice",
+  "seed_method": "the identical PreCompact payload delivered twice",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:29 roots:23 sidecars:46 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:49 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

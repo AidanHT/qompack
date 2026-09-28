@@ -1,0 +1,35 @@
+# bundled binary (dist/live-bundle-fix/qompack-plugin-0.3.0-eval2fix.dryrun-windows-amd64/bin/qompack.exe) at b22a075
+## qompack eval --corpus <the committed pilot1 run> (text)
+eval: INCONCLUSIVE
+replay: none read; the live run below is the whole evaluation
+
+task outcomes
+  LIVE-T01 task success after compaction, qompack − stock (margin not recorded in this summary) not measured  not judged
+  LIVE-T02 constraint-clean trials, qompack − stock (regression rule) not measured  not judged
+
+evidence recovery
+  LIVE-R01 pre-compaction facts recovered, qompack − stock not measured  not judged
+
+cost — reported separately; it does not decide the verdict
+  unavailable: no request ledger was recorded for this run
+
+historical diagnostics — retained, not decisive
+  (none reported)
+
+live evaluation — agent-executed on the real installed host (owner decision D3); not human UAT
+  run 20260922T224730Z-9849a5 (created 2026-09-22T22:47:30Z), read from C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w2-eval2\plans\sdd\V6-closeout\eval\runs\pilot1-plugin-dir
+  model claude-haiku-4-5-20251001 (pre-registered claude-haiku-4-5-20251001), host reported not recorded, Claude Code 2.1.280 on windows/amd64, plugin install plugin-dir
+  bundle 0.3.0-live.pilot at commit 251ec8b1386ac384f0100149df193095d8857abd (dirty=false)
+  known open defects (preregistration section 9): not attested: the plan carries no statement of the bundle's known open defects
+  task set qompack-live-pilot-v1 (sha256 4da30ddf165a…, fixture tree unknown)
+  confirmatory: no — its task set qompack-live-pilot-v1 has no pre-registration; it did not run both arms (arms: qompack); it excluded the held-out tasks; its plan does not record the task set's size, so a narrowed run cannot be ruled out
+  sample: 1 task(s) × 1 trial(s) per arm; 1 planned, 1 ran, 0 skipped, 0 failed
+  arm      trials  task success (95% CI)        constraint-clean (95% CI)    recovery (95% CI)           
+  qompack       1  1/1 = 1.00 [0.21, 1.00]      1/1 = 1.00 [0.21, 1.00]      1/1 = 1.00 [0.21, 1.00]     
+  decision (pre-registered rule): not-applicable — both arms are needed for a comparison
+  cost — list-price-equivalent ESTIMATE from the 2026-09-22 rate table, beside the host's own total_cost_usd; the sessions ran on a subscription, which has no per-token charge
+    qompack  mean estimate 45181 micros (1 of 1 trial(s) a lower bound), mean host-reported 0.0454 USD, mean wall 72895 ms
+  note: 1 of 1 qompack trial(s) ran with a hook failure the host reported; they are counted, not dropped, and each trial record names the failure
+
+note: no Qompack replay score was read; only the live run is reported
+exit=0

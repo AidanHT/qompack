@@ -1,0 +1,68 @@
+### temporary product mutation B1 (runs/mutate_b.py.txt), reverted with git checkout -- internal/observer after the run
+ internal/observer/tooluse.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+--- PASS: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.34s)
+=== RUN   TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable
+    observer_atomic_publication_test.go:350: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/daemon/observer_atomic_publication_test.go:350
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable
+        	Messages:   	a non-declaring store gets the observer's own pass before the write, and the fault is the write
+--- FAIL: TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable (0.45s)
+=== RUN   TestObserverDurablePublisherFailureRemainsDrainRetryable
+--- PASS: TestObserverDurablePublisherFailureRemainsDrainRetryable (0.61s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.800s
+FAIL
+exit=1 (mutation B1)
+### temporary product mutation B2 (runs/mutate_b.py.txt), reverted with git checkout -- internal/observer after the run
+ internal/observer/identity.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+--- PASS: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.37s)
+=== RUN   TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable
+    observer_atomic_publication_test.go:383: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/daemon/observer_atomic_publication_test.go:383
+        	Error:      	Not equal: 
+        	            	expected: 5
+        	            	actual  : 4
+        	Test:       	TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable
+        	Messages:   	the retry is a fresh publication on the non-declaring branch: the observer's pass before the write, the store's two barriers, and the observer's pass after it
+--- FAIL: TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable (0.54s)
+=== RUN   TestObserverDurablePublisherFailureRemainsDrainRetryable
+--- PASS: TestObserverDurablePublisherFailureRemainsDrainRetryable (0.44s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.820s
+FAIL
+exit=1 (mutation B2)
+### temporary product mutation B3 (runs/mutate_b.py.txt), reverted with git checkout -- internal/observer after the run
+ internal/observer/tooluse.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+    observer_atomic_publication_test.go:190: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/daemon/observer_atomic_publication_test.go:190
+        	Error:      	Should be false
+        	Test:       	TestObserverAtomicPublicationFailureRemainsDrainRetryable
+        	Messages:   	an unpublished observation must NAK so its WAL line is retryable
+--- FAIL: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.10s)
+=== RUN   TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable
+    observer_atomic_publication_test.go:347: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/daemon/observer_atomic_publication_test.go:347
+        	Error:      	Should be false
+        	Test:       	TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable
+        	Messages:   	an unpublished observation must NAK so its WAL line is retryable
+--- FAIL: TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable (0.50s)
+=== RUN   TestObserverDurablePublisherFailureRemainsDrainRetryable
+    observer_durable_publication_test.go:195: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/internal/daemon/observer_durable_publication_test.go:195
+        	Error:      	Should be false
+        	Test:       	TestObserverDurablePublisherFailureRemainsDrainRetryable
+        	Messages:   	an unpublished observation must NAK so its WAL line is retryable
+--- FAIL: TestObserverDurablePublisherFailureRemainsDrainRetryable (0.41s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.476s
+FAIL
+exit=1 (mutation B3)

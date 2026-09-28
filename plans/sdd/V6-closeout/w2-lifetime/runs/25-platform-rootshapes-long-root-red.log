@@ -1,0 +1,33 @@
+# Fix seat, 2026-09-25, Windows 11, co-loaded by the other wave-2 lanes. At 8c8eabd (implementer head):
+# go test ./test/platform/ -run '^TestPlatform_ProjectRootShapes$' -count=1 -v -timeout=30m
+# The long-root case fails: buildSpawnCommand set cmd.Dir = projectRoot (938dd9f), and CreateProcess
+# cannot start a process in a working directory past MAX_PATH, so session-start never brought a daemon up.
+=== RUN   TestPlatform_ProjectRootShapes
+=== RUN   TestPlatform_ProjectRootShapes/plain
+    paths_test.go:58: platform path-root-plain: verified — an ordinary ASCII project root (the control)
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-4223825263\\plain-project" (75 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-4223825263\plain-project\.qompack exists; daemon reachable at \\.\pipe\qompack.f5233d839fd7; admin.ping answered (mode=full hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-4223825263\plain-project\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-4223825263\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesplain438664305\001\path-root-plain.json
+=== RUN   TestPlatform_ProjectRootShapes/spaces
+    paths_test.go:58: platform path-root-spaces: verified — a project root containing spaces
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-379472558\\my proj ect" (72 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-379472558\my proj ect\.qompack exists; daemon reachable at \\.\pipe\qompack.a1f7441d99c1; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-379472558\my proj ect\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-379472558\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesspaces1888273154\001\path-root-spaces.json
+=== RUN   TestPlatform_ProjectRootShapes/unicode
+    paths_test.go:58: platform path-root-unicode: verified — a project root containing non-ASCII characters
+          detail:   root="C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1157921380\\prøjekt-日本-ünï" (83 chars); six hooks exit 0 with parseable hookio.Output; C:\Users\Quant\AppData\Local\Temp\qompack-platform-1157921380\prøjekt-日本-ünï\.qompack exists; daemon reachable at \\.\pipe\qompack.62468b036de9; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\Users\Quant\AppData\Local\Temp\qompack-platform-1157921380\prøjekt-日本-ünï\.qompack\ C:\Users\Quant\AppData\Local\Temp\qompack-platform-1157921380\home\.qompack\]
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestPlatform_ProjectRootShapesunicode2932418051\001\path-root-unicode.json
+=== RUN   TestPlatform_ProjectRootShapes/long
+    paths_test.go:58: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/test/platform/paths_test.go:106
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/test/platform/paths_test.go:58
+        	Error:      	Should be true
+        	Test:       	TestPlatform_ProjectRootShapes/long
+        	Messages:   	a daemon must answer \\.\pipe\qompack.a546a8d954ba within 1m0s for root "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-4125863177\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd\\ddddddddddddddddddddddddd"
+--- FAIL: TestPlatform_ProjectRootShapes (85.62s)
+    --- PASS: TestPlatform_ProjectRootShapes/plain (8.39s)
+    --- PASS: TestPlatform_ProjectRootShapes/spaces (4.83s)
+    --- PASS: TestPlatform_ProjectRootShapes/unicode (4.57s)
+    --- FAIL: TestPlatform_ProjectRootShapes/long (60.52s)
+FAIL
+FAIL	github.com/qompack/qompack/test/platform	86.992s
+FAIL
+exit=1

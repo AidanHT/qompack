@@ -1,0 +1,23 @@
+=== RUN   TestStageBinary_VerifiesACopyItsRenamerStillHolds
+=== PAUSE TestStageBinary_VerifiesACopyItsRenamerStillHolds
+=== RUN   TestStageBinary_NeverRemovesACopyItCannotRead
+=== PAUSE TestStageBinary_NeverRemovesACopyItCannotRead
+=== CONT  TestStageBinary_VerifiesACopyItsRenamerStillHolds
+=== CONT  TestStageBinary_NeverRemovesACopyItCannotRead
+=== NAME  TestStageBinary_VerifiesACopyItsRenamerStillHolds
+    spawn_stage_windows_test.go:68: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/spawn_stage_windows_test.go:68
+        	Error:      	Received unexpected error:
+        	            	daemon: installing C:\Users\Quant\AppData\Local\Temp\TestStageBinary_VerifiesACopyItsRenamerStillHolds2762252011\002\.qompack\bin\229327dadd012f5e04fb21e58faea9033556bcbe17af8b25b5f0ef06f4bf3bed\qompack.exe: rename C:\Users\Quant\AppData\Local\Temp\TestStageBinary_VerifiesACopyItsRenamerStillHolds2762252011\002\.qompack\bin\229327dadd012f5e04fb21e58faea9033556bcbe17af8b25b5f0ef06f4bf3bed\.stage-2074308866 C:\Users\Quant\AppData\Local\Temp\TestStageBinary_VerifiesACopyItsRenamerStillHolds2762252011\002\.qompack\bin\229327dadd012f5e04fb21e58faea9033556bcbe17af8b25b5f0ef06f4bf3bed\qompack.exe: Access is denied. (and the existing file: open C:\Users\Quant\AppData\Local\Temp\TestStageBinary_VerifiesACopyItsRenamerStillHolds2762252011\002\.qompack\bin\229327dadd012f5e04fb21e58faea9033556bcbe17af8b25b5f0ef06f4bf3bed\qompack.exe: The process cannot access the file because it is being used by another process.)
+        	Test:       	TestStageBinary_VerifiesACopyItsRenamerStillHolds
+--- FAIL: TestStageBinary_VerifiesACopyItsRenamerStillHolds (0.04s)
+=== NAME  TestStageBinary_NeverRemovesACopyItCannotRead
+    spawn_stage_windows_test.go:95: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/spawn_stage_windows_test.go:95
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestStageBinary_NeverRemovesACopyItCannotRead
+        	Messages:   	a copy that cannot be verified is never returned to be run
+--- FAIL: TestStageBinary_NeverRemovesACopyItCannotRead (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.323s
+FAIL

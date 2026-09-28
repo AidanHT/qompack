@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/commands"
@@ -43,9 +44,12 @@ import (
 //     through config.Load directly rather than LoadConfigAndReport: that helper persists the
 //     violation list, and a diagnostic that wrote to state/ would be the one command a broken
 //     project could not survive.
-//  3. It uses the TOLERANT config path. config.LoadForCapture refuses a whole delivery over any
-//     Validate violation; if doctor did the same, a bad config would silence the one command that
-//     could explain it. Here a violation is a row.
+//  3. It uses the TOLERANT config path for everything it reports about the configuration. The hook
+//     path's config.LoadForCapture still refuses a whole delivery over a structural problem (a
+//     config file that is not strict JSONC, any problem inside runtime.redact); if doctor loaded
+//     through it, that config would silence the one command that could explain it. Here a
+//     violation is a row — and so is the hook path's own verdict (captureConfigRow), asked
+//     separately and read-only.
 //  4. It never calls a ratio or a latency figure proof of health. Storage and timing numbers are
 //     labelled observations where they appear at all, and `status` owns them.
 
@@ -157,12 +161,31 @@ type doctorState struct {
 	lockInfo    daemon.LockInfo
 	lockHeld    bool
 	lockAlive   bool
+	// refused is the D18 refusal when root is the home directory. The report then reads nothing
+	// under root: its .qompack is the user-global layer, not a project store, so there is no
+	// history, ledger, lock, spool or store of a project there to report on, and every section that
+	// would describe one states the refusal instead.
+	refused error
 }
 
 // collectDoctorReport assembles every section.
 func collectDoctorReport(ctx context.Context, root string, env Env, clk core.Clock) doctorReport {
 	s := &doctorState{ctx: ctx, root: root, env: env, clk: clk, register: contract.DefaultCapabilityRegister()}
 	if root != "" {
+		s.refused = refuseHomeRoot(env, root)
+	}
+	switch {
+	case s.refused != nil:
+		// The configuration rows still describe what a project below this home would inherit: the
+		// user-global layer, with no project layer.
+		cfg, prov, warns, err := loadUserGlobalConfig(env)
+		s.cfg, s.prov, s.warnings = cfg, prov, warns
+		if err != nil {
+			s.cfg, s.prov = config.Defaults(), config.Provenance{}
+		}
+		s.history = &contract.SessionHistory{}
+		s.ledger = &contract.ObservationLedger{}
+	case root != "":
 		s.l = paths.Of(root)
 		s.established = projectEstablished(s.l)
 		cfg, prov, warns, err := config.Load(config.Env{
@@ -178,7 +201,7 @@ func collectDoctorReport(ctx context.Context, root string, env Env, clk core.Clo
 		s.history = contract.LoadHistory(contract.HistoryPath(root))
 		s.ledger = contract.LoadObservationLedger(contract.ObservationLedgerPath(root))
 		s.lockInfo, s.lockHeld, s.lockAlive = fsckDaemonLiveness(root)
-	} else {
+	default:
 		s.cfg, s.prov = config.Defaults(), config.Provenance{}
 		s.history = &contract.SessionHistory{}
 		s.ledger = &contract.ObservationLedger{}
@@ -307,7 +330,9 @@ func (s *doctorState) bundleRow() doctorRow {
 
 // pluginRootRow reports CLAUDE_PLUGIN_ROOT's three outcomes: unset, set and resolving to a binary,
 // or set with no binary under it. The third is the one that breaks every hook silently, because the
-// host invokes ${CLAUDE_PLUGIN_ROOT}/bin/qompack and a missing file is the host's error, not ours.
+// host spawns ${CLAUDE_PLUGIN_ROOT}/bin/qompack (bin/qompack.exe on windows) directly — exec form,
+// the exact path, no shell to resolve an extension (C1.11) — and a missing file is the host's
+// error, not ours. The path checked here is that exact path for this platform.
 func (s *doctorState) pluginRootRow() doctorRow {
 	get := s.env.Getenv
 	if get == nil {
@@ -323,6 +348,16 @@ func (s *doctorState) pluginRootRow() doctorRow {
 	}
 	bin := filepath.Join(v, "bin", "qompack"+doctorExeSuffix())
 	if fi, err := os.Stat(paths.Long(bin)); err == nil && fi.Mode().IsRegular() {
+		// A binary with no execute bit fails every hook exactly as a missing one does. It is the
+		// one symptom C7.5 leaves open — whether the host keeps bin/qompack's 0755 when it extracts
+		// a release zip on linux/darwin — so it gets its own answer, with the workaround.
+		if !pluginBinaryExecutable(runtime.GOOS, fi.Mode()) {
+			return doctorRow{
+				ID: "version.pluginRoot", Status: doctorDegraded, Observed: "set but the binary is not executable",
+				Detail: "every hook the host runs is " + bin + ", which has no execute permission; " +
+					"`chmod +x " + bin + "` restores it (docs/install.md §9)",
+			}
+		}
 		return doctorRow{
 			ID: "version.pluginRoot", Status: doctorOK, Observed: "set and resolves",
 			Detail: bin,
@@ -332,6 +367,16 @@ func (s *doctorState) pluginRootRow() doctorRow {
 		ID: "version.pluginRoot", Status: doctorDegraded, Observed: "set but no binary under it",
 		Detail: "every hook the host runs is " + bin + ", which is not there",
 	}
+}
+
+// pluginBinaryExecutable reports whether the host could spawn a regular file of mode m on goos.
+// linux/darwin need an execute bit; windows spawns a .exe by its extension and os.Stat reports no
+// execute bit there at all, so every regular file passes.
+func pluginBinaryExecutable(goos string, m fs.FileMode) bool {
+	if goos == "windows" {
+		return true
+	}
+	return m.Perm()&0o111 != 0
 }
 
 // doctorExeSuffix is the executable extension for this platform.
@@ -400,6 +445,15 @@ func (s *doctorState) scopeRows() []doctorRow {
 			ID: "scope.root", Status: doctorUnknown, Observed: "no project root resolved",
 			Detail: "neither QOMPACK_PROJECT_ROOT nor an enclosing .git marker named one",
 		}}
+	}
+
+	if s.refused != nil {
+		// A decision (D18), so disabled rather than degraded. No scope.established row: the
+		// .qompack here is the user-global layer, and calling it an established project is exactly
+		// the confusion the refusal exists to prevent.
+		return []doctorRow{{
+			ID: "scope.root", Status: doctorDisabled, Observed: s.root, Detail: s.refused.Error(),
+		}, s.modeRow()}
 	}
 
 	rows := []doctorRow{{
@@ -601,13 +655,18 @@ func (s *doctorState) controlRows() []doctorRow {
 		Detail: "admission.Gate.Admits answers (false, disabled) while the mirror is off and " +
 			"(false, unknown target) once it is on with no target evidence",
 	})
-	rows = append(rows, doctorRow{
+	recording := doctorRow{
 		ID: "runtime.recording", Status: s.recordingStatus(),
 		Observed: s.cfg.Runtime.Mode,
 		Detail: "recording has no switch of its own: runtime.mode passive or off IS the recording " +
 			"control (config/runtime.go:104-116)",
-	})
-	return rows
+	}
+	if s.refused != nil {
+		// Whatever the mode says, a refused root records nothing (D18).
+		recording.Status = doctorDisabled
+		recording.Detail = "nothing is recorded whatever runtime.mode says: " + s.refused.Error()
+	}
+	return append(rows, recording)
 }
 
 // recordingStatus maps runtime.mode onto whether this build records at all.
@@ -653,7 +712,12 @@ func (s *doctorState) switchRow(key string, gate *doctorGate) doctorRow {
 // from the list a previous run persisted.
 func (s *doctorState) configViolationsRow() doctorRow {
 	live := config.ViolationsFromWarnings(s.warnings)
-	persisted := doctorPersistedViolations(s.l)
+	// Only a project's own state/ holds a persisted list. With no root, or a refused one (D18), the
+	// layout is empty and its State would be a path relative to the working directory.
+	var persisted []config.Violation
+	if s.l.State != "" {
+		persisted = doctorPersistedViolations(s.l)
+	}
 
 	if len(live) == 0 && len(persisted) == 0 {
 		return doctorRow{
@@ -698,15 +762,28 @@ func doctorPersistedViolations(l paths.Layout) []config.Violation {
 // .qompack degrades every writer quietly, and the only trace is a Warn in a file nothing points a
 // user at (Task 2's F-2). One throwaway file under tmp/ answers it, and it is always removed.
 func (s *doctorState) recordingRows() []doctorRow {
-	if s.root == "" || !s.established {
+	if s.refused != nil {
 		return []doctorRow{{
-			ID: "store.writable", Status: doctorUnknown, Observed: "no .qompack to probe",
-			Detail: "doctor does not create a project to find out whether it could write to one",
+			ID: "store.writable", Status: doctorDisabled, Observed: "not probed: nothing is recorded here",
+			Detail: s.refused.Error(),
 		}}
 	}
+	var rows []doctorRow
+	if s.root != "" {
+		// Before any .qompack test: a configuration the hook path refuses is precisely what leaves a
+		// project with a .qompack holding nothing but its config file, or none at all.
+		rows = append(rows, s.captureConfigRow())
+	}
+	if s.root == "" || !s.established {
+		return append(rows, doctorRow{
+			ID: "store.writable", Status: doctorUnknown, Observed: "no .qompack to probe",
+			Detail: "doctor does not create a project to find out whether it could write to one",
+		})
+	}
 
-	rows := []doctorRow{s.writableRow()}
+	rows = append(rows, s.writableRow())
 	rows = append(rows, s.spoolRow(), s.drainRow(), s.negknowRow(), s.unpublishedCapturesRow())
+	rows = append(rows, s.deliveryRolloverRow())
 	rows = append(rows, s.assertionRows()...)
 	return rows
 }
@@ -749,6 +826,41 @@ func (s *doctorState) writableRow() doctorRow {
 		ID: "store.writable", Status: doctorUnknown, Observed: "not probed",
 		Detail: ".qompack holds no file this probe may open for writing, and doctor does not " +
 			"create one to find out",
+	}
+}
+
+// captureConfigRow reports whether the HOOK path can load this project's configuration, which the
+// tolerant load behind every other configuration row cannot say (V6 close-out item C1.8: SP-18 found
+// a project recording nothing while every configuration row read clean). It is read-only:
+// config.LoadForCapture persists nothing.
+func (s *doctorState) captureConfigRow() doctorRow {
+	// `--project .` is doctor's own spelling; a hook resolves an absolute root (paths.Resolve), and
+	// the loader refuses a relative one, so ask it the question the hooks would ask.
+	root := s.root
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
+	_, _, violations, warnings, err := config.LoadForCapture(config.Env{
+		ProjectRoot: root, HomeDir: homeDir(s.env), Getenv: s.env.Getenv, Flags: s.env.Set,
+	})
+	switch {
+	case err != nil:
+		return doctorRow{
+			ID: "config.capture", Status: doctorDegraded, Observed: "refused: every hook admits nothing",
+			Detail: err.Error() + "; hooks still exit 0 with empty output, and nothing is recorded " +
+				"until the configuration is repaired",
+		}
+	case len(violations)+len(warnings) > 0:
+		return doctorRow{
+			ID: "config.capture", Status: doctorDegraded,
+			Observed: captureConfigDegradedSummary(violations, warnings),
+			Detail:   captureConfigKeys(violations, warnings),
+		}
+	default:
+		return doctorRow{
+			ID: "config.capture", Status: doctorOK, Observed: "applied as written",
+			Detail: "the hook path's own loader (config.LoadForCapture) accepts every layer unchanged",
+		}
 	}
 }
 
@@ -876,6 +988,106 @@ func (s *doctorState) unpublishedCapturesRow() doctorRow {
 	}
 }
 
+// deliveryRolloverRow reports segmented rollover (owner decision D6, 2026-09-23). Two things about it
+// matter to an operator. Whether the store has rotated: after its first rotation a build that predates
+// segments refuses the journal, so a backup taken before that rotation is the only way back to one
+// (docs/backup.md). And what the last daemon counted: its rotations and the time every lease and
+// acknowledgement waited for them, rotations that failed (the journal then refuses every delivery until
+// a restart), and store GC passes halted because the carried leases passed their harvest bound (nothing
+// is collected while they are). A failure or a halt makes the row degraded; the pause alone does not,
+// because D6 accepted it.
+//
+// The active segment is the authority head's own claim, read the way fsck's delivery row reads it (the
+// authority's full validation is `qompack fsck --seal-check`'s). The counters are the last daemon
+// run's, as it persisted them to metrics/latency.json, so a restart resets them; LOUD.log keeps a line
+// for every rotation, failure and first halt.
+func (s *doctorState) deliveryRolloverRow() doctorRow {
+	const id = "delivery.rollover"
+	active, headErr := readDeliveryActiveSegment(s.l)
+	var observed []string
+	status := doctorOK
+	switch {
+	case errors.Is(headErr, fs.ErrNotExist):
+		status = doctorUnknown
+		observed = append(observed, "no segment authority")
+	case headErr != nil:
+		status = doctorUnknown
+		observed = append(observed, "segment authority head unreadable")
+	case active == 0:
+		observed = append(observed, "never rotated")
+	default:
+		observed = append(observed, fmt.Sprintf("rotated %d time(s), segment %d active", active, active))
+	}
+
+	detail := "a store that has never rotated rotates by itself at 65,536 deliveries; after that a build " +
+		"older than segmented rollover refuses the journal, and a backup taken before the first rotation " +
+		"is the only way back to one (docs/backup.md); `qompack fsck --seal-check` validates the authority"
+	if headErr != nil && !errors.Is(headErr, fs.ErrNotExist) {
+		detail = "state/delivery-journal.json could not be read (" + headErr.Error() + "); " + detail
+	}
+	snap, err := readPersistedMetrics(s.l)
+	if err != nil {
+		observed = append(observed, "no persisted daemon counters")
+		return doctorRow{
+			ID: id, Status: status, Observed: strings.Join(observed, "; "),
+			Detail: detail + "; no daemon has persisted metrics/latency.json here, so the last run's " +
+				"rotations, pauses, failures and GC halts are unknown rather than zero (LOUD.log has them)",
+		}
+	}
+	c := snap.Counters
+	failed := c[daemon.CounterDeliveryRotationFailures]
+	halted := c[store.CounterGCDeliveryCarryOverBound]
+	observed = append(observed, fmt.Sprintf("last daemon: %d rotation(s), %d ms paused, %d failed, "+
+		"%d GC pass(es) halted on the carry bound", c[daemon.CounterDeliveryRotations],
+		c[daemon.CounterDeliveryRotationPauseMS], failed, halted))
+	if failed > 0 || halted > 0 {
+		status = doctorDegraded
+	}
+	if c[daemon.CounterDeliveryRotationCarryOverBound] > 0 {
+		detail = "a rotation was refused because the archived leases still waiting for an acknowledgement " +
+			"passed the carried-lease file's 64 MiB bound: the journal refuses every delivery " +
+			"(docs/troubleshooting.md); " + detail
+	}
+	if c[daemon.CounterDeliveryFirstRotationBackupAdvised] > 0 && active == 0 && headErr == nil {
+		detail = "the last daemon warned that this store's first rotation is near; " + detail
+	}
+	return doctorRow{
+		ID: id, Status: status, Observed: strings.Join(observed, "; "),
+		Detail: detail + "; counters are the last daemon run's, from metrics/latency.json " +
+			"(" + doctorMetricsAge(snap.TS, s.clk) + "), and LOUD.log keeps every occurrence",
+	}
+}
+
+// readDeliveryActiveSegment reads the active segment the delivery segment authority's head names
+// (state/delivery-journal.json). An absent head is fs.ErrNotExist; a head that does not read or names
+// no segment is another error. It is a classification aid for the read-only rows (fsck's delivery row,
+// doctor's delivery.rollover); the authority's full validation is --seal-check's.
+func readDeliveryActiveSegment(l paths.Layout) (uint64, error) {
+	raw, err := paths.ReadFileShared(filepath.Join(l.State, "delivery-journal.json"))
+	if err != nil {
+		return 0, err
+	}
+	var head struct {
+		Active *uint64 `json:"active"`
+	}
+	if err := json.Unmarshal(raw, &head); err != nil {
+		return 0, err
+	}
+	if head.Active == nil {
+		return 0, errors.New("the head names no active segment")
+	}
+	return *head.Active, nil
+}
+
+// doctorMetricsAge says how old a persisted metrics snapshot is.
+func doctorMetricsAge(ts core.UnixMilli, clk core.Clock) string {
+	age := clk.Now().Sub(ts.Time())
+	if ts == 0 || age < 0 {
+		return "age unknown"
+	}
+	return "persisted " + age.Round(time.Second).String() + " ago"
+}
+
 // assertionRows report the contract assertions the last session failed. history.Last is the
 // persisted record of that run, and it is the only place a degradation from a previous session
 // survives.
@@ -906,6 +1118,12 @@ func (s *doctorState) assertionRows() []doctorRow {
 // labelled one: a dedup ratio is not a health verdict and a latency figure is not a promise, which
 // is why neither appears.
 func (s *doctorState) retrievalRows() []doctorRow {
+	if s.refused != nil {
+		return []doctorRow{{
+			ID: "store.open", Status: doctorDisabled, Observed: "not opened: nothing is recorded here",
+			Detail: s.refused.Error() + "; every MCP tool answers with that refusal",
+		}}
+	}
 	if s.root == "" || !s.established {
 		return []doctorRow{{
 			ID: "store.open", Status: doctorUnknown, Observed: "no .qompack to open",
@@ -1025,10 +1243,16 @@ func (s *doctorState) statusRows() []doctorRow {
 		}}
 	}
 
-	client := newCommandClient(s.root, s.cfg, doctorNoSpawnEnv(s.env), logging.Nop(), obs.New(s.clk), s.clk)
-	defer func() { _ = client.Close() }()
-
-	rep := commands.CollectStatus(s.ctx, commandStatusSources(s.ctx, s.root, client), s.clk.Now())
+	var rep commands.StatusReport
+	if s.refused != nil {
+		// The same sources `qompack status` binds for a refused root (buildCommandDeps), so the two
+		// still agree, and no client is built for the home directory.
+		rep = commands.CollectStatus(s.ctx, commands.StatusSources{Refused: s.refused}, s.clk.Now())
+	} else {
+		client := newCommandClient(s.root, s.cfg, doctorNoSpawnEnv(s.env), logging.Nop(), obs.New(s.clk), s.clk)
+		defer func() { _ = client.Close() }()
+		rep = commands.CollectStatus(s.ctx, commandStatusSources(s.ctx, s.root, client), s.clk.Now())
+	}
 
 	mode := doctorUnknown
 	if rep.Snapshot != nil && rep.Snapshot.Mode != "" {

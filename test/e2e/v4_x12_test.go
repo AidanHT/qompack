@@ -77,8 +77,11 @@ func TestV4_DegradedPassiveWithEverySubsystem(t *testing.T) {
 
 	fullAC := rf.CompactStart(t, x12v4Session)
 	require.NotEmpty(t, fullAC, "in ModeFull a compact SessionStart DOES inject")
-	_, fullInstr := rf.PreCompact(t, x12v4Session)
-	require.NotEmpty(t, fullInstr, "in ModeFull a PreCompact DOES emit customInstructions")
+	// Criterion change (C1.18): the full-mode PreCompact control used to be "it emits
+	// customInstructions". That instruction is retired in every mode, so the control is now the
+	// act the degraded arm must not perform: in ModeFull the PreCompact seals a checkpoint.
+	cpRequireNoInstructionReply(t, rf.PreCompactReply(t, x12v4Session))
+	require.NotEmpty(t, cpCheckpointArtifacts(t, pf.Root), "in ModeFull a PreCompact DOES seal a checkpoint")
 
 	// ── The row proper: the same composition, degraded before the daemon exists ──────────────────
 	p := v4Project(t)
@@ -117,13 +120,11 @@ func TestV4_DegradedPassiveWithEverySubsystem(t *testing.T) {
 				"row was written; ran=%v", x12v4ActingPrefix, degradedRan)
 	}
 
-	// No customInstructions, no scheduler-initiated checkpoint, no drop report.
-	_, instr := r.PreCompact(t, x12v4Session)
-	require.Empty(t, instr,
-		"the shipped route calls Services.PreCompact only when mode.MayAct(): degraded means the "+
-			"seam is never called at all")
+	// No checkpoint (by the hook or the cadence task), and no drop report.
+	cpRequireNoInstructionReply(t, r.PreCompactReply(t, x12v4Session))
 	require.Empty(t, cpCheckpointArtifacts(t, p.Root),
-		"nothing may be sealed while degraded — neither by the hook nor by the cadence task")
+		"the shipped route calls Services.PreCompact only when mode.MayAct(): degraded means the "+
+			"seam is never called, so nothing may be sealed — neither by the hook nor by the cadence task")
 	dropReport := filepath.Join(paths.Of(p.Root).State, "rehydrate-"+string(x12v4Session)+".json")
 	require.NoFileExists(t, paths.Long(dropReport),
 		"a rehydration that never ran writes no drop report")

@@ -1,0 +1,10 @@
+=== RUN   TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions
+--- PASS: TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions (0.44s)
+=== RUN   TestFsck_ToolUseNonMonotoneTurnNamesItsSession
+--- PASS: TestFsck_ToolUseNonMonotoneTurnNamesItsSession (0.40s)
+=== RUN   TestFsck_ToolUseSupersedeMarkIsNotATurnRegression
+--- PASS: TestFsck_ToolUseSupersedeMarkIsNotATurnRegression (0.40s)
+=== RUN   TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries
+--- PASS: TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries (0.46s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.996s

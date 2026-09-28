@@ -1,0 +1,18 @@
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+    shutdown_spawn_inflight_test.go:118: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:118
+        	Error:      	Should be false
+        	Test:       	TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+        	Messages:   	e2eShutdownIfReachable returned while the late daemon (pid 45916) was still running (it was reaped 2.6839345s after the return): it handed a tree a live daemon was still writing to to the caller's RemoveAll
+--- FAIL: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (6.49s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+    shutdown_spawn_inflight_test.go:118: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:118
+        	Error:      	Should be false
+        	Test:       	TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+        	Messages:   	e2eShutdownIfReachable returned while the late daemon (pid 29856) was still running (it was reaped 2.4481367s after the return): it handed a tree a live daemon was still writing to to the caller's RemoveAll
+--- FAIL: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (4.07s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	11.010s
+FAIL
+exit=1

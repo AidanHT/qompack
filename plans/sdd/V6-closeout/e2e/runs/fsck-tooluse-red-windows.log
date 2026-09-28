@@ -1,0 +1,34 @@
+=== RUN   TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions
+    fsck_tooluse_test.go:68: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/internal/cli/fsck_tooluse_test.go:68
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions
+        	Messages:   	interleaved sessions are each monotone: tool_use tu-b-0 reports turn 0 after turn 3 in session ; turns are monotone
+        	            	tool_use tu-b-1 reports turn 1 after turn 4 in session ; turns are monotone
+--- FAIL: TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions (0.82s)
+=== RUN   TestFsck_ToolUseNonMonotoneTurnNamesItsSession
+    fsck_tooluse_test.go:85: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/internal/cli/fsck_tooluse_test.go:85
+        	Error:      	"tool_use tu-a-1 reports turn 1 after turn 3 in session ; turns are monotone" does not contain "tool_use tu-a-1 reports turn 1 after turn 3 in session s-a;"
+        	Test:       	TestFsck_ToolUseNonMonotoneTurnNamesItsSession
+--- FAIL: TestFsck_ToolUseNonMonotoneTurnNamesItsSession (0.54s)
+=== RUN   TestFsck_ToolUseSupersedeMarkIsNotATurnRegression
+    fsck_tooluse_test.go:104: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/internal/cli/fsck_tooluse_test.go:104
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestFsck_ToolUseSupersedeMarkIsNotATurnRegression
+        	Messages:   	a supersede mark is not a turn-0 record: tool_use tu-a-2 reports turn 0 after turn 3 in session ; turns are monotone
+--- FAIL: TestFsck_ToolUseSupersedeMarkIsNotATurnRegression (0.39s)
+=== RUN   TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries
+    fsck_tooluse_test.go:129: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/internal/cli/fsck_tooluse_test.go:129
+        	Error:      	"tool_use tu-a-2 reports turn 0 after turn 2 in session ; turns are monotone" does not contain "tool_use tu-a-2 is superseded by tu-ghost, which this index does not record"
+        	Test:       	TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries
+--- FAIL: TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries (0.57s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	2.644s
+FAIL

@@ -1,0 +1,11 @@
+label=windows-appendonly-ingest-a98bf9c
+src=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/ao-a98bf9c
+commit=a98bf9c60c0da359034b4728e92ba87c136eb49d
+describe=v0.1.0-847-ga98bf9c
+status_lines=0
+go=go version go1.26.6 windows/amd64
+cmd=go test ./test/integration -run '^TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites$' -count=3 -timeout=40m -json
+env_extra=
+CGO_ENABLED=0
+started_utc=2026-09-23T00:22:13Z
+finished_utc=2026-09-23T00:28:00Z

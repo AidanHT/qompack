@@ -1,0 +1,10 @@
+run_id=cx-w5-coldstart-review-rows-x20-639e6d5-20260927T020150Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart
+rev=639e6d5
+commit=639e6d5c1ee3302b2b465d897ec1f1832610ad04
+bundle_sha256=40566edce7684ea42b7e11c22f59c1f02ba949e57554596b4c206c00b0d38d30
+host_started_utc=2026-09-27T02:01:57Z
+inner_args=--count 20 --timeout 60m --run ^(TestEnsureRunning_|TestEnsureRunningUntil_) -- ./internal/daemon
+host_finished_utc=2026-09-27T02:03:58Z
+container_exit=0

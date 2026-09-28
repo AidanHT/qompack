@@ -1,0 +1,9 @@
+# case-variant probe at ef2f98c + the red test (probe file created, run, deleted), Windows host
+# go test -count=1 -run 'TestZZProbeCaseVariantProtectedDir' -v ./internal/paths/   (probe-only test, not committed as code)
+=== RUN   TestZZProbeCaseVariantProtectedDir
+    zz_probe_case_test.go:20: WriteAtomic(C:\Users\Quant\AppData\Local\Temp\TestZZProbeCaseVariantProtectedDir771054471\001\.qompack\CHECKPOINTS\0001.json) err=<nil>; checkpoint now "{\"seq\":1,\"tampered\":true}"
+    zz_probe_case_test.go:29: OpenFile(C:\Users\Quant\AppData\Local\Temp\TestZZProbeCaseVariantProtectedDir771054471\001\.qompack\PINS\invariants.jsonl, O_TRUNC) err=<nil>; pins now ""
+--- PASS: TestZZProbeCaseVariantProtectedDir (0.04s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.473s
+exit=0

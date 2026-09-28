@@ -1,0 +1,21 @@
+run_id=cx-w8-stagerace-w8-touched-593c80e-593c80e-20260928T140750Z
+commit=593c80e2a1d6df8db8bc240b5e08c0506e6c4cf3
+tree=1aab7e785b1ff044485f51089e32da3abf4b6e0c
+bundle_sha256=39d92610f999c4da9a6eb9856b939fd3b598d7c27258eda15bab510ea94b9443
+started_utc=2026-09-28T14:07:59Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-28T14:15:43Z

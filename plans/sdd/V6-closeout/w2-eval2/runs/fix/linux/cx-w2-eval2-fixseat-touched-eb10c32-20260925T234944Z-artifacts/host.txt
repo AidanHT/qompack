@@ -1,0 +1,10 @@
+run_id=cx-w2-eval2-fixseat-touched-eb10c32-20260925T234944Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2
+rev=HEAD
+commit=eb10c323ffa9ad50e1b5d937562be0995351042c
+bundle_sha256=d974bef67851fafe7efd78a3260a86f1ba9e2100056e949300405ea2237a69ad
+host_started_utc=2026-09-25T23:49:49Z
+inner_args=-- ./internal/eval ./internal/commands ./internal/cli ./tools/devtool ./test/docs
+host_finished_utc=2026-09-25T23:50:56Z
+container_exit=0

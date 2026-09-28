@@ -1,0 +1,77 @@
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+    observer_e2e_test.go:523: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v5_x02_test.go:259
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/observer_e2e_test.go:523
+        	Error:      	capture sidecar never linked
+        	Test:       	TestE2E_ThinSliceDropsControlOnlyEdges
+        	Messages:   	no sidecar under records/captures names toolu_thin_39 within 30s
+        	            	-- C:\Users\Quant\AppData\Local\Temp\TestE2E_ThinSliceDropsControlOnlyEdges4281288362\001\project\.qompack\records
+        	            	   \captures\18\18328af257d93f16986e7bface86b05f2696179b27a10229ce7c8e27392d7f3b.json (1202 bytes)
+        	            	   \captures\1b\1b04bc0e54c19d9cc444f6f940e2a119c456ab6efb5330d1cfd2477cc99548a3.json (1202 bytes)
+        	            	   \captures\29\29174a37e33d9a9e9c8cb2542bd6ba30a4b3fa9408dfeaf599855fc12918243b.json (1202 bytes)
+        	            	   \captures\29\292748cf5dfc7746bde84c86c944f793ff01fb7ff6254e8ec4bee5aaa8afb1ee.json (1202 bytes)
+        	            	   \captures\2f\2f3b094ce52dd0e5063d47997d7c7b6cce2dfe173592875a8585dbcfd9f3e870.json (1202 bytes)
+        	            	   \captures\31\311fe4da5d299a71b4c3a5a397fc6a1fb60f9e68d5fbe6e0aa922d4c88ef392d.json (1202 bytes)
+        	            	   \captures\34\347f032f0092aa0d2da01881a54338502a1a5229a72fcc893ddf41a5f2fc75b2.json (1202 bytes)
+        	            	   \captures\40\4094305d796508e3da99dfef3c8f63ee5d45bbd2146322d4cd25ae4a7bb8a79b.json (1202 bytes)
+        	            	   \captures\46\46144cf198a328a27b246097ec38ac37238f3ed4346aac27c932c27ceb8db4c4.json (1202 bytes)
+        	            	   \captures\4e\4ee95c20d32c803760a4c5f271018857b362ed0948e3b3f6b1fd587db977ec06.json (1202 bytes)
+        	            	   \captures\4f\4fd606d030ecca4504082fe72fb8e41f9856740f742b62a1c9a3104b3246d806.json (1197 bytes)
+        	            	   \captures\57\575582fad909bb802a3d583e6e593a6f5deda6ced96c24a1c5e396217076a40c.json (1198 bytes)
+        	            	   \captures\59\596c4b370a237e5d2a7488c5a1409b023356094d8acbf4716ea148f228e4e1bc.json (1197 bytes)
+        	            	   \captures\5d\5dda85cb8e81c01da85a62a4806e2bce56586ce387ddf9fa4abc533c052c4740.json (1202 bytes)
+        	            	   \captures\5f\5f762d32ecf40e6d6a4145fd7f6e00ad665e6e48542a6f44cbc5b3cb5cb7dd60.json (1202 bytes)
+        	            	   \captures\66\66677a866eb565ab4c99be35809fdf0076a2d8b04fbf4438585a11d6c98d0622.json (1197 bytes)
+        	            	   \captures\68\680e13f78c018f1778391f1d2f8e1ea2c863a39f8181e177d3f01eed565ade97.json (1202 bytes)
+        	            	   \captures\6a\6aa907ed2fccb1d052b8b16c32ae2ed4d9fd3a5a9bb2a1516e219972f5ba4f90.json (1197 bytes)
+        	            	   \captures\6d\6d7c3d4a5f0025def8b28900047ca9d0497e84b44e7dc2c4caed1bbbd8c4e90f.json (1202 bytes)
+        	            	   \captures\6e\6e356aeaf2d8255d942227bb82c32eeb82f4b12b0a9f0a1a32774a684be16892.json (1202 bytes)
+        	            	   \captures\6e\6ea23982d195fe164288e2c5c2558057a089dcdb848207293998565e35f10d86.json (1202 bytes)
+        	            	   \captures\6f\6f5bd27c2c77c25419aa5010c84fa5bd05c0350319a75852c106aec25f2cb4ab.json (1197 bytes)
+        	            	   \captures\79\79824206f7688aa07a90f2274909c39790d4ddeed60f20ecbb8de93398a0de26.json (1173 bytes)
+        	            	   \captures\84\84b1acd916955f6abd3a99682218f4ceaafc37b210f948e9f51f59ebaee464ad.json (1202 bytes)
+        	            	   \captures\89\895ac52fd2902b06f1cb5019e2a3e7444f5acc52401436900b3163fd29e14f89.json (1202 bytes)
+        	            	   \captures\95\9575e5127eb9b0f4276cb2dac78b9a60ac64c09f53a80eb9d33ef320b6d924bf.json (1197 bytes)
+        	            	   \captures\9a\9a18a2db7786d75331acf6edabaaf7295651e702d4b5da3419433d08d4f0258f.json (1202 bytes)
+        	            	   \captures\9b\9b4ec3108e5a973f4a2035734e47668b0433c39154aba8cbf066b29a4d6dd60c.json (1202 bytes)
+        	            	   \captures\a2\a2768cfc7c55bcf646f0f4e390fd3b5e96fde314be3570cbe110d49fe91a849d.json (1197 bytes)
+        	            	   \captures\ae\ae29d12d884b901608e1c1a0ce9a806989b6b7610659defd2d9746317bd393d5.json (1202 bytes)
+        	            	   \captures\b1\b1b9d969e4b9c0c6c40a7f00a2f201849e8845d679943b8a28d384f964c08eda.json (1202 bytes)
+        	            	   \captures\b6\b6ffb050014826c9ef92ca494442b4c51463e4c7584dcb97c8ff636b42751076.json (1197 bytes)
+        	            	   \captures\ba\ba13e2ef85482826e98a6bb0aa165fac78da142cae40e494455f16c99cdbba27.json (1202 bytes)
+        	            	   \captures\ba\bad2fb654699e17886b81198ccc2c952e93e3b3c24661f180eeac11e1d82f9f9.json (1202 bytes)
+        	            	   \captures\cf\cf4071cbbe467ab39347909c831bf8e1a856a0d21426d74549ecf63297e20716.json (1202 bytes)
+        	            	   \captures\dd\dd9dae353b66a44f06ce7609f9c3ed55c99e5cbb382cf07b7fcd7b1225304eed.json (1202 bytes)
+        	            	   \captures\e1\e18ed22a15d38c7dad08b0c3a32a04fa23ad0529ba34a3eec36897f7ce49eae0.json (1202 bytes)
+        	            	   \captures\e2\e264287cb9b2d9a796bb4970abf353ac2507269f7d9e8a847251635d59da8e98.json (1202 bytes)
+        	            	   \captures\e4\e402bdce7bde9a03c83880654232dfd32030a40eea1e5f36f801c84937349586.json (1202 bytes)
+        	            	   \captures\e5\e5928d416ddb9c62b1f4615a09e8439685b00252e12f1d39c29263bac437d48b.json (1197 bytes)
+        	            	-- C:\Users\Quant\AppData\Local\Temp\TestE2E_ThinSliceDropsControlOnlyEdges4281288362\001\project\.qompack\state
+        	            	   \delivery-ack-position.json (32768 bytes)
+        	            	   \delivery-acks.jsonl (10062 bytes)
+        	            	   \delivery-generations\manifest.jsonl (0 bytes)
+        	            	   \delivery-journal-log.jsonl (117 bytes)
+        	            	   \delivery-journal.json (187 bytes)
+        	            	   \delivery-lease-position.json (32768 bytes)
+        	            	   \delivery-leases.jsonl (12191 bytes)
+        	            	   \drain.json (96 bytes)
+        	            	   \history.json (455 bytes)
+        	            	   \observations.json (3368 bytes)
+        	            	   \retention-roots.jsonl (8241 bytes)
+        	            	-- C:\Users\Quant\AppData\Local\Temp\TestE2E_ThinSliceDropsControlOnlyEdges4281288362\001\project\.qompack\logs
+        	            	   \qompack-20260926.log (0 bytes)
+        	            	      ts=2026-09-26T18:12:27.3644865Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+        	            	      ts=2026-09-26T18:12:27.3995694Z level=info msg="observer: session registered" session=sess-e2e-thinslice source=startup turn=0 segment=1
+        	            	      ts=2026-09-26T18:12:27.3995694Z level=info msg="scheduler: session bound" session=sess-e2e-thinslice effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+        	            	      ts=2026-09-26T18:12:30.109057Z level=warn msg="observer: tool capture unpublished" stage=link
+        	            	      ts=2026-09-26T18:12:30.1095984Z level=warn msg="daemon: ObserveTool failed"
+        	            	      ts=2026-09-26T18:12:30.1095984Z level=warn msg="daemon: ingest handler did not acknowledge; WAL retained for retry" op=observe.tool
+        	            	      ts=2026-09-26T18:12:30.1672934Z level=warn msg="observer: tool capture unpublished" stage=link
+        	            	      ts=2026-09-26T18:12:30.1672934Z level=warn msg="daemon: ObserveTool failed"
+        	            	      ts=2026-09-26T18:12:30.1721691Z level=warn msg="daemon: drain: file error" path=C:\Users\Quant\AppData\Local\Temp\TestE2E_ThinSliceDropsControlOnlyEdges4281288362\001\project\.qompack\spool\wal-sess-e2e-thinslice.ndjson err="daemon: drain: handler did not acknowledge delivery"
+        	            	-- LOUD: []
+--- FAIL: TestE2E_ThinSliceDropsControlOnlyEdges (34.06s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	34.269s
+FAIL
+exit=1

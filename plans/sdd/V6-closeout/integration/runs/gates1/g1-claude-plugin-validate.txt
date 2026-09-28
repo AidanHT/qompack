@@ -1,0 +1,24 @@
+== qompack-plugin-0.3.0-int1-darwin-amd64
+Validating plugin manifest: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\int-evidence\bundleA\qompack-plugin-0.3.0-int1-darwin-amd64\.claude-plugin\plugin.json
+
+✔ Validation passed
+== qompack-plugin-0.3.0-int1-darwin-arm64
+Validating plugin manifest: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\int-evidence\bundleA\qompack-plugin-0.3.0-int1-darwin-arm64\.claude-plugin\plugin.json
+
+✔ Validation passed
+== qompack-plugin-0.3.0-int1-linux-amd64
+Validating plugin manifest: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\int-evidence\bundleA\qompack-plugin-0.3.0-int1-linux-amd64\.claude-plugin\plugin.json
+
+✔ Validation passed
+== qompack-plugin-0.3.0-int1-linux-arm64
+Validating plugin manifest: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\int-evidence\bundleA\qompack-plugin-0.3.0-int1-linux-arm64\.claude-plugin\plugin.json
+
+✔ Validation passed
+== qompack-plugin-0.3.0-int1-windows-amd64
+Validating plugin manifest: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\int-evidence\bundleA\qompack-plugin-0.3.0-int1-windows-amd64\.claude-plugin\plugin.json
+
+✔ Validation passed
+== qompack-plugin-0.3.0-int1-windows-arm64
+Validating plugin manifest: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\int-evidence\bundleA\qompack-plugin-0.3.0-int1-windows-arm64\.claude-plugin\plugin.json
+
+✔ Validation passed

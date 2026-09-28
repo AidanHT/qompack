@@ -1,0 +1,14 @@
+== linux-nonroot-gate.sh run cx-w2-lint-daemon-focused-8116d69-20260925T214206Z (non-root uid 10001, -race, container qompack-v6-linux-verification)
+run_id=cx-w2-lint-daemon-focused-8116d69-20260925T214206Z
+commit=8116d6973b5c8a38c624773cbcd87077b59aec4f
+tree=eb5b14b55e6c3a255ef687e50ecdd4e8a24c6a45
+started_utc=2026-09-25T21:42:15Z
+run=^(TestDeliveryPath_V6_RefusesAliasedSegmentParent|TestDeliveryTerminal_DrainAfterPhysicalScopeChanges)$
+-- summary.txt
+PASS      github.com/qompack/qompack/internal/daemon  (pass=2 fail=0 skip=0)
+-- exit.txt
+go_test_exit=0
+exit=0
+-- race logs: 0
+-- skip classification (scratch replica of stubskips.classifySkips)
+tests passed=2 failed=0 skipped=0 problems=0

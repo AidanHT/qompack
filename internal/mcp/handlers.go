@@ -111,6 +111,10 @@ type recallBody struct {
 	// emits the shape §5.16 declares, byte for byte.
 	SummariesWithheld bool   `json:"summaries_withheld,omitempty"`
 	Reason            string `json:"reason,omitempty"`
+	// HostPolicy is set when at least one of the Denied hits was withheld because the host's
+	// permission settings could not be read or parsed (V6-HOST-1's fail-closed answer), so a
+	// caller can tell "the host denies these" from "the host's rules could not be established".
+	HostPolicy string `json:"host_policy,omitempty"`
 }
 
 // recall searches the store by content, path or symbol and returns hashes and summaries. It does
@@ -147,13 +151,17 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 
 	out := make([]RecallHit, 0, len(hits))
 	var deniedCount int
+	var hostUnavailable bool
 	for _, hit := range hits {
 		// Authorization runs BEFORE the preview is built, over every hit the search actually
 		// matched — a hash or a stored path is never itself proof that this hit may be shown
 		// (T13-TRUST). A hit that fails is omitted rather than rendered with its summary redacted:
-		// the summary itself is the thing being protected.
-		if ok, _ := h.authorizeOrigin(hit.Tool, hit.Path); !ok {
+		// the summary itself is the thing being protected. That includes a hit whose path the
+		// host's current Read rules deny or ask about (V6-HOST-1): its summary is a preview of the
+		// file's content.
+		if refusal := h.authorizeOrigin(ctx, hit.Tool, hit.Path); refusal != nil {
 			deniedCount++
+			hostUnavailable = hostUnavailable || isHostUnavailable(refusal)
 			continue
 		}
 		// A summary is archive text like any other, so it goes through today's policy before it is
@@ -167,6 +175,9 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 		})
 	}
 	body := recallBody{Hits: out, Count: len(out), Found: len(out) > 0, Query: q, Denied: deniedCount}
+	if hostUnavailable {
+		body.HostPolicy = hostUnavailableReason
+	}
 	if withheld {
 		body.SummariesWithheld, body.Reason = true, redactorMissingReason
 	}
@@ -691,6 +702,12 @@ type whyBody struct {
 	CheckpointSeq        core.CheckpointSeq `json:"checkpoint_seq"`
 	EvidenceBytes        *int64             `json:"evidence_bytes,omitempty"`
 	Hint                 string             `json:"hint,omitempty"`
+	// EvidenceWithheld is the refusal reason when the evidence's recorded origins fail
+	// authorization today — outside the project, lost path provenance, or a path the host's current
+	// Read rules deny or ask about, or whose rules cannot be read. The decision itself is still
+	// answered; the evidence's size preview and the expand hint are not, because expanding it
+	// would be refused.
+	EvidenceWithheld string `json:"evidence_withheld,omitempty"`
 }
 
 // whyMissBody names which checkpoints were actually read, so "not found" is a statement about a
@@ -771,7 +788,15 @@ func (h *handlers) whyFound(ctx context.Context, d checkpoint.Decision, seq core
 	}
 	body.Evidence = d.Evidence.String()
 	body.Hint = "call expand with hash=" + d.Evidence.String() + " to read the evidence"
-	if h.store != nil && h.authorizeHash(ctx, d.Evidence) == nil {
+	if h.store == nil {
+		return body
+	}
+	refusal := h.authorizeHash(ctx, d.Evidence)
+	if reason := withheldReason(refusal); reason != "" {
+		body.EvidenceWithheld, body.Hint = reason, ""
+		return body
+	}
+	if refusal == nil {
 		if root, err := h.store.GetRoot(ctx, d.Evidence); err == nil {
 			n := root.CanonBytes
 			body.EvidenceBytes = &n
@@ -821,6 +846,11 @@ type droppedBody struct {
 	Count     int                    `json:"count"`
 	Available *bool                  `json:"available,omitempty"`
 	Reason    string                 `json:"reason,omitempty"`
+	// Denied counts drop entries withheld because they point at archived content whose path the
+	// host's current Read rules deny or ask about (V6-HOST-1), and HostPolicy says when some were
+	// withheld because those rules could not be read. Neither names which entries.
+	Denied     int    `json:"denied,omitempty"`
+	HostPolicy string `json:"host_policy,omitempty"`
 }
 
 // droppedUnavailable is the empty-but-explained drop report.
@@ -851,5 +881,62 @@ func (h *handlers) dropped(ctx context.Context, r Request, _ json.RawMessage) (R
 		return errResponse("dropped failed: " + err.Error()), nil
 	}
 	entries = dropEntriesOf(entries)
-	return h.jsonResponse(ToolDropped, droppedBody{Drops: entries, Count: len(entries)}, nil), nil
+	kept, deniedCount, hostUnavailable := h.filterDrops(ctx, entries)
+	body := droppedBody{Drops: kept, Count: len(kept), Denied: deniedCount}
+	if hostUnavailable {
+		body.HostPolicy = hostUnavailableReason
+	}
+	return h.jsonResponse(ToolDropped, body, nil), nil
+}
+
+// filterDrops withholds the drop entries that point at archived content whose path the host's
+// current Read rules refuse (V6-HOST-1).
+//
+// A drop entry is a pointer, not content, but it is a pointer INTO the archive — a file path the
+// model is told `re_read` still resolves, or a tool_use_id `expand` still resolves — and recall
+// withholds its pointers on the same grounds. An entry points at archived content when its ID is a
+// stored tool_use_id with a path, or a path Qompack has captured versions of. Every other entry
+// (a decision id, an open question, a budget note, a file never captured) carries no archived
+// content and is kept exactly as before, and so is every entry on a build with no store.
+func (h *handlers) filterDrops(ctx context.Context, entries []checkpoint.DropEntry,
+) (kept []checkpoint.DropEntry, deniedCount int, hostUnavailable bool) {
+	kept = make([]checkpoint.DropEntry, 0, len(entries))
+	for _, e := range entries {
+		p := h.dropEntryPath(ctx, e)
+		if p == "" {
+			kept = append(kept, e)
+			continue
+		}
+		norm, err := paths.Norm(h.root, p)
+		if err != nil {
+			// Out of scope for a path rule to name; containment is not this tool's check.
+			kept = append(kept, e)
+			continue
+		}
+		if refusal := h.authorizeHost(ctx, p, norm); refusal != nil {
+			deniedCount++
+			hostUnavailable = hostUnavailable || isHostUnavailable(refusal)
+			continue
+		}
+		kept = append(kept, e)
+	}
+	return kept, deniedCount, hostUnavailable
+}
+
+// dropEntryPath returns the archived path a drop entry points at, or "" when it points at none.
+func (h *handlers) dropEntryPath(ctx context.Context, e checkpoint.DropEntry) string {
+	if h.store == nil || e.ID == "" {
+		return ""
+	}
+	if rec, err := h.store.ToolUse(ctx, core.ToolUseID(e.ID)); err == nil {
+		return rec.Path
+	}
+	norm, err := paths.Norm(h.root, e.ID)
+	if err != nil {
+		return ""
+	}
+	if hist, err := h.store.FileHistory(ctx, paths.Key(norm)); err == nil && len(hist) > 0 {
+		return e.ID
+	}
+	return ""
 }

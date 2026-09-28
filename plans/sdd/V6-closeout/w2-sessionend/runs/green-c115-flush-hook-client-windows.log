@@ -1,0 +1,49 @@
+=== RUN   TestFlushHook_IsFireAndForgetWithItsNonce
+--- PASS: TestFlushHook_IsFireAndForgetWithItsNonce (3.71s)
+=== RUN   TestHookOutput_PreCompactCarriesNoHookSpecificOutput
+--- PASS: TestHookOutput_PreCompactCarriesNoHookSpecificOutput (2.94s)
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/PostToolUse
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/UserPromptSubmit
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/SessionStart
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/PreCompact
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/Stop
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/SubagentStop
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/SessionEnd
+--- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema (6.98s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/PostToolUse (3.46s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/UserPromptSubmit (2.08s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/SessionStart (0.70s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/PreCompact (0.23s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/Stop (0.20s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/SubagentStop (0.14s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/SessionEnd (0.17s)
+=== RUN   TestHookOutput_ForeignEventNameIsDropped
+--- PASS: TestHookOutput_ForeignEventNameIsDropped (0.15s)
+=== RUN   TestHookEvent_MatchesTheManifest
+--- PASS: TestHookEvent_MatchesTheManifest (0.00s)
+=== RUN   TestHookOutput_OverTheHostCapIsLoud
+=== RUN   TestHookOutput_OverTheHostCapIsLoud/at_the_cap
+=== RUN   TestHookOutput_OverTheHostCapIsLoud/one_over
+--- PASS: TestHookOutput_OverTheHostCapIsLoud (0.37s)
+    --- PASS: TestHookOutput_OverTheHostCapIsLoud/at_the_cap (0.14s)
+    --- PASS: TestHookOutput_OverTheHostCapIsLoud/one_over (0.23s)
+=== RUN   TestHookConnectDeadline
+=== RUN   TestHookConnectDeadline/observe.tool_(hot_path,_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/observe.prompt_(hot_path,_DOES_carry_a_fixed_deadline)
+=== RUN   TestHookConnectDeadline/observe.stop_(hot_path,_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/session-start_(not_hot_path,_fixed_deadline)
+=== RUN   TestHookConnectDeadline/checkpoint_(not_hot_path,_fixed_deadline)
+=== RUN   TestHookConnectDeadline/flush_(not_hot_path,_fire-and-forget_since_C1.15:_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/a_non-hot-path_op's_own_State.ConnectDeadlineMs_is_kept_when_it_already_exceeds_the_floor
+--- PASS: TestHookConnectDeadline (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.tool_(hot_path,_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.prompt_(hot_path,_DOES_carry_a_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.stop_(hot_path,_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/session-start_(not_hot_path,_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/checkpoint_(not_hot_path,_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/flush_(not_hot_path,_fire-and-forget_since_C1.15:_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/a_non-hot-path_op's_own_State.ConnectDeadlineMs_is_kept_when_it_already_exceeds_the_floor (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	14.385s
+exit=0

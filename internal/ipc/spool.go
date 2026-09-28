@@ -217,10 +217,12 @@ func ExternalizeThreshold(cfg config.Config) int {
 }
 
 // SpoolFiles returns every spool-tier file in dir, sorted with the daemon's WAL segments
-// (wal-*.ndjson) first and this package's own client spools (client-*.ndjson) after — the order
-// the daemon's drain reads them in, oldest durability boundary first. A missing directory reports
-// an empty list rather than an error: a project that has never spooled anything has nothing to
-// drain.
+// (wal-*.ndjson) first and this package's own client spools (client-*.ndjson) after, each group by
+// name. The daemon's drain reads the WAL segments in this order and puts the client spools in host
+// order itself, by the timestamp of the first record each file still has to replay
+// (internal/daemon, SP08-D3), because a client-<pid> name says nothing about when its hook ran. A
+// missing directory reports an empty list rather than an error: a project that has never spooled
+// anything has nothing to drain.
 func SpoolFiles(dir string) ([]string, error) {
 	entries, err := os.ReadDir(paths.Long(dir))
 	if err != nil {

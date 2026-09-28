@@ -1,0 +1,23 @@
+# proof run 'base' in C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/s3/proof-base
+# fake real home: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w6\config\s3\fakehome-base (HOME, USERPROFILE, QOMPACK_HOME, CLAUDE_CONFIG_DIR point into it; GOPATH=C:\Users\Quant\go GOMODCACHE=C:\Users\Quant\go\pkg\mod GOCACHE=C:\Users\Quant\AppData\Local\go-build GOENV=C:\Users\Quant\AppData\Roaming\go\env pinned)
+# What this run can show: at base these four packages pass under a poisoned fake real home and write nothing under its .qompack or .claude. It cannot show reads: Windows gives no read trace here, and the calibration poison is keyed to one project, so a test project reading the file gets no different answer. The base-side proof is the static guard (runs/44, runs/45); the mechanism proof is the sentinel and its mutations (runs/46).
+store-scoped poisoned factor: 1.6
+# poisoned files:
+{"checkpoint":{"budgetTokens":4242},"runtime":{"mode":"off"}}
+{"8bd0c0ee4e3a":1.6}
+{"permissions":{"deny":["Read(./**)"]}}
+# snapshot before:
+.claude d
+.claude/settings.json f 39 1790535501 1782a660312d0b4334ab699b34cc4e8928cc78ca517da20d69a224f0693a26b3
+.qompack d
+.qompack/calibration.json f 20 1790535501 57e071ff84a770e7850128978965195105f78a176a6109308aa26ca2b0ffec79
+.qompack/config.json f 61 1790535501 2cc93be31c257948859c78c46c3763a1f139d2bc3a4cf5f1dd9b701703759f04
+.qompack/tmp d
+# go test -p 2 -count=1 -timeout=40m ./internal/tokens ./internal/hostperm ./internal/cli ./internal/mcp
+ok  	github.com/qompack/qompack/internal/tokens	12.443s
+ok  	github.com/qompack/qompack/internal/hostperm	3.066s
+ok  	github.com/qompack/qompack/internal/cli	69.590s
+ok  	github.com/qompack/qompack/internal/mcp	194.346s
+go-test-exit=0
+# fake real home .qompack/.claude diff (before -> after); empty means untouched:
+diff-exit=0

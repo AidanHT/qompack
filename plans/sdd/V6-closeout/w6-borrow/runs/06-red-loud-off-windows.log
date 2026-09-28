@@ -1,0 +1,31 @@
+== RED: git archive 24eae18 with the 'loud-off' mutation of scratch mutate.py (the fix reverted), fake HOME, started 17:43:52Z
+applied loud-off
+== mutation diff:
+--- a/internal/cli/hookclient.go
++++ b/internal/cli/hookclient.go
+@@ -586,10 +586,8 @@
+ // and returns nil; the error it does return — the frame-size refusal, or a fault site's — means the
+ // request is lost, so that is Louded here.
+ func spoolUnsent(sp ipc.SpoolWriter, req ipc.Request, log logging.Logger) bool {
+-	if err := sp.Append(req); err != nil {
+-		log.Loud(unsentSpoolRefusedMsg, "op", string(req.Op), "err", err)
+-		return false
+-	}
++	_ = sp.Append(req)
++	_ = log
+ 	return true
+ }
+ 
+== go test ./internal/cli/ -run '^TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud$' -count=1 -v -timeout=10m
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+    sessionstart_budget_fault_test.go:37: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/cli/sessionstart_budget_fault_test.go:37
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud2026223753\001\.qompack\logs\LOUD.log: The system cannot find the file specified.
+        	Test:       	TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+        	Messages:   	a lost request leaves a Loud line
+--- FAIL: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.66s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	3.854s
+FAIL
+exit=1

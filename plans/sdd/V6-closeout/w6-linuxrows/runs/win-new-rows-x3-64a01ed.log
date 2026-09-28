@@ -1,0 +1,63 @@
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+--- PASS: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (0.85s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1.47s)
+=== RUN   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+--- PASS: TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (7.73s)
+=== RUN   TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget
+--- PASS: TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget (7.71s)
+=== RUN   TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd
+--- PASS: TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd (0.27s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+--- PASS: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (0.93s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (4.06s)
+=== RUN   TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+--- PASS: TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished (3.69s)
+=== RUN   TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft
+--- PASS: TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft (2.63s)
+=== RUN   TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine
+--- PASS: TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine (2.52s)
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+--- PASS: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (0.80s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1.29s)
+=== RUN   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+--- PASS: TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (7.58s)
+=== RUN   TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget
+--- PASS: TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget (8.68s)
+=== RUN   TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd
+--- PASS: TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd (1.30s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+--- PASS: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (2.35s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (4.54s)
+=== RUN   TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+--- PASS: TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished (3.96s)
+=== RUN   TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft
+--- PASS: TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft (2.74s)
+=== RUN   TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine
+--- PASS: TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine (2.75s)
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+--- PASS: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (0.82s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1.28s)
+=== RUN   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+--- PASS: TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (7.51s)
+=== RUN   TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget
+--- PASS: TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget (8.31s)
+=== RUN   TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd
+--- PASS: TestStop_PersistsTheObserversGraphAndStateWithoutASessionEnd (0.30s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+--- PASS: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (0.85s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (3.85s)
+=== RUN   TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+--- PASS: TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished (3.70s)
+=== RUN   TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft
+--- PASS: TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft (2.61s)
+=== RUN   TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine
+--- PASS: TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine (2.58s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	99.990s
+exit=0

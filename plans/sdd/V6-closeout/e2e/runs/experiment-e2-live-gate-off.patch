@@ -1,0 +1,13 @@
+diff --git a/internal/daemon/ingest.go b/internal/daemon/ingest.go
+index f2a96e8..d8fb214 100644
+--- a/internal/daemon/ingest.go
++++ b/internal/daemon/ingest.go
+@@ -697,7 +697,7 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
+ 		// nothing, leave the WAL bytes and any blob intact, and release seen ownership (acknowledged
+ 		// stays false), so a later drain re-dispatches it once the predecessor is acknowledged. It
+ 		// never waits on another worker.
+-		if !i.leasedPredecessorsReady(j.lease, j.leased) {
++		if false && !i.leasedPredecessorsReady(j.lease, j.leased) { // TEMPORARY EXPERIMENT E2, NEVER COMMIT
+ 			if i.m != nil {
+ 				i.m.Counter(counterOrderingDeferred).Add(1)
+ 			}

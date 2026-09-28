@@ -1,0 +1,20 @@
+{
+  "name": "wal_segment_truncated",
+  "phase": "publication",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "c5b1b8df642275792bed82dbee4b2ddfd852e4e8d2bb15316f92f34bee9ac3dc"
+  },
+  "boundary": "WAL segment truncated mid-record",
+  "seed_method": "a spool/wal-*.ndjson segment is truncated inside a record, the shape daemon/drain.go answers with DrainGapCorruptLine; a 6-delivery burst was cut by killing the daemon (killed=false) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 6 client-* spool file(s)",
+  "outcome": "failed",
+  "reason": "the cut introduced no dangling reference, but the recovery session's observation was never indexed and no surface gained anything. Owner: internal/daemon.",
+  "detail": "cut: truncated wal-sess-fault-wal-segment-truncated-burst.ndjson from 37662 to 37638 bytes\neverything the surfaces gained: self-test[2]: admin.ping(severity 1): no OK response (daemon not reachable, or refused); surfaces self-test --json\nof which naming this cut (drain, spool, wal): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\ndegradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

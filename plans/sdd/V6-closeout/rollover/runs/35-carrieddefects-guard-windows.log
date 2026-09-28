@@ -1,0 +1,110 @@
+# run: 35-carrieddefects-guard-windows (working tree: the SP20-D4 record, TSV row and docs edits of this round, uncommitted; no Go file modified)
+# commit: 46c311a4a11a1cf1953dbb389383ea74deacca5b
+# command: go test ./test/guards -run 'TestCarriedDefects' -count=1 -timeout=30m -v
+=== RUN   TestCarriedDefects_ManifestIsWellFormed
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D1
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Messages:   	SP06-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Messages:   	SP08-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Messages:   	SP10-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Messages:   	SP09-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Messages:   	SP20-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/test/guards/carrieddefects_test.go:293
+        	Error:      	carried defect left unresolved at wave sign-off
+        	Messages:   	SP08-D3 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.06s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP06-D2 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP10-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP09-D1 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP20-D2 (0.00s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D3 (0.00s)
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D7
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP10-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP09-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D6
+--- PASS: TestCarriedDefects_ManifestIsWellFormed (0.14s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D1 (0.02s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D1 (0.02s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D7 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D1 (0.02s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP10-D1 (0.02s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP09-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D6 (0.00s)
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP10-D1
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP09-D1
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP20-D2
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D3
+--- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence (87.90s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D1 (37.97s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP10-D1 (13.33s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP09-D1 (12.31s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP20-D2 (12.51s)
+    --- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence/SP08-D3 (11.72s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	88.077s
+FAIL
+# exit: 1
+# classification (added after the run): ManifestIsWellFormed (SP20-D4 included) and OpenRowsHaveLivingEvidence pass; WaveReportRequiresResolution fails only for SP06-D2, SP08-D1, SP10-D1, SP09-D1, SP20-D2 and SP08-D3, the deferred:V6-VERIFY rows other close-out tasks own, exactly as in run 18b; SP20-D4 does not appear.

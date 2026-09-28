@@ -1,0 +1,55 @@
+# review: finding 2 fix applied, cli focused incl. the old mode=sideways examples (predicted to fail: criterion change), 2026-09-22T22:30:42Z, windows
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":"OFF"}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":false}}
+--- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart (1.12s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime": (0.46s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}} (0.12s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}} (0.19s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}} (0.12s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":"OFF"}} (0.11s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":false}} (0.12s)
+=== RUN   TestSelfTest_ReportsACaptureSwitchRefusal
+--- PASS: TestSelfTest_ReportsACaptureSwitchRefusal (0.56s)
+=== RUN   TestSelfTest_ReportsACaptureConfigDegradation
+    capture_config_report_test.go:85: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/capture_config_report_test.go:85
+        	Error:      	Not equal: 
+        	            	expected: 0x1
+        	            	actual  : 0x2
+        	Test:       	TestSelfTest_ReportsACaptureConfigDegradation
+        	Messages:   	capture continues, so this is not critical
+--- FAIL: TestSelfTest_ReportsACaptureConfigDegradation (0.44s)
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/clean
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/refused
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/refused_switch
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/degraded
+    capture_config_report_test.go:134: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/capture_config_report_test.go:134
+        	Error:      	"refused: every hook admits nothing" does not contain "fell back"
+        	Test:       	TestDoctor_ReportsTheCaptureConfiguration/degraded
+        	Messages:   	row=map[detail:qompack: running in degraded mode: capture configuration unavailable: a runtime.mode setting cannot be applied as written, and the capture on/off switch has no per-leaf fallback; hooks still exit 0 with empty output, and nothing is recorded until the configuration is repaired id:config.capture observed:refused: every hook admits nothing status:degraded]
+--- FAIL: TestDoctor_ReportsTheCaptureConfiguration (0.39s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/clean (0.09s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/refused (0.11s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/refused_switch (0.13s)
+    --- FAIL: TestDoctor_ReportsTheCaptureConfiguration/degraded (0.06s)
+=== RUN   TestHookCapture_UnknownKeyAndInvalidLeafStillCapture
+    capture_config_test.go:70: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/hooks_test.go:240
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-config/internal/cli/capture_config_test.go:70
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestHookCapture_UnknownKeyAndInvalidLeafStillCapture3582323241\001\.qompack\spool: The system cannot find the file specified.
+        	Test:       	TestHookCapture_UnknownKeyAndInvalidLeafStillCapture
+--- FAIL: TestHookCapture_UnknownKeyAndInvalidLeafStillCapture (0.12s)
+=== RUN   TestHookCapture_UnappliableCaptureSwitchRecordsNothing
+--- PASS: TestHookCapture_UnappliableCaptureSwitchRecordsNothing (0.49s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	3.390s
+FAIL
+exit=1

@@ -25,9 +25,16 @@ import (
 // It deliberately does NOT call Options.Handle(ipc.OpCheckpoint, …). That op is already routed to
 // handleCheckpoint, and Handle REPLACES a registration. Re-registering it would silently delete,
 // all at once: the contract.SessionHistory PreCompact observation, the terminal-hook marker,
-// the B-E histogram timing around the seam, SetPrecompactInstr, AddPrecompactWallSample — and
-// therefore BOTH PreCompact contract assertions. The seam SP-05 built for exactly this is
-// Options.Bind plus the nil-tolerant Services.PreCompact field, which handleCheckpoint calls.
+// the B-E histogram timing around the seam and AddPrecompactWallSample — and therefore the
+// precompact.has_time_to_write assertion. The seam SP-05 built for exactly this is Options.Bind
+// plus the nil-tolerant Services.PreCompact field, which handleCheckpoint calls.
+//
+// The seam seals and answers the empty object. It used to return the checkpointer's focus
+// instruction (Qompack.md §8.5, O1) as a PreCompact customInstructions for the route to record,
+// but no host accepts one: Claude Code has no PreCompact hookSpecificOutput variant, 2.1.280
+// rejected the whole response over it (C1.12), and custom_instructions is PreCompact INPUT, not a
+// summarizer-output setter (§7.3, §8.5 "Retire O1's output setter"). That producer is retired
+// (C1.18); the checkpoint is Qompack's own artifact and does not need the summarizer's help.
 const (
 	// idleTaskAdvanceFrontier keeps the checkpoint frontier moving during idle windows (O5), so
 	// PreCompact only has to finalize. Its name deliberately carries NO "act." prefix: the idle
@@ -170,7 +177,7 @@ func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src
 					"14s<15s<20s budget argument does not apply to it",
 					"session", string(e.SessionID), "trigger", e.Trigger)
 			}
-			res, err := w.PreCompact(ctx, checkpoint.PreCompactInput{
+			_, err = w.PreCompact(ctx, checkpoint.PreCompactInput{
 				Session:     e.SessionID,
 				Trigger:     e.Trigger,
 				Now:         now,
@@ -185,10 +192,9 @@ func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src
 				// get to make. SP-12 fills these in through this same struct.
 				Cache: checkpoint.CacheInfo{TTLState: "unknown"},
 			})
-			if err != nil {
-				return hookio.Empty(), err
-			}
-			return hookio.PreCompactOutput(res.Instructions), nil
+			// The empty object on success as on failure: the seal is the whole of this seam's job,
+			// and nothing it could say survives the host's PreCompact contract (C1.18).
+			return hookio.Empty(), err
 		}
 	})
 }

@@ -1,0 +1,75 @@
+// mkdirprobe compares, on this host, the two ways ensureDir can bring a missing two-level fanout
+// leaf into existence: os.MkdirAll (stat leaf, stat parent, stat grandparent, mkdir parent, mkdir
+// leaf) and create-first (mkdir leaf -> ENOENT, mkdir parent, mkdir leaf); and, for a leaf whose
+// parent exists, MkdirAll (stat leaf, stat parent, mkdir leaf) against one mkdir. Rounds alternate.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"time"
+)
+
+func createFirst(dir string) error {
+	err := os.Mkdir(dir, 0o700)
+	if errors.Is(err, fs.ErrNotExist) {
+		if perr := os.Mkdir(filepath.Dir(dir), 0o700); perr == nil || errors.Is(perr, fs.ErrExist) {
+			err = os.Mkdir(dir, 0o700)
+		}
+	}
+	if err != nil {
+		return os.MkdirAll(dir, 0o700)
+	}
+	return nil
+}
+
+func run(base string, n int, twoLevel bool, f func(string) error) time.Duration {
+	root, _ := os.MkdirTemp(base, "r")
+	if !twoLevel {
+		for i := 0; i < n; i++ {
+			_ = os.Mkdir(filepath.Join(root, fmt.Sprintf("p%04d", i)), 0o700)
+		}
+	}
+	start := time.Now()
+	for i := 0; i < n; i++ {
+		leaf := filepath.Join(root, fmt.Sprintf("p%04d", i), "cd")
+		if err := f(leaf); err != nil {
+			panic(err)
+		}
+	}
+	d := time.Since(start)
+	_ = os.RemoveAll(root)
+	return d / time.Duration(n)
+}
+
+func main() {
+	base, _ := os.MkdirTemp("", "mkdirprobe")
+	defer os.RemoveAll(base)
+	const n, rounds = 200, 10
+	for _, two := range []bool{true, false} {
+		var a, b []float64
+		for r := 0; r < rounds; r++ {
+			if r%2 == 0 {
+				a = append(a, float64(run(base, n, two, func(d string) error { return os.MkdirAll(d, 0o700) }).Microseconds()))
+				b = append(b, float64(run(base, n, two, createFirst).Microseconds()))
+			} else {
+				b = append(b, float64(run(base, n, two, createFirst).Microseconds()))
+				a = append(a, float64(run(base, n, two, func(d string) error { return os.MkdirAll(d, 0o700) }).Microseconds()))
+			}
+		}
+		faster := 0
+		for i := range a {
+			if b[i] < a[i] {
+				faster++
+			}
+		}
+		sort.Float64s(a)
+		sort.Float64s(b)
+		fmt.Printf("first level missing=%v: MkdirAll median %.0f us/leaf (min %.0f max %.0f); create-first median %.0f us/leaf (min %.0f max %.0f); create-first faster in %d/%d rounds\n",
+			two, a[rounds/2], a[0], a[rounds-1], b[rounds/2], b[0], b[rounds-1], faster, rounds)
+	}
+}

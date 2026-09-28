@@ -1,0 +1,43 @@
+# fix seat (w6-config): MUTATION CHECK, never committed as code. openAndRead's non-not-found open failure mapped to 'gone' (the regression review finding 2 names: a sharing violation or access denial taken for a missing file). Windows.
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_at_the_next_look_and_is_read
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_after_several_absent_looks_and_is_read
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_stays_absent_through_the_whole_budget:_missing
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/a_directory_is_back_in_its_place:_refused
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_name_keeps_coming_back_and_every_open_misses:_refused_at_the_budget
+=== RUN   TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_and_its_open_fails_for_another_reason:_refused
+    capture_read_internal_test.go:161: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/capture_read_internal_test.go:161
+        	Error:      	"250ms" is not less than "250ms"
+        	Test:       	TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_and_its_open_fails_for_another_reason:_refused
+        	Messages:   	the reader must answer as soon as it has its answer, not wait out the budget
+--- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen (0.03s)
+    --- PASS: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_at_the_next_look_and_is_read (0.01s)
+    --- PASS: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_after_several_absent_looks_and_is_read (0.00s)
+    --- PASS: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_stays_absent_through_the_whole_budget:_missing (0.00s)
+    --- PASS: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/a_directory_is_back_in_its_place:_refused (0.00s)
+    --- PASS: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_name_keeps_coming_back_and_every_open_misses:_refused_at_the_budget (0.01s)
+    --- FAIL: TestReadCaptureConfig_RechecksAFileGoneBetweenLstatAndOpen/the_file_is_back_and_its_open_fails_for_another_reason:_refused (0.01s)
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/found_and_read
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_finds_no_file:_missing
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_fails_for_another_reason:_refused
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_finds_a_directory:_refused
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_fails_for_another_reason:_refused
+    capture_read_internal_test.go:199: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/capture_read_internal_test.go:199
+        	Error:      	Should be zero, but was 250
+        	Test:       	TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_fails_for_another_reason:_refused
+        	Messages:   	no re-check may run here
+=== RUN   TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_finds_a_directory:_refused
+--- FAIL: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck (0.02s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/found_and_read (0.01s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_finds_no_file:_missing (0.00s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_fails_for_another_reason:_refused (0.00s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_Lstat_finds_a_directory:_refused (0.00s)
+    --- FAIL: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_fails_for_another_reason:_refused (0.01s)
+    --- PASS: TestReadCaptureConfig_AnswersAtOnceWithoutARecheck/the_open_finds_a_directory:_refused (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	1.546s
+FAIL
+exit=1

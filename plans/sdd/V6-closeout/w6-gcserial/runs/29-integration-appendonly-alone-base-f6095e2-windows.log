@@ -1,0 +1,17 @@
+# cmd: go test ./test/integration -run '^TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites$' -count=1 -timeout=30m -v
+# tree: git archive f6095e2 (base, no w6-gcserial change) extracted in the scratchpad
+# host: windows, co-loaded
+# started: 04:35:12Z
+=== RUN   TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites
+    appendonly_test.go:585: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/gcserial/base-f6095e2/test/integration/appendonly_test.go:585
+        	Error:      	"1m0.3375281s" is not less than "1m0s"
+        	Test:       	TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites
+        	Messages:   	the writers did not finish within 1m0s
+    appendonly_test.go:524: daemon.Run did not return within 10s of cancellation
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites2526777928\001\project\.qompack\logs\qompack-20260927.log: The process cannot access the file because it is being used by another process.
+--- FAIL: TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites (91.36s)
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	92.939s
+FAIL
+# exit: 1

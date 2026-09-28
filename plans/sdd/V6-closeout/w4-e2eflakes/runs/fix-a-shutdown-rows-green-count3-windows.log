@@ -1,0 +1,25 @@
+# green: the three staged shutdown-helper rows with the fixed helper (uncommitted on 696ac7f)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.68s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.13s)
+=== RUN   TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified
+    shutdown_spawn_inflight_test.go:283: e2eShutdownIfReachable: a process held C:\Users\Quant\AppData\Local\Temp\TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified4161882989\001\.qompack\run\daemon.lock with no readable pid and released it before any check could read one, so whether it has exited cannot be asked; waited out 20s instead
+--- PASS: TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified (21.53s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (2.82s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.13s)
+=== RUN   TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified
+    shutdown_spawn_inflight_test.go:283: e2eShutdownIfReachable: a process held C:\Users\Quant\AppData\Local\Temp\TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified1756684849\001\.qompack\run\daemon.lock with no readable pid and released it before any check could read one, so whether it has exited cannot be asked; waited out 20s instead
+--- PASS: TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified (21.54s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (2.83s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.14s)
+=== RUN   TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified
+    shutdown_spawn_inflight_test.go:283: e2eShutdownIfReachable: a process held C:\Users\Quant\AppData\Local\Temp\TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified1709956803\001\.qompack\run\daemon.lock with no readable pid and released it before any check could read one, so whether it has exited cannot be asked; waited out 20s instead
+--- PASS: TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified (21.52s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	80.532s
+exit=0

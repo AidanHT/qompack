@@ -34,7 +34,7 @@
         },
         "incrementalSpanInstruction": {
           "default": true,
-          "description": "emit the O1 focus instruction narrowing the summarizer to the span after the checkpoint frontier",
+          "description": "retired (C1.18): no host accepts a PreCompact instruction, so none is emitted; read for compatibility only (docs/cannot-do.md)",
           "type": "boolean",
           "x-qompack-section": "§8.5"
         },
@@ -671,7 +671,7 @@
             },
             "maxTokens": {
               "default": 12000,
-              "description": "upper bound of the rehydration budget",
+              "description": "upper bound of the rehydration token budget; the payload is also held under the host's fixed 9,500-character additionalContext ceiling, which no key raises",
               "type": "integer",
               "x-qompack-range": "[minTokens,∞)",
               "x-qompack-section": "§8.6"

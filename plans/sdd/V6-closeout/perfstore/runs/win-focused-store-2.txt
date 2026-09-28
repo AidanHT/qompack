@@ -1,0 +1,411 @@
+=== RUN   TestGC_CannotCollectMigrationOrRollbackMaterial
+--- PASS: TestGC_CannotCollectMigrationOrRollbackMaterial (1.69s)
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty
+=== RUN   TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null
+--- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases (0.93s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/zero (0.12s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/bare (0.17s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/uppercase (0.16s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_empty (0.15s)
+    --- PASS: TestGCAcknowledgement_V6_InvalidIdentityNeverReleases/explicit_null (0.33s)
+=== RUN   TestGCSegments_HarvestsOldestLeaseAcrossRotation
+--- PASS: TestGCSegments_HarvestsOldestLeaseAcrossRotation (0.42s)
+=== RUN   TestGCSegments_AckInLaterSegmentSettlesOlderLease
+--- PASS: TestGCSegments_AckInLaterSegmentSettlesOlderLease (0.47s)
+=== RUN   TestGCSegments_MissingCommittedSegmentHalts
+--- PASS: TestGCSegments_MissingCommittedSegmentHalts (0.38s)
+=== RUN   TestGCSegments_MissingSealHalts
+--- PASS: TestGCSegments_MissingSealHalts (0.27s)
+=== RUN   TestGCSegments_SealGarbageHalts
+--- PASS: TestGCSegments_SealGarbageHalts (0.66s)
+=== RUN   TestGCSegments_SealUnknownSchemaHalts
+--- PASS: TestGCSegments_SealUnknownSchemaHalts (0.33s)
+=== RUN   TestGCSegments_SealTornV2Halts
+--- PASS: TestGCSegments_SealTornV2Halts (0.66s)
+=== RUN   TestGCSegments_SealWrongJournalSumHalts
+--- PASS: TestGCSegments_SealWrongJournalSumHalts (0.52s)
+=== RUN   TestGCSegments_ValidV2SealAccepted
+--- PASS: TestGCSegments_ValidV2SealAccepted (0.58s)
+=== RUN   TestGCSegments_NonDenseActiveHalts
+--- PASS: TestGCSegments_NonDenseActiveHalts (0.43s)
+=== RUN   TestGCSegments_TornLogHalts
+--- PASS: TestGCSegments_TornLogHalts (0.33s)
+=== RUN   TestGCSegments_UnknownSchemaHeadHalts
+--- PASS: TestGCSegments_UnknownSchemaHeadHalts (0.32s)
+=== RUN   TestGCSegments_MigrationEvidenceWithoutAuthorityHalts
+--- PASS: TestGCSegments_MigrationEvidenceWithoutAuthorityHalts (0.28s)
+=== RUN   TestGCSegments_StagedSegmentLeaseRetained
+--- PASS: TestGCSegments_StagedSegmentLeaseRetained (0.55s)
+=== RUN   TestGCSegments_FrontierRecheckDetectsLogTailRotation
+--- PASS: TestGCSegments_FrontierRecheckDetectsLogTailRotation (0.41s)
+=== RUN   TestGCSegments_UnmigratedTreeStaysLegacy
+--- PASS: TestGCSegments_UnmigratedTreeStaysLegacy (0.63s)
+=== RUN   TestGCRetention_UnreadableLeaseRootHaltsCollection
+--- PASS: TestGCRetention_UnreadableLeaseRootHaltsCollection (0.54s)
+=== RUN   TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection
+--- PASS: TestGCRetention_TornCheckpointHidesLaterReferenceHaltsCollection (1.00s)
+=== RUN   TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection
+--- PASS: TestGCRetention_OverlongLeaseLineHidesLaterLiveReferenceHaltsCollection (1.19s)
+=== RUN   TestGCRetention_AckReleaseRequiresExactObservationAndVersion
+--- PASS: TestGCRetention_AckReleaseRequiresExactObservationAndVersion (0.95s)
+=== RUN   TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce
+--- PASS: TestGCRetention_LegacyLeaseWithoutObservationStillReleasesOnNonce (0.93s)
+=== RUN   TestGCRetention_UnreadableCheckpointDirHaltsCollection
+--- PASS: TestGCRetention_UnreadableCheckpointDirHaltsCollection (0.90s)
+=== RUN   TestGCRetention_UnreadablePendingDirHaltsCollection
+--- PASS: TestGCRetention_UnreadablePendingDirHaltsCollection (0.66s)
+=== RUN   TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging
+--- PASS: TestGCRetention_NonRegularAckSourceRetainsWithoutHaltingOrHanging (1.02s)
+=== RUN   TestGCRetention_CancelledContextIsNotARetentionError
+--- PASS: TestGCRetention_CancelledContextIsNotARetentionError (0.65s)
+=== RUN   TestGC_CollectsUnreferenced
+--- PASS: TestGC_CollectsUnreferenced (1.19s)
+=== RUN   TestGC_ZeroPolicyInheritsConfigAndDeletesNothing
+--- PASS: TestGC_ZeroPolicyInheritsConfigAndDeletesNothing (0.96s)
+=== RUN   TestGC_RetentionIsWhicheverIsLonger
+--- PASS: TestGC_RetentionIsWhicheverIsLonger (0.43s)
+=== RUN   TestGC_EphemeralNotInWindowByAge
+--- PASS: TestGC_EphemeralNotInWindowByAge (1.46s)
+=== RUN   TestGC_HarvestsBareHexHash
+--- PASS: TestGC_HarvestsBareHexHash (1.60s)
+=== RUN   TestGC_HarvestsHashesFromCheckpointPinsEliminations
+--- PASS: TestGC_HarvestsHashesFromCheckpointPinsEliminations (0.57s)
+=== RUN   TestGC_MissingRootFilesAreNotAnError
+--- PASS: TestGC_MissingRootFilesAreNotAnError (0.33s)
+=== RUN   TestGC_DryRun
+--- PASS: TestGC_DryRun (1.40s)
+=== RUN   TestGC_DeadlineTruncatesAndResumes
+--- PASS: TestGC_DeadlineTruncatesAndResumes (47.17s)
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack
+=== RUN   TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack
+--- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_as_fast_as_the_fastest_calibration (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_twice_as_slow (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_slow_edge_of_the_slack (0.00s)
+    --- PASS: TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass/judged_pass_at_the_fast_edge_of_the_slack (0.00s)
+=== RUN   TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule
+--- PASS: TestGC_DeadlineWindowNeverClaimsMoreRoomThanTheCheckSchedule (0.00s)
+=== RUN   TestGC_DeadlineBudgetRepricesAfterAMissedWindow
+--- PASS: TestGC_DeadlineBudgetRepricesAfterAMissedWindow (0.00s)
+=== RUN   TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    gc_test.go:1489: calibration 493.6064ms…2.6601328s over 3072 objects (fastest of 4); first check 171.8383ms (measured 171.8383ms); window 2.87x, slack 1.69x; check interval 199.58656ms; budget 657.037735ms; overshoot 340.116265ms after 1279 objects on attempt 3 of 5; limit 399.17312ms
+    gc_test.go:1504: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-perfstore/internal/store/gc_test.go:1504
+        	Error:      	"399.17312ms" is not less than or equal to "250ms"
+        	Test:       	TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+        	Messages:   	two deadline checks cost 399.17312ms on this host, so gcCheckEvery (256) is too coarse to honour a deadline inside the 2 s idle budget; revisit the constant, not this assertion
+--- FAIL: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (401.76s)
+=== RUN   TestGC_LiveDigestMismatchRestartsMark
+--- PASS: TestGC_LiveDigestMismatchRestartsMark (42.03s)
+=== RUN   TestGC_TombstonesRootsAppendOnly
+--- PASS: TestGC_TombstonesRootsAppendOnly (0.80s)
+=== RUN   TestGC_ContextCancel
+--- PASS: TestGC_ContextCancel (43.36s)
+=== RUN   TestGC_ClosedStoreDegrades
+--- PASS: TestGC_ClosedStoreDegrades (0.83s)
+=== RUN   TestGC_TombstoneRetiresOnlyMarkTimeDead
+--- PASS: TestGC_TombstoneRetiresOnlyMarkTimeDead (1.90s)
+=== RUN   TestGC_MarkPhaseHonoursTheDeadline
+--- PASS: TestGC_MarkPhaseHonoursTheDeadline (341.64s)
+=== RUN   TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline
+--- PASS: TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline (107.02s)
+=== RUN   TestGC_MarkPhaseHonoursCancellation
+--- PASS: TestGC_MarkPhaseHonoursCancellation (58.91s)
+=== RUN   TestDecode_RejectsDamagedFrames
+=== RUN   TestDecode_RejectsDamagedFrames/not_a_zstd_frame_at_all
+=== RUN   TestDecode_RejectsDamagedFrames/magic_bytes_only
+=== RUN   TestDecode_RejectsDamagedFrames/truncated_mid-frame
+=== RUN   TestDecode_RejectsDamagedFrames/last_byte_lopped_off
+=== RUN   TestDecode_RejectsDamagedFrames/one_flipped_byte_inside_the_frame
+--- PASS: TestDecode_RejectsDamagedFrames (0.01s)
+    --- PASS: TestDecode_RejectsDamagedFrames/not_a_zstd_frame_at_all (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/magic_bytes_only (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/truncated_mid-frame (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/last_byte_lopped_off (0.00s)
+    --- PASS: TestDecode_RejectsDamagedFrames/one_flipped_byte_inside_the_frame (0.00s)
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames/compressed
+=== RUN   TestObjectPaths_HonourCompressionAndTryBothNames/uncompressed
+--- PASS: TestObjectPaths_HonourCompressionAndTryBothNames (0.25s)
+    --- PASS: TestObjectPaths_HonourCompressionAndTryBothNames/compressed (0.13s)
+    --- PASS: TestObjectPaths_HonourCompressionAndTryBothNames/uncompressed (0.12s)
+=== RUN   TestTmpObjectPath_IsUniquePerCall
+--- PASS: TestTmpObjectPath_IsUniquePerCall (0.09s)
+=== RUN   TestEnsureDir_ReportsAFailedCreateAndCachesOnlySuccess
+--- PASS: TestEnsureDir_ReportsAFailedCreateAndCachesOnlySuccess (0.01s)
+=== RUN   TestWriteStaged_NeverClobbersAnExistingFile
+--- PASS: TestWriteStaged_NeverClobbersAnExistingFile (0.17s)
+=== RUN   TestPutObject_FailsWhenTheStagingDirectoryIsUnusable
+--- PASS: TestPutObject_FailsWhenTheStagingDirectoryIsUnusable (0.20s)
+=== RUN   TestPutObject_FailsWhenTheFanoutDirectoryCannotBeCreated
+--- PASS: TestPutObject_FailsWhenTheFanoutDirectoryCannotBeCreated (0.30s)
+=== RUN   TestQuarantine_PreservesExistingEvidence
+--- PASS: TestQuarantine_PreservesExistingEvidence (0.22s)
+=== RUN   TestGetObject_LengthDisagreementQuarantines
+--- PASS: TestGetObject_LengthDisagreementQuarantines (0.53s)
+=== RUN   TestGetChunk_ReadsAnObjectWithNoIndexEntry
+--- PASS: TestGetChunk_ReadsAnObjectWithNoIndexEntry (0.32s)
+=== RUN   TestGC_IgnoresFilesItCannotIdentify
+--- PASS: TestGC_IgnoresFilesItCannotIdentify (0.35s)
+=== RUN   TestPutBytes_DeltaRecordDeclaresItsBase
+--- PASS: TestPutBytes_DeltaRecordDeclaresItsBase (0.27s)
+=== RUN   TestPutBytes_UnprovenDeltaFallsBackToAFullObject
+--- PASS: TestPutBytes_UnprovenDeltaFallsBackToAFullObject (0.45s)
+=== RUN   TestGC_RetainsADeltaWithItsBase
+--- PASS: TestGC_RetainsADeltaWithItsBase (0.40s)
+=== RUN   TestGC_RetainsADeltaBaseFromTheDeltaSide
+--- PASS: TestGC_RetainsADeltaBaseFromTheDeltaSide (0.32s)
+=== RUN   TestGC_RetainsPendingWritesAcrossACrashedRootAppend
+--- PASS: TestGC_RetainsPendingWritesAcrossACrashedRootAppend (0.55s)
+=== RUN   TestGC_ExpiresAbandonedPendingMarkers
+--- PASS: TestGC_ExpiresAbandonedPendingMarkers (0.67s)
+=== RUN   TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot
+--- PASS: TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot (0.83s)
+=== RUN   TestGC_RetentionRootSourceHoldsObjectsLive
+--- PASS: TestGC_RetentionRootSourceHoldsObjectsLive (0.84s)
+=== RUN   TestGC_ReportsPerRootOutcomes
+--- PASS: TestGC_ReportsPerRootOutcomes (0.48s)
+=== RUN   TestGC_QuotaEvictsInWindowRootsAndReportsThem
+--- PASS: TestGC_QuotaEvictsInWindowRootsAndReportsThem (0.97s)
+=== RUN   TestGC_QuotaNeverEvictsAHardRetentionRoot
+--- PASS: TestGC_QuotaNeverEvictsAHardRetentionRoot (0.60s)
+=== RUN   TestGC_OutcomesAreBoundedAndSayWhenTheyWereTruncated
+--- PASS: TestGC_OutcomesAreBoundedAndSayWhenTheyWereTruncated (0.98s)
+=== RUN   TestGC_AcknowledgedDeliveryLeaseStopsRetaining
+--- PASS: TestGC_AcknowledgedDeliveryLeaseStopsRetaining (0.80s)
+=== RUN   TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen
+--- PASS: TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen (1.61s)
+=== RUN   TestGC_CompactsTheRetentionRootFile
+--- PASS: TestGC_CompactsTheRetentionRootFile (1.25s)
+=== RUN   TestGetChunk_RejectsValidCompressedReplacement
+--- PASS: TestGetChunk_RejectsValidCompressedReplacement (0.76s)
+=== RUN   TestGetChunk_RejectsSameLengthUncompressedReplacement
+--- PASS: TestGetChunk_RejectsSameLengthUncompressedReplacement (1.42s)
+=== RUN   TestGetChunk_RejectsUnindexedSubstitutedObject
+--- PASS: TestGetChunk_RejectsUnindexedSubstitutedObject (1.90s)
+=== RUN   TestOpenReaders_RejectSubstitutedChunk
+=== RUN   TestOpenReaders_RejectSubstitutedChunk/Open
+=== RUN   TestOpenReaders_RejectSubstitutedChunk/OpenSpan
+--- PASS: TestOpenReaders_RejectSubstitutedChunk (10.59s)
+    --- PASS: TestOpenReaders_RejectSubstitutedChunk/Open (3.60s)
+    --- PASS: TestOpenReaders_RejectSubstitutedChunk/OpenSpan (6.99s)
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_indexed
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_indexed
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_orphan
+=== RUN   TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_orphan
+--- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects (8.29s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_indexed (2.46s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_indexed (2.54s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_orphan (1.65s)
+    --- PASS: TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_orphan (1.64s)
+=== RUN   TestGetChunk_QuarantineFailurePreservesObject
+--- PASS: TestGetChunk_QuarantineFailurePreservesObject (1.86s)
+=== RUN   TestReadBoundedObject_RefusesASocketLeaf
+--- PASS: TestReadBoundedObject_RefusesASocketLeaf (0.13s)
+=== RUN   TestReadBoundedObject_RefusesADirectoryLeafAsNotRegular
+--- PASS: TestReadBoundedObject_RefusesADirectoryLeafAsNotRegular (0.02s)
+=== RUN   TestGetChunk_ADirectoryAtTheObjectPathIsDamagedNotAbsent
+--- PASS: TestGetChunk_ADirectoryAtTheObjectPathIsDamagedNotAbsent (0.73s)
+=== RUN   TestObjectPathFor_IsFilepathJoin
+--- PASS: TestObjectPathFor_IsFilepathJoin (1.90s)
+=== RUN   TestObjectPathFor_RelativeRootIsFilepathJoin
+--- PASS: TestObjectPathFor_RelativeRootIsFilepathJoin (0.00s)
+=== RUN   TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute
+--- PASS: TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute (0.14s)
+=== RUN   TestReadExactSize
+=== RUN   TestReadExactSize/exact_size_reads_and_requires_eof
+=== RUN   TestReadExactSize/a_short_reader_is_a_shrink
+=== RUN   TestReadExactSize/a_trailing_byte_is_a_growth
+=== RUN   TestReadExactSize/zero_size_empty_reader_is_ok
+=== RUN   TestReadExactSize/zero_size_with_bytes_is_a_growth
+=== RUN   TestReadExactSize/a_read_error_is_propagated
+--- PASS: TestReadExactSize (0.00s)
+    --- PASS: TestReadExactSize/exact_size_reads_and_requires_eof (0.00s)
+    --- PASS: TestReadExactSize/a_short_reader_is_a_shrink (0.00s)
+    --- PASS: TestReadExactSize/a_trailing_byte_is_a_growth (0.00s)
+    --- PASS: TestReadExactSize/zero_size_empty_reader_is_ok (0.00s)
+    --- PASS: TestReadExactSize/zero_size_with_bytes_is_a_growth (0.00s)
+    --- PASS: TestReadExactSize/a_read_error_is_propagated (0.00s)
+=== RUN   TestRequireEOF
+--- PASS: TestRequireEOF (0.00s)
+=== RUN   TestReadBoundedObject_FilesystemBounds
+=== RUN   TestReadBoundedObject_FilesystemBounds/reads_a_regular_file_exactly
+=== RUN   TestReadBoundedObject_FilesystemBounds/reads_a_zero_byte_file
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_file_past_the_limit_is_too_large
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_directory_is_not_a_regular_file
+=== RUN   TestReadBoundedObject_FilesystemBounds/a_missing_file_reports_not_exist
+--- PASS: TestReadBoundedObject_FilesystemBounds (0.13s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/reads_a_regular_file_exactly (0.04s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/reads_a_zero_byte_file (0.01s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_file_past_the_limit_is_too_large (0.01s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_directory_is_not_a_regular_file (0.01s)
+    --- PASS: TestReadBoundedObject_FilesystemBounds/a_missing_file_reports_not_exist (0.00s)
+=== RUN   TestPutBytes_FanoutLayout
+--- PASS: TestPutBytes_FanoutLayout (0.91s)
+=== RUN   TestPutBytes_CompressionNone
+--- PASS: TestPutBytes_CompressionNone (0.86s)
+=== RUN   TestPutObject_SecondWriteIsNotNovel
+--- PASS: TestPutObject_SecondWriteIsNotNovel (0.72s)
+=== RUN   TestGetChunk_Roundtrip
+--- PASS: TestGetChunk_Roundtrip (0.60s)
+=== RUN   TestGetChunk_QuarantinesCorruption
+--- PASS: TestGetChunk_QuarantinesCorruption (0.75s)
+=== RUN   TestPutBytes_GlobalDedup
+--- PASS: TestPutBytes_GlobalDedup (0.73s)
+=== RUN   TestPutBytes_LargeRewriteStillSharesChunks
+--- PASS: TestPutBytes_LargeRewriteStillSharesChunks (2.64s)
+=== RUN   TestPutBytes_IdenticalRootIsFree
+--- PASS: TestPutBytes_IdenticalRootIsFree (0.47s)
+=== RUN   TestPutBytes_DedupHitReportsThisPutsRawBytes
+--- PASS: TestPutBytes_DedupHitReportsThisPutsRawBytes (0.62s)
+=== RUN   TestPutBytes_KeepRawStoresDeltaRoot
+--- PASS: TestPutBytes_KeepRawStoresDeltaRoot (0.53s)
+=== RUN   TestPutBytes_KeepRawFalseStoresNoDeltas
+--- PASS: TestPutBytes_KeepRawFalseStoresNoDeltas (0.71s)
+=== RUN   TestPutBytes_EphemeralFlagPersists
+--- PASS: TestPutBytes_EphemeralFlagPersists (0.40s)
+=== RUN   TestPutBytes_RedactionBeforeChunking
+--- PASS: TestPutBytes_RedactionBeforeChunking (0.31s)
+=== RUN   TestPutBytes_RedactionRunsWhenDepsRedactIsNil
+--- PASS: TestPutBytes_RedactionRunsWhenDepsRedactIsNil (0.39s)
+=== RUN   TestPutBytes_CanonicalizeBeforeChunk
+--- PASS: TestPutBytes_CanonicalizeBeforeChunk (0.30s)
+=== RUN   TestPutBytes_CanonFailureFallsBack
+--- PASS: TestPutBytes_CanonFailureFallsBack (0.34s)
+=== RUN   TestPutBytes_NearDup
+--- PASS: TestPutBytes_NearDup (0.38s)
+=== RUN   TestPutBytes_NoNearDupForDistinctPaths
+--- PASS: TestPutBytes_NoNearDupForDistinctPaths (0.76s)
+=== RUN   TestPutBytes_NoNearDupWhenMinHashDisabled
+--- PASS: TestPutBytes_NoNearDupWhenMinHashDisabled (0.60s)
+=== RUN   TestPutBytes_ChunkerDegradedGuard
+--- PASS: TestPutBytes_ChunkerDegradedGuard (0.53s)
+=== RUN   TestPutBytes_RefusesAContextThatExpiredWhileItWaitedForItsPutLock
+--- PASS: TestPutBytes_RefusesAContextThatExpiredWhileItWaitedForItsPutLock (0.59s)
+=== RUN   TestOpen_StreamsFullRoot
+--- PASS: TestOpen_StreamsFullRoot (4.86s)
+=== RUN   TestOpenSpan_Boundaries
+--- PASS: TestOpenSpan_Boundaries (7.99s)
+=== RUN   TestOpenSpan_PastEndIsNotAnError
+--- PASS: TestOpenSpan_PastEndIsNotAnError (0.32s)
+=== RUN   TestOpen_EmptyPayload
+--- PASS: TestOpen_EmptyPayload (0.22s)
+=== RUN   TestOpen_DoesNotMaterializeWholeRoot
+--- PASS: TestOpen_DoesNotMaterializeWholeRoot (2.20s)
+=== RUN   TestRecovery_RootsIndex
+=== RUN   TestRecovery_RootsIndex/malformed_lines_are_skipped_and_the_good_roots_survive
+=== RUN   TestRecovery_RootsIndex/a_truncated_final_line_is_the_normal_crash_shape
+=== RUN   TestRecovery_RootsIndex/a_class_ordinal_this_build_does_not_know_degrades_to_prose
+=== RUN   TestRecovery_RootsIndex/an_impossible_chunk_length_degrades_to_unknown_not_to_negative
+=== RUN   TestRecovery_RootsIndex/an_undecodable_signature_costs_the_signature_not_the_line
+--- PASS: TestRecovery_RootsIndex (2.20s)
+    --- PASS: TestRecovery_RootsIndex/malformed_lines_are_skipped_and_the_good_roots_survive (0.36s)
+    --- PASS: TestRecovery_RootsIndex/a_truncated_final_line_is_the_normal_crash_shape (0.62s)
+    --- PASS: TestRecovery_RootsIndex/a_class_ordinal_this_build_does_not_know_degrades_to_prose (0.70s)
+    --- PASS: TestRecovery_RootsIndex/an_impossible_chunk_length_degrades_to_unknown_not_to_negative (0.33s)
+    --- PASS: TestRecovery_RootsIndex/an_undecodable_signature_costs_the_signature_not_the_line (0.18s)
+=== RUN   TestRecovery_ToolUseIndex
+=== RUN   TestRecovery_ToolUseIndex/a_supersede_for_an_unknown_id_is_a_no_op
+=== RUN   TestRecovery_ToolUseIndex/an_oversized_line_does_not_brick_the_store
+--- PASS: TestRecovery_ToolUseIndex (0.43s)
+    --- PASS: TestRecovery_ToolUseIndex/a_supersede_for_an_unknown_id_is_a_no_op (0.19s)
+    --- PASS: TestRecovery_ToolUseIndex/an_oversized_line_does_not_brick_the_store (0.24s)
+=== RUN   TestRecovery_FileHistoryIndex
+--- PASS: TestRecovery_FileHistoryIndex (0.19s)
+=== RUN   TestRecovery_SessionIndex
+=== RUN   TestRecovery_SessionIndex/malformed_session_records_are_skipped
+=== RUN   TestRecovery_SessionIndex/recent_sessions_orders_newest_first_and_clamps_n
+--- PASS: TestRecovery_SessionIndex (0.65s)
+    --- PASS: TestRecovery_SessionIndex/malformed_session_records_are_skipped (0.19s)
+    --- PASS: TestRecovery_SessionIndex/recent_sessions_orders_newest_first_and_clamps_n (0.46s)
+=== RUN   TestRecovery_SegmentIndex
+--- PASS: TestRecovery_SegmentIndex (0.21s)
+=== RUN   TestRecovery_StoreStateCounters
+=== RUN   TestRecovery_StoreStateCounters/a_corrupt_state_file_is_recomputed_rather_than_zeroed
+=== RUN   TestRecovery_StoreStateCounters/an_absent_state_file_is_also_recomputed
+=== RUN   TestRecovery_StoreStateCounters/a_readable_state_file_is_trusted_verbatim
+--- PASS: TestRecovery_StoreStateCounters (1.01s)
+    --- PASS: TestRecovery_StoreStateCounters/a_corrupt_state_file_is_recomputed_rather_than_zeroed (0.36s)
+    --- PASS: TestRecovery_StoreStateCounters/an_absent_state_file_is_also_recomputed (0.34s)
+    --- PASS: TestRecovery_StoreStateCounters/a_readable_state_file_is_trusted_verbatim (0.30s)
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/roots.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/tool_use.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/files.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/sessions.jsonl
+=== RUN   TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/segments.jsonl
+--- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable (0.60s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/roots.jsonl (0.10s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/tool_use.jsonl (0.07s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/files.jsonl (0.13s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/sessions.jsonl (0.09s)
+    --- PASS: TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable/segments.jsonl (0.20s)
+=== RUN   TestPutBytes_SharedVolatileTokenRestoresBothRootsExactly
+--- PASS: TestPutBytes_SharedVolatileTokenRestoresBothRootsExactly (0.37s)
+=== RUN   TestPutBytes_PutAndReadFidelityAgree
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/nothing_volatile,_KeepRaw
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/nothing_volatile,_no_KeepRaw
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/proven_delta
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/unproven_delta_falls_back_to_a_full_original
+=== RUN   TestPutBytes_PutAndReadFidelityAgree/volatile,_no_KeepRaw
+--- PASS: TestPutBytes_PutAndReadFidelityAgree (1.55s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/nothing_volatile,_KeepRaw (0.23s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/nothing_volatile,_no_KeepRaw (0.37s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/proven_delta (0.24s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/unproven_delta_falls_back_to_a_full_original (0.44s)
+    --- PASS: TestPutBytes_PutAndReadFidelityAgree/volatile,_no_KeepRaw (0.27s)
+=== RUN   TestPutBytes_DedupHitNeverClaimsAnotherPutsOriginal
+--- PASS: TestPutBytes_DedupHitNeverClaimsAnotherPutsOriginal (0.26s)
+=== RUN   TestPutBytes_ConcurrentPutsOfOneRootClaimOnlyTheOriginalItRestores
+--- PASS: TestPutBytes_ConcurrentPutsOfOneRootClaimOnlyTheOriginalItRestores (1.34s)
+=== RUN   TestPutBytes_DeltaRecordPayloadNamesItsBase
+--- PASS: TestPutBytes_DeltaRecordPayloadNamesItsBase (0.31s)
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_base_keeps_its_own_record_and_not_its_sibling's
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_record_keeps_the_base_it_declares
+=== RUN   TestGC_EachBaseRetainsItsOwnDeltaRecord/both_bases_referenced_keep_both_records
+--- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord (2.06s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_base_keeps_its_own_record_and_not_its_sibling's (0.50s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/a_referenced_record_keeps_the_base_it_declares (0.52s)
+    --- PASS: TestGC_EachBaseRetainsItsOwnDeltaRecord/both_bases_referenced_keep_both_records (1.05s)
+=== RUN   TestPutBytes_DeltaAddressHeldByAnotherRootFallsBackToAFullOriginal
+--- PASS: TestPutBytes_DeltaAddressHeldByAnotherRootFallsBackToAFullOriginal (0.65s)
+=== RUN   TestPutBytes_VerbatimClaimPersistsOnAVersionOneLine
+--- PASS: TestPutBytes_VerbatimClaimPersistsOnAVersionOneLine (1.98s)
+=== RUN   TestSearch_ByPathExactBeatsSuffix
+--- PASS: TestSearch_ByPathExactBeatsSuffix (0.69s)
+=== RUN   TestSearch_ByText
+--- PASS: TestSearch_ByText (1.12s)
+=== RUN   TestSearch_BySymbol
+--- PASS: TestSearch_BySymbol (1.24s)
+=== RUN   TestSearch_ToolFilterAndSince
+--- PASS: TestSearch_ToolFilterAndSince (0.52s)
+=== RUN   TestSearch_DefaultKIsFive
+--- PASS: TestSearch_DefaultKIsFive (2.66s)
+=== RUN   TestSearch_Deterministic
+--- PASS: TestSearch_Deterministic (0.46s)
+=== RUN   TestSearch_TruncatesWithoutError
+--- PASS: TestSearch_TruncatesWithoutError (35.23s)
+=== RUN   TestSearch_SummaryIsFirstNonBlankLine
+--- PASS: TestSearch_SummaryIsFirstNonBlankLine (0.37s)
+=== RUN   TestSearch_SummaryTruncatesOnRuneBoundary
+--- PASS: TestSearch_SummaryTruncatesOnRuneBoundary (0.62s)
+=== RUN   TestSearch_ClosedStoreDegrades
+--- PASS: TestSearch_ClosedStoreDegrades (0.27s)
+=== RUN   TestOpen_ExportedConstructor
+=== RUN   TestOpen_ExportedConstructor/returns_a_usable_store
+=== RUN   TestOpen_ExportedConstructor/error_path_returns_a_truly_nil_interface
+--- PASS: TestOpen_ExportedConstructor (0.68s)
+    --- PASS: TestOpen_ExportedConstructor/returns_a_usable_store (0.56s)
+    --- PASS: TestOpen_ExportedConstructor/error_path_returns_a_truly_nil_interface (0.11s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1200.362s
+FAIL

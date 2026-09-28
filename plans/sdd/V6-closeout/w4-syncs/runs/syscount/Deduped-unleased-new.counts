@@ -1,0 +1,9 @@
+epoll_pwait             6        1.2
+futex                 177       35.4
+getpid                 25        5.0
+mmap                    4        0.8
+nanosleep              55       11.0
+rt_sigreturn           25        5.0
+sched_yield            34        6.8
+tgkill                 25        5.0
+write                   5        1.0

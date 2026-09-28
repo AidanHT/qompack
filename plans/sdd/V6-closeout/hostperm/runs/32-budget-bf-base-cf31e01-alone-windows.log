@@ -1,0 +1,12 @@
+base=cf31e01 (git archive) cpu_before=78 test_procs=23
+=== RUN   TestBudgetBF
+    bench_test.go:131: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/base-cf31e01/internal/mcp/bench_test.go:131
+        	Error:      	"5.24288s" is not less than "250ms"
+        	Test:       	TestBudgetBF
+        	Messages:   	B-F breached over 2000 tool uses / ~39 MB: limit=250ms n=200 p50=655.36ms p95=5.24288s p99=16.777216s max=18.850786s
+--- FAIL: TestBudgetBF (1322.46s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	1492.328s
+FAIL
+exit=1

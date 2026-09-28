@@ -1,0 +1,26 @@
+{
+  "id": "g1-bundleA",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "bundle",
+    "--version",
+    "0.3.0-int1",
+    "--out",
+    "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/bundleA",
+    "--archive"
+  ],
+  "source_head": "6b3db3251728f62b8cfb810b01e7b99d0b045525",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-25T15:00:42-04:00",
+  "ended_at": "2026-09-25T15:00:48-04:00",
+  "exit_code": 0,
+  "log": "g1-bundleA.log",
+  "log_sha256": "d4a49a607ea907dd04f213a0b3b69c9b2c395e40a615f43c26cbc85630eb6bfb"
+}

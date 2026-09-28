@@ -1,0 +1,1 @@
+ts=2026-09-27T02:59:04.074754006Z level=loud msg="daemon: stop: a session end ignored cancellation; abandoning it, its flush stays in the WAL" bound=250ms

@@ -1,0 +1,54 @@
+# DIAGNOSTIC VARIANTS (scratch only): git archive 12f64ca with internal/paths/pathstest/home.go mutated to leave one home variable pointing at the poisoned fake real home; each runs TestGuard_IsolatedTestsNeverReadAPoisonedRealHome alone, which must FAIL for M1-M4 and pass for the unmutated control M0. Windows.
+## M0-unmutated: no mutation (control)
+42:var homeVars = []string{"HOME", "USERPROFILE"}
+48:var overrideVars = []string{"QOMPACK_HOME", "CLAUDE_CONFIG_DIR"}
+--- PASS: TestGuard_IsolatedTestsNeverReadAPoisonedRealHome (0.80s)
+ok  	github.com/qompack/qompack/test/guards	1.439s
+exit=0
+## M1-USERPROFILE-left: var homeVars = []string{"HOME"}
+42:var homeVars = []string{"HOME"}
+48:var overrideVars = []string{"QOMPACK_HOME", "CLAUDE_CONFIG_DIR"}
+pathstest: os.UserHomeDir answers "C:\\Users\\Quant" (<nil>) after isolation, not "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-test-home-665520044"; no test was run against the real home
+FAIL	github.com/qompack/qompack/test/guards	0.310s
+FAIL
+exit=1
+## M2-HOME-left: var homeVars = []string{"USERPROFILE"}
+42:var homeVars = []string{"USERPROFILE"}
+48:var overrideVars = []string{"QOMPACK_HOME", "CLAUDE_CONFIG_DIR"}
+        	Error:      	Received unexpected error:
+        	Messages:   	the child test process read the poisoned real home or failed:
+        	            	        	Error:      	Not equal: 
+        	            	        	            	expected: "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-test-home-3980712589"
+        	            	        	            	actual  : "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestGuard_IsolatedTestsNeverReadAPoisonedRealHome3291888547\\001\\real-home"
+        	            	        	Messages:   	HOME must name the isolated home, not the real one
+--- FAIL: TestGuard_IsolatedTestsNeverReadAPoisonedRealHome (0.32s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.595s
+FAIL
+exit=1
+## M3-QOMPACK_HOME-left: var overrideVars = []string{"CLAUDE_CONFIG_DIR"}
+42:var homeVars = []string{"HOME", "USERPROFILE"}
+48:var overrideVars = []string{"CLAUDE_CONFIG_DIR"}
+        	Error:      	Received unexpected error:
+        	Messages:   	the child test process read the poisoned real home or failed:
+        	            	        	Error:      	Should be true
+        	            	        	Messages:   	the calibration file must resolve under the isolated home: C:\Users\Quant\AppData\Local\Temp\TestGuard_IsolatedTestsNeverReadAPoisonedRealHome4121033516\001\real-home\.qompack\calibration.json
+--- FAIL: TestGuard_IsolatedTestsNeverReadAPoisonedRealHome (0.34s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.619s
+FAIL
+exit=1
+## M4-CLAUDE_CONFIG_DIR-left: var overrideVars = []string{"QOMPACK_HOME"}
+42:var homeVars = []string{"HOME", "USERPROFILE"}
+48:var overrideVars = []string{"QOMPACK_HOME"}
+        	Error:      	Received unexpected error:
+        	Messages:   	the child test process read the poisoned real home or failed:
+        	            	        	Error:      	Not equal: 
+        	            	        	            	expected: 0
+        	            	        	            	actual  : 2
+        	            	        	Messages:   	a default policy read the poisoned real Claude Code settings
+--- FAIL: TestGuard_IsolatedTestsNeverReadAPoisonedRealHome (0.47s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.735s
+FAIL
+exit=1

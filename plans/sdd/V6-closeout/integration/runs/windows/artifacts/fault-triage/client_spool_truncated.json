@@ -1,0 +1,20 @@
+{
+  "name": "client_spool_truncated",
+  "phase": "publication",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "boundary": "client spool truncated",
+  "seed_method": "a spool/client-*.ndjson file is truncated inside a record; a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 0 client-* spool file(s)",
+  "outcome": "explicit_incomplete",
+  "reason": "the cut introduced no silently dangling reference; what it did leave, the audit can name as reported: drain_gap(client-25428.ndjson): pending: 92 spool bytes not yet replayed",
+  "detail": "cut: truncated client-25428.ndjson from 58 to 34 bytes\neverything the surfaces gained: daylog[1]: qompack-20260925.log: ts=2026-09-25T18:55:17.1263672Z level=warn msg=\"store: segment closed without a tokens feature; Segment.Tokens stays zero permanently\" segment=3 session=sess-fault-client-spool-truncated-r; surfaces day log (warn)\nof which naming this cut (drain, spool, client): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry\naudit before {tool_uses:8 roots:4 sidecars:8 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:1}\ndegradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry\nnewly dangling: none\nnewly reported: drain_gap(client-25428.ndjson): pending: 92 spool bytes not yet replayed\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

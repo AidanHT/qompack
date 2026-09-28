@@ -1,0 +1,206 @@
+# cmd: go test ./internal/store -run '^(TestGC_PassesStartedTogetherRunOneAtATime|TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt|TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext|TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp|TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds|TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers|TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp|TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass|TestGCGate_APanickingPassHandsTheGateOn|TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor)$' -count=10 -v
+# commit: 4b33c19; host: windows, co-loaded
+# started: 2026-09-27T17:44:20Z
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.21s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.16s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.06s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.07s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.06s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.07s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.07s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.07s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.08s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.08s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.21s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.14s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.07s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.07s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.07s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.06s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.07s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.07s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.06s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.07s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.21s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.12s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.06s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.04s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.04s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.05s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.05s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.05s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.04s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.04s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.17s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.12s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.05s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.05s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.05s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.06s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.05s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.05s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.04s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.05s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.19s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.13s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.06s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.05s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.05s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.05s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.06s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.06s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.06s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.06s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.21s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.14s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.07s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.07s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.05s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.05s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.05s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.05s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.04s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.06s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.24s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.13s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.05s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.04s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.08s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.06s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.05s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.05s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.04s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.05s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.19s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.14s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.06s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.04s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.06s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.06s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.05s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.05s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.05s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.06s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.21s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.13s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.06s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.06s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.05s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.06s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.06s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.06s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.09s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.08s)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+--- PASS: TestGC_PassesStartedTogetherRunOneAtATime (0.22s)
+=== RUN   TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt
+--- PASS: TestGC_ARequestMadeDuringAPassIsAnsweredByOneThatStartsAfterIt (0.13s)
+=== RUN   TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext
+--- PASS: TestGCGate_AnUncontendedCallRunsItsOwnPassOnItsOwnContext (0.08s)
+=== RUN   TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp
+--- PASS: TestGCGate_RequestsWaitingBehindAPassShareOneFollowUp (0.05s)
+=== RUN   TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds
+--- PASS: TestGCGate_AWaitingRequestWithdrawsWhenItsContextEnds (0.05s)
+=== RUN   TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers
+--- PASS: TestGCGate_AFollowUpItsStarterAbandonedDoesNotAnswerTheOthers (0.05s)
+=== RUN   TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp
+--- PASS: TestGCGate_TheLongestDeadlineOfAKindStartsTheFollowUp (0.05s)
+=== RUN   TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass
+--- PASS: TestGCGate_ADifferentKindOfRequestWaitsForItsOwnPass (0.06s)
+=== RUN   TestGCGate_APanickingPassHandsTheGateOn
+--- PASS: TestGCGate_APanickingPassHandsTheGateOn (0.06s)
+=== RUN   TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor
+--- PASS: TestGCGate_ServesOnlyWhatThePassRanToItsOwnConclusionFor (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	8.292s
+# exit: 0

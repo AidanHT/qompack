@@ -1,0 +1,13 @@
+# base 6724fef (before the finding-3 fix), Windows 11
+=== RUN   TestDeliveryRollover_SegmentZeroIsFrozenBeforeItsTransitionCommits
+    delivery_frozen_order_test.go:60: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/base-src/internal/daemon/delivery_frozen_order_test.go:33
+        	            				C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/base-src/internal/daemon/delivery_frozen_order_test.go:60
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestDeliveryRollover_SegmentZeroIsFrozenBeforeItsTransitionCommits
+        	Messages:   	after a crash in the switch: delivery-lease-position.json: the pre-segment dual reader must refuse segment 0
+--- FAIL: TestDeliveryRollover_SegmentZeroIsFrozenBeforeItsTransitionCommits (0.24s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.501s
+FAIL
+exit=1

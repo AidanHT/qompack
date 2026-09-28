@@ -13,14 +13,14 @@ import (
 )
 
 // StatusSchema is the version of the status.full document. It is separate from EnvelopeSchema:
-// the envelope is the same for all seven commands and changes rarely; this one changes whenever
+// the envelope is the same for every command and changes rarely; this one changes whenever
 // status gains or loses a section.
 const StatusSchema = 1
 
 // DaemonStatus mirrors internal/daemon.StatusSnapshot, the ipc.OpStatus payload.
 //
 // It is a mirror rather than the type itself because internal/commands does not import
-// internal/daemon: the seven frontends render what the daemon already computed and own no daemon
+// internal/daemon: the frontends render what the daemon already computed and own no daemon
 // logic, and pulling the package in would make that boundary invisible. The cost of a mirror is
 // that it can fall behind, so TestStatus_DaemonPayloadMirrorIsCurrent compares the two member for
 // member and fails the moment the daemon's own payload changes.
@@ -155,6 +155,11 @@ type StatusSources struct {
 	Daemon func(context.Context) (DaemonStatus, time.Time, error)
 	// Disk returns the last persisted metrics snapshot, whose own TS carries its age.
 	Disk func(context.Context) (obs.Snapshot, error)
+	// Refused, when non-nil, is why neither source may be asked: owner decision D18 refuses a
+	// project root that is the user's home directory, so there is no daemon to ask and no project
+	// metrics file to read, and asking would touch the user-global layer's directory. The report
+	// then carries nothing observed, with this as its one reason.
+	Refused error
 }
 
 // perHookHists maps a hook entry point to the histogram that measures THAT HOOK ALONE.
@@ -216,6 +221,13 @@ func CollectStatus(ctx context.Context, src StatusSources, now time.Time) Status
 
 // resolve tries the daemon, then the persisted metrics file, and reports which one answered.
 func resolve(ctx context.Context, src StatusSources, now time.Time) (*DaemonStatus, map[string]obs.HistSnapshot, Provenance) {
+	if src.Refused != nil {
+		return nil, nil, Provenance{
+			Source: SourceNone,
+			Status: AvailabilityUnavailable,
+			Reason: src.Refused.Error(),
+		}
+	}
 	var reasons []string
 
 	if src.Daemon != nil {

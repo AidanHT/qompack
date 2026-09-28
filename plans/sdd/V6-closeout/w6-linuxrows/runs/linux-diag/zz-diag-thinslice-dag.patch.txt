@@ -1,0 +1,26 @@
+commit 61493b65526ea5d5ac7c32a349f846435c77045a
+Author: diag <diag@invalid>
+Date:   Sat Sep 26 22:42:57 2026 -0400
+
+    zz diag: thin-slice persisted DAG (temporary, never merged)
+
+diff --git a/test/e2e/observer_e2e_test.go b/test/e2e/observer_e2e_test.go
+index d7ab76a..330149d 100644
+--- a/test/e2e/observer_e2e_test.go
++++ b/test/e2e/observer_e2e_test.go
+@@ -547,10 +547,15 @@ func TestE2E_ThinSliceDropsControlOnlyEdges(t *testing.T) {
+ 	x02SidecarFor(t, p.Root, lastID)
+ 
+ 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
++	zzShut := time.Now()
+ 	e2eShutdownIfReachable(t, p.Root)
++	t.Logf("ZZDIAG shutdown after flush took %s", time.Since(zzShut))
+ 
+ 	g, err := dag.Open(p.Root, config.Defaults(), logging.Nop())
+ 	require.NoError(t, err)
++	zst, _ := json.Marshal(g.Stats())
++	t.Logf("ZZDIAG persisted DAG stats: %s; tool_use lines: %d", zst, len(obsToolUseLines(p.Root)))
++	zzCopyLogs(t, p.Root)
+ 
+ 	foundControlOnly := false
+ 	for _, n := range g.NodesAfter(0) {

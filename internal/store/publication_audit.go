@@ -71,6 +71,33 @@ const (
 	auditOpObservePrompt = "observe.prompt"
 )
 
+// The CONTROL ops a hook client sends with a delivery nonce besides the three observations:
+// ipc.OpSessionStart / ipc.OpCheckpoint / ipc.OpFlush's wire forms, spelled as literals for the same
+// reason as the three above. Only the hook client mints nonces, and these six are every op it sends.
+const (
+	auditOpSessionStart = "session.start"
+	auditOpCheckpoint   = "checkpoint"
+	auditOpFlush        = "flush"
+)
+
+// IsControlCaptureOp reports whether op names a control line (a session start, a checkpoint or a
+// SessionEnd flush) rather than an observation.
+//
+// No current build writes a capture sidecar for one. Builds before the V6 close-out did: their drain
+// published a sidecar for every LEASED line it replayed, and a control hook that had fallen back to
+// its client spool reached the drain leased, because the hook client mints a nonce for every hook. A
+// control line is not an observation and nothing ever references its sidecar, so such a file is a
+// known legacy artifact: evidence of a delivery, kept exactly as written, and neither a publication
+// gap nor damage. Every other op the accounting does not name stays unrecognized.
+func IsControlCaptureOp(op string) bool {
+	switch op {
+	case auditOpSessionStart, auditOpCheckpoint, auditOpFlush:
+		return true
+	default:
+		return false
+	}
+}
+
 // publicationScanDefaults are applied to any non-positive cap field. They are a bound on WORK, not a
 // configuration default (§11.6 D11): a project that has accumulated more than this in one unswept
 // lifetime is exactly the case where a startup pass must stop and say it was truncated.
@@ -169,6 +196,19 @@ type PublicationAudit struct {
 	// Put whose root line has not landed. Not a gap; drain/GC owns it.
 	PendingObjects int
 
+	// LegacyControlCaptures counts unpublished sidecars of a CONTROL line (IsControlCaptureOp): the
+	// known artifact builds before the V6 close-out left for a drained session start, checkpoint or
+	// flush. They are classified, so they do not make the pass incomplete; they are not gaps, because a
+	// control line needs no reference; and they are counted so a consumer can say they were seen and
+	// kept rather than silently skipped.
+	LegacyControlCaptures int
+
+	// NewerSchemaCaptures counts sidecars declaring a schema NEWER than this build. They are written by
+	// a newer plugin — a support gap (Qompack.md §7.1), never damage — and are not classified, so they
+	// make the pass Incomplete exactly like every other unreadable record. The count exists so a
+	// consumer can tell that one cause apart from the rest (IncompleteOnlyForNewerSchemas).
+	NewerSchemaCaptures int
+
 	// Incomplete is true when this pass could NOT be exhaustive: a filesystem error, an unreadable or
 	// unknown-schema/outcome record, a too-large or symlinked entry, or a budget/deadline stop. Under
 	// Incomplete the gap counts are a LOWER BOUND and must never be read as "clean" when zero.
@@ -184,6 +224,22 @@ type PublicationAudit struct {
 // Incomplete: an unpublished publishable capture, or an unindexed object candidate (the F4 cuts).
 func (a PublicationAudit) HasGaps() bool {
 	return a.UnpublishedCaptures > 0 || a.UnindexedObjectCandidates > 0
+}
+
+// noteNewerCaptureSchema is the one incompleteness note that names a support gap rather than damage.
+const noteNewerCaptureSchema = "capture sidecar schema newer than this build"
+
+// IncompleteOnlyForNewerSchemas reports whether this pass is incomplete for exactly one reason:
+// capture sidecars written by a newer build. The pass is still NOT certified — their fields are not
+// this build's to classify, so the gap counts remain a lower bound — but the cause is a support gap
+// (Qompack.md §7.1), which fsck's captures row already reports as "a support gap rather than damage".
+// Any other cause beside it — a truncation, an older or unreadable record, an unknown op or outcome,
+// an unexpected or symlinked entry, an unresolved observation intent, an interrupted scan — returns
+// false. Every cause of incompleteness is recorded through note (deduplicated), so a single note that
+// is this one means no other cause was seen; a notes list at its bound can never be length one.
+func (a PublicationAudit) IncompleteOnlyForNewerSchemas() bool {
+	return a.Incomplete && !a.Truncated && a.NewerSchemaCaptures > 0 &&
+		len(a.Notes) == 1 && a.Notes[0] == noteNewerCaptureSchema
 }
 
 // note records a generic, non-sensitive cause of incompleteness and sets Incomplete. Duplicates are
@@ -393,13 +449,18 @@ func (s *FSStore) classifyCaptureView(v captureAuditView, a *PublicationAudit) {
 		// A newer schema is a support gap; an older/zero/missing one is an unreadable version. Both
 		// mean this build cannot assert what Published/Outcome mean, so neither is classified.
 		if v.Version > CaptureSidecarVersion {
-			a.note("capture sidecar schema newer than this build")
+			a.NewerSchemaCaptures++
+			a.note(noteNewerCaptureSchema)
 		} else {
 			a.note("capture sidecar declares an unreadable version")
 		}
 		return
 	}
 	if v.Published {
+		return
+	}
+	if IsControlCaptureOp(v.Op) {
+		a.LegacyControlCaptures++
 		return
 	}
 	if v.Op != auditOpObserveTool && v.Op != auditOpObservePrompt && v.Op != auditOpObserveStop {
@@ -628,11 +689,14 @@ func (s *FSStore) readPublicationFile(name string, limit int64) ([]byte, error) 
 // CaptureRequiresReference describes the current observer contract. Ordinary Stop
 // has no derived record; SubagentStop does. An unreadable retained event cannot
 // establish that distinction. Old prompt records may predate reference capture;
-// their missing link is unverified under today's contract, not repaired here.
+// their missing link is unverified under today's contract, not repaired here. A
+// control line (IsControlCaptureOp) is not an observation and never needs one.
 func CaptureRequiresReference(op string, retained []byte) (required, known bool) {
 	switch op {
 	case auditOpObserveTool, auditOpObservePrompt:
 		return true, true
+	case auditOpSessionStart, auditOpCheckpoint, auditOpFlush:
+		return false, true
 	case auditOpObserveStop:
 		var event struct {
 			Name     string `json:"hook_event_name"`

@@ -281,8 +281,13 @@ func (r *schedRuntime) loadStateLocked() {
 }
 
 // readStateFile reads p, reporting false (and logging) when there is nothing usable.
+//
+// The read is shared (paths.ReadFileShared). BindSession reads under r.mu, while Persist writes
+// both files with paths.WriteAtomic under persistMu only, after releasing r.mu, so an idle-tick
+// persist and another session's bind are not ordered; on Windows an ordinary handle would fail that
+// replace and be refused while one is finishing (test/guards' sharedReaders).
 func (r *schedRuntime) readStateFile(p string) ([]byte, bool) {
-	raw, err := os.ReadFile(paths.Long(p))
+	raw, err := paths.ReadFileShared(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			r.log.Debug("scheduler: no persisted state", "path", p)

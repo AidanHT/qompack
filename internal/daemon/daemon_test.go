@@ -492,15 +492,24 @@ func TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
 
-	// Run must reach Serve and accept a connection — the very thing a wedged startup drain
-	// prevents, since Run never reaches `go server.Serve(...)` until Drain has returned.
+	// Run must get past its startup and SERVE a request — the very thing a wedged startup drain
+	// prevents. A dial alone proves nothing here: the accept loop takes dials from the moment the
+	// endpoint exists and holds every request until the startup is done (serveOp), so only an
+	// answer shows the drain returned.
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+	c := ipc.NewClientWithOptions(addr, nil, logging.Nop(), nil, ipc.ClientOptions{
+		State:           ipc.State{Mode: contract.ModeFull, DaemonEnabled: true},
+		ConnectDeadline: redrainDialBound,
+		AckDeadline:     redrainDialBound,
+	})
+	defer func() { _ = c.Close() }()
 	require.Eventually(t, func() bool {
-		addr, rerr := ipc.Resolve(root)
-		if rerr != nil {
-			return false
-		}
-		return ipc.Probe(addr, 100*time.Millisecond)
-	}, drainDeadlockGuard, 50*time.Millisecond, "Run never started accepting connections — startup drain is likely wedged")
+		resp, sendErr := c.Send(context.Background(), ipc.Request{
+			Op: ipc.OpAdminPing, TS: core.NowMilli(core.SystemClock()), Reply: true,
+		}, redrainDialBound)
+		return sendErr == nil && resp.OK
+	}, drainDeadlockGuard, 50*time.Millisecond, "Run never answered a request — startup drain is likely wedged")
 
 	cancel()
 	select {

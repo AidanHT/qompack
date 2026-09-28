@@ -1,0 +1,10 @@
+run_id=cx-w6-config-e2e-writeset-alone-b763d72-b763d72-20260927T211714Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config
+rev=b763d72
+commit=b763d728ded3e6d6369a6e72d66bd0d125bb1120
+bundle_sha256=b3db042d386cc53bc0f9fac5f830f4ad436516b0de765cf8e2428016c7b14b0d
+host_started_utc=2026-09-27T21:17:18Z
+inner_args=--run ^TestV3_LiveSessionWriteSetAndAppendOnly$ --count 3 -- ./test/e2e
+host_finished_utc=2026-09-27T21:19:06Z
+container_exit=0

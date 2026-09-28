@@ -1,0 +1,148 @@
+# red first: recovery-marker lost update, c4d27e2 + working tree (no mutex yet)
+# go test ./internal/daemon -run '^TestSessionRecovery_ConcurrentEndsLoseNoMarker$' -count=3 -v
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+    flush_async_test.go:331: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:331
+        	Error:      	elements differ
+        	            	
+        	            	extra elements in list A:
+        	            	([]interface {}) (len=11) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-01",
+        	            	 (core.SessionID) (len=16) "sess-recovery-03",
+        	            	 (core.SessionID) (len=16) "sess-recovery-05",
+        	            	 (core.SessionID) (len=16) "sess-recovery-07",
+        	            	 (core.SessionID) (len=16) "sess-recovery-09",
+        	            	 (core.SessionID) (len=16) "sess-recovery-11",
+        	            	 (core.SessionID) (len=16) "sess-recovery-13",
+        	            	 (core.SessionID) (len=16) "sess-recovery-15",
+        	            	 (core.SessionID) (len=16) "sess-recovery-17",
+        	            	 (core.SessionID) (len=16) "sess-recovery-21",
+        	            	 (core.SessionID) (len=16) "sess-recovery-23"
+        	            	}
+        	            	
+        	            	
+        	            	listA:
+        	            	([]core.SessionID) (len=12) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-01",
+        	            	 (core.SessionID) (len=16) "sess-recovery-03",
+        	            	 (core.SessionID) (len=16) "sess-recovery-05",
+        	            	 (core.SessionID) (len=16) "sess-recovery-07",
+        	            	 (core.SessionID) (len=16) "sess-recovery-09",
+        	            	 (core.SessionID) (len=16) "sess-recovery-11",
+        	            	 (core.SessionID) (len=16) "sess-recovery-13",
+        	            	 (core.SessionID) (len=16) "sess-recovery-15",
+        	            	 (core.SessionID) (len=16) "sess-recovery-17",
+        	            	 (core.SessionID) (len=16) "sess-recovery-19",
+        	            	 (core.SessionID) (len=16) "sess-recovery-21",
+        	            	 (core.SessionID) (len=16) "sess-recovery-23"
+        	            	}
+        	            	
+        	            	
+        	            	listB:
+        	            	([]core.SessionID) (len=1) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-19"
+        	            	}
+        	Test:       	TestSessionRecovery_ConcurrentEndsLoseNoMarker
+        	Messages:   	exactly the sessions whose ends did not finish are marked: no cleared one resurrected, no marker lost
+--- FAIL: TestSessionRecovery_ConcurrentEndsLoseNoMarker (0.66s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+    flush_async_test.go:331: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:331
+        	Error:      	elements differ
+        	            	
+        	            	extra elements in list A:
+        	            	([]interface {}) (len=12) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-01",
+        	            	 (core.SessionID) (len=16) "sess-recovery-03",
+        	            	 (core.SessionID) (len=16) "sess-recovery-05",
+        	            	 (core.SessionID) (len=16) "sess-recovery-07",
+        	            	 (core.SessionID) (len=16) "sess-recovery-09",
+        	            	 (core.SessionID) (len=16) "sess-recovery-11",
+        	            	 (core.SessionID) (len=16) "sess-recovery-13",
+        	            	 (core.SessionID) (len=16) "sess-recovery-15",
+        	            	 (core.SessionID) (len=16) "sess-recovery-17",
+        	            	 (core.SessionID) (len=16) "sess-recovery-19",
+        	            	 (core.SessionID) (len=16) "sess-recovery-21",
+        	            	 (core.SessionID) (len=16) "sess-recovery-23"
+        	            	}
+        	            	
+        	            	
+        	            	extra elements in list B:
+        	            	([]interface {}) (len=1) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-22"
+        	            	}
+        	            	
+        	            	
+        	            	listA:
+        	            	([]core.SessionID) (len=12) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-01",
+        	            	 (core.SessionID) (len=16) "sess-recovery-03",
+        	            	 (core.SessionID) (len=16) "sess-recovery-05",
+        	            	 (core.SessionID) (len=16) "sess-recovery-07",
+        	            	 (core.SessionID) (len=16) "sess-recovery-09",
+        	            	 (core.SessionID) (len=16) "sess-recovery-11",
+        	            	 (core.SessionID) (len=16) "sess-recovery-13",
+        	            	 (core.SessionID) (len=16) "sess-recovery-15",
+        	            	 (core.SessionID) (len=16) "sess-recovery-17",
+        	            	 (core.SessionID) (len=16) "sess-recovery-19",
+        	            	 (core.SessionID) (len=16) "sess-recovery-21",
+        	            	 (core.SessionID) (len=16) "sess-recovery-23"
+        	            	}
+        	            	
+        	            	
+        	            	listB:
+        	            	([]core.SessionID) (len=1) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-22"
+        	            	}
+        	Test:       	TestSessionRecovery_ConcurrentEndsLoseNoMarker
+        	Messages:   	exactly the sessions whose ends did not finish are marked: no cleared one resurrected, no marker lost
+--- FAIL: TestSessionRecovery_ConcurrentEndsLoseNoMarker (0.69s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+    flush_async_test.go:331: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:331
+        	Error:      	elements differ
+        	            	
+        	            	extra elements in list A:
+        	            	([]interface {}) (len=12) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-01",
+        	            	 (core.SessionID) (len=16) "sess-recovery-03",
+        	            	 (core.SessionID) (len=16) "sess-recovery-05",
+        	            	 (core.SessionID) (len=16) "sess-recovery-07",
+        	            	 (core.SessionID) (len=16) "sess-recovery-09",
+        	            	 (core.SessionID) (len=16) "sess-recovery-11",
+        	            	 (core.SessionID) (len=16) "sess-recovery-13",
+        	            	 (core.SessionID) (len=16) "sess-recovery-15",
+        	            	 (core.SessionID) (len=16) "sess-recovery-17",
+        	            	 (core.SessionID) (len=16) "sess-recovery-19",
+        	            	 (core.SessionID) (len=16) "sess-recovery-21",
+        	            	 (core.SessionID) (len=16) "sess-recovery-23"
+        	            	}
+        	            	
+        	            	
+        	            	listA:
+        	            	([]core.SessionID) (len=12) {
+        	            	 (core.SessionID) (len=16) "sess-recovery-01",
+        	            	 (core.SessionID) (len=16) "sess-recovery-03",
+        	            	 (core.SessionID) (len=16) "sess-recovery-05",
+        	            	 (core.SessionID) (len=16) "sess-recovery-07",
+        	            	 (core.SessionID) (len=16) "sess-recovery-09",
+        	            	 (core.SessionID) (len=16) "sess-recovery-11",
+        	            	 (core.SessionID) (len=16) "sess-recovery-13",
+        	            	 (core.SessionID) (len=16) "sess-recovery-15",
+        	            	 (core.SessionID) (len=16) "sess-recovery-17",
+        	            	 (core.SessionID) (len=16) "sess-recovery-19",
+        	            	 (core.SessionID) (len=16) "sess-recovery-21",
+        	            	 (core.SessionID) (len=16) "sess-recovery-23"
+        	            	}
+        	            	
+        	            	
+        	            	listB:
+        	            	([]core.SessionID) {
+        	            	}
+        	Test:       	TestSessionRecovery_ConcurrentEndsLoseNoMarker
+        	Messages:   	exactly the sessions whose ends did not finish are marked: no cleared one resurrected, no marker lost
+--- FAIL: TestSessionRecovery_ConcurrentEndsLoseNoMarker (0.68s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	2.706s
+FAIL
+exit=1

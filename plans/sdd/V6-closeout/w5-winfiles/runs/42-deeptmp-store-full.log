@@ -1,0 +1,26 @@
+## tree: git archive 8f57907 in scratch; TMP=C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\winfiles\deeptmp\deep-tmp-segment-to-push-every-t-tempdir-past-legacy-max-path (224 chars)
+## go test ./internal/store -count=1 -timeout=30m
+--- FAIL: TestBackup_RefusesFrontierChangedBeforeItsOwnCopy (0.56s)
+    backup_segments_test.go:31: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/winfiles/a/internal/store/backup_segments_test.go:31
+        	Error:      	Should be true
+        	Test:       	TestBackup_RefusesFrontierChangedBeforeItsOwnCopy
+        	Messages:   	the test must change a watched frontier during the copy
+--- FAIL: TestReadBoundedObject_RefusesASocketLeaf (0.01s)
+    object_leaf_open_test.go:30: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/winfiles/a/internal/store/object_leaf_open_test.go:30
+        	Error:      	Received unexpected error:
+        	            	listen unix C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\winfiles\gotmp\TestReadBoundedObject_RefusesASocketLeaf3637163818\001\s: bind: invalid argument
+        	Test:       	TestReadBoundedObject_RefusesASocketLeaf
+        	Messages:   	fixture: an AF_UNIX socket file must be creatable here
+--- FAIL: TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute (0.01s)
+    object_leaf_open_windows_test.go:35: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/winfiles/a/internal/store/object_leaf_open_windows_test.go:35
+        	Error:      	Received unexpected error:
+        	            	listen unix C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\winfiles\gotmp\TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute105223595\001\s: bind: invalid argument
+        	Test:       	TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute
+        	Messages:   	fixture: an AF_UNIX socket file must be creatable here
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	370.345s
+FAIL
+exit=1

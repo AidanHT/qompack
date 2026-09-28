@@ -1,0 +1,21 @@
+run_id=cx-w7-sp08d3-focused-898bb8b-20260928T015547Z
+commit=898bb8b27b0b29370e6198aeab73763f1c5f498a
+tree=e1d448b8717edd75cdb26f8a94e005982a74de97
+bundle_sha256=98d76414cafc0445d6333e58ceeb4960b5be7e55a521f3468db1c2f3e4a4b977
+started_utc=2026-09-28T01:56:04Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^(TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero|TestSP08D3_DistinctSameTextRepliesStayDistinct|TestSP08D3_CaptureFailureIsNotAcknowledged|TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput|TestPromptOrder_V6_OrderingGateGivesTurnZeroToEarliestLeasedArrival|TestPromptOrder_V6_UnleasedEarlierSpooledIsSeparateUncertainty|TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock|TestDeliveryMigration_OrphanArtifactsPreserveLegacyAnchorsWithoutContinuing|TestCrashCutBetweenReferenceAndFrontierRedelivers|TestDispatchOp_OutOfProjectDirectIPCDoesNotReachWAL|TestAdmitDelivery_.*|TestV6Prompt_.*|TestDerivedPublication_V6_.*|TestOnUserPrompt_.*|TestVerbatimPromptID|TestV6_LostFilePathDoesNotBecomePathlessAuthority|TestV6_DedupDoesNotLaunderARestrictedHash|TestV6_HashRefusesStoreWithoutProvenance|TestE2E_VerbatimPromptSurvivesRestart|TestE2E_ObserverThroughDaemon|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-28T01:58:42Z

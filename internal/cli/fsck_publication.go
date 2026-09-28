@@ -24,8 +24,19 @@ func (s *fsckScan) checkPublication() fsckCheck {
 	}
 	audit, err := auditor.AuditPublication(s.ctx, store.DefaultPublicationScanCap())
 	row.scan(audit.CapturesScanned + audit.ObjectsScanned)
-	if err != nil || audit.Incomplete {
+	switch {
+	case err != nil || (audit.Incomplete && !audit.IncompleteOnlyForNewerSchemas()):
 		row.defect("publication audit is incomplete; zero observed gaps cannot certify completeness")
+	case audit.Incomplete:
+		// The ONLY cause is sidecars a newer build wrote: the captures row's "support gap rather than
+		// damage" (Qompack.md §7.1), so the same files are not a defect here either. The row still
+		// says, by count, what it could not certify, and any other cause beside it is a defect above.
+		row.note("publication audit could not classify %d capture sidecar(s) written by a newer build; "+
+			"their publication is not certified by this build, a support gap rather than damage",
+			audit.NewerSchemaCaptures)
+	}
+	if audit.LegacyControlCaptures > 0 {
+		row.note("%s", fsckLegacyControlCapturesNote(audit.LegacyControlCaptures))
 	}
 	if audit.HasGaps() {
 		row.defect("publication evidence includes %d unlinked captures and %d unindexed object candidates",

@@ -1,0 +1,22 @@
+{
+  "id": "g1-replay_ci",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "replay",
+    "--ci"
+  ],
+  "source_head": "6b3db3251728f62b8cfb810b01e7b99d0b045525",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-25T15:00:36-04:00",
+  "ended_at": "2026-09-25T15:00:41-04:00",
+  "exit_code": 0,
+  "log": "g1-replay_ci.log",
+  "log_sha256": "1d6f6d7f39413435fdb2b6cc6d9932dcbbbb0cb12d684f8da68a6b9ae6f33f81"
+}

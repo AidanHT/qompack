@@ -1,0 +1,10 @@
+run_id=cx-int3-x09-alone-90e1db3-20260926T210226Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int
+rev=90e1db3
+commit=90e1db3016c4ebe5dc255fb16d356dd8857a87da
+bundle_sha256=30777b96f1de894a76090e0aad75c7345ccccd5a9a2d7dc16e8e145ac4607480
+host_started_utc=2026-09-26T21:02:36Z
+inner_args=--run ^TestV3_LiveSessionWriteSetAndAppendOnly$ --count 3 -- ./test/e2e
+host_finished_utc=2026-09-26T21:03:54Z
+container_exit=0

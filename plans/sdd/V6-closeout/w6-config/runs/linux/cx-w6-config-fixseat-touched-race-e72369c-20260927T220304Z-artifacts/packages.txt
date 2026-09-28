@@ -1,0 +1,3 @@
+github.com/qompack/qompack/internal/config
+github.com/qompack/qompack/test/guards
+github.com/qompack/qompack/test/docs

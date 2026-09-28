@@ -1,0 +1,68 @@
+# Windows full package runs at 4316e06, go test -count=1 -timeout=30m, one package at a time;
+# the machine is co-loaded by three other workstreams and this lane's Linux container runs; QOMPACK_UNDER_COLOAD not set
+## go test ./internal/paths -count=1 -timeout=30m  (start 15:50:26Z)
+ok  	github.com/qompack/qompack/internal/paths	12.489s
+exit=0 (end 15:50:41Z)
+## go test ./internal/ipc -count=1 -timeout=30m  (start 15:50:41Z)
+ok  	github.com/qompack/qompack/internal/ipc	31.129s
+exit=0 (end 15:51:18Z)
+## go test ./internal/tokens -count=1 -timeout=30m  (start 15:51:18Z)
+ok  	github.com/qompack/qompack/internal/tokens	7.134s
+exit=0 (end 15:51:27Z)
+## go test ./internal/cli -count=1 -timeout=30m  (start 15:51:27Z)
+ok  	github.com/qompack/qompack/internal/cli	37.053s
+exit=0 (end 15:52:08Z)
+## go test ./internal/store -count=1 -timeout=30m  (start 15:52:08Z)
+ok  	github.com/qompack/qompack/internal/store	684.288s
+exit=0 (end 16:03:43Z)
+## go test ./internal/daemon -count=1 -timeout=30m  (start 16:03:43Z)
+--- FAIL: TestObservePromptBlockingVariantTimesOut (2.12s)
+    daemon_test.go:182: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/daemon/daemon_test.go:182
+        	Error:      	"1.8300147s" is not less than "1s"
+        	Test:       	TestObservePromptBlockingVariantTimesOut
+        	Messages:   	the route must not block past promptReplyDeadline
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	792.161s
+FAIL
+exit=1 (end 16:17:00Z)
+## go test ./internal/contract -count=1 -timeout=30m  (start 16:17:00Z)
+ok  	github.com/qompack/qompack/internal/contract	47.954s
+exit=0 (end 16:18:07Z)
+## go test ./internal/checkpoint -count=1 -timeout=30m  (start 16:18:07Z)
+--- FAIL: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (6.25s)
+    --- FAIL: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (2.98s)
+        precompact_test.go:238: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/checkpoint/precompact_test.go:238
+            	Error:      	"276.2259ms" is not greater than "875ms"
+            	Test:       	TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+            	Messages:   	a caller with real time left gets the capped budget; got 276.2259ms
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	128.309s
+FAIL
+exit=1 (end 16:20:28Z)
+## go test ./internal/observer -count=1 -timeout=30m  (start 16:20:28Z)
+ok  	github.com/qompack/qompack/internal/observer	119.592s
+exit=0 (end 16:22:31Z)
+## go test ./internal/obs -count=1 -timeout=30m  (start 16:22:31Z)
+ok  	github.com/qompack/qompack/internal/obs	1.177s
+exit=0 (end 16:22:34Z)
+## go test ./internal/rehydrate -count=1 -timeout=30m  (start 16:22:34Z)
+ok  	github.com/qompack/qompack/internal/rehydrate	2.425s
+exit=0 (end 16:22:39Z)
+## go test ./internal/sketch -count=1 -timeout=30m  (start 16:22:40Z)
+ok  	github.com/qompack/qompack/internal/sketch	4.253s
+exit=0 (end 16:22:47Z)
+## go test ./internal/dag -count=1 -timeout=30m  (start 16:22:47Z)
+ok  	github.com/qompack/qompack/internal/dag	10.839s
+exit=0 (end 16:23:01Z)
+## go test ./internal/mcp -count=1 -timeout=30m  (start 16:23:01Z)
+ok  	github.com/qompack/qompack/internal/mcp	188.265s
+exit=0 (end 16:26:12Z)
+## go test ./internal/eval -count=1 -timeout=30m  (start 16:26:12Z)
+ok  	github.com/qompack/qompack/internal/eval	3.436s
+exit=0 (end 16:26:19Z)
+## go test ./internal/testutil -count=1 -timeout=30m  (start 16:26:19Z)
+ok  	github.com/qompack/qompack/internal/testutil	1.498s
+exit=0 (end 16:26:22Z)
+DONE

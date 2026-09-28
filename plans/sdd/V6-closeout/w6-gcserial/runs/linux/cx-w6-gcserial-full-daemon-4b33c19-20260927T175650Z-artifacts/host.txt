@@ -1,0 +1,10 @@
+run_id=cx-w6-gcserial-full-daemon-4b33c19-20260927T175650Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial
+rev=4b33c19
+commit=4b33c19f8853f3f0d5821f8f1f8dc6b9b8df5c54
+bundle_sha256=f53a3c329b4a0107f9d68ce8f065de8f925642ea206a615796f0393f79bb60bb
+host_started_utc=2026-09-27T17:57:08Z
+inner_args=--timeout 60m -- ./internal/daemon
+host_finished_utc=2026-09-27T18:20:20Z
+container_exit=0

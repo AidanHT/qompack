@@ -1,0 +1,4 @@
+022721dc76a4e060f37239f251945f2f05a7f284
+command: CGO_ENABLED=1 go test ./internal/daemon -race -count=5 -timeout=60m -run '^(TestDeliveryOrder|TestDispatchLanes|TestAwaitLaneQuiet|TestSettleSessionLimit|TestIngest|TestDrain|TestDeliveryTerminal|TestSP08D3|TestCarriedDefect_SP08D3|TestPromptOrder|TestLiveDispatchedLine|TestStraggler|TestNewDrainer|TestWalSessionID|TestSessionEndRecordsRecoveryNeeded|TestDrainOfSpooledFlushLineDoesNotDeadlock|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun|TestMarkerIsWrittenByFlushAndCheckpointOnly)'
+ok  	github.com/qompack/qompack/internal/daemon	587.494s
+exit=0

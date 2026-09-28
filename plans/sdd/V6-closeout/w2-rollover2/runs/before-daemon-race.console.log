@@ -1,0 +1,34 @@
+run_id=cx-w2-rollover2-before-daemon-race-b070bbe-20260923T160557Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2
+rev=b070bbe
+commit=b070bbec1b2050a560e28e4444e8ca91679b93a4
+bundle_sha256=e5f89b1bc62b06a3d55968169daad97aab9d39f00d51ba816a6806dd8356b670
+host_started_utc=2026-09-23T16:06:13Z
+inner_args=--timeout 120m --coload -- ./internal/daemon
+/work/cx-w2-rollover2-before-daemon-race-b070bbe-20260923T160557Z.bundle: OK
+run_id=cx-w2-rollover2-before-daemon-race-b070bbe-20260923T160557Z
+commit=b070bbec1b2050a560e28e4444e8ca91679b93a4
+tree=730b7f9e32f9446a5200144b2f29a3b5cbe4770f
+bundle_sha256=e5f89b1bc62b06a3d55968169daad97aab9d39f00d51ba816a6806dd8356b670
+started_utc=2026-09-23T16:06:41Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=120m gomaxprocs=4 coload=1
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1383 fail=0 skip=1)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-rollover2/plans/sdd/V6-closeout/w2-rollover2/runs/cx-w2-rollover2-before-daemon-race-b070bbe-20260923T160557Z-artifacts
+exit=0

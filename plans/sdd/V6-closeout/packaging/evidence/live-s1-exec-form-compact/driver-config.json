@@ -1,0 +1,37 @@
+{
+ "out": "<scratch>/s1/out",
+ "cwd": "<scratch>/s1/project",
+ "timeout_s": 300,
+ "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "3",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read",
+  "--plugin-dir",
+  "<scratch>/bundle/qompack-plugin-0.1.0-pkg.s1-windows-amd64",
+  "--plugin-dir",
+  "<scratch>/probe"
+ ],
+ "messages": [
+  "Read notes.txt and tell me the release codeword. Reply in one short sentence.",
+  "/compact",
+  "Without reading any file again: what was the release codeword and which port must the config keep? One short sentence."
+ ],
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
+ }
+}

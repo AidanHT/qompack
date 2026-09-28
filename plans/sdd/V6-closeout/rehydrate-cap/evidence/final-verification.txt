@@ -1,0 +1,103 @@
+C1.14 final verification — HEAD d61c8c6, 2026-09-23T03:44Z, windows/amd64, go1.26.6
+
+$ go run ./tools/devtool fmt-check
+exit=0
+
+$ go vet ./internal/rehydrate/... ./internal/hookio/ ./internal/config/ ./test/e2e/ ./test/guards/ ./test/docs/
+exit=0
+
+$ go run ./tools/devtool gen-config-docs --check
+gen-config-docs: docs/config-reference.md is up to date
+exit=0
+
+$ go test ./internal/rehydrate/... -count=1
+ok  	github.com/qompack/qompack/internal/rehydrate	1.956s
+ok  	github.com/qompack/qompack/internal/rehydrate/rehydratetest	1.299s
+exit=0
+
+$ go test ./internal/hookio/ -count=1
+ok  	github.com/qompack/qompack/internal/hookio	1.226s
+exit=0
+
+$ go test ./internal/config/ -count=1
+ok  	github.com/qompack/qompack/internal/config	1.900s
+exit=0
+
+$ go test ./test/docs/ -count=1
+ok  	github.com/qompack/qompack/test/docs	2.368s
+exit=0
+
+$ go test ./test/replay/ -count=1
+ok  	github.com/qompack/qompack/test/replay	8.128s
+exit=0
+
+$ go test ./internal/rehydrate/ -run TestBuild_NeverExceedsTheHostCeiling|TestBuild_MonotoneInBudget -count=1 -rapid.checks=3000
+ok  	github.com/qompack/qompack/internal/rehydrate	12.305s
+exit=0
+
+$ go test ./internal/rehydrate/ -run ^$ -fuzz=FuzzBuild_HostCeiling -fuzztime=60s -parallel=2
+fuzz: elapsed: 1m0s, execs: 137642 (0/sec), new interesting: 11 (total: 19)
+fuzz: elapsed: 1m1s, execs: 137642 (0/sec), new interesting: 11 (total: 19)
+PASS
+ok  	github.com/qompack/qompack/internal/rehydrate	61.281s
+exit=0
+
+$ go test ./internal/cli/ -run TestHookOutput_ -count=1
+ok  	github.com/qompack/qompack/internal/cli	0.604s
+exit=0
+
+$ go test ./internal/daemon/ -run TestService_ -count=1
+ok  	github.com/qompack/qompack/internal/daemon	0.594s
+exit=0
+
+$ go test ./test/guards/ -run TestQompack -count=1 -v
+--- PASS: TestQompackChangesOnlyThroughAnAuthorizedRevision (0.00s)
+--- PASS: TestQompackDeclaredVersionIsRecorded (0.02s)
+--- PASS: TestQompackErrataAndRevisionLogAgree (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.214s
+exit=0
+
+$ go test ./test/e2e/ -run 'TestE2E_SessionStart|TestE2E_ContractSentinel|TestE2E_AdditionalContextProducerIsDeclared|TestE2E_DropReporterSatisfiesMCP|TestUserIntent_FirstPromptIDMatchesObserver|TestV5_PreCompactToRehydrateToDroppedRoundTrip|TestV4_PreCompactToCheckpointToRehydrateRoundTrip|TestV4_WhyAndDroppedAnswerFromRealProducers|TestV4_AlreadyTriedThreeWay|TestV4_InjectionTaggingKeeps|TestV5_EliminationThroughEveryFourSurfaces|TestV5_DegradedPassiveIsStillCorrect|TestV5_EveryContractAssertionHasARealProducer|TestV5_ScheduledCutFeedsSelector' -count=1 -v -timeout=30m
+    c114_hostcap_test.go:59: compact additionalContext: 7378 host characters (ceiling 9500, host cap 10000); restorable rules offered: 15750
+--- PASS: TestE2E_SessionStartCompactFitsTheHostCap (1.96s)
+--- PASS: TestE2E_SessionStartCompact (0.38s)
+--- PASS: TestE2E_SessionStartCompactRestoresCheckpointItems (0.39s)
+--- PASS: TestE2E_ContractSentinelIsAppendedByTheDaemon (0.39s)
+--- PASS: TestE2E_AdditionalContextProducerIsDeclared (0.04s)
+--- PASS: TestE2E_SessionStartCompactUnderBudget (0.39s)
+--- PASS: TestE2E_SessionStartClear (0.50s)
+--- PASS: TestE2E_SessionStartCompactNoStore (0.64s)
+--- PASS: TestE2E_SessionStartCompactAfterFailedSummary (0.54s)
+--- PASS: TestE2E_DropReporterSatisfiesMCP (0.01s)
+--- PASS: TestUserIntent_FirstPromptIDMatchesObserver (0.00s)
+--- PASS: TestE2E_SessionStartLatency (2.83s)
+--- PASS: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (2.95s)
+--- PASS: TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction (4.11s)
+--- PASS: TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint (4.58s)
+--- PASS: TestV4_WhyAndDroppedAnswerFromRealProducers (2.88s)
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (16.74s)
+        	Messages:   	a full-mode PreCompact answers through hookSpecificOutput
+--- FAIL: TestV5_EliminationThroughEveryFourSurfaces (2.49s)
+--- PASS: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint (10.64s)
+--- PASS: TestV5_EveryContractAssertionHasARealProducer (6.20s)
+--- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent (9.25s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	68.155s
+FAIL
+(TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces fails identically on the base 32e1a37: "a full-mode PreCompact answers through hookSpecificOutput" — C1.12's ConformOutput now answers PreCompact with {}; not C1.14's)
+
+$ go run ./tools/devtool lint   (run on the working tree before commit 9be2904, same code)
+devtool: lint: lint: failed sub-check(s): bindeps, stubskips, runpatterns
+- bindeps: the pre-existing golang.org/x/sys/unix via internal/paths failure on the base (C1.19).
+- stubskips: the four pre-existing non-permitted skip reasons in internal/daemon, internal/hookio and
+  internal/store tests (C1.19); none added here.
+- runpatterns: two rows of plans/sdd/V6-closeout/packaging/report.md (lines 123 and 317), committed on
+  the base by the packaging workstream; none from this branch.
+Every other sub-check (nomagic, the §3.2 import graph, docmarkers, coveragefloors, …) passed.
+
+$ go test ./test/guards/ -count=1 -timeout=30m
+FAIL: TestGuard_TheV1DeliveryPositionHasOneEncoder and TestCarriedDefects_WaveReportRequiresResolution
+(SP06-D2, SP08-D1, SP10-D1, SP09-D1, SP20-D2, SP08-D3, SP20-D4) — both fail identically on the base
+32e1a37 (checked by running the same two tests there); the Qompack revision guard (re-pinned to v1.6
+here) passes.

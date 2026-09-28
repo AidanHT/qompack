@@ -336,6 +336,7 @@ to it requires an amendment to this section.
 | `github.com/klauspost/compress/zstd` | object compression (§7.4 "zstd-compressed") | no stdlib zstd; pure Go, no cgo |
 | `github.com/Microsoft/go-winio` | Windows named pipes (build-tagged `windows`) | no stdlib named-pipe support |
 | `golang.org/x/sys/windows` | go-winio's own dependency for the named pipe above; also imported directly by `internal/paths` for its POSIX-semantics file replace (build-tagged `windows`) | stdlib keeps `SetFileInformationByHandle` unexported (`syscall.setFileInformationByHandle`) |
+| `golang.org/x/sys/unix` | `internal/paths.RenameDirectoryNoReplace` on linux (`renameat2(RENAME_NOREPLACE)`) and darwin (`renamex_np(RENAME_EXCL)`), the atomic no-replace publish of a restored `.qompack` (build-tagged `linux`/`darwin` by file name) | `syscall` has no `renameat2` wrapper and no `SYS_RENAMEAT2` on linux/amd64; on darwin `renamex_np` is a libSystem call, reached without cgo through a `//go:cgo_import_dynamic` trampoline, the code x/sys/unix generates |
 
 `golang.org/x/sys/windows` is listed rather than added: it has shipped in the Windows binary
 since SP-05 task 6 as go-winio's transitive dependency, and `tools/devtool/bindeps.go`'s
@@ -344,6 +345,42 @@ also imports it directly — from one `//go:build windows` file,
 `internal/paths/replace_windows.go`, for `FileRenameInfoEx`/`FILE_RENAME_POSIX_SEMANTICS`, the
 rename a concurrent reader cannot block. Nothing new enters the binary, on Windows or anywhere
 else; naming it here makes the closed list match the check that already enforces it.
+
+**Amendment (V6 closeout, C1.19): `golang.org/x/sys/unix` is added.** Unlike
+`golang.org/x/sys/windows` above, it adds a package to the linux and darwin binaries rather than
+naming one already shipped. The V6 maintenance restore (3ab1523) publishes its staged `.qompack` with
+`internal/paths.RenameDirectoryNoReplace`. That call must refuse an existing destination
+atomically, including an empty directory, which a plain `rename(2)` replaces. The linux and darwin
+builds of that call imported `golang.org/x/sys/unix` without this amendment, so `devtool lint`'s
+bindeps check had failed on both platforms since that commit. The standard library was checked
+first, and it has no equivalent:
+
+- `syscall` has no `renameat2` wrapper, and on linux/amd64 not even the syscall number. Go's own
+  `internal/syscall/unix` uses `renameat2` only on loong64 and riscv64, without flags, and cannot
+  be imported.
+- On darwin, `renamex_np` is a libSystem function, and `syscall` has neither a wrapper nor a
+  `SYS_RENAMEATX_NP` number. Without cgo a libSystem function is reached through a
+  `//go:cgo_import_dynamic` assembly trampoline, which is the code x/sys/unix generates; writing
+  one here would copy that code, under the same licence, without its upkeep. `syscall.Syscall`
+  there is a raw kernel trap, which Apple does not keep stable and which Go itself stopped using in
+  Go 1.12.
+
+The alternatives were a hand-kept table of linux syscall numbers plus a raw darwin trap, or a
+restore that fails closed on both platforms. Both are worse on the portability surface this section
+exists to protect. darwin alone needs the entry, so rewriting only the linux file on `syscall` would
+add a hand-kept number without removing it. A `mkdir` claim followed by a plain `rename` is not
+equivalent either: it replaces an empty directory a racer puts back between the two calls, and a
+crash between them strands an empty destination that the next restore refuses. The addition brings
+in no new module, version, licence or supplier.
+`golang.org/x/sys` is already a direct `go.mod` requirement and ships in the Windows binary,
+and `THIRD_PARTY_NOTICES.md` already reproduces its BSD-3-Clause licence, which
+`devtool licenses --check` confirms. `govulncheck ./cmd/qompack` on linux and darwin reports no
+vulnerable x/sys/unix symbol, and the package has no `init` function on the four release targets.
+
+Where the standard library suffices it stays preferred: `internal/paths/syncdata_linux.go` takes
+`syscall.Fdatasync`. `allowedBinDep` names the exact path and no prefix, so x/sys/unix's
+subdirectories and every other x/sys package stay out. Its rationale is written out in
+`tools/devtool/bindeps.go`.
 
 That is the entire runtime dependency list. Everything else — SHA-256, JSON, JSON-RPC, HDR
 histograms (we use a fixed-bucket log histogram), CLI parsing, glob matching, atomic file
@@ -511,7 +548,7 @@ qompack/                                  module: github.com/qompack/qompack
 | **L3 Scheduler** | BOCD · Young–Daly · p-selection · TTL awareness | `scheduler` | SP-12 |
 | **L4 Checkpointer** | PreCompact → immutable versioned artifact, importance-ordered | `checkpoint` `pins` | SP-10 |
 | **L5 Rehydrator** | SessionStart(compact) · progressive budget fill · drop report | `rehydrate` `rules` `skills` | SP-11 |
-| **L6 Retrieval** | recall · expand · re_read · already_tried · timeline · why · dropped · delivered-result admission | `mcp` `commands` `admission` | SP-13 (MCP) · SP-14 (commands) · SP-21 (`admission`, reserved) |
+| **L6 Retrieval** | recall · expand · re_read · already_tried · timeline · why · dropped · delivered-result admission · host Read-rule check | `mcp` `commands` `admission` `hostperm` | SP-13 (MCP, `hostperm`) · SP-14 (commands) · SP-21 (`admission`, reserved) |
 | **L7 Evaluation** | replay harness · Belady OPT · CI gate | `eval` `test/replay` | SP-02 |
 | **cross** | config, logging, metrics, contracts, degradation, tokens | `core` `paths` `config` `logging` `obs` `contract` `tokens` `pluginmanifest` `testutil` | SP-01 (+ SP-05 `contract`, + SP-06 `tokens` exact accounting) |
 
@@ -524,10 +561,11 @@ are exhaustive; anything not listed is forbidden.
 | Package | May import |
 |---|---|
 | `core` | — (nothing in `internal/`) |
-| `paths`, `config` | `core` |
+| `paths` | `core` |
+| `config` | `core` `paths` *(amended by owner decision D22, 2026-09-26; see below)* |
 | `logging`, `obs` | `core` `paths` `config` |
 | *(the five above are the **foundation**; every package below may also import all of them)* | |
-| `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler`, `pluginmanifest`, `state`, `admission` | foundation only |
+| `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler`, `pluginmanifest`, `state`, `admission`, `hostperm` | foundation only |
 | `canon` | `sketch` |
 | `dag` | — |
 | `store` | `chunk` `canon` `sketch` `symbols` `redact` `tokens` |
@@ -535,7 +573,7 @@ are exhaustive; anything not listed is forbidden.
 | `analyzer` | `store` `dag` `sketch` `scheduler` |
 | `checkpoint` | `store` `dag` `negknow` `pins` `grammar` `tokens` |
 | `rehydrate` | `checkpoint` `store` `negknow` `dag` `rules` `skills` `tokens` |
-| `mcp` | `store` `negknow` `checkpoint` |
+| `mcp` | `store` `negknow` `checkpoint` `hostperm` |
 | `contract` | `hookio` `store` |
 | `ipc` | `hookio` `contract` |
 | `observer` | `hookio` `store` `chunk` `canon` `sketch` `dag` `grammar` `negknow` `tokens` |
@@ -555,6 +593,45 @@ declared alongside the others.
 allow-set and its composition-root set is an error there — so a new `internal/` package cannot
 land without an amendment commit to this section *and* the matching entry in `importrules.go`.
 The two must be edited together; the checker is not permitted to be a superset of the table.
+
+**`config` may import `paths` (owner decision D22, 2026-09-26, V6 close-out `w6-config`).** Until
+D22, `config` was allowed `core` alone. That kept its loaders from naming the user-global root
+through `paths.Global`, so they spelled `<home>/.qompack` by hand, and from reading `config.json`
+through `paths.ReadFileShared`. The hand spelling only risked drift, which a `test/guards` row held
+in check. The ordinary read was a defect. On Windows an `os.ReadFile` handle carries no
+`FILE_SHARE_DELETE`, so an editor's atomic save that renamed a new `config.json` over the old one
+while a hook was reading it failed either the save or the read. The hook path treats a config file
+it cannot read as a refusal (D8), so saving the config could make a hook record nothing. The
+amendment adds one edge. `paths` imports only `core`, so `config → paths` closes no cycle: `logging`
+and `obs` already import both, and `paths` imports neither `config` nor anything that does. What
+stays out is unchanged: `config` still may not import `logging` (which imports `config`) or `obs`.
+The hook path's loader reads through `paths.OpenSharedLeaf`, an addition to `paths` made for it.
+That open grants the same delete sharing and also refuses a final link itself. The loader's old
+Lstat-then-`os.SameFile` identity check refused whenever a save landed between its two halves, and
+the no-follow open leaves no such window. What no reader can close is the moment in which Windows
+reports the name missing while a rename replaces it: a read then finds no file, as it would a
+deleted one. On the hook path a file the pre-check found and the open then did not is looked for
+again, within a bounded budget, before the layer is taken for missing (w6-config review), so the
+residual is a first look that falls inside that moment. `docs/architecture.md` §2 and
+`docs/cannot-do.md` record it.
+
+**`paths/pathstest` isolates a test process's home (V6 close-out `w6-config`).** It is a `<pkg>test`
+subpackage under rule (c) of `importrules.go`, so it needs no entry of its own, and it imports
+nothing from `internal/`. That is what lets the in-package tests of any package use it without a
+cycle, which `testutil` (it imports `store`, `config` and most of the tree) cannot offer.
+`pathstest.Main`, called from `TestMain`, points `HOME` and `USERPROFILE` at a temporary directory
+and unsets `QOMPACK_HOME` and `CLAUDE_CONFIG_DIR` for the whole test process, so no test reads or
+writes the real `~/.qompack` or `~/.claude`. `~/.qompack` is in §13 invariant 7's write set for the
+product serving its user, not for a test, whose calibration samples would overwrite the user's real
+factor; `~/.claude` is in no write set. `test/guards` requires it of every package whose test binary
+links a package that resolves the home, and proves it against a fake home holding a poisoned
+`config.json`, `calibration.json` and Claude Code settings file.
+
+**`hostperm` (V6 close-out C1.9, V6-HOST-1) is foundation-only by the same construction.** It reads
+Claude Code's settings files and evaluates their `permissions.deny`/`permissions.ask` Read rules for
+one absolute path; `mcp` is its only consumer and calls it after the containment check on every
+path-bearing retrieval. It needs `paths` and `core` and nothing else in `internal/`, so the amendment
+is one foundation-only row entry and one `mcp` allow-set entry.
 
 **Two reserved names carry no consumers yet.** `state` (SP-20 M2-01) and `admission` (SP-21 M4) are
 foundation-only by construction rather than by accident: each defines its own ports and is wired at a
@@ -589,7 +666,32 @@ resolved in this order and cached per daemon:
 3. the payload `cwd` itself
 
 It is **never** the plugin install directory and never `~`. Global, cross-project state lives in
-`~/.qompack/` (`config.json` user-global layer, `calibration.json`). There is no daemon registry
+`~/.qompack/` (`config.json` user-global layer, `calibration.json`).
+
+**A root that is the home directory is refused (owner decision D18, 2026-09-26).** Each of the three
+steps can name `~` itself — the override pointing there, a session started there, or a walk from
+below it that stops at a home that is a git work tree (a dotfiles repository) — and the store would
+then be `~/.qompack/`, the user-global layer's own directory. Resolution order is unchanged; what
+changes is that no entry point uses such a root. `paths.IsHome(root, homes...)` is the one question
+(§5.0): the root and each home are made absolute and cleaned, compared by spelling
+(case-insensitively on Windows), then by identity (`os.SameFile` over `os.Stat`, which follows
+symlinks and junctions). The homes are `HOME` and `USERPROFILE`, both on every platform, plus the
+home the caller's user-global layer uses. Every entry point asks it about the root it resolved
+before it reads, writes, locks or spawns anything for it:
+
+- all seven hooks exit 0 and do nothing: `SessionStart` answers one short `systemMessage` saying
+  Qompack is inactive in the home directory and how to fix it, the others `{}`. The process's own
+  root and the payload's root are both asked, so a session started in `~` stays refused when a later
+  payload names a project below it;
+- `qompack mcp` serves the same eight tools, each answering `mcp.HomeRootRefusedText` as a tool
+  error; `qompack daemon` exits 0 with the reason on stderr; `daemon.AcquireLock` refuses the root
+  for any other embedder;
+- `status` and `doctor` report the reason and exit 0; `fsck`, `backup` (source or destination),
+  `admin delivery-seal`, `self-test` and the recall/pin/why/dropped frontends refuse with exit 1;
+  `config print` shows the user-global layer alone and persists nothing.
+
+The user-global layer itself — configuration, calibration, the D10 staged copies — keeps working for
+every project below the home directory, which resolves exactly as before. There is no daemon registry
 file: a daemon is located by deriving its endpoint from the project root (`ipc.Resolve`), not by
 looking it up in a global list, so nothing has to be reconciled after a crash. `daemons.json` was
 in an earlier draft of this section and was never built; it is named here only so that a reader who
@@ -659,9 +761,17 @@ whose `.gitignore` we never touch.
 
 **Atomic writes.** `paths.WriteAtomic(p, b, perm)` writes to `.qompack/tmp/<rand>`, `Sync()`, then
 `os.Rename` onto `p` (same volume by construction, so `MoveFileEx(REPLACE_EXISTING)` semantics
-hold on Windows). Directory fsync on POSIX. Never used for append-only targets. `perm` is required
-rather than defaulted because two callers want different modes on the same mechanism — `0444` for a
-sealed artifact, `0644` for a mutable one — and a silent default is how one of them ends up wrong.
+hold on Windows). Directory fsync on POSIX. The `.qompack/tmp` is that of the store that owns `p`:
+the nearest element of `p`'s own path named `.qompack`, when it exists. A `.qompack` beside the
+path, such as the user-global `~/.qompack` above a project, owns nothing below it, and a `p` that
+no store owns is staged beside itself, so the rename never leaves the store, or the directory, that
+holds `p`. The §7.4 guard is asked of every existing store on the path, not only the owner, and
+compares names as the filesystem resolves them: case-folded where `paths.DefaultFold` holds
+(Windows, macOS) and, on Windows, with NTFS stream suffixes removed; 8.3 short names, hard links and
+reparse points resolve only through the filesystem and are outside a textual guard. Never
+used for append-only targets. `perm` is required rather than defaulted because two callers want
+different modes on the same mechanism — `0444` for a sealed artifact, `0644` for a mutable one — and
+a silent default is how one of them ends up wrong.
 
 **`internal/paths` signatures are normative and live in §5.0.** This section states the *rules*;
 the signatures those rules are expressed in are frozen there. Restating them here is what let them
@@ -708,8 +818,10 @@ per-platform binary:
 { "mcpServers": { "qompack": { "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack", "args": ["mcp"] } } }
 ```
 
-`plugin/commands/*.md` — seven files, one per §7.5 command, each a frontmatter'd prompt that
-shells out to the corresponding `qompack` subcommand.
+`plugin/commands/*.md` — six files, one per §7.5 command, each a frontmatter'd prompt that
+shells out to the corresponding `qompack` subcommand. (Seven until 2026-09-27: coordinator decision
+D36 removed `/qompack:checkpoint`, whose only route was the PreCompact hook entry point, and
+`Qompack.md` v1.7 counts six.)
 
 **Contract risk (G9.3).** The exact key names above (`hooks.json` shape, `matcher`,
 `${CLAUDE_PLUGIN_ROOT}`, `hookSpecificOutput.additionalContext`, `SessionStart.source`) are
@@ -809,6 +921,12 @@ func Of(root string) Layout
 func EnsureLayout(l Layout) error
 func Global(home string) string                       // ~/.qompack (§3.2)
 func Resolve(getenv func(string) string, payloadCWD string) (string, error) // §3.2's three-step project root
+
+// ── the home-directory refusal (§3.3, owner decision D18) ──────────────
+var ErrHomeRoot error                                  // "the project root is the home directory"
+func HomeDirs(getenv func(string) string) []string     // HOME, USERPROFILE: distinct, non-empty; nil getenv → none
+func IsHome(root string, homes ...string) bool         // spelling (folded on Windows), then os.SameFile identity
+func RefuseHome(root string, homes ...string) error    // nil, or ErrHomeRoot wrapped with the root and the fix
 
 // ── the append-only writers (§3.3) ─────────────────────────────────────
 func AppendOnly(p string) (io.WriteCloser, error)     // O_WRONLY|O_APPEND|O_CREATE; refuses O_TRUNC
@@ -2095,7 +2213,7 @@ hatch. Every response carries `_meta.qompack.ephemeral=true` when
 
 ```go
 type Command interface {
-    Name() string                                  // status|recall|pin|checkpoint|why|dropped|eval
+    Name() string                                  // status|recall|pin|why|dropped|eval
     Run(ctx context.Context, args []string, out io.Writer) error
 }
 func All(d Deps) []Command
@@ -2105,6 +2223,15 @@ type Deps struct {
     Eval eval.Harness; Metrics obs.Registry; Contract contract.Monitor; Cfg config.Config
 }
 ```
+
+`Deps.Refused` (owner decision D18) carries why an invocation has no project at all — its root is
+the home directory (§3.3). Every frontend except `status` and `eval` then answers it as an
+`unavailable` error, and `status` reports it as its one provenance reason (`StatusSources.Refused`)
+without asking the daemon or reading a metrics file. The struct above predates SP-14's `MCP`,
+`EvalArtifacts`, `Status` and `Clock` members (and its `CheckpointNow`, removed with the `checkpoint`
+frontend under D36, 2026-09-27: 0.3.0 ships six commands and no manual checkpoint; the PreCompact
+checkpoint and the automatic cadence seals are unchanged); `internal/commands/commands.go` is the
+current shape.
 
 `/qompack:status` output is the observability surface (G8.1): mode (`full`/`degraded-passive`),
 contract-assertion table, store size + dedup ratio, sketch fill ratios and estimated FP rate,
@@ -2454,7 +2581,7 @@ byte-identical session, so replay numbers are comparable across commits.
 
 | Package group | Line coverage floor |
 |---|---|
-| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `pins`, `paths`, `redact`, `tokens`, `admission` | **90%** |
+| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `pins`, `paths`, `redact`, `tokens`, `admission`, `hostperm` | **90%** |
 | `scheduler`, `dag`, `analyzer`, `rehydrate`, `eval`, `mcp` | **85%** |
 | everything else | **75%** |
 
@@ -2476,6 +2603,11 @@ same class as `redact` and `checkpoint`: its job is to refuse. Every rule in it 
 replacement, privacy denial outranking the kill switch, an unmapped stage never reaching the
 transform path — is a safety property whose failure mode is delivering something it should not
 have. A 75% floor would leave a quarter of that policy ungraded.
+
+`hostperm` (V6 close-out C1.9) joins the 90% group for the same reason: its job is to refuse. A deny
+pattern, a carve-out that may not reopen a blocked directory and a settings file that must fail
+closed when it cannot be read are each a safety property whose failure mode is serving archived
+content the host now denies.
 
 **Composition roots are exempt.** A `main` package that declares nothing but `func main`, whose
 body only constructs dependencies and hands off to a library entry point, carries no floor. The
@@ -2536,7 +2668,7 @@ baselines recorded on the runners are the stated precondition for wiring it into
 | `crossbuild` | ubuntu | `GOOS/GOARCH` matrix build for all 6 release targets |
 | `bench-gate` | ubuntu, macos, windows | `devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench-<os>.json`; hard fail on B-A / B-E |
 | `replay-gate` | ubuntu | `devtool replay --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 0 --growth testdata/golden/eval/growth/stats-growth.json --sketch testdata/golden/eval/growth/health.json --signoff "$RUNNER_TEMP/pr-body.md" --max-cpu 2m --ci`; enforces §11.3 (no metric regresses >2% to improve another without a `sign-off:` trailer in the PR body — read from the body captured to a file, so a direct *push* can sign off on nothing) and the phase exit criterion of every phase merged so far. **`--baseline` names a FILE, never a git ref**: the driver refuses a baseline recorded over a different `corpusTier`, and refuses a `--baseline` path naming nothing. `--baseline ""` is the only way to ask for no comparison |
-| `plugin-validate` | ubuntu | `devtool plugin-validate` byte-compares `plugin/**` against what `internal/pluginmanifest` generates (`--write` regenerates), then `git diff --exit-code -- plugin/`. It asserts the three counts §7.5 fixes: **7 commands, 7 hook events** (§7.3's six entry points, with `Stop` and `SubagentStop` as separate host events) and **1 MCP server**. It does **not** JSON-schema-validate the bundle, and it deliberately does **not** count MCP tools — `mcp.Tools()` is a stub returning nil until SP-13, so a count here would pass for the wrong reason. Asserting the eight tools is SP-13's own exit criterion |
+| `plugin-validate` | ubuntu | `devtool plugin-validate` byte-compares `plugin/**` against what `internal/pluginmanifest` generates (`--write` regenerates), then `git diff --exit-code -- plugin/`. It asserts the three counts §7.5 fixes: **6 commands** (7 until D36 removed `/qompack:checkpoint`, 2026-09-27), **7 hook events** (§7.3's six entry points, with `Stop` and `SubagentStop` as separate host events) and **1 MCP server**. It does **not** JSON-schema-validate the bundle, and it deliberately does **not** count MCP tools — `mcp.Tools()` is a stub returning nil until SP-13, so a count here would pass for the wrong reason. Asserting the eight tools is SP-13's own exit criterion |
 | `security` | ubuntu | `govulncheck ./...` · `devtool lint --only=importgraph,testdeps,bindeps` · two import-allowlist greps over `go list -deps`: **(1)** zero non-test imports of `net/http`, `net/url`, `crypto/tls` from any `internal/**` or `cmd/**` package — `net` itself only in `internal/ipc` (Unix sockets, and only `net.Dial`/`net.Listen` on `unix`, never `tcp`); **(2)** `os/exec` only in `internal/daemon` (detached self-spawn), `internal/cli`, and `internal/testutil` (§6.2 real-binary `RunHook`) |
 | `docs` | ubuntu | `devtool gen-config-docs --check` — diffs `docs/config-reference.md` against `config.Defaults()` in-process and fails if it is missing or stale, so the page can never drift. `--check` is load-bearing: bare `gen-config-docs` *writes* the file, so a job without the flag passes on a stale tree |
 

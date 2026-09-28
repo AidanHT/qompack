@@ -89,6 +89,11 @@ type FileWriter struct {
 	// their next Begin — losing their accumulated state while their segments stay flagged
 	// encoded-once and therefore unreachable forever.
 	issuedSeq core.CheckpointSeq
+	// barriers are the durability calls Finalize seals a checkpoint through: the artifact's file sync
+	// (paths.CreateNew) and the directory and MANIFEST syncs (paths.AppendManifest). The zero value
+	// is the real thing and is all production ever uses; a test sets it to count the barriers or to
+	// cut the seal at one of them the way a power loss would (export_test.go).
+	barriers paths.Barriers
 	// begins holds one admission gate per session, so the whole of Begin — the file read, the
 	// manifest read and the four source reads included — is serialized per session. w.mu itself
 	// must NOT be held across that I/O, and without a second gate Begin is a check-then-act: two
@@ -211,9 +216,10 @@ func (w *FileWriter) noteSeq(seq core.CheckpointSeq) {
 }
 
 // relPath renders an absolute checkpoint path as the project-relative, forward-slash form
-// ".qompack/checkpoints/0007.json" used in the O1 focus paragraph (§8): the summarizer reads
-// that paragraph on every platform, so the spelling must not depend on the host's separator. A
-// path outside the project has no relative form and falls back to its absolute slash form.
+// ".qompack/checkpoints/0007.json" used in the O1 focus paragraph (§8), so the spelling does not
+// depend on the host's separator. (Since C1.18 that paragraph reaches no hop — see
+// FocusInstructions.) A path outside the project has no relative form and falls back to its
+// absolute slash form.
 func (w *FileWriter) relPath(abs string) string {
 	rel, err := filepath.Rel(w.root, abs)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -685,12 +691,13 @@ func (w *FileWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentI
 		// The frontier is re-read from the segment log rather than maxed over what this batch
 		// happened to encode. store.SegmentLog.Frontier is the EndTurn of the last CONSECUTIVELY
 		// encoded segment, and contiguity is the whole claim: a frontier of N asserts that the
-		// checkpoint FULLY COVERS the session through turn N, and the O1 focus instruction tells
-		// the summarizer in writing not to re-summarize anything before it (§8.5 O1/O5).
+		// checkpoint FULLY COVERS the session through turn N, and the O1 focus paragraph says so in
+		// writing (§8.5 O1/O5; since C1.18 that paragraph reaches no hop, but the coverage claim
+		// is the checkpoint's own and state/precompact.json publishes it).
 		//
 		// A local maximum misstates that whenever a gap exists — encoding one late segment while
 		// earlier ones are still unencoded would advance the frontier past turns that live in
-		// neither the checkpoint nor the summary, and the instruction would tell the summarizer to
+		// neither the checkpoint nor the summary, and the O1 paragraph would tell a summarizer to
 		// drop them. One store call per batch, on the idle path, buys the invariant outright.
 		//
 		// It is clamped to be non-decreasing. A resumed draft's frontier comes from its own state

@@ -1,0 +1,10 @@
+=== RUN   TestSelfTest_DaemonDisabledStartsNoDaemon
+    selftest_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7b-selftest/internal/cli/selftest_test.go:157
+        	Error:      	Should be true
+        	Test:       	TestSelfTest_DaemonDisabledStartsNoDaemon
+        	Messages:   	daemon.reachable must be skipped by configuration, not failed: {ID:daemon.reachable OK:false Severity:1 Expected:the daemon is reachable or spawnable Observed:spawn attempted but the daemon did not come up in time Detail:daemon: spawn: exec: "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestSelfTest_DaemonDisabledStartsNoDaemon186092760\\002\\does-not-exist": executable file not found in %PATH%}
+--- FAIL: TestSelfTest_DaemonDisabledStartsNoDaemon (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.325s
+FAIL

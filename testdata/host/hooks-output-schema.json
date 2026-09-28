@@ -1,0 +1,62 @@
+{
+  "about": "What Claude Code accepts on a command hook's stdout for the seven events Qompack registers. Transcribed by hand from the hooks reference and from the 2.1.280 validator's own rejection text; it is test input, independent of internal/hookio's conformance table on purpose, so a mistake in one is caught by the other.",
+  "source": {
+    "url": "https://code.claude.com/docs/en/hooks",
+    "fetched": "2026-09-22",
+    "markdownSha256": "dc59d7c4fb28b246b15db67fd30819cbc6aca09392be662080b602eeab6d5422",
+    "hostVersion": "2.1.280",
+    "hostEvidence": "plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt"
+  },
+  "universal": ["continue", "stopReason", "suppressOutput", "systemMessage", "terminalSequence"],
+  "limits": {
+    "maxChars": 10000,
+    "previewChars": 2000,
+    "fields": ["additionalContext", "systemMessage", "initialUserMessage", "plain stdout"],
+    "quote": "A hook's `additionalContext`, `systemMessage`, and `initialUserMessage` strings, and its plain stdout, are capped at 10,000 characters: ... Over the limit: Claude Code saves the output to a file in the session directory and replaces it with the file path and a preview of up to the first 2,000 characters. ... Unlike that Bash ceiling, this cap has no setting or environment variable to raise it. Reading the file: Claude Code doesn't ask Claude to read the file, so keep anything Claude must always see within the cap.",
+    "notes": "Not a rejection: the host accepts the response. Each field is measured on its own. The documentation does not name the unit of 'characters'; the host's own code does: Claude Code 2.1.280 tests the parsed field with `field.length <= 1e4`, i.e. UTF-16 code units, and a field of exactly 10,000 is delivered whole (plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt). internal/hookio.HostChars counts the same unit."
+  },
+  "events": {
+    "SessionStart": {
+      "topLevel": [],
+      "hookSpecificOutput": ["additionalContext", "initialUserMessage", "sessionTitle", "watchPaths", "reloadSkills"],
+      "discarded": [],
+      "notes": "SessionStart decision control: context only, no blocking."
+    },
+    "UserPromptSubmit": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": ["additionalContext", "sessionTitle"],
+      "discarded": [],
+      "notes": "decision:block erases the prompt."
+    },
+    "PostToolUse": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": ["additionalContext", "classifierContext", "updatedToolOutput", "updatedMCPToolOutput"],
+      "discarded": [],
+      "notes": "decision:block adds reason next to the tool result."
+    },
+    "Stop": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": ["additionalContext"],
+      "discarded": [],
+      "notes": "decision:block and hookSpecificOutput.additionalContext both keep the conversation going."
+    },
+    "SubagentStop": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": ["additionalContext"],
+      "discarded": [],
+      "notes": "Same decision control as Stop, with hookEventName SubagentStop."
+    },
+    "PreCompact": {
+      "topLevel": ["decision", "reason"],
+      "hookSpecificOutput": null,
+      "discarded": ["systemMessage", "continue"],
+      "notes": "No hookSpecificOutput variant exists; 2.1.280 rejects hookEventName PreCompact. custom_instructions is PreCompact INPUT only. decision:block blocks compaction."
+    },
+    "SessionEnd": {
+      "topLevel": [],
+      "hookSpecificOutput": null,
+      "discarded": ["continue", "stopReason", "suppressOutput", "systemMessage", "terminalSequence"],
+      "notes": "SessionEnd has no decision control and Claude Code discards its JSON output fields."
+    }
+  }
+}

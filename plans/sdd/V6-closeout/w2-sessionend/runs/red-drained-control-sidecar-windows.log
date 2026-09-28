@@ -1,0 +1,27 @@
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+    drain_control_line_test.go:63: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/drain_control_line_test.go:63
+        	Error:      	Should be empty, but was [flush]
+        	Test:       	TestDrain_ControlLinesPublishNoCaptureSidecar/flush
+        	Messages:   	a flush line is not an observation; draining it must publish no capture sidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+    drain_control_line_test.go:63: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/drain_control_line_test.go:63
+        	Error:      	Should be empty, but was [checkpoint]
+        	Test:       	TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint
+        	Messages:   	a checkpoint line is not an observation; draining it must publish no capture sidecar
+=== RUN   TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+    drain_control_line_test.go:63: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/drain_control_line_test.go:63
+        	Error:      	Should be empty, but was [session.start]
+        	Test:       	TestDrain_ControlLinesPublishNoCaptureSidecar/session.start
+        	Messages:   	a session.start line is not an observation; draining it must publish no capture sidecar
+--- FAIL: TestDrain_ControlLinesPublishNoCaptureSidecar (1.57s)
+    --- FAIL: TestDrain_ControlLinesPublishNoCaptureSidecar/flush (0.64s)
+    --- FAIL: TestDrain_ControlLinesPublishNoCaptureSidecar/checkpoint (0.46s)
+    --- FAIL: TestDrain_ControlLinesPublishNoCaptureSidecar/session.start (0.47s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.880s
+FAIL
+exit=1

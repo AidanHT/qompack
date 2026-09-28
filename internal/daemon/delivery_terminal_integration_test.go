@@ -41,9 +41,12 @@ func TestDeliveryTerminal_DrainAfterPhysicalScopeChanges(t *testing.T) {
 	require.NoError(t, os.Rename(dir, dir+"-original"))
 	outside := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(outside, "file.txt"), []byte("outside"), 0o600))
-	if err := os.Symlink(outside, dir); err != nil {
-		t.Skipf("directory symlink unavailable: %v", err)
+	// A symlink where the host allows one, an NTFS junction otherwise: either makes the same
+	// payload resolve outside the project.
+	if err := makeDirLink(dir, outside); err != nil {
+		t.Skip("platform: this host will create neither a directory symlink nor a junction: " + err.Error())
 	}
+	t.Cleanup(func() { _ = os.Remove(dir) })
 	require.True(t, dd.admitDelivery(req).Denied, "same payload now resolves outside permitted project")
 	// Successor first exercises look-ahead retirement as well as prefix progress.
 	const spool = "client-00001.ndjson"

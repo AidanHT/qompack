@@ -1,0 +1,16 @@
+--- FAIL: TestRunLiveEval_RelativeBundleReachesTheHostWhole (8.04s)
+    liveeval_test.go:768: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/tools/devtool/liveeval_test.go:768
+        	Error:      	unable to find file "C:\\Users\\AppData\\Local\\Temp\\TestRunLiveEval_RelativeBundleReachesTheHostWhole957334762\\001\\qompack-plugin-9.9.9-test-windows-amd64\\BUNDLE.json"
+        	Test:       	TestRunLiveEval_RelativeBundleReachesTheHostWhole
+        	Messages:   	--plugin-dir "..\\..\\..\\..\\..\\..\\AppData\\Local\\Temp\\TestRunLiveEval_RelativeBundleReachesTheHostWhole957334762\\001\\qompack-plugin-9.9.9-test-windows-amd64" names no bundle from C:\Users\Quant\AppData\Local\Temp\qompack-live-4152646834\project
+--- FAIL: TestLookClaude_RelativePathIsMadeAbsolute (0.00s)
+    liveeval_test.go:780: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/tools/devtool/liveeval_test.go:780
+        	Error:      	Should be true
+        	Test:       	TestLookClaude_RelativePathIsMadeAbsolute
+        	Messages:   	bin\claude
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	10.201s
+FAIL
+exit=1

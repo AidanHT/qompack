@@ -1,0 +1,36 @@
+== MUTATION: paths.ResolvesInside answers from lexical containment only (link resolution ignored); expected: both junction-backed tests FAIL
+diff --git a/internal/paths/norm.go b/internal/paths/norm.go
+index 6b54326..6128f8d 100644
+--- a/internal/paths/norm.go
++++ b/internal/paths/norm.go
+@@ -100,7 +100,8 @@ func ResolvesInside(projectRoot, p string) bool {
+ 		// cannot establish containment refuses.
+ 		return false
+ 	}
+-	return inside(resolvedRoot, resolved)
++	_, _ = resolvedRoot, resolved
++	return true // MUTATION: lexical containment only, link resolution ignored
+ }
+ 
+ // maxLinkHops bounds how many links one resolution may follow before giving up, so a link cycle
+=== RUN   TestCaptureScope_JunctionSwapDefeatsLexicalContainment
+    capture_scope_v6_test.go:130: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lint/internal/hookio/capture_scope_v6_test.go:130
+        	Error:      	Should be false
+        	Test:       	TestCaptureScope_JunctionSwapDefeatsLexicalContainment
+--- FAIL: TestCaptureScope_JunctionSwapDefeatsLexicalContainment (0.47s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/hookio	1.572s
+FAIL
+hookio exit=1
+=== RUN   TestDeliveryTerminal_DrainAfterPhysicalScopeChanges
+    delivery_terminal_integration_test.go:50: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lint/internal/daemon/delivery_terminal_integration_test.go:50
+        	Error:      	Should be true
+        	Test:       	TestDeliveryTerminal_DrainAfterPhysicalScopeChanges
+        	Messages:   	same payload now resolves outside permitted project
+--- FAIL: TestDeliveryTerminal_DrainAfterPhysicalScopeChanges (1.71s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.971s
+FAIL
+daemon exit=1

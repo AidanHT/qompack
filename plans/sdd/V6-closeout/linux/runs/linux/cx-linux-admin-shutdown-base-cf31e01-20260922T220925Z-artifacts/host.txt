@@ -1,0 +1,10 @@
+run_id=cx-linux-admin-shutdown-base-cf31e01-20260922T220925Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=cf31e01
+commit=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+bundle_sha256=a55f8eb0f6f666eb4ce5c10357d3448dd0809dadfbb6b4baaa15012ef2385faf
+host_started_utc=2026-09-22T22:09:36Z
+inner_args=--run ^TestAdminShutdownStopsTheDaemon$ --count 400 -- ./internal/daemon
+host_finished_utc=2026-09-22T22:10:02Z
+container_exit=1

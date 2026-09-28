@@ -1,0 +1,5 @@
+{"Time":"2026-09-22T21:29:33.372705782Z","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-09-22T21:29:33.489795892Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished"}
+{"Time":"2026-09-22T21:29:33.489868182Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRunReturnsOnlyAfterAsyncStopHasFinished","Output":"=== RUN   TestRunReturnsOnlyAfterAsyncStopHasFinished\n"}
+{"Time":"2026-09-22T21:29:33.539152239Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"FAIL\tgithub.com/qompack/qompack/internal/daemon\t0.164s\n"}
+{"Time":"2026-09-22T21:29:33.539265615Z","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":0.167}

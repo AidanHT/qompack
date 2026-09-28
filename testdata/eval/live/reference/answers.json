@@ -1,0 +1,5 @@
+{
+  "recall-user-fact": {"alias": "tundra-owl"},
+  "decision-rationale": {"why": "Newline-delimited JSON lets operators grep the files during incidents."},
+  "pilot-codeword": {"run": "The code word is 2c1a7a62c3.", "write": "Wrote 2c1a7a62c3 to CODE.txt."}
+}

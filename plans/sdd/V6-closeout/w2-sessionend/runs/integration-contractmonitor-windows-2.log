@@ -1,0 +1,18 @@
+# Windows test/integration contract-monitor rows after awaitSessionEnded (uncommitted, on 1d7578b), co-loaded host
+# first attempt of this change failed 3/3: PreCompact had written a byte-identical marker under the frozen p.Clock (see integration-contractmonitor-windows.log); the clock now advances before the flush
+# go test ./test/integration -run '^TestIntegration_(ContractMonitorRunsAgainstRealStore|DegradedPassiveStillWritesToTheRealStore)$' -count=3 -v -timeout=30m
+=== RUN   TestIntegration_ContractMonitorRunsAgainstRealStore
+--- PASS: TestIntegration_ContractMonitorRunsAgainstRealStore (0.15s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+--- PASS: TestIntegration_DegradedPassiveStillWritesToTheRealStore (1.91s)
+=== RUN   TestIntegration_ContractMonitorRunsAgainstRealStore
+--- PASS: TestIntegration_ContractMonitorRunsAgainstRealStore (0.18s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+--- PASS: TestIntegration_DegradedPassiveStillWritesToTheRealStore (1.62s)
+=== RUN   TestIntegration_ContractMonitorRunsAgainstRealStore
+--- PASS: TestIntegration_ContractMonitorRunsAgainstRealStore (0.21s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+--- PASS: TestIntegration_DegradedPassiveStillWritesToTheRealStore (1.30s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	5.616s
+exit=0

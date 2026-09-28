@@ -1,0 +1,74 @@
+HEAD=7225a5b
+== go test -count=1 -v -run TestDegradeBanner|TestBoundedQuote|TestSessionStart_DegradeBanner|TestCheckpointRoute_|TestArmSources|TestBindCheckpoint ./internal/daemon/
+=== RUN   TestCheckpointRoute_SealsWithoutRenderingOrRecordingAnInstruction
+--- PASS: TestCheckpointRoute_SealsWithoutRenderingOrRecordingAnInstruction (0.91s)
+=== RUN   TestCheckpointRoute_AnswersEmptyWhateverTheSeamReturns
+--- PASS: TestCheckpointRoute_AnswersEmptyWhateverTheSeamReturns (0.12s)
+=== RUN   TestDegradeBanner_StaysFarUnderTheHostCap
+=== RUN   TestDegradeBanner_StaysFarUnderTheHostCap/ascii
+=== RUN   TestDegradeBanner_StaysFarUnderTheHostCap/escaped
+=== RUN   TestDegradeBanner_StaysFarUnderTheHostCap/astral
+=== RUN   TestDegradeBanner_StaysFarUnderTheHostCap/invalidUTF8
+=== RUN   TestDegradeBanner_StaysFarUnderTheHostCap/quotes
+=== RUN   TestDegradeBanner_StaysFarUnderTheHostCap/mixed
+--- PASS: TestDegradeBanner_StaysFarUnderTheHostCap (0.07s)
+    --- PASS: TestDegradeBanner_StaysFarUnderTheHostCap/ascii (0.01s)
+    --- PASS: TestDegradeBanner_StaysFarUnderTheHostCap/escaped (0.03s)
+    --- PASS: TestDegradeBanner_StaysFarUnderTheHostCap/astral (0.01s)
+    --- PASS: TestDegradeBanner_StaysFarUnderTheHostCap/invalidUTF8 (0.01s)
+    --- PASS: TestDegradeBanner_StaysFarUnderTheHostCap/quotes (0.01s)
+    --- PASS: TestDegradeBanner_StaysFarUnderTheHostCap/mixed (0.01s)
+=== RUN   TestDegradeBanner_ShortValuesAreQuotedWhole
+--- PASS: TestDegradeBanner_ShortValuesAreQuotedWhole (0.00s)
+=== RUN   TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo
+=== RUN   TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/quotes
+=== RUN   TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/mixed
+=== RUN   TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/ascii
+=== RUN   TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/escaped
+=== RUN   TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/astral
+=== RUN   TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/invalidUTF8
+--- PASS: TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo (0.04s)
+    --- PASS: TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/quotes (0.01s)
+    --- PASS: TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/mixed (0.01s)
+    --- PASS: TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/ascii (0.00s)
+    --- PASS: TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/escaped (0.01s)
+    --- PASS: TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/astral (0.01s)
+    --- PASS: TestBoundedQuote_CutsOnARuneBoundaryAndSaysSo/invalidUTF8 (0.00s)
+=== RUN   TestSessionStart_DegradeBannerFromAHostSuppliedSourceIsBounded
+--- PASS: TestSessionStart_DegradeBannerFromAHostSuppliedSourceIsBounded (0.26s)
+=== RUN   TestBindCheckpointSealsOnTheFirstPreCompact
+--- PASS: TestBindCheckpointSealsOnTheFirstPreCompact (0.35s)
+=== RUN   TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened
+--- PASS: TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened (0.34s)
+=== RUN   TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve
+--- PASS: TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve (0.45s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	3.226s
+exit=0
+== go test -count=1 -v -run TestPromptReply_ThrashWarning|TestBoundThrashWarning ./internal/observer/
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_enormous_rule
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/astral_tool_names
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/invalid_UTF-8_names
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/exactly_the_most_lines,_all_short
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_more_than_the_most_lines
+=== RUN   TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/many_long_rules
+--- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap (0.13s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_enormous_rule (0.03s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/astral_tool_names (0.02s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/invalid_UTF-8_names (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/exactly_the_most_lines,_all_short (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/one_more_than_the_most_lines (0.01s)
+    --- PASS: TestPromptReply_ThrashWarningStaysFarUnderTheHostCap/many_long_rules (0.02s)
+=== RUN   TestBoundThrashWarning_OrdinaryWarningsRenderWhole
+--- PASS: TestBoundThrashWarning_OrdinaryWarningsRenderWhole (0.00s)
+=== RUN   TestBoundThrashWarning_WorstCaseFitsItsCeiling
+--- PASS: TestBoundThrashWarning_WorstCaseFitsItsCeiling (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	1.213s
+exit=0
+== go test -count=1 ./internal/contract/ ./internal/hookio/ ./internal/config/
+ok  	github.com/qompack/qompack/internal/contract	9.077s
+ok  	github.com/qompack/qompack/internal/hookio	2.249s
+ok  	github.com/qompack/qompack/internal/config	10.552s
+exit=0

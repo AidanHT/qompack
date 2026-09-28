@@ -1,0 +1,10 @@
+run_id=cx-w5-coldstart-hotpath-ledger-base-90e1db3-20260927T005726Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart
+rev=90e1db3
+commit=90e1db3016c4ebe5dc255fb16d356dd8857a87da
+bundle_sha256=e333193e4a75076e71bb1aae571a692ede0907a425a208afc2c7514e63655382
+host_started_utc=2026-09-27T00:57:44Z
+inner_args=--run ^TestV3_HotPathUnchangedWithLedgerResident$ --timeout 30m -- ./test/e2e
+host_finished_utc=2026-09-27T01:02:20Z
+container_exit=1

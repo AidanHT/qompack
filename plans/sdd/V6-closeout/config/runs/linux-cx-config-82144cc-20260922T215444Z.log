@@ -1,0 +1,32 @@
+sh: 0: cannot open C:/Program Files/Git/work/cx-config-82144cc-20260922T215444Z.inner.sh: No such file
+exit=2
+# attempt 1 failed before running anything: Git Bash rewrote /work/... to C:/Program Files/Git/work/... (MSYS path conversion); attempt 2 sets MSYS_NO_PATHCONV=1
+/work/cx-config-82144cc-20260922T215444Z.bundle: OK
+run_id=cx-config-82144cc-20260922T215444Z
+commit=82144cc14cf8b760171c64ef2d455311add77cd1
+tree=084a06692ac3220a12a9e440b6c4d748fa91f049
+bundle_sha256=a545c727d88626a02931987f57091943f1b35e79da9e6fa8306dbd5cac78f091
+started_utc=2026-09-22T21:56:18Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+go: writing stat cache: open /go/pkg/mod/cache/download/github.com/qompack/qompack/@v/v0.0.0-20260922215357-82144cc14cf8.info920214455.tmp: permission denied
+PASS      github.com/qompack/qompack/internal/config  (pass=284 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=317 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/docs  (pass=19 fail=0 skip=0)
+PASS      github.com/qompack/qompack/tools/devtool  (pass=250 fail=0 skip=0)
+go_test_exit=0
+exit=0
+exit=0

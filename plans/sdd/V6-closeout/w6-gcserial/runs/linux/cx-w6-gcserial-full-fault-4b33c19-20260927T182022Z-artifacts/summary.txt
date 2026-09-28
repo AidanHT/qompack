@@ -1,0 +1,3 @@
+FAIL      github.com/qompack/qompack/test/fault  (pass=54 fail=2 skip=0)
+    FAIL TestFault_PublicationBoundaries/object_written_index_line_absent
+    FAIL TestFault_PublicationBoundaries

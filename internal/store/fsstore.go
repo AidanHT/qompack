@@ -270,7 +270,14 @@ type FSStore struct {
 	obsSidecarBytes   int64
 	obsSidecarEntries int
 	obsSyncData       func(*os.File) error
-	obsPubMu          sync.Mutex
+	// obsPubFault is a test seam consulted after each durability step of the observation publication
+	// path (publicationStep); an error stops the path there, where a crash would. Production never
+	// sets it.
+	obsPubFault func(publicationStep) error
+	obsPubMu    sync.Mutex
+	// pubSyncDir is SyncPublication's directory fsync, paths.SyncDir when nil: a seam a test uses to
+	// record which directories a pass fsyncs. Production never sets it.
+	pubSyncDir func(string) error
 
 	// ── files.jsonl ──
 	fileHist map[string][]FileVersion
@@ -305,6 +312,15 @@ type FSStore struct {
 
 	closeOnce sync.Once
 	closed    atomic.Bool
+
+	// carryHaltAnnounced is set while GC passes keep halting on a delivery carry past its harvest
+	// bound, so the halt is Loud once per run of halted passes rather than once per idle tick; the
+	// first pass whose harvest completes clears it (gcrun.go, noteDeliveryCarryHalt).
+	carryHaltAnnounced atomic.Bool
+
+	// gcq runs this store's GC passes one at a time and answers the requests that wait behind one
+	// with a single follow-up pass (gcgate.go).
+	gcq gcGate
 }
 
 // use is the closed-store guard. Every method with an error return calls it first and reports

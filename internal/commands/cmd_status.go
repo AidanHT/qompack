@@ -21,7 +21,12 @@ func statusBody(ctx context.Context, inv Invocation) (json.RawMessage, error) {
 		return nil, UsageErrorf("qompack status: takes no arguments; add --json for the machine-readable form")
 	}
 
-	rep := CollectStatus(ctx, inv.Deps.Status, inv.Now)
+	src := inv.Deps.Status
+	if inv.Deps.Refused != nil {
+		// A refused invocation is answered from the refusal alone, whatever sources were bound.
+		src = StatusSources{Refused: inv.Deps.Refused}
+	}
+	rep := CollectStatus(ctx, src, inv.Now)
 
 	data, err := json.Marshal(rep)
 	if err != nil {

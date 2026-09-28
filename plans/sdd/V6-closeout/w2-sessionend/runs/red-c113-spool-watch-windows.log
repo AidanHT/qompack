@@ -1,0 +1,32 @@
+=== RUN   TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+    spool_watch_test.go:90: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/spool_watch_test.go:90
+        	Error:      	Condition never satisfied
+        	Test:       	TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+        	Messages:   	a delivery only its client spool held was never published while its session stayed active
+--- FAIL: TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive (31.14s)
+=== RUN   TestSpoolWatch_AClientSpoolThatCannotDrainIsPassedOnceNotEveryTick
+    spool_watch_test.go:140: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/spool_watch_test.go:140
+        	Error:      	Condition never satisfied
+        	Test:       	TestSpoolWatch_AClientSpoolThatCannotDrainIsPassedOnceNotEveryTick
+        	Messages:   	the settled client spool gets its pass
+--- FAIL: TestSpoolWatch_AClientSpoolThatCannotDrainIsPassedOnceNotEveryTick (31.38s)
+=== RUN   TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool
+    spool_watch_test.go:172: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/spool_watch_test.go:172
+        	Error:      	Received unexpected error:
+        	            	daemon: drain: delivery still in progress
+        	Test:       	TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool
+        	Messages:   	the WAL line in flight is not the client-spool pass's to read
+--- FAIL: TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool (0.88s)
+=== RUN   TestSpoolWatch_KnowsTheClientSpoolFamily
+    spool_watch_test.go:186: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/spool_watch_test.go:186
+        	Error:      	Should be true
+        	Test:       	TestSpoolWatch_KnowsTheClientSpoolFamily
+--- FAIL: TestSpoolWatch_KnowsTheClientSpoolFamily (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	63.736s
+FAIL
+exit=1

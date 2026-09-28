@@ -2,12 +2,13 @@ package e2e
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/contract"
-	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
@@ -146,29 +146,32 @@ const (
 // admin.shutdown and waits for it to go away. It is a fast no-op whenever no daemon ever comes up
 // at all (every daemon-down row, and most panic:hook rows, which fault before any spawn attempt).
 //
-// "Gone" is the daemon's LOCK disappearing, not its address going unreachable, and the difference
-// is the whole point of this helper. ipc.Probe stops answering at Stop's FIRST act — the listener
-// closing — while the process goes on to drain, flush and release, every step of which writes
-// under .qompack/. Callers use this from t.Cleanup, immediately before t.TempDir's RemoveAll, so a
-// helper that returns at listener-close hands the directory to RemoveAll with a live writer still
-// in it: on Linux that surfaced as "TempDir RemoveAll cleanup: directory not empty" across most of
-// this file's rows once daemon.Run began waiting for Stop's cleanup to finish. The lock is
-// released last, so its absence is the only signal that means the process is done.
+// "Gone" means no process can still write inside the tree, and it has exactly one definition,
+// testutil.ShutdownDaemonUntilGone's, which every shutdown helper under test/ shares: no live process
+// holds root's daemon.lock, AND every process seen holding it during the call has exited — on
+// Windows, its process object is signaled, which the kernel does only after it has closed the
+// process's handles (testutil.ProcessAlive) — AND no holder went unidentified. An unreachable address
+// is not that: ipc.Probe stops answering at Stop's FIRST act, the listener closing, while the process
+// goes on to drain, flush and release, every step of which writes under .qompack/. Nor is the lock's
+// absence on its own: Lock.Release is Stop's LAST act, and the process still unwinds after it (CI run
+// 32932419445's TestFaultSitesInertWhenUnset: "TempDir RemoveAll cleanup: unlinkat …/.qompack:
+// directory not empty"). Callers use this from t.Cleanup, immediately before t.TempDir's RemoveAll,
+// so a helper that returns any earlier hands the directory to RemoveAll with a live writer still in
+// it. A lock seen held whose pid no check could read, and that was gone by the next check, names a
+// process nobody can ask about; the helper then waits out its whole bound rather than count the tree
+// settled.
 //
 // "Anything to shut down" is reachability OR a lock held by a LIVE process, and the second half
 // is the third state this helper used to miss entirely. A daemon takes the lock and opens its day
 // log well before it listens (internal/daemon/daemon.go: AcquireLock at :377, server.Serve at
 // :462), so a spawn that is merely slow is a running process, holding
 // <root>/.qompack/logs/qompack-YYYYMMDD.log open, that answers no dial at all —
-// e2eDaemonHoldingLock is what sees it. e785891's rule that an abandoned lock must not be waited
+// testutil.DaemonHoldingLock is what sees it. e785891's rule that an abandoned lock must not be waited
 // on survives untouched, because an abandoned lock names a dead pid.
 //
-// Watched with os.Stat rather than daemon.ReadLock, for the reason v1StopDaemonAndWaitGone
-// documents at length: ReadLock used to open the file without FILE_SHARE_DELETE, so a poller
-// holding it open made the daemon's own os.Remove fail on Windows and CAUSED the abandoned lock it
-// was waiting on. readLockFile reads through paths.ReadFileShared now, but os.Stat stays: a
-// presence question needs no handle at all. The one read of the lock's CONTENTS goes through
-// paths.ReadFileShared, which takes a handle that cannot block a delete (see e2eDaemonHoldingLock).
+// The lock's contents are read through testutil.DaemonHoldingLock, whose paths.ReadFileShared handle
+// cannot block the daemon's own delete of the file (v1StopDaemonAndWaitGone documents the abandoned
+// locks an ordinary handle used to cause).
 func e2eShutdownIfReachable(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
@@ -231,154 +234,90 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 		// for a file no live process will ever touch. An abandoned lock names a dead pid, so it
 		// still returns here as immediately as it did before. Only a lock whose pid is still
 		// running falls through, and only that case ever had anything to wait for.
-		if _, held := e2eDaemonHoldingLock(root); !held {
+		//
+		// The fourth case is a daemon that does not hold the lock YET. A hook's lazySpawn launches
+		// a detached daemon and exits without waiting for it, and on a loaded host that process can
+		// take seconds just to reach its first statement: TestHooksExitZeroUnderFaults' "TempDir
+		// RemoveAll cleanup: … The directory is not empty" was this helper returning here, and the
+		// daemon then taking its lock — recreating .qompack/run — inside a tree RemoveAll was
+		// deleting (measured under co-load: a lock taken 4.2 s after this return, with a fresh
+		// run/spawn.lock present throughout; w2-hookout runs/diag-faultrows-coload-windows.log).
+		// run/spawn.lock is the product's own "a spawn is in flight" marker, so while a fresh one
+		// exists this waits for the daemon it names to take the lock, and only then proceeds to
+		// shut it down. A spawn that never arrives lets the marker go stale, and the wait ends.
+		if _, held := testutil.DaemonHoldingLock(root); !held && !e2eAwaitSpawnInFlight(root) {
 			return
 		}
 	}
 
-	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
-		ProjectRoot:     root,
-		ConnectDeadline: e2eRoundTripDeadline,
-		AckDeadline:     e2eRoundTripDeadline,
+	out := testutil.ShutdownDaemonUntilGone(root, addr, testutil.ShutdownWait{
+		Tick: e2eDaemonDownTick, Bound: e2eDaemonDownBound, RoundTrip: e2eRoundTripDeadline,
 	})
-	defer func() { _ = c.Close() }()
+	if !out.Gone {
+		t.Logf("e2eShutdownIfReachable: %s; the caller's t.TempDir cleanup is about to remove a tree it may "+
+			"still be writing to", out.Describe(lockPath, e2eDaemonDownBound))
+	}
+}
 
-	// The pid holding the lock when the handshake starts. Lock.Release is Stop's LAST act, but the
-	// process still has to unwind after Stop returns — flush its observability sinks, close the day
-	// log, run its deferred closers, exit — and every one of those can write inside <root>/.qompack.
-	// Returning the moment the lock file disappears therefore hands a still-writing process's
-	// directory to the caller's t.TempDir RemoveAll, which is CI run 32932419445's single failure:
-	//
-	//	--- FAIL: TestFaultSitesInertWhenUnset
-	//	    TempDir RemoveAll cleanup: unlinkat /tmp/…/001/.qompack: directory not empty
-	//
-	// ENOTEMPTY, not EBUSY, and that distinction is the whole diagnosis: on Linux an open handle
-	// never blocks an unlink, so nothing was holding the tree open — an entry was CREATED inside
-	// .qompack between RemoveAll emptying it and RemoveAll unlinking it, which only a live process
-	// can do. (The Windows failure quoted above is the same race seen through a different errno:
-	// there the straggler's open handle is what surfaces, here its next write is.) So process
-	// death, not lock absence, is the condition that makes the tree safe to remove —
-	// e2eProcessAlive's own doc comment already says exactly that, and this loop simply had one
-	// exit that never asked it.
-	shutdownPID, _ := e2eDaemonHoldingLock(root)
+// e2eSpawnLockName is internal/ipc's unexported spawnLockName, respelled here as internal/daemon
+// respells it (runSpawnLockFileName): the file a hook's lazySpawn writes in <root>/.qompack/run,
+// carrying its own UnixMilli timestamp, before it launches a detached daemon. The daemon removes it
+// once it listens.
+const e2eSpawnLockName = "spawn.lock"
 
-	// Client.Send never propagates an error — a failed connect/write/ACK round trip just spools
-	// the request instead and returns silently (00-ARCHITECTURE.md §2.4/§12.3), so a single
-	// admin.shutdown attempt has no way to know whether the daemon actually received it. Retrying
-	// on a ticker until the daemon actually goes away (or the overall bound elapses) is the only
-	// way this helper can tell "delivered" from "silently spooled" — a ticker, not time.Sleep,
-	// per §6.1's wall-clock-sleep ban (devtool lint's sleepcheck sub-check).
-	ticker := time.NewTicker(e2eDaemonDownTick)
+// e2eSpawnLockStaleAfter is internal/ipc's unexported spawnLockStaleAfter: how old a spawn.lock has
+// to be before a client stops treating the spawn it names as in flight and spawns again. It is the
+// product's own answer to "is a daemon still coming?", so this helper uses exactly it.
+const e2eSpawnLockStaleAfter = 10 * time.Second
+
+// e2eSpawnInFlight reports whether root holds a spawn.lock younger than e2eSpawnLockStaleAfter — a
+// detached daemon launch the product itself still counts as underway. It reads through
+// paths.ReadFileShared for the reason testutil.DaemonHoldingLock does: the daemon deletes this file
+// itself, and a reader without FILE_SHARE_DELETE would make that delete fail on Windows. A file that
+// does not parse is stale, as ipc's own spawnLockIsStale reads it.
+func e2eSpawnInFlight(root string) bool {
+	b, err := paths.ReadFileShared(filepath.Join(paths.Of(root).Run, e2eSpawnLockName))
+	if err != nil {
+		return false
+	}
+	ms, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64)
+	if err != nil {
+		return false
+	}
+	return time.Since(time.UnixMilli(ms)) < e2eSpawnLockStaleAfter
+}
+
+// e2eAwaitSpawnInFlight waits, while a spawn is in flight (e2eSpawnInFlight), for the daemon it
+// launched to take root's lock, and reports whether one did. It gives up when the marker is gone or
+// stale — the product's own point for "that spawn is not coming" — or after e2eDaemonUpBound, this
+// file's bound for a lazily spawned daemon to come up on a loaded host.
+func e2eAwaitSpawnInFlight(root string) bool {
+	ticker := time.NewTicker(e2eLazySpawnSettleTick)
 	defer ticker.Stop()
-	timeout := time.NewTimer(e2eDaemonDownBound)
-	defer timeout.Stop()
+	deadline := time.NewTimer(e2eDaemonUpBound)
+	defer deadline.Stop()
 	for {
-		_, _ = c.Send(context.Background(), ipc.Request{
-			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
-		}, e2eRoundTripDeadline)
-		// Two things must both be true before this tree is nobody's to write to: no live process
-		// holds the lock now, and the process that held it when we started has actually exited.
-		//
-		// The first half also covers a daemon that stops mattering by dying. Lock.Release is
-		// Stop's last act, so a process that never reaches it — an injected fault, a crash, a
-		// kill — leaves the lock behind for nobody to remove, and waiting on the FILE would cost
-		// exactly what e785891 refused to pay at the gate above: the whole of e2eDaemonDownBound
-		// spent proving a fact already on disk. e2eDaemonHoldingLock answers "no lock file" and
-		// "lock file naming a dead pid" identically, which is why the absent-file check that used
-		// to stand here is not merely moved but subsumed.
-		lockPID, held := e2eDaemonHoldingLock(root)
-		if !held && e2eShutdownProcessSettled(shutdownPID) {
-			return
+		if _, held := testutil.DaemonHoldingLock(root); held {
+			return true
+		}
+		if !e2eSpawnInFlight(root) {
+			// One last look: the daemon removes spawn.lock only once it listens, by which time it
+			// holds the lock, so a marker that vanished may mean the daemon just arrived.
+			_, held := testutil.DaemonHoldingLock(root)
+			return held
 		}
 		select {
 		case <-ticker.C:
-		case <-timeout.C:
-			switch {
-			case e2eFileExists(lockPath):
-				t.Logf("e2eShutdownIfReachable: a live daemon (pid %d) still held %s after %s of retried "+
-					"admin.shutdown; the caller's t.TempDir cleanup is about to remove a tree it may still "+
-					"be writing to", lockPID, lockPath, e2eDaemonDownBound)
-			case !e2eShutdownProcessSettled(shutdownPID):
-				t.Logf("e2eShutdownIfReachable: the daemon (pid %d) released %s but was still running after "+
-					"%s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to",
-					shutdownPID, lockPath, e2eDaemonDownBound)
-			}
-			return
+		case <-deadline.C:
+			_, held := testutil.DaemonHoldingLock(root)
+			return held
 		}
 	}
 }
 
-// e2eShutdownProcessSettled reports whether the pid that held the lock can no longer write inside
-// the tree.
-//
-// For a daemon in its OWN process that is exactly "the process has exited", and the long comment
-// above says why nothing weaker will do: Lock.Release is Stop's last act, but the process still has
-// to unwind afterwards, and CI run 32932419445 caught it creating an entry inside .qompack between
-// RemoveAll emptying the directory and RemoveAll unlinking it.
-//
-// For a daemon running IN THIS TEST BINARY — v4StartRig and the other in-process rigs — that
-// question is not merely unanswerable but meaningless. internal/daemon/lock.go:103 records the
-// holder's pid, which for an in-process rig is the test binary's own, so "has it exited?" asks
-// whether the process doing the asking has exited: always false, for the whole of
-// e2eDaemonDownBound, after which the caller logged a diagnostic claiming a straggler was still
-// writing to a tree that had in fact been quiescent for twenty seconds. A false diagnostic is worse
-// than a slow one, because it is the first thing the next person to debug these rows will chase.
-//
-// The unwind the out-of-process case waits for has no counterpart here: there is no second process
-// to unwind, and the test binary will not exit until the test does. Stop has returned and the lock
-// is gone, which is every guarantee available and the same one v4StartRig's own t.Cleanup relies
-// on. So for our own pid the lock's absence is the whole condition.
-//
-// This is not a relaxation of the out-of-process check, which is unchanged: it replaces a condition
-// that could never be satisfied with the one that actually establishes the fact.
-func e2eShutdownProcessSettled(shutdownPID int) bool {
-	if shutdownPID == os.Getpid() {
-		return true
-	}
-	return !e2eProcessAlive(shutdownPID)
-}
-
-// e2eDaemonHoldingLock reports the pid recorded in root's daemon.lock and whether a live process
-// still holds it. It is the signal that tells a daemon which is STILL COMING UP — lock taken, day
-// log open, nothing listening — apart from a lock abandoned by a process that is already gone;
-// neither ipc.Probe nor os.Stat can see the difference, and e2eShutdownIfReachable has to.
-//
-// The lock is read with paths.ReadFileShared directly rather than with daemon.ReadLock. When this
-// helper was written the two were not interchangeable: ReadLock was os.ReadFile
-// (internal/daemon/lock.go's readLockFile), which on Windows takes a handle with
-// FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so a caller polling it made
-// Lock.Release's own os.Remove fail with ERROR_SHARING_VIOLATION — it would CAUSE the abandoned
-// lock it was checking for, the failure v1StopDaemonAndWaitGone measured at roughly one run in
-// twenty. readLockFile reads through paths.ReadFileShared now, so ReadLock is safe to poll and the
-// difference is down to what this helper needs from the bytes rather than to the share mask.
-// paths.OpenShared adds FILE_SHARE_DELETE to that mask (bbd8905, "stop readers blocking the writer
-// they watch"), which is what makes reading this file at all safe — here and in ReadLock alike.
-//
-// A lock file that exists but does not parse counts as held. paths.CreateNew creates the file and
-// only then writes the body into it (internal/paths/appendonly.go), so an empty or truncated
-// daemon.lock is one that a process finished creating microseconds ago — the most alive a daemon
-// ever is, not a dead one. Both callers re-ask on a tick, so that conservative answer costs a
-// tick and never a bound.
-func e2eDaemonHoldingLock(root string) (pid int, held bool) {
-	b, err := paths.ReadFileShared(daemon.LockPath(root))
-	if err != nil {
-		// Overwhelmingly this is "no lock file", i.e. no daemon ever took this project — every
-		// daemon-down row, and most panic:hook rows. Any other read error lands here too, and
-		// answering "not held" for it is deliberate: it leaves this helper's pre-fix behaviour
-		// exactly as it was for a state it cannot see into, rather than spending the whole of
-		// e2eDaemonDownBound on a guess.
-		return 0, false
-	}
-	var info daemon.LockInfo
-	if err := json.Unmarshal(b, &info); err != nil {
-		return 0, true // mid-CreateNew, per the paragraph above.
-	}
-	return info.PID, e2eProcessAlive(info.PID)
-}
-
-// e2eFileExists reports whether p is present, without opening it — see e2eShutdownIfReachable on
-// why a handle would be self-defeating here.
+// e2eFileExists reports whether p is present, without opening it: a presence question needs no
+// handle, and on Windows a handle without FILE_SHARE_DELETE would block the delete of the very file
+// being watched (v1StopDaemonAndWaitGone tells that history).
 func e2eFileExists(p string) bool {
 	_, err := os.Stat(paths.Long(p))
 	return err == nil

@@ -10,7 +10,16 @@ Values are resolved from five layers, lowest precedence first:
 
 An invalid value is never fatal: the offending leaf falls back to its default, the violation is
 reported through the `Loud` channel and recorded in `.qompack/state/config-violations.json`,
-and loading continues (§11.3). Unknown keys produce a warning, never an error.
+and loading continues (§11.3). Unknown keys produce a warning, never an error. A value of the
+wrong type is ignored with a warning, and the leaf keeps the value from the layer below.
+
+The hooks load configuration by the same per-leaf rules, with two kinds of problem that stop
+recording rather than fall back: input the hooks cannot read safely (a config file that does
+not parse, is not a plain file or is over its size bound, or an oversized `QOMPACK_*` or
+`--set` value), and a setting of `runtime.redact` or `runtime.mode` that cannot be applied as
+written, where a fallback would record under a privacy policy you did not write, or record while
+you were switching recording off. `qompack self-test` reports either as `config.capture`; see
+[docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility).
 
 A default that differs by platform names every value in its Default cell, portable one first.
 
@@ -23,7 +32,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `checkpoint.budgetTokens` | integer | `12000` | [1000,100000] | §8.5 | target token budget for a single checkpoint artifact |
 | `checkpoint.frontier.advanceOnSegmentClose` | boolean | `true` | — | §8.5 | advance the checkpoint frontier incrementally whenever a segment closes |
 | `checkpoint.frontier.maxResidualTokens` | integer | `20000` | (0,∞) | §8.5 | maximum tokens between the frontier and the compaction point before a full pass is forced |
-| `checkpoint.incrementalSpanInstruction` | boolean | `true` | — | §8.5 | emit the O1 focus instruction narrowing the summarizer to the span after the checkpoint frontier |
+| `checkpoint.incrementalSpanInstruction` | boolean | `true` | — | §8.5 | retired (C1.18): no host accepts a PreCompact instruction, so none is emitted; read for compatibility only (docs/cannot-do.md) |
 | `checkpoint.tiers.first` | array | `["pointers","narrative"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields truncated first under budget pressure |
 | `checkpoint.tiers.late` | array | `["decisions","open_questions","current_work"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields truncated only after the first tier is exhausted |
 | `checkpoint.tiers.never` | array | `["invariants","user_intent","eliminated"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields that are never truncated |
@@ -96,7 +105,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.redact.enabled` | boolean | `true` | — | 00-ARCH §5.23 | scrub secrets before content enters the store |
 | `runtime.redact.patterns` | array | `[]` | — | 00-ARCH §5.23 | additional user-supplied secret-detection patterns |
 | `runtime.rehydrate.eliminationsTopN` | integer | `8` | [1,∞) | §8.6 | number of eliminated approaches surfaced verbatim in the rehydrated digest |
-| `runtime.rehydrate.maxTokens` | integer | `12000` | [minTokens,∞) | §8.6 | upper bound of the rehydration budget |
+| `runtime.rehydrate.maxTokens` | integer | `12000` | [minTokens,∞) | §8.6 | upper bound of the rehydration token budget; the payload is also held under the host's fixed 9,500-character additionalContext ceiling, which no key raises |
 | `runtime.rehydrate.minTokens` | integer | `8000` | [1,maxTokens] | §8.6 | lower bound of the rehydration budget |
 | `runtime.rehydrate.skillIndexTokens` | integer | `450` | [1,∞) | §8.6 | token budget for the compact skill index |
 | `runtime.scheduler.cache.assumeMaxTTLSeconds` | integer | `3600` | [scheduler.cache.ttlSeconds,∞) | 00-ARCH §11.5 / Qompack.md §5.4 | upper TTL bound the scheduler assumes when the cache regime cannot be identified |
@@ -231,5 +240,5 @@ file and line it was set in, and what the key no longer means.
 | `scheduler.youngDaly.enabled` | Young–Daly pacing is compatibility/harness-only: no native compaction trigger, cut or veto depends on it (Qompack.md v1.5 Appendix C; SP-12 reviewed migration) |
 | `scheduler.youngDaly.measuredDeltaSeconds` | Young–Daly pacing is compatibility/harness-only: the measured delta no longer times a native compaction (Qompack.md v1.5 Appendix C; SP-12 reviewed migration) |
 | `scheduler.idle.deepCutWhenCold` | no native cut is available to a plugin; the key is read for compatibility only and selects no history rewrite (Qompack.md v1.5 §12; SP-12 reviewed migration) |
-| `checkpoint.incrementalSpanInstruction` | custom_instructions is PreCompact input, not a summarizer setter; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration) |
+| `checkpoint.incrementalSpanInstruction` | custom_instructions is PreCompact input, not a summarizer setter, and since C1.18 Qompack emits no PreCompact instruction at all; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration) |
 

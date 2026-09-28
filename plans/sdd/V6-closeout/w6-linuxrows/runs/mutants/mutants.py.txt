@@ -1,0 +1,53 @@
+"""Apply one named mutant (a revert of one fix's behaviour) to a checkout of closeout/w6-linuxrows.
+
+usage: python mutants.py <repo> <name>
+Temporary evidence tool for w6-linuxrows; never in the tree.
+"""
+import sys
+
+repo, name = sys.argv[1], sys.argv[2]
+
+MUTANTS = {
+    # 5437e70: the requester no longer asks again after a pass its budget cut short.
+    "M1-no-resume": ("internal/daemon/delivery_order.go", [(
+        "\t\tif errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {\n\t\t\td.ing.resumeDrain()\n\t\t}\n",
+        "\t\tif errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil && false {\n\t\t\td.ing.resumeDrain()\n\t\t}\n",
+    )]),
+    # bc3dde9 (and ce61328's watcher half): the pass budget is a context deadline again, which
+    # cancels the line in flight.
+    "M2-hard-deadline": ("internal/daemon/drain.go", [(
+        "\treturn context.WithValue(ctx, passBudgetKey{}, &passBudget{end: time.Now().Add(budget)})\n",
+        "\tctx, _ = context.WithTimeout(ctx, budget) // mutant\n"
+        "\treturn context.WithValue(ctx, passBudgetKey{}, &passBudget{end: time.Now().Add(budget)})\n",
+    )]),
+    # 4894f4f: the budget ends a pass whether or not it has consumed a line.
+    "M3-no-consume-first": ("internal/daemon/drain.go", [(
+        "ok && b.consumed.Load() && !time.Now().Before(b.end)",
+        "ok && !time.Now().Before(b.end)",
+    )]),
+    # ce61328: a budget-cut watcher pass backs off the spools it never reached.
+    "M4-watcher-backoff": ("internal/daemon/spool_watch.go", [(
+        "budgetSpent := errors.Is(perr, errPassBudgetSpent)",
+        "budgetSpent := errors.Is(perr, errPassBudgetSpent) && false",
+    )]),
+    # ce61328: the watcher's pass runs under a context deadline again.
+    "M5-watcher-deadline": ("internal/daemon/spool_watch.go", [(
+        "dr.DrainClientSpools(withPassBudget(ctx, idleRunBudget))",
+        "dr.DrainClientSpools(func() context.Context { c, _ := context.WithTimeout(withPassBudget(ctx, idleRunBudget), idleRunBudget); return c }())",
+    )]),
+    # 80fab5f: Stop no longer writes the observer's graph and state out.
+    "M6-no-stop-persist": ("internal/daemon/observer_ops.go", [(
+        "\tif p, ok := obsv.(observer.Persister); ok {\n\t\to.OnStop(",
+        "\tif p, ok := obsv.(observer.Persister); ok && false {\n\t\to.OnStop(",
+    )]),
+}
+
+path, edits = MUTANTS[name]
+full = repo + "/" + path
+s = open(full, encoding="utf-8").read()
+for old, new in edits:
+    if s.count(old) != 1:
+        sys.exit(f"{name}: anchor not found exactly once in {path}")
+    s = s.replace(old, new)
+open(full, "w", encoding="utf-8", newline="\n").write(s)
+print(f"applied {name} to {path}")

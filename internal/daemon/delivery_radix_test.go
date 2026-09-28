@@ -25,6 +25,18 @@ func newTestRadix(t *testing.T) *deliveryRadix {
 	return r
 }
 
+// reopenRadix closes r and returns a fresh handle on the same directory and key hash, so a test can
+// edit a pack on disk with no cached handle holding the file open (Windows refuses some edits then).
+func reopenRadix(t *testing.T, r *deliveryRadix) *deliveryRadix {
+	t.Helper()
+	require.NoError(t, r.close())
+	r2, err := openDeliveryRadix(r.dir)
+	require.NoError(t, err)
+	r2.hashKey = r.hashKey
+	t.Cleanup(func() { _ = r2.close() })
+	return r2
+}
+
 func mustInsert(t *testing.T, r *deliveryRadix, root radixHash, key, value []byte) radixHash {
 	t.Helper()
 	newRoot, err := r.insert(context.Background(), root, key, value)
@@ -45,6 +57,7 @@ func TestDeliveryRadix_EmptyTreeAbsence(t *testing.T) {
 // intermediate root, and proves each generation still answers its own keys exactly and reports a
 // later key as absent (not unavailable).
 func TestDeliveryRadix_ManyGenerationsOldRootsUsable(t *testing.T) {
+	t.Parallel()
 	r := newTestRadix(t)
 	const n = 80
 	key := func(i int) []byte { return []byte(fmt.Sprintf("key-%03d", i)) }
@@ -151,8 +164,9 @@ func TestDeliveryRadix_CollisionRefused(t *testing.T) {
 	require.False(t, found)
 }
 
-// TestDeliveryRadix_WrongRootAndCorruptPageAreUnavailable: a root that names no page, and a page whose
-// bytes no longer hash to their name, are both unavailable — never read as an empty tree.
+// TestDeliveryRadix_WrongRootAndCorruptPageAreUnavailable: a root that names no page, a root pointer
+// that no longer reads as one, and a page whose bytes no longer hash to their name, are all unavailable
+// — never read as an empty tree.
 func TestDeliveryRadix_WrongRootAndCorruptPageAreUnavailable(t *testing.T) {
 	r := newTestRadix(t)
 
@@ -162,15 +176,25 @@ func TestDeliveryRadix_WrongRootAndCorruptPageAreUnavailable(t *testing.T) {
 	require.ErrorIs(t, err, errRadixUnavailable, "a root with no page on disk is unavailable, not empty")
 
 	root := mustInsert(t, r, radixHash{}, []byte("k"), []byte("v"))
-	// Overwrite the root page with bytes that do not hash to its name.
-	require.NoError(t, os.WriteFile(paths.Long(r.pagePath(root)), []byte("corrupt"), 0o600))
+	// Flip one byte of the root page's bytes inside its pack: they no longer hash to its name.
+	loc, err := r.readRootPointer(root)
+	require.NoError(t, err)
+	r = reopenRadix(t, r) // no cached handle survives the edit below, on any platform
+	flipPackByte(t, r.packPath(loc.pack), int64(loc.off)+radixRecordHeaderLen+7)
 	_, _, err = r.lookup(context.Background(), root, []byte("k"))
 	require.ErrorIs(t, err, errRadixUnavailable, "a page whose content no longer matches its name is unavailable")
+
+	// Overwrite the root pointer with bytes that are not a pointer.
+	require.NoError(t, os.WriteFile(paths.Long(r.pagePath(root)), []byte("corrupt"), 0o600))
+	_, _, err = r.lookup(context.Background(), root, []byte("k"))
+	require.ErrorIs(t, err, errRadixUnavailable, "a root pointer that does not read as one is unavailable")
 }
 
 // TestDeliveryRadix_MissingDescendantIsUnavailableWithoutTouchingTheOther builds a two-leaf branch
 // (keys diverging at bit 0), deletes one leaf, and shows the missing branch is unavailable while a
 // lookup down the OTHER branch still succeeds — proving path-locality and unavailability-not-absence.
+// Pages live in packs, so B is inserted FIRST: its leaf is then the only page of its own pack, and
+// deleting that pack removes exactly B's leaf and nothing on A's path.
 func TestDeliveryRadix_MissingDescendantIsUnavailableWithoutTouchingTheOther(t *testing.T) {
 	r := newTestRadix(t)
 	var ha, hb radixHash // differ at bit 0
@@ -186,12 +210,14 @@ func TestDeliveryRadix_MissingDescendantIsUnavailableWithoutTouchingTheOther(t *
 			return r.defaultKeyHash(k)
 		}
 	}
-	root := mustInsert(t, r, radixHash{}, []byte("A"), []byte("va"))
-	root = mustInsert(t, r, root, []byte("B"), []byte("vb"))
+	leafB := mustInsert(t, r, radixHash{}, []byte("B"), []byte("vb"))
+	require.Equal(t, radixDigest(radixPageDomain, encodeRadixLeaf(hb, []byte("B"), []byte("vb"))), leafB)
+	root := mustInsert(t, r, leafB, []byte("A"), []byte("va"))
 
-	// Compute and delete B's leaf page directly.
-	leafB := radixDigest(radixPageDomain, encodeRadixLeaf(hb, []byte("B"), []byte("vb")))
-	require.NoError(t, os.Remove(paths.Long(r.pagePath(leafB))))
+	// Delete B's leaf page: the pack that holds it and nothing else.
+	packB := rootPackOf(t, r, leafB)
+	r = reopenRadix(t, r)
+	require.NoError(t, os.Remove(paths.Long(r.packPath(packB))))
 
 	_, _, err := r.lookup(context.Background(), root, []byte("B"))
 	require.ErrorIs(t, err, errRadixUnavailable, "a missing descendant page is unavailable, not absent")
@@ -223,12 +249,14 @@ func TestDeliveryRadix_LookupDoesNotTouchAnIrrelevantCorruptBranch(t *testing.T)
 			return r.defaultKeyHash(k)
 		}
 	}
-	root := mustInsert(t, r, radixHash{}, []byte("A"), []byte("va"))
-	root = mustInsert(t, r, root, []byte("B"), []byte("vb"))
+	// B first, so its leaf is the only page of its own pack (see the test above).
+	leafB := mustInsert(t, r, radixHash{}, []byte("B"), []byte("vb"))
+	root := mustInsert(t, r, leafB, []byte("A"), []byte("va"))
 
 	// Garble B's leaf so any read of it would fail.
-	leafB := radixDigest(radixPageDomain, encodeRadixLeaf(hb, []byte("B"), []byte("vb")))
-	require.NoError(t, os.WriteFile(paths.Long(r.pagePath(leafB)), []byte("garbled"), 0o600))
+	packB := rootPackOf(t, r, leafB)
+	r = reopenRadix(t, r)
+	require.NoError(t, os.WriteFile(paths.Long(r.packPath(packB)), []byte("garbled"), 0o600))
 
 	v, found, err := r.lookup(context.Background(), root, []byte("A"))
 	require.NoError(t, err)

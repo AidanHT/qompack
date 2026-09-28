@@ -1,0 +1,11 @@
+=== RUN   TestFlushHook_IsFireAndForgetWithItsNonce
+    flush_hook_test.go:45: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/cli/flush_hook_test.go:45
+        	Error:      	Should be false
+        	Test:       	TestFlushHook_IsFireAndForgetWithItsNonce
+        	Messages:   	the flush hook must not wait for the session's end; the host cancels it at 1.5 s
+--- FAIL: TestFlushHook_IsFireAndForgetWithItsNonce (0.36s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.631s
+FAIL
+exit=1

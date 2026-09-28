@@ -1,0 +1,36 @@
+run_id=cx-ingest-fix-e2efault3-022721d-20260923T023628Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest
+rev=HEAD
+commit=022721dc76a4e060f37239f251945f2f05a7f284
+bundle_sha256=882094e7fc587ac6488129fabae7ba2aa5e9d30428baf3841a1fb3182cfab749
+host_started_utc=2026-09-23T02:36:31Z
+inner_args=--no-race --count 3 --run ^(TestE2E_ObserverThroughDaemon|TestE2E_ThinSliceDropsControlOnlyEdges|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently|TestFault_AuditSeesADeletedObjectUnderALiveIndex|TestFault_MCPChildKilledMidRequest|TestFault_DaemonKilledMidIngest|TestFault_UnavailableHistoricalObject|TestFault_CheckpointDropsAnUnresolvablePointer|TestFault_CheckpointResolvabilityIsBlindToADeletedObject)$ -- ./test/e2e ./test/fault
+/work/cx-ingest-fix-e2efault3-022721d-20260923T023628Z.bundle: OK
+run_id=cx-ingest-fix-e2efault3-022721d-20260923T023628Z
+commit=022721dc76a4e060f37239f251945f2f05a7f284
+tree=3dae26168db21dd48ed3ca976f942715f88176ae
+bundle_sha256=882094e7fc587ac6488129fabae7ba2aa5e9d30428baf3841a1fb3182cfab749
+started_utc=2026-09-23T02:36:33Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^(TestE2E_ObserverThroughDaemon|TestE2E_ThinSliceDropsControlOnlyEdges|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently|TestFault_AuditSeesADeletedObjectUnderALiveIndex|TestFault_MCPChildKilledMidRequest|TestFault_DaemonKilledMidIngest|TestFault_UnavailableHistoricalObject|TestFault_CheckpointDropsAnUnresolvablePointer|TestFault_CheckpointResolvabilityIsBlindToADeletedObject)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/test/e2e  (pass=9 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/fault  (pass=18 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/cx-ingest-fix/runs/cx-ingest-fix-e2efault3-022721d-20260923T023628Z-artifacts
+exit=0
+exit=0

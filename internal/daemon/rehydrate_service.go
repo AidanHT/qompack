@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
@@ -99,14 +102,24 @@ func (s *rehydrateService) mode() contract.Mode {
 // OnCompact handles SessionStart with source "compact".
 func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out observer.Output, err error) {
 	// §13 invariant 6: a hook exits 0 however badly it goes. A panic anywhere below — a fake
-	// reader, a malformed checkpoint, a nil map in a builder — becomes an empty output and a Loud,
-	// never a non-zero exit that blocks the user's session from starting.
+	// reader, a malformed checkpoint, a nil map in a builder — becomes the deferred note and a Loud,
+	// never a non-zero exit that blocks the user's session from starting. A panic is a failed build,
+	// so it is answered the way every failed build is (notBuilt, owner decision D11): the
+	// session.start route waiting on this rehydration is answered now, with the note, rather than
+	// with an empty output that says nothing or a wait that runs out its bound.
 	defer func() {
 		if v := recover(); v != nil {
 			s.o.Log.Loud("rehydrate: panic recovered", "session", string(e.SessionID), "err", fmt.Sprint(v))
-			out, err = hookio.Empty(), nil
+			out, err = s.notBuilt(ctx, e.SessionID, DeferredFailed, notBuiltBuildFailed), nil
 		}
 	}()
+
+	// The observer's own SessionStart call, made beside a rehydration the session.start route is
+	// already building (session_start_compact.go): that call is the observer's bookkeeping, and a
+	// second rehydration here would only be thrown away.
+	if routeRehydrates(ctx) {
+		return hookio.Empty(), nil
+	}
 
 	// §12.1 is explicit: in ModeDegradedPassive there is "no additionalContext injection, no
 	// customInstructions, no scheduler-initiated checkpoints, no drop report". L0/L1 keep running;
@@ -125,9 +138,19 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		return hookio.Empty(), nil
 	}
 
-	cp, ref, degraded := s.latest(ctx, e.SessionID)
-	if degraded == errFatalCheckpoint {
-		return hookio.Empty(), nil
+	var (
+		cp       checkpoint.Checkpoint
+		ref      checkpoint.Ref
+		degraded error
+	)
+	s.phase(histRehydrateLatest, func() { cp, ref, degraded = s.latest(ctx, e.SessionID) })
+	switch degraded {
+	case errFatalCheckpoint:
+		// Nothing is built on a store that cannot be read — a half-known context would be worse than
+		// none — but the compaction is still answered: with the note, not silence (D11).
+		return s.notBuilt(ctx, e.SessionID, DeferredCheckpointUnreadable, notBuiltCheckpointUnreadable), nil
+	case errCheckpointCutShort:
+		return s.stopped(ctx, e.SessionID, "reading the checkpoint"), nil
 	}
 
 	budget := core.Tokens(s.o.Cfg.Runtime.Rehydrate.MaxTokens)
@@ -144,35 +167,50 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 	var res rehydrate.Result
 	var stats []rehydrate.ItemStat
 	var buildErr error
-	deps := s.deps()
+	var deps rehydrate.Deps
+	s.phase(histRehydrateDeps, func() { deps = s.deps() })
 
 	// SP-15's representation selection, run HERE rather than inside Build. rehydrate may not
 	// import analyzer (§3.2) and Build is a pure function of (Request, Deps), so the composition
 	// root runs the selector and passes the outcome in as request data. A nil outcome — selection
 	// disabled, no candidates, or any error — is the shipped pre-SP-15 path exactly.
-	req.Selection = s.selectionFor(ctx, cp, budget, deps.Ledger)
+	s.phase(histRehydrateSelection, func() { req.Selection = s.selectionFor(ctx, cp, budget, deps.Ledger) })
 
 	s.timed(func() { res, stats, buildErr = rehydrate.BuildWithStats(ctx, req, deps) })
 	if buildErr != nil {
+		if cutShort(ctx, buildErr) {
+			return s.stopped(ctx, e.SessionID, "building the rehydration"), nil
+		}
 		s.o.Log.Loud("rehydrate: build failed", "session", string(e.SessionID), "err", buildErr.Error())
-		return hookio.Empty(), nil
+		return s.notBuilt(ctx, e.SessionID, DeferredFailed, notBuiltBuildFailed), nil
 	}
 	if degraded == errNoCheckpoint {
 		res.Degraded = true
 	}
 
-	s.record(ctx, e.SessionID, res, stats, budget)
-	s.gauges(res)
-
-	if res.Text == "" {
-		// An empty additionalContext is noise: the host would inject a blank block and the §12.1
-		// probe would still be appended by the session.start route regardless.
-		return hookio.Empty(), nil
+	// An empty additionalContext is noise: the host would inject a blank block and the §12.1 probe
+	// would still be appended by the session.start route regardless.
+	out = hookio.Empty()
+	if res.Text != "" {
+		out = hookio.Output{HookSpecificOutput: &hookio.HSO{
+			HookEventName:     "SessionStart",
+			AdditionalContext: res.Text,
+		}}
 	}
-	return hookio.Output{HookSpecificOutput: &hookio.HSO{
-		HookEventName:     "SessionStart",
-		AdditionalContext: res.Text,
-	}}, nil
+
+	// The answer is handed to a waiting session.start route BEFORE the drop report is written, so
+	// that write (an atomic replace, two fsyncs) is never on the answer's path (C1.16). If the
+	// route has already answered without it, what was built never reached the model, and the drop
+	// report must say so rather than describe it as delivered.
+	if t := compactTicketFrom(ctx); t != nil && !t.offer(out) && res.Text != "" {
+		why := t.undeliveredReason()
+		s.phase(histRehydrateRecord, func() { s.recordUndelivered(ctx, e.SessionID, res, budget, ref, why) })
+		return out, nil
+	}
+
+	s.phase(histRehydrateRecord, func() { s.record(ctx, e.SessionID, res, stats, budget) })
+	s.gauges(res)
+	return out, nil
 }
 
 // deps returns the collaborator set for this build, resolving the lazily opened ledger.
@@ -224,11 +262,25 @@ func (s *rehydrateService) OnClear(ctx context.Context, e observer.Event) (out o
 	return hookio.Empty(), nil
 }
 
-// The two non-fatal checkpoint outcomes latest distinguishes.
+// The checkpoint outcomes latest distinguishes besides a checkpoint: none to read, a store that
+// cannot be read, and a read its own context cut short (cutShort), which is no fault of the store.
 var (
-	errNoCheckpoint    = errors.New("rehydrate: no checkpoint")
-	errFatalCheckpoint = errors.New("rehydrate: checkpoint unreadable")
+	errNoCheckpoint       = errors.New("rehydrate: no checkpoint")
+	errFatalCheckpoint    = errors.New("rehydrate: checkpoint unreadable")
+	errCheckpointCutShort = errors.New("rehydrate: checkpoint read cut short")
 )
+
+// cutShort reports whether err is ctx's own ending rather than a fault of the work that returned it:
+// the shipped checkpoint reader and rehydrate.BuildWithStats both return ctx.Err() once ctx has ended.
+//
+// In the daemon a rehydration's context ends only when Stop cancels it: startReplyWork runs it under
+// a context that keeps none of the request's cancellation or deadline and is cancelled through
+// promptCtx alone. So a rehydration cut short is one the daemon stopping took away (stopped), and
+// never a store to be reported unreadable or a build that failed.
+func cutShort(ctx context.Context, err error) bool {
+	cerr := ctx.Err()
+	return cerr != nil && errors.Is(err, cerr)
+}
 
 // latest resolves the checkpoint to rehydrate from.
 //
@@ -251,6 +303,10 @@ func (s *rehydrateService) latest(ctx context.Context, sess core.SessionID) (che
 		s.o.Log.Info("rehydrate: no checkpoint for session; building from L0 and the ledger",
 			"session", string(sess), "err", err.Error())
 		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errNoCheckpoint
+	case cutShort(ctx, err):
+		// The read stopped because its context ended, not because the store failed it: OnCompact
+		// reports the daemon stopping (stopped), and the store is not Loud'd as unreadable.
+		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errCheckpointCutShort
 	default:
 		s.o.Log.Loud("rehydrate: checkpoint unreadable", "session", string(sess), "err", err.Error())
 		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errFatalCheckpoint
@@ -278,6 +334,162 @@ func (s *rehydrateService) record(ctx context.Context, sess core.SessionID, res 
 	if err := s.o.Reporter.Record(ctx, sess, st); err != nil {
 		s.o.Log.Warn("rehydrate: could not record state", "session", string(sess), "err", err.Error())
 	}
+}
+
+// undeliveredDropKind is the DropEntry kind of a whole rehydration that never reached the model:
+// one built but never delivered (recordUndelivered), or one that could not be built (recordNotBuilt).
+const undeliveredDropKind = "rehydration"
+
+// Why a compaction's rehydration was never built, as its drop report's first entry says
+// (recordNotBuilt), what the model received instead, and the entry's id.
+const (
+	notBuiltCheckpointUnreadable = "not delivered: the checkpoint store could not be read, so no rehydration " +
+		"was built"
+	notBuiltBuildFailed = "not delivered: building the rehydration failed"
+	notBuiltStopping    = "not delivered: the Qompack daemon was shutting down, so no rehydration was built"
+	// notBuiltAnswered is what the model received when the daemon answered the compaction itself: its
+	// deferred note, on time or — when the route had already answered at its bound — earlier.
+	notBuiltAnswered = "the model received a deferred note instead"
+	notBuiltDropID   = "not-built"
+)
+
+// notBuilt is the answer to a compaction whose rehydration could not be built — the checkpoint store
+// could not be read, the build failed or panicked, or the daemon stopping cut it short (stopped).
+// Owner decision D11: such a compaction is answered with the explicit deferred note naming reason,
+// exactly as a late one is (session_start_compact.go), never with silence, which would leave the
+// model with a compacted context and no word of what it lost. A session.start route waiting on this
+// rehydration is answered first, through its ticket, so the route counts and Louds the deferral like
+// any other; then the drop report is recorded as never built (recordNotBuilt), off the answer's path,
+// so dropped() does not describe an earlier rehydration as this one. Degraded-passive and the
+// reinjection kill switch are checked before anything that can fail, so neither ever reaches here:
+// they still answer nothing.
+//
+// What the model received instead is the daemon's note, except for a compaction replayed from a hook's
+// spool (its ticket abandoned with undeliveredReplayed): that hook answered without the daemon, with
+// the hook client's own note or with nothing, and the report says so rather than claim a note it
+// cannot know was delivered.
+func (s *rehydrateService) notBuilt(ctx context.Context, sess core.SessionID, reason, why string) hookio.Output {
+	received := notBuiltAnswered
+	if t := compactTicketFrom(ctx); t != nil {
+		t.fail(reason)
+		if t.undeliveredReason() == undeliveredReplayed {
+			received = strings.TrimPrefix(undeliveredReplayed, undeliveredPrefix)
+		}
+	}
+	s.phase(histRehydrateRecord, func() { s.recordNotBuilt(ctx, sess, why+"; "+received) })
+	return compactDeferredOutput(sess, reason)
+}
+
+// stopped is notBuilt for a rehydration the daemon stopping cut short while it was doing what
+// (cutShort): the note and the drop report name that cause (DeferredStopping, notBuiltStopping),
+// never an unreadable store or a failed build. It is Loud once, as every compaction answered without
+// its rehydration is (§13 invariant 10).
+func (s *rehydrateService) stopped(ctx context.Context, sess core.SessionID, what string) hookio.Output {
+	s.o.Log.Loud("rehydrate: stopped before the rehydration was built", "session", string(sess), "while", what)
+	return s.notBuilt(ctx, sess, DeferredStopping, notBuiltStopping)
+}
+
+// recordNotBuilt persists the drop report of a compaction whose rehydration was never built: one
+// entry for the whole rehydration, saying so and why, and where the checkpoints are kept. It lists no
+// emitted items and no tokens, because nothing was emitted, and it is marked degraded.
+//
+// It records under a context that keeps ctx's values but not its cancellation: the rehydration may
+// not have been built BECAUSE its context was cancelled (the daemon stopping, stopped), and that
+// compaction is one dropped() must describe all the same. The write is one small atomic replace, and
+// Stop joins it with the rest of the reply work (startReplyWork). A failed write is warned and
+// swallowed, like record's.
+func (s *rehydrateService) recordNotBuilt(ctx context.Context, sess core.SessionID, why string) {
+	if s.o.Reporter == nil {
+		return
+	}
+	st := rehydrate.State{
+		Session: sess,
+		Emitted: core.UnixMilli(s.o.Clock.Now().UnixMilli()),
+		Budget:  core.Tokens(s.o.Cfg.Runtime.Rehydrate.MaxTokens),
+		Dropped: []checkpoint.DropEntry{{
+			Kind: undeliveredDropKind, ID: notBuiltDropID,
+			Detail: why + "; the checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest)",
+		}},
+		Degraded: true,
+	}
+	if err := s.o.Reporter.Record(context.WithoutCancel(ctx), sess, st); err != nil {
+		s.o.Log.Warn("rehydrate: could not record state", "session", string(sess), "err", err.Error())
+	}
+}
+
+// recordUndelivered is record for a rehydration that never reached the model
+// (session_start_compact.go): the session.start route answered without it, or it was built for a
+// request replayed from a hook's spool after the hook had answered. why says which (undeliveredLate,
+// undeliveredReplayed). The drop report therefore leads with one entry for the whole rehydration,
+// pointing at where its content can still be read, followed by what the payload would have left out
+// anyway; it lists no emitted items and no tokens, because nothing was emitted, and it is marked
+// degraded. dropped() then tells the truth about the compaction instead of describing a payload as
+// if the model had it.
+func (s *rehydrateService) recordUndelivered(ctx context.Context, sess core.SessionID, res rehydrate.Result,
+	budget core.Tokens, ref checkpoint.Ref, why string,
+) {
+	if s.o.Reporter == nil {
+		return
+	}
+	detail := why
+	if detail == "" {
+		detail = undeliveredLate
+	}
+	id := "no-checkpoint"
+	if ref.Seq > 0 {
+		id = fmt.Sprintf("checkpoint-%04d", int(ref.Seq))
+	}
+	if p := s.projectRelative(ref.Path); p != "" {
+		detail += "; restore: Read " + p
+	}
+	dropped := append([]checkpoint.DropEntry{{Kind: undeliveredDropKind, ID: id, Detail: detail}}, res.Dropped...)
+	st := rehydrate.State{
+		Session:  sess,
+		Seq:      res.Seq,
+		Emitted:  core.UnixMilli(s.o.Clock.Now().UnixMilli()),
+		Budget:   budget,
+		Dropped:  dropped,
+		Degraded: true,
+	}
+	if err := s.o.Reporter.Record(ctx, sess, st); err != nil {
+		s.o.Log.Warn("rehydrate: could not record state", "session", string(sess), "err", err.Error())
+	}
+}
+
+// projectRelative renders p relative to the project root in slash form when it lies inside it (the
+// form rehydrate's own restore pointers use), and p itself otherwise; "" stays "".
+func (s *rehydrateService) projectRelative(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" || s.o.ProjectRoot == "" {
+		return p
+	}
+	rel, err := filepath.Rel(s.o.ProjectRoot, p)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return p
+	}
+	return filepath.ToSlash(rel)
+}
+
+// The per-phase histograms of one compact rehydration, beside rehydrate.build (the Build call
+// itself). Together with the session.start route's own phases (handlers.go) they say where a slow
+// SessionStart(source=compact) spent its time: C1.16's 10.3 s answer could not be attributed from
+// the evidence the daemon kept, because only the whole Build was timed.
+const (
+	histRehydrateLatest    = "rehydrate.latest"
+	histRehydrateDeps      = "rehydrate.deps"
+	histRehydrateSelection = "rehydrate.selection"
+	histRehydrateRecord    = "rehydrate.record"
+)
+
+// phase runs f and records its wall time under name when metrics are wired.
+func (s *rehydrateService) phase(name string, f func()) {
+	if s.o.Metrics == nil {
+		f()
+		return
+	}
+	start := time.Now()
+	f()
+	s.o.Metrics.Hist(name).Observe(time.Since(start))
 }
 
 // timed runs f under the rehydrate.build histogram when metrics are wired.

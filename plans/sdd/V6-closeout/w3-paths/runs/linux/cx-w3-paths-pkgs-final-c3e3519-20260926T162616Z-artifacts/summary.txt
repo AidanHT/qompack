@@ -1,0 +1,25 @@
+PASS      github.com/qompack/qompack/internal/paths  (pass=158 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/store  (pass=837 fail=0 skip=4)
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=1465 fail=8 skip=1)
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping
+    FAIL TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered
+    FAIL TestSessionStartCompact_LiveRequestIsNotAReplay
+    FAIL TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+    FAIL TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+    FAIL TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+    FAIL TestSpoolWatch_DoesNothingWithoutAKick
+PASS      github.com/qompack/qompack/internal/ipc  (pass=144 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=371 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/tokens  (pass=120 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/contract  (pass=158 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=405 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/observer  (pass=454 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/obs  (pass=25 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/rehydrate  (pass=196 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/sketch  (pass=380 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/dag  (pass=171 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/internal/mcp  (pass=386 fail=1 skip=0)
+    FAIL TestBudgetBF
+PASS      github.com/qompack/qompack/internal/eval  (pass=407 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/testutil  (pass=40 fail=0 skip=0)

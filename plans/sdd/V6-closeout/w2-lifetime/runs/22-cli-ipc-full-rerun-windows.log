@@ -1,0 +1,6 @@
+# go test ./internal/cli/ -count=1 -timeout=30m (after the removal)
+ok  	github.com/qompack/qompack/internal/cli	21.738s
+exit=0
+# go test ./internal/ipc/ -count=1 -timeout=30m (after the removal)
+ok  	github.com/qompack/qompack/internal/ipc	22.456s
+exit=0

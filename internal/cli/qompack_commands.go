@@ -29,19 +29,15 @@ const commandCallDeadline = 10 * time.Second
 // fallback when no daemon answers.
 const latencyFile = "latency.json"
 
-// slashCommandCmds routes the §7.5 command names that internal/commands implements.
+// slashCommandCmds routes every §7.5 command the plugin ships, one ordinary subcommand each.
 //
-// It does NOT include `checkpoint`. That name is already a hook entry point — PreCompact, in
-// hookCmds — and a hook subcommand always exits 0 and reads a hook event from stdin. Giving the
-// name a second, non-hook meaning needs the arch/checkpoint-now-subcommand pre-step, which is
-// SP-14's handoff edge H3 and is not this commit's to take. The frontend and its tests exist; it
-// reports unavailable until a route is bound, which is the true statement in the meantime.
+// `checkpoint` is not among them. That name is the PreCompact hook entry point, in hookCmds, and
+// the plugin ships no /qompack:checkpoint: a slash command routed to a hook would read no event,
+// exit 0 and write nothing (internal/pluginmanifest's commandSpecs; TestSlashCommands_AreDiscoverable
+// refuses a shipped command whose route is a hook).
 func slashCommandCmds() []Cmd {
 	var out []Cmd
 	for _, spec := range commands.Specs() {
-		if !spec.Routed() {
-			continue
-		}
 		out = append(out, Cmd{
 			Name:    spec.Subcommand,
 			Summary: spec.Summary,
@@ -85,7 +81,20 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 	deps := commands.Deps{Clock: clk, Cfg: config.Defaults()}
 
 	root := resolveProjectRoot(env, nil)
+	// The eval command reads a completed evaluation's artifacts from disk — the newest
+	// `devtool live-eval` run under dist/live-eval and the replay report at
+	// testdata/bench-replay.json, or whatever --corpus names — and never runs a harness. It needs
+	// no project layout, so it is bound before the early return below.
+	deps.EvalArtifacts = commands.FileEvalArtifacts(root)
 	if root == "" {
+		return deps, noop
+	}
+	// D18: the home directory is not a project. Nothing below may open a log, a pin store or a
+	// client for it: its .qompack is the user-global layer, and projectEstablished would mistake that
+	// directory for an established store and let a query write into it.
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		deps.Refused = refused
+		deps.Status = commands.StatusSources{Refused: refused}
 		return deps, noop
 	}
 
@@ -130,10 +139,6 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 	deps.MCP = buildCommandMCPProxy(deps.Cfg, client, log)
 	deps.Status = commandStatusSources(ctx, root, client)
 
-	// CheckpointNow and EvalArtifacts are deliberately left nil. There is no local-seal route
-	// (H3), and no committed convention for where a completed evaluation's artifacts live, so both
-	// commands report unavailable rather than this file inventing one.
-
 	return deps, func() {
 		_ = client.Close()
 		closeLog()
@@ -144,10 +149,32 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 //
 // It tests for .qompack itself rather than for any file inside it: the directory is what
 // paths.EnsureLayout creates, and its presence is the difference between "this is a Qompack
-// project whose store happens to be empty" and "this is somebody's home directory".
+// project whose store happens to be empty" and "this is a directory nobody used Qompack in". It
+// cannot tell a project from the home directory, whose .qompack is the user-global layer: callers
+// refuse that root first (refuseHomeRoot, D18).
 func projectEstablished(l paths.Layout) bool {
 	fi, err := os.Stat(l.Dot)
 	return err == nil && fi.IsDir()
+}
+
+// spawnDaemon is the spawner the lazily spawning clients of `qompack mcp` and the command frontends
+// hand ipc: daemon.SpawnDetached, a variable only so a test can observe whether a spawn was reached
+// without starting a process.
+var spawnDaemon = daemon.SpawnDetached
+
+// daemonClientState is the State a lazily spawning client of `qompack mcp` or the command frontends
+// is built with: state.bin as ipc.ReadState reads it, with DaemonEnabled also requiring the loaded
+// configuration's runtime.daemon.enabled, exactly as the hook path does (doHook, FR-6).
+//
+// state.bin records the DaemonEnabled of the daemon that wrote it, and a daemon that died without a
+// clean stop leaves it behind. Trusting it alone let a record written while the daemon was enabled
+// spawn a daemon for a project whose configuration has since disabled it, which docs/release.md §4
+// promises never happens ("no resident process and no lock file"). A client whose State says the
+// daemon is disabled never dials and never spawns (ipc.Client.Send, step 2).
+func daemonClientState(root string, cfg config.Config) ipc.State {
+	st := ipc.ReadState(root, cfg)
+	st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
+	return st
 }
 
 // newCommandClient builds the transport the frontends reach the daemon over.
@@ -161,9 +188,9 @@ func newCommandClient(root string, cfg config.Config, env Env,
 	addr, _ := ipc.Resolve(root)
 	return ipc.NewClientWithOptions(addr, nopSpool{}, log, reg, ipc.ClientOptions{
 		ProjectRoot: root,
-		State:       ipc.ReadState(root, cfg),
+		State:       daemonClientState(root, cfg),
 		Self:        env.Self,
-		Spawn:       daemon.SpawnDetached,
+		Spawn:       spawnDaemon,
 		Clock:       clk,
 	})
 }
@@ -247,9 +274,13 @@ func fetchDaemonStatus(ctx context.Context, client ipc.Client) (commands.DaemonS
 
 // readPersistedMetrics reads the snapshot obs.Registry.Persist last wrote. Its own TS is what
 // gives the fallback reading its age.
+//
+// It reads from this CLI process while the daemon replaces the file with paths.WriteAtomic, so the
+// read goes through paths.ReadFileShared: on Windows an ordinary handle would fail that replace and
+// would itself be refused while one is finishing (test/guards' sharedReaders).
 func readPersistedMetrics(l paths.Layout) (obs.Snapshot, error) {
 	p := filepath.Join(l.Metrics, latencyFile)
-	b, err := os.ReadFile(p) //nolint:gosec // a path this process derives from the project root
+	b, err := paths.ReadFileShared(p)
 	if err != nil {
 		return obs.Snapshot{}, fmt.Errorf("reading %s: %w", p, err)
 	}

@@ -1,0 +1,12 @@
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops
+    v5_x04_test.go:526: bounded arm: tokens=572 budget=600 degraded=false dropped=41 item7_rendered=true
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (17.54s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (8.40s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (6.82s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (2.33s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	17.827s
+exit=0

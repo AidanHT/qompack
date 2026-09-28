@@ -1,0 +1,4 @@
+fmt-check exit=0
+vet-windows exit=0
+vet-linux exit=0
+vet-darwin exit=0

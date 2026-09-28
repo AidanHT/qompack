@@ -1,0 +1,45 @@
+run_id=cx-w5-coldstart-touched-race-dc58fad-20260926T235848Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart
+rev=dc58fad
+commit=dc58fadb0463ed6826e0e9c9b7a515091256479d
+bundle_sha256=4ee2faaaddd2a6f010ca5c99eca412b5a70930ec7db86fdbd35ef56046193e51
+host_started_utc=2026-09-26T23:59:20Z
+inner_args=--timeout 60m -- ./internal/ipc ./internal/daemon ./internal/cli ./test/guards
+/work/cx-w5-coldstart-touched-race-dc58fad-20260926T235848Z.bundle: OK
+run_id=cx-w5-coldstart-touched-race-dc58fad-20260926T235848Z
+commit=dc58fadb0463ed6826e0e9c9b7a515091256479d
+tree=e213bdaa985b76b891fddea443d6801eaea29876
+bundle_sha256=4ee2faaaddd2a6f010ca5c99eca412b5a70930ec7db86fdbd35ef56046193e51
+started_utc=2026-09-26T23:59:30Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=60m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/ipc  (pass=150 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1510 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/cli  (pass=377 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/guards  (pass=166 fail=7 skip=0)
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/plans/sdd/V6-closeout/w5-coldstart/runs/linux/cx-w5-coldstart-touched-race-dc58fad-20260926T235848Z-artifacts
+exit=1
+exit=1

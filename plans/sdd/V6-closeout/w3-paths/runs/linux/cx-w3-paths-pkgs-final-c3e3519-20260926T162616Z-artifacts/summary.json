@@ -1,0 +1,140 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/paths": {
+   "result": "pass",
+   "passed": 158,
+   "failed": [],
+   "skipped": [
+    "TestOpenFile_HandlesUnresolvableRootGracefully",
+    "TestRestoreLog_UnstatablePathIsNotCreated",
+    "TestReplaceBloom_PruneSurvivesUnreadableSketchesDir",
+    "TestHighestBloomBackupSeq_UnreadableDirIsAnError",
+    "TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows",
+    "TestReplacePinsView_DeniedStagingCreatePreservesView",
+    "TestTerminatePartialTail_UnreadablePathIsLeftAlone",
+    "TestWriteAtomic_CreateTempFailureLeavesNoStaging",
+    "TestEnsureLayout_WriteAtomicFailureIsPropagated",
+    "TestLong_IdentityWhenAbsFails",
+    "TestLong_PrefixesOverThreshold",
+    "TestLong_IdempotentOnAlreadyPrefixed",
+    "TestLong_UNCGetsUNCPrefix",
+    "TestManifest_ReadPropagatesNonNotExistOpenError",
+    "TestNorm_RejectsDifferentVolume",
+    "TestNorm_LeavesUNCVolumeMismatchUnresolved",
+    "TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved",
+    "TestResolve_PropagatesAbsFailure"
+   ]
+  },
+  "github.com/qompack/qompack/internal/store": {
+   "result": "pass",
+   "passed": 837,
+   "failed": [],
+   "skipped": [
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/backslashes_become_slashes",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/mixed_separators_and_..",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/windows_absolute",
+    "TestRenameObject_ContentionIsRetriedThenReported"
+   ]
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 1465,
+   "failed": [
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping",
+    "TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered",
+    "TestSessionStartCompact_LiveRequestIsNotAReplay",
+    "TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive",
+    "TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook",
+    "TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick",
+    "TestSpoolWatch_DoesNothingWithoutAKick"
+   ],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/internal/ipc": {
+   "result": "pass",
+   "passed": 144,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 371,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/tokens": {
+   "result": "pass",
+   "passed": 120,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/contract": {
+   "result": "pass",
+   "passed": 158,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/checkpoint": {
+   "result": "pass",
+   "passed": 405,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/observer": {
+   "result": "pass",
+   "passed": 454,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/obs": {
+   "result": "pass",
+   "passed": 25,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/rehydrate": {
+   "result": "pass",
+   "passed": 196,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/sketch": {
+   "result": "pass",
+   "passed": 380,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/dag": {
+   "result": "pass",
+   "passed": 171,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/mcp": {
+   "result": "fail",
+   "passed": 386,
+   "failed": [
+    "TestBudgetBF"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/eval": {
+   "result": "pass",
+   "passed": 407,
+   "failed": [],
+   "skipped": [
+    "TestSynthesize_WriteCorpus"
+   ]
+  },
+  "github.com/qompack/qompack/internal/testutil": {
+   "result": "pass",
+   "passed": 40,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

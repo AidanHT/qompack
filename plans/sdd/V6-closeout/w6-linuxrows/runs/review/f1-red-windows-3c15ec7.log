@@ -1,0 +1,9 @@
+--- FAIL: TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget (0.45s)
+    flush_async_test.go:538: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/flush_async_test.go:538
+        	Error:      	map[core.SessionID]daemon.RecoveryEntry{"sess-flush-budgeted-pass":daemon.RecoveryEntry{Stage:"drain", TS:1790544909635, Unacknowledged:0}} should not contain "sess-flush-budgeted-pass"
+        	Test:       	TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget
+        	Messages:   	the end's final drain ran under the spent budget of the pass that started it, stopped at its first file and left the recovery marker
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.656s
+FAIL

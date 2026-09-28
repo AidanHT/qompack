@@ -1,0 +1,23 @@
+# TEMPORARY DIAGNOSTIC (not committed): go test ./internal/store -run '^TestDiagTemp_OverlapDoubleResume$' -count=2 -v
+# commit: f6095e2 + uncommitted tests, no fix; variant keeping every 12th root live through a checkpoint; source in runs/diagtemp_overlap_test.go.txt
+=== RUN   TestDiagTemp_OverlapDoubleResume
+    diagtemp_overlap_test.go:46: before: Stats.Bytes=42090 disk=42090 objects=1200
+    diagtemp_overlap_test.go:50: truncated pass: truncated=true deleted=236 freed=8278
+    diagtemp_overlap_test.go:75: pass A: deleted=984 freed=34520 scanned=1085
+    diagtemp_overlap_test.go:76: pass B: deleted=353 freed=12376 scanned=461
+    diagtemp_overlap_test.go:77: after: Stats.Bytes=0 disk=3506 objects=100 (actually removed 1100 objects, 38584 bytes)
+    diagtemp_overlap_test.go:78: reported deleted total=1573 across truncated+A+B
+    diagtemp_overlap_test.go:79: accounting drift: Stats.Bytes - disk = -3506
+--- PASS: TestDiagTemp_OverlapDoubleResume (20.85s)
+=== RUN   TestDiagTemp_OverlapDoubleResume
+    diagtemp_overlap_test.go:46: before: Stats.Bytes=42090 disk=42090 objects=1200
+    diagtemp_overlap_test.go:50: truncated pass: truncated=true deleted=236 freed=8278
+    diagtemp_overlap_test.go:75: pass A: deleted=770 freed=27013 scanned=954
+    diagtemp_overlap_test.go:76: pass B: deleted=665 freed=23336 scanned=877
+    diagtemp_overlap_test.go:77: after: Stats.Bytes=0 disk=3506 objects=100 (actually removed 1100 objects, 38584 bytes)
+    diagtemp_overlap_test.go:78: reported deleted total=1671 across truncated+A+B
+    diagtemp_overlap_test.go:79: accounting drift: Stats.Bytes - disk = -3506
+--- PASS: TestDiagTemp_OverlapDoubleResume (20.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	41.361s
+# exit: 0

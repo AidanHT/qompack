@@ -1,0 +1,64 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/integration": {
+   "result": "fail",
+   "passed": 1,
+   "failed": [
+    "TestIntegration_DegradedPassiveStillWritesToTheRealStore",
+    "TestIntegration_HotPathWarmWithRealResidentState"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/security": {
+   "result": "fail",
+   "passed": 21,
+   "failed": [
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk",
+    "TestSecurity_ArchivedTextIsDataNeverAnInstruction"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/fault": {
+   "result": "fail",
+   "passed": 12,
+   "failed": [
+    "TestFault_AuditSeesADeletedObjectUnderALiveIndex",
+    "TestFault_MCPChildKilledMidRequest",
+    "TestFault_DaemonKilledMidIngest",
+    "TestFault_UnavailableHistoricalObject",
+    "TestFault_CheckpointDropsAnUnresolvablePointer",
+    "TestFault_CheckpointResolvabilityIsBlindToADeletedObject",
+    "TestFault_Lifecycle/startup",
+    "TestFault_Lifecycle/resume",
+    "TestFault_Lifecycle/fork",
+    "TestFault_Lifecycle/clear",
+    "TestFault_Lifecycle/compaction_manual",
+    "TestFault_Lifecycle/compaction_auto",
+    "TestFault_Lifecycle/compaction_failed",
+    "TestFault_Lifecycle/compaction_crossed",
+    "TestFault_Lifecycle/duplicate_precompact",
+    "TestFault_Lifecycle/missing_turn",
+    "TestFault_Lifecycle/out_of_order_precompact",
+    "TestFault_Lifecycle",
+    "TestFault_PublicationBoundaries/object_written_index_line_absent",
+    "TestFault_PublicationBoundaries/roots_last_line_truncated",
+    "TestFault_PublicationBoundaries/tool_use_truncated",
+    "TestFault_PublicationBoundaries/capture_sidecar_stage_one_only",
+    "TestFault_PublicationBoundaries/checkpoint_orphan_artifact",
+    "TestFault_PublicationBoundaries/checkpoint_manifest_artifact_missing",
+    "TestFault_PublicationBoundaries/checkpoint_manifest_digest_mismatch",
+    "TestFault_PublicationBoundaries/wal_segment_truncated",
+    "TestFault_PublicationBoundaries/client_spool_truncated",
+    "TestFault_PublicationBoundaries/stale_drain_progress",
+    "TestFault_PublicationBoundaries/delivery_seal_torn_slot",
+    "TestFault_PublicationBoundaries/retention_roots_truncated",
+    "TestFault_PublicationBoundaries/state_bin_corrupt",
+    "TestFault_PublicationBoundaries/config_json_corrupt",
+    "TestFault_PublicationBoundaries",
+    "TestFault_WriteFailures/disk_full"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

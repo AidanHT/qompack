@@ -1,0 +1,36 @@
+run_id=cx-linux-alone-integration-949897a-20260922T225043Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=949897a
+commit=949897abd6d3b811f8ff40e2d782ff0cf4d6c9d7
+bundle_sha256=e5b37b00d50684c706853799eef8577b8e3854b6fc844d8f0785c92592cf544c
+host_started_utc=2026-09-22T22:51:07Z
+inner_args=--coload --run ^(TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites|TestIntegration_HotPathWarmWithRealResidentState|TestIntegration_GCNeverCollectsALiveRootUnderIngest)$ -- ./test/integration
+/work/cx-linux-alone-integration-949897a-20260922T225043Z.bundle: OK
+run_id=cx-linux-alone-integration-949897a-20260922T225043Z
+commit=949897abd6d3b811f8ff40e2d782ff0cf4d6c9d7
+tree=f30bdd5003af79b60fe63d1b9b0b2c09232b1af2
+bundle_sha256=e5b37b00d50684c706853799eef8577b8e3854b6fc844d8f0785c92592cf544c
+started_utc=2026-09-22T22:51:11Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=1
+run=^(TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites|TestIntegration_HotPathWarmWithRealResidentState|TestIntegration_GCNeverCollectsALiveRootUnderIngest)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+FAIL      github.com/qompack/qompack/test/integration  (pass=2 fail=1 skip=0)
+    FAIL TestIntegration_HotPathWarmWithRealResidentState
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/cx-linux/runs/cx-linux-alone-integration-949897a-20260922T225043Z-artifacts
+exit=1
+exit=1

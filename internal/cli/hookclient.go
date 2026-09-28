@@ -33,8 +33,27 @@ const (
 	sessionStartReplyDeadline = 10 * time.Second
 	// checkpointReplyDeadline is checkpoint's reply deadline (manifest hook timeout 20s). §2.4.
 	checkpointReplyDeadline = 15 * time.Second
-	// flushReplyDeadline is flush's reply deadline (manifest hook timeout 20s). §2.4.
-	flushReplyDeadline = 15 * time.Second
+)
+
+// flush has no reply deadline since C1.15. Claude Code gives a plugin's SessionEnd hooks one SHARED
+// 1.5 s budget, which a timeout set on a plugin-provided hook does not raise, and cancels a hook still
+// running when it runs out; the flush used to wait up to 15 s for the daemon to end the session, and
+// the host cancelled it every time. The flush is now fire-and-forget: the daemon ACKs it once its
+// line is in the WAL and leased, within flushAckDeadline, and ends the session on its own
+// (internal/daemon/session_end.go). A missed ACK spools the flush like any hook; its nonce makes the
+// spooled copy a duplicate the daemon absorbs.
+const (
+	// sessionEndHostBudget is the one budget Claude Code shares among a plugin's SessionEnd hooks
+	// (the hooks reference; plans/sdd/V6-closeout/packaging/evidence/live-s{1,2}-*/stderr.txt).
+	sessionEndHostBudget = 1500 * time.Millisecond
+	// flushAckDeadline is how long the flush waits for its ACK. The observe hot path's AckDeadline
+	// (17/73/45 ms by platform) is sized for an observe event, which the daemon acknowledges after a
+	// WAL append and a lease; before it acknowledges a flush it also takes the flush's in-process
+	// ownership and rewrites the session recovery record, and a missed ACK leaves a spooled duplicate
+	// for every session that ends. The dial (hookConnectDeadlineFloor) and the ACK together get half
+	// of the host's budget; the other half is the process's own start-up, its input read and, when the
+	// ACK is missed after all, its spool append.
+	flushAckDeadline = sessionEndHostBudget/2 - hookConnectDeadlineFloor
 )
 
 // newHookMetrics returns the obs.Registry every hook body's ipc.Client is constructed with: a
@@ -199,11 +218,11 @@ func (l *hookLogger) Loud(msg string, kv ...any) {
 // every shipped value and this floor can only ever bind on a record carrying no deadline at all.
 const hookSendDeadlineFloor = 8 * time.Millisecond
 
-// hookConnectDeadlineFloor is the minimum dial budget doHook ever gives a non-hot-path op that
-// carries its own fixed spec.deadline (session-start, checkpoint, flush) — as opposed to any
-// ipc.Op.HotPath() op (observe.tool, observe.prompt, observe.stop). observe.prompt also carries
-// its own fixed spec.deadline (promptReplyDeadline), so "carries a fixed deadline" alone is not
-// the test that selects a widened op — see doHook's own connectDeadline comment; observe.prompt
+// hookConnectDeadlineFloor is the minimum dial budget doHook ever gives a non-hot-path op
+// (session-start, checkpoint, flush) — as opposed to any ipc.Op.HotPath() op (observe.tool,
+// observe.prompt, observe.stop). observe.prompt also carries its own fixed spec.deadline
+// (promptReplyDeadline), so "carries a fixed deadline" was never the test that selects a widened op
+// — see hookConnectDeadline; observe.prompt
 // keeps State.ConnectDeadlineMs's tight, tuned-for-a-warm-daemon budget untouched, same as
 // observe.tool and observe.stop.
 //
@@ -220,10 +239,11 @@ const hookSendDeadlineFloor = 8 * time.Millisecond
 // never surfaced: NewClientWithOptions unconditionally re-read state.bin for itself whenever
 // ProjectRoot was set, and that incidental extra disk round trip happened to burn just enough wall
 // clock between EnsureRunning's return and the real dial to dodge the race in practice — an
-// accident of the very double-read I-1 correctly removed, not a real guarantee. session-start,
-// checkpoint and flush all carry their own generous, manifest-derived spec.deadline (10s/15s/15s)
-// precisely because they are not expected to complete in hot-path time (§2.4), so widening only
-// their dial budget — never observe.tool/prompt/stop's, which stays exactly what state.bin says —
+// accident of the very double-read I-1 correctly removed, not a real guarantee. session-start and
+// checkpoint carry their own generous, manifest-derived spec.deadline (10s/15s) precisely because
+// they are not expected to complete in hot-path time (§2.4), and the flush — fire-and-forget since
+// C1.15 — is the last hook of a session, sent to a daemon that may be busy ending another. Widening
+// only their dial budget — never observe.tool/prompt/stop's, which stays exactly what state.bin says —
 // costs nothing in the steady-state (a genuinely absent daemon still fails the dial almost
 // instantly: a nonexistent named pipe/socket is a fast connection-refused, not a wait for this
 // timeout to elapse) while giving a freshly-spawned or momentarily-busy daemon real room to answer.
@@ -233,15 +253,17 @@ const hookConnectDeadlineFloor = 250 * time.Millisecond
 // hookConnectDeadline computes the ConnectDeadline doHook hands to ipc.ClientOptions: State.
 // ConnectDeadlineMs as-is for every ipc.Op.HotPath() op (observe.tool, observe.prompt,
 // observe.stop), regardless of whether the op also happens to carry its own fixed spec.deadline
-// the way observe.prompt does (promptReplyDeadline); only a non-hot-path Reply op with a fixed
-// spec.deadline (session-start, checkpoint, flush) gets widened to at least
-// hookConnectDeadlineFloor. Fix round 2, Important N-2: the original predicate (spec.deadline > 0
-// alone) missed that observe.prompt also carries a fixed spec.deadline despite being squarely on
-// the hot path, and would have widened its connect budget along with it. Factored out of doHook so
-// it is directly unit-testable without a real client or connection.
+// the way observe.prompt does (promptReplyDeadline); every op off the hot path (session-start,
+// checkpoint, flush) gets widened to at least hookConnectDeadlineFloor. Fix round 2, Important N-2:
+// the original predicate (spec.deadline > 0 alone) missed that observe.prompt also carries a fixed
+// spec.deadline despite being squarely on the hot path, and would have widened its connect budget
+// along with it. The widening no longer asks for a fixed spec.deadline at all: since C1.15 the flush
+// is fire-and-forget and carries none, yet it is exactly the op whose dial must not lose a race with a
+// momentarily busy daemon at the end of a session. Factored out of doHook so it is directly
+// unit-testable without a real client or connection.
 func hookConnectDeadline(spec hookSpec, st ipc.State) time.Duration {
 	connectDeadline := time.Duration(st.ConnectDeadlineMs) * time.Millisecond
-	if spec.deadline > 0 && !spec.op.HotPath() && connectDeadline < hookConnectDeadlineFloor {
+	if !spec.op.HotPath() && connectDeadline < hookConnectDeadlineFloor {
 		connectDeadline = hookConnectDeadlineFloor
 	}
 	return connectDeadline
@@ -255,13 +277,30 @@ type hookSpec struct {
 	// hot-path state record's AckDeadlineMs" — observe.tool's and observe.stop's row in the wiring
 	// table, both fire-and-forget ops with no fixed deadline of their own.
 	deadline time.Duration
+	// ackDeadline bounds writing a fire-and-forget request and waiting for its ACK. Zero means the
+	// hot-path state record's AckDeadlineMs, which is every observe op's; only the flush, off the hot
+	// path and with the host's SessionEnd budget to spend, sets its own (flushAckDeadline).
+	ackDeadline time.Duration
+	// hostTimeout is the host's manifest timeout for this hook. When it is set, doHook shares it out
+	// (hookBudget, V6 close-out D17b): preSend is told the instant it has to be done by, and the
+	// reply wait is cut to what is left when the steps before the dial ran over, so the whole
+	// invocation ends inside the timeout. Only session-start sets it; zero keeps the fixed deadlines.
+	hostTimeout time.Duration
+	// minReply is the least reply wait preSend's find/start step leaves when it borrows the reply
+	// wait's idle time (hookBudget.borrowBy, V6 close-out D21): session-start's is D9's compact bound
+	// (daemon.CompactAnswerBudget), so a compaction's answer at that bound is still heard. Zero lends
+	// nothing, and it has no effect without a hostTimeout.
+	minReply time.Duration
 	// preSend runs once, after the project root/state are final and before the client is
-	// constructed. Only session-start uses it, to call daemon.EnsureRunning (§2.4: session-start is
-	// the designated daemon starter, off the hot path, with a generous hook timeout). self is
+	// constructed. Only session-start uses it, to call daemon.EnsureRunningUntil (§2.4: session-start
+	// is the designated daemon starter, off the hot path, with a generous hook timeout). self is
 	// env.Self threaded through explicitly (see cli.Env.Self's own doc comment) rather than read
 	// from a package-level seam. st is the same 32-byte state record doHook already read, so
-	// preSend can honour runtime.daemon.enabled without a second disk read (fix round 2, FR-6).
-	preSend func(root, self string, st ipc.State, clk core.Clock)
+	// preSend can honour runtime.daemon.enabled without a second disk read (fix round 2, FR-6). b is
+	// the hook's budget: returning by preSendBy keeps the full reply deadline, the find/start step may
+	// wait for a daemon until borrowBy, and latestPoll is when any wait must end; all are zero when
+	// the hook has no hostTimeout.
+	preSend func(root, self string, st ipc.State, clk core.Clock, b hookBudget)
 }
 
 // doHook stamps TS, resolves state, honors ModeOff and reads bounded raw input. The initial
@@ -281,8 +320,16 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			clk = core.SystemClock()
 		}
 		ts := clk.Now().UnixMilli() // FIRST statement — the B-A origin.
+		// The same instant on the wall clock the host's timeout runs on, whatever clk is (D17b).
+		began := time.Now()
 
 		root := resolveProjectRoot(env, nil)
+		// D18: a session whose project root is the home directory records nothing. The check comes
+		// before anything reads from that root, writes to it — a fault site, a quiet log, a config
+		// violation list — or starts a daemon for it, because its .qompack is the user-global layer.
+		if isHomeRoot(env, root) {
+			return writeRefusedHookOutput(spec.op, args, out)
+		}
 		faultCorruptStateIfNeeded(root)
 		st := ipc.ReadState(root, config.Defaults())
 		if st.Mode == contract.ModeOff {
@@ -342,6 +389,11 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		// policy is precisely the second pass that must never restore removed content.
 		if !degraded {
 			if r2 := resolveProjectRoot(env, &ev); r2 != root {
+				// The payload's own root is refused exactly like the process's (D18), before its state
+				// is read or its configuration is loaded and reported under it.
+				if isHomeRoot(env, r2) {
+					return writeRefusedHookOutput(spec.op, args, out)
+				}
 				root = r2
 				faultCorruptStateIfNeeded(root)
 				st = ipc.ReadState(root, config.Defaults())
@@ -422,13 +474,15 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			}
 		}()
 
+		connectDeadline := hookConnectDeadline(spec, st)
+		budget := newHookBudget(began, spec.hostTimeout, spec.deadline, connectDeadline, spec.minReply)
 		if spec.preSend != nil {
-			spec.preSend(root, env.Self, st, clk)
+			spec.preSend(root, env.Self, st, clk, budget)
 		}
 
 		addr, aerr := ipc.Resolve(root)
 		if aerr != nil {
-			_ = sp.Append(req)
+			spoolUnsent(sp, req, hookLog)
 			logQuiet(root, aerr, clk)
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
@@ -439,8 +493,6 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			spawn = noopSpawn
 		}
 
-		connectDeadline := hookConnectDeadline(spec, st)
-
 		c := ipc.NewClientWithOptions(addr, sp, hookLog, hookMetrics, ipc.ClientOptions{
 			// State is already this hook's own single 32-byte read (st, above); NewClientWithOptions
 			// trusts a non-zero State outright and never re-reads it from disk even though
@@ -448,7 +500,7 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			// ProjectRoot still matters on its own: lazySpawn's lock file and externalize()'s blob
 			// directory both need it independently of where State came from.
 			ProjectRoot: root, State: st, Self: env.Self, Clock: clk, Spawn: spawn,
-			ConnectDeadline: connectDeadline,
+			ConnectDeadline: connectDeadline, AckDeadline: spec.ackDeadline,
 		})
 		c = wrapFaultClient(c)
 		defer func() { _ = c.Close() }()
@@ -461,13 +513,128 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			deadline = hookSendDeadlineFloor
 		}
 
-		resp, _ := c.Send(ctx, req, deadline)
+		// With deadline <= 0 (D17b), the steps before the dial used the whole budget, so no answer
+		// could be waited for before the host's timeout. The request is spooled as a start that missed
+		// its deadline is, without dialling a daemon that would then answer into nothing, and the
+		// answer below is the one an unanswered start gets. The Warn says the spool took it, not that
+		// it was written: a spool that then fails to write it drops it and says so itself.
+		var resp ipc.Response
+		if deadline = budget.replyDeadline(time.Now(), deadline, connectDeadline); deadline > 0 {
+			resp, _ = c.Send(ctx, req, deadline)
+		} else if spoolUnsent(sp, req, hookLog) {
+			hookLog.Warn(noTimeLeftMsg, "op", string(spec.op), "overrun_ms", -deadline.Milliseconds())
+		}
 		respOut := hookio.Empty()
 		if resp.Output != nil {
 			respOut = *resp.Output
+		} else if compactUnanswered(spec, ev, degraded, st, cfg, resp) {
+			// C1.16: the daemon never answered a compact SessionStart (it did not reply within the
+			// deadline, or could not be reached), so no rehydration is coming. Say so, rather than
+			// answer {} and leave the model with a compacted context and no word of what it lost.
+			respOut = hookio.SessionStartOutput(daemon.CompactDeferredNote(ev.SessionID, daemon.DeferredNoAnswer))
 		}
-		return hookio.WriteOutput(out, respOut)
+		// The daemon's reply is an internal protocol; the host's schema is not. One field the host
+		// does not accept for this event makes it reject the whole response, and for PreCompact it
+		// then replays the rejection into the post-compaction context (C1.12). So the reply is
+		// reduced to what the host accepts and acts on for the event it is running, whatever the
+		// daemon — this build's or a still-resident older one — happened to send.
+		event := hookEvent(spec.op, args)
+		conformed := hookio.ConformOutput(event, respOut)
+		// The host accepts a field over its per-field cap but hands Claude only a 2,000-character
+		// preview of it, so a large rehydration is cut without any check failing. Say so, loudly,
+		// with sizes only (a log is not a content store, §7.4).
+		for _, over := range hookio.HostCapOverruns(conformed) {
+			hookLog.Loud("hook output exceeds the host's per-field cap; Claude sees only a preview of it",
+				"event", event, "field", over.Field, "chars", over.Chars,
+				"cap", hookio.HostFieldMaxChars, "preview", hookio.HostFieldPreviewChars)
+		}
+		return hookio.WriteOutput(out, conformed)
 	}
+}
+
+// compactUnanswered reports whether a session-start invocation is a compact SessionStart that got
+// no answer from the daemon at all — Send spooled it (a missed reply deadline, a failed dial) or
+// dropped it — in a project where the daemon would have been allowed to rehydrate: the daemon is
+// enabled, the mode this client read may act (§12.1: degraded-passive and off inject nothing, a
+// note included), and the reinjection kill switch (SP-19) is on. Only then is the deferred note
+// honest: in every other case {} is the designed answer, not a lost one.
+func compactUnanswered(spec hookSpec, ev hookio.Event, degraded bool, st ipc.State, cfg config.Config, resp ipc.Response) bool {
+	switch {
+	case spec.op != ipc.OpSessionStart, degraded, ev.Source != compactSource:
+		return false
+	case resp.OK || resp.Output != nil:
+		return false // the daemon answered; what it said is the answer
+	case !st.DaemonEnabled, !st.Mode.MayAct():
+		return false
+	case cfg.Runtime.Mode == configModeOff || cfg.Runtime.Mode == configModePassive:
+		return false
+	case !cfg.Runtime.Migration.Reinjection.SessionStartCompact:
+		return false
+	}
+	return true
+}
+
+// unsentSpoolRefusedMsg is the Loud a hook writes when a request it spools without sending is
+// refused by the spool, and so is lost (spoolUnsent).
+const unsentSpoolRefusedMsg = "hook: the request could not be spooled and is lost"
+
+// noTimeLeftMsg is the Warn a hook writes when no time was left to wait for the daemon's answer and
+// the spool took the request unsent. Took, not wrote: spoolUnsent cannot tell the two apart.
+const noTimeLeftMsg = "hook: no time left to wait for the daemon's answer; the request was handed to the spool"
+
+// spoolUnsent hands req to the hook's spool on the branches where doHook sends nothing at all — no
+// address resolved, or no time left to wait for an answer — and reports whether the spool took it,
+// that is, did not refuse it. The client's own spool path counts and Louds a refused append (ipc's
+// appendToSpool); a refusal here was dropped silently (w5-coldstart review nit). The error Append
+// returns — the frame-size refusal, or a fault site's — means the request is lost, so that is
+// Louded here. A request the spool took was written, or was dropped on an ordinary write failure,
+// which spool.Append counts and Louds itself and reports as nil (§12.3): the two look the same from
+// here, so taken never means "spooled" (w6-borrow review).
+func spoolUnsent(sp ipc.SpoolWriter, req ipc.Request, log logging.Logger) (taken bool) {
+	if err := sp.Append(req); err != nil {
+		log.Loud(unsentSpoolRefusedMsg, "op", string(req.Op), "err", err)
+		return false
+	}
+	return true
+}
+
+// compactSource is the SessionStart source a host sends after compacting a conversation.
+const compactSource = "compact"
+
+// configModeOff and configModePassive are the runtime.mode values under which Qompack acts on
+// nothing (contract.Monitor.RunAll forces the mode from them).
+const (
+	configModeOff     = "off"
+	configModePassive = "passive"
+)
+
+// hookEvent is the host event a hook invocation answers: the event internal/pluginmanifest
+// registers that subcommand for. `observe stop` serves two events, told apart by the --subagent
+// flag the SubagentStop entry passes. An op that is not a hook maps to "", which ConformOutput
+// answers with the empty response.
+//
+// TestHookOutput_EveryEntryPointConformsToTheHostSchema drives every manifest entry point through
+// this mapping, so a hook registered for a new event, or re-routed, fails there rather than having
+// its output silently emptied.
+func hookEvent(op ipc.Op, args []string) string {
+	switch op {
+	case ipc.OpObserveTool:
+		return hookio.EventPostToolUse
+	case ipc.OpObservePrompt:
+		return hookio.EventUserPromptSubmit
+	case ipc.OpObserveStop:
+		if hasFlag(args, "--subagent") {
+			return hookio.EventSubagentStop
+		}
+		return hookio.EventStop
+	case ipc.OpSessionStart:
+		return hookio.EventSessionStart
+	case ipc.OpCheckpoint:
+		return hookio.EventPreCompact
+	case ipc.OpFlush:
+		return hookio.EventSessionEnd
+	}
+	return ""
 }
 
 // resolveProjectRoot is §3.3's resolution order, called twice per hook (task-6-spec.md): once

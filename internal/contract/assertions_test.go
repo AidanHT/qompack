@@ -476,113 +476,53 @@ func TestPreCompactTiming_NoSamplesIsOK(t *testing.T) {
 	require.Equal(t, "no-samples", r.Observed)
 }
 
-// TestCustomInstructionsProbePhrase asserts the custom_instructions probe: a transcript whose tail
-// contains the emitted instruction's first line reports OK; one that does not reports a SevWarn
-// failure (advisory by design, §8.5).
-func TestCustomInstructionsProbePhrase(t *testing.T) {
-	contract.DeclareProducer(contract.CPreCompactCustomInstr)
-	t.Cleanup(contract.ResetProducers)
-
-	const phrase = "this is a forty-char probe phrase for the scan"
-	require.GreaterOrEqual(t, len(phrase), 24)
-
-	dir := t.TempDir()
-	found := filepath.Join(dir, "found.jsonl")
-	require.NoError(t, os.WriteFile(found, []byte("irrelevant line\n"+phrase+"\nmore text\n"), 0o600))
-	absent := filepath.Join(dir, "absent.jsonl")
-	require.NoError(t, os.WriteFile(absent, []byte("nothing here matches at all\n"), 0o600))
-
-	h := &contract.SessionHistory{}
-	h.SetPrecompactInstr(phrase)
-	a := assertionByID(t, contract.CPreCompactCustomInstr)
-
-	r := a.Check(context.Background(), contract.Env{
-		Clock: newFakeClock(), History: h, Event: hookio.Event{TranscriptPath: found},
-	})
-	require.True(t, r.OK, "the phrase is present in the transcript tail")
-
-	r = a.Check(context.Background(), contract.Env{
-		Clock: newFakeClock(), History: h, Event: hookio.Event{TranscriptPath: absent},
-	})
-	require.False(t, r.OK)
-	require.Equal(t, contract.SevWarn, r.Severity, "custom_instructions is advisory by design (§8.5)")
-}
-
-// TestCustomInstructionsProbePhrase_ShortFirstLineIsNoObservation (Important I3) asserts a first
-// line shorter than 24 characters is not specific enough to be a probe phrase: the assertion must
-// report "no probe possible", never scan for (and false-positive against) a short, generic phrase.
-func TestCustomInstructionsProbePhrase_ShortFirstLineIsNoObservation(t *testing.T) {
-	contract.DeclareProducer(contract.CPreCompactCustomInstr)
-	t.Cleanup(contract.ResetProducers)
-
-	h := &contract.SessionHistory{}
-	h.SetPrecompactInstr("short heading") // < 24 chars
-	require.Less(t, len(h.PrecompactInstr), 24)
-
-	path := filepath.Join(t.TempDir(), "t.jsonl")
-	require.NoError(t, os.WriteFile(path, []byte("short heading appears verbatim here too\n"), 0o600))
-
-	r := assertionByID(t, contract.CPreCompactCustomInstr).Check(context.Background(), contract.Env{
-		Clock: newFakeClock(), History: h, Event: hookio.Event{TranscriptPath: path},
-	})
-
-	require.True(t, r.OK, "a too-short phrase must be a no-observation OK, never an automatic pass")
-	require.Equal(t, "no probe phrase long enough", r.Observed)
-}
-
-// TestCustomInstructionsProbePhrase_LeadingNewlineIsNoObservation (Important I3) asserts an
-// instruction beginning with a newline — an empty first line — cannot make bytes.Contains
-// vacuously true against every transcript: the assertion must refuse to scan for an empty phrase.
-func TestCustomInstructionsProbePhrase_LeadingNewlineIsNoObservation(t *testing.T) {
-	contract.DeclareProducer(contract.CPreCompactCustomInstr)
-	t.Cleanup(contract.ResetProducers)
-
-	h := &contract.SessionHistory{}
-	h.SetPrecompactInstr("\nthis second line alone is long enough to qualify")
-
-	path := filepath.Join(t.TempDir(), "t.jsonl")
-	require.NoError(t, os.WriteFile(path, []byte("absolutely anything at all\n"), 0o600))
-
-	r := assertionByID(t, contract.CPreCompactCustomInstr).Check(context.Background(), contract.Env{
-		Clock: newFakeClock(), History: h, Event: hookio.Event{TranscriptPath: path},
-	})
-
-	require.True(t, r.OK, "an empty first line must never make bytes.Contains vacuously true")
-	require.Equal(t, "no probe phrase long enough", r.Observed)
-}
-
-// TestCustomInstructionsProbePhrase_GenuineMatchAndMiss (Important I3) is the positive control: a
-// first line genuinely >= 24 characters is used as the probe phrase, matching or missing the
-// transcript tail exactly as TestCustomInstructionsProbePhrase already exercises — restated here
-// under a name that makes the >=24 rule's coverage explicit rather than incidental.
-func TestCustomInstructionsProbePhrase_GenuineMatchAndMiss(t *testing.T) {
+// TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns is precompact.custom_instructions_accepted
+// after C1.18. The row used to take the first line of the instruction the daemon last emitted
+// (History.PrecompactInstr) and search the transcript tail for it, warning when it was absent. But
+// no host accepts a PreCompact instruction — Claude Code has no PreCompact hookSpecificOutput
+// variant and 2.1.280 rejected the whole response over one (C1.12) — and custom_instructions is
+// PreCompact INPUT, never a summarizer-output setter (Qompack.md §7.3). So the probe could only ever
+// warn about a mechanism that does not exist, or, worse, pass: 2.1.280 replayed its rejection text,
+// instruction included, into the post-compaction context, where the probe would have "found" it.
+// The producer is retired, and the row says so instead of passing or failing: OK (it can never
+// degrade or warn), SevInfo, Observed "retired", attributed to an unsupported capability. A
+// history a pre-C1.18 daemon left behind still carries an instruction; it is never probed.
+func TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns(t *testing.T) {
 	contract.DeclareProducer(contract.CPreCompactCustomInstr)
 	t.Cleanup(contract.ResetProducers)
 
 	const phrase = "this first line alone is exactly long enough"
-	require.GreaterOrEqual(t, len(phrase), 24)
-
-	h := &contract.SessionHistory{}
-	h.SetPrecompactInstr(phrase + "\nsome trailing detail on a second line")
-
 	dir := t.TempDir()
 	found := filepath.Join(dir, "found.jsonl")
-	require.NoError(t, os.WriteFile(found, []byte(phrase+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(found, []byte("host: hook output rejected: "+phrase+"\n"), 0o600))
 	absent := filepath.Join(dir, "absent.jsonl")
 	require.NoError(t, os.WriteFile(absent, []byte("nothing here matches at all\n"), 0o600))
 
+	stale := &contract.SessionHistory{}
+	stale.SetPrecompactInstr(phrase + "\nsome trailing detail on a second line")
+
+	cases := map[string]contract.Env{
+		"an older daemon's instruction, absent from the transcript":   {History: stale, Event: hookio.Event{TranscriptPath: absent}},
+		"an older daemon's instruction, replayed into the transcript": {History: stale, Event: hookio.Event{TranscriptPath: found}},
+		"an older daemon's instruction, unreadable transcript": {
+			History: stale, Event: hookio.Event{TranscriptPath: filepath.Join(dir, "missing.jsonl")},
+		},
+		"no instruction ever recorded": {History: &contract.SessionHistory{}, Event: hookio.Event{TranscriptPath: absent}},
+		"no history at all":            {},
+	}
 	a := assertionByID(t, contract.CPreCompactCustomInstr)
-
-	r := a.Check(context.Background(), contract.Env{
-		Clock: newFakeClock(), History: h, Event: hookio.Event{TranscriptPath: found},
-	})
-	require.True(t, r.OK)
-
-	r = a.Check(context.Background(), contract.Env{
-		Clock: newFakeClock(), History: h, Event: hookio.Event{TranscriptPath: absent},
-	})
-	require.False(t, r.OK)
-	require.Equal(t, contract.SevWarn, r.Severity)
+	for name, env := range cases {
+		t.Run(name, func(t *testing.T) {
+			env.Clock = newFakeClock()
+			r := a.Check(context.Background(), env)
+			require.True(t, r.OK, "a retired row can never fail: it probes nothing")
+			require.Equal(t, contract.SevInfo, r.Severity, "and it is never a warning")
+			require.Equal(t, "retired", r.Observed)
+			require.NotEmpty(t, r.Detail, "the row says why it is retired")
+			require.Equal(t, contract.OutcomeUnsupported, contract.ClassifyResult(r, contract.DefaultCapabilityRegister()),
+				"its evidence is attributed to an unsupported mechanism, never read as a working one")
+		})
+	}
 }
 
 // TestHookPayloadShapeRejectsEmptySession asserts a payload missing session_id fails and names the

@@ -1,0 +1,6 @@
+# head=7abddc7: go test -count=1 -v -run '^TestAcquireLock_RefusesTheHomeDirectory$' ./internal/daemon/
+=== RUN   TestAcquireLock_RefusesTheHomeDirectory
+--- PASS: TestAcquireLock_RefusesTheHomeDirectory (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.229s
+exit=0

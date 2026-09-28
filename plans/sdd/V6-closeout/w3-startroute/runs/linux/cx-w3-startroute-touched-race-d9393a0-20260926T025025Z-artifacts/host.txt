@@ -1,0 +1,10 @@
+run_id=cx-w3-startroute-touched-race-d9393a0-20260926T025025Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute
+rev=d9393a0
+commit=d9393a086b4e1b2265202b7d809fc8dbd3966063
+bundle_sha256=eaba75b39f9691b9cc5134b550e4c736604dcd9e25208637c135c963f8f0c354
+host_started_utc=2026-09-26T02:50:38Z
+inner_args=--timeout 30m -- ./internal/daemon ./internal/cli
+host_finished_utc=2026-09-26T03:03:52Z
+container_exit=1

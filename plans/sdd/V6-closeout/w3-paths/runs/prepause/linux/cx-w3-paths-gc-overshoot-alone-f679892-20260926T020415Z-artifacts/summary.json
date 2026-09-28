@@ -1,0 +1,13 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/store": {
+   "result": "fail",
+   "passed": 0,
+   "failed": [
+    "TestGC_DeadlineOvershootIsBoundedByTheCheckInterval"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

@@ -346,6 +346,12 @@ func (r *schedRuntime) compactDAGTask(ctx context.Context) error {
 // remaining idle budget. A context without a deadline leaves Deadline 0 — unbounded, but still
 // cancellable. A truncated mark harvest collects nothing (no cursor), so the budget the idle
 // controller grants is what decides whether GC ever makes progress.
+//
+// A store runs one GC pass at a time (store/gcgate.go). If a session end's pass is running, this
+// request waits for it and is answered by the one follow-up pass that starts after it, which also
+// answers any session end that queued meanwhile. The wait spends this task's budget, and when the
+// budget ends first the request withdraws with the context's error, which RunOnce logs; the next
+// idle pass asks again.
 func (r *schedRuntime) gcTask(ctx context.Context) error {
 	p := store.GCPolicy{
 		RetainDays:     r.cfg.Store.Retention.Days,

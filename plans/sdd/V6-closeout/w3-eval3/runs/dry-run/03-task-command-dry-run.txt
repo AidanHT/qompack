@@ -1,0 +1,49 @@
+$ env -u QOMPACK_LIVE_EVAL go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks-v2.json --include-held-out --arms stock,qompack --install plugin-dir --bundle dist/live-bundle-eval3/qompack-plugin-0.3.0-eval3.dryrun-windows-amd64 --known-open-defects none --max-sessions 40 --dry-run
+live-eval: run 20260926T022522Z-ad7502: 40 trial(s) of task set qompack-live-v2 (d59dc09d15ed, fixture tree a5f57b1e2045) on claude-sonnet-5, arms stock,qompack, install plugin-dir
+live-eval: known open defects: none (the operator, by live-eval --known-open-defects when the run was planned; preregistration section 9)
+live-eval: bundle 0.3.0-eval3.dryrun at commit b8916388fc9dcebecf524b851b324becd94068f7 (dirty=false), BUNDLE.json sha256 0d4018b2ac0e77f39bc72c9cda802620d41bf12367596cb1aa38cb7b4232418c, at C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w3-eval3\dist\live-bundle-eval3\qompack-plugin-0.3.0-eval3.dryrun-windows-amd64
+live-eval: confirmatory preconditions at plan time: met. Still to be shown by the trials: every planned trial runs, no plugin but the arm's own loads on either arm, and a contingency alias resolves to one model; the section 9 known-defect statement is the operator's, not machine-checked
+  plan: constraint-verbatim/stock/1
+  plan: constraint-verbatim/qompack/1
+  plan: recall-user-fact/qompack/1
+  plan: recall-user-fact/stock/1
+  plan: eliminated-approach/stock/1
+  plan: eliminated-approach/qompack/1
+  plan: changing-requirement-format/qompack/1
+  plan: changing-requirement-format/stock/1
+  plan: tool-output-recall/stock/1
+  plan: tool-output-recall/qompack/1
+  plan: decision-rationale/qompack/1
+  plan: decision-rationale/stock/1
+  plan: regression-guard/stock/1
+  plan: regression-guard/qompack/1
+  plan: constraint-naming/qompack/1
+  plan: constraint-naming/stock/1
+  plan: changing-requirement-slug/stock/1
+  plan: changing-requirement-slug/qompack/1
+  plan: seed-recall/qompack/1
+  plan: seed-recall/stock/1
+  plan: constraint-verbatim/qompack/2
+  plan: constraint-verbatim/stock/2
+  plan: recall-user-fact/stock/2
+  plan: recall-user-fact/qompack/2
+  plan: eliminated-approach/qompack/2
+  plan: eliminated-approach/stock/2
+  plan: changing-requirement-format/stock/2
+  plan: changing-requirement-format/qompack/2
+  plan: tool-output-recall/qompack/2
+  plan: tool-output-recall/stock/2
+  plan: decision-rationale/stock/2
+  plan: decision-rationale/qompack/2
+  plan: regression-guard/qompack/2
+  plan: regression-guard/stock/2
+  plan: constraint-naming/stock/2
+  plan: constraint-naming/qompack/2
+  plan: changing-requirement-slug/qompack/2
+  plan: changing-requirement-slug/stock/2
+  plan: seed-recall/stock/2
+  plan: seed-recall/qompack/2
+  host (stock, task constraint-verbatim): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model claude-sonnet-5 --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack
+  host (qompack, task constraint-verbatim): C:\Users\Quant\AppData\Roaming\npm\claude.cmd -p --input-format stream-json --output-format stream-json --verbose --include-hook-events --model claude-sonnet-5 --max-turns 12 --setting-sources project,local --permission-mode dontAsk --session-id <session-id> --allowedTools Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack --plugin-dir C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w3-eval3\dist\live-bundle-eval3\qompack-plugin-0.3.0-eval3.dryrun-windows-amd64
+live-eval: --dry-run: no session started
+exit=0

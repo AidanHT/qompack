@@ -1,0 +1,10 @@
+run_id=cx-int4-int4-hotpath-alone-898bb8b-20260928T022919Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int
+rev=898bb8b
+commit=898bb8b27b0b29370e6198aeab73763f1c5f498a
+bundle_sha256=3aca198992eaf345edb095fb8fd43004626bb748cbfe43171b4da1b820aae0d8
+host_started_utc=2026-09-28T02:29:37Z
+inner_args=--no-race --count 2 --timeout 30m --run ^TestIntegration_HotPathWarmWithRealResidentState$ -- ./test/integration
+host_finished_utc=2026-09-28T02:33:42Z
+container_exit=1

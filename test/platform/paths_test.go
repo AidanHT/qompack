@@ -12,6 +12,7 @@ import (
 
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/testutil"
 )
 
 // TestPlatform_ProjectRootShapes is SP17-M7-02's path axis: the shapes of project root a user
@@ -255,7 +256,7 @@ func TestPlatform_MixedCaseProjectRoot(t *testing.T) {
 		require.Equal(t, addr.Path, lowerAddr.Path,
 			"both spellings must resolve to one transport address")
 
-		pid, held := daemonHoldingLock(p.Root)
+		pid, held := testutil.DaemonHoldingLock(p.Root)
 		require.True(t, held, "one live daemon must hold the lock after both spellings")
 
 		resp, ok := adminPing(t, p.Root, addr)

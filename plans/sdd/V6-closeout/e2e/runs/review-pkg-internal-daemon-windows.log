@@ -1,0 +1,25 @@
+# HEAD=191a6b76974fafb952b9cce561c3325e97f75fda + uncommitted internal/daemon/flush_arrival_order_test.go
+# go test ./internal/daemon -count=1 -timeout=30m
+--- FAIL: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (3.12s)
+    --- FAIL: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (1.62s)
+        flush_arrival_order_test.go:162: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/internal/daemon/flush_arrival_order_test.go:122
+            	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/internal/daemon/flush_arrival_order_test.go:162
+            	Error:      	Not equal: 
+            	            	expected: 1
+            	            	actual  : 0
+            	Test:       	TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+            	Messages:   	tool toolu_flush_order_b was accepted after toolu_flush_order_a in the same turn; it reports turn 0 after turn 1, so SessionEnd reset the session before the accepted arrival was published (turns are monotone)
+    --- FAIL: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (1.50s)
+        flush_arrival_order_test.go:216: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/internal/daemon/flush_arrival_order_test.go:122
+            	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-e2e/internal/daemon/flush_arrival_order_test.go:216
+            	Error:      	Not equal: 
+            	            	expected: 1
+            	            	actual  : 0
+            	Test:       	TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+            	Messages:   	tool toolu_flush_order_b was accepted after toolu_flush_order_a in the same turn; it reports turn 0 after turn 1, so SessionEnd reset the session before the accepted arrival was published (turns are monotone)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	643.586s
+FAIL
+exit=1

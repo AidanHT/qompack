@@ -108,9 +108,11 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 	p := testutil.NewProject(t, testutil.WithConfig(`{"scheduler":{"idle":{"detectAfterSeconds":1}}}`))
 	// Shutdown, then wait for the PROCESS to be gone, not only the lock: ruling R52 persists the
 	// scheduler's state from runDaemon AFTER d.Run has returned, i.e. after Stop's last act has
-	// released daemon.lock — the signal e2eShutdownIfReachable treats as "gone". Handing the
-	// tree to t.TempDir's RemoveAll at that moment races WriteAtomic's staging in .qompack/tmp
-	// and the two renames into .qompack/state (measured once: "directory is not empty").
+	// released daemon.lock. Handing the tree to t.TempDir's RemoveAll at that moment races
+	// WriteAtomic's staging in .qompack/tmp and the two renames into .qompack/state (measured
+	// once: "directory is not empty"). e2eShutdownIfReachable now waits for that itself — its
+	// "gone" is no live lock holder AND every pid it saw holding the lock exited — so the pid wait
+	// below asks the same question of the pid this row read, and stays as this row's own check.
 	var daemonPID int
 	t.Cleanup(func() {
 		e2eShutdownIfReachable(t, p.Root)
@@ -125,7 +127,7 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 	require.Equal(t, 0, code, "stderr:\n%s", stderr)
 	requireParsesAsOutput(t, stdout)
 	e2eWaitDaemonUp(t, p.Root)
-	pid, held := e2eDaemonHoldingLock(p.Root)
+	pid, held := testutil.DaemonHoldingLock(p.Root)
 	require.True(t, held, "a reachable daemon holds daemon.lock")
 	daemonPID = pid
 

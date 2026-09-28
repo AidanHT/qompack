@@ -1,0 +1,10 @@
+run_id=cx-linux-hotpath-diag-scratch-fc9ec15-20260923T002216Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/hp-diag
+rev=fc9ec15
+commit=fc9ec15090537d67d758c5e84b6fdbbd1f9c750e
+bundle_sha256=707b044f4085311624860a437abe410824699b721483a0da732ff4b355b431f5
+host_started_utc=2026-09-23T00:22:42Z
+inner_args=--coload --run ^TestIntegration_HotPathWarmWithRealResidentState$ -- ./test/integration
+host_finished_utc=2026-09-23T00:32:50Z
+container_exit=1

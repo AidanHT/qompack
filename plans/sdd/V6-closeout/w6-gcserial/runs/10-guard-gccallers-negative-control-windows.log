@@ -1,0 +1,13 @@
+# TEMPORARY negative control: a GC call planted in internal/cli/zz_diagtemp_gc.go (func diagTempGC), then
+# cmd: go test ./test/guards -run '^TestGuard_StoreGCRunsOnlyInsideTheDaemon$' -count=1 -v
+=== RUN   TestGuard_StoreGCRunsOnlyInsideTheDaemon
+    gccallers_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial/test/guards/gccallers_test.go:77
+        	Error:      	Should be empty, but was [internal/cli/zz_diagtemp_gc.go:diagTempGC]
+        	Test:       	TestGuard_StoreGCRunsOnlyInsideTheDaemon
+        	Messages:   	these product functions start a store GC pass outside the inventory. The store's gate (internal/store/gcgate.go) orders the passes of one handle only, which is enough solely because every pass runs in the daemon. A pass started anywhere else must first take the daemon lock (daemon.AcquireLock), or the project needs a store-level GC lock that cannot deadlock with the daemon's writer lease; then add a gcCallers row saying which
+--- FAIL: TestGuard_StoreGCRunsOnlyInsideTheDaemon (1.05s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	1.668s
+FAIL
+# exit: 1

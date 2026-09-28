@@ -1,0 +1,14 @@
+=== RUN   TestGCSegments_AckedArchivedLeasesAreReleasedPastTheAckSetBound
+    gc_delivery_carry_test.go:91: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/store/gc_delivery_carry_test.go:91
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestGCSegments_AckedArchivedLeasesAreReleasedPastTheAckSetBound
+        	Messages:   	the settled lease of segment 1 is released
+--- FAIL: TestGCSegments_AckedArchivedLeasesAreReleasedPastTheAckSetBound (0.18s)
+=== RUN   TestGCSegments_CarriedLeaseIsRetainedUntilAcknowledged
+--- PASS: TestGCSegments_CarriedLeaseIsRetainedUntilAcknowledged (0.13s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.523s
+FAIL

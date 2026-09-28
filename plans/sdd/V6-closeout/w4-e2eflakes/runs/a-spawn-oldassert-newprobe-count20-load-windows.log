@@ -1,0 +1,43 @@
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (4.55s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.32s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.28s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.23s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.21s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.25s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.32s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.20s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.12s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.28s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.42s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.14s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.18s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.13s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.24s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.17s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.53s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.21s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.23s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.32s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	66.623s
+exit=0

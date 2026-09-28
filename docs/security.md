@@ -21,13 +21,41 @@ must establish every recorded origin before reading bytes; a permissive duplicat
 restricted origin. Missing or incomplete provenance returns unavailable. File captures with a lost
 path are refused; known pathless producers remain subject to current redaction.
 
-Redaction of credential patterns does not authorize an otherwise denied archived read.
-The filesystem-scope check does not
-consume the host's current permission decisions, so it cannot establish compliance with host deny
-rules for an in-project file. V6 evidence and the required owner corrections are recorded in
-`plans/sdd/V6-VERIFY/` and `plans/sdd/V6-remediation/`; no host-permission claim follows from a
-containment test. Checkpoint summaries and drop reasons receive retrieval-time redaction too;
-evidence hashes remain metadata, and their contents require a separate authorized expansion.
+**The host's saved Read rules are re-checked on every retrieval (V6-HOST-1).** After the
+filesystem-scope check, every record that has a path is checked against the `permissions.deny` and
+`permissions.ask` rules for `Read` in the settings files Claude Code reads: managed
+(`managed-settings.json` and `managed-settings.d/` in the system directory, the Windows policy
+registry values, the cached server-managed settings), user (`~/.claude/settings.json`, or
+`$CLAUDE_CONFIG_DIR/settings.json`), project (`.claude/settings.json`) and local
+(`.claude/settings.local.json`). A file is re-read as soon as it changes, so a rule added mid-session
+applies to the next call. The check covers `expand` by tool-use ID, root hash and chunk hash;
+`re_read` in every `at` form, including a hash named under a different path; the hits and summaries
+of `recall`; the evidence preview of `why`; and pointers into the archive listed by `dropped`.
+`timeline` carries no path-bearing content. A deny rule answers `denied` with its own reason; an ask
+rule is refused too, with a different reason, because a plugin cannot prompt; and a settings file
+that exists but cannot be read or parsed makes every path-bearing answer `unavailable` ("host policy
+unavailable") until it is fixed. No refusal echoes the path or the rule. Records with no path
+(shell output, prompts) have nothing for a path rule to match and keep the behaviour above.
+Every spelling that reaches the served content is judged, and a rule matching any one of them
+refuses: the path as asked for or recorded, the real name whose history is served, the name the
+operating system opens for each (on Windows a trailing dot or space, a `:stream` suffix or an 8.3
+short name opens the same file) and where each resolves through links. More than 5000 Read path
+patterns, or 80 000 path segments across them, in force at once makes the rules unusable, so
+path-bearing content is withheld as for an unreadable file; the bound keeps every check's cost
+bounded.
+
+**That is the part of the host's decision a plugin can read, not the decision itself.** Rules added
+for one session only, `--allowedTools`/`--disallowedTools`/`--settings`/`--setting-sources` flags,
+PreToolUse hooks, an embedding host's managed settings, a managed `policyHelper`'s output and the
+session's working directory (when it is not the project root) are invisible to a plugin. A macOS
+configuration profile cannot be decoded, so its presence makes path-bearing content unavailable.
+Where the documentation leaves a reading open, Qompack takes the one that refuses more; see
+`internal/hostperm`'s package comment and [docs/cannot-do.md](cannot-do.md#5-trust-boundary).
+Redaction of credential patterns does not authorize an otherwise denied archived read. V6 evidence
+and the required owner corrections are recorded in `plans/sdd/V6-VERIFY/`,
+`plans/sdd/V6-remediation/` and `plans/sdd/V6-closeout/hostperm/`. Checkpoint summaries and drop
+reasons receive retrieval-time redaction too; evidence hashes remain metadata, and their contents
+require a separate authorized expansion.
 
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and
@@ -43,6 +71,25 @@ response carrying stored bytes sets `_meta.qompack.untrusted`, and nothing in th
 execute anything: `internal/mcp`'s transitive import set contains no `os/exec` across 155 packages.
 A capture whose arguments were a shell command that would create a sentinel file was retrieved
 through four tools and the sentinel was never created.
+
+**The daemon's executable on Windows is a verified copy, not the plugin's file (C1.17).** Because
+the daemon outlives the session and Windows will not remove a running executable's directory, a
+process running the plugin's own binary — inside `CLAUDE_PLUGIN_ROOT`, or laid out as a plugin's,
+`bin/qompack.exe` with `.claude-plugin/plugin.json` beside `bin/`, which covers `qompack mcp`'s
+lazy spawn — starts it from `<home>/.qompack/bin/<sha256>/qompack.exe` rather than the plugin's
+`bin/qompack.exe` (`internal/daemon/spawn_stage.go`). The copy lives under the user's own profile —
+the one place outside a project Qompack writes
+([architecture §2](architecture.md#2-write-set-and-retention)) — sealed read-only, and it is checked
+before every spawn: a regular file, not a link, junction or other reparse point, whose SHA-256 matches both
+its directory name and the spawning process's own executable, and still the file filed there once
+it has been hashed. A file that fails any of that is removed and replaced, never run — one that
+cannot be read at all, whatever the reason, included — and a source that changes while it is being
+copied is never filed. The one exception is a copy another program holds open without sharing
+read: that proves nothing about its bytes and passes when the program lets go, so it is neither run
+nor removed — that one spawn starts the daemon from the plugin binary, and the next spawn checks
+the copy again. The boundary is the same one the plugin directory already has: a process running as
+the same user could replace either file; another user cannot write either. On Linux and macOS nothing is
+copied and the daemon runs from the plugin binary.
 
 ## 2. Redaction: what it covers, and what it does not
 
@@ -113,10 +160,18 @@ bound returned exactly 4096 bytes, marked truncated, with a cursor to page on.
 
 `runtime.hotPath.maxPayloadBytes` is bounded from **both** sides: a value above the hard capture cap
 is a violation that is restored to the cap with a warning, rather than one that silently refuses
-every delivery. And a configuration violation no longer disables capture wholesale: the hot-path
-loader applies the same per-leaf fallback `config print` does and records the violation in
-`state/config-violations.json`. **Check that file after changing configuration** — it is where the
-product says which of your values it refused.
+every delivery. And a configuration problem in one key no longer disables capture wholesale: the
+hot-path loader applies the same per-leaf fallback `config print` does — an invalid value falls back
+and is recorded in `state/config-violations.json`, and an unknown or mistyped key is dropped with a
+warning. Two kinds of problem still refuse every capture: input the hooks cannot read safely — a
+config file that does not parse, is not a plain file or is over its size bound — and a setting that
+cannot be applied as written of either control over what is recorded: `runtime.redact`, the privacy
+policy itself, where a fallback would record under a policy you did not write, and `runtime.mode`,
+the capture switch, where a fallback to `auto` would record while you were switching recording off
+(an `"OFF"` or a `false` refuses, exactly as `off` would). **Check that file, and `qompack self-test`'s `config.capture` row, after
+changing configuration** — they are where the product says which of your values it refused, and
+whether the hooks refused all of them
+([docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)).
 
 ## 4. Quarantine, retention and what a damaged object answers
 
@@ -190,7 +245,7 @@ These do **not** heal, and the product says so rather than pretending otherwise 
 
 ## 7. What needs an operator, and how to find it
 
-Run **`qompack fsck`** (integrity, seventeen check classes, read-only by default) and **`qompack
+Run **`qompack fsck`** (integrity, eighteen check rows, read-only by default) and **`qompack
 doctor`** (capability, version, scope and control rows). Between them they name every state below.
 `fsck --repair --yes` performs five explicit repairs and no others: quarantine a damaged object,
 regenerate `index/files.json`, regenerate `pins/invariants.json`, rebuild `tried.bloom` from active
@@ -227,8 +282,14 @@ rewritten, and nothing is ever deleted.
 
 Open at this release, stated here rather than left to discovery.
 
-- **Current native Read authorization is a separate host boundary.** Project containment and
-  capture-time policy cannot establish a later live, managed or command-line host permission.
+- **Host Read permission is reconstructed from settings files, not queried.** Archived retrieval
+  honours the Read deny and ask rules saved in the files Claude Code reads (§1), but a read the host
+  would refuse only through a session-only rule, a command-line flag, a hook or an embedding host's
+  policy can still be served from the archive. A path rule never matches a pathless record: the
+  output of `cat .env` archived as shell output is served even when `Read(./.env)` is denied. A
+  search result is judged by the directory it searched, as the host judges a Grep, so its lines may
+  quote a file a later rule denies. `CLAUDE_CONFIG_DIR` is seen only if the host passes it to
+  subprocesses (`CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` removes it).
 - **Whether a live gap is visible depends on whether a daemon is running when you look.** Counters
   that name a degradation live in the daemon's status snapshot, so `qompack status --json` after a
   session ended does not carry them. Ask while the session is live, or ask `qompack fsck`.
@@ -243,6 +304,23 @@ Open at this release, stated here rather than left to discovery.
 - **On Windows, a daemon lock cannot be told live from stale by inspection alone** (R5-4). The
   staleness window in §5 is how a dead holder is reclaimed; `fsck`'s daemon row reports a lock
   nothing answers behind as STALE and disables no check.
+- **On Windows, durability across a power cut rests on NTFS journaling (owner decision D24).** On
+  POSIX every promise Qompack makes — a sealed checkpoint, an acknowledged delivery, a published
+  capture, a pin, a recorded elimination — is backed by a sync of the file and of the directory that
+  names it ([Architecture §4](architecture.md#4-publication-and-durability)). On Windows the
+  directory sync is a no-op. NTFS journals metadata, not file contents: every creation, rename,
+  deletion and size change is one logged transaction, so a power cut never tears a directory entry,
+  while bytes written since a file's last flush can be lost. Each of those promises ends with a file
+  flush, which writes the file's bytes and forces the journal out past the directory change it
+  depends on. What a power cut can still take is what follows the last flush on the volume: the
+  most recent replacement of a derived file (a `state/` document, `pins/invariants.json`, a draft, a
+  restore's final rename) can revert to its previous complete version, and a removed file can
+  reappear. A backup's certification is exposed the same way: the rename of its manifest and the
+  removal of its certification-pending marker are the last steps of `qompack backup`, no flush
+  follows them, and a power cut just after the command reports the backup certified can leave it
+  without its manifest or with the marker back. Verification refuses such a backup, so it is never
+  restored from as certified; it must be taken again. Nothing Qompack guarantees depends on more than
+  that. The premise has not been tested with a real power cut.
 - **One platform, one host.** Every measurement on this page is windows/amd64 with one Claude Code
   version. The five other release targets are cross-compiled and untested at this level — see
   `docs/release.md` for the supported-scope table, which is generated from records rather than

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -344,4 +345,118 @@ func TestEval_RejectsPositionalArguments(t *testing.T) {
 	_, err := runWith(t, evalDeps(inputWith(goodScore(), ranTrials(), nil), nil), "eval", "testdata/corpus")
 	require.ErrorIs(t, err, commands.ErrUsage)
 	require.Contains(t, err.Error(), "--corpus")
+}
+
+// driverShapedReport is a replay report shaped as test/replay writes it by default: the Qompack
+// policy scored beside the three reference policies — stock (the baseline), null (keeps nothing)
+// and oracle (the Belady ceiling). The values are the committed synthetic corpus's, rounded.
+func driverShapedReport() eval.Report {
+	null := goodScore()
+	null.FractionOfOPT = 0
+	null.Divergence.DecisionPreservation = 0
+	null.Divergence.ReAttempts = 24
+	stock := null
+	stock.FractionOfOPT = 0.26
+	oracle := goodScore()
+	oracle.FractionOfOPT = 1
+	product := goodScore()
+	product.FractionOfOPT = 0.85
+	return eval.Report{
+		Policies: map[string]eval.Score{
+			"null": null, "oracle": oracle, "qompack-rehydrate": product, "stock": stock,
+		},
+		Baseline: "stock",
+		Sessions: 24,
+	}
+}
+
+// TestEval_ReplayReportsQompacksPolicyNotAReference: the replay driver scores Qompack's policy
+// beside reference policies that exist only to bound the metric — null keeps nothing, oracle is
+// the ceiling, stock is the baseline. The command reports Qompack's own policy; judging a reference
+// policy (null re-attempts every eliminated approach by construction) would report a failure of a
+// policy no user runs, and would pass or fail the evaluation on it.
+func TestEval_ReplayReportsQompacksPolicyNotAReference(t *testing.T) {
+	t.Parallel()
+
+	in := commands.EvalInput{Report: driverShapedReport(), Trials: commands.TrialCounts{Planned: 24, Ran: 24}}
+	out, err := runWith(t, evalDeps(in, nil), "eval", "--json")
+	require.NoError(t, err, "Qompack's policy re-attempted nothing")
+
+	rep := decodeEval(t, out)
+	require.Equal(t, "qompack-rehydrate", rep.Policy, "the reported policy is Qompack's")
+	require.Equal(t, "stock", rep.Baseline)
+	require.Equal(t, commands.VerdictPass, rep.Verdict)
+	for _, g := range rep.Historical {
+		if g.ID == "HIST-01" {
+			require.InDelta(t, 0.85, *g.Value, 1e-9, "the historical value is Qompack's policy's")
+		}
+	}
+}
+
+// TestEval_ReplayWithOnlyReferencePoliciesJudgesNothing: a replay that scored no Qompack policy
+// has nothing of Qompack's to report, so no reference policy is promoted in its place.
+func TestEval_ReplayWithOnlyReferencePoliciesJudgesNothing(t *testing.T) {
+	t.Parallel()
+
+	r := driverShapedReport()
+	delete(r.Policies, "qompack-rehydrate")
+	in := commands.EvalInput{Report: r, Trials: commands.TrialCounts{Planned: 24, Ran: 24}}
+	out, err := runWith(t, evalDeps(in, nil), "eval", "--json")
+	require.NoError(t, err, "a replay of reference policies alone is inconclusive, not a failure")
+
+	rep := decodeEval(t, out)
+	require.Empty(t, rep.Policy)
+	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+	require.Empty(t, rep.Task, "no reference policy is judged in Qompack's place")
+	require.Contains(t, strings.Join(rep.Notes, "\n"), "null, oracle, stock")
+}
+
+// TestEval_ReplayJudgesEveryQompackPolicyItScored: `test/replay --policies` can score more than one
+// of Qompack's own policies (qompack-rehydrate, the driver's default, and qompack-l3). Judging only
+// one of them — the alphabetically first — let a failing qompack-rehydrate pass the evaluation
+// whenever qompack-l3 passed. Every Qompack policy scored is judged; the driver's default product
+// policy leads with the plain gate IDs and each further one's gates carry its name.
+func TestEval_ReplayJudgesEveryQompackPolicyItScored(t *testing.T) {
+	t.Parallel()
+
+	bad := goodScore()
+	bad.Divergence.SameDecision = false
+	for name, c := range map[string]struct {
+		rehydrate, l3 eval.Score
+		failing       string
+	}{
+		"the product policy fails":   {rehydrate: bad, l3: goodScore(), failing: "TASK-01"},
+		"the scheduler policy fails": {rehydrate: goodScore(), l3: bad, failing: "TASK-01@qompack-l3"},
+	} {
+		r := driverShapedReport()
+		r.Policies["qompack-rehydrate"] = c.rehydrate
+		r.Policies["qompack-l3"] = c.l3
+		in := commands.EvalInput{Report: r, Trials: commands.TrialCounts{Planned: 24, Ran: 24}}
+		out, err := runWith(t, evalDeps(in, nil), "eval", "--json")
+		require.Error(t, err, name)
+
+		rep := decodeEval(t, out)
+		require.Equal(t, commands.VerdictFail, rep.Verdict, name)
+		require.Equal(t, "qompack-rehydrate", rep.Policy, "%s: the driver's default product policy leads", name)
+		var failed []string
+		for _, g := range rep.Task {
+			if g.Passed != nil && !*g.Passed {
+				failed = append(failed, g.ID)
+			}
+		}
+		require.Equal(t, []string{c.failing}, failed, name)
+	}
+
+	r := driverShapedReport()
+	r.Policies["qompack-l3"] = goodScore()
+	in := commands.EvalInput{Report: r, Trials: commands.TrialCounts{Planned: 24, Ran: 24}}
+	out, err := runWith(t, evalDeps(in, nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.Equal(t, commands.VerdictPass, rep.Verdict)
+	var ids []string
+	for _, g := range append(append([]commands.EvalGate{}, rep.Task...), rep.Recovery...) {
+		ids = append(ids, g.ID)
+	}
+	require.Subset(t, ids, []string{"TASK-01", "REC-02", "TASK-01@qompack-l3", "REC-02@qompack-l3"})
 }

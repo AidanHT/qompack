@@ -48,7 +48,7 @@ const (
 
 	// e2eRoundTripDeadline is the Send deadline for this file's admin/status round trips against a
 	// daemon already known to be reachable. Basis: internal/cli's own reply budgets for real hooks
-	// span promptReplyDeadline (250ms) to flushReplyDeadline (15s); this sits between them, three
+	// span promptReplyDeadline (250ms) to checkpointReplyDeadline (15s); this sits between them, three
 	// orders of magnitude above the sub-millisecond cost of a local round trip.
 	e2eRoundTripDeadline = 5 * time.Second
 
@@ -221,13 +221,29 @@ func e2eLiveIngestSamplesOrUnknown(root, histName string) int64 {
 	return snap.Latency[histName].N
 }
 
-// e2eWaitDaemonUp polls until a daemon answers at root's resolved address.
+// e2eWaitDaemonUp polls until a daemon answers at root's resolved address: an admin.ping answered,
+// not a dial taken. A daemon takes dials from the moment it listens and holds every request until
+// its startup — the spool replay among it — is done (internal/daemon serveOp, V6 close-out D17), so
+// a dial proves only that the endpoint exists; a row that reads what the startup wrote must see it
+// written. Before D17 the two coincided on Windows, where a pipe nobody accepted on refused every
+// dial, but not on POSIX, where the listen backlog took the dial at once. The client has no spool,
+// so a ping that is not answered is dropped rather than spooled into the directory rows watch.
 func e2eWaitDaemonUp(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
-	require.Eventually(t, func() bool { return ipc.Probe(addr, e2eProbeTimeout) },
-		e2eDaemonUpBound, e2eDaemonUpTick, "no daemon ever became reachable at %s", addr.Path)
+	c := ipc.NewClientWithOptions(addr, nil, nil, nil, ipc.ClientOptions{
+		State:           ipc.State{Mode: contract.ModeFull, DaemonEnabled: true},
+		ConnectDeadline: e2eProbeTimeout,
+		AckDeadline:     e2eProbeTimeout,
+	})
+	defer func() { _ = c.Close() }()
+	require.Eventually(t, func() bool {
+		resp, sendErr := c.Send(context.Background(), ipc.Request{
+			Op: ipc.OpAdminPing, TS: core.NowMilli(core.SystemClock()), Reply: true,
+		}, e2eRoundTripDeadline)
+		return sendErr == nil && resp.OK
+	}, e2eDaemonUpBound, e2eDaemonUpTick, "no daemon ever answered at %s", addr.Path)
 }
 
 // TestE2EHookRoundTrip is task-6-spec.md's e2e table row: session-start brings the daemon up, then
@@ -370,8 +386,8 @@ func TestE2ELazySpawn(t *testing.T) {
 		}
 		return true
 	}, e2eSpoolDrainBound, e2eSpoolDrainTick,
-		"the spool the first call left behind was not drained within %s of a served request; only the %s idle-tick fallback would still take it",
-		e2eSpoolDrainBound, daemon.IdleTickMax)
+		"the spool the first call left behind was not drained within %s of a served request; only the client-spool watcher (a %s check interval) or the idle drain would still take it",
+		e2eSpoolDrainBound, daemon.ClientSpoolWatchInterval)
 }
 
 // TestE2EIdleExit is task-6-spec.md's e2e table row: with a fast idle-exit configured, the daemon

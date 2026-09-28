@@ -1,0 +1,42 @@
+=== RUN   TestZZDiag_SessionStartUnderLoad
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter00
+    zz_diag_hookout_test.go:94: iter=0 code=0 PostToolUse=866ms SessionStart=493ms hso=true lock(rel to SessionStart start)=-188ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-6429c6170d7d -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter01
+    zz_diag_hookout_test.go:94: iter=1 code=0 PostToolUse=63ms SessionStart=492ms hso=true lock(rel to SessionStart start)=-175ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-33147308360f -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter02
+    zz_diag_hookout_test.go:94: iter=2 code=0 PostToolUse=67ms SessionStart=416ms hso=true lock(rel to SessionStart start)=-119ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-b2f473454b41 -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter03
+    zz_diag_hookout_test.go:94: iter=3 code=0 PostToolUse=68ms SessionStart=856ms hso=true lock(rel to SessionStart start)=-61ms spool=[] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-3e4dd53a3e2f -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter04
+    zz_diag_hookout_test.go:94: iter=4 code=0 PostToolUse=72ms SessionStart=575ms hso=true lock(rel to SessionStart start)=-138ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-c13c09d0ed23 -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter05
+    zz_diag_hookout_test.go:94: iter=5 code=0 PostToolUse=78ms SessionStart=439ms hso=true lock(rel to SessionStart start)=-123ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-eac16ff66cf8 -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter06
+    zz_diag_hookout_test.go:94: iter=6 code=0 PostToolUse=69ms SessionStart=391ms hso=true lock(rel to SessionStart start)=-132ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-828c788f6837 -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter07
+    zz_diag_hookout_test.go:94: iter=7 code=0 PostToolUse=76ms SessionStart=392ms hso=true lock(rel to SessionStart start)=-130ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-01ed432cc6b1 -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter08
+    zz_diag_hookout_test.go:94: iter=8 code=0 PostToolUse=68ms SessionStart=585ms hso=true lock(rel to SessionStart start)=-67ms spool=[] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-b672a67f6c5b -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter09
+    zz_diag_hookout_test.go:94: iter=9 code=0 PostToolUse=64ms SessionStart=394ms hso=true lock(rel to SessionStart start)=-130ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-94198dd19eae -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter10
+    zz_diag_hookout_test.go:94: iter=10 code=0 PostToolUse=66ms SessionStart=447ms hso=true lock(rel to SessionStart start)=-133ms spool=[observe.stop] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-1a3af4307297 -->"}}
+=== RUN   TestZZDiag_SessionStartUnderLoad/iter11
+    zz_diag_hookout_test.go:94: iter=11 code=0 PostToolUse=170ms SessionStart=611ms hso=true lock(rel to SessionStart start)=-72ms spool=[] stdout={"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<!-- qompack-contract-probe qompack-contract-616677fc9cb2 -->"}}
+=== NAME  TestZZDiag_SessionStartUnderLoad
+    zz_diag_hookout_test.go:103: SUMMARY: 0 of 12 SessionStart replies carried no hookSpecificOutput
+--- PASS: TestZZDiag_SessionStartUnderLoad (20.78s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter00 (2.32s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter01 (1.46s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter02 (1.45s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter03 (2.08s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter04 (1.50s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter05 (1.40s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter06 (1.43s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter07 (1.38s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter08 (1.47s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter09 (1.34s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter10 (1.42s)
+    --- PASS: TestZZDiag_SessionStartUnderLoad/iter11 (1.82s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	21.057s

@@ -16,6 +16,9 @@ import "time"
 const (
 	// SpawnPollBound is how long EnsureRunning polls a freshly spawned daemon's address before
 	// reporting core.ErrNotFound — the spawning side's own definition of "it never came up".
+	// session-start polls through EnsureRunningUntil instead: until its hook budget's borrow limit
+	// (internal/cli hookBudget, D17b and D21: 8.25 s into the hook) or for this long after its spawn,
+	// whichever is later, and never past the last instant a reply could still follow.
 	SpawnPollBound = ensureRunningPollBound
 
 	// DrainLineDeadline is the per-line deadline the drainer dispatches each replayed spool or WAL
@@ -23,11 +26,19 @@ const (
 	// built from.
 	DrainLineDeadline = drainLineDeadline
 
-	// IdleTickMax is the upper bound on Run's idle-tick cadence, and so on the FALLBACK drain: the
-	// interval a spool entry waits out when nothing more prompt picks it up. It is exported to be
-	// named in failure messages, so a test that times out says which mechanism it was really
-	// waiting for.
+	// IdleTickMax is the upper bound on Run's idle-tick cadence. The tick runs its drain only once
+	// the whole project has been idle for DetectAfterSeconds (120 s by default), so it is NOT how long
+	// a spooled delivery waits while its session is active: that is the client-spool watcher's
+	// (ClientSpoolWatchInterval, C1.13). It is exported to be named in failure messages, so a test
+	// that times out says which mechanism it was really waiting for.
 	IdleTickMax = idleTickMax
+
+	// ClientSpoolWatchInterval is the client-spool watcher's check interval (spool_watch.go, C1.13).
+	// While requests keep arriving — and for one interval after the last — a hook's client spool that
+	// has stood unchanged for an interval gets a drain pass, and one that pass could not publish is
+	// passed again after 2, 4, 8 ... intervals. A delivery that reached only its hook's client spool
+	// during an active session is therefore published about two intervals after it was spooled.
+	ClientSpoolWatchInterval = spoolCheckInterval
 
 	// StopDrainBound is Stop's bound on draining the in-flight ring — the longest single step of a
 	// clean shutdown, and therefore the basis for any bound on a daemon going away.
@@ -41,12 +52,21 @@ const (
 	StopCleanupBound = stopCleanupBound
 )
 
+// CompactAnswerBudget is how long the session.start route waits for a compact rehydration before it
+// answers with the deferred note (owner decision D9): one third of the SessionStart manifest
+// timeout, 5 s. It is the least reply wait session-start's find/start step leaves the reply when it
+// borrows the reply's idle time (D21, internal/cli hookBudget), so a daemon that takes its whole
+// bound is still heard. It returns the daemon's own compactAnswerBudget, never a copy of the
+// number.
+func CompactAnswerBudget() time.Duration { return compactAnswerBudget() }
+
 // compile-time proof the aliases above really are durations, so a future edit that retyped one of
 // the underlying constants fails here rather than at an arithmetic expression in test/e2e.
 var (
 	_ time.Duration = SpawnPollBound
 	_ time.Duration = DrainLineDeadline
 	_ time.Duration = IdleTickMax
+	_ time.Duration = ClientSpoolWatchInterval
 	_ time.Duration = StopDrainBound
 	_ time.Duration = StopCleanupBound
 )

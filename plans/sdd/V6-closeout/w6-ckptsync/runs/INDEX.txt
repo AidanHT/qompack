@@ -1,0 +1,52 @@
+w6-ckptsync evidence (closeout/w6-ckptsync). Code head 61c6c7f; 312e15a adds only evidence. eddb208 -> 61c6c7f
+changes comments only (internal/checkpoint/finalize.go), so a run at eddb208 exercises the head's code.
+
+red/        RED logs, one per barrier fix; red/INDEX.txt names the commit, archive and failing test of each.
+
+win/        Windows 11, go1.26.6, co-loaded (other workstreams on the machine and in the container).
+  full-{paths,pins,negknow,store}-77a6524.txt   go test ./internal/<pkg> -count=1 -timeout=70m -v.
+      None of these four packages imports internal/checkpoint (go list -deps -test), and 77a6524 ->
+      head changes only internal/checkpoint/finalize.go, so these are the head's results.
+      negknow: TestBudget_RefreshStaleness failed once (10.7 ms wall/op vs 10 ms) under co-load; see
+      refresh-staleness-*.txt: alone at the head it went 2 of 3 then 10 of 10, the base 3 of 3 and
+      10 of 10, in the same 2.3-6.0 ms band; the path is unchanged by this branch.
+  full-checkpoint-77a6524-red.txt   the run that found TestColdPreCompactCatchesUpInOneBatchOldestFirst
+      (fixed in eddb208).
+  full-{checkpoint,daemon,cli}-312e15a.txt      the same command at the head: all ok.
+  focus-*-312e15a.txt   record_eliminated/pin rows (mcp, commands), fault+integration rows touching
+      checkpoints, backup and publication, e2e checkpoint/rehydrate/elimination rows: all PASS.
+  refresh-staleness-alone-base.txt ran on f6095e2 plus the two benchmark files (scratch commit
+      74bdcd7, never a branch); refresh-staleness-ab.txt alternates head and that base, count 5 each.
+  finalize-ab-*.txt     Windows BenchmarkFinalize ABBA (test binaries of head and base, 5x, 6 rounds).
+
+linux/      qompack-v6-linux-verification via plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh, non-root.
+  cx-w6-ckptsync-touched-full-eddb208-*   -race, the seven touched packages: all PASS except
+      TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1 of 1519 in daemon; co-load, see below).
+  cx-w6-ckptsync-lane-overflow-alone-eddb208-*   that row alone, -race, --count 10: 10/10 PASS.
+  bench/   paired ABBA timing, --no-race, --count 5, GOFLAGS=-bench=<regex>, base = scratch commit
+      74bdcd7 (f6095e2 + the two new benchmark files), head = 312e15a, 6 rounds; driver and pairing
+      script as bench-abba.sh.txt and bench-pairs.py.txt; PAIRS.txt is the pairing's output. Ratios
+      only: the container was co-loaded by three other workstreams (a single WAL fsync took ~20 ms)
+      and, from round 1 to round 6, by this seat's own earlier driver: a first ABBA that also timed
+      BenchmarkFinalize (one sample took ~9 min under that load) was stopped at its 20-minute cap, but
+      its host sh survived the stop and kept launching runs until 19:5x UTC, when it and its container
+      processes were killed. Both sides of every round shared that load (ABBA order); the unchanged
+      controls (BenchmarkIngestAccept, BenchmarkIngestAcceptLeased, BenchmarkRecord) show the noise
+      floor. That first driver's runs are unpaired or partial and are not evidence; they are not here.
+
+Fix seat (independent review findings 1-5). Code commits dd9444f, da8512b, b5561e1 (docs),
+d4f5a37; b08b47f changes comments only (internal/paths/barriers.go, internal/store/migrate.go), so
+a run at d4f5a37 exercises the head's code.
+red/red-review-*.txt   RED for each fix; red/INDEX.txt names the commit and failing tests.
+win/full-{paths,pins,config,checkpoint,store}-d4f5a37.txt   go test ./internal/<pkg> -count=1
+      -timeout=70m -v, Windows 11, go1.26.6, co-loaded: all ok (store 860 pass, 1 skip; the
+      skips are the same platform skips as the earlier seat's runs).
+win/focus-cli-fsck-d4f5a37.txt        ./internal/cli -run '^TestFsck_': 70 PASS.
+win/focus-mcp-commands-d4f5a37.txt    ./internal/commands ./internal/mcp -run
+      '^(TestPin_|TestRecordEliminated)': 22 PASS.
+win/focus-e2e-b08b47f.txt, win/focus-fault-integration-b08b47f.txt   the same rows as the earlier
+      seat's focus runs (checkpoint, rehydrate, elimination, publication, backup): 6 + 10 PASS.
+linux/cx-w6-ckptsync-review-fix-touched-d4f5a37-*   plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh,
+      non-root, -race, GOMAXPROCS 4: paths, pins, config, negknow, checkpoint, store, daemon, cli
+      all PASS (daemon 1519 pass; the lane-overflow row that failed once under co-load at eddb208
+      passed here).

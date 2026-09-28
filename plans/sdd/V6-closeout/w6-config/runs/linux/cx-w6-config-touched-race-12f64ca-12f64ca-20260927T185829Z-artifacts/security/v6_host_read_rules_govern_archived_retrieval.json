@@ -1,0 +1,17 @@
+{
+  "name": "v6_host_read_rules_govern_archived_retrieval",
+  "capability": "archive_trust",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "outcome": "verified",
+  "reason": "every retrieval form of the packaged MCP server refused a path under a current Claude Code deny or ask rule, and withheld path-bearing content while a settings file was unreadable",
+  "detail": "ask/expand_chunk_hash=denied(found=false); ask/expand_root_hash=denied(found=false); ask/expand_tool_use_id=denied(found=false); ask/re_read_at_hash=denied(found=false); ask/re_read_latest=denied(found=false); ask/recall=hits=0,denied=8,host_policy=false; deny/expand_chunk_hash=denied(found=false); deny/expand_root_hash=denied(found=false); deny/expand_tool_use_id=denied(found=false); deny/re_read_at_hash=denied(found=false); deny/re_read_latest=denied(found=false); deny/recall=hits=0,denied=6,host_policy=false; unreadable/expand_chunk_hash=unavailable; unreadable/expand_root_hash=unavailable; unreadable/expand_tool_use_id=unavailable; unreadable/re_read_at_hash=unavailable; unreadable/re_read_latest=unavailable; unreadable/recall=hits=0,denied=10,host_policy=true"
+}

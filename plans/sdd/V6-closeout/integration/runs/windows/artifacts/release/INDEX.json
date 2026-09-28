@@ -1,0 +1,20 @@
+{
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "records": [
+    "switch_daemon_disabled",
+    "switch_mode_off",
+    "switch_mode_passive",
+    "switch_refused_experiments_enabled",
+    "switch_refused_replacement_new_result",
+    "switch_refused_telemetry_enabled",
+    "switch_reinjection_session_start_compact"
+  ]
+}

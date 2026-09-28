@@ -1,0 +1,27 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/ipc": {
+   "result": "pass",
+   "passed": 152,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 1517,
+   "failed": [
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"
+   ],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 426,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

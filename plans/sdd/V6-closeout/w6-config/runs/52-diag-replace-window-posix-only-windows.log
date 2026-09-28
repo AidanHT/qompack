@@ -1,0 +1,40 @@
+# TEMPORARY DIAGNOSTIC (third w6-config seat, 2026-09-27; never committed as code). Source: runs/diag-src/replace_window_timeline_posixonly_windows_test.go.txt
+# Built as an internal/paths test binary from the worktree at ecadcf4; Windows 11, co-loaded host (other workstreams running).
+# DIAG_WRITER=posixonly DIAG_ROUNDS=30 DIAG_SAVES=2000: the writer is a bare FileRenameInfoEx POSIX_SEMANTICS|REPLACE_IF_EXISTS rename with NO MoveFileEx fallback (every save succeeded), Lstat-only monitor.
+=== RUN   TestZZDiagReplaceWindowTimeline2
+    zz_diag_mfx4_windows_test.go:148: round 0 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 1 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 2 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 3 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 4 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 5 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 6 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 7 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 8 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 9 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 10 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 11 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 12 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:161: round 12: miss run of 2872 Lstats lasting 53.491ms; saves around it (times rel. to run start): [#1893 ok -21.491ms..-19.495ms] [#1894 ok -19.495ms..-15.237ms] [#1895 ok -15.237ms..-13.027ms] [#1896 ok -13.027ms..-11.361ms] [#1897 ok -11.361ms..-10.317ms] [#1898 ok -10.317ms..-8.614ms] [#1899 ok -8.614ms..-7.02ms] [#1900 ok -7.02ms..-5.938ms] [#1901 ok -5.938ms..-3.977ms] [#1902 ok -3.977ms..-1.691ms] [#1903 ok -1.691ms..53.999ms] [#1904 ok 53.999ms..55.61ms] [#1905 ok 55.61ms..57.478ms] [#1906 ok 57.478ms..58.564ms]
+    zz_diag_mfx4_windows_test.go:148: round 13 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 14 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 15 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 16 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 17 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 18 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:161: round 18: miss run of 2864 Lstats lasting 50.397ms; saves around it (times rel. to run start): [#640 ok -20.585ms..-18.912ms] [#641 ok -18.912ms..-16.776ms] [#642 ok -16.776ms..-15.049ms] [#643 ok -15.049ms..-14.492ms] [#644 ok -14.492ms..-12.41ms] [#645 ok -12.41ms..-11.241ms] [#646 ok -11.241ms..-9.694ms] [#647 ok -9.694ms..-8.449ms] [#648 ok -8.449ms..-7.063ms] [#649 ok -7.063ms..-5.392ms] [#650 ok -5.392ms..-4.306ms] [#651 ok -4.306ms..-3.229ms] [#652 ok -3.229ms..-1.079ms] [#653 ok -1.079ms..54.814ms] [#654 ok 54.814ms..56.67ms]
+    zz_diag_mfx4_windows_test.go:148: round 19 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 20 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 21 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 22 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 23 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 24 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 25 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 26 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 27 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 28 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:148: round 29 save results: map[ok:2000]
+    zz_diag_mfx4_windows_test.go:168: writer=posixonly: 2 miss runs, 5736 not-found Lstats over 30 rounds
+--- PASS: TestZZDiagReplaceWindowTimeline2 (234.61s)
+PASS
+exit=0

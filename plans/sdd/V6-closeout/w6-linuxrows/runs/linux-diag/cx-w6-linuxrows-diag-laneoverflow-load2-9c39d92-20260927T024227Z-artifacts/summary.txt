@@ -1,0 +1,3 @@
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=28 fail=2 skip=0)
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest

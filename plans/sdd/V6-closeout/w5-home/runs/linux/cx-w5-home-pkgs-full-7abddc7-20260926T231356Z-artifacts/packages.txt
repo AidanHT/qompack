@@ -1,0 +1,6 @@
+github.com/qompack/qompack/internal/paths
+github.com/qompack/qompack/internal/cli
+github.com/qompack/qompack/internal/commands
+github.com/qompack/qompack/internal/mcp
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/test/docs

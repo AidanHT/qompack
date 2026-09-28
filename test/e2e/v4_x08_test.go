@@ -82,11 +82,11 @@ func TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint(t *tes
 	require.Contains(t, ac, checkpoint.InjectionCloseTag,
 		"the payload the daemon emits is itself tagged, so the NEXT rehydration can strip it too")
 
-	// The next checkpoint, sealed from the same L0 material after that rehydration.
-	_, instr := r.PreCompact(t, x8v4Session)
-	require.NotEmpty(t, instr)
-	require.NotContains(t, instr, x8v4Nonce,
-		"the emitted customInstructions must not carry the re-injected span either")
+	// The next checkpoint, sealed from the same L0 material after that rehydration. Criterion
+	// change (C1.18): the reply used to carry a focus instruction this row held free of the nonce;
+	// the instruction is retired, so the reply carries nothing at all, and the artifacts below are
+	// what must stay free of it.
+	cpRequireNoInstructionReply(t, r.PreCompactReply(t, x8v4Session))
 
 	artifacts := cpCheckpointArtifacts(t, p.Root)
 	require.NotEmpty(t, artifacts, "the PreCompact must have sealed an artifact to inspect")

@@ -1,0 +1,10 @@
+=== RUN   TestSpawnClaim_ALostRaceLeavesNoClaimOnceTheRunningDaemonStops
+--- PASS: TestSpawnClaim_ALostRaceLeavesNoClaimOnceTheRunningDaemonStops (0.16s)
+=== RUN   TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon
+--- PASS: TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon (0.20s)
+=== RUN   TestLockRelease_GivesBackTheSpawnClaim
+=== PAUSE TestLockRelease_GivesBackTheSpawnClaim
+=== CONT  TestLockRelease_GivesBackTheSpawnClaim
+--- PASS: TestLockRelease_GivesBackTheSpawnClaim (0.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.749s

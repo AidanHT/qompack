@@ -1,0 +1,19 @@
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+importgraph: OK (71 package(s) checked)
+PASS importgraph
+== devtool lint: testdeps ==
+testdeps: OK (73 package(s) checked)
+PASS testdeps
+== devtool lint: sleepcheck ==
+sleepcheck: OK
+PASS sleepcheck
+== devtool lint: stubskips ==
+exit status 0xffffffff
+
+# stopped by me at ~23:27Z during stubskips: that sub-check runs a whole-tree go test, which
+# this workstream was told not to run (the coordinator runs integrated gates). The six sub-checks
+# above it had already passed.

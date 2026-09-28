@@ -1,0 +1,53 @@
+#!/bin/sh
+# TEMPORARY (w6-borrow, third seat): the cold-start diagnostic in interleaved rounds, before
+# (f6095e2) and after (the w6-borrow head), under the same in-test CPU co-load: ZZ_CPU_COLOAD=1 with
+# the spinners capped at 8 goroutines (owner rule: at most 8 busy processes of 22 cores). Odd rounds
+# run before then after, even rounds after then before (ABBA), so drift in the machine's background
+# load favours neither tree. Every run is bounded: go test -timeout=18m inside `timeout 1200` (20
+# min). A sampler logs the machine's CPU load every 30 s during each run. Fake HOME/USERPROFILE.
+# Never committed as code: the diagnostic lives only in the two scratch exports.
+# Usage: sh diag_rounds.sh <first-round> <last-round> <iters>
+S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow
+. "$S/v2/fakehome.env"
+out=$S/v3/diag-logs
+mkdir -p "$out"
+first=$1
+last=$2
+iters=$3
+load() {
+	powershell.exe -NoProfile -Command "\$c=(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average; \$p=@(Get-Process | Where-Object { \$_.ProcessName -match '\.test\$|^go\$|^qompack' }).Count; Write-Output \"cpu_load_pct=\$c go_test_qompack_procs=\$p\""
+}
+one() {
+	t=$1
+	r=$2
+	log=$out/diag-$t-r$r-cpu-coload-windows.log
+	{
+		echo "== round $r tree $t ($(cat "$S/v3/diag/$t.rev")) started_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+		echo "== load at start: $(load)"
+		echo "== ZZ_CPU_COLOAD=1 ZZ_CPU_SPINNERS=8 ZZ_ITERS=$iters timeout 1200 go test ./test/e2e/ -run '^TestZZW5_ColdStart\$' -count=1 -v -timeout=18m"
+	} > "$log"
+	touch "$out/.running-$t-r$r"
+	(
+		while test -f "$out/.running-$t-r$r"; do
+			echo "$(date -u +%H:%M:%S) $(load)" >> "$out/load-$t-r$r.txt"
+			sleep 30
+		done
+	) &
+	(cd "$S/v3/diag/$t" && ZZ_CPU_COLOAD=1 ZZ_CPU_SPINNERS=8 ZZ_ITERS=$iters timeout 1200 go test ./test/e2e/ -run '^TestZZW5_ColdStart$' -count=1 -v -timeout=18m >> "$log" 2>&1)
+	echo "exit=$?" >> "$log"
+	rm -f "$out/.running-$t-r$r"
+	echo "== load at end: $(load) ended_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$log"
+	wait
+}
+r=$first
+while test "$r" -le "$last"; do
+	if test $((r % 2)) -eq 1; then
+		one before "$r"
+		one after "$r"
+	else
+		one after "$r"
+		one before "$r"
+	fi
+	r=$((r + 1))
+done
+echo "rounds $first-$last done $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$out/.done-$first-$last"

@@ -1,0 +1,20 @@
+{
+  "name": "child_mcp_killed_mid_request",
+  "phase": "child",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "381006e47a7677b23ef7868bab0e44a001d160f33d55bbfa4dcbd9610a7415b4"
+  },
+  "boundary": "the MCP server child is killed mid-request",
+  "seed_method": "a real session through the installed binary, then `\u003cbundle\u003e/bin/qompack mcp` launched the way plugin/.mcp.json instructs (exec form, no shell), killed between a request and its answer",
+  "outcome": "recovered",
+  "reason": "the client saw the session end as an error rather than hanging (the mcp launcher closed its stdout before answering); every object present before the MCP session is still present with the same bytes, and nothing dangles",
+  "detail": "first call: isError=false found=true denied=false available=\u003cabsent\u003e reason=\"\"\nafter the kill: transport/protocol error: the mcp launcher closed its stdout before answering\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:4 roots:4 sidecars:3 checkpoints:0 dangling:0 reported:0}\nobjects present before the session: 3, of which changed or gone afterwards: []",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

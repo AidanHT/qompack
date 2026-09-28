@@ -40,7 +40,7 @@ type FlagSpec struct {
 }
 
 // jsonFlag is offered by every command. A caller scripting against qompack should never have to
-// remember which of the seven speak JSON, so all of them do.
+// remember which of them speak JSON, so all of them do.
 var jsonFlag = FlagSpec{Name: "json", Summary: "emit the stable JSON envelope instead of text"}
 
 // flagSpecs is the per-command flag table. A command absent from the map accepts --json alone.
@@ -63,33 +63,10 @@ var flagSpecs = map[string][]FlagSpec{
 		{Name: "depends-on", Summary: "with --eliminated: comma-separated paths the finding rests on", Arg: "paths"},
 		{Name: "scope", Summary: "with --eliminated: session or project", Arg: "scope"},
 	},
-	"checkpoint": {
-		{Name: "reason", Summary: "record why this checkpoint was taken", Arg: "text"},
-	},
 	"eval": {
-		{Name: "corpus", Summary: "read replay trials from this directory", Arg: "dir"},
+		{Name: "corpus", Summary: "read a live-eval run, a directory of runs, or a replay report", Arg: "path"},
 	},
 }
-
-// unroutedSubcommands are §7.5 commands that have a working frontend and no `qompack <name>`
-// route to reach it by, mapped to why.
-//
-// This is one fact with two readers — internal/cli decides what to register from it, and
-// devtool's gen-command-docs renders it — so they cannot disagree about what the plugin can
-// actually do. Documenting a command as available when invoking it lands somewhere else is the
-// "unsafe unsupported features not advertised" failure, and it is worse than an undocumented
-// command because the page is believed.
-var unroutedSubcommands = map[string]string{
-	"checkpoint": "not yet reachable as a subcommand: `qompack checkpoint` is the PreCompact hook " +
-		"entry point, which always exits 0 and reads a hook event from stdin. A separate local-seal " +
-		"route needs the arch/checkpoint-now-subcommand architecture pre-step (SP-14 handoff edge H3).",
-}
-
-// RouteNote returns why name has no ordinary subcommand route, or "" when it has one.
-func RouteNote(name string) string { return unroutedSubcommands[name] }
-
-// Routed reports whether this command is reachable as its own `qompack <subcommand>` route.
-func (s Spec) Routed() bool { return RouteNote(s.Name) == "" }
 
 // Specs returns one Spec per §7.5 name, in the order the manifest states them.
 func Specs() []Spec {

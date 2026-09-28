@@ -1,0 +1,16 @@
+{
+  "name": "shell-form-contrast-gitbash",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.280"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "outcome": "verified",
+  "reason": "recorded contrast, not asserted: the pre-C1.11 shell-form hook string under Git Bash",
+  "detail": "shell C:\\Program Files\\Git\\usr\\bin\\bash.exe (found at the Git for Windows install location under %ProgramFiles%); script \"\\\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\\\" observe tool\"; CLAUDE_PLUGIN_ROOT=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-3617589720\\\\plug in ünï\"; exit 0; stderr: "
+}

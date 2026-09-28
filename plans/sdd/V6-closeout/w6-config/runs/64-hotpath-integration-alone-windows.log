@@ -1,0 +1,22 @@
+# HEAD b763d728, Windows, alone (none of this workstream's other runs active; other workstreams may be): TestIntegration_HotPathWarmWithRealResidentState
+# (Windows Defender blocks building cmd/qompack at this commit on this host since it quarantined that binary as Trojan:Win32/Bearfoos.B!ml during runs/62; the row could not run here. The same row fails alone under -race on Linux at base f6095e2 and at b763d72 with the same B-A/B-B magnitude: runs/linux/*hotpath-alone*.)
+=== RUN   TestIntegration_HotPathWarmWithRealResidentState
+    hotpath_test.go:654: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:664: §4.6 resident sketch set on disk: tried.bloom=12072B touch.cms=54474B explore.hll=2102B
+    hotpath_test.go:768: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-2419926525\qompack.exe...
+    hotpath_test.go:772: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/integration/hotpath_test.go:772
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestIntegration_HotPathWarmWithRealResidentState
+        	Messages:   	bench-hotpath exited non-zero (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<15ms and B-E's wall row p99<2000ms) breached against the real resident state, or the harness itself failed (its own delivery-integrity guard included)
+        	            	stderr:
+        	            	hotpath: hotpath: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-2419926525\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        	            	github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build2269685420\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        	            	
+--- FAIL: TestIntegration_HotPathWarmWithRealResidentState (36.54s)
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	36.767s
+FAIL
+exit=1

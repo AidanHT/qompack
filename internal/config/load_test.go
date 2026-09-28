@@ -299,6 +299,29 @@ func TestLoad_UnparseableFileWarns(t *testing.T) {
 	require.Equal(t, config.Defaults(), cfg)
 }
 
+// TestLoad_UnreadableFileWarns is the other half of "a layer that is not in effect is never silent"
+// (§11.3, §13 invariant 10). A config file that exists but cannot be read — here a directory named
+// config.json, which every platform refuses to read as a file — used to be taken for a missing
+// file: the whole layer fell back to the defaults without a word. Only a file that does not exist
+// is absent; any other read failure is a keyless warning naming the file, like an unparseable one.
+func TestLoad_UnreadableFileWarns(t *testing.T) {
+	env := baseEnv(t)
+	userPath := config.UserConfigPath(env.HomeDir)
+	projectPath := config.ProjectConfigPath(env.ProjectRoot)
+	require.NoError(t, os.MkdirAll(userPath, 0o700))
+	require.NoError(t, os.MkdirAll(projectPath, 0o700))
+
+	cfg, _, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.Equal(t, config.Defaults(), cfg)
+	require.Len(t, warns, 2, "one warning per layer that exists and could not be read: %+v", warns)
+	for i, want := range []string{userPath, projectPath} {
+		require.Empty(t, warns[i].Key, "a whole layer, not a leaf")
+		require.Equal(t, want, warns[i].Location)
+		require.Contains(t, warns[i].Message, "unreadable config")
+	}
+}
+
 func TestLoad_ProvenanceLocationHasLine(t *testing.T) {
 	env := baseEnv(t)
 	// softFloorPct's key lands on line 4 by construction: {, {, blank, key.
@@ -436,4 +459,76 @@ func warningKeys(ws []config.Warning) []string {
 		out[i] = w.Key
 	}
 	return out
+}
+
+// TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything is the soft loader's half of the same
+// contract. A value that passed the merge-time type gate but could not be decoded into its Go field —
+// a NaN from the environment or --set, a whole number past the platform int in a file — used to
+// fail fromMap's decode, and fromMap answers a failed decode with Defaults(): EVERY layer was
+// silently discarded, with no warning at all, over one leaf. It must cost that one leaf, and say so.
+func TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		file  string
+		env   map[string]string
+		flags map[string]string
+		key   string
+	}{
+		{
+			name: "nonfinite environment value",
+			file: `{"checkpoint":{"budgetTokens":9000}}`,
+			env:  map[string]string{"QOMPACK_SCHEDULER__SOFTFLOORPCT": "NaN"},
+			key:  "scheduler.softFloorPct",
+		},
+		{
+			name:  "infinite flag value",
+			file:  `{"checkpoint":{"budgetTokens":9000}}`,
+			flags: map[string]string{"scheduler.softFloorPct": "+Inf"},
+			key:   "scheduler.softFloorPct",
+		},
+		{
+			name: "integer beyond the platform int",
+			file: `{"checkpoint":{"budgetTokens":9000},"retrieval":{"promoteAfterExpansions":1e300}}`,
+			key:  "retrieval.promoteAfterExpansions",
+		},
+		// MaxInt64 parses as an int64, but float64 cannot hold it: every value from 2^63-512 up
+		// rounds to 2^63, which no Go int decodes. On a 32-bit target anything past MaxInt32 fails
+		// the same decode. Either way it must be this one leaf's warning.
+		{
+			name: "largest int64 environment value",
+			file: `{"checkpoint":{"budgetTokens":9000}}`,
+			env:  map[string]string{"QOMPACK_RUNTIME__DAEMON__MAXSESSIONS": "9223372036854775807"},
+			key:  "runtime.daemon.maxSessions",
+		},
+		{
+			name:  "largest int64 flag value",
+			file:  `{"checkpoint":{"budgetTokens":9000}}`,
+			flags: map[string]string{"runtime.daemon.maxSessions": "9223372036854775807"},
+			key:   "runtime.daemon.maxSessions",
+		},
+		{
+			name: "largest int64 literal in a file",
+			file: `{"checkpoint":{"budgetTokens":9000},"runtime":{"daemon":{"maxSessions":9223372036854775807}}}`,
+			key:  "runtime.daemon.maxSessions",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := baseEnv(t)
+			writeConfigFile(t, env.ProjectRoot, tc.file)
+			if tc.env != nil {
+				env.Getenv = func(name string) string { return tc.env[name] }
+			}
+			env.Flags = tc.flags
+
+			cfg, _, warns, err := config.Load(env)
+			require.NoError(t, err)
+			require.Equal(t, 9000, cfg.Checkpoint.BudgetTokens,
+				"one unrepresentable leaf must not discard every other layer")
+			var keys []string
+			for _, w := range warns {
+				keys = append(keys, w.Key)
+			}
+			require.Contains(t, keys, tc.key, "the dropped value must be reported, not silently discarded")
+		})
+	}
 }

@@ -1,0 +1,4 @@
+=== RUN   TestSyscallHarnessOnToolUse
+--- PASS: TestSyscallHarnessOnToolUse (10.61s)
+PASS
+exit=0

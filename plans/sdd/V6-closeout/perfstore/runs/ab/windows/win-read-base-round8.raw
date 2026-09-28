@@ -1,0 +1,8 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkGetChunk-22               	    3901	    455725 ns/op	   22198 B/op	      22 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    2850	    706511 ns/op	   22532 B/op	      23 allocs/op
+PASS
+exit=0

@@ -1,0 +1,48 @@
+File: store-base.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\perfstore\store-base.exe2026-09-22 17:22:33.8917402 -0400 EDT
+Type: alloc_objects
+Time: 2026-09-22 17:26:42 EDT
+Showing nodes accounting for 167201, 99.35% of 168303 total
+Dropped 86 nodes (cum <= 841)
+Showing top 40 nodes out of 92
+      flat  flat%   sum%        cum   cum%
+     53831 31.98% 31.98%      53831 31.98%  runtime.mallocgc
+     21845 12.98% 44.96%      21845 12.98%  strings.(*Builder).WriteString (inline)
+     20397 12.12% 57.08%      20397 12.12%  syscall.UTF16FromString
+     19595 11.64% 68.73%      24063 14.30%  syscall.FullPath
+      9363  5.56% 74.29%       9363  5.56%  os.newFileStatFromGetFileInformationByHandle
+      7646  4.54% 78.83%       7646  4.54%  runtime/pprof.allFrames
+      5462  3.25% 82.08%       5462  3.25%  os.newFile
+      5462  3.25% 85.32%       5462  3.25%  strings.(*Builder).WriteByte (inline)
+      4978  2.96% 88.28%       5133  3.05%  github.com/klauspost/compress/zstd.(*Decoder).DecodeAll
+      4681  2.78% 91.06%       4681  2.78%  os.newFileStatFromWin32FileAttributeData (inline)
+      4681  2.78% 93.84%       4681  2.78%  regexp/syntax.(*parser).newRegexp (inline)
+      4096  2.43% 96.28%       4267  2.54%  github.com/qompack/qompack/internal/store.readExactSize
+      2979  1.77% 98.05%       2979  1.77%  syscall.UTF16ToString
+      2185  1.30% 99.35%       2185  1.30%  regexp.(*Regexp).get
+         0     0% 99.35%       2191  1.30%  github.com/qompack/qompack/internal/canon.(*registry).Run
+         0     0% 99.35%       2185  1.30%  github.com/qompack/qompack/internal/canon.(*registry).collect
+         0     0% 99.35%       2185  1.30%  github.com/qompack/qompack/internal/canon.MatchesOf
+         0     0% 99.35%       2185  1.30%  github.com/qompack/qompack/internal/canon.addressesCanon.Matches
+         0     0% 99.35%       2185  1.30%  github.com/qompack/qompack/internal/canon.appendRuleSpans
+         0     0% 99.35%       4681  2.78%  github.com/qompack/qompack/internal/canon.init
+         0     0% 99.35%       2185  1.30%  github.com/qompack/qompack/internal/canon.ruleMatches
+         0     0% 99.35%       2521  1.50%  github.com/qompack/qompack/internal/paths.EnsureLayout
+         0     0% 99.35%       5461  3.24%  github.com/qompack/qompack/internal/paths.IsProtected
+         0     0% 99.35%      24063 14.30%  github.com/qompack/qompack/internal/paths.Long
+         0     0% 99.35%       5461  3.24%  github.com/qompack/qompack/internal/paths.Of
+         0     0% 99.35%       5461  3.24%  github.com/qompack/qompack/internal/paths.OpenFile
+         0     0% 99.35%       2521  1.50%  github.com/qompack/qompack/internal/paths.WriteAtomic
+         0     0% 99.35%       2521  1.50%  github.com/qompack/qompack/internal/paths.posixReplace
+         0     0% 99.35%       2521  1.50%  github.com/qompack/qompack/internal/paths.renameWithRetry
+         0     0% 99.35%       2521  1.50%  github.com/qompack/qompack/internal/paths.replace
+         0     0% 99.35%      91202 54.19%  github.com/qompack/qompack/internal/store.(*FSStore).GetChunk
+         0     0% 99.35%       8127  4.83%  github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+         0     0% 99.35%      91202 54.19%  github.com/qompack/qompack/internal/store.(*FSStore).getObject
+         0     0% 99.35%      21846 12.98%  github.com/qompack/qompack/internal/store.(*FSStore).objectCandidates
+         0     0% 99.35%       5461  3.24%  github.com/qompack/qompack/internal/store.(*FSStore).objectDir (inline)
+         0     0% 99.35%       5931  3.52%  github.com/qompack/qompack/internal/store.(*FSStore).putObject
+         0     0% 99.35%      86069 51.14%  github.com/qompack/qompack/internal/store.(*FSStore).readObjectFile
+         0     0% 99.35%       5461  3.24%  github.com/qompack/qompack/internal/store.(*FSStore).writeStaged
+         0     0% 99.35%     101874 60.53%  github.com/qompack/qompack/internal/store.BenchmarkGetChunk
+         0     0% 99.35%       5133  3.05%  github.com/qompack/qompack/internal/store.Decode

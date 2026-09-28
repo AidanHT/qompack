@@ -1,0 +1,102 @@
+// Temporary diagnostic (not part of the repository): encodes a corpus with the store's own
+// zstd settings and decodes every other version's output, to prove the v1.18.0 <-> v1.18.7
+// on-disk compatibility the store and a rollback rely on.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/klauspost/compress/zstd"
+)
+
+func corpus(repo string) map[string][]byte {
+	c := map[string][]byte{}
+	c["empty"] = nil
+	c["one"] = []byte{'x'}
+	r := rand.New(rand.NewSource(1))
+	for _, n := range []int{100, 4096, 65536, 1 << 20, 8 << 20} {
+		b := make([]byte, n)
+		r.Read(b)
+		c[fmt.Sprintf("random-%d", n)] = b
+		c[fmt.Sprintf("repeat-%d", n)] = bytes.Repeat([]byte("qompack "), n/8)
+	}
+	// 64 MiB (MaxPutBytes) mostly-compressible, plus the real source text of the repository.
+	big := make([]byte, 64<<20)
+	for i := range big {
+		big[i] = byte(i % 251)
+	}
+	c["max-64MiB"] = big
+	var src bytes.Buffer
+	_ = filepath.Walk(repo, func(p string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(p, ".go") || strings.Contains(p, ".git") {
+			return nil
+		}
+		b, _ := os.ReadFile(p)
+		c[fmt.Sprintf("src%05d", len(c))] = b
+		src.Write(b)
+		return nil
+	})
+	c["src-all"] = src.Bytes()
+	return c
+}
+
+func main() {
+	mode, tag, dir, repo := os.Args[1], os.Args[2], os.Args[3], os.Args[4]
+	enc, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedDefault), zstd.WithEncoderConcurrency(4))
+	if err != nil {
+		panic(err)
+	}
+	dec, err := zstd.NewReader(nil, zstd.WithDecoderMaxMemory(64<<20))
+	if err != nil {
+		panic(err)
+	}
+	c := corpus(repo)
+	names := make([]string, 0, len(c))
+	for k := range c {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	switch mode {
+	case "encode":
+		var total, totalZ int
+		for _, n := range names {
+			z := enc.EncodeAll(c[n], nil)
+			sum := sha256.Sum256(c[n])
+			if err := os.WriteFile(filepath.Join(dir, tag+"-"+hex.EncodeToString(sum[:8])+"-"+n+".zst"), z, 0o644); err != nil {
+				panic(err)
+			}
+			total += len(c[n])
+			totalZ += len(z)
+		}
+		fmt.Printf("%s encoded %d objects, %d plaintext bytes -> %d compressed bytes; MaxEncodedSize(64MiB)=%d\n",
+			tag, len(names), total, totalZ, enc.MaxEncodedSize(64<<20))
+	case "decode":
+		files, _ := filepath.Glob(filepath.Join(dir, "*.zst"))
+		ok, bad := 0, 0
+		for _, f := range files {
+			z, _ := os.ReadFile(f)
+			out, err := dec.DecodeAll(z, nil)
+			base := filepath.Base(f)
+			parts := strings.SplitN(base, "-", 3)
+			sum := sha256.Sum256(out)
+			if err != nil || hex.EncodeToString(sum[:8]) != parts[1] {
+				fmt.Printf("%s FAILED on %s: err=%v\n", tag, base, err)
+				bad++
+				continue
+			}
+			ok++
+		}
+		fmt.Printf("%s decoded %d objects OK, %d failed\n", tag, ok, bad)
+		if bad > 0 {
+			os.Exit(1)
+		}
+	}
+}

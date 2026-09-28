@@ -1,0 +1,39 @@
+run_id=cx-linux-daemon-race-fixed-f73b629-20260922T214809Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=f73b629
+commit=f73b629a471b853f8b2fd7fe786e6270fc261509
+bundle_sha256=76a9e9c2fa83940204fd177a8ac9fbd2c8732f1dde4cdd63548bf1cdfd0b2e6d
+host_started_utc=2026-09-22T21:48:23Z
+inner_args=--run ^(TestRunReturnsOnlyAfterAsyncStopHasFinished|TestAdminShutdownStopsTheDaemon)$ --count 100 -- ./internal/daemon
+/work/cx-linux-daemon-race-fixed-f73b629-20260922T214809Z.bundle: OK
+run_id=cx-linux-daemon-race-fixed-f73b629-20260922T214809Z
+commit=f73b629a471b853f8b2fd7fe786e6270fc261509
+tree=45f96b4cb6e7a558aaf90b2316fa419ead263452
+bundle_sha256=76a9e9c2fa83940204fd177a8ac9fbd2c8732f1dde4cdd63548bf1cdfd0b2e6d
+started_utc=2026-09-22T21:48:30Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=100 timeout=30m gomaxprocs=4 coload=0
+run=^(TestRunReturnsOnlyAfterAsyncStopHasFinished|TestAdminShutdownStopsTheDaemon)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+a race detector report was retained
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=130 fail=2 skip=0)
+    FAIL TestRunReturnsOnlyAfterAsyncStopHasFinished
+    FAIL TestRunReturnsOnlyAfterAsyncStopHasFinished
+go_test_exit=1
+a race detector report was retained
+exit=1
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/cx-linux/runs/cx-linux-daemon-race-fixed-f73b629-20260922T214809Z-artifacts
+exit=1
+exit=1

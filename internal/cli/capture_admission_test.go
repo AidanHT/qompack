@@ -71,6 +71,10 @@ func TestHookCapture_RefusesBeforeSpoolAndDaemonStart(t *testing.T) {
 		`{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}}`,
 		`{"runtime":{"redact":{"patterns":["["]}}}`,
 		`{"runtime":{"redact":{"enabled":false,"enabled":true}}}`,
+		// runtime.mode is the capture on/off switch: a setting of it the hook path cannot apply as
+		// written refuses instead of recording under the default "auto" (C1.8 review, finding 2).
+		`{"runtime":{"mode":"OFF"}}`,
+		`{"runtime":{"mode":false}}`,
 		// A gated runtime.migration switch set to true is NOT in this list any more: since finding
 		// S-7 an out-of-range VALUE clamps rather than refusing the delivery, and clamping a gate to
 		// false is the safe direction — the switch still cannot be turned on by editing a file.
@@ -84,7 +88,7 @@ func TestHookCapture_RefusesBeforeSpoolAndDaemonStart(t *testing.T) {
 			started := false
 			raw, err := json.Marshal(map[string]any{"cwd": root, "prompt": admissionSecret})
 			require.NoError(t, err)
-			err = doHook(hookSpec{op: ipc.OpObservePrompt, preSend: func(string, string, ipc.State, core.Clock) {
+			err = doHook(hookSpec{op: ipc.OpObservePrompt, preSend: func(string, string, ipc.State, core.Clock, hookBudget) {
 				started = true
 			}})(context.Background(), Env{
 				Getenv: noEnv, HomeDir: t.TempDir(), Stdin: bytes.NewReader(raw), Clock: testClock(),
@@ -184,12 +188,23 @@ func TestHookCapture_HardBoundPrecedesConfiguration(t *testing.T) {
 	reader := &countedAdmissionReader{remaining: hookCaptureMaxBytes * 2}
 	var out, errw bytes.Buffer
 	// How much of the delivery had been read when the environment was first consulted for anything
-	// other than the project root. -1 means it was never consulted at all.
+	// other than the project root and the home directory. -1 means it was never consulted at all.
 	readAtFirstLookup := -1
+	// How much had been read when the home directory was first looked up, which D18's refusal of a
+	// home-directory root does before anything else. -1 means it was never looked up.
+	readAtHomeLookup := -1
 	code := Dispatch(context.Background(), All(), argvFor("observe prompt"), Env{
 		Getenv: func(key string) string {
-			if key == "QOMPACK_PROJECT_ROOT" {
+			switch key {
+			case "QOMPACK_PROJECT_ROOT":
 				return root
+			case "HOME", "USERPROFILE":
+				// Whether the resolved root may be used at all (D18) is decided from these, like the
+				// root itself is from QOMPACK_PROJECT_ROOT: root resolution, not configuration.
+				if readAtHomeLookup < 0 {
+					readAtHomeLookup = reader.read
+				}
+				return ""
 			}
 			if readAtFirstLookup < 0 {
 				readAtFirstLookup = reader.read
@@ -203,6 +218,8 @@ func TestHookCapture_HardBoundPrecedesConfiguration(t *testing.T) {
 	require.Equal(t, hookCaptureMaxBytes+1, readAtFirstLookup,
 		"the bound had already read its last byte and refused the delivery before any configuration "+
 			"environment was scanned: the resource bound never depends on policy being available")
+	require.Equal(t, 0, readAtHomeLookup,
+		"the home-directory refusal (D18) is decided before a byte of the delivery is read")
 
 	req := onlySpooledRequest(t, root)
 	require.NotNil(t, req.Capture, "a delivery over the hard cap leaves a record, not nothing (V4-Z)")
@@ -256,7 +273,7 @@ func assertAdmissionTreeHasNoSecret(t *testing.T, root string) {
 
 // TestHookCapture_HardCapMatchesTheValidationBound keeps the two halves of finding S-2 in step.
 //
-// internal/config cannot import this package (§3.2 gives config the allow-set {core}), so the
+// internal/config cannot import this package (§3.2 gives config the allow-set {core, paths}), so the
 // validation bound it enforces on runtime.hotPath.maxPayloadBytes is a restated literal. This is the
 // only thing that would notice if one of them moved: a smaller cap here would refuse deliveries a
 // validated configuration says are legal, and a larger one would put the silent switch-off S-2

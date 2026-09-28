@@ -1,0 +1,21 @@
+run_id=cx-ingest-fix-pacedtests-race3-b88b734-20260923T030203Z
+commit=b88b734a452109cbd2a178710d50fae3cc603c27
+tree=d44c2cfa8a9ce88b2682b8ebb0154e377d50a2c6
+bundle_sha256=7ebf850ceb94e0c17a0118f988d79311dd8a3931695ff740d8c8689056c894b7
+started_utc=2026-09-23T03:02:08Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^(TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing|TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls|TestDispatchLanes_PerSessionBoundOverflowAndForget)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-23T03:02:48Z

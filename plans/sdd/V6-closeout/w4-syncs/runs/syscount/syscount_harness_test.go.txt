@@ -1,0 +1,73 @@
+package observer
+
+// Syscall-count harness for the w4-syncs report (carried defect SP08-D1). NOT part of the
+// repository's test suite: it is copied into a base and a new tree, compiled for linux/amd64 on the
+// host, and run under `strace -f` in a throwaway container (syscount.sh). The trace is cut at the
+// two marker stats below, so everything outside them — store open, sidecar writes, fixture
+// generation and one warm-up capture that stores the fixture's chunks — is setup and is not
+// counted. What is counted is QP_SYSCOUNT_N further OnToolUse calls of BenchmarkOnToolUse_
+// TestOutput256KB's fixtures, leased (the daemon's path: a capture sidecar and an ObservationID per
+// delivery) or unleased (the existing benchmark's path).
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/store"
+)
+
+func syscountMark(name string) { _, _ = os.Stat("/qompack-syscount-" + name) }
+
+func TestSyscallHarnessOnToolUse(t *testing.T) {
+	fixture := os.Getenv("QP_SYSCOUNT_FIXTURE")
+	leased := os.Getenv("QP_SYSCOUNT_LEASED") == "1"
+	n, err := strconv.Atoi(os.Getenv("QP_SYSCOUNT_N"))
+	require.NoError(t, err, "QP_SYSCOUNT_N is required")
+	var vary func(string, int) string
+	for _, f := range benchFixtures() {
+		if f.name == fixture {
+			vary = f.vary
+		}
+	}
+	require.NotNil(t, vary, "QP_SYSCOUNT_FIXTURE must name a benchFixtures entry")
+
+	raw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "corpora", "toolout", "testrunner", "go-test-rerun.txt"))
+	require.NoError(t, err)
+	out := repeatTo(string(raw), 256<<10)
+
+	r := newRdxRig(t)
+	events := make([]Event, n+1)
+	ctxs := make([]context.Context, n+1)
+	for i := range events {
+		events[i] = bashOf(fmt.Sprintf("toolu_%d", i), "go test ./...", vary(out, i))
+		ctxs[i] = context.Background()
+		if !leased {
+			continue
+		}
+		arrival := uint64(i + 1)
+		id, err := core.NewObservationID(events[i].SessionID, arrival)
+		require.NoError(t, err)
+		require.NoError(t, store.WriteCaptureSidecar(r.root, store.CaptureSidecar{
+			ObservationID: id, Session: events[i].SessionID, Arrival: arrival, Op: opObserveTool,
+			Fidelity: core.FidelityExact, Outcome: core.OutcomeOK, Bytes: []byte(events[i].ToolResponse),
+		}))
+		ctxs[i] = WithObservation(context.Background(), id)
+	}
+	_, err = r.o.OnToolUse(ctxs[0], events[0])
+	require.NoError(t, err)
+
+	syscountMark("begin")
+	for i := 1; i <= n; i++ {
+		if _, err := r.o.OnToolUse(ctxs[i], events[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	syscountMark("end")
+}

@@ -1,0 +1,3 @@
+github.com/qompack/qompack/internal/commands
+github.com/qompack/qompack/internal/cli
+github.com/qompack/qompack/test/docs

@@ -1,0 +1,51 @@
+{
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "792fa4bc184a0f7f40ab3f360c9e8ac3bd90bd5ea800d10dea6ade71d2d99518"
+  },
+  "records": [
+    "child_daemon_killed_mid_ingest",
+    "child_daemon_killed_mid_ingest",
+    "child_mcp_killed_mid_request",
+    "child_mcp_killed_mid_request",
+    "historical_checkpoint_drops_pointer",
+    "historical_checkpoint_drops_pointer",
+    "historical_object_unavailable",
+    "historical_object_unavailable",
+    "historical_resolvability_blind_to_deleted_object",
+    "historical_resolvability_blind_to_deleted_object",
+    "lifecycle_clear",
+    "lifecycle_clear",
+    "lifecycle_compaction_auto",
+    "lifecycle_compaction_auto",
+    "lifecycle_compaction_crossed",
+    "lifecycle_compaction_crossed",
+    "lifecycle_compaction_failed",
+    "lifecycle_compaction_failed",
+    "lifecycle_compaction_manual",
+    "lifecycle_compaction_manual",
+    "lifecycle_duplicate_precompact",
+    "lifecycle_duplicate_precompact",
+    "lifecycle_duplicate_tool_use",
+    "lifecycle_duplicate_tool_use",
+    "lifecycle_fork",
+    "lifecycle_fork",
+    "lifecycle_frontier_state_is_explicit",
+    "lifecycle_frontier_state_is_explicit",
+    "lifecycle_missing_turn",
+    "lifecycle_missing_turn",
+    "lifecycle_out_of_order_precompact",
+    "lifecycle_out_of_order_precompact",
+    "lifecycle_out_of_order_sessionend",
+    "lifecycle_out_of_order_sessionend",
+    "lifecycle_resume",
+    "lifecycle_resume",
+    "lifecycle_startup",
+    "lifecycle_startup"
+  ]
+}

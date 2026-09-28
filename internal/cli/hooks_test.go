@@ -248,8 +248,9 @@ func onlySpooledRequest(t *testing.T, root string) ipc.Request {
 	return req
 }
 
-// TestHookConnectDeadline pins fix round 2's Important N-2: only a non-hot-path op with its own
-// fixed spec.deadline (session-start, checkpoint, flush) gets widened to hookConnectDeadlineFloor.
+// TestHookConnectDeadline pins fix round 2's Important N-2: only a non-hot-path op (session-start,
+// checkpoint, flush) gets widened to hookConnectDeadlineFloor — the flush with no fixed deadline at
+// all since C1.15 made it fire-and-forget.
 // observe.prompt is the case the original predicate (spec.deadline > 0 alone) got wrong — it
 // carries a fixed spec.deadline (promptReplyDeadline) despite being squarely on the hot path
 // (ipc.Op.HotPath()), and must keep State.ConnectDeadlineMs's own tight budget exactly like
@@ -284,8 +285,8 @@ func TestHookConnectDeadline(t *testing.T) {
 			hookConnectDeadlineFloor,
 		},
 		{
-			"flush (not hot path, fixed deadline)",
-			hookSpec{op: ipc.OpFlush, reply: true, deadline: flushReplyDeadline},
+			"flush (not hot path, fire-and-forget since C1.15: no fixed deadline)",
+			hookSpec{op: ipc.OpFlush, reply: false},
 			hookConnectDeadlineFloor,
 		},
 	}
@@ -298,7 +299,7 @@ func TestHookConnectDeadline(t *testing.T) {
 
 	t.Run("a non-hot-path op's own State.ConnectDeadlineMs is kept when it already exceeds the floor", func(t *testing.T) {
 		roomy := ipc.State{ConnectDeadlineMs: 9000}
-		spec := hookSpec{op: ipc.OpFlush, reply: true, deadline: flushReplyDeadline}
+		spec := hookSpec{op: ipc.OpFlush, reply: false}
 		require.Equal(t, 9000*time.Millisecond, hookConnectDeadline(spec, roomy))
 	})
 }
@@ -329,7 +330,7 @@ func TestEnsureDaemonRunning_GatedOnDaemonEnabled(t *testing.T) {
 	t.Run("disabled: EnsureRunning is never attempted", func(t *testing.T) {
 		root := newRoot(t)
 
-		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: false}, testClock())
+		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: false}, testClock(), hookBudget{})
 
 		matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
 		require.NoError(t, err)
@@ -344,7 +345,7 @@ func TestEnsureDaemonRunning_GatedOnDaemonEnabled(t *testing.T) {
 	t.Run("enabled: EnsureRunning is attempted", func(t *testing.T) {
 		root := newRoot(t)
 
-		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: true}, testClock())
+		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: true}, testClock(), hookBudget{})
 
 		matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
 		require.NoError(t, err)

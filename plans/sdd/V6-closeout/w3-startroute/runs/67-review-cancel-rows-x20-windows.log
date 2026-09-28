@@ -1,0 +1,123 @@
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.10s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.06s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.08s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.05s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.06s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.05s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.06s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.05s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.06s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.06s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.05s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.28s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.06s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.06s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.05s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.06s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.07s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.07s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.06s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.07s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.06s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.08s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.07s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.08s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.07s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.08s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.06s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.07s)
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+--- PASS: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.06s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+--- PASS: TestService_BuildFailureAnswersWithTheDeferredNote (0.06s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+--- PASS: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.08s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	4.129s
+exit=0

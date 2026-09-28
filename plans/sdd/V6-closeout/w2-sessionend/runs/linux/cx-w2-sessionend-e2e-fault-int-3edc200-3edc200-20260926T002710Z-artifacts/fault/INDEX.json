@@ -1,0 +1,46 @@
+{
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "76fbd2d17c6fbddf1a6e5a9263d45d4a5c4774fc3abd6765b1fbc56ef6694af0"
+  },
+  "records": [
+    "capture_sidecar_stage_one_only",
+    "checkpoint_manifest_artifact_missing",
+    "checkpoint_manifest_digest_mismatch",
+    "checkpoint_orphan_artifact",
+    "child_daemon_killed_mid_ingest",
+    "child_mcp_killed_mid_request",
+    "client_spool_truncated",
+    "config_json_corrupt",
+    "delivery_seal_torn_slot",
+    "historical_checkpoint_drops_pointer",
+    "historical_object_unavailable",
+    "historical_resolvability_blind_to_deleted_object",
+    "lifecycle_clear",
+    "lifecycle_compaction_auto",
+    "lifecycle_compaction_crossed",
+    "lifecycle_compaction_failed",
+    "lifecycle_compaction_manual",
+    "lifecycle_duplicate_precompact",
+    "lifecycle_duplicate_tool_use",
+    "lifecycle_fork",
+    "lifecycle_frontier_state_is_explicit",
+    "lifecycle_missing_turn",
+    "lifecycle_out_of_order_precompact",
+    "lifecycle_out_of_order_sessionend",
+    "lifecycle_resume",
+    "lifecycle_startup",
+    "object_written_index_line_absent",
+    "retention_roots_truncated",
+    "roots_last_line_truncated",
+    "stale_drain_progress",
+    "state_bin_corrupt",
+    "tool_use_truncated",
+    "wal_segment_truncated"
+  ]
+}

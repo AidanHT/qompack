@@ -1,0 +1,80 @@
+# Red run: git archive 7abddc7 with internal/paths/home.go replaced by a stub that declares the D18 API
+# and does nothing (home_other.go and home_windows.go removed; the test files are the committed ones);
+# go test -count=1 -v -run '^TestIsHome_|^TestHomeDirs_|^TestRefuseHome_' ./internal/paths/
+=== RUN   TestIsHome_TheHomeDirectoryItselfIsHome
+    home_test.go:34: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/paths-red-7abddc7/internal/paths/home_test.go:34
+        	Error:      	Should be true
+        	Test:       	TestIsHome_TheHomeDirectoryItselfIsHome
+        	Messages:   	the home directory, spelled as given
+--- FAIL: TestIsHome_TheHomeDirectoryItselfIsHome (0.00s)
+=== RUN   TestIsHome_ARelativeSpellingOfHomeIsHome
+    home_test.go:46: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/paths-red-7abddc7/internal/paths/home_test.go:46
+        	Error:      	Should be true
+        	Test:       	TestIsHome_ARelativeSpellingOfHomeIsHome
+        	Messages:   	`--project .` typed in the home directory names the home directory
+--- FAIL: TestIsHome_ARelativeSpellingOfHomeIsHome (0.00s)
+=== RUN   TestIsHome_EverythingElseIsNotHome
+=== RUN   TestIsHome_EverythingElseIsNotHome/a_project_below_home
+=== RUN   TestIsHome_EverythingElseIsNotHome/the_directory_above_home
+=== RUN   TestIsHome_EverythingElseIsNotHome/a_sibling_of_home
+=== RUN   TestIsHome_EverythingElseIsNotHome/the_user-global_layer_itself
+=== RUN   TestIsHome_EverythingElseIsNotHome/no_root_resolved
+=== RUN   TestIsHome_EverythingElseIsNotHome/no_home_known
+=== RUN   TestIsHome_EverythingElseIsNotHome/only_empty_home_candidates
+=== RUN   TestIsHome_EverythingElseIsNotHome/a_root_that_does_not_exist
+--- PASS: TestIsHome_EverythingElseIsNotHome (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/a_project_below_home (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/the_directory_above_home (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/a_sibling_of_home (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/the_user-global_layer_itself (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/no_root_resolved (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/no_home_known (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/only_empty_home_candidates (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/a_root_that_does_not_exist (0.00s)
+=== RUN   TestIsHome_ARelativeHomeCandidateIsIgnored
+--- PASS: TestIsHome_ARelativeHomeCandidateIsIgnored (0.00s)
+=== RUN   TestIsHome_ALinkToHomeIsHome
+    home_test.go:95: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/paths-red-7abddc7/internal/paths/home_test.go:95
+        	Error:      	Should be true
+        	Test:       	TestIsHome_ALinkToHomeIsHome
+        	Messages:   	a link to home, asked about with the real home
+--- FAIL: TestIsHome_ALinkToHomeIsHome (0.04s)
+=== RUN   TestRefuseHome_NamesTheRootAndWrapsTheSentinel
+    home_test.go:108: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/paths-red-7abddc7/internal/paths/home_test.go:108
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestRefuseHome_NamesTheRootAndWrapsTheSentinel
+--- FAIL: TestRefuseHome_NamesTheRootAndWrapsTheSentinel (0.00s)
+=== RUN   TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach
+    home_test.go:121: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/paths-red-7abddc7/internal/paths/home_test.go:121
+        	Error:      	Not equal: 
+        	            	expected: []string{"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach905191994\\001\\a", "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach905191994\\002\\b"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,5 +1,2 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=93) "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach905191994\\001\\a",
+        	            	- (string) (len=93) "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach905191994\\002\\b"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach
+--- FAIL: TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach (0.00s)
+=== RUN   TestIsHome_ACaseVariantOfHomeIsHomeOnWindows
+    home_windows_test.go:19: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/paths-red-7abddc7/internal/paths/home_windows_test.go:19
+        	Error:      	Should be true
+        	Test:       	TestIsHome_ACaseVariantOfHomeIsHomeOnWindows
+        	Messages:   	an upper-case spelling of home
+--- FAIL: TestIsHome_ACaseVariantOfHomeIsHomeOnWindows (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.254s
+FAIL
+exit=1

@@ -8,8 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -81,14 +79,6 @@ func budgetHistName(id obs.BudgetID) string {
 	}
 	return ""
 }
-
-// spawnLockName is the file lazySpawn takes inside <root>/.qompack/run to serialize detached
-// daemon spawns across concurrently-running hook clients.
-const spawnLockName = "spawn.lock"
-
-// spawnLockStaleAfter is how old an unclaimed spawn.lock has to be before a later client assumes
-// the spawn attempt it recorded never finished and retries.
-const spawnLockStaleAfter = 10 * time.Second
 
 // blobFilePrefix, blobFileExt and blobField name the client-side externalization scheme: an
 // oversized Event.ToolResponse is written to <spoolDir>/blob-<pid>-<n>.bin, and the request that
@@ -499,10 +489,14 @@ func (c *client) Close() error {
 
 // lazySpawn launches a detached daemon at most once per client, and only when Self and Spawn are
 // both configured and ProjectRoot is non-empty (the lock path is derived from it, so there is
-// nowhere to take the lock without it). It is guarded by <root>/.qompack/run/spawn.lock so concurrently-spawning
-// clients do not race: the first to create the lock file spawns; a second client within
-// spawnLockStaleAfter of that file's own recorded timestamp assumes a spawn is already underway
-// and does nothing; past that staleness window, the lock is presumed abandoned and reclaimed.
+// nowhere to take the lock without it). It follows ClaimSpawn's rule, the one every spawner of the
+// project's daemon shares — session-start's EnsureRunning included: only a spawner that claims
+// <root>/.qompack/run/spawn.lock spawns; a claim younger than spawnLockStaleAfter means a spawn is
+// already underway and this client does nothing; an older one is presumed abandoned and reclaimed.
+// A lock that cannot be taken for any other reason makes this client give up quietly — among them a
+// project root that is the home directory, for which ClaimSpawn takes no claim (D18), so this
+// client creates nothing under ~/.qompack and spawns nothing for it. A spawn that fails to start
+// releases its claim, so it holds no later spawner off.
 // The spawning client never waits for the daemon it launched — this method itself is called only
 // from a failure path that is about to spool and return.
 func (c *client) lazySpawn() {
@@ -510,61 +504,12 @@ func (c *client) lazySpawn() {
 		return
 	}
 	c.spawnOnce.Do(func() {
-		runDir := paths.Of(c.o.ProjectRoot).Run
-		lockPath := filepath.Join(runDir, spawnLockName)
-		content := []byte(strconv.FormatInt(c.o.Clock.Now().UnixMilli(), 10))
-
-		// A client that reaches lazySpawn may be the very first process to ever touch this
-		// project's .qompack tree (a cold daemon means nothing has run session-start yet), so
-		// run/ cannot be assumed to exist the way it would once a daemon has started once.
-		if err := os.MkdirAll(paths.Long(runDir), dirPerm); err != nil {
+		lock, claim := ClaimSpawn(c.o.ProjectRoot, c.o.Clock)
+		if claim != SpawnClaimed {
 			return
 		}
-
-		if err := paths.CreateNew(lockPath, content); err != nil {
-			if !os.IsExist(err) {
-				return // could not take the lock for a reason other than contention: give up quietly
-			}
-			if !spawnLockIsStale(lockPath, c.o.Clock) {
-				return // another client is already spawning
-			}
-			removeSpawnLock(lockPath)
-			if err := paths.CreateNew(lockPath, content); err != nil {
-				return // lost the retry race; someone else is spawning now
-			}
+		if err := c.o.Spawn(c.o.ProjectRoot, c.o.Self); err != nil {
+			lock.Release()
 		}
-		_ = c.o.Spawn(c.o.ProjectRoot, c.o.Self)
 	})
-}
-
-// spawnLockIsStale reports whether the spawn.lock at lockPath was written more than
-// spawnLockStaleAfter ago. An unreadable or unparseable lock is treated as stale rather than
-// blocking lazy spawn forever on a file this process cannot make sense of.
-//
-// The read goes through paths.ReadFileShared, not os.ReadFile, because spawn.lock has a deleter in
-// ANOTHER process: the daemon a client spawned removes run/spawn.lock as soon as it is listening
-// (daemon.removeSpawnLockFile, task-5-spec.md Run step 3), and removeSpawnLock below does the same
-// from a competing client. An os.ReadFile handle carries no FILE_SHARE_DELETE, so on Windows a
-// client sitting in this staleness check makes that delete fail with ERROR_SHARING_VIOLATION —
-// leaving behind a spawn.lock that suppresses every later lazySpawn until it ages out of
-// spawnLockStaleAfter. ReadFileShared grants delete sharing, so the daemon's cleanup lands. Its
-// errors keep os.ReadFile's shape, and this function collapses all of them to "stale" regardless.
-func spawnLockIsStale(lockPath string, clk core.Clock) bool {
-	b, err := paths.ReadFileShared(lockPath)
-	if err != nil {
-		return true
-	}
-	ms, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64)
-	if err != nil {
-		return true
-	}
-	return clk.Now().Sub(time.UnixMilli(ms)) > spawnLockStaleAfter
-}
-
-// removeSpawnLock deletes a stale spawn.lock. paths.CreateNew marks its file read-only
-// (0o444/FILE_ATTRIBUTE_READONLY) once written, which on Windows blocks DeleteFile outright, so
-// the mode is cleared first — harmless on POSIX, where file permissions never gate an unlink.
-func removeSpawnLock(lockPath string) {
-	_ = os.Chmod(paths.Long(lockPath), 0o600)
-	_ = os.Remove(paths.Long(lockPath))
 }

@@ -1,0 +1,7 @@
+github.com/qompack/qompack/internal/paths
+github.com/qompack/qompack/internal/pins
+github.com/qompack/qompack/internal/negknow
+github.com/qompack/qompack/internal/checkpoint
+github.com/qompack/qompack/internal/store
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/internal/cli

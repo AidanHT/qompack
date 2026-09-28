@@ -1,0 +1,12 @@
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+--- PASS: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (3.54s)
+=== RUN   TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+--- PASS: TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished (3.35s)
+=== RUN   TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft
+--- PASS: TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft (2.32s)
+=== RUN   TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached
+--- PASS: TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached (2.33s)
+=== RUN   TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine
+--- PASS: TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesALine (2.29s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	14.041s

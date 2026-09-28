@@ -1,0 +1,419 @@
+# run 'full-touched-b763d72': go test in C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config (b763d72, status: 7 changed paths)
+# (The 7 changed paths are untracked evidence under plans/sdd/V6-closeout/w6-config/runs only; no tracked file differed from b763d72. Co-loaded host: the Linux gate for b763d72 and other workstreams ran at the same time.)
+# (test/e2e: Windows Defender quarantined the freshly built qompack.exe as Trojan:Win32/Bearfoos.B!ml at 15:54 and 15:57 local, first the bench build during TestV3_HotPathUnchangedWithLedgerResident's 1,741st spawn, then the e2e build; every later e2e case failed with "the file contains a virus or potentially unwanted software". Get-MpThreatDetection shows the same family hitting Qompack builds on 2026-09-21. See runs/63 for the e2e re-run.)
+# poisoned fake real home: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w6\config\s3\fakehome-full-touched-b763d72; HOME, USERPROFILE, QOMPACK_HOME, CLAUDE_CONFIG_DIR point into it; GOPATH=C:\Users\Quant\go GOMODCACHE=C:\Users\Quant\go\pkg\mod GOCACHE=C:\Users\Quant\AppData\Local\go-build GOENV=C:\Users\Quant\AppData\Roaming\go\env pinned
+store-scoped poisoned factor: 1.6
+# poisoned files:
+{"checkpoint":{"budgetTokens":4242},"runtime":{"mode":"off"}}
+{"5a900888758b":1.6}
+{"permissions":{"deny":["Read(./**)"]}}
+# snapshot before:
+.claude d
+.claude/settings.json f 39 1790537188 1782a660312d0b4334ab699b34cc4e8928cc78ca517da20d69a224f0693a26b3
+.qompack d
+.qompack/calibration.json f 20 1790537188 c9b94b567a8e10fbf6d58dd0004a6903fe99453604f612351e837281d1ee3d50
+.qompack/config.json f 61 1790537188 2cc93be31c257948859c78c46c3763a1f139d2bc3a4cf5f1dd9b701703759f04
+.qompack/tmp d
+# started 2026-09-27T19:26:29Z: go test -p 3 -count=1 -timeout=60m ./internal/analyzer ./internal/analyzer/analyzertest ./internal/canon ./internal/checkpoint ./internal/checkpoint/checkpointtest ./internal/chunk ./internal/cli ./internal/commands ./internal/config ./internal/contract ./internal/contract/contracttest ./internal/daemon ./internal/eval ./internal/eval/evaltest ./internal/hostperm ./internal/ipc ./internal/ipc/ipctest ./internal/mcp ./internal/mcp/mcptest ./internal/negknow ./internal/negknow/negknowtest ./internal/observer ./internal/observer/observertest ./internal/paths ./internal/paths/pathstest ./internal/pins ./internal/redact ./internal/rehydrate ./internal/rehydrate/rehydratetest ./internal/sketch ./internal/store ./internal/store/storetest ./internal/testutil ./internal/tokens ./internal/tokens/tokenstest ./test/bench/hotpath ./test/canary ./test/e2e ./test/fault ./test/guards ./test/integration ./test/platform ./test/release ./test/replay ./test/replay/l3policy ./test/security ./tools/devtool
+ok  	github.com/qompack/qompack/internal/analyzer	9.872s
+ok  	github.com/qompack/qompack/internal/analyzer/analyzertest	1.559s
+ok  	github.com/qompack/qompack/internal/canon	18.975s
+ok  	github.com/qompack/qompack/internal/checkpoint	104.411s
+ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	2.157s
+ok  	github.com/qompack/qompack/internal/chunk	5.413s
+ok  	github.com/qompack/qompack/internal/cli	50.245s
+ok  	github.com/qompack/qompack/internal/commands	2.417s
+ok  	github.com/qompack/qompack/internal/config	34.726s
+ok  	github.com/qompack/qompack/internal/contract	6.038s
+ok  	github.com/qompack/qompack/internal/contract/contracttest	1.631s
+ok  	github.com/qompack/qompack/internal/daemon	375.823s
+ok  	github.com/qompack/qompack/internal/eval	2.964s
+ok  	github.com/qompack/qompack/internal/eval/evaltest	1.156s
+ok  	github.com/qompack/qompack/internal/hostperm	3.136s
+ok  	github.com/qompack/qompack/internal/ipc	26.059s
+ok  	github.com/qompack/qompack/internal/ipc/ipctest	1.738s
+ok  	github.com/qompack/qompack/internal/mcp	190.268s
+ok  	github.com/qompack/qompack/internal/mcp/mcptest	1.778s
+ok  	github.com/qompack/qompack/internal/negknow	35.832s
+ok  	github.com/qompack/qompack/internal/negknow/negknowtest	2.709s
+ok  	github.com/qompack/qompack/internal/observer	153.199s
+ok  	github.com/qompack/qompack/internal/observer/observertest	3.287s
+ok  	github.com/qompack/qompack/internal/paths	9.164s
+ok  	github.com/qompack/qompack/internal/paths/pathstest	1.240s
+ok  	github.com/qompack/qompack/internal/pins	3.605s
+ok  	github.com/qompack/qompack/internal/redact	1.700s
+ok  	github.com/qompack/qompack/internal/rehydrate	2.327s
+ok  	github.com/qompack/qompack/internal/rehydrate/rehydratetest	1.830s
+ok  	github.com/qompack/qompack/internal/sketch	3.629s
+ok  	github.com/qompack/qompack/internal/store	386.552s
+ok  	github.com/qompack/qompack/internal/store/storetest	2.389s
+ok  	github.com/qompack/qompack/internal/testutil	6.227s
+ok  	github.com/qompack/qompack/internal/tokens	8.583s
+ok  	github.com/qompack/qompack/internal/tokens/tokenstest	1.109s
+ok  	github.com/qompack/qompack/test/bench/hotpath	1.525s
+ok  	github.com/qompack/qompack/test/canary	5.662s
+--- FAIL: TestV3_HotPathUnchangedWithLedgerResident (510.73s)
+    v3_x11_test.go:431: X11 resident state: ToolUses=2000 RawBytes=43120000 (41.1 MB) StoredBytes=3682837 DedupRatio=11.71; DAG Nodes=9041 Edges=17920; ledger Active=5000 Stale=0 FillRatio=0.306 tried.bloom=24056B
+    v3_x11_test.go:483: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-1954943002\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-72076-28e988fb5ff8ffbd)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+    v3_x11_test.go:487: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/e2e/v3_x11_test.go:487
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestV3_HotPathUnchangedWithLedgerResident
+        	Messages:   	bench-hotpath exited non-zero with the observer and the 5 000-elimination ledger resident (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<15ms and B-E's wall row p99<2000ms) breached, or the harness itself failed
+        	            	stderr:
+        	            	hotpath: hotpath: spawn #1741 (qompack observe tool): fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-1954943002\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        	            	
+--- FAIL: TestV4_T13HandleResolvesAfterCompactionOverStdio (2.03s)
+    v4_t13_handle_stdio_test.go:72: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (1.67s)
+    v4_x01_test.go:91: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_SchedulerFiresBeforeTheSimulatedStockThreshold (1.68s)
+    v4_x02_test.go:115: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_O1SpanInstructionFromARealCheckpointFrontier (1.68s)
+    v4_x03_test.go:71: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_TombstoneToRecallToExpandRoundTrip (1.98s)
+    v4_x05_test.go:88: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction (1.68s)
+    v4_x06_test.go:79: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint (1.98s)
+    v4_x08_test.go:70: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_WhyAndDroppedAnswerFromRealProducers (1.69s)
+    v4_x10_test.go:48: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_LiveSessionWriteSetAppendOnlyAndImmutability (1.70s)
+    v4_x11_test.go:51: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_DegradedPassiveWithEverySubsystem (1.96s)
+    v4_x12_test.go:62: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (1.96s)
+    v4_x13_test.go:868: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV4_EveryContractAssertionHasARealProducer (1.69s)
+    v4_x14_test.go:75: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV5_ObserveToStatusRoundTrip (1.55s)
+    v5_x01_test.go:366: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (1.56s)
+    v5_x02_test.go:468: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV5_HookEventToTombstoneToRetrievalAfterRestart (1.98s)
+    v5_x03_test.go:396: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip (7.56s)
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (2.21s)
+        v5_x04_test.go:426: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (2.23s)
+        v5_x04_test.go:508: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (3.12s)
+        v5_x04_test.go:555: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+--- FAIL: TestV5_EliminationThroughEveryFourSurfaces (3.75s)
+    --- FAIL: TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces (1.51s)
+        v5_x05_test.go:389: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+--- FAIL: TestV5_SelectorGatedByRealScheduler (3.48s)
+    v5_x06_test.go:212: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        stderr:
+--- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint (7.58s)
+    --- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/selected_complete_records_reach_item3 (1.89s)
+        v5_x07_test.go:282: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/explicit_overflow_reaches_item7 (1.85s)
+        v5_x07_test.go:342: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/negative_control_operator_switch_off (2.12s)
+        v5_x07_test.go:371: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/negative_control_gate_closed (1.72s)
+        v5_x07_test.go:398: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+--- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (3.86s)
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule (1.69s)
+        v5_x10_test.go:393: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/degraded_passive_records_the_loop_and_says_nothing_until_restored (2.11s)
+        v5_x10_test.go:478: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [status --json]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself (0.05s)
+        v5_x10_test.go:562: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [config print --json]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+--- FAIL: TestV5_EveryContractAssertionHasARealProducer (5.34s)
+    --- FAIL: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence (1.69s)
+        v5_x14_test.go:311: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud (1.69s)
+        v5_x14_test.go:459: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set (1.96s)
+        v5_x14_test.go:519: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+--- FAIL: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent (6.34s)
+    --- FAIL: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/full_reference (1.55s)
+        v5_x15_test.go:359: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+            stderr:
+    --- FAIL: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/degraded (1.60s)
+        v5_x15_test.go:396: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [observe tool]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: The system cannot find the file specified.
+            stderr:
+    --- FAIL: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/daemon_disabled (1.59s)
+        v5_x15_test.go:564: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [status --json]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: The system cannot find the file specified.
+            stderr:
+    --- FAIL: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/admission_switch_refused (0.05s)
+        v5_x15_test.go:605: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [config print --json]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: The system cannot find the file specified.
+            stderr:
+    --- FAIL: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/config_corrupt_refuses_capture (1.55s)
+        v5_x15_test.go:661: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [observe tool]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: The system cannot find the file specified.
+            stderr:
+--- FAIL: TestV5_NoPackageWritesOutsideDotQompack (3.48s)
+    --- FAIL: TestV5_NoPackageWritesOutsideDotQompack/ComposedDaemon (1.76s)
+        v5_x16_test.go:315: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: The system cannot find the file specified.
+            stderr:
+    --- FAIL: TestV5_NoPackageWritesOutsideDotQompack/ShippedDaemon (1.58s)
+        v5_x16_test.go:401: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [session-start]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: The system cannot find the file specified.
+            stderr:
+    --- FAIL: TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_DirectedImportIsOutsideAndSeen (0.08s)
+        v5_x16_test.go:468: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [eval import --from C:\Users\Quant\AppData\Local\Temp\TestV5_NoPackageWritesOutsideDotQompackNegativeControl_Directed1203137503\001\transcripts --to C:\Users\Quant\AppData\Local\Temp\TestV5_NoPackageWritesOutsideDotQompackNegativeControl_Directed1203137503\001\directed-sessions]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: The system cannot find the file specified.
+            stderr:
+    --- FAIL: TestV5_NoPackageWritesOutsideDotQompack/NegativeControl_SeveredWritersStayConfined (0.07s)
+        v5_x16_test.go:512: e2e: could not run C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe [observe tool]: fork/exec C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1826804820\qompack.exe: The system cannot find the file specified.
+            stderr:
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	1534.031s
+ok  	github.com/qompack/qompack/test/fault	615.427s
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.24s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP06-D2 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+            	Messages:   	SP06-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  the PutBytes cold and warm budgets (3 ms / 400 us) are 5.2x and 14.1x over on Windows at V5 (15.74 / 5.65 ms, cold allocations up 28 % since the wave-3 baseline) and have never been measured on the reference platform
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+            	Messages:   	SP08-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  OnToolUse over a 256 KB tool result breaches budget B-C (l0_process, p99 < 50 ms): 53-115 ms on Qompack.md 8.1's own one-changed-line case and 262-655 ms when every chunk is novel, dominated by store.PutBytes's per-novel-chunk object-write path
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP10-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+            	Messages:   	SP10-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  Finalize measures 42.8-43.8 ms/op at 170-208 % processor performance but 64-73 ms/op at 128 % and at base clock on Windows against exit criterion 1570's 50 ms after perf(checkpoint) 72f3226 removed the paths.Norm share (264-284 ms before), and the reference platform has never been measured
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-10-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP09-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+            	Messages:   	SP09-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  negknow Open measures 258-273 ms CPU/op at 120 % processor performance but 586-633 ms at 55 % on Windows against its 300 ms budget, so the budget holds on this host only at turbo clocks, and the reference platform has never been measured
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP20-D2 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+            	Messages:   	SP20-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  verify-on-read (16ecc77) adds an Lstat, an fstat and a content hash of the plaintext to every object read, so GetChunk measures 85-88 us/op (26 allocs) against the 60 us budget where the wave-3 baseline read 45 us (18 allocs), and Search_1000Roots, which reads every candidate chunk through the same path, 82 ms against 25 ms where the baseline read 45-52 ms; OpenSpan_4KB_of_4MB (19 -> 27 allocs) stays inside its 150 us at turbo but reads 316-333 us at base clock
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D3 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+            	Messages:   	SP08-D3 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  V6 worker capture restores spooled prompts and original publication intents, preserves distinct equal-text deliveries, and orders leased same-session replay; focused recovery and instrumented Linux crash-replay cases pass on identified snapshots, while final candidate packaged recovery and acceptance remain outstanding
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	160.357s
+--- FAIL: TestIntegration_HotPathWarmWithRealResidentState (361.55s)
+    hotpath_test.go:654: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:664: §4.6 resident sketch set on disk: tried.bloom=12072B touch.cms=54474B explore.hll=2102B
+    hotpath_test.go:768: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-3223908044\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-32252-cbfa9af3bafc071c)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+        hotpath: measuring B-E (50 x qompack checkpoint)...
+        hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+        
+        hotpath bench summary (windows/amd64, n=2000)
+          spawn floor: p50=25.205ms p99=41.010ms (n=200)
+          b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+        
+          B-A                 n=1536  p50=  40.960ms p95=  49.152ms p99= 163.840ms p999= 327.680ms max=  343.000ms limit=15.000ms   [FAIL]
+          B-B                 n=1536  p50=  24.576ms p95=  30.720ms p99= 147.456ms p999= 327.680ms max=  324.198ms limit=50.000ms   [FAIL]
+          B-D                 n=2000  p50=  65.795ms p95= 110.588ms p99= 205.089ms p999= 988.392ms max= 1689.504ms limit=n/a        [reported]
+          B-E                 n=50    p50= 407.819ms p95=1373.355ms p99=3186.281ms p999=3186.281ms max= 3186.281ms limit=2000.000ms [FAIL]
+          B-E_cpu             n=50    p50=  31.250ms p95=  46.875ms p99=  62.500ms p999=  62.500ms max=   62.500ms limit=2000.000ms [PASS]
+          B-A_spawn_estimate  n=2000  p50=  40.590ms p95=  85.382ms p99= 179.883ms p999= 963.187ms max= 1664.299ms limit=n/a        [reported]
+          hook_ack_rtt        n=64    p50=   0.000ms p95=   0.000ms p99=   0.538ms p999=   0.538ms max=    0.538ms limit=n/a        [reported]
+        
+          note: B-C not measured in wave 1: the processing seams are stubs
+          note: delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped
+          note: B-A's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+          note: B-B's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+          note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=6.144ms p99=15.360ms n=1536 — informational cross-check against the gated B-A row above, which adds the tail allowance
+          note: B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+          note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+        
+    hotpath_test.go:770: bench artifact C:\Users\Quant\AppData\Local\Temp\TestIntegration_HotPathWarmWithRealResidentState300773582\003\v2-bench-hotpath.json:
+        {
+          "platform": "windows/amd64",
+          "n": 2000,
+          "b_a_method": "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)",
+          "spawn_floor_ms": {
+            "n": 200,
+            "p50": 25.205,
+            "p99": 41.01
+          },
+          "notes": [
+            "B-C not measured in wave 1: the processing seams are stubs",
+            "delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped",
+            "B-A's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+            "B-B's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+            "hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=6.144ms p99=15.360ms n=1536 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+            "B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
+            "B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)"
+          ],
+          "budgets": [
+            {
+              "budget_id": "B-A",
+              "n": 1536,
+              "p50": 40.96,
+              "p95": 49.152,
+              "p99": 163.84,
+              "p999": 327.68,
+              "max": 343,
+              "limit_ms": 15,
+              "pass": false
+            },
+            {
+              "budget_id": "B-B",
+              "n": 1536,
+              "p50": 24.576,
+              "p95": 30.72,
+              "p99": 147.456,
+              "p999": 327.68,
+              "max": 324.198,
+              "limit_ms": 50,
+              "pass": false
+            },
+            {
+              "budget_id": "B-D",
+              "n": 2000,
+              "p50": 65.795,
+              "p95": 110.588,
+              "p99": 205.089,
+              "p999": 988.392,
+              "max": 1689.504,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-E",
+              "n": 50,
+              "p50": 407.819,
+              "p95": 1373.355,
+              "p99": 3186.281,
+              "p999": 3186.281,
+              "max": 3186.281,
+              "limit_ms": 2000,
+              "pass": false
+            },
+            {
+              "budget_id": "B-E_cpu",
+              "n": 50,
+              "p50": 31.25,
+              "p95": 46.875,
+              "p99": 62.5,
+              "p999": 62.5,
+              "max": 62.5,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-A_spawn_estimate",
+              "n": 2000,
+              "p50": 40.59,
+              "p95": 85.382,
+              "p99": 179.883,
+              "p999": 963.187,
+              "max": 1664.299,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "hook_ack_rtt",
+              "n": 64,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.538,
+              "p999": 0.538,
+              "max": 0.538,
+              "limit_ms": null,
+              "pass": null
+            }
+          ]
+        }
+    hotpath_test.go:772: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/integration/hotpath_test.go:772
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestIntegration_HotPathWarmWithRealResidentState
+        	Messages:   	bench-hotpath exited non-zero (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<15ms and B-E's wall row p99<2000ms) breached against the real resident state, or the harness itself failed (its own delivery-integrity guard included)
+        	            	stderr:
+        	            	hotpath: a gated budget breached its limit — see the summary above
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	861.151s
+ok  	github.com/qompack/qompack/test/platform	57.953s
+ok  	github.com/qompack/qompack/test/release	16.451s
+ok  	github.com/qompack/qompack/test/replay	18.751s
+ok  	github.com/qompack/qompack/test/replay/l3policy	1.587s
+ok  	github.com/qompack/qompack/test/security	76.937s
+ok  	github.com/qompack/qompack/tools/devtool	165.170s
+FAIL
+# finished 2026-09-27T19:58:51Z
+go-test-exit=1
+# fake real home .qompack/.claude diff (before -> after); empty means untouched:
+diff-exit=0

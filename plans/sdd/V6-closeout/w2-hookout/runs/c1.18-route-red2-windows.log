@@ -1,0 +1,49 @@
+=== RUN   TestCheckpointRoute_SealsWithoutRenderingOrRecordingAnInstruction
+    checkpoint_retired_instr_test.go:45: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/daemon/checkpoint_retired_instr_test.go:45
+        	Error:      	Not equal: 
+        	            	expected: hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(nil), SystemMessage:""}
+        	            	actual  : hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(0xc40e3a67b0), SystemMessage:""}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -3,3 +3,7 @@
+        	            	  SuppressOutput: (*bool)(<nil>),
+        	            	- HookSpecificOutput: (*hookio.HSO)(<nil>),
+        	            	+ HookSpecificOutput: (*hookio.HSO)({
+        	            	+  HookEventName: (string) (len=10) "PreCompact",
+        	            	+  AdditionalContext: (string) "",
+        	            	+  CustomInstructions: (string) (len=787) "Encode what a competent engineer with no session history would get wrong. Do not restate file contents, directory structure, or command output — those are retrievable. Prioritise: intent, decisions and their rationale, approaches eliminated and why, and constraints discovered empirically.\n\nA durable checkpoint (`.qompack/checkpoints/0001.json`) fully covers the session through turn 3, including all decisions, eliminations, and file state up to that point. Do not re-summarize that material. Summarize only what happened after turn 3: new decisions, new eliminations, new intent, current work.\n\nDo not include code snippets: every file named above is available by path and hash through the qompack checkpoint, and a pointer costs roughly 20 tokens where a snippet costs roughly 500."
+        	            	+ }),
+        	            	  SystemMessage: (string) ""
+        	Test:       	TestCheckpointRoute_SealsWithoutRenderingOrRecordingAnInstruction
+        	Messages:   	the checkpoint route answers the empty object: there is no instruction for any hop to carry
+--- FAIL: TestCheckpointRoute_SealsWithoutRenderingOrRecordingAnInstruction (0.27s)
+=== RUN   TestCheckpointRoute_AnswersEmptyWhateverTheSeamReturns
+    checkpoint_retired_instr_test.go:96: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-hookout/internal/daemon/checkpoint_retired_instr_test.go:96
+        	Error:      	Not equal: 
+        	            	expected: hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(nil), SystemMessage:""}
+        	            	actual  : hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(0xc40e3a6660), SystemMessage:"a banner the host discards for PreCompact"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -3,4 +3,8 @@
+        	            	  SuppressOutput: (*bool)(<nil>),
+        	            	- HookSpecificOutput: (*hookio.HSO)(<nil>),
+        	            	- SystemMessage: (string) ""
+        	            	+ HookSpecificOutput: (*hookio.HSO)({
+        	            	+  HookEventName: (string) (len=10) "PreCompact",
+        	            	+  AdditionalContext: (string) "",
+        	            	+  CustomInstructions: (string) (len=73) "Encode what a competent engineer with no session history would get wrong."
+        	            	+ }),
+        	            	+ SystemMessage: (string) (len=41) "a banner the host discards for PreCompact"
+        	            	 }
+        	Test:       	TestCheckpointRoute_AnswersEmptyWhateverTheSeamReturns
+        	Messages:   	the route never relays a PreCompact seam's Output
+--- FAIL: TestCheckpointRoute_AnswersEmptyWhateverTheSeamReturns (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.640s
+FAIL

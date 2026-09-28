@@ -1,0 +1,9 @@
+## readMarker through paths.ReadFileShared
+## go test ./internal/contract -run '^(TestReadMarker_ReadsThroughAReplaceStillFinishing|TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence)$' -count=1 -v
+=== RUN   TestReadMarker_ReadsThroughAReplaceStillFinishing
+--- PASS: TestReadMarker_ReadsThroughAReplaceStillFinishing (0.02s)
+=== RUN   TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence
+--- PASS: TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/contract	1.193s
+exit=0

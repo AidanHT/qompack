@@ -1,0 +1,16 @@
+# failing-test output extracted from /work/cx-ingest-a98bf9c-20260923T000523Z-e2e-fault-artifacts/test.jsonl
+=== RUN   TestE2E_ObserverThroughDaemon
+    observer_e2e_test.go:213: 
+        	Error Trace:	/work/cx-ingest-a98bf9c-20260923T000523Z-e2e-fault/test/e2e/observer_e2e_test.go:213
+        	Error:      	Condition never satisfied
+        	Test:       	TestE2E_ObserverThroughDaemon
+        	Messages:   	index/tool_use.jsonl never reached 44 lines: index holds 43 lines; undrained client spool [client-53680.ndjson client-53685.ndjson client-53691.ndjson client-53697.ndjson client-53705.ndjson client-53713.ndjson client-53718.ndjson client-53723.ndjson client-53730.ndjson client-53745.ndjson client-53750.ndjson client-53757.ndjson client-53762.ndjson client-53767.ndjson client-53772.ndjson client-53777.ndjson client-53783.ndjson client-53789.ndjson client-53794.ndjson client-53800.ndjson client-53805.ndjson client-53810.ndjson client-53815.ndjson client-53820.ndjson client-53825.ndjson client-53830.ndjson client-53835.ndjson client-53841.ndjson client-53846.ndjson client-53852.ndjson client-53861.ndjson client-53868.ndjson client-53878.ndjson client-53886.ndjson client-53896.ndjson client-53901.ndjson client-53912.ndjson client-53923.ndjson client-53929.ndjson client-53934.ndjson client-53939.ndjson client-53945.ndjson client-53950.ndjson client-53955.ndjson], so at least one event degraded to the spool and this waited on the 30s idle-tick drain
+--- FAIL: TestE2E_ObserverThroughDaemon (75.56s)
+=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+    v3_x10_test.go:463: 
+        	Error Trace:	/work/cx-ingest-a98bf9c-20260923T000523Z-e2e-fault/test/e2e/v3_x10_test.go:224
+        	            				/work/cx-ingest-a98bf9c-20260923T000523Z-e2e-fault/test/e2e/v3_x10_test.go:463
+        	Error:      	Condition never satisfied
+        	Test:       	TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently
+        	Messages:   	control run: index/tool_use.jsonl never reached 50 lines (have 1)
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (151.59s)

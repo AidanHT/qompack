@@ -1,0 +1,343 @@
+{
+  "platform": "windows/amd64",
+  "go_version": "go1.26.6",
+  "gomaxprocs": 22,
+  "num_cpu": 22,
+  "deliveries": 210000,
+  "workers": 8,
+  "rollover_entries": 65536,
+  "rollover_bytes": 67108864,
+  "lease_ms": {
+    "max": 5092.603,
+    "n": 210000,
+    "p50": 21.195,
+    "p90": 32.779,
+    "p99": 68.715,
+    "p999": 195.414
+  },
+  "ack_ms": {
+    "max": 5149.877,
+    "n": 210000,
+    "p50": 21.286,
+    "p90": 32.462,
+    "p99": 63.126,
+    "p999": 202.567
+  },
+  "lease_ms_segment0": {
+    "max": 578.728,
+    "n": 65536,
+    "p50": 21.994,
+    "p90": 35.446,
+    "p99": 84.362,
+    "p999": 244.996
+  },
+  "lease_ms_after_first_rotation": {
+    "max": 5092.603,
+    "n": 144460,
+    "p50": 20.817,
+    "p90": 31.985,
+    "p99": 52.304,
+    "p999": 183.088
+  },
+  "rotations": [
+    {
+      "from_segment": 0,
+      "to_segment": 1,
+      "operation": "lease",
+      "seconds": 3.781189,
+      "at_delivery": 65540
+    },
+    {
+      "from_segment": 0,
+      "to_segment": 1,
+      "operation": "ack",
+      "seconds": 3.8850207,
+      "at_delivery": 65540
+    },
+    {
+      "from_segment": 0,
+      "to_segment": 1,
+      "operation": "ack",
+      "seconds": 3.8855494,
+      "at_delivery": 65541
+    },
+    {
+      "from_segment": 0,
+      "to_segment": 1,
+      "operation": "ack",
+      "seconds": 3.8855494,
+      "at_delivery": 65542
+    },
+    {
+      "from_segment": 0,
+      "to_segment": 1,
+      "operation": "ack",
+      "seconds": 3.8855494,
+      "at_delivery": 65543
+    },
+    {
+      "from_segment": 0,
+      "to_segment": 1,
+      "operation": "lease",
+      "seconds": 3.9011171,
+      "at_delivery": 65544
+    },
+    {
+      "from_segment": 0,
+      "to_segment": 1,
+      "operation": "lease",
+      "seconds": 3.9181512,
+      "at_delivery": 65544
+    },
+    {
+      "from_segment": 0,
+      "to_segment": 1,
+      "operation": "lease",
+      "seconds": 3.9181512,
+      "at_delivery": 65544
+    },
+    {
+      "from_segment": 1,
+      "to_segment": 2,
+      "operation": "lease",
+      "seconds": 5.0583462,
+      "at_delivery": 131075
+    },
+    {
+      "from_segment": 1,
+      "to_segment": 2,
+      "operation": "lease",
+      "seconds": 5.0616168,
+      "at_delivery": 131075
+    },
+    {
+      "from_segment": 1,
+      "to_segment": 2,
+      "operation": "lease",
+      "seconds": 5.0926036,
+      "at_delivery": 131075
+    },
+    {
+      "from_segment": 1,
+      "to_segment": 2,
+      "operation": "ack",
+      "seconds": 5.1493299,
+      "at_delivery": 131075
+    },
+    {
+      "from_segment": 1,
+      "to_segment": 2,
+      "operation": "ack",
+      "seconds": 5.149877,
+      "at_delivery": 131075
+    },
+    {
+      "from_segment": 1,
+      "to_segment": 2,
+      "operation": "ack",
+      "seconds": 5.149877,
+      "at_delivery": 131075
+    },
+    {
+      "from_segment": 1,
+      "to_segment": 2,
+      "operation": "ack",
+      "seconds": 5.149877,
+      "at_delivery": 131075
+    },
+    {
+      "from_segment": 1,
+      "to_segment": 2,
+      "operation": "ack",
+      "seconds": 5.149877,
+      "at_delivery": 131079
+    },
+    {
+      "from_segment": 2,
+      "to_segment": 3,
+      "operation": "lease",
+      "seconds": 4.3989411,
+      "at_delivery": 196611
+    },
+    {
+      "from_segment": 2,
+      "to_segment": 3,
+      "operation": "ack",
+      "seconds": 4.4850549,
+      "at_delivery": 196611
+    },
+    {
+      "from_segment": 2,
+      "to_segment": 3,
+      "operation": "ack",
+      "seconds": 4.4850549,
+      "at_delivery": 196611
+    },
+    {
+      "from_segment": 2,
+      "to_segment": 3,
+      "operation": "ack",
+      "seconds": 4.4850549,
+      "at_delivery": 196613
+    },
+    {
+      "from_segment": 2,
+      "to_segment": 3,
+      "operation": "ack",
+      "seconds": 4.4850549,
+      "at_delivery": 196614
+    },
+    {
+      "from_segment": 2,
+      "to_segment": 3,
+      "operation": "ack",
+      "seconds": 4.4850549,
+      "at_delivery": 196615
+    },
+    {
+      "from_segment": 2,
+      "to_segment": 3,
+      "operation": "lease",
+      "seconds": 4.4938451,
+      "at_delivery": 196616
+    },
+    {
+      "from_segment": 2,
+      "to_segment": 3,
+      "operation": "lease",
+      "seconds": 4.5081589,
+      "at_delivery": 196616
+    }
+  ],
+  "checkpoints": [
+    {
+      "deliveries": 0,
+      "segment": 0,
+      "generations": 0,
+      "journal_bytes": 65840,
+      "journal_files": 6,
+      "generation_bytes": 0,
+      "generation_files": 1,
+      "other_state_bytes": 0,
+      "live_heap_mib_after_gc": 2.5810470581054688,
+      "elapsed_seconds": 0.001611,
+      "journal_mib": 0.0627899169921875,
+      "generation_mib": 0,
+      "total_state_mib": 0.0627899169921875,
+      "state_mib_per_100k_deliveries": 0,
+      "gc_pass_seconds": 0,
+      "gc_pass_heap_rise_mib": 0,
+      "gc_pass_completed": false,
+      "gc_pass_halted_by_retention": false,
+      "gc_pass_roots": 0
+    },
+    {
+      "deliveries": 50000,
+      "segment": 0,
+      "generations": 0,
+      "journal_bytes": 28354404,
+      "journal_files": 6,
+      "generation_bytes": 0,
+      "generation_files": 1,
+      "other_state_bytes": 0,
+      "live_heap_mib_after_gc": 24.28417205810547,
+      "elapsed_seconds": 280.64465,
+      "journal_mib": 27.04086685180664,
+      "generation_mib": 0,
+      "total_state_mib": 27.04086685180664,
+      "state_mib_per_100k_deliveries": 54.08173370361328,
+      "gc_pass_seconds": 0.8744282,
+      "gc_pass_heap_rise_mib": 51.7265625,
+      "gc_pass_completed": true,
+      "gc_pass_halted_by_retention": false,
+      "gc_pass_roots": 0
+    },
+    {
+      "deliveries": 100000,
+      "segment": 1,
+      "generations": 17,
+      "journal_bytes": 56678548,
+      "journal_files": 11,
+      "generation_bytes": 82682087,
+      "generation_files": 36,
+      "other_state_bytes": 768,
+      "live_heap_mib_after_gc": 37.49391174316406,
+      "elapsed_seconds": 627.2218721,
+      "journal_mib": 54.05287551879883,
+      "generation_mib": 78.85178279876709,
+      "total_state_mib": 132.90539073944092,
+      "state_mib_per_100k_deliveries": 132.90539073944092,
+      "gc_pass_seconds": 0.4300714,
+      "gc_pass_heap_rise_mib": 41.734375,
+      "gc_pass_completed": true,
+      "gc_pass_halted_by_retention": false,
+      "gc_pass_roots": 0
+    },
+    {
+      "deliveries": 150000,
+      "segment": 2,
+      "generations": 38,
+      "journal_bytes": 85097314,
+      "journal_files": 16,
+      "generation_bytes": 183109600,
+      "generation_files": 78,
+      "other_state_bytes": 768,
+      "live_heap_mib_after_gc": 32.818458557128906,
+      "elapsed_seconds": 916.4303641,
+      "journal_mib": 81.15512275695801,
+      "generation_mib": 174.62692260742188,
+      "total_state_mib": 255.78277778625488,
+      "state_mib_per_100k_deliveries": 170.52185185750326,
+      "gc_pass_seconds": 0.3084443,
+      "gc_pass_heap_rise_mib": 27.609375,
+      "gc_pass_completed": true,
+      "gc_pass_halted_by_retention": false,
+      "gc_pass_roots": 0
+    },
+    {
+      "deliveries": 200000,
+      "segment": 3,
+      "generations": 59,
+      "journal_bytes": 113517625,
+      "journal_files": 21,
+      "generation_bytes": 295124576,
+      "generation_files": 120,
+      "other_state_bytes": 768,
+      "live_heap_mib_after_gc": 28.3818359375,
+      "elapsed_seconds": 1174.944791,
+      "journal_mib": 108.25884342193604,
+      "generation_mib": 281.4527282714844,
+      "total_state_mib": 389.7123041152954,
+      "state_mib_per_100k_deliveries": 194.8561520576477,
+      "gc_pass_seconds": 0.1437067,
+      "gc_pass_heap_rise_mib": 4.5234375,
+      "gc_pass_completed": true,
+      "gc_pass_halted_by_retention": false,
+      "gc_pass_roots": 0
+    },
+    {
+      "deliveries": 210000,
+      "segment": 3,
+      "generations": 59,
+      "journal_bytes": 119191237,
+      "journal_files": 21,
+      "generation_bytes": 295124576,
+      "generation_files": 120,
+      "other_state_bytes": 768,
+      "live_heap_mib_after_gc": 32.5267333984375,
+      "elapsed_seconds": 1228.071161,
+      "journal_mib": 113.66962146759033,
+      "generation_mib": 281.4527282714844,
+      "total_state_mib": 395.1230821609497,
+      "state_mib_per_100k_deliveries": 188.1538486480713,
+      "gc_pass_seconds": 0.1649941,
+      "gc_pass_heap_rise_mib": 17.2890625,
+      "gc_pass_completed": true,
+      "gc_pass_halted_by_retention": false,
+      "gc_pass_roots": 0
+    }
+  ],
+  "peak_heap_in_use_mib": 235.09375,
+  "peak_sys_mib": 287.73656463623047,
+  "wall_seconds": 1228.3047632
+}

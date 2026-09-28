@@ -1,0 +1,8 @@
+Windows BenchmarkFinalize ABBA, 6 rounds, -test.benchtime 5x, head 312e15a vs base f6095e2(+benches) test binaries
+round 1: base 266.3 ms/op, head 215.1 ms/op, head/base 0.808
+round 2: base 160.0 ms/op, head 156.4 ms/op, head/base 0.978
+round 3: base 106.9 ms/op, head 132.2 ms/op, head/base 1.236
+round 4: base 181.4 ms/op, head 125.3 ms/op, head/base 0.691
+round 5: base 152.5 ms/op, head 123.7 ms/op, head/base 0.811
+round 6: base 115.6 ms/op, head 134.3 ms/op, head/base 1.162
+geo-mean head/base 0.927; head slower 2/6; exact two-sided sign test p=0.688

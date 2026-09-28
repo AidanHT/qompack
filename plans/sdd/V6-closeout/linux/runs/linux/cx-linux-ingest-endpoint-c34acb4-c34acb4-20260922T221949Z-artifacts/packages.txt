@@ -1,0 +1,3 @@
+github.com/qompack/qompack/test/integration
+github.com/qompack/qompack/test/security
+github.com/qompack/qompack/test/fault

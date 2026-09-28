@@ -439,16 +439,16 @@ func x10v5FullModeArm(t *testing.T) {
 		"every echoed prompt is still captured verbatim — suppression is about the grammar, not recording")
 
 	// ── The checkpoint: the warning lands on no durable surface ──────────────────────────────────
-	cpOut, instr := r.PreCompact(t, x10v5Session)
-	require.NotNil(t, cpOut.HookSpecificOutput, "in ModeFull the PreCompact seam answers through hookSpecificOutput")
-	require.NotEmpty(t, instr, "a full-mode PreCompact emits customInstructions")
+	// Criterion change (C1.18): the route's reply used to carry a focus instruction this row held
+	// free of the warning. The instruction is retired — no host accepts one — so the reply is the
+	// empty object, and the sealed checkpoint is the durable surface the warning must stay off.
+	cpRequireNoInstructionReply(t, r.PreCompactReply(t, x10v5Session))
 	require.Equal(t, []string{"0001.json"}, cpCheckpointArtifacts(t, p.Root), "exactly one artifact must be sealed")
 	x4RequireManifestVerifies(t, p.Root)
 	raw, err := os.ReadFile(paths.Long(paths.CheckpointPath(paths.Of(p.Root), x10v5SealedSeq)))
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), x10v5WarningPrefix,
 		"a warning is transient by design: the sealed checkpoint must not carry it")
-	require.NotContains(t, instr, x10v5WarningPrefix, "nor may the PreCompact instructions")
 	require.Zero(t, x10v5EliminationLines(t, p.Root),
 		"opening the ledger on the first PreCompact must not have turned the warning into a record")
 	// testutil's append-only probe seeds checkpoints/0001.json itself, so it belongs to the arm

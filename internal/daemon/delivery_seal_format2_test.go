@@ -63,6 +63,18 @@ func ackSealFileOf(t *testing.T, root string) []byte {
 	return readTestFile(t, filepath.Join(paths.Of(root).State, deliveryAckPositionFile))
 }
 
+// unwritableSealPath returns a seal path that no WriteAtomic can create, on any OS: its directory
+// would have to be made where a regular file already stands. A merely missing directory is not
+// enough. WriteAtomic stages a path that no store owns beside itself and makes that directory
+// first, as it always did when no .qompack sat above the path. These fixtures only failed while its
+// walk also accepted an ancestor store the path was not inside.
+func unwritableSealPath(t *testing.T, root string) string {
+	t.Helper()
+	blocker := filepath.Join(root, "not-a-directory")
+	require.NoError(t, os.WriteFile(blocker, []byte("a regular file where the seal's directory would be"), 0o600))
+	return filepath.Join(blocker, deliveryPositionFile)
+}
+
 // requireSealsPosition asserts that file is a v2 image whose effective record seals exactly
 // (size, count, chain) for the journal named by domain and seed.
 func requireSealsPosition(
@@ -780,7 +792,7 @@ func TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases(t *testing.T) {
 
 	sealed := sealFileOf(t, root)
 	require.True(t, isDeliverySealImage(sealed), "the lease seal is a held v2 image before the release")
-	journal.seal.path = filepath.Join(root, "no-such-directory", deliveryPositionFile)
+	journal.seal.path = unwritableSealPath(t, root)
 
 	require.NoError(t, lock.Release(), "a failed downgrade never blocks the release of ownership")
 
@@ -843,9 +855,9 @@ func TestDeliverySeal_AResidualReachesTheOperatorFromStop(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, journal.seal)
 
-		// The same failure the accessor test builds: a downgrade pointed at a directory that does
-		// not exist, which every OS refuses identically.
-		journal.seal.path = filepath.Join(root, "no-such-directory", deliveryPositionFile)
+		// The same failure the accessor test builds: a downgrade pointed at a path whose directory
+		// cannot be made, which every OS refuses identically.
+		journal.seal.path = unwritableSealPath(t, root)
 
 		log := newRecordingLogger()
 		dd := newStoppableTestDaemon(t, root, log)

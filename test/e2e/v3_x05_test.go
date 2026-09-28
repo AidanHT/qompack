@@ -32,6 +32,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/eval"
 	"github.com/qompack/qompack/internal/negknow"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/testutil"
 	"github.com/stretchr/testify/require"
@@ -67,11 +68,6 @@ const (
 	x5ExitGateFailed = 1
 	x5MaxCPU         = "2m"
 )
-
-// x5InitialEnv is the process environment before any test's t.Setenv mutated it.
-// testutil.NewProject points HOME and USERPROFILE at a temp dir, and a `go build` inheriting that
-// would resolve the module cache under an empty temp home.
-var x5InitialEnv = os.Environ()
 
 // x5Elimination is one deterministic active elimination. Targets are DISTINCT per index so no
 // record is identity-deduped, and Evidence is non-zero because Appendix C's requireEvidence
@@ -173,7 +169,9 @@ func x5BuildReplayDriver(t *testing.T) string {
 	}
 	cmd := exec.Command("go", "build", "-o", out, "./test/replay")
 	cmd.Dir = root
-	cmd.Env = x5InitialEnv
+	// pathstest.Environ, not the live environment: testutil.NewProject points HOME and USERPROFILE at
+	// a temp dir with t.Setenv, and the child should see neither that nor the real home.
+	cmd.Env = pathstest.Environ()
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	require.NoError(t, cmd.Run(), "go build -o %s ./test/replay:\n%s", out, stderr.String())
@@ -205,8 +203,8 @@ func x5RunReplayGate(t *testing.T, bin, sketchFile string) (code int, stdout, st
 		"--sketch", sketchFile,
 	)
 	cmd.Dir = root
-	// os/exec keeps the LAST value for a duplicated key, so these three override x5InitialEnv's.
-	env := append([]string{}, x5InitialEnv...)
+	// os/exec keeps the LAST value for a duplicated key, so these three override pathstest.Environ's.
+	env := pathstest.Environ()
 	env = append(env,
 		"HOME="+dir,
 		"USERPROFILE="+dir,

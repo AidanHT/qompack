@@ -1,0 +1,10 @@
+run_id=cx-w2-lifetime-w2-touched-race-3e86409-20260925T221851Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime
+rev=HEAD
+commit=3e86409c56da3648cc884fc0fb672e7a11756277
+bundle_sha256=5fb7161dbd5505b9833cd6a868cf637a804f590eda51a05ce0a14d34dd47398e
+host_started_utc=2026-09-25T22:18:56Z
+inner_args=-- ./internal/daemon ./internal/cli ./internal/ipc
+host_finished_utc=2026-09-25T22:36:14Z
+container_exit=0

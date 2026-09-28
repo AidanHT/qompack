@@ -1,0 +1,81 @@
+diff --git a/test/fault/fault.go b/test/fault/fault.go
+index 321fe53..122c990 100644
+--- a/test/fault/fault.go
++++ b/test/fault/fault.go
+@@ -290,7 +290,7 @@ const childWaitDelay = 5 * time.Second
+ 
+ // slowChildNotice is the elapsed time past which one invocation is logged with its duration. It is
+ // diagnostics, never an assertion: this package makes no timing claim at all.
+-const slowChildNotice = 5 * time.Second
++const slowChildNotice = 0 // DIAG
+ 
+ // clearedEnvPrefixes are the variable families a child of this package must not inherit from
+ // whoever launched the test binary. An ambient fault-injection switch would silently change what
+@@ -1101,12 +1101,16 @@ func recoverSession(t *testing.T, b bundle, p project, sess core.SessionID) bool
+ 
+ 	writeProjectFile(t, p, "src/gamma.ts", seedContent("gamma", 40))
+ 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "startup"))
++	diag0 := time.Now()
+ 	up := waitDaemonUp(t, p.Root)
++	t.Logf("DIAG recover: waitDaemonUp=%v took %s", up, time.Since(diag0).Round(time.Millisecond))
+ 
+ 	id := toolUseID(name, 1)
+ 	runHook(t, b.Bin, p, []string{"observe", "tool"},
+ 		readToolPayload(t, p.Root, sess, id, "src/gamma.ts", seedContent("gamma", 40)))
++	diag1 := time.Now()
+ 	indexed := up && waitIndexed(t, p.Root, id, indexBound)
++	t.Logf("DIAG recover: indexed=%v took %s", indexed, time.Since(diag1).Round(time.Millisecond))
+ 
+ 	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+ 	return indexed
+diff --git a/test/fault/publication_test.go b/test/fault/publication_test.go
+index 845d766..f3c5b72 100644
+--- a/test/fault/publication_test.go
++++ b/test/fault/publication_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"fmt"
+ 	"strings"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/qompack/qompack/internal/core"
+ )
+@@ -84,6 +85,7 @@ func runBoundary(t *testing.T, b bundle, row boundaryRow) {
+ 	t.Helper()
+ 
+ 	p := newProject(t, "proj")
++	t.Logf("DIAG phase: start at %s", time.Now().Format("15:04:05.000"))
+ 	t.Cleanup(func() {
+ 		shutdownIfReachable(t, p.Root)
+ 		requireNoOrphan(t, p.Root)
+@@ -116,7 +118,9 @@ func runBoundary(t *testing.T, b bundle, row boundaryRow) {
+ 	shutdownIfReachable(t, p.Root)
+ 	before := auditProject(t, p.Root)
+ 
++	t.Logf("DIAG phase: pre-cut done at %s", time.Now().Format("15:04:05.000"))
+ 	desc, skip := row.Cut(t, b, p, sess)
++	t.Logf("DIAG phase: cut done at %s", time.Now().Format("15:04:05.000"))
+ 	if skip != "" {
+ 		skipRecorded(t, rec, skip)
+ 		return
+@@ -125,9 +129,12 @@ func runBoundary(t *testing.T, b bundle, row boundaryRow) {
+ 
+ 	// Recover: session-start + tool events + flush, with the daemon restarted and LEFT UP.
+ 	recording := recoverSession(t, b, p, sessionID(row.Name+"-r"))
++	t.Logf("DIAG phase: recover done at %s", time.Now().Format("15:04:05.000"))
+ 	all := degradationSince(baseline, snapshotDegradation(t, b, p))
+ 	ev := namingEvidence(t, all, row.Names)
++	t.Logf("DIAG phase: snapshot done at %s", time.Now().Format("15:04:05.000"))
+ 	shutdownIfReachable(t, p.Root)
++	t.Logf("DIAG phase: shutdown done at %s", time.Now().Format("15:04:05.000"))
+ 	rec.Detail += "\neverything the surfaces gained: " + all.String() +
+ 		"\nof which naming this cut (" + strings.Join(row.Names, ", ") + "): " + ev.String()
+ 
+@@ -141,6 +148,7 @@ func runBoundary(t *testing.T, b bundle, row boundaryRow) {
+ 		rec.Detail += "\nnote (INFERENCE, not a measurement): " + row.Note
+ 	}
+ 
++	t.Logf("DIAG phase: audit done at %s", time.Now().Format("15:04:05.000"))
+ 	judgeRecovery(t, rec, before, after, recording, ev, row.Owner, row.Known)
+ }
+ 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +18,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -405,12 +407,63 @@ func TestDoctor_ReportsTheThreePluginRootOutcomes(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			name += ".exe"
 		}
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "bin", name), []byte("binary"), 0o600))
+		// 0o700: the host spawns this file directly (exec form), so on linux/darwin it resolves only
+		// with an execute bit. Windows has none to set; the next subtest covers the difference.
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "bin", name), []byte("binary"), 0o700))
 
 		row := doctorFindRow(t, run(t, dir), "version", "version.pluginRoot")
 		require.Equal(t, "ok", row["status"], "row=%v", row)
 		require.Contains(t, row["observed"], "resolves")
 	})
+
+	// C7.5 leaves open whether the host keeps bin/qompack's 0755 when it extracts a release zip on
+	// linux/darwin, and docs/install.md §9 names `chmod +x` as the workaround. A binary that is there
+	// but carries no execute bit fails every hook exactly as a missing one does, so on a POSIX host
+	// the row must say so rather than "resolves". Windows spawns a .exe by its extension and os.Stat
+	// reports no execute bit there at all, so the same file is fine on windows.
+	t.Run("set, present, not executable", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "bin"), 0o700))
+		name := "qompack"
+		if runtime.GOOS == "windows" {
+			name += ".exe"
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "bin", name), []byte("binary"), 0o600))
+
+		row := doctorFindRow(t, run(t, dir), "version", "version.pluginRoot")
+		if runtime.GOOS == "windows" {
+			require.Equal(t, "ok", row["status"], "row=%v", row)
+			return
+		}
+		require.Equal(t, "degraded", row["status"], "row=%v", row)
+		require.Contains(t, row["observed"], "not executable")
+		require.Contains(t, row["detail"], "chmod +x", "the row names the workaround")
+	})
+}
+
+// TestPluginBinaryExecutable pins the rule the "not executable" row applies, for both kinds of host,
+// on whichever one runs the suite: the doctor subtest above can only exercise its own OS's branch.
+func TestPluginBinaryExecutable(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		goos string
+		mode os.FileMode
+		want bool
+	}{
+		{"linux", 0o755, true},
+		{"linux", 0o700, true},
+		{"linux", 0o644, false},
+		{"linux", 0o600, false},
+		{"darwin", 0o755, true},
+		{"darwin", 0o444, false},
+		{"windows", 0o666, true}, // what os.Stat reports for a writable file on windows
+		{"windows", 0o444, true}, // and for a read-only one; neither has an execute bit to read
+	} {
+		require.Equal(t, tc.want, pluginBinaryExecutable(tc.goos, tc.mode), "%s %v", tc.goos, tc.mode)
+	}
 }
 
 // TestDoctor_AnUnreadableSpoolIsItsOwnRow is fix round 2's finding N-4.
@@ -483,4 +536,108 @@ func TestDoctor_ReportsTheSegmentsTheProjectHolds(t *testing.T) {
 	require.Contains(t, observed, "3 segment(s)",
 		"doctor reports the segments the log holds, never a confident zero; stderr=%s", errw)
 	require.NotContains(t, observed, "0 segment(s)")
+}
+
+// persistDaemonCounters writes metrics/latency.json the way the daemon's obs.Registry.Persist does,
+// holding exactly these counters.
+func persistDaemonCounters(t *testing.T, root string, counters map[string]int64) {
+	t.Helper()
+	reg := obs.New(testClock())
+	for name, n := range counters {
+		reg.Counter(name).Add(n)
+	}
+	require.NoError(t, reg.Persist(paths.Of(root)))
+}
+
+func writeSegmentHead(t *testing.T, root string, active uint64) {
+	t.Helper()
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(paths.Of(root).State, "delivery-journal.json")),
+		[]byte(fmt.Sprintf(`{"v":1,"format":"qompack.delivery.segments.v1","seq":%d,"active":%d}`, active, active)),
+		0o600))
+}
+
+// TestDoctor_ReportsDeliveryRollover pins the delivery.rollover row owner decision D6 asked for: it
+// says whether the store has rotated (the downgrade boundary), carries the last daemon's rotation
+// counters, and is degraded only by a failed rotation or a GC pass halted on the carry bound — never
+// by the pause D6 accepted.
+func TestDoctor_ReportsDeliveryRollover(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nothing recorded", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		_, doc, errw := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorUnknown, row["status"], "stderr=%s", errw)
+		require.Equal(t, "no segment authority; no persisted daemon counters", row["observed"])
+		require.Contains(t, row["detail"], "unknown rather than zero")
+	})
+
+	t.Run("rotated with pauses only", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		writeSegmentHead(t, p.Root, 3)
+		persistDaemonCounters(t, p.Root, map[string]int64{
+			daemon.CounterDeliveryRotations: 3, daemon.CounterDeliveryRotationPauseMS: 12345,
+		})
+		_, doc, errw := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorOK, row["status"], "a pause is accepted, not degraded; stderr=%s", errw)
+		require.Equal(t, "rotated 3 time(s), segment 3 active; last daemon: 3 rotation(s), 12345 ms paused, "+
+			"0 failed, 0 GC pass(es) halted on the carry bound", row["observed"])
+		require.Contains(t, row["detail"], "docs/backup.md")
+	})
+
+	t.Run("never rotated, first rotation advised", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		writeSegmentHead(t, p.Root, 0)
+		persistDaemonCounters(t, p.Root, map[string]int64{daemon.CounterDeliveryFirstRotationBackupAdvised: 1})
+		_, doc, _ := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorOK, row["status"])
+		observed, _ := row["observed"].(string)
+		require.True(t, strings.HasPrefix(observed, "never rotated; "), observed)
+		require.Contains(t, row["detail"], "first rotation is near")
+	})
+
+	t.Run("failed rotation on the carry bound", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		writeSegmentHead(t, p.Root, 2)
+		persistDaemonCounters(t, p.Root, map[string]int64{
+			daemon.CounterDeliveryRotations: 1, daemon.CounterDeliveryRotationFailures: 1,
+			daemon.CounterDeliveryRotationCarryOverBound: 1,
+		})
+		_, doc, _ := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorDegraded, row["status"])
+		require.Contains(t, row["observed"], "1 failed")
+		require.Contains(t, row["detail"], "64 MiB bound")
+	})
+
+	t.Run("gc halted on the carry bound", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		writeSegmentHead(t, p.Root, 5)
+		persistDaemonCounters(t, p.Root, map[string]int64{store.CounterGCDeliveryCarryOverBound: 2})
+		_, doc, _ := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorDegraded, row["status"])
+		require.Contains(t, row["observed"], "2 GC pass(es) halted on the carry bound")
+	})
+
+	t.Run("unreadable head", func(t *testing.T) {
+		t.Parallel()
+		p := seedFsckProject(t)
+		require.NoError(t, os.WriteFile(paths.Long(filepath.Join(paths.Of(p.Root).State, "delivery-journal.json")),
+			[]byte("{torn"), 0o600))
+		_, doc, _ := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "delivery.rollover")
+		require.Equal(t, doctorUnknown, row["status"])
+		observed, isText := row["observed"].(string)
+		require.True(t, isText)
+		require.True(t, strings.HasPrefix(observed, "segment authority head unreadable"), observed)
+		require.Contains(t, row["detail"], "could not be read")
+	})
 }

@@ -1,0 +1,4 @@
+go_test_exit=1
+the source tree changed during the run
+a race detector report was retained
+exit=1

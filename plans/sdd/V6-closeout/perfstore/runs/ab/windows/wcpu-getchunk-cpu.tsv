@@ -1,0 +1,18 @@
+﻿round	variant	wall_s	user_s	kernel_s	cpu_total_s	bench_line
+1	basebench2	5.03	1.062	3.141	4.203	BenchmarkGetChunk-22    	   20000	    215549 ns/op	   22823 B/op	      22 allocs/op
+1	final2	2.901	0.953	1.469	2.422	BenchmarkGetChunk-22    	   20000	    113170 ns/op	   19746 B/op	       9 allocs/op
+2	final2	2.773	0.984	1.516	2.5	BenchmarkGetChunk-22    	   20000	    118117 ns/op	   19810 B/op	       9 allocs/op
+2	basebench2	4.818	1.594	2.719	4.312	BenchmarkGetChunk-22    	   20000	    216791 ns/op	   22557 B/op	      22 allocs/op
+3	basebench2	4.28	1.562	2.672	4.234	BenchmarkGetChunk-22    	   20000	    187049 ns/op	   22989 B/op	      22 allocs/op
+3	final2	3.004	0.844	1.359	2.203	BenchmarkGetChunk-22    	   20000	    104334 ns/op	   19788 B/op	       9 allocs/op
+4	final2	2.665	1.047	1.141	2.188	BenchmarkGetChunk-22    	   20000	     99647 ns/op	   19804 B/op	       9 allocs/op
+4	basebench2	6.059	1.469	3.594	5.062	BenchmarkGetChunk-22    	   20000	    271155 ns/op	   23178 B/op	      22 allocs/op
+5	basebench2	6.124	1.781	3.453	5.234	BenchmarkGetChunk-22    	   20000	    247877 ns/op	   23011 B/op	      22 allocs/op
+5	final2	2.403	0.891	1.172	2.062	BenchmarkGetChunk-22    	   20000	     98513 ns/op	   19773 B/op	       9 allocs/op
+6	final2	2.394	0.781	1.141	1.922	BenchmarkGetChunk-22    	   20000	     90800 ns/op	   19754 B/op	       9 allocs/op
+6	basebench2	4.335	1.406	2.766	4.172	BenchmarkGetChunk-22    	   20000	    181012 ns/op	   22994 B/op	      22 allocs/op
+7	basebench2	5.103	1.75	3.312	5.062	BenchmarkGetChunk-22    	   20000	    233618 ns/op	   23115 B/op	      22 allocs/op
+7	final2	3.792	1.156	1.562	2.719	BenchmarkGetChunk-22    	   20000	    139717 ns/op	   19829 B/op	       9 allocs/op
+8	final2	3.892	0.844	1.375	2.219	BenchmarkGetChunk-22    	   20000	    117888 ns/op	   19710 B/op	       9 allocs/op
+8	basebench2	17.839	2.312	4.109	6.422	BenchmarkGetChunk-22    	   20000	    550153 ns/op	   22909 B/op	      22 allocs/op
+done

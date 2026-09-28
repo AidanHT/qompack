@@ -1,0 +1,16 @@
+# MUTATION M1 (temporary, reverted): SyncPublication replaces its first directory (a fanout leaf) with a second fsync of objects/; the per-pass count is unchanged
+# go test ./internal/store -run '^(TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce|TestSyncPublication_SyncsEachDirectoryOncePerPass)$' -count=1 -v
+=== RUN   TestSyncPublication_SyncsEachDirectoryOncePerPass
+    publication_barriers_test.go:79: closure: 87 objects in 87 leaves under 74 fanouts; 163 directory fsyncs per pass (262 at three per object)
+--- PASS: TestSyncPublication_SyncsEachDirectoryOncePerPass (2.62s)
+=== RUN   TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce
+    publication_barriers_test.go:143: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-dirsync/internal/store/publication_barriers_test.go:143
+        	Error:      	Should be false
+        	Test:       	TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce
+        	Messages:   	pass 1: C:\Users\Quant\AppData\Local\Temp\TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce1165793874\001\project\.qompack\objects is fsynced twice
+--- FAIL: TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce (2.37s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	5.257s
+FAIL
+go_test_exit=1

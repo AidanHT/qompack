@@ -12,13 +12,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sharedReader names one production function that MUST take its handle through
-// paths.ReadFileShared / paths.OpenShared rather than os.ReadFile / os.Open.
+// sharedReader names one function that MUST take its handle through paths.ReadFileShared /
+// paths.OpenShared rather than os.ReadFile / os.Open: a production reader, or a test helper (under
+// test/ or internal/testutil) that polls a file a live daemon is replacing or deleting.
 //
 // The list is an inventory, not a pattern: "reads a file some other process replaces or deletes
 // while this one is live" is a judgement about the file, and there is no syntax that carries it.
 // Adding a row is the deliberate act of making that judgement; the guard's job is only to stop the
 // answer silently reverting afterwards.
+//
+// For product code the inventory is complete, not a sample: productreads_test.go's ordinaryReads
+// classifies every other product function that opens a file the ordinary way, and
+// TestGuard_EveryProductReadIsClassified fails on any product open that is in neither list.
+//
+// A test helper earns a row when its read can break the product write it is waiting for. The
+// daemon's replace fails while the helper's ordinary handle is open, nothing retries it, and the
+// helper's wait then times out on a write its own read prevented: a load-sensitive red with no
+// product defect behind it.
 type sharedReader struct {
 	file  string // module-relative, slash-separated
 	fn    string // FuncDecl name; the receiver, if any, is ignored
@@ -43,10 +53,33 @@ var sharedReaders = []sharedReader{
 		why:   "Lock.Release's os.Remove, the last act of a daemon shutdown, and removeLockFiles' reclaim of a stale lock",
 	},
 	{
-		file:  "internal/ipc/client.go",
-		fn:    "spawnLockIsStale",
+		file:  "internal/ipc/spawnlock.go",
+		fn:    "readSpawnLock",
 		holds: "run/spawn.lock",
-		why:   "daemon.removeSpawnLockFile, which deletes the lock from the spawned daemon's own process once it is listening",
+		why: "daemon.removeSpawnLockFile, which deletes the lock from the spawned daemon's own process once it " +
+			"is listening; a competing spawner's reclaim of a stale lock; and daemon.removeSpawnClaim from " +
+			"Lock.Release, which gives the claim back from daemon.lock's holder's process as it lets go " +
+			"(the winning daemon, the daemon command's writer lease, fsck, delivery-seal; D27)",
+	},
+	{
+		file:  "internal/ipc/spawnlock.go",
+		fn:    "removeSpawnLockIf",
+		holds: "run/spawn.lock",
+		why: "the same three deleters (removeSpawnLockFile, the stale reclaim, and Lock.Release's " +
+			"removeSpawnClaim, D27): it reads the lock to check the claim is still the one it means to remove",
+	},
+	{
+		file:  "internal/daemon/spawn_stage.go",
+		fn:    "verifyStagedThen",
+		holds: "~/.qompack/bin/<sha256>/qompack.exe, a staged copy",
+		why: "another spawner's copyStaged, whose os.Rename installs the copy and holds the renamed file with " +
+			"DELETE access until MoveFileEx closes its handle: an ordinary handle opened in that window is " +
+			"refused with ERROR_SHARING_VIOLATION, so a losing spawner read a correct copy as a failed install " +
+			"and its first check removed that copy as tampered (w8-stagerace, " +
+			"TestStageBinary_VerifiesACopyItsRenamerStillHolds). stageBinary's removal of a copy that failed " +
+			"verification and pruneStaged's removal of other builds' copies are its removers, and may land " +
+			"while it hashes: stillFiledAt then refuses the hash " +
+			"(TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed)",
 	},
 	{
 		file:  "internal/contract/monitor.go",
@@ -61,10 +94,58 @@ var sharedReaders = []sharedReader{
 		why:   "SaveHistory's paths.WriteAtomic, which this lock-free pair leaves free to overlap a load",
 	},
 	{
+		file:  "internal/rehydrate/drops.go",
+		fn:    "CurrentDrops",
+		holds: "state/rehydrate-<session>.json",
+		why: "the rehydrate service's Record, whose paths.WriteAtomic replaces the file just after a " +
+			"compact SessionStart has answered (C1.16). The MCP dropped tool reads it through a Reporter " +
+			"of its own (internal/cli/daemon.go), so the reporter's mutex does not order the two, and an " +
+			"ordinary handle there both fails with ERROR_SHARING_VIOLATION and fails that replace " +
+			"(w4-e2eflakes runs/diag-b-sharing-modes-rerun-windows.txt)",
+	},
+	{
 		file:  "internal/ipc/state.go",
 		fn:    "ReadState",
 		holds: "run/state.bin",
 		why:   "the daemon's WriteState, whose §12.2 hot-mode transition goes unpublished if the replace fails",
+	},
+	{
+		file:  "test/e2e/observer_e2e_test.go",
+		fn:    "obsSessionEndMarker",
+		holds: "run/marker.json",
+		why: "the daemon's contract.WriteMarker, a paths.WriteAtomic made once per SessionEnd and not " +
+			"retried. obsAwaitSessionEnded polls through this helper for exactly that write, so a replace " +
+			"its read made fail leaves the old marker in place and the wait times out (obsRunFlush's rows " +
+			"and V3 x08)",
+	},
+	{
+		file:  "test/e2e/sessionstart_compact_test.go",
+		fn:    "scAwaitState",
+		holds: "state/rehydrate-<session>.json",
+		why: "the rehydrate service's Record, the paths.WriteAtomic that lands just after the compact " +
+			"answer (C1.16) while this helper polls for it. An ordinary handle both failed the read with " +
+			"ERROR_SHARING_VIOLATION (V5 x04's co-load red) and failed that replace " +
+			"(w4-e2eflakes runs/diag-b-sharing-modes-rerun-windows.txt)",
+	},
+	{
+		file:  "internal/testutil/daemongone.go",
+		fn:    "DaemonHoldingLock",
+		holds: "run/daemon.lock",
+		why: "Lock.Release's os.Remove, the last act of a daemon shutdown, which every test/ shutdown " +
+			"helper polls for through this one reader (testutil.ShutdownDaemonUntilGone, and the " +
+			"e2e/fault/platform/release/security/guards gates and diagnostics around it). An ordinary " +
+			"handle in this read made that remove fail about one run in twenty, so the helper itself " +
+			"caused the abandoned lock it was waiting on (v1StopDaemonAndWaitGone measured it)",
+	},
+	{
+		file:  "test/e2e/faultinject_test.go",
+		fn:    "e2eSpawnInFlight",
+		holds: "run/spawn.lock",
+		why: "daemon.removeSpawnLockFile, the spawned daemon's single, unretried os.Remove of the marker " +
+			"once it listens, and daemon.removeSpawnClaim from Lock.Release as daemon.lock's holder lets " +
+			"go (D27). e2eAwaitSpawnInFlight polls through this helper for exactly that daemon " +
+			"(e2eShutdownIfReachable's spawn-in-flight wait), and a remove its read made fail leaves a " +
+			"marker that suppresses every later lazy spawn until it ages out of ipc's spawnLockStaleAfter",
 	},
 	{
 		file: "internal/store/backup.go",
@@ -85,6 +166,162 @@ var sharedReaders = []sharedReader{
 		why: "the same two WriteAtomics, plus every other writer the copy walk passes; the walk reads " +
 			"the whole tree, so it is the wider of this file's two read windows",
 	},
+	// The V6 close-out's audit (w5-winfiles) of every product read of a file some writer replaces or
+	// removes. Each reader below took an ordinary handle on a file that another process, or another
+	// goroutine no lock of its own orders, replaces or removes; each was os.ReadFile or os.Open until
+	// that audit. Every other product read is classified in productreads_test.go's ordinaryReads,
+	// with the reason an ordinary handle is safe there, and TestGuard_EveryProductReadIsClassified
+	// keeps that true.
+	{
+		file:  "internal/contract/marker.go",
+		fn:    "readMarker",
+		holds: "run/marker.json",
+		why: "the daemon's contract.WriteMarker, a paths.WriteAtomic made once per SessionEnd and " +
+			"PreCompact and never retried. checkSessionStartFires reads the marker in the daemon while " +
+			"another session's terminal hook writes it (session ends run concurrently since C1.15), and " +
+			"`qompack selftest` reads it from its own process. A replace this read made fail leaves the " +
+			"previous marker in place, and a read refused by a finishing replace counted as an absence " +
+			"toward the SevCritical §12.1 degradation although the hook had fired",
+	},
+	{
+		file:  "internal/cli/qompack_commands.go",
+		fn:    "readPersistedMetrics",
+		holds: "metrics/latency.json",
+		why: "the daemon's obs.Registry.Persist, a paths.WriteAtomic, while `qompack doctor` reads " +
+			"the snapshot from its own process, and the /qompack status command falls back to it when " +
+			"a live daemon does not answer inside its call deadline",
+	},
+	{
+		file:  "internal/store/flush.go",
+		fn:    "loadStoreState",
+		holds: "state/store.json",
+		why: "the daemon store's persistStoreState, a paths.WriteAtomic of the cumulative counters, " +
+			"while `qompack doctor` and `qompack fsck` open the same store read-only from their own " +
+			"process, and every store open runs this load",
+	},
+	{
+		file:  "internal/store/capture_sidecar.go",
+		fn:    "ReadCaptureSidecar",
+		holds: "records/captures/**/<observation>.json",
+		why: "the paths.WriteAtomic of the same sidecar by the daemon's ingest (publishCapture, " +
+			"through WriteCaptureSidecar) and by the observer (LinkCaptureReference). A lost-ACK " +
+			"duplicate reaches ingest on two paths, live and drain, and no lock this reader takes " +
+			"orders them. A read refused by an in-flight replace also drops the prior sidecar's " +
+			"Published record, which WriteCaptureSidecar would then write back as open",
+	},
+	{
+		file:  "internal/store/lifecycle.go",
+		fn:    "CompactRetentionRoots",
+		holds: "state/retention-roots.jsonl",
+		why: "another compaction's paths.WriteAtomic of the same file. A store's GC passes run one " +
+			"at a time since w6-gcserial (internal/store/gcgate.go), so GC's own compactions no longer " +
+			"overlap; the function is exported and takes a project root, not a store, so a caller " +
+			"outside a GC pass, or a pass on a second writable handle of the project, is not ordered " +
+			"by that gate",
+	},
+	{
+		file:  "internal/store/gcrun.go",
+		fn:    "loadGCState",
+		holds: "state/gc.json",
+		why: "saveGCState (paths.WriteAtomic) and clearGCState (os.Remove) of a GC pass on a second " +
+			"writable handle of the project. The passes of one handle run one at a time since " +
+			"w6-gcserial (internal/store/gcgate.go) and the product opens one writable handle per " +
+			"project, so this is the gate's unordered remainder, kept shared as defence in depth",
+	},
+	{
+		file:  "internal/store/gcrun.go",
+		fn:    "pendingMarkerRoot",
+		holds: "state/pending/<marker>.json",
+		why: "the os.Remove of the same marker by the late Put's own pendingWrite.done, which no lock " +
+			"orders with GC (a concurrent pass's expirePendingMarkers no longer can on one store " +
+			"handle, since w6-gcserial)",
+	},
+	{
+		file:  "internal/tokens/calibrate.go",
+		fn:    "loadCalibEntry",
+		holds: "~/.qompack/calibration.json",
+		why: "every other project's daemon, and every store open, persisting into the one " +
+			"user-global calibration document with paths.WriteAtomic: cross-process by design",
+	},
+	{
+		file:  "internal/tokens/calibrate.go",
+		fn:    "persist",
+		holds: "~/.qompack/calibration.json",
+		why: "the same user-global document: persist reads it to merge this scope's factor in while " +
+			"any other process's persist replaces it, and a refused read made it write back this " +
+			"scope's entry alone, dropping every other project's factor",
+	},
+	{
+		file:  "internal/sketch/io.go",
+		fn:    "LoadWithLog",
+		holds: "sketches/*",
+		why: "the daemon's sketch.Save (paths.WriteAtomic) and ReplaceBloom's renames of tried.bloom, " +
+			"while `qompack fsck`, and the negknow ledger it opens, load every sketch from its own process",
+	},
+	{
+		file:  "internal/daemon/scheduler_state.go",
+		fn:    "readStateFile",
+		holds: "state/bocd.json and state/scheduler.json",
+		why: "schedRuntime.Persist, which writes both files with paths.WriteAtomic under persistMu " +
+			"only, after releasing r.mu, while a session bind reads them under r.mu: the two are not " +
+			"ordered, and both paths are shared by every session",
+	},
+	{
+		file:  "internal/daemon/handlers.go",
+		fn:    "LoadSessionRecovery",
+		holds: "state/session-recovery.json",
+		why: "the daemon's writeSessionRecovery, a paths.WriteAtomic that nothing retries. The " +
+			"daemon's own callers hold recoveryMu with it, but the function is exported and polled " +
+			"from another process (test/e2e's V5 x03 while the daemon settles a session end), and a " +
+			"replace that poll made fail leaves a stale recovery marker behind",
+	},
+	{
+		file:  "internal/daemon/blob.go",
+		fn:    "readBlob",
+		holds: "spool/blob-*.bin",
+		why: "the drain's cleanupAcknowledged, whose os.Remove of a consumed blob runs under the " +
+			"drainer's lock while the live ingest reads blobs without it; a lost-ACK duplicate is read " +
+			"live while the drain retires its other copy, and a refused remove fails that drain pass",
+	},
+	{
+		file:  "internal/checkpoint/gitindex.go",
+		fn:    "readGitState",
+		holds: "<gitdir>/HEAD and <gitdir>/index",
+		why: "git itself, which replaces both by renaming a .lock file over them: a checkout rewrites " +
+			"HEAD, and add, commit and the index-refreshing status editors run in the background " +
+			"rewrite an index of up to 64 MiB. The rename fails while this read holds an ordinary handle",
+	},
+	// Owner decision D22 (00-ARCHITECTURE.md §3.2): internal/config may import internal/paths, so
+	// the two config loaders now read config.json shared, which w5-winfiles could only record as a
+	// residual.
+	{
+		file:  "internal/config/load.go",
+		fn:    "Load",
+		holds: "<project>/.qompack/config.json and <home>/.qompack/config.json",
+		why: "the user's editor saving the file atomically, a new file renamed over the old one. An " +
+			"ordinary handle made that save fail while config.Load held the file (the daemon's reload, " +
+			"`config print`, doctor, self-test), and a read the save made fail was taken for a missing " +
+			"file, so the whole layer fell back to the defaults without a warning " +
+			"(TestLoad_ReadsThroughAnEditorsAtomicSaves)",
+	},
+	{
+		file:  "internal/config/capture_load.go",
+		fn:    "readCaptureConfig",
+		holds: "<project>/.qompack/config.json and <home>/.qompack/config.json",
+		why: "the same atomic save, on the hook path: an ordinary handle made the save or the hook's read " +
+			"fail, and under D8 a config the hook cannot read refuses the capture, so saving the config " +
+			"could make a hook record nothing. It reads through paths.OpenSharedLeaf, which also never " +
+			"follows a final link, so no Lstat/os.SameFile identity check is left for a save to land " +
+			"inside (TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves)",
+	},
+	{
+		file:  "test/fault/fault.go",
+		fn:    "flushAndAwaitEnd",
+		holds: "run/marker.json",
+		why: "the daemon's contract.WriteMarker, made once per session end and never retried, which " +
+			"this poll waits for: a replace its own read made fail would time the wait out, as " +
+			"obsSessionEndMarker's did (w4-e2eflakes)",
+	},
 }
 
 // forbiddenReads and requiredReads are the two call shapes the scan classifies, spelled
@@ -100,6 +337,7 @@ var (
 	requiredReads = map[string]bool{
 		"paths.ReadFileShared": true,
 		"paths.OpenShared":     true,
+		"paths.OpenSharedLeaf": true,
 	}
 )
 
@@ -182,6 +420,30 @@ func sample(p string) ([]byte, error) {
 		"the classifier must see both forbidden shapes; if it sees neither, every row above is vacuous")
 	require.Equal(t, []string{"paths.ReadFileShared"}, required,
 		"the classifier must also recognise the shared read, or a correct reader would fail the guard")
+
+	const values = `package p
+
+import (
+	"os"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+type reader struct{ open func(string) (*os.File, error) }
+
+func handsOn(p string) (reader, reader) {
+	return reader{open: paths.OpenSharedLeaf}, reader{open: os.Open}
+}
+`
+	f, err = parser.ParseFile(fset, "values.go", values, parser.SkipObjectResolution)
+	require.NoError(t, err)
+	fn = funcDeclNamed(f, "handsOn")
+	require.NotNil(t, fn)
+	forbidden, required = classifyReadCalls(fn)
+	require.Equal(t, []string{"os.Open"}, forbidden,
+		"an ordinary opener handed on as a value is the same forbidden read as a call to it")
+	require.Equal(t, []string{"paths.OpenSharedLeaf"}, required,
+		"a shared opener handed on as a value is the same shared read as a call to it")
 }
 
 // findFuncDecl parses path and returns the one function declared there under name. Exactly one
@@ -219,19 +481,18 @@ func funcDeclNamed(f *ast.File, name string) *ast.FuncDecl {
 	return nil
 }
 
-// classifyReadCalls walks fn's body and reports which forbidden and which required read calls it
-// makes, each sorted and de-duplicated. Nested function literals are included: a read moved into a
-// closure inside the same function is the same read.
+// classifyReadCalls walks fn's body and reports which forbidden and which required read functions it
+// uses, each sorted and de-duplicated. A use is a call or a reference to the function as a value —
+// an opener handed to a reader that calls it, as readCaptureConfig hands paths.OpenSharedLeaf to its
+// captureConfigReader — which is the same read, and the shape TestGuard_EveryProductReadIsClassified
+// already counts for os.Open. Nested function literals are included: a read moved into a closure
+// inside the same function is the same read.
 func classifyReadCalls(fn *ast.FuncDecl) (forbidden, required []string) {
 	seenBad := map[string]bool{}
 	seenGood := map[string]bool{}
 
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
+		sel, ok := n.(*ast.SelectorExpr)
 		if !ok || sel.Sel == nil {
 			return true
 		}

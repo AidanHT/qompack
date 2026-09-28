@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_duplicate_tool_use",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "792fa4bc184a0f7f40ab3f360c9e8ac3bd90bd5ea800d10dea6ade71d2d99518"
+  },
+  "boundary": "the same tool_use_id delivered twice",
+  "seed_method": "the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice",
+  "outcome": "failed",
+  "reason": "the event sequence left 1 dangling reference(s): capture_unpublished(sha256:d98779a2d6c66fefccc898cda0486b01c0252bdbdd1bbfbfc5be3f5a7ee42dd7): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes ef90a0aa0add durable and no reference joined to it (root 000000000000). Owner: internal/daemon.",
+  "detail": "audit before {tool_uses:28 roots:22 sidecars:41 checkpoints:0 dangling:0 reported:3}; after {tool_uses:29 roots:23 sidecars:43 checkpoints:0 dangling:1 reported:3}; newly dangling: capture_unpublished(sha256:d98779a2d6c66fefccc898cda0486b01c0252bdbdd1bbfbfc5be3f5a7ee42dd7): capture sidecar for a observe.tool delivery is at stage 1 only: outcome \"ok\" with bytes ef90a0aa0add durable and no reference joined to it (root 000000000000); duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 0,
+  "dangling_after": 1
+}

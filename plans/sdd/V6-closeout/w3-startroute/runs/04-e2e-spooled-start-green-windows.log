@@ -1,0 +1,4 @@
+=== RUN   TestE2E_SpooledSessionStartNeverDegradesTheProject
+--- PASS: TestE2E_SpooledSessionStartNeverDegradesTheProject (6.30s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	6.536s

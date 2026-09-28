@@ -1,0 +1,10 @@
+run_id=cx-w2-sessionend-e2e-fault-af3ed3c-af3ed3c-20260925T230507Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend
+rev=af3ed3c
+commit=af3ed3c3f7a7310b9c5285d74e9f3b707c770345
+bundle_sha256=180a39a5fa663fc8bde6f67d38688b665bcd9de55b47d27d7c1de26398e227a7
+host_started_utc=2026-09-25T23:05:16Z
+inner_args=--run ^(TestE2E_ObserverThroughDaemon|TestE2E_ThinSliceDropsControlOnlyEdges|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently|TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting|TestV5_HookEventToTombstoneToRetrievalAfterRestart|TestFault_AuditSeesADeletedObjectUnderALiveIndex|TestFault_MCPChildKilledMidRequest|TestFault_DaemonKilledMidIngest|TestFault_UnavailableHistoricalObject|TestFault_CheckpointDropsAnUnresolvablePointer|TestFault_CheckpointResolvabilityIsBlindToADeletedObject|TestFault_Lifecycle)$ --no-race --count 2 -- ./test/e2e ./test/fault
+host_finished_utc=2026-09-25T23:07:44Z
+container_exit=1

@@ -1,0 +1,156 @@
+From fc9ec15090537d67d758c5e84b6fdbbd1f9c750e Mon Sep 17 00:00:00 2001
+From: scratch <scratch@invalid>
+Date: Tue, 22 Sep 2026 20:21:00 -0400
+Subject: [PATCH 1/2] scratch: HotPath diagnostics, not for merge
+
+---
+ internal/daemon/budget.go        | 13 +++++++++++++
+ internal/daemon/handlers.go      |  6 ++++++
+ test/integration/hotpath_test.go | 27 +++++++++++++++++++++++++++
+ 3 files changed, 46 insertions(+)
+
+diff --git a/internal/daemon/budget.go b/internal/daemon/budget.go
+index e3bed96..969a13a 100644
+--- a/internal/daemon/budget.go
++++ b/internal/daemon/budget.go
+@@ -48,6 +48,18 @@ type breachDetector struct {
+ 
+ 	breaches int
+ 	clean    int
++
++	// SCRATCH DIAGNOSTIC (not for merge): the last closed window's p99 and streaks.
++	lastP99      time.Duration
++	lastBreaches int
++	lastClean    int
++}
++
++// DiagLast is a SCRATCH DIAGNOSTIC accessor (not for merge).
++func (b *breachDetector) DiagLast() (time.Duration, int, int) {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++	return b.lastP99, b.lastBreaches, b.lastClean
+ }
+ 
+ // newBreachDetector returns a breachDetector gating on limit with need consecutive windows
+@@ -99,6 +111,7 @@ func (b *breachDetector) Observe(d time.Duration) (t Transition, closed bool) {
+ 		b.clean++
+ 		b.breaches = 0
+ 	}
++	b.lastP99, b.lastBreaches, b.lastClean = p99, b.breaches, b.clean
+ 
+ 	if b.breaches >= b.need {
+ 		b.breaches = 0
+diff --git a/internal/daemon/handlers.go b/internal/daemon/handlers.go
+index 15c4e22..d6f508a 100644
+--- a/internal/daemon/handlers.go
++++ b/internal/daemon/handlers.go
+@@ -363,6 +363,12 @@ func (d *daemon) hotPathWorker(ctx context.Context) {
+ 			return
+ 		case sample := <-d.hotSamples:
+ 			t, closed := d.breach.Observe(sample)
++			if closed {
++				p99, br, cl := d.breach.DiagLast()
++				lim, _ := d.breach.Config()
++				d.log.Warn("DIAG hot window closed", "p99_us", p99.Microseconds(), "limit_ms", lim.Milliseconds(),
++					"breach_streak", br, "clean_streak", cl, "transition", int(t), "hot", hotModeString(d.registry.HotMode()))
++			}
+ 			if t != NoTransition {
+ 				d.applyHotPathTransition(t)
+ 			}
+diff --git a/test/integration/hotpath_test.go b/test/integration/hotpath_test.go
+index d16ce26..c82b1e3 100644
+--- a/test/integration/hotpath_test.go
++++ b/test/integration/hotpath_test.go
+@@ -671,6 +671,9 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
+ 	pollStop := make(chan struct{})
+ 	var pollWG sync.WaitGroup
+ 	var sawDaemonState, sawSpool atomic.Bool
++	var diagPolls, diagSpoolPolls atomic.Int64
++	var diagFirstSpool atomic.Int64
++	diagStart := time.Now()
+ 	pollWG.Add(1)
+ 	go func() {
+ 		defer pollWG.Done()
+@@ -684,8 +687,11 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
+ 				st := ipc.ReadState(p.Root, p.Cfg)
+ 				if st.DaemonPID != 0 {
+ 					sawDaemonState.Store(true)
++					diagPolls.Add(1)
+ 					if st.Hot == ipc.HotSpool {
+ 						sawSpool.Store(true)
++						diagSpoolPolls.Add(1)
++						diagFirstSpool.CompareAndSwap(0, int64(time.Since(diagStart)/time.Millisecond))
+ 					}
+ 				}
+ 			}
+@@ -810,6 +816,27 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
+ 	spawnEst := hotpathRow(t, rep, hotpathSpawnEstimateID)
+ 	require.Nil(t, spawnEst.LimitMs, "the wall-clock floor-subtracted estimate must stay informational")
+ 	require.Nil(t, spawnEst.Pass)
++	// SCRATCH DIAGNOSTIC (not for merge): what the measured daemon did, before the structural check.
++	t.Logf("DIAG ba.N=%d bb.N=%d bd.N=%d sawDaemonState=%v sawSpool=%v polls=%d spoolPolls=%d firstSpoolAtMs=%d degradedWarns=%d clientSpoolLines=%d",
++		ba.N, bb.N, bd.N, sawDaemonState.Load(), sawSpool.Load(), diagPolls.Load(), diagSpoolPolls.Load(),
++		diagFirstSpool.Load(), hotpathCountDegradedWarns(t, p), clientSpoolLines(t, p.Root))
++	if _, statErr := os.Stat(paths.Long(ipc.StatePath(p.Root))); statErr == nil {
++		st := ipc.ReadState(p.Root, p.Cfg)
++		t.Logf("DIAG state.bin after the run: hot=%d pid=%d", st.Hot, st.DaemonPID)
++	} else {
++		t.Logf("DIAG state.bin after the run: absent (%v)", statErr)
++	}
++	if diagLogs, globErr := filepath.Glob(filepath.Join(paths.Of(p.Root).Logs, "*.log")); globErr == nil {
++		for _, f := range diagLogs {
++			b, _ := os.ReadFile(f)
++			for _, line := range strings.Split(string(b), "\n") {
++				if strings.Contains(line, "hot window") || strings.Contains(line, "hot path") ||
++					strings.Contains(line, "hot-path submode") {
++					t.Logf("DIAG %s: %s", filepath.Base(f), line)
++				}
++			}
++		}
++	}
+ 	require.Greater(t, ba.N, bd.N,
+ 		"the gated B-A row must be sourced from the daemon's hook_controlled histogram (spawn loop "+
+ 			"plus warm-up hot tranche), not from the %d wall-clock spawn samples", bd.N)
+-- 
+2.47.0.windows.2
+
+
+From efa0c37552c91a7898b6c41ce43595c336f4bb6d Mon Sep 17 00:00:00 2001
+From: scratch <scratch@invalid>
+Date: Tue, 22 Sep 2026 21:20:55 -0400
+Subject: [PATCH 2/2] scratch: dump the daemon's record before the harness
+ verdict
+
+---
+ test/integration/hotpath_test.go | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/test/integration/hotpath_test.go b/test/integration/hotpath_test.go
+index c82b1e3..5705c83 100644
+--- a/test/integration/hotpath_test.go
++++ b/test/integration/hotpath_test.go
+@@ -769,6 +769,21 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
+ 	close(pollStop)
+ 	pollWG.Wait()
+ 
++	// SCRATCH DIAGNOSTIC (not for merge): the daemon's own record, before any harness verdict.
++	t.Logf("DIAG-EARLY runErr=%v sawDaemonState=%v sawSpool=%v polls=%d spoolPolls=%d firstSpoolAtMs=%d degradedWarns=%d",
++		runErr, sawDaemonState.Load(), sawSpool.Load(), diagPolls.Load(), diagSpoolPolls.Load(), diagFirstSpool.Load(),
++		hotpathCountDegradedWarns(t, p))
++	if early, globErr := filepath.Glob(filepath.Join(paths.Of(p.Root).Logs, "*.log")); globErr == nil {
++		for _, f := range early {
++			b, _ := os.ReadFile(f)
++			for _, line := range strings.Split(string(b), "\n") {
++				if strings.Contains(line, "hot window") || strings.Contains(line, "hot path") ||
++					strings.Contains(line, "hot-path submode") {
++					t.Logf("DIAG-EARLY %s: %s", filepath.Base(f), line)
++				}
++			}
++		}
++	}
+ 	t.Logf("bench harness stdout:\n%s", stdout.String())
+ 	if raw, readErr := os.ReadFile(jsonPath); readErr == nil {
+ 		t.Logf("bench artifact %s:\n%s", jsonPath, raw)
+-- 
+2.47.0.windows.2
+

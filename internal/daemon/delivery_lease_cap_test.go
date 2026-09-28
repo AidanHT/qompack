@@ -18,20 +18,39 @@ import (
 // sp20d4LeaseCap is the entry cap delivery_lease.go shipped with at V5 (deliveryLeaseMaxEntries).
 // It is written out rather than read from that constant on purpose: a history sized FROM the
 // constant would follow any change to it and stay exactly at the cap, so raising the cap would
-// leave this test green while changing what it pins. Sized from the shipped value, a raised cap
-// fails the refusal assertion, which is the negative control this test was checked against.
+// leave this test green while changing what it pins. Sized from the shipped value, the history is
+// always exactly where the V5 journal began refusing every delivery.
 const sp20d4LeaseCap = 1 << 16
 
-// TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap retains
-// the original capacity identifier. The cap remains a documented availability
-// limitation. The corrected behavior refuses publication and retains durable
-// input instead of ACKing, dispatching and later replaying an unleased delivery.
-// This is a partial mitigation, not a claim of unbounded journal capacity.
-func TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap(t *testing.T) {
+// TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart is SP20-D4's evidence
+// test, inverted at the V6 close-out (C1.10) when segmented rollover was enabled by default.
+//
+// Criterion change: it was TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap,
+// which pinned the defect — once 65,536 deliveries were leased every later delivery was refused, the
+// hook kept its fallback and the drain recorded an unleased gap for good. It now pins the fix, on the
+// same fixture (a store at exactly the shipped cap, every delivery acknowledged, written byte for
+// byte as lease and acknowledge write it):
+//
+//   - a fresh delivery past the cap is admitted with a real identity, dispatched and acknowledged, and
+//     the journal rotates to segment 1 instead of refusing; the history's journals are not rewritten;
+//   - across a restart the rotated store opens on segment 1, new deliveries continue densely (for a
+//     new session and for the history's own session, at 65,537), and the oldest and newest history
+//     deliveries still resolve to their ORIGINAL identities and acknowledgements;
+//   - a late copy of an archived, acknowledged history delivery (a hook's fallback spool line drained
+//     after the rotation and the restart) is recognised and not published a second time.
+//
+// The acceptance in plans/V2-WAVE1-carried-defects.md §SP20-D4 asked for exactly these: a project
+// past 65,536 leases leases its next delivery, and a late copy of a retired delivery is still skipped.
+func TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart(t *testing.T) {
+	t.Parallel()
+	require.True(t, enableDeliveryGenerations, "segmented rollover is enabled by default")
 	ctx := context.Background()
 	root := t.TempDir()
 	const history core.SessionID = "sess-sp20d4-history"
-	historyRequest := testDeliveryRequest("sp20d4 completed delivery")
+	// The history's request binding is the one a real late copy of its first delivery carries, so that
+	// copy can be drained below and matched against its original lease.
+	lateCopy := observeRequest(sp20d4Token(1), string(history), `{"hook_event_name":"PostToolUse"}`)
+	historyRequest := deliveryRequestHash(lateCopy)
 	leaseBytes, ackBytes := sp20d4WriteCompletedHistory(t, root, history, historyRequest,
 		sp20d4LeaseCap)
 	t.Logf("fixture: %d acknowledged leases; lease journal %d bytes, ack journal %d bytes",
@@ -39,53 +58,82 @@ func TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap(t 
 
 	dd, _, ids := newIdentityRecordingDaemon(t, root)
 	lock := lockFor(t, dd, root)
-	defer func() { _ = lock.Release() }()
-
-	// The history is a valid journal at exactly the entry cap: the real open loads and seals it,
-	// and the byte bound is nowhere near, so what follows is the entry cap and nothing else.
 	journal, err := dd.deliveryJournal()
 	require.NoError(t, err, "a journal holding exactly the entry cap is valid and must open")
 	sp20d4RequireHistoryOnly(t, root, journal, leaseBytes, ackBytes)
-	require.Less(t, leaseBytes, int64(deliveryLeaseMaxBytes),
-		"fixture: the entry cap binds, not the byte cap")
+	require.Less(t, leaseBytes, int64(deliveryLeaseMaxBytes), "fixture: the entry cap binds, not the byte cap")
+	require.Equal(t, uint64(0), journal.segment)
 
-	// What the cap does not do: drop an assignment. A late copy of a delivery in the history (a
-	// hook client's fallback spool line, drained after the fact) still takes its original lease
-	// back and finds itself on the frontier, which is how the drain avoids publishing it twice. A
-	// fix that retires acknowledged leases must keep an answer for every copy that can still arrive.
-	old, err := journal.lease(ctx, sp20d4Token(1), history, historyRequest)
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), old.ArrivalSeq)
-	require.True(t, journal.acknowledged(old.Delivery))
-
-	// SP20-D4: a fresh delivery, on a session with no history of its own, is refused. Nothing is in
-	// flight and every lease is acknowledged; the refusal is permanent because nothing retires one.
-	_, err = journal.lease(ctx, testDeliveryToken('e'), "sess-sp20d4", testDeliveryRequest("fresh"))
-	require.ErrorIs(t, err, core.ErrBudget,
-		"SP20-D4: once 65,536 deliveries are leased, every later delivery is refused a lease")
-
-	// Exhaustion is an explicit pending delivery, never an unleased substitute.
+	// Past the cap: the delivery is leased, dispatched and acknowledged, and the journal rotated.
 	req := observeRequest(testDeliveryToken('d'), "sess-sp20d4", `{"hook_event_name":"PostToolUse"}`)
 	resp := dd.dispatchOp(ctx, req)
-	require.False(t, resp.OK, "the client must retain its fallback when identity cannot be assigned")
-	require.NotEmpty(t, resp.Err)
-	require.Equal(t, int64(1), dd.m.Counter(counterDeliveryUnleased).Value())
-	require.Empty(t, dd.ing.ring, "no unleased observation may run")
-	require.Empty(t, ids())
-	require.Empty(t, sidecarFiles(t, root))
-	require.NoError(t, dd.ing.Close())
-	dd.ing.seen = newSeenSet(seenCapacity)
-	dd.drain.Load().cfg.Seen = dd.ing.seen
-	n, err := dd.Drain(ctx)
-	require.ErrorIs(t, err, core.ErrDegraded)
-	require.Zero(t, n, "a retry without identity must remain pending")
-	require.Empty(t, ids(), "restart cannot replay an unleased substitute")
-	require.False(t, dd.DrainGaps().Complete)
-	require.Contains(t, gapKinds(dd.DrainGaps()), DrainGapUnleased)
-	entries, err := os.ReadDir(paths.Of(root).Spool)
+	require.True(t, resp.OK, "a delivery past the old cap is admitted: %s", resp.Err)
+	require.Zero(t, dd.m.Counter(counterDeliveryUnleased).Value(), "no delivery goes unleased")
+	drainRing(t, dd)
+	first, err := core.NewObservationID("sess-sp20d4", 1)
 	require.NoError(t, err)
-	require.NotEmpty(t, entries, "the durable source remains available for recovery")
-	sp20d4RequireHistoryOnly(t, root, journal, leaseBytes, ackBytes)
+	require.Equal(t, []core.ObservationID{first}, ids(), "the observer ran under the delivery's own identity")
+	require.True(t, journal.acknowledged(req.Nonce), "the delivery reached the committed frontier")
+	require.Equal(t, uint64(1), journal.segment, "the journal rotated at the cap instead of refusing")
+	sp20d4RequireLegacyUntouched(t, root, leaseBytes, ackBytes)
+
+	old, err := journal.lease(ctx, sp20d4Token(1), history, historyRequest)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), old.ArrivalSeq, "an archived delivery keeps its original identity")
+	require.True(t, journal.acknowledged(old.Delivery), "and its acknowledgement")
+	require.NoError(t, lock.Release())
+
+	// Restart: a new daemon on the rotated store.
+	dd2, _, ids2 := newIdentityRecordingDaemon(t, root)
+	lock2 := lockFor(t, dd2, root)
+	defer func() { _ = lock2.Release() }()
+	journal2, err := dd2.deliveryJournal()
+	require.NoError(t, err, "the rotated store opens after a restart")
+	require.Equal(t, uint64(1), journal2.segment)
+
+	req2 := observeRequest(testDeliveryToken('e'), "sess-sp20d4", `{"hook_event_name":"PostToolUse"}`)
+	resp = dd2.dispatchOp(ctx, req2)
+	require.True(t, resp.OK, resp.Err)
+	drainRing(t, dd2)
+	second, err := core.NewObservationID("sess-sp20d4", 2)
+	require.NoError(t, err)
+	require.Equal(t, []core.ObservationID{second}, ids2(), "arrivals continue densely across the restart")
+	require.True(t, journal2.acknowledged(req2.Nonce))
+
+	cont, err := journal2.lease(ctx, testDeliveryToken('f'), history, testDeliveryRequest("after the cap"))
+	require.NoError(t, err)
+	require.Equal(t, uint64(sp20d4LeaseCap+1), cont.ArrivalSeq, "the history's session continues past the cap")
+	for _, i := range []int{1, sp20d4LeaseCap} {
+		got, err := journal2.lease(ctx, sp20d4Token(i), history, historyRequest)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i), got.ArrivalSeq, "history delivery %d keeps its original identity", i)
+		require.True(t, journal2.acknowledged(got.Delivery), "history delivery %d stays acknowledged", i)
+	}
+
+	// A late copy of an archived, acknowledged delivery: recognised, never published again.
+	require.NoError(t, dd2.ing.Close())
+	lateCopy.Capture = nil // an inherited record, exactly as a hook's fallback line arrives
+	writeSpoolLine(t, root, "client-00001.ndjson", lateCopy)
+	_, err = dd2.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, []core.ObservationID{second}, ids2(), "a late copy of a retired delivery is skipped")
+	require.True(t, dd2.DrainGaps().Complete, "the late copy is accounted for: %+v", dd2.DrainGaps().Gaps)
+	sp20d4RequireLegacyUntouched(t, root, leaseBytes, ackBytes)
+}
+
+// sp20d4RequireLegacyUntouched asserts the history's two legacy journals still hold exactly the fixture
+// bytes after the rotation archived them: a rotation never rewrites, truncates or extends segment 0.
+func sp20d4RequireLegacyUntouched(t *testing.T, root string, leaseBytes, ackBytes int64) {
+	t.Helper()
+	state := paths.Of(root).State
+	for _, f := range []struct {
+		name string
+		size int64
+	}{{deliveryLeaseFile, leaseBytes}, {deliveryAckFile, ackBytes}} {
+		info, err := os.Stat(paths.Long(filepath.Join(state, f.name)))
+		require.NoError(t, err)
+		require.Equal(t, f.size, info.Size(), "%s is archived as it was, never rewritten", f.name)
+	}
 }
 
 // sp20d4WriteCompletedHistory leaves root's state directory exactly as n completed deliveries

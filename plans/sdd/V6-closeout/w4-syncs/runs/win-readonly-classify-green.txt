@@ -1,0 +1,36 @@
+=== RUN   TestOpenReadOnly_TheValueIsNotAStore
+=== PAUSE TestOpenReadOnly_TheValueIsNotAStore
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/Put
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/PutBytes
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/Flush
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/SyncPublication
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/GC
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/RecordToolUse
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/RecordToolUseSuperseding
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/MarkSuperseded
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/AppendFileVersion
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/Quarantine
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/ReserveObservation
+=== RUN   TestOpenReadOnly_EveryMutatingMethodRefuses/RecoverToolUseByObservation
+--- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses (0.29s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/Put (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/PutBytes (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/Flush (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/SyncPublication (0.01s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/GC (0.01s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/RecordToolUse (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/RecordToolUseSuperseding (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/MarkSuperseded (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/AppendFileVersion (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/Quarantine (0.01s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/ReserveObservation (0.00s)
+    --- PASS: TestOpenReadOnly_EveryMutatingMethodRefuses/RecoverToolUseByObservation (0.00s)
+=== RUN   TestReadOnly_EveryExportedMethodIsClassified
+=== PAUSE TestReadOnly_EveryExportedMethodIsClassified
+=== CONT  TestOpenReadOnly_TheValueIsNotAStore
+=== CONT  TestReadOnly_EveryExportedMethodIsClassified
+--- PASS: TestOpenReadOnly_TheValueIsNotAStore (0.00s)
+--- PASS: TestReadOnly_EveryExportedMethodIsClassified (0.04s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.623s

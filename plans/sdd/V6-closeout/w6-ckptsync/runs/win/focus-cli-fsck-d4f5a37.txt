@@ -1,0 +1,234 @@
+=== RUN   TestFsck_FrozenLegacySealIsClassifiedByTheSegmentAuthority
+--- PASS: TestFsck_FrozenLegacySealIsClassifiedByTheSegmentAuthority (0.34s)
+=== RUN   TestFsck_FrozenLegacySealWithoutAnAuthorityIsADefect
+--- PASS: TestFsck_FrozenLegacySealWithoutAnAuthorityIsADefect (0.16s)
+=== RUN   TestFsck_UnknownObservationIntentIsIncompleteAndReadOnly
+--- PASS: TestFsck_UnknownObservationIntentIsIncompleteAndReadOnly (0.18s)
+=== RUN   TestFsck_NewerCaptureSchemaIsASupportGapNotADefect
+--- PASS: TestFsck_NewerCaptureSchemaIsASupportGapNotADefect (0.21s)
+=== RUN   TestFsck_LegacyControlCaptureIsNotADefect
+--- PASS: TestFsck_LegacyControlCaptureIsNotADefect (0.22s)
+=== RUN   TestFsck_NewerCaptureSchemaDoesNotExcuseOtherIncompleteness
+--- PASS: TestFsck_NewerCaptureSchemaDoesNotExcuseOtherIncompleteness (0.16s)
+=== RUN   TestFsck_CleanProjectFindsNoDefect
+=== PAUSE TestFsck_CleanProjectFindsNoDefect
+=== RUN   TestFsck_AbsentStoreIsReportedAndNothingIsCreated
+=== PAUSE TestFsck_AbsentStoreIsReportedAndNothingIsCreated
+=== RUN   TestFsck_RepairWithoutYesIsAUsageError
+=== PAUSE TestFsck_RepairWithoutYesIsAUsageError
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone
+=== RUN   TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog
+=== PAUSE TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog
+=== RUN   TestFsck_ANewerCheckpointSchemaIsNotCorrupt
+=== PAUSE TestFsck_ANewerCheckpointSchemaIsNotCorrupt
+=== RUN   TestFsck_CanonicalStaysCanonicalInTheFidelitySummary
+=== PAUSE TestFsck_CanonicalStaysCanonicalInTheFidelitySummary
+=== RUN   TestFsck_ALiveDaemonMakesTheAnswerASnapshot
+--- PASS: TestFsck_ALiveDaemonMakesTheAnswerASnapshot (0.19s)
+=== RUN   TestFsck_AStaleLockDisablesNoCheck
+--- PASS: TestFsck_AStaleLockDisablesNoCheck (0.19s)
+=== RUN   TestFsck_RepairIsRefusedWhileADaemonHoldsTheLock
+--- PASS: TestFsck_RepairIsRefusedWhileADaemonHoldsTheLock (0.18s)
+=== RUN   TestFsck_RepairPerformsOnlyTheFiveAdditiveKinds
+--- PASS: TestFsck_RepairPerformsOnlyTheFiveAdditiveKinds (0.25s)
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions/no_--repair_reaches_the_repair_at_all
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions/--repair_--yes_asks_for_the_repair_with_the_confirmation_typed
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions/--yes_alone_confirms_nothing,_because_no_repair_was_asked_for
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions/a_refused_repair_is_exit_1,_not_exit_2_and_not_exit_0
+--- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions (0.18s)
+    --- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions/no_--repair_reaches_the_repair_at_all (0.02s)
+    --- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions/--repair_--yes_asks_for_the_repair_with_the_confirmation_typed (0.01s)
+    --- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions/--yes_alone_confirms_nothing,_because_no_repair_was_asked_for (0.01s)
+    --- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions/a_refused_repair_is_exit_1,_not_exit_2_and_not_exit_0 (0.01s)
+=== RUN   TestFsck_TheViewRepairGoesThroughTheStoresOwnRegenerator
+--- PASS: TestFsck_TheViewRepairGoesThroughTheStoresOwnRegenerator (0.18s)
+=== RUN   TestFsck_RegisteredInAllAndNotAHook
+=== PAUSE TestFsck_RegisteredInAllAndNotAHook
+=== RUN   TestFsck_TableModeWritesAReadableSummary
+=== PAUSE TestFsck_TableModeWritesAReadableSummary
+=== RUN   TestFsck_RepairQuarantinesAFailingObjectAndRebuildsTheFilter
+--- PASS: TestFsck_RepairQuarantinesAFailingObjectAndRebuildsTheFilter (0.26s)
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass
+=== RUN   TestFsck_ReportsADanglingDeltaPointer
+=== PAUSE TestFsck_ReportsADanglingDeltaPointer
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow
+=== RUN   TestFsck_TheDefaultRunNeverTakesTheDaemonLock
+--- PASS: TestFsck_TheDefaultRunNeverTakesTheDaemonLock (0.16s)
+=== RUN   TestFsck_SealCheckIsNotReportedReadOnly
+--- PASS: TestFsck_SealCheckIsNotReportedReadOnly (0.24s)
+=== RUN   TestFsck_SealCheckAndRepairAreMutuallyExclusive
+=== PAUSE TestFsck_SealCheckAndRepairAreMutuallyExclusive
+=== RUN   TestFsck_RepairOnACleanProjectWritesNothing
+--- PASS: TestFsck_RepairOnACleanProjectWritesNothing (0.21s)
+=== RUN   TestFsck_TheObjectSizeLimitIsTheStoresOwn
+=== PAUSE TestFsck_TheObjectSizeLimitIsTheStoresOwn
+=== RUN   TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions
+--- PASS: TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions (0.31s)
+=== RUN   TestFsck_ToolUseNonMonotoneTurnNamesItsSession
+--- PASS: TestFsck_ToolUseNonMonotoneTurnNamesItsSession (0.29s)
+=== RUN   TestFsck_ToolUseSupersedeMarkIsNotATurnRegression
+--- PASS: TestFsck_ToolUseSupersedeMarkIsNotATurnRegression (0.32s)
+=== RUN   TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries
+--- PASS: TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries (0.29s)
+=== CONT  TestFsck_CleanProjectFindsNoDefect
+=== CONT  TestFsck_TableModeWritesAReadableSummary
+=== CONT  TestFsck_CanonicalStaysCanonicalInTheFidelitySummary
+=== CONT  TestFsck_ReportsADanglingDeltaPointer
+=== CONT  TestFsck_ANewerCheckpointSchemaIsNotCorrupt
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_whose_compressed_frame_fails_its_CRC
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/cursor.json
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/cursor.json
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/mapping.jsonl
+=== CONT  TestFsck_RepairWithoutYesIsAUsageError
+=== CONT  TestFsck_TheObjectSizeLimitIsTheStoresOwn
+=== CONT  TestFsck_SealCheckAndRepairAreMutuallyExclusive
+--- PASS: TestFsck_TheObjectSizeLimitIsTheStoresOwn (0.00s)
+=== CONT  TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog
+=== CONT  TestFsck_RegisteredInAllAndNotAHook
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_bare_.qompack_directory
+--- PASS: TestFsck_RegisteredInAllAndNotAHook (0.00s)
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_bare_.qompack_directory
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/one_roots_line_and_one_object
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/one_roots_line_and_one_object
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_laid-out_project_with_no_roots_at_all
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_laid-out_project_with_no_roots_at_all
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_fully_seeded_project
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_fully_seeded_project
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_bare_.qompack_directory
+=== CONT  TestFsck_AbsentStoreIsReportedAndNothingIsCreated
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_laid-out_project_with_no_roots_at_all
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_fully_seeded_project
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/one_roots_line_and_one_object
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_whose_compressed_frame_fails_its_CRC
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_that_decodes_cleanly_to_content_that_is_not_its_own_name
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_that_decodes_cleanly_to_content_that_is_not_its_own_name
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_line_that_does_not_parse
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_line_that_does_not_parse
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_record_version_this_build_does_not_know
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_record_version_this_build_does_not_know
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_op_this_build_does_not_know
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_op_this_build_does_not_know
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_tool_use.jsonl_line_that_does_not_parse
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_tool_use.jsonl_line_that_does_not_parse
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/an_encode_record_naming_a_checkpoint_seq_the_manifest_never_recorded
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/an_encode_record_naming_a_checkpoint_seq_the_manifest_never_recorded
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_capture_sidecar_left_at_stage_one
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_capture_sidecar_left_at_stage_one
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_that_no_longer_matches_its_manifest_digest
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_that_no_longer_matches_its_manifest_digest
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_with_no_manifest_line
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_with_no_manifest_line
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_pins_tombstone_naming_an_add_nobody_recorded
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_pins_tombstone_naming_an_add_nobody_recorded
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_retention_root_naming_bytes_nothing_holds
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_retention_root_naming_bytes_nothing_holds
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_drain_record_whose_offset_is_past_its_size
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_drain_record_whose_offset_is_past_its_size
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_delivery_journal_line_that_does_not_parse
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_delivery_journal_line_that_does_not_parse
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_backup_file_that_drifted_from_its_manifest
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_backup_file_that_drifted_from_its_manifest
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_whose_compressed_frame_fails_its_CRC
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/mapping.jsonl
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/state/delivery-lease-position.json
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/state/delivery-lease-position.json
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/state/pending
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/state/pending
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/checkpoints/
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/checkpoints/
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/backup/
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/backup/
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/pins/invariants.json
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/pins/invariants.json
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/cursor.json
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_root's_chunk
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_root's_chunk
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_tool_use_record's_root
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_tool_use_record's_root
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_file_pointer
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_file_pointer
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_tool_pointer
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_tool_pointer
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_published_capture_sidecar's_root
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_published_capture_sidecar's_root
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_root's_chunk
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_that_no_longer_matches_its_manifest_digest
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_tool_pointer
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/checkpoints/
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/state/delivery-lease-position.json
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_op_this_build_does_not_know
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/an_encode_record_naming_a_checkpoint_seq_the_manifest_never_recorded
+--- PASS: TestFsck_AbsentStoreIsReportedAndNothingIsCreated (0.04s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_backup_file_that_drifted_from_its_manifest
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_delivery_journal_line_that_does_not_parse
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_drain_record_whose_offset_is_past_its_size
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_retention_root_naming_bytes_nothing_holds
+--- PASS: TestFsck_CanonicalStaysCanonicalInTheFidelitySummary (0.38s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_pins_tombstone_naming_an_add_nobody_recorded
+--- PASS: TestFsck_CleanProjectFindsNoDefect (0.50s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_with_no_manifest_line
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_tool_use.jsonl_line_that_does_not_parse
+--- PASS: TestFsck_RepairWithoutYesIsAUsageError (0.50s)
+--- PASS: TestFsck_ReportsADanglingDeltaPointer (0.52s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_capture_sidecar_left_at_stage_one
+--- PASS: TestFsck_SealCheckAndRepairAreMutuallyExclusive (0.53s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_line_that_does_not_parse
+--- PASS: TestFsck_TableModeWritesAReadableSummary (0.54s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_record_version_this_build_does_not_know
+--- PASS: TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog (0.56s)
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_published_capture_sidecar's_root
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_file_pointer
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/pins/invariants.json
+--- PASS: TestFsck_ANewerCheckpointSchemaIsNotCorrupt (0.58s)
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/backup/
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_that_decodes_cleanly_to_content_that_is_not_its_own_name
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_tool_use_record's_root
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/mapping.jsonl
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/state/pending
+--- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape (0.00s)
+    --- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_bare_.qompack_directory (0.05s)
+    --- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/one_roots_line_and_one_object (0.13s)
+    --- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_laid-out_project_with_no_roots_at_all (0.26s)
+    --- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_fully_seeded_project (0.63s)
+--- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone (0.00s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_that_no_longer_matches_its_manifest_digest (0.58s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_op_this_build_does_not_know (0.62s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/an_encode_record_naming_a_checkpoint_seq_the_manifest_never_recorded (0.62s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_whose_compressed_frame_fails_its_CRC (0.63s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_delivery_journal_line_that_does_not_parse (0.58s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_backup_file_that_drifted_from_its_manifest (0.63s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_drain_record_whose_offset_is_past_its_size (0.55s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_retention_root_naming_bytes_nothing_holds (0.48s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_pins_tombstone_naming_an_add_nobody_recorded (0.44s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_line_that_does_not_parse (0.37s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_tool_use.jsonl_line_that_does_not_parse (0.44s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_with_no_manifest_line (0.45s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_record_version_this_build_does_not_know (0.42s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_capture_sidecar_left_at_stage_one (0.46s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_that_decodes_cleanly_to_content_that_is_not_its_own_name (0.40s)
+--- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow (0.00s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/checkpoints/ (0.56s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/cursor.json (0.57s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/state/delivery-lease-position.json (0.62s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/backup/ (0.40s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/pins/invariants.json (0.41s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/mapping.jsonl (0.36s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/state/pending (0.37s)
+--- PASS: TestFsck_ReportsEveryDanglingReferenceClass (0.00s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_root's_chunk (0.73s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_tool_pointer (0.73s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_published_capture_sidecar's_root (0.44s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_file_pointer (0.45s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_tool_use_record's_root (0.41s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	5.820s

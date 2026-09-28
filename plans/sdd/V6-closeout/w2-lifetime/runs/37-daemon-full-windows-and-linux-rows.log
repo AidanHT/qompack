@@ -1,0 +1,22 @@
+# Fix seat: internal/daemon in full on Windows 11 at 59629b0 (tree identical to 657a31c), co-loaded by the
+# other wave-2 lanes and by this lane's own Linux -race run of the new rows x20.
+# go test ./internal/daemon/ -count=1 -timeout=30m
+--- FAIL: TestIngestRingFullWALsEveryLineAndNeverSpills (1.10s)
+    ingest_test.go:85: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/internal/daemon/ingest_test.go:85
+        	Error:      	"573.5802ms" is not less than "500ms"
+        	Test:       	TestIngestRingFullWALsEveryLineAndNeverSpills
+        	Messages:   	Accept must never block on a full ring
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	570.253s
+FAIL
+exit=1
+#
+# The one red is a wall-clock bound on five WAL appends (Accept < 500 ms; took 573.6 ms) in ingest code this
+# lane did not touch. Re-run alone, 10 of 10 pass in 0.08-0.18 s:
+# go test ./internal/daemon/ -run '^TestIngestRingFullWALsEveryLineAndNeverSpills$' -count=10 -v
+ok  	github.com/qompack/qompack/internal/daemon	1.339s (10 x PASS, 0.08-0.18 s each)
+#
+# Linux non-root -race, the new and changed rows x20 at 59629b0 (runs/linux/cx-w2-lifetime-fixseat-rows-race20-*):
+PASS      github.com/qompack/qompack/internal/daemon  (pass=980 fail=0 skip=0)
+go_test_exit=0

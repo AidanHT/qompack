@@ -1,0 +1,35 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 427,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/commands": {
+   "result": "pass",
+   "passed": 116,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/pluginmanifest": {
+   "result": "pass",
+   "passed": 28,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/tools/devtool": {
+   "result": "pass",
+   "passed": 333,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/docs": {
+   "result": "pass",
+   "passed": 19,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

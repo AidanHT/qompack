@@ -1,0 +1,21 @@
+run_id=cx-ingest-fix-race5-022721d-20260923T022411Z
+commit=022721dc76a4e060f37239f251945f2f05a7f284
+tree=3dae26168db21dd48ed3ca976f942715f88176ae
+bundle_sha256=d42bd2f22d6841f41a4768315eaee144c3c3ea467b0fe24b37f28b69382920f2
+started_utc=2026-09-23T02:24:20Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^(TestDeliveryOrder|TestDispatchLanes|TestAwaitLaneQuiet|TestSettleSessionLimit|TestIngest|TestDrain|TestDeliveryTerminal|TestSP08D3|TestCarriedDefect_SP08D3|TestPromptOrder|TestLiveDispatchedLine|TestStraggler|TestNewDrainer|TestWalSessionID|TestSessionEndRecordsRecoveryNeeded|TestDrainOfSpooledFlushLineDoesNotDeadlock|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun|TestMarkerIsWrittenByFlushAndCheckpointOnly)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-23T02:36:10Z

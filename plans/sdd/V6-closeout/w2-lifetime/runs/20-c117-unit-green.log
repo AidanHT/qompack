@@ -1,0 +1,22 @@
+# C1.17 unit rows (staging, spawn command, self-check), Windows 11, run alone:
+# go test ./internal/daemon/ -run 'TestStageBinary_|TestDaemonProgram_|TestBuildSpawnCommand_|TestRunningFromPluginRoot|TestRun_ReportsRunningFromThePluginDirectory|TestBuildSpawnEnv|TestEnsureRunning' -count=1 -v
+--- PASS: TestRun_ReportsRunningFromThePluginDirectory (0.08s)
+--- PASS: TestEnsureRunning_AlreadyRunningNeverSpawns (0.02s)
+--- PASS: TestBuildSpawnEnv_NoFaultEntryIsUnaffected (0.00s)
+--- PASS: TestBuildSpawnCommand_RunsFromTheProjectRoot (0.00s)
+--- PASS: TestBuildSpawnCommand_ShapesArgvAndSysProcAttr (0.00s)
+--- PASS: TestBuildSpawnEnv_StripsFaultAddsProjectRoot (0.00s)
+--- PASS: TestBuildSpawnEnv_StripIsCaseInsensitive (0.00s)
+--- PASS: TestEnsureRunning_SpawnFailureReportsImmediately (0.01s)
+--- PASS: TestStageBinary_UnreadableSourceFails (0.02s)
+--- PASS: TestRunningFromPluginRoot (0.02s)
+--- PASS: TestStageBinary_RefusesWithoutAHome (0.02s)
+--- PASS: TestStageBinary_CopiesOnceUnderTheContentAddress (0.06s)
+--- PASS: TestDaemonProgram_StagesOnlyWhereEnabled (0.06s)
+--- PASS: TestStageBinary_ReplacesANonFileAtTheTarget (0.07s)
+--- PASS: TestStageBinary_ConcurrentSpawnersAgree (0.07s)
+--- PASS: TestStageBinary_PrunesOtherVersions (0.08s)
+--- PASS: TestStageBinary_ReplacesATamperedCopy (0.11s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.478s
+exit=0

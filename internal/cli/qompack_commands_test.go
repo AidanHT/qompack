@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,10 +43,14 @@ func TestExitCodes_MatchTheCLITable(t *testing.T) {
 }
 
 // TestSlashCommands_AreDiscoverable is the installed-discoverability check: every §7.5 command the
-// manifest ships is reachable as the subcommand its markdown shells out to.
+// manifest ships is reachable as the subcommand its markdown shells out to, and that subcommand is
+// an ordinary one.
 //
-// checkpoint is the documented exception — it is a hook entry point, and giving the name a second
-// non-hook meaning is handoff edge H3.
+// There is no exception. /qompack:checkpoint used to be one: it shelled out to `qompack checkpoint`,
+// which is the PreCompact hook entry point — it reads a hook event from stdin and exits 0 whatever
+// happens — so the command wrote nothing and reported nothing while its description said "Write an
+// immutable checkpoint now". A shipped command whose route is a hook is a command that silently
+// does nothing, so the manifest may not ship one.
 func TestSlashCommands_AreDiscoverable(t *testing.T) {
 	t.Parallel()
 
@@ -59,11 +64,9 @@ func TestSlashCommands_AreDiscoverable(t *testing.T) {
 		require.True(t, ok, "/qompack:%s shells out to `qompack %s`, which is not registered",
 			doc.Name, doc.Subcommand)
 
-		if doc.Subcommand == "checkpoint" {
-			require.True(t, got.Hook, "checkpoint is still the PreCompact hook entry point (H3)")
-			continue
-		}
-		require.False(t, got.Hook, "%s must be an ordinary subcommand, not a hook", doc.Subcommand)
+		require.False(t, got.Hook, "/qompack:%s shells out to `qompack %s`, which is a hook entry "+
+			"point: it reads a hook event from stdin and exits 0, so the command would do nothing",
+			doc.Name, doc.Subcommand)
 		require.Equal(t, doc.Description, got.Summary,
 			"%s: the registered summary must be the installed description", doc.Subcommand)
 	}
@@ -111,6 +114,7 @@ func TestSlashCommands_ReadOnlyCommandsCreateNoProject(t *testing.T) {
 		{"qompack", "pin", "--list"},
 		{"qompack", "dropped"},
 		{"qompack", "recall", "anything"},
+		{"qompack", "eval"},
 	} {
 		dir := t.TempDir()
 		var out, errw bytes.Buffer
@@ -168,11 +172,12 @@ func TestSlashCommands_HelpExitsZero(t *testing.T) {
 	}
 }
 
-// TestSlashCommands_CheckpointRemainsTheHook is the H3 state, asserted rather than assumed.
+// TestSlashCommands_CheckpointRemainsTheHook pins that `qompack checkpoint` is the PreCompact hook
+// and nothing else, now that no slash command shells out to it.
 //
 // The PreCompact hook must keep its exit-0-always contract: a non-zero exit from it surfaces noise
-// and can block the turn. Adding /qompack:checkpoint's own route to this name would give a hook a
-// second meaning, which is why it waits for the architecture pre-step.
+// and can block the turn. The shipped hooks.json still invokes exactly this name, so it must resolve
+// to exactly one entry, the hook.
 func TestSlashCommands_CheckpointRemainsTheHook(t *testing.T) {
 	t.Parallel()
 
@@ -206,4 +211,37 @@ func TestSlashCommands_EvalImportStillResolves(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "eval", bare.Name)
 	require.Equal(t, []string{"--json"}, rest)
+}
+
+// TestSlashCommands_EvalReportsTheLatestLiveRun is the C5.4 wiring end to end: in a project whose
+// dist/live-eval holds a run `devtool live-eval` wrote — here the committed pilot1 run — `qompack
+// eval --json` reads it and reports it, qualified as a non-confirmatory, agent-executed run, instead
+// of exiting 1 because no artifact provider was installed. It only reads.
+func TestSlashCommands_EvalReportsTheLatestLiveRun(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	run := filepath.Join(dir, "dist", "live-eval", "pilot1-plugin-dir")
+	require.NoError(t, os.MkdirAll(run, 0o755))
+	pilot := filepath.Join("..", "..", "plans", "sdd", "V6-closeout", "eval", "runs", "pilot1-plugin-dir")
+	for _, f := range []string{"plan.json", "summary.json"} {
+		raw, err := os.ReadFile(filepath.Join(pilot, f))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(run, f), raw, 0o600))
+	}
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), All(), []string{"qompack", "eval", "--json"}, rootedEnv(dir, ""), &out, &errw)
+	require.Equal(t, ExitOK, code, "stderr: %s", errw.String())
+	env, err := commands.DecodeEnvelope(out.Bytes())
+	require.NoError(t, err)
+	var rep commands.EvalReport
+	require.NoError(t, json.Unmarshal(env.Data, &rep))
+	require.NotNil(t, rep.Live)
+	require.False(t, rep.Live.Confirmatory)
+	require.Contains(t, rep.Live.Qualification, "agent-executed")
+	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+
+	_, statErr := os.Stat(filepath.Join(dir, ".qompack"))
+	require.True(t, os.IsNotExist(statErr), "reading an evaluation created a .qompack directory")
 }

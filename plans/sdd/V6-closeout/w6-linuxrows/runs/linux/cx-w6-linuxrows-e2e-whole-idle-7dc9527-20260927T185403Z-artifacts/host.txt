@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-e2e-whole-idle-7dc9527-20260927T185403Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows
+rev=7dc9527
+commit=7dc95273f11a9e164fd27887cc4f5245558eedaa
+bundle_sha256=e3edea0d0615f70eef494aa95e91d78cc071a18f7a670e58ddd85add701f9252
+host_started_utc=2026-09-27T18:54:43Z
+inner_args=--timeout 150m -- ./test/e2e
+host_finished_utc=2026-09-27T20:02:55Z
+container_exit=1

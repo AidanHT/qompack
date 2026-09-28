@@ -19,7 +19,9 @@ What the commands, the slash commands and the MCP tools *are* is
 > `qompack config print` does not create the layout
 > ([docs/user-guide.md](user-guide.md#operator-commands)), but it does write
 > `.qompack/state/config-violations.json` into one that already exists (observed on this tree). The
-> full write set is [docs/architecture.md §2](architecture.md#2-write-set-and-retention).
+> full write set is [docs/architecture.md §2](architecture.md#2-write-set-and-retention). The one
+> exception is a project root that is your home directory: there none of them writes anything
+> ([below](#qompack-is-inactive-in-the-home-directory)).
 
 ## 1. Start with provenance
 
@@ -37,12 +39,27 @@ or an incomplete check. `doctor` reports capability and diagnostic states in its
 output; a successful command exit alone does not certify those capabilities.
 `bench` remains unimplemented and returns exit 1 (§9).
 
-The first seven rows are this build checking itself: `config.load`, `qompack.writable`,
-`paths.guard`, `ipc.resolve`, `daemon.reachable`, `admin.ping`, `ops.coverage`. The rest are the
+The first eight rows are this build checking itself: `config.load`, `config.capture`,
+`qompack.writable`, `paths.guard`, `ipc.resolve`, `daemon.reachable`, `admin.ping`, `ops.coverage`.
+The rest are the
 nine host-contract assertions of `internal/contract/ids.go`: `session_start.fires`,
 `session_start.source_compact`, `hook.additional_context_delivered`,
 `precompact.has_time_to_write`, `precompact.custom_instructions_accepted`, `hook.payload_shape`,
 `mcp.server_registered`, `transcript.readable` and `plugin.root_resolves`.
+
+Where the project root is your home directory none of those rows runs, because each would lay out,
+probe, lock or spawn for a directory Qompack refuses. The report then has one row, `project.root`:
+critical, with the directory and the fix in `OBSERVED`, `mode: off`, exit 1
+([the home directory](#qompack-is-inactive-in-the-home-directory)).
+
+`config.load` and `config.capture` answer different questions. `config.load` asks the soft loader
+every read command uses, which falls back instead of failing, so it passes for almost any file.
+`config.capture` asks the loader every *hook* uses, `config.LoadForCapture`, and changes nothing
+(`internal/cli/selftest.go`, `selfTestCaptureConfig`). It is `ok` only when the hooks apply your
+configuration exactly as written; `warn` when they apply it with a fallback or a dropped key —
+recording continues, and `DETAIL` names every key; and a **critical** failure, exit 1, when they
+refuse it, in which case every hook admits nothing (§6). A `config.load ok` beside a failed
+`config.capture` is not a contradiction: it is the case §6 describes.
 
 **Meaning — and the one trap on this page.** `ok` in the second column does not mean "verified". In
 an empty directory on this tree, `self-test` reported `mode: full`, exit 0, and these rows among
@@ -64,7 +81,10 @@ The other three are in a table this repository maintains for exactly this purpos
 `internal/contract/observation.go`'s `noObservationSpellings`, "every Observed string in
 assertions.go that means 'nothing was seen', as opposed to 'something was seen' or 'the contract was
 broken'". `first-session`, `no-precompact-pending`, `no-transcript-path` and `unset` are all in it,
-alongside `no-samples`, `not-yet-observed` and others you may meet. **In every one of those cases
+alongside `no-samples`, `not-yet-observed` and others you may meet — including `retired`, which is
+what `precompact.custom_instructions_accepted` reports wherever a daemon has declared its producer:
+the PreCompact instruction it once probed for is retired, because no host accepts one (C1.18,
+[docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution)). **In every one of those cases
 `ok` means "no assertion was made", not "the host contract holds."** Only a row whose `OBSERVED`
 column describes a real observation is evidence.
 
@@ -95,6 +115,45 @@ and reports exactly that.
 
 **Action.** No action; this is a recorded limit. See §2 for the `unavailable` latency rows.
 
+### Qompack is inactive in the home directory
+
+**Symptom.** A session opens with one line: "Qompack is inactive in this session: its project root
+is your home directory, so it records nothing. Open a project directory (one with its own .git) to
+use Qompack." Its MCP tools answer "qompack is inactive in this session: …" as a tool error, and a
+command run from the same directory says `the project root is the home directory`.
+
+**Diagnose.** `qompack doctor` from that directory: `scope.root` is `disabled` and its detail names
+the directory. `qompack status` reads `source: none (unavailable)` with the same reason. The project
+root is resolved as [architecture §2](architecture.md#2-write-set-and-retention) describes —
+`QOMPACK_PROJECT_ROOT`, else the nearest enclosing `.git`, else the working directory — and three
+things lead it to the home directory: the session was started there; it was started below a home
+that is itself a git work tree (a dotfiles repository), in a directory with no `.git` of its own; or
+`QOMPACK_PROJECT_ROOT` names the home directory.
+
+**Meaning.** Owner decision D18. The store for such a root would be `~/.qompack`, the directory that
+holds Qompack's user-wide configuration, the calibration file, the fallback logs and, on Windows,
+the staged daemon copies, so Qompack refuses to treat it as a project. Nothing is recorded, no
+daemon starts, nothing is written under `~/.qompack`, and every hook still exits 0: `SessionStart`
+shows the line above and the other hooks answer `{}`. The comparison is made on the cleaned path,
+ignores case on Windows and follows symlinks and junctions, so no spelling of the home directory
+gets through (`internal/paths/home.go`). `fsck`, `backup`, `admin delivery-seal`, `self-test`,
+`recall`, `pin`, `why` and `dropped` refuse with exit 1; `status` and `doctor` report and exit 0;
+`config print` shows the user-wide configuration alone, labelled `user`, with the reason on stderr.
+A project below the home directory, and the user-wide settings it inherits, are unaffected.
+
+**Action.** Start the session in the project directory itself. Below a dotfiles home, a directory
+without its own `.git` resolves to the home directory: run `git init` there, or set
+`QOMPACK_PROJECT_ROOT` to it. A session that started in the home directory stays inactive even if
+the work moves into a project below it, so the line it showed stays true; start a new session in the
+project.
+
+A build before this refusal recorded such sessions into `~/.qompack` itself, so after an upgrade that
+directory may still hold a project store beside the user-wide files — `objects/`, `index/`, `spool/`,
+`run/`, `state/` and the rest of the layout — and a daemon an older build started there may still be
+running until its idle exit. This build never reads, writes or removes any of it. Whether to keep it
+is yours to decide: `config.json`, `calibration.json`, `logs/` and, on Windows, `bin/` are the
+user-wide layer; everything else there is the old home-directory sessions' history.
+
 ### `qompack config print --provenance`
 
 **Symptom.** A setting does not appear to be doing anything.
@@ -107,8 +166,8 @@ the JSON Schema for the same keys.
 
 **Meaning.** A leaf whose comment says `default` was not set by any layer you edited — the merge is
 per leaf, so a project file that sets one key inherits every other default. A leaf that reads
-`default` when you expected `project` is either in the wrong file or was refused; §6 lists the four
-ways a value is refused.
+`default` when you expected `project` is either in the wrong file or was not applied; §6 lists the
+ways a value is accepted and not applied.
 
 **Action.** Compare the origin against the layer you edited, then read the violations file below.
 
@@ -118,8 +177,10 @@ ways a value is refused.
 
 **Diagnose.** Read the file. It is the §11.3 record of every leaf-level fallback
 (`internal/cli/config.go`, `configViolationsFile`), written by any command that loads configuration
-through `LoadConfigAndReport` with a project root. A whole-block reset is a day-log warning and not
-an entry here — see [§6](#6-configuration-and-schema-compatibility). On this tree, a project file
+through `LoadConfigAndReport` with a project root, and by every hook whose project already has a
+`.qompack/` (`reportCaptureConfig`). A whole-block reset for a newer `settingsVersion` is written
+here by the hook path only; `config print` reports it as a day-log warning — see
+[§6](#6-configuration-and-schema-compatibility). On this tree, a project file
 setting `runtime.mode` to `sideways` and `runtime.phase7.reuse.scopedCandidates` to `true` produced
 exactly two entries:
 
@@ -140,15 +201,23 @@ exactly two entries:
 ]
 ```
 
-**Meaning.** This file carries one of the four warning classes only: an invalid value that fell back
-(`internal/config/validate.go`, `ViolationsFromWarnings`, which selects warnings whose message
-begins `invalid value, using default: `). A refused gated switch is recorded here as an invalid
-value, which is why the second entry reads `true not in false`. Unknown keys, a newer
-`settingsVersion` and retired-meaning keys are warnings but **not** violations, so they never appear
-in this file.
+On this build only a read command such as `config print` writes the first of those entries. A hook in
+that project records nothing and writes neither, because a `runtime.mode` the hooks cannot apply as
+written refuses capture instead of falling back (§6).
 
-**Action.** For the other three classes, see §6 — and note §6's much sharper consequence on the hook
-path.
+**Meaning.** This file carries two of §6's classes only. The first is an invalid value that fell
+back (`internal/config/validate.go`, `ViolationsFromWarnings`, which selects warnings whose message
+begins `invalid value, using default: `). A refused gated switch is recorded here as an invalid
+value, which is why the second entry reads `true not in false`. The second, written by the hook
+path only, is a newer-`settingsVersion` reset: on this tree a project setting
+`runtime.migration.settingsVersion` to `99` gained an entry whose `Key` is `runtime.migration`,
+whose `Message` begins `settingsVersion 99 is newer than this build understands (1); the whole
+runtime.migration block is reset to defaults`, and whose `Got` and `Want` are `null`. Unknown keys,
+values of the wrong type and retired-meaning keys are warnings but **not** violations, so they never
+appear in this file.
+
+**Action.** For the warning classes, see §6, and read `self-test`'s `config.capture` row for what the
+hooks made of the same files.
 
 ### The log file
 
@@ -156,7 +225,8 @@ path.
 
 **Diagnose.** `.qompack/logs/qompack-YYYYMMDD.log` (observed: `qompack-20260914.log` in the scratch
 project). Every configuration warning is written there at `warn` level and every violation at
-`loud` level (`internal/cli/config.go`, `LoadConfigAndReport`). `internal/logging/logger.go`
+`loud` level (`internal/cli/config.go`, `LoadConfigAndReport`, and `reportCaptureConfig` for a
+hook, which writes only once `logs/` exists). `internal/logging/logger.go`
 documents that a `Loud` call also appends to `LOUD.log` in the same directory — append-only and
 never rotated — and to a process-wide ring that `qompack status` prints as `recent loud lines`.
 
@@ -167,8 +237,9 @@ produced empty stderr, no log directory, and no mention of the key anywhere — 
 file was still written for the leaves that fell back. **A silent `config print` is not a clean
 config file.**
 
-**Action.** Run `qompack self-test` or a hook in the project and read the day log, rather than
-trusting `config print`'s silence.
+**Action.** Run `qompack self-test` and read its `config.capture` row, which names every key the hooks
+did not apply, or run a hook in the project and read the day log, rather than trusting `config
+print`'s silence. `self-test`'s own `config.load` check logs nowhere either.
 
 ## 2. Unknown capability or telemetry
 
@@ -186,9 +257,22 @@ monitor degrades the session and says so loudly; two consecutive clean runs rest
 (`internal/contract/monitor.go`, `RunAll`). `internal/contract/mode.go` defines what the degraded
 mode is: L0 and L1 keep running — "observe, chunk, store, sketches, DAG, verbatim capture,
 elimination records — the store stays correct and the session's data is not lost" — and everything
-that *acts* is off: no `additionalContext` injection, no `customInstructions`, no
-scheduler-initiated checkpoints, no drop report. `qompack status` prints the mode as
-`degraded-passive`.
+that *acts* is off: no `additionalContext` injection, no scheduler-initiated checkpoints, no drop
+report. (The PreCompact focus instruction, `customInstructions`, is not on that list any more
+because no mode emits it: no host accepts one, so it is retired — C1.18,
+[docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution).) `qompack status` prints the
+mode as `degraded-passive`.
+
+A `SessionStart` whose hook could not reach the daemon in time — a cold daemon on a loaded machine is
+enough — is spooled and replayed later, after the hook has answered without it. The replay mints no
+`hook.additional_context_delivered` probe, and withdraws the probe of an answer that reached its hook
+too late, so such a start cannot produce "sentinel not found after two chances"; only the prompts
+of the session a probe was minted for, sent after it, count as its chances, and each prompt counts
+once however many times its delivery is replayed. Nor can a replay fail
+`session_start.source_compact`: a replayed `SessionStart` fired before a pending `PreCompact` is not
+taken for the start it announced, and a replayed `PreCompact` whose compact `SessionStart` has
+already arrived does not re-arm it. If a replay is what degrades the project, its banner appears on
+the next `SessionStart` instead ([docs/architecture.md](architecture.md#1-process-model)).
 
 **Meaning — `unavailable` latency rows.** Observed on this tree, every per-hook row in a fresh
 project read `unavailable` with its own reason, for example:
@@ -258,7 +342,13 @@ record's fidelity through `expand`.
 **Meaning.**
 
 - **`denied` is not empty.** A policy or privacy decision refused this read. Something exists and
-  you may not have it. Reading it as "there is nothing here" inverts the answer.
+  you may not have it. Reading it as "there is nothing here" inverts the answer. A reason that names
+  "the host's current permission rules" means a `Read` deny or ask rule in a Claude Code settings
+  file matches the archived path today; the archive follows the rule, so change the rule, not the
+  query. An `unavailable` whose reason begins "host policy unavailable" means one of those settings
+  files exists but could not be read or parsed, or that together they hold more than 5000 Read path
+  rules; every answer with a file path is withheld until it is fixed
+  ([docs/security.md §1](security.md#1-trust-boundaries)).
 - **`unavailable` is not `absent`.** The lookup failed, so the answer is *unknown*. It is never a
   licence to conclude the thing does not exist, and — per
   [docs/mcp-tools.md](mcp-tools.md#already_tried) — an `unavailable` or unrecognized state "never
@@ -320,21 +410,51 @@ stamped `mcp` because the slash-command ingest path has no production caller.
 **Action.** Treat an elimination state read out of a digest as a claim that has not been verified end
 to end; call `already_tried` for the authoritative answer, and apply §4 to whatever it returns.
 
+---
+
+**Symptom.** After a compaction, something you expected is missing from Qompack's rehydrated block,
+or section 7 ("No longer in context") ends in `… and N more; call dropped()`.
+
+**Meaning.** The block is held to 9,500 characters so that Claude Code delivers it whole: past its
+10,000-character hook-field cap the host would hand Claude a saved-file path and a 2,000-character
+preview instead ([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
+Records are chosen in a fixed order and kept whole, so on a long session some are left out on
+purpose. Each one left out is named in section 7 with the call that restores it; the counted tail
+means the section itself ran out of room, not that anything went unrecorded. Raising
+`runtime.rehydrate.maxTokens` does not change this: the character ceiling binds first.
+
+**Action.** Make the call section 7 names for the record you need — `why`, `re_read`, `expand`,
+`already_tried` with the quoted target and approach, or a `Read` of the rule, skill or checkpoint
+file — or `dropped()` for the complete list, which is read from
+`.qompack/state/rehydrate-<session>.json` and is never truncated. If the resumed session instead
+shows a `<persisted-output>` note with a file path, or `.qompack/logs/LOUD.log` has a line saying
+"hook output exceeds the host's per-field cap", that is a defect: the rehydration is built never to
+reach the cap. Report it with that log line.
+
 ## 6. Configuration and schema compatibility
 
-There are four ways a configuration file can be *accepted and not applied*, and one much sharper
-consequence that only shows up on the hook path.
-
-This table describes `config.Load`, the soft loader every read command uses. The hook path uses a
-different one and is far stricter; that is the subsection below, and it is the entry on this page
-most likely to be the answer.
+There are five ways a configuration value can be *accepted and not applied*. Both loaders treat them
+the same way, per leaf: `config.Load`, which every read command uses, and `config.LoadForCapture`,
+which every hook uses. The hook loader is stricter in two ways — input it cannot read safely, and a
+setting of either control over what is recorded, `runtime.redact` or `runtime.mode`, that cannot be
+applied as written — and they are the subsection below, because they are the entry on this page most
+likely to be the answer when nothing is being recorded.
 
 | Class | What happens | Where you see it |
 |---|---|---|
 | invalid value | the leaf falls back to its default, loading continues | `config-violations.json`, `loud` in the day log |
+| wrong type — a string where a number belongs, an unparseable `QOMPACK_*` or `--set` value, a section that is not an object | that value is ignored with a warning, and the leaf keeps the value from the layer below: the default when no lower layer set it | `warn` in the day log only |
 | unknown key | a warning, never an error | `warn` in the day log only |
-| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log only |
+| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log; the hook path also records it in `config-violations.json` (§1) |
 | retired meaning | the value is still applied, with a deprecation warning naming the file and line | `warn` in the day log only |
+
+On the hook path the first three rows do not apply inside `runtime.redact` or to `runtime.mode`: a
+problem there refuses capture instead (below). `config print` and every other read command still
+fall back for them.
+
+`qompack self-test`'s `config.capture` row and `qompack doctor`'s `config.capture` row (in its
+recording-gaps section) report what the hooks made of your files: `applied as written`, or a
+warning that names every key they did not apply.
 
 The versioned blocks, the gated switches and the retired-meaning keys are tabulated — generated from
 the shipped code, so they cannot drift from it — in
@@ -349,42 +469,57 @@ at all: `store.migrate.legacyImportCutover` is a build gate
 ([Build gates](config-reference.md#gated-switches-ship-off) lists it), and §9 covers what its being
 closed means.
 
-### The sharp consequence: a warning-free config on the read path is not a working config on the hook path
+### When the hook path refuses a configuration outright
 
-**Symptom.** `qompack self-test` passes, `qompack config print` prints a sensible configuration —
-and nothing is being recorded. In the most visible form, `<project>/.qompack/` is not even created.
+**Symptom.** Nothing is being recorded — in the most visible form, `<project>/.qompack/` holds nothing
+but `config.json` — while every hook still prints `{}` and exits 0, and `qompack config print`
+prints a sensible configuration.
 
-**Diagnose.** Compare what a hook does against what a read command does, in the same project.
+**Diagnose.** Run `qompack self-test`. Its `config.capture` row asks the hook loader itself and fails
+**critically**, exit 1, when that loader refuses; `DETAIL` names the class of problem and never
+echoes a value. `qompack doctor` reports the same verdict as its `config.capture` row, and a hook in
+a project whose `.qompack/logs/` exists appends the same text to `hook-quiet-YYYYMMDD.jsonl` there.
 
-**Meaning.** The two loaders are different by design. `config.Load` is the soft one: per-leaf
-fallback, warnings, loading continues. `config.LoadForCapture` "composes the normal five
-configuration layers **without fallback**" (`internal/config/capture_load.go`) — any merge warning,
-or any validation failure, makes it return `core.ErrDegraded`, and `internal/cli/capture_admission.go`
-then admits no capture at all. The hook still prints `{}` and still exits 0.
+**Meaning.** The hook loader (`internal/config/capture_load.go`, `LoadForCapture`) applies the table
+above per leaf, exactly as `config.Load` does, but refuses the whole capture — no delivery admitted,
+nothing recorded, no daemon started for it — for the problems no fallback can make safe. Each
+refusal names its class:
 
-Observed on this tree, running `qompack checkpoint` with empty stdin in fresh scratch directories,
-one config file per directory:
-
-| Project config | `.qompack/` after the hook |
+| `DETAIL` names | Why it is a refusal and not a fallback |
 |---|---|
-| `{}` | the full layout: 17 directories and `.gitignore` |
-| `{"runtime":{"notAKey":1}}` | nothing beyond the config file itself |
-| `{"runtime":{"migration":{"settingsVersion":99}}}` | nothing beyond the config file itself |
-| `{"runtime":{"mode":"sideways"}}` | nothing beyond the config file itself |
-| `{"runtime":{"phase7":{"reuse":{"scopedCandidates":true}}}}` | nothing beyond the config file itself |
-| `{"scheduler":{"youngDaly":{"enabled":true}}}` | the full layout: 17 directories and `.gitignore` |
+| `the project config file is not a single strict JSONC object` (or `the user config file …`) | a file that does not parse — a syntax error, a duplicate key, an empty trailing comma, an unterminated comment, invalid UTF-8 — cannot be applied per leaf, because nobody can tell which of its leaves were privacy rules. `config.Load` drops the whole layer with a `loud` warning instead |
+| `a runtime.redact setting cannot be applied as written` | an unknown key, a wrong type or an unparseable `QOMPACK_*`/`--set` value anywhere inside `runtime.redact`. Every fallback there would record under a weaker privacy policy than the one you wrote, so it fails closed, exactly as a redaction pattern that does not compile already does |
+| `a runtime.mode setting cannot be applied as written` | a value outside `auto\|full\|passive\|off` (`"OFF"`, `"sideways"`), a wrong type (`false`, `0`) or an unknown `--set` key under `runtime.mode`, from any layer. `runtime.mode` is the capture switch, and its fallback — `auto`, not a lower layer's value — would record in a project whose operator may have been switching recording off, so it fails closed: the hooks do what `off` would. A valid value applies as before |
+| `the project config file is not a bounded regular file` (or `the user config file …`) | a directory, a link, a file over 1 MiB, one that exists but cannot be opened (a permission refusal), one swapped for any of those between being checked and being opened, or one that was there when checked and then kept reappearing without ever opening for 250 ms. An editor's save that renames a new `config.json` over the old one is not a swap: the hook reads the old file or the new one (or, for a moment on Windows, finds no file: [architecture §2](architecture.md#2-write-set-and-retention)). `config.Load` follows a link and reads a large file, and reports a directory or a file it cannot open with a `loud` `unreadable config` warning, dropping that layer |
+| `an environment or --set value exceeds the capture bounds or is not UTF-8` | one value over 64 KiB, all of them together over 1 MiB, or invalid UTF-8 |
 
-Every one of those runs printed `{}` and exited 0. In the same unknown-key project, `qompack
-self-test` reported `config.load  ok  info  loaded` — because self-test's `config.load` check
-exercises the *soft* loader (`internal/cli/selftest.go`, `selfTestConfigLoad`, which calls
-`LoadConfigAndReport`). **`config.load` passing does not mean the capture path can load your
-config.** A retired-meaning key is the exception in the table because that warning is produced only
-by `config.Load`, which the capture loader never calls.
+Observed on this tree, running the `observe prompt` hook once in each of twelve scratch projects with
+one project config file each, then `qompack self-test`
+(`plans/sdd/V6-closeout/config/runs/repro-after-f846f91-windows.log`):
 
-**Action.** If recording has stopped after a config edit, treat every key in your project and user
-config files as suspect: check each against [docs/config-reference.md](config-reference.md), which
-is generated from `config.Defaults()` and is therefore the exact set of keys this build knows.
-Remove or repair the offending key and re-run a hook; the layout appearing is the confirmation.
+| Project config | Delivery recorded | `config.capture` |
+|---|---|---|
+| `{}` | yes | `ok`, `applied as written` |
+| `{"runtime":{"notAKey":1}}` | yes | `warn`, names `runtime.notAKey: unknown key` |
+| `{"runtime":{"migration":{"settingsVersion":99}}}` | yes | `warn`, names the `runtime.migration` reset |
+| `{"runtime":{"mode":"sideways"}}` | **no** | critical, `a runtime.mode setting cannot be applied as written` |
+| `{"runtime":{"phase7":{"reuse":{"scopedCandidates":true}}}}` | yes | `warn`, names the refused gated switch |
+| `{"scheduler":{"youngDaly":{"enabled":true}}}` | yes | `ok`, `applied as written` |
+| `{"checkpoint":{"budgetTokens":"12000"}}` | yes | `warn`, `invalid type for checkpoint.budgetTokens: expected int` |
+| `{"runtime":{"mode":"sideways","notAKey":1}}` | **no** | critical, `a runtime.mode setting cannot be applied as written` |
+| `{"runtime":{"redact":{"patterns":"PRIVATE-[A-Z]{12}"}}}` | **no** | critical, `a runtime.redact setting cannot be applied as written` |
+| `{"runtime":` | **no** | critical, `the project config file is not a single strict JSONC object` |
+| `{"runtime":{"mode":"OFF"}}` | **no** | critical, `a runtime.mode setting cannot be applied as written` |
+| `{"runtime":{"mode":false}}` | **no** | critical, `a runtime.mode setting cannot be applied as written` |
+
+Every hook run printed `{}` and exited 0, and `config.load` read `ok` in all twelve. **`config.load`
+passing does not mean the hooks can load your config; `config.capture` is the row that says.**
+
+**Action.** Repair what `config.capture` names, then re-run `qompack self-test` until that row reads
+`ok` — or `warn`, if you accept the keys it lists — and run a hook: a new file under
+`.qompack/spool/`, or the layout appearing, is the confirmation. For a `warn`, check each key it
+names against [docs/config-reference.md](config-reference.md), which is generated from
+`config.Defaults()` and is therefore the exact set of keys this build knows.
 
 **After a plugin downgrade or upgrade.** Read the three sections linked above in the *new* build's
 copy of the reference, in this order: [Versioned blocks](config-reference.md#versioned-blocks) (a
@@ -392,8 +527,8 @@ file written by a newer build has its block reset, silently as far as `config pr
 [Gated switches (ship off)](config-reference.md#gated-switches-ship-off) (a switch that was `true`
 in a build where its gate had passed is refused in one where it has not), and
 [Retired-meaning keys](config-reference.md#retired-meaning-keys) (still applied, with a warning, and
-no longer meaning what the old documentation said). Then run a hook and confirm the layout, per the
-action above.
+no longer meaning what the old documentation said). Then run `qompack self-test`, read
+`config.capture`, and confirm a hook records, per the action above.
 
 ## 7. Daemon problems
 
@@ -416,6 +551,134 @@ expected answer beside a running daemon, not an exceptional one.
 
 ---
 
+**Symptom.** For a while, hooks fall back to the spool although nothing failed.
+
+**Diagnose.** `qompack status` lists `daemon: delivery journal rotated; leases and acknowledgements
+waited for the archive` among its recent loud lines, with the segments it moved between and the
+pause in `pause_ms`, and its counters include `delivery_rotations` and `delivery_rotation_pause_ms`
+(the pause's distribution is the `delivery_rotation_pause` histogram). `LOUD.log` keeps a line for
+every rotation. After the daemon stops, `qompack doctor`'s `delivery.rollover` row carries the same
+totals from `metrics/latency.json`. On disk, a rotation leaves a new directory under
+`.qompack/state/delivery-segments/` and a new record at the end of
+`.qompack/state/delivery-journal-log.jsonl`.
+
+**Meaning.** The delivery journal rotated. Every 65,536 deliveries (or 64 MiB of journal) the daemon
+archives the full window into `.qompack/state/delivery-generations/` before it assigns the next
+identity, and leases and acknowledgements wait for it: 2.3 to 6.8 s per rotation of a full window in
+the V6 close-out's measurements on loaded Windows and Linux hosts
+(`plans/V2-WAVE1-carried-defects.md`, SP20-D4). The owner accepted this pause as a documented
+residual (decision D6); moving the archive off the pause is deferred past this release. A hook that
+cannot get its ACK within its deadline spools the delivery, and the drain leases it afterwards under
+the same nonce, so nothing is lost or duplicated.
+
+**Action.** None. Do not stop the daemon mid-rotation to "unstick" it: an interrupted rotation is
+finished on the next start before anything else is assigned, and reported with `at_open=true`. If
+the first rotation stopped between freezing the original seals and committing the switch, then until
+the daemon starts again a store GC pass halts rather than collect, and `qompack fsck` reports a
+frozen legacy-segment seal with no later segment named.
+
+---
+
+**Symptom.** The daemon log (`.qompack/logs/qompack-YYYYMMDD.log`) has a warning that `this
+project's delivery journal will rotate for the first time soon`, or `qompack doctor`'s
+`delivery.rollover` row says `the last daemon warned that this store's first rotation is near`.
+
+**Meaning.** The project has never rotated its delivery journal and its lease journal has reached
+three quarters of the rotation threshold (49,152 deliveries or 48 MiB). The first rotation is the
+one step that cannot be undone: after it, a Qompack build older than segmented rollover refuses the
+journal. The daemon warns once per run, at the point it is crossed or at the start of a run that
+finds the project already past it, and counts it in `delivery_first_rotation_backup_advised`. The
+warning is per run, not per project: every restart before the rotation warns again, so each run's
+`delivery.rollover` row, which reads only that run's counters, still names the coming rotation.
+
+**Action.** If you may want to run an older build on this project again, stop the daemon and take a
+backup now (`qompack backup create`, [Backup and restore](backup.md)). A backup taken before the
+first rotation is the only way back to such a build. Otherwise, nothing: the rotation happens on its
+own.
+
+---
+
+**Symptom.** `LOUD.log` or `qompack status` shows `store: gc halted: the delivery journal carries
+more archived leases without an acknowledgement than a pass can hold`, and `.qompack/` keeps
+growing.
+
+**Diagnose.** The status counter `store.gc.delivery_carry_over_bound` counts every halted pass, and
+`qompack doctor`'s `delivery.rollover` row reads `degraded` with the number of halted passes. The
+Loud line's `err` names the carried-lease file and how many leases it carries. The file is the
+active segment's `delivery-carried-leases.jsonl` under `.qompack/state/delivery-segments/`; its
+first line's `count` is the same number.
+
+**Meaning.** Each rotation carries into the new segment every archived lease that has no
+acknowledgement, so store GC can retain what those leases reference without reading old segments.
+A GC pass harvests at most 65,536 carried leases; past that it halts and collects nothing, exactly
+as for any retention source it cannot read, so nothing is deleted and disk use grows. The carry
+shrinks only at a later rotation, by the carried leases an acknowledgement settled meanwhile. A
+delivery retired by a policy denial is never acknowledged, and neither is a leased delivery that is
+never published, so a project with many of those can stay halted. The line is Loud once per run of
+halted passes, not on every idle tick; the counter counts every pass. The owner accepted this bound
+as a documented residual (decision D6).
+
+**Action.** There is no repair for it in this build. Do not edit or delete the carried-lease file or
+any journal: that would release content a delivery may still need, or recycle observation
+identities. Keep disk headroom, and keep `LOUD.log` and the doctor output for the report.
+
+---
+
+**Symptom.** Capture stops, and `LOUD.log` or `qompack status` shows `daemon: delivery journal
+rotation refused: the archived leases without an acknowledgement would pass the carried-lease file's
+bound`.
+
+**Diagnose.** The status counters `delivery_rotation_failures` and
+`delivery_rotation_carry_over_bound` each read at least 1, and `qompack doctor`'s
+`delivery.rollover` row reads `degraded`, naming the 64 MiB bound. The Loud line carries
+`carried_leases`, `carry_bytes` and `carry_bound_bytes`. Every later delivery also logs `daemon:
+delivery identity unavailable; durable WAL retained for recovery`.
+
+**Meaning.** The carry the rotation would have written (the store GC entry above) passes 64 MiB,
+about 200,000 leases, which every reader of the file refuses. So the rotation refuses before it
+stages anything, and the journal refuses every lease and acknowledgement from then on. A restart
+finishes the same rotation at the open, meets the same bound, and refuses again (the Loud line then
+reads `at_open=true`). Deliveries are kept in durable input (the ingest WAL, or the hook spool when
+the daemon does not answer), so disk grows while it lasts, and nothing new is captured. Nothing is
+half-written: the offline delivery check (`qompack admin delivery-seal --check` on the stopped
+project, and the delivery row of `qompack fsck --seal-check`) still passes. The owner accepted this
+bound as a documented residual (decision D6).
+
+**Action.** There is no repair for it in this build. Stop the daemon and take a backup
+(`qompack backup create`) to preserve the state, then report it with `LOUD.log` and the doctor
+output. Do not delete or edit journals, carried-lease files or segments, and do not delete the WAL
+or spool files: they are the only copy of the deliveries made since the refusal.
+
+---
+
+**Symptom.** An older Qompack build's `fsck` reports `state/delivery-lease-position.json parses as
+JSON and carries no version`, and that build's daemon assigns no observation identities.
+
+**Meaning.** The store has rotated its delivery journal, and its original seals are frozen so that a
+build that predates segments refuses the journal rather than appending to it with arrival numbers
+later segments already used. The current build reads the frozen seal as the archived segment 0 and
+resumes each session at the arrival it left next. A build from before the V6 fail-closed journal
+change still indexes deliveries in that state, without identities; the current build does not
+revisit them.
+
+**Action.** Use the current build. To go back to an older build, restore a backup taken before the
+first rotation into a fresh destination ([Backup and restore](backup.md)); do not edit the seals.
+
+---
+
+**Symptom.** After a crash, the daemon refuses to open the delivery journal of a rotated store and
+`qompack admin delivery-seal --check` reports a v2 seal with one torn slot in the active segment.
+
+**Meaning.** The crash landed in the middle of the active segment's seal write. The daemon's reader
+is strict and refuses the torn image.
+
+**Action.** Stop the daemon, then run `qompack admin delivery-seal --check --accept-torn-slot --yes`
+to see exactly which journal lines accepting the valid slot would admit, and
+`qompack admin delivery-seal --to v1 --accept-torn-slot --yes` to repair the active segment's seal
+at the position its journal's full scan recovers. The tool refuses Rule R on any archived segment.
+
+---
+
 **Symptom.** A daemon will not start, or a lock file looks orphaned.
 
 **Diagnose.** `.qompack/run/daemon.lock` carries the owning `pid`, start time, address and version
@@ -432,11 +695,153 @@ protection against a second writer.
 
 ---
 
+**Symptom.** After a compaction the model's context opens with "Qompack could not deliver this
+compaction's rehydration" instead of the rehydration.
+
+**Diagnose.** The note names its cause in parentheses. "it was not ready when the answer was due",
+"building it failed", "the checkpoint store could not be read" and "the Qompack daemon was shutting
+down" are the daemon's own:
+`.qompack/logs/LOUD.log` has a matching `compact SessionStart answered without its rehydration`
+line, `qompack status --json` counts it under `session_start_compact_deferred`, and
+`.qompack/metrics/latency.json` has the route's phases — `session_start.contract`, `.compact_wait`,
+`.finish` and `rehydrate.latest`, `.record` — which say where the time went. For "building it failed"
+and "the checkpoint store could not be read", `LOUD.log` also has the failure itself: `rehydrate:
+checkpoint unreadable` (with `checkpoint manifest unreadable` when the manifest is the cause),
+`rehydrate: build failed`, or `rehydrate: panic recovered`; `qompack fsck` checks the checkpoint
+store. "the Qompack daemon was shutting down" is no fault of the store or the build: the daemon was
+stopping before the rehydration could start, or its stop cut the rehydration short (`LOUD.log` then
+has `rehydrate: stopped before the rehydration was built`). "the Qompack daemon did not answer in
+time" is the hook client's: no answer reached it within its reply deadline — 10 s, or less when
+starting the daemon ran past its share of the hook's 15 s timeout (see the next entry) — so look at
+whether a daemon was running at all (`qompack status`) and at the disk load at that moment.
+
+**Meaning.** The rehydration is bounded (C1.16): the daemon waits for a compact rehydration for at
+most a third of the hook's 15 s timeout, counted from the request's arrival, and a rehydration that
+is not ready by then is answered with this note rather than with nothing. It finishes anyway, and
+its drop report is recorded as undelivered, so `dropped()` says first that the whole rehydration
+never reached the model. A rehydration that cannot be built at all is answered the same way (owner
+decision D11): a checkpoint store the daemon cannot read — an unreadable `MANIFEST.jsonl`, or a
+checkpoint whose bytes verify but do not decode — gets no rehydration built on top of it, and a build
+that fails or panics has nothing to deliver. Each records a drop report whose first entry is the
+whole rehydration, `not delivered: …`, naming the cause, so `dropped()` says it was never built. A
+checkpoint that fails verification is not this case: the daemon steps over it to its parent, or
+builds the rehydration without a checkpoint, and delivers that.
+
+`dropped()` reports on the most recently *recorded* rehydration, which for a while can be an
+earlier one, as the note itself says. A rehydration still being built has recorded nothing yet, and
+one that a stopping daemon never started records nothing at all; one its stop cut short records a
+report that opens `not delivered: the Qompack daemon was shutting down, so no rehydration was built`.
+When the hook client wrote the note ("did not answer in time"), the daemon may still have answered,
+too late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
+and when the daemon replays it, it records the rehydration as undelivered and says the hook answered
+without it. The request kicked the daemon's client-spool watcher when it arrived, before the
+compaction ran (`internal/daemon/spool_watch.go`); the watcher looks at the spool then and once more
+a check interval (2 s) later, and then waits for the next kick. If the spooled copy was written
+within about one interval of the request arriving, the watcher replays it about two intervals after
+that arrival. Otherwise the watcher picks it up about one interval (2 s) after the next request the
+daemon serves, for example the session's next prompt; failing that, the idle drain replays it once the
+project has been idle for `scheduler.idle.detectAfterSeconds` (120 s by default), or the session's
+flush or the next daemon's startup drain does. If the spool itself could not be written, that correction never comes:
+`.qompack/logs/LOUD.log` then has an `ipc: spool` line for the dropped request.
+
+**Action.** Recover in the session: the note lists the calls — `expand` of the session's first
+prompt, `recall` for anything captured, `dropped()` — and `.qompack/checkpoints/` holds the
+checkpoint itself (the highest number is the newest). If it recurs, the machine's disk is the usual
+cause: the route's own durable writes (`session_start.contract`, `.finish`) are fsync-bound.
+
+---
+
+**Symptom.** A session's first `SessionStart` got no answer: no §12.1 probe was minted for it, or
+a compaction's context opens with the deferred note naming "the Qompack daemon did not answer in
+time". It happens on a loaded machine, and more readily on Windows on the first start after the
+plugin is installed or updated, when the daemon binary is first copied under the user's `.qompack`.
+
+**Diagnose.** The project's day log (`.qompack/logs/qompack-YYYYMMDD.log`) has `hook: no time left to
+wait for the daemon's answer; the request was handed to the spool` when starting the daemon used the
+whole of `session-start`'s budget, with the overrun in `overrun_ms`, and `daemon: spawn failed` when
+the daemon could not be started at all. If the spool could not write the request either,
+`.qompack/logs/LOUD.log` has an `ipc: spool` line for the dropped request, or `hook: the request
+could not be spooled and is lost`. Otherwise the start was spooled because the daemon was not
+listening, or still replaying its spool, when the wait ran out. `qompack status` shows whether a
+daemon is running now; until it has replayed the start, the request is a `session.start` line in a
+`.qompack/spool/client-*.ndjson` file.
+
+**Meaning.** `session-start` is bounded by its 15 s manifest timeout as a whole (V6 close-out D17b
+and D21): the daemon must be listening within 8.25 s of the hook starting (or within 1.5 s of a
+spawn that itself ran late), and its answer must arrive within the reply wait that follows — 10 s
+when the daemon was up within 3.25 s, less when it came up later, and about the 5 s a compaction
+may take when it came up just before 8.25 s. A start that misses either is
+spooled, not lost: the daemon replays it and records the session, but a replayed start mints no probe
+and delivers no rehydration, because its answer could reach no one. Which drain replays it depends on
+why it was spooled. A start spooled because no daemon was listening never reached one, so it kicked
+nothing: the client-spool watcher looks at the spool only after a request the daemon served kicks
+it, and does not pick this start up. The startup drain of the daemon that comes up next does — the
+one this start launched, or a later session's — which replays the spool before that daemon serves
+anything (`internal/daemon/daemon.go`, `Run`). A line written after that drain had already read the
+spool, because the daemon came up just as the hook gave up, is replayed by the drain the daemon runs
+once it has served its first request (`redrainOnceServing`). A start whose answer came too late did
+reach the daemon, and kicked the watcher when it arrived, before its processing began; the watcher
+looks then and once more a check interval (2 s) later, and then waits for the next kick. If the
+spooled copy was written within about one interval of the start arriving, the watcher replays it
+about two intervals after that arrival. A start that was late because its processing was slow is
+usually spooled later than that, and the watcher picks it up about one interval (2 s) after the next
+request the daemon serves, for example the session's first prompt; failing that, the idle drain
+after `scheduler.idle.detectAfterSeconds`, the session's flush or the next daemon's startup drain
+replays it. Only one daemon is started per project however many hooks race to
+start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process that appears and exits at
+once, because it cannot take the project's singleton lock, means a spawner found neither a daemon
+answering its dial nor a spawn in flight while one was in fact starting or running. There are three
+causes: a spawn that took longer than the spawn lock's 10 s freshness window; a hook whose short
+dial a busy daemon did not answer in time; or a daemon (or an operator command holding the lock,
+such as `fsck`) that let the lock go while another spawn was still starting, which gives that
+spawn's claim back (V6 close-out D27), so the next spawner starts one more daemon and the lock
+turns it away. The first two are signs of heavy load; the third costs one extra process and
+nothing else. A daemon that is stopping — its idle exit, say — also turns a new one away until it
+has let go, and a `SessionEnd` that arrives in that moment waits in the spool for the next session
+([cannot-do](cannot-do.md#a-sessions-end-can-wait-for-the-next-session-when-the-daemon-is-stopping)).
+
+**Action.** None for a single occurrence: the session continues, and a compaction's note lists the
+recovery calls. If it recurs on every start, look at the machine's CPU and disk load when sessions
+begin. On a loaded Windows machine the V6 close-out's cold-start diagnostic saw starting the daemon
+process stall for 4 to 5 s in about one spawn in ten; what causes those stalls was not identified.
+
+---
+
+**Symptom.** On Windows, a plugin update or uninstall, or the host's cleanup of a `--plugin-dir`
+extraction, cannot remove the plugin directory; `bin/qompack.exe` is "in use" or "Access is
+denied", and the directory is left half deleted.
+
+**Diagnose.** Find which executable the project's daemon is running from: the `pid` in
+`.qompack/run/daemon.lock`, then its image path (Task Manager's details, or `Get-Process -Id <pid> |
+Select-Object Path` in PowerShell). A current build runs it from
+`%USERPROFILE%\.qompack\bin\<sha256>\qompack.exe`. If it runs from inside the plugin directory,
+`.qompack/logs/LOUD.log` has a `daemon: running from inside the plugin directory` line, and the project's
+day log in `.qompack/logs/` names why the copy could not be made when `session-start` started it.
+
+**Meaning.** The daemon outlives the session by design, and Windows will not delete a running
+executable or the directory holding it (C1.17). So whatever starts the daemon from the plugin's
+binary — `session-start`, a hook's lazy spawn, or the `qompack mcp` server's — runs it from a
+verified copy under the user's `.qompack\bin` instead, and only the session's own hook processes and
+MCP server — which end with the session — ever run from the plugin directory. A daemon from a build
+before this change, or one started after the copy failed (a full disk, an unwritable `.qompack`
+under the user profile, a copy another program held open so that it could not be checked), still
+holds the directory until it exits.
+
+**Action.** Wait for the daemon's idle exit (below), or end that one process by its `pid`, then retry
+the update or removal. If the LOUD line is there, fix what stopped the copy — the directory
+`%USERPROFILE%\.qompack\bin` must be writable by you — and the next daemon start uses a copy.
+Copies of versions no daemon is running are removed automatically when a new version is staged.
+
+---
+
 **Symptom.** A daemon is running and you want it to stop.
 
 **Meaning.** It stops on its own when idle: `runtime.daemon.idleExitSeconds`
 ([default `1800`](config-reference.md#runtime)) is the number of seconds with zero live sessions
-before the daemon exits (`internal/daemon/daemon.go`, `idleExitDue`).
+before the daemon exits (`internal/daemon/daemon.go`, `idleExitDue`). A session stops being live at
+its `SessionEnd`, or, when the `SessionEnd` never arrived, after that same number of seconds with no
+traffic from it — so a daemon can outlive its last session by up to twice the setting. On Windows
+the process is the staged copy described above, not the plugin's own binary.
 
 **There is no operator stop command in this build.** The daemon does have an `admin.shutdown` op,
 but the only callers of `ipc.OpAdminShutdown` outside the daemon itself are the bench harness
@@ -448,6 +853,50 @@ operator-facing stop path.
 **Action.** Prefer waiting for idle exit. If you terminate the process, terminate only the one whose
 `pid` appears in that project's `daemon.lock`; daemons are per project and another project's daemon
 is a different process.
+
+---
+
+### Windows Defender flags `qompack.exe`
+
+**Symptom.** On Windows, Windows Security reports a threat in a Qompack binary, named
+`Trojan:Win32/Bearfoos.A!ml` or `Trojan:Win32/Bearfoos.B!ml`, and blocks or quarantines the file:
+the plugin's `bin\qompack.exe`, the daemon's staged copy under
+`%USERPROFILE%\.qompack\bin\<sha256>\`, or a binary you built from source. A blocked binary does
+not start: run by hand, Windows refuses it with "Operation did not complete successfully because
+the file contains a virus or potentially unwanted software", and a quarantined one is simply gone.
+The V6 close-out saw these detections on development builds of this tree (decision D32). Whether a
+release build is flagged, and what Claude Code shows when a hook's binary will not start, have not
+been observed.
+
+**Diagnose.** Windows Security, Virus & threat protection, Protection history lists the detection's
+name and the file it acted on. Then check that the file is the one the release shipped. Hash the
+release zip you installed from and compare it with that zip's line in the same release's
+`checksums.txt`:
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\qompack-plugin-<version>-windows-amd64.zip
+```
+
+(`sha256sum --ignore-missing -c checksums.txt` does the same in Git Bash.) For an extracted bundle,
+`bin/qompack.exe` is listed in the bundle's own `checksums.txt` ([install §1](install.md)). The
+staged copy's directory is named by the copy's own SHA-256, and the daemon runs it only when its
+bytes hash to that name and to the plugin binary it was copied from, so the name printed by
+`Get-FileHash` on it must equal the directory's name and the `bin/qompack.exe` digest.
+
+**Meaning.** The names end in `!ml`: the detection comes from Defender's machine-learning
+heuristics, not from a signature of known malware. Qompack's binaries are not code-signed (an open
+release item, [release §7](release.md#7-not-claimed)), and an unsigned, newly built executable that
+spawns a background process and writes under the user profile is the kind of file such heuristics
+flag. A binary whose digest matches the release's `checksums.txt` is byte-for-byte the one the
+release published. One that matches nothing is not a Qompack release artifact: do not run it.
+
+**Action.** For a binary that matches the release's checksums, report the false positive to
+Microsoft through its file submission portal (<https://www.microsoft.com/en-us/wdsi/filesubmission>),
+as an incorrectly detected file, naming the detection. Restoring the file from quarantine or adding a
+Defender exclusion is your own decision: Qompack never adds one and needs none to be correct, and an
+exclusion turns off scanning for everything under the path it names. If you do add one, scope it to
+the one verified file or its directory. Qompack cannot work while its binary is blocked; until the
+detection is resolved, remove or disable the plugin ([Safe disable](#8-safe-disable)).
 
 ## 8. Safe disable
 
@@ -470,7 +919,8 @@ This forces the mode the contract monitor would otherwise reach on a critical fa
 
 **What keeps being written.** Per `internal/contract/mode.go`: L0 and L1 keep recording — observe,
 chunk, store, sketches, DAG, verbatim capture, elimination records. What stops is everything that
-acts: injection, `customInstructions`, scheduler-initiated checkpoints, the drop report.
+acts: injection, scheduler-initiated checkpoints, the drop report. (No mode emits a PreCompact
+focus instruction; it is retired — C1.18.)
 
 ### Step 3 — `runtime.mode = off`
 
@@ -485,16 +935,31 @@ printed `{}`, exited 0, and created no `.qompack/` layout at all. Read commands 
 still write — `qompack status` and `qompack self-test` create the layout and start a daemon
 whatever the mode says, because you asked them to.
 
+Spell it exactly `"off"`. A value the hooks cannot apply as written — `"OFF"`, `false`, any other
+value outside `auto|full|passive|off` — also records nothing from the hook path, because the hooks
+refuse that configuration rather than fall back to `auto` (§6); but `self-test` then reports
+`config.capture` as a critical failure rather than a clean off, and the read commands fall back to
+`auto`.
+
 ### Step 4 — `runtime.daemon.enabled = false`
 
 **What keeps being written.** The hooks still run and still write, but nowhere useful: every request
 is spooled instead of sent (`internal/ipc/client.go`, `Send` step 2), and no daemon is spawned at
 session start (`internal/cli/sessionstart.go`, `ensureDaemonRunning`, whose comment explains that
 before this check existed a disabled-daemon project still got a resident process whose "idle drain
-quietly processed the spool anyway"). Observed on this tree: `qompack checkpoint` with empty stdin
-created a single spool file, `.qompack/spool/client-<pid>.ndjson` (the pid elided), with no `run/`
-directory and no daemon. Nothing drains that
-spool while the daemon stays disabled.
+quietly processed the spool anyway"). No other command starts one either: `qompack self-test`
+reports its `daemon.reachable` and `admin.ping` rows as `skipped: runtime.daemon.enabled is false`
+(and `daemon.reachable` warns if a daemon answers anyway), and `qompack mcp` and the command
+frontends such as `qompack status` check the configuration as well as `.qompack/run/state.bin`,
+which a daemon that did not stop cleanly can leave saying the daemon is enabled. And `qompack daemon`
+itself refuses to run in such a project, whoever starts it (an operator by hand, or an older
+binary's spawner): before it creates `.qompack/run/`, the lock or the socket, it exits non-zero with
+one line, `qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false
+(<layer>, <where it was set>); set runtime.daemon.enabled to true to enable it`
+(`internal/cli/daemon.go`, `refuseDisabledDaemon`). Observed on this
+tree: `qompack checkpoint` with empty stdin created a single spool file,
+`.qompack/spool/client-<pid>.ndjson` (the pid elided), with no `run/` directory and no daemon.
+Nothing drains that spool while the daemon stays disabled.
 
 This is a *more* invasive setting than `mode = off` in one respect — it leaves work accumulating on
 disk rather than declining it — so prefer step 3 if your goal is "stop doing anything".
@@ -549,8 +1014,9 @@ exactly that instinct.
   `not-yet-implemented` made no assertion at all, and the same is true of every spelling in
   `internal/contract/observation.go`'s `noObservationSpellings` — `first-session`,
   `no-precompact-pending`, `no-transcript-path` and `unset` among them. See §1.
-- **`config.load ok` is not "your configuration works".** It exercises the soft loader; the capture
-  path uses a different one that fails closed. See §6.
+- **`config.load ok` is not "your configuration works".** It exercises the soft loader, which falls
+  back instead of failing. Whether the hooks can load the same files is `config.capture`, which
+  fails critically when they refuse and warns when they drop a key. See §1 and §6.
 - **An `unavailable` row is not a zero.** No number was borrowed and none was invented. See §2.
 - **`unavailable` is not `absent`, and `denied` is not empty.** See §4.
 - **A `dropped` report is qualified coverage, not proof of native eviction.** It is "Qompack's

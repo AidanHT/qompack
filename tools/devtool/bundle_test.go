@@ -101,7 +101,6 @@ func TestAssembleBundle_Layout(t *testing.T) {
 				"BUNDLE.json",
 				"checksums.txt",
 				tc.wantBin,
-				"commands/checkpoint.md",
 				"commands/dropped.md",
 				"commands/eval.md",
 				"commands/pin.md",
@@ -116,19 +115,43 @@ func TestAssembleBundle_Layout(t *testing.T) {
 				t.Errorf("bundle tree:\n got %v\nwant %v", got, want)
 			}
 
-			// One manifest for every OS: the host expands ${CLAUDE_PLUGIN_ROOT}, so the hook and
-			// MCP command strings must not be rewritten per target.
-			for _, rel := range []string{"hooks/hooks.json", ".mcp.json"} {
-				b, readErr := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
-				if readErr != nil {
-					t.Fatalf("read %s: %v", rel, readErr)
+			// Every hook and the MCP server launch EXACTLY the executable this bundle ships, in
+			// exec form (C1.11): `command` is ${CLAUDE_PLUGIN_ROOT}/<the binary>, the subcommand is
+			// `args`, and there is no shell to resolve an extension or split a path.
+			wantCmd := "${CLAUDE_PLUGIN_ROOT}/" + tc.wantBin
+			var hooks struct {
+				Hooks map[string][]struct {
+					Hooks []struct {
+						Command string   `json:"command"`
+						Args    []string `json:"args"`
+					} `json:"hooks"`
+				} `json:"hooks"`
+			}
+			readBundleJSON(t, dir, "hooks/hooks.json", &hooks)
+			if len(hooks.Hooks) != 7 {
+				t.Errorf("hooks.json declares %d events, want 7", len(hooks.Hooks))
+			}
+			for event, groups := range hooks.Hooks {
+				for _, g := range groups {
+					for _, h := range g.Hooks {
+						if h.Command != wantCmd {
+							t.Errorf("hooks.json %s: command %q, want the bundled binary %q", event, h.Command, wantCmd)
+						}
+						if len(h.Args) == 0 {
+							t.Errorf("hooks.json %s: no args, so the host would run it as a shell command", event)
+						}
+					}
 				}
-				if !strings.Contains(string(b), "${CLAUDE_PLUGIN_ROOT}/bin/qompack") {
-					t.Errorf("%s does not invoke ${CLAUDE_PLUGIN_ROOT}/bin/qompack:\n%s", rel, b)
-				}
-				if strings.Contains(string(b), "qompack.exe") {
-					t.Errorf("%s was rewritten for a platform; the manifest is OS-independent:\n%s", rel, b)
-				}
+			}
+			var mcpDoc struct {
+				MCPServers map[string]struct {
+					Command string   `json:"command"`
+					Args    []string `json:"args"`
+				} `json:"mcpServers"`
+			}
+			readBundleJSON(t, dir, ".mcp.json", &mcpDoc)
+			if srv := mcpDoc.MCPServers["qompack"]; srv.Command != wantCmd || len(srv.Args) == 0 {
+				t.Errorf(".mcp.json qompack server = %+v, want command %q with args", srv, wantCmd)
 			}
 
 			// plugin.json carries the assembler's version, not internal/core.Version's default.
@@ -535,5 +558,17 @@ func TestTaskBundle_RejectsPositionalArgs(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--target") {
 		t.Errorf("taskBundle error = %v, want it to name --target", err)
+	}
+}
+
+// readBundleJSON decodes one bundle-relative JSON file.
+func readBundleJSON(t *testing.T, dir, rel string, v any) {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatalf("read %s: %v", rel, err)
+	}
+	if err := json.Unmarshal(b, v); err != nil {
+		t.Fatalf("%s: %v\n%s", rel, err, b)
 	}
 }

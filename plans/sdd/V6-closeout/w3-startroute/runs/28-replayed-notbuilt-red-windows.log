@@ -1,0 +1,11 @@
+=== RUN   TestService_ReplayedUnbuildableRehydrationSaysWhatTheHookAnswered
+    rehydrate_undelivered_test.go:123: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_undelivered_test.go:123
+        	Error:      	"not delivered: the checkpoint store could not be read, so no rehydration was built; the model received a deferred note instead; the checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest)" does not contain "(the model received a deferred note, or nothing)"
+        	Test:       	TestService_ReplayedUnbuildableRehydrationSaysWhatTheHookAnswered
+        	Messages:   	the report says the hook answered without the daemon
+--- FAIL: TestService_ReplayedUnbuildableRehydrationSaysWhatTheHookAnswered (0.07s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.289s
+FAIL
+exit=1

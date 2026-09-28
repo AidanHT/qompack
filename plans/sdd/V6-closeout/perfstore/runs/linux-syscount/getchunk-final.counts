@@ -1,0 +1,12 @@
+close 20
+epoll_ctl 20
+fstat 20
+futex 50
+getpid 14
+nanosleep 126
+newfstatat 20
+openat 20
+read 40
+rt_sigreturn 14
+sched_yield 1
+tgkill 14

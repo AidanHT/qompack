@@ -1,0 +1,10 @@
+run_id=cx-w6-gcserial-alone-fault-unindexed-row-4b33c19-20260927T190529Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial
+rev=4b33c19
+commit=4b33c19f8853f3f0d5821f8f1f8dc6b9b8df5c54
+bundle_sha256=93671dce854b082c5a4aaca2de3abe9d55ad2aa58cdee1acd41f9531969dda1c
+host_started_utc=2026-09-27T19:06:01Z
+inner_args=--run ^TestFault_PublicationBoundaries$/^object_written_index_line_absent$ --count 3 --timeout 60m -- ./test/fault
+host_finished_utc=2026-09-27T19:07:07Z
+container_exit=0

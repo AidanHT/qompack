@@ -1,0 +1,11 @@
+--- FAIL: TestGC_DeadlineOvershootIsBoundedByTheCheckInterval (69.22s)
+    gc_test.go:1518: calibration 623.4501ms…2.2712226s over 3072 objects (fastest of 4); first check 58.3617ms (measured 58.3617ms); window 10.68x, slack 3.27x; check interval 204.721408ms; budget 954.169602ms; overshoot 68.637898ms after 1279 objects on attempt 2 of 5; limit 409.442816ms
+    gc_test.go:1533: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-sp08d3fix/internal/store/gc_test.go:1533
+        	Error:      	"409.442816ms" is not less than or equal to "250ms"
+        	Test:       	TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+        	Messages:   	two deadline checks cost 409.442816ms on this host, so gcCheckEvery (256) is too coarse to honour a deadline inside the 2 s idle budget; revisit the constant, not this assertion
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	336.636s
+FAIL
+exit=1

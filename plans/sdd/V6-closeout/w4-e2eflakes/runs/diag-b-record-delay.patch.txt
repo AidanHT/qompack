@@ -1,0 +1,31 @@
+# w4-e2eflakes item (b): the TEMPORARY product diagnostic used for the ordering runs below. Applied to
+# internal/daemon/rehydrate_service.go only while those runs ran, reverted with git checkout after each,
+# never committed. ZZDIAG_W4_RECORD_DELAY delays the drop-report Record after the compact answer;
+# ZZDIAG_W4_RECORD_SUPPRESS skips it.
+
+diff --git a/internal/daemon/rehydrate_service.go b/internal/daemon/rehydrate_service.go
+index b0b14e9..9ac1cdc 100644
+--- a/internal/daemon/rehydrate_service.go
++++ b/internal/daemon/rehydrate_service.go
+@@ -7,6 +7,7 @@ import (
+ 	"path/filepath"
+ 	"strings"
+ 	"sync"
++	"os"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/checkpoint"
+@@ -203,7 +204,12 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
+ 		return out, nil
+ 	}
+ 
+-	s.phase(histRehydrateRecord, func() { s.record(ctx, e.SessionID, res, stats, budget) })
++	if zzd, zzErr := time.ParseDuration(os.Getenv("ZZDIAG_W4_RECORD_DELAY")); zzErr == nil { // DIAGNOSTIC w4-e2eflakes, NEVER COMMITTED
++		time.Sleep(zzd)
++	}
++	if os.Getenv("ZZDIAG_W4_RECORD_SUPPRESS") == "" { // DIAGNOSTIC w4-e2eflakes, NEVER COMMITTED
++		s.phase(histRehydrateRecord, func() { s.record(ctx, e.SessionID, res, stats, budget) })
++	}
+ 	s.gauges(res)
+ 	return out, nil
+ }

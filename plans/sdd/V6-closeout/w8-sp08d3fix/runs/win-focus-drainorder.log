@@ -1,0 +1,5 @@
+=== RUN   TestDrainOrder_ClientSpoolsReplayByFirstRecordHostTS
+--- PASS: TestDrainOrder_ClientSpoolsReplayByFirstRecordHostTS (0.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.379s
+exit=0

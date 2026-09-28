@@ -1,0 +1,16 @@
+{
+  "name": "path-root-mixed-case",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "d5674c90e3b40da7e5989cb3b8013996f4d9d69f630cffad89d3d065fbdc9c3e"
+  },
+  "outcome": "verified",
+  "reason": "mixed-case project root, resolved through the payload cwd, with the product exercised at both spellings",
+  "detail": "case-sensitive volume and non-folding normalization agree: \"/tmp/qompack-platform-3092358765/Proj-Case\" and \"/tmp/qompack-platform-3092358765/proj-case\" are two projects with two ipc.ProjectHash12 values (28766bcb6fea vs 729d720ea8c4) and two transports (/tmp/qompack-10001/28766bcb6fea.sock vs /tmp/qompack-10001/729d720ea8c4.sock). While only the first daemon was up it answered /tmp/qompack-10001/28766bcb6fea.sock and did NOT answer /tmp/qompack-10001/729d720ea8c4.sock; session-start then ran in the second project, whose own daemon answered admin.ping (mode=full hot=sync), and each project carries its own .qompack"
+}

@@ -1,0 +1,8 @@
+# worktree on 12f64ca + pinToolchain skips the go command when all four are set; Windows
+=== RUN   TestIsolateHome_RedirectsEveryHomeLookupAndPutsItBack
+--- PASS: TestIsolateHome_RedirectsEveryHomeLookupAndPutsItBack (0.43s)
+=== RUN   TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned
+--- PASS: TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned (1.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths/pathstest	6.608s
+exit=0

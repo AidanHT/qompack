@@ -1,0 +1,21 @@
+run_id=cx-w3-startroute-changed-rows-x20-6fc6f48-20260926T172144Z
+commit=6fc6f48faafbb1534a239857e9f43da0d01bb965
+tree=520ec0c64c8ded03defdf2a7aa8c3c1bd409b365
+bundle_sha256=1f63653922d6bbbc69a2bad6c8a6a09e6580503f07bf375ec6419a1cbd021560
+started_utc=2026-09-26T17:21:54Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=60m gomaxprocs=4 coload=0
+run=^(TestSentinelScan_|TestSessionStartReplay_|TestCheckpointReplay_|TestDispatchOp_AReplayIsNotAServedRequest|TestService_|TestSessionStartCompact_|TestCompactDeferredNote_|TestRecordSentinelScanOf_)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T17:25:14Z

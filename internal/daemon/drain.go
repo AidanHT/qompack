@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -29,14 +30,139 @@ import (
 // (task-3-spec.md drain.go: "a per-line context deadline of 5s").
 const drainLineDeadline = 5 * time.Second
 
+// passBudgetKey carries a budgeted pass's budget on its context (withPassBudget).
+type passBudgetKey struct{}
+
+// passBudget is a budgeted pass's end, whether the pass has consumed a line yet, and, once the budget
+// has stopped the pass, the spool files it left unfinished (notePassLeft).
+type passBudget struct {
+	end      time.Time
+	consumed atomic.Bool
+	// left holds the base names of the spool files the pass had not finished when its budget stopped
+	// it: the one it stopped in or before, and every one after it. It is written by the pass and read
+	// by whoever made the budget once the pass has returned (leftUnfinished).
+	left map[string]bool
+}
+
+// leftUnfinished reports whether the pass the budget belonged to stopped on it before it had finished
+// the spool file base. A pass that finished, or stopped for any other reason, left none.
+func (b *passBudget) leftUnfinished(base string) bool {
+	return b.left[base]
+}
+
+// errPassBudgetSpent ends a budgeted pass between two lines once its budget is spent. It wraps
+// context.DeadlineExceeded, so every caller that stops on a spent context stops on it too, and a
+// caller that asks again after a pass its budget cut short (drainOnRequest) sees one.
+var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: %w", context.DeadlineExceeded)
+
+// withPassBudget returns ctx carrying a budget for the pass it is handed to: once budget has passed
+// and the pass has consumed at least one line, it starts no further line; a line it has started keeps
+// its own drainLineDeadline. A deadline on the pass's context cancelled the line in flight instead,
+// so a line whose publication took longer than the budget (a capture on a host with a deep fsync
+// queue) was cancelled by every pass and published by none
+// (TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget), and a pass whose own
+// bookkeeping outlasted the budget on such a host (listing, progress state and the spool syncs
+// before its first line) reached no line at all, however often it was asked again. A budgeted pass
+// therefore always consumes a line when it can, and runs past its budget by that bookkeeping and at
+// most one line's drainLineDeadline. Cancelling ctx still ends the pass, and the line in it, at once.
+// The budget is on real time, as a context deadline is, never on the daemon's clock. It is the pass's
+// alone: what the pass hands a line to runs without it (withoutPassBudget).
+func withPassBudget(ctx context.Context, budget time.Duration) context.Context {
+	pass, _ := newPassBudget(ctx, budget)
+	return pass
+}
+
+// newPassBudget is withPassBudget that also returns the budget, for a caller that reads what the
+// pass left unfinished once it has returned (passBudget.leftUnfinished: the client-spool watcher).
+func newPassBudget(ctx context.Context, budget time.Duration) (context.Context, *passBudget) {
+	b := &passBudget{end: time.Now().Add(budget)}
+	return context.WithValue(ctx, passBudgetKey{}, b), b
+}
+
+// passStopped reports why a pass must start no further line: ctx's own error, or errPassBudgetSpent
+// once a budget withPassBudget set has passed and the pass has consumed a line
+// (notePassConsumed). Once it answers non-nil it never answers nil again.
+func passStopped(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil && b.consumed.Load() && !time.Now().Before(b.end) {
+		return errPassBudgetSpent
+	}
+	return nil
+}
+
+// notePassConsumed records that the pass ctx carries has consumed a line, which lets its budget end it
+// (passStopped). A pass without a budget ignores it.
+func notePassConsumed(ctx context.Context) {
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil {
+		b.consumed.Store(true)
+	}
+}
+
+// notePassLeft records on the budget ctx carries, when err says that budget stopped the pass, the
+// spool files the pass left unfinished: files, the one it stopped in or before and every one after it
+// in pass order (passBudget.leftUnfinished). Any other stop records nothing.
+func notePassLeft(ctx context.Context, err error, files []string) {
+	b, _ := ctx.Value(passBudgetKey{}).(*passBudget)
+	if b == nil || !errors.Is(err, errPassBudgetSpent) {
+		return
+	}
+	b.left = make(map[string]bool, len(files))
+	for _, path := range files {
+		b.left[filepath.Base(path)] = true
+	}
+}
+
+// withoutPassBudget returns ctx with no pass budget on it, keeping its cancellation and every other
+// value. A budget belongs to the pass that set it and ends at the pass's boundary, where the pass hands
+// a line on (dispatchPending): the handler that publishes the line runs under the line's own
+// drainLineDeadline, and the session end a replayed flush starts runs under the ends' lifetime with no
+// budget but its own. A context value outlives the context.WithoutCancel that detaches a session end
+// from the pass (launchSessionEnd), and by the time the end drains the budget is spent and the pass
+// has consumed a line, so an end started from a budgeted pass ran its settle and final drains under
+// that spent budget: both stopped at their first spool file, the flush's spool was never absorbed and
+// its recovery marker stayed at stage "drain"
+// (TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget).
+func withoutPassBudget(ctx context.Context) context.Context {
+	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, passBudgetKey{}, (*passBudget)(nil))
+}
+
 // drainReadBufferBytes sizes the buffered reader Drain scans each spool file with.
 const drainReadBufferBytes = 64 << 10 // 64 KiB
 
 // The two filename families Drain (via ipc.SpoolFiles) distinguishes. (The blob-descriptor field
 // name and shape live in blob.go, shared with ingest.go's dispatch path.)
 const (
-	drainWalPrefix = "wal-"
-	drainFileExt   = ".ndjson"
+	drainWalPrefix    = "wal-"
+	drainClientPrefix = "client-"
+	drainFileExt      = ".ndjson"
+)
+
+// isClientSpoolName reports whether base names a hook's client spool (ipc's client-<pid>.ndjson), as
+// opposed to one of the ingest's WAL segments or anything else in the spool directory.
+func isClientSpoolName(base string) bool {
+	return strings.HasPrefix(base, drainClientPrefix) && strings.HasSuffix(base, drainFileExt)
+}
+
+// drainDeferral says why the drain left a line it read for a later attempt instead of consuming it.
+type drainDeferral int
+
+const (
+	// deferNot: the line was consumed, or the pass ended on it.
+	deferNot drainDeferral = iota
+	// deferOrdering: an earlier leased arrival of its session is not yet on the committed frontier
+	// (delivery-order-decision.md). Counted in l0_drain_ordering_deferred.
+	deferOrdering
+	// deferSessionEnd: the line is a flush whose session end is running right now (session_end.go).
+	deferSessionEnd
+	// deferInFlight: the line is a hook's client-spool copy of a delivery the daemon is publishing
+	// right now — the hook spooled it because its ACK came too late, and the live copy is still with
+	// its worker. The next pass finds it acknowledged and absorbs it (spool_watch.go, C1.13).
+	deferInFlight
 )
 
 // drainStateFile is state/drain.json's filename.
@@ -206,7 +332,32 @@ type DrainConfig struct {
 	// drain itself before any of it is consumed (drainer.durableEnd). A nil SyncedWAL treats every
 	// file as not held.
 	SyncedWAL func(path string) (synced int64, held bool)
+	// Released is told, once per pass and only when the pass is over, every session of which the
+	// pass itself published a leased line or retired one by a proven denial. The daemon wires the
+	// ingest's wakeSession: a live successor the worker pool parked behind such a delivery
+	// (delivery_order.go's lanes) is then run again at once rather than at the next drain. Not
+	// mid-pass: a lane woken then would dispatch the session's next queued job while this pass was
+	// still to read that job's line, and the pass would meet it in progress and stop. Not for a line
+	// the pass merely found already acknowledged, retired or complete: whoever settled it told the
+	// lane then, and a spool file whose offset waits on another session is re-read by every pass, so
+	// releasing its settled lines again would wake a parked lane on every pass — and a parked lane
+	// asks for a drain (ingest.requestDrain), so a session whose head keeps failing would drain
+	// forever. It is called with the drain's mutex held, so it must not block or drain. A nil
+	// Released tells nobody.
+	Released func(sess core.SessionID)
+	// EndSession, when set, may take a leased flush line off the pass instead of Dispatch: it is
+	// asked once the line has passed the ordering gate and the pass holds its in-process ownership
+	// (Seen), and it reports true when it has started the line's session end on a goroutine of its
+	// own. That end then owns the line's Seen entry and acknowledges the flush once SessionEnd has
+	// run, and the pass leaves the line for a later pass, which absorbs it (deferSessionEnd). false
+	// replays the line through Dispatch as before. The daemon wires endDrainedFlush (session_end.go).
+	// It is called with the drain's mutex held, so it must not block or drain. A nil EndSession, or a
+	// nil Seen, replays every flush through Dispatch.
+	EndSession func(ctx context.Context, req ipc.Request, key core.Hash, lease deliveryLease) bool
 }
+
+// errSessionEndStarted is dispatchPending's answer for a leased flush EndSession took off the pass.
+var errSessionEndStarted = errors.New("daemon: drain: the flush's session end runs on its own")
 
 // drainer is a standalone drain engine (task-3-spec.md drain.go's algorithm), independent of the
 // Daemon interface: Task 4 wires it into Daemon.Drain by constructing one from the running
@@ -231,6 +382,9 @@ type drainer struct {
 	// unsyncedNoted names each spool file whose sync has failed since its last one that succeeded, so
 	// that noteUnsynced announces the failure Loud once, not on every pass. Guarded by mu.
 	unsyncedNoted map[string]bool
+	// releasedSessions collects the sessions DrainConfig.Released is told about when the pass in
+	// progress ends. Guarded by mu.
+	releasedSessions map[core.SessionID]struct{}
 	// wedgeNoted records that this drainer has already announced a refused progress state, so the
 	// Loud below fires once for a wedge rather than on every idle tick. Cleared by the first pass
 	// that gets past validateProgress, so a wedge that returns later is announced again. Guarded
@@ -261,14 +415,34 @@ func newDrainer(cfg DrainConfig) *drainer {
 }
 
 // Drain replays every spool-tier file under root's spool directory (task-3-spec.md drain.go):
-// wal-* first, then client-*, each group lexically sorted (ipc.SpoolFiles already orders them).
+// wal-* first, lexically sorted as ipc.SpoolFiles lists them, then client-* in host order, by the
+// req.TS of the first record each file still has to replay (orderClientSpoolsByHostTS,
+// SP08-D3/D35).
 // It is idempotent (state/drain.json records consumed offsets) and resumable: a cancelled Drain
 // persists its progress and returns (n, ctx.Err()), so the next call picks up exactly where it
 // stopped. Per-file errors are logged, counted, and never abort the rest of the drain.
 func (dr *drainer) Drain(ctx context.Context) (int, error) {
+	return dr.pass(ctx, false)
+}
+
+// DrainClientSpools is one pass over the hooks' client spools alone (client-<pid>.ndjson), the pass
+// the client-spool watcher runs while sessions are active (spool_watch.go, C1.13). Every line it reads
+// goes through exactly what Drain does with it: admission, lease, the ordering gate, publication and
+// the committed frontier, under the same mutex. It reads no WAL segment: those are the worker pool's,
+// publishing them right now, and a pass that met one of their lines in flight would stop that file
+// with "delivery still in progress". Nor does it publish the drain's gap state (DrainGaps): a pass
+// that looked at part of the spool cannot say the whole of it is complete, so the state the last full
+// pass published stands until the next one.
+func (dr *drainer) DrainClientSpools(ctx context.Context) (int, error) {
+	return dr.pass(ctx, true)
+}
+
+// pass is Drain's body; clientOnly restricts it to the client spools (DrainClientSpools).
+func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
-	dr.dirSynced = false // a file created since the last pass has an entry that pass's sync missed
+	defer dr.releaseSessions() // however the pass ends, and before mu is released
+	dr.dirSynced = false       // a file created since the last pass has an entry that pass's sync missed
 
 	spoolDir := paths.Of(dr.cfg.Root).Spool
 	files, err := ipc.SpoolFiles(spoolDir)
@@ -291,6 +465,9 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 	}
 	// Past the gate: a wedge that returns later is a new one and gets announced again.
 	dr.wedgeNoted = false
+	// Client spools in host order, so a spooled prompt's turn follows the order its host sent it.
+	// Each is placed by the record it replays next, at its validated consumed offset.
+	files = orderClientSpoolsByHostTS(files, st)
 	listed := make(map[string]bool, len(files))
 	for _, path := range files {
 		listed[filepath.Base(path)] = true
@@ -306,9 +483,13 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 		return dr.unpersisted(gaps, errors.Join(stopErr, err))
 	}
 
-	for _, path := range files {
-		if ctx.Err() != nil {
-			stopErr = errors.Join(stopErr, ctx.Err())
+	for i, path := range files {
+		if clientOnly && !isClientSpoolName(filepath.Base(path)) {
+			continue
+		}
+		if err := passStopped(ctx); err != nil {
+			stopErr = errors.Join(stopErr, err)
+			notePassLeft(ctx, err, files[i:])
 			break
 		}
 		n, ferr := dr.drainFile(ctx, path, st, gaps)
@@ -318,6 +499,7 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 		}
 		if errors.Is(ferr, context.Canceled) || errors.Is(ferr, context.DeadlineExceeded) {
 			stopErr = errors.Join(stopErr, ferr)
+			notePassLeft(ctx, ferr, files[i:])
 			break
 		}
 		if dr.cfg.Metrics != nil {
@@ -347,7 +529,9 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 			gaps.add(base, DrainGapPending, "spool bytes not yet replayed")
 		}
 	}
-	dr.publishGaps(gaps.state(dr.cfg.Clock, pending+gaps.unsynced))
+	if !clientOnly {
+		dr.publishGaps(gaps.state(dr.cfg.Clock, pending+gaps.unsynced))
+	}
 	return total, stopErr
 }
 
@@ -439,6 +623,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	var deferred []deferredLine
 
 	consume := func(start, next int64) {
+		notePassConsumed(ctx)
 		if start != offset {
 			// Consumed out of order; the front rolls over it later. Bounded (item 3): past the roll-
 			// forward memory cap we stop recording it — the line is already dispatched and ACKED, so a
@@ -462,31 +647,33 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	}
 
 	// processOne runs one line through the frontier, ordering, seen and dispatch stages. done means
-	// the line was consumed (roll the offset); deferIt means it is blocked on an unacknowledged
-	// predecessor (retryable); dispatched means a real publication happened, so it counts; a hard
-	// error ends the pass. It serves a freshly read line and a deferred re-attempt alike.
-	processOne := func(dl deferredLine) (done, deferIt, dispatched bool, hardErr error) {
+	// the line was consumed (roll the offset); deferIt says why a line is left for later instead —
+	// blocked on an unacknowledged predecessor, or a flush whose session end is running now (both
+	// retryable); dispatched means a real publication happened, so it counts; changed means this pass
+	// published the line or retired it by a proven denial, which is what DrainConfig.Released reports;
+	// a hard error ends the pass. It serves a freshly read line and a deferred re-attempt alike.
+	processOne := func(dl deferredLine) (done bool, deferIt drainDeferral, dispatched, changed bool, hardErr error) {
 		if dl.leased {
 			retired, err := terminalForDelivery(dr.cfg.Journal, dl.lease)
 			if err != nil {
-				return false, false, false, err
+				return false, deferNot, false, false, err
 			}
 			if retired {
 				gaps.add(base, DrainGapDenied, "replay retired by policy denial")
 				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 					fs.PendingBlobs = append(fs.PendingBlobs, blob)
 				}
-				return true, false, false, nil
+				return true, deferNot, false, false, nil
 			}
 		}
 		if dl.leased && dr.acknowledgedDelivery(dl.lease, dl.leased) {
 			if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
-			return true, false, false, nil
+			return true, deferNot, false, false, nil
 		}
 		if !dr.leasedPredecessorsReady(dl.lease, dl.leased) {
-			return false, true, false, nil
+			return false, deferOrdering, false, false, nil
 		}
 		if dr.cfg.Seen != nil {
 			completed, acquired := dr.cfg.Seen.begin(dl.key)
@@ -497,13 +684,31 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
 					fs.PendingBlobs = append(fs.PendingBlobs, blob)
 				}
-				return true, false, false, nil
+				return true, deferNot, false, false, nil
 			}
 			if !acquired {
-				return false, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
+				if !dl.req.Op.HotPath() {
+					// A flush whose session end is running right now owns its line from the moment it
+					// was acknowledged until the end has finished (session_end.go), which takes
+					// seconds by design: meeting it is not a failure, only a line for a later pass.
+					return false, deferSessionEnd, false, false, nil
+				}
+				if isClientSpoolName(base) {
+					// A hook spools its delivery when the ACK comes too late, so a client spool can
+					// hold a copy of a delivery a worker is publishing right now. That is the normal
+					// shape of a late ACK, not a failure of this file: leave the copy for the pass
+					// that finds it acknowledged (C1.13; spool_watch.go passes such a spool again).
+					return false, deferInFlight, false, false, nil
+				}
+				return false, deferNot, false, false, fmt.Errorf("daemon: drain: delivery still in progress")
 			}
 		}
-		blob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased)
+		blob, dispatchErr := dr.dispatchPending(ctx, dl.req, dl.lease, dl.leased, dl.key)
+		if errors.Is(dispatchErr, errSessionEndStarted) {
+			// The flush's session end runs on its own now, and owns the line's Seen entry: it is not
+			// the pass's to finish. A later pass absorbs the line once the end has acknowledged it.
+			return false, deferSessionEnd, false, false, nil
+		}
 		if dr.cfg.Seen != nil {
 			dr.cfg.Seen.finish(dl.key, dispatchErr == nil)
 		}
@@ -512,31 +717,31 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 			if blob != "" {
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
-			return true, false, false, nil
+			return true, deferNot, false, dl.leased, nil // dispatchPending retired a leased one
 		}
 		if dispatchErr != nil {
 			gaps.add(base, DrainGapUnacknowledged, "publication did not reach the frontier")
-			return false, false, false, dispatchErr
+			return false, deferNot, false, false, dispatchErr
 		}
 		if blob != "" {
 			fs.PendingBlobs = append(fs.PendingBlobs, blob)
 		}
-		return true, false, true, nil
+		return true, deferNot, true, true, nil
 	}
 
 	// reattempt re-runs the deferred lines after a consume may have acknowledged a predecessor, to a
 	// fixpoint. It never blocks: a line that is still deferred is simply kept for a later pass.
 	reattempt := func() error {
 		for {
-			if err := ctx.Err(); err != nil {
+			if err := passStopped(ctx); err != nil {
 				return err
 			}
 			progressed := false
 			for idx := 0; idx < len(deferred); {
-				if err := ctx.Err(); err != nil {
+				if err := passStopped(ctx); err != nil {
 					return err
 				}
-				done, _, dispatched, err := processOne(deferred[idx])
+				done, _, dispatched, changed, err := processOne(deferred[idx])
 				if err != nil {
 					return err
 				}
@@ -546,6 +751,9 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				}
 				dl := deferred[idx]
 				consume(dl.start, dl.next)
+				if changed && dl.leased {
+					dr.released(dl.lease)
+				}
 				if dispatched {
 					count++
 				}
@@ -563,11 +771,9 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 
 readLoop:
 	for {
-		select {
-		case <-ctx.Done():
+		if passStopped(ctx) != nil {
 			canceled = true
 			break readLoop
-		default:
 		}
 
 		raw, err := r.ReadBytes('\n')
@@ -606,9 +812,14 @@ readLoop:
 		verdict := dr.admitLine(req)
 		// A previous lease can survive a later policy change. A proven denial
 		// retires it durably before the offset; uncertainty retains the source.
+		var retired deliveryLease
+		retiredHere := false
 		if verdict.Denied || verdict.Failed {
 			lease, held, err := dr.existingLease(req)
 			if err == nil && held && verdict.Denied {
+				// Only a retirement this pass makes is news to the session's lane (DrainConfig.Released).
+				already, terr := terminalForDelivery(dr.cfg.Journal, lease)
+				retiredHere = terr != nil || !already
 				err = dr.retireDeniedDelivery(ctx, lease)
 			}
 			if err != nil || (held && verdict.Failed) {
@@ -618,6 +829,7 @@ readLoop:
 				gaps.add(base, DrainGapUnadmitted, "refused replay has unresolved delivery identity or policy")
 				continue
 			}
+			retired = lease
 		}
 		switch {
 		case verdict.Denied:
@@ -626,6 +838,9 @@ readLoop:
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
 			consume(lineStart, nextOffset)
+			if retiredHere {
+				dr.released(retired)
+			}
 			if err := reattempt(); err != nil {
 				readErr = err
 				break readLoop
@@ -667,13 +882,13 @@ readLoop:
 			req: req, lease: lease, leased: leased,
 			key: deliveryIdentityKey(lease, leased, line), start: lineStart, next: nextOffset,
 		}
-		done, deferIt, dispatched, err := processOne(dl)
+		done, deferIt, dispatched, changed, err := processOne(dl)
 		if err != nil {
 			readErr = err
 			break readLoop
 		}
-		if deferIt {
-			if dr.cfg.Metrics != nil {
+		if deferIt != deferNot {
+			if deferIt == deferOrdering && dr.cfg.Metrics != nil {
 				dr.cfg.Metrics.Counter(counterDrainOrderingDeferred).Add(1)
 			}
 			// Item 3: do NOT stop at the buffer bound — stopping re-reads the same prefix every pass
@@ -690,6 +905,9 @@ readLoop:
 		}
 		if done {
 			consume(lineStart, nextOffset)
+			if changed && dl.leased {
+				dr.released(dl.lease)
+			}
 			if dispatched {
 				count++
 			}
@@ -752,7 +970,7 @@ readLoop:
 	// reports those bytes as pending from the record instead, which is where that case is answered.
 	gaps.hold(base, size-fs.Size)
 	if canceled {
-		return count, ctx.Err()
+		return count, passStopped(ctx)
 	}
 	if readErr != nil {
 		// Persist the progress this pass DID make before surfacing the error. fs.Offset advances
@@ -1125,8 +1343,11 @@ func (dr *drainer) unpersisted(gaps *gapRecorder, err error) (int, error) {
 // It enforces publication order for a drained record exactly as the ingest worker does for a live
 // one: durable capture, then the reference the dispatch writes, then the committed frontier. The
 // offset in drainFile advances only when this returns nil, so a delivery that did not reach the
-// frontier is redelivered rather than silently released.
-func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease deliveryLease, leased bool) (blob string, err error) {
+// frontier is redelivered rather than silently released. A leased flush EndSession takes off the pass
+// answers errSessionEndStarted, with its Seen entry (key) handed to the session end it started.
+func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease deliveryLease, leased bool,
+	key core.Hash,
+) (blob string, err error) {
 	defer func() {
 		if recover() != nil {
 			err = fmt.Errorf("daemon: drain: handler panicked")
@@ -1149,13 +1370,31 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 		return "", core.ErrDegraded
 	}
 	resolved = verdict.Request
-	if leased {
+	// The pass's budget stays with the pass (withoutPassBudget): what the line is handed to below, a
+	// session end or the handler, runs under its own bounds.
+	lineCtx := withoutPassBudget(ctx)
+	if leased && resolved.Op == ipc.OpFlush && dr.cfg.Seen != nil && dr.cfg.EndSession != nil &&
+		dr.cfg.EndSession(lineCtx, resolved, key, lease) {
+		return "", errSessionEndStarted
+	}
+	// Only an observation has a capture to publish. A control line — a session start, checkpoint or
+	// SessionEnd flush whose hook fell back to its client spool, or a flush the daemon accepted into
+	// its WAL — is leased like any delivery (the hook client mints a nonce for every hook) and reaches
+	// the committed frontier below, but it is not an observation and nothing ever references a
+	// sidecar for it. Publishing one left a sidecar the publication audit and fsck could only call
+	// "unrecognized" for the life of the project (store.IsControlCaptureOp keeps the ones already on
+	// disk as the legacy evidence they are).
+	if leased && resolved.Op.HotPath() {
 		if err := publishCapture(dr.cfg.Root, resolved, lease); err != nil {
 			return "", fmt.Errorf("daemon: drain: capture not durable: %w", err)
 		}
 	}
-	dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
+	dctx, cancel := context.WithTimeout(lineCtx, drainLineDeadline)
 	defer cancel()
+	if leased {
+		// A replayed flush settles only the arrivals before its own (sessionEndArrival).
+		dctx = withReplayedDelivery(dctx, lease)
+	}
 	resp := dr.cfg.Dispatch(observer.WithObservation(dctx, lease.ObservationID), resolved)
 	if !resp.OK || resp.Err != "" {
 		if dctx.Err() != nil {
@@ -1422,6 +1661,27 @@ func (dr *drainer) leaseDelivery(ctx context.Context, req ipc.Request) (delivery
 		return deliveryLease{}, false
 	}
 	return lease, true
+}
+
+// released records that the pass published or retired a line of lease's session, for
+// releaseSessions to report when the pass ends. mu must be held.
+func (dr *drainer) released(lease deliveryLease) {
+	if dr.cfg.Released == nil {
+		return
+	}
+	if dr.releasedSessions == nil {
+		dr.releasedSessions = map[core.SessionID]struct{}{}
+	}
+	dr.releasedSessions[lease.Session] = struct{}{}
+}
+
+// releaseSessions tells DrainConfig.Released every session the finished pass recorded, once each,
+// and forgets them. mu must be held.
+func (dr *drainer) releaseSessions() {
+	for sess := range dr.releasedSessions {
+		dr.cfg.Released(sess)
+	}
+	dr.releasedSessions = nil
 }
 
 // commitDelivery writes the committed-frontier record for a drained delivery.

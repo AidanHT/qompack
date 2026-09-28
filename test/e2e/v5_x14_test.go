@@ -319,10 +319,15 @@ func TestV5_EveryContractAssertionHasARealProducer(t *testing.T) {
 			x14v5PromptPayload(t, p.Root, x14v5SessionA, transcript, "first prompt of session A"), env)
 		x14v5WaitSentinel(t, r, "the probe to be observed", func(s contract.SentinelState) bool { return s.Observed })
 
-		// ── PreCompact: marker, timing sample and instructions recorded by the real route ─────
+		// ── PreCompact: marker and timing sample recorded by the real route, and a real seal ──────
+		// Criterion change (C1.18): this used to prove the full-mode route ran by the instruction it
+		// recorded into the contract history. That instruction is retired — no host accepts one —
+		// so nothing is recorded, and the seal is proven by the artifact instead.
 		r.SeedTurns(t, x14v5SessionA, "v5x14", x14v5SeedTurns)
-		_, instr := r.PreCompact(t, x14v5SessionA)
-		require.NotEmpty(t, instr, "a full-mode PreCompact must emit customInstructions")
+		r.PreCompact(t, x14v5SessionA)
+		require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root), "a full-mode PreCompact route seals a checkpoint")
+		require.Empty(t, contract.LoadHistory(contract.HistoryPath(p.Root)).PrecompactInstr,
+			"no route records a retired instruction into the contract history")
 
 		// ── Session A restarts from the compaction; then session B starts ─────────────────────
 		out2 := x14v5Start(t, r, x14v5StartPayload(t, p.Root, x14v5SessionA, "compact", transcript))
@@ -365,10 +370,13 @@ func TestV5_EveryContractAssertionHasARealProducer(t *testing.T) {
 			"a real wall-time sample, not a placeholder: %q", compact[contract.CPreCompactTiming].Observed)
 
 		// The setter claim, retired: the producer IS declared and its Check DID run (its Observed
-		// is not the not-yet-implemented placeholder), and whatever the transcript scan reported
-		// the ledger attributes it to compaction_request and records `unsupported`.
+		// is not the not-yet-implemented placeholder). Since C1.18 that Check scans nothing and says
+		// so — "retired" — and the ledger attributes it to compaction_request and records
+		// `unsupported`.
 		require.True(t, contract.HasProducer(contract.CPreCompactCustomInstr))
 		require.NotEqual(t, x14v5NotYetImplemented, compact[contract.CPreCompactCustomInstr].Observed)
+		require.Equal(t, "retired", compact[contract.CPreCompactCustomInstr].Observed,
+			"the retired row reports its retirement, never a pass or a warning")
 		require.Equal(t, contract.CapCompactionRequest, compact[contract.CPreCompactCustomInstr].Capability)
 		require.Equal(t, contract.OutcomeUnsupported, compact[contract.CPreCompactCustomInstr].Outcome,
 			"a phrase found (or not) in a transcript is not evidence an invented setter exists")

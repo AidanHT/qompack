@@ -1,0 +1,64 @@
+=== RUN   TestSessionStartCompact_UnreadableCheckpointStoreIsAnsweredWithTheNote
+    session_start_compact_failure_test.go:116: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_compact_failure_test.go:98
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_compact_failure_test.go:116
+        	Error:      	Should be true
+        	Test:       	TestSessionStartCompact_UnreadableCheckpointStoreIsAnsweredWithTheNote
+        	Messages:   	the answer must be the deferred note naming why, never silence: "<!-- qompack-contract-probe qompack-contract-2f1c5d7efca9 -->"
+--- FAIL: TestSessionStartCompact_UnreadableCheckpointStoreIsAnsweredWithTheNote (0.06s)
+=== RUN   TestSessionStartCompact_PanickingRehydrationServiceIsAnsweredWithTheNote
+--- PASS: TestSessionStartCompact_PanickingRehydrationServiceIsAnsweredWithTheNote (0.05s)
+=== RUN   TestSessionStartCompact_FailedRehydrationSeamIsAnsweredWithTheNote
+    session_start_compact_failure_test.go:152: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_compact_failure_test.go:152
+        	Error:      	Should be true
+        	Test:       	TestSessionStartCompact_FailedRehydrationSeamIsAnsweredWithTheNote
+        	Messages:   	"<!-- qompack-contract-probe qompack-contract-43580e33e2da -->"
+--- FAIL: TestSessionStartCompact_FailedRehydrationSeamIsAnsweredWithTheNote (0.06s)
+=== RUN   TestSessionStartCompact_DegradedPassiveAnswersNothingForABrokenStore
+--- PASS: TestSessionStartCompact_DegradedPassiveAnswersNothingForABrokenStore (0.06s)
+=== RUN   TestService_CheckpointErrorAnswersWithTheDeferredNote
+    rehydrate_service_test.go:607: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:560
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:607
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestService_CheckpointErrorAnswersWithTheDeferredNote
+        	Messages:   	a rehydration that could not be built is answered, never silently
+--- FAIL: TestService_CheckpointErrorAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+    rehydrate_service_test.go:623: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:560
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:623
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestService_BuildFailureAnswersWithTheDeferredNote
+        	Messages:   	a rehydration that could not be built is answered, never silently
+--- FAIL: TestService_BuildFailureAnswersWithTheDeferredNote (0.03s)
+=== RUN   TestService_UnreadableCheckpointManifestAnswersWithTheDeferredNote
+    rehydrate_service_test.go:676: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:560
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:676
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestService_UnreadableCheckpointManifestAnswersWithTheDeferredNote
+        	Messages:   	a rehydration that could not be built is answered, never silently
+--- FAIL: TestService_UnreadableCheckpointManifestAnswersWithTheDeferredNote (0.04s)
+=== RUN   TestService_UndecodableCheckpointAnswersWithTheDeferredNote
+    rehydrate_service_test.go:690: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:560
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:690
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestService_UndecodableCheckpointAnswersWithTheDeferredNote
+        	Messages:   	a rehydration that could not be built is answered, never silently
+--- FAIL: TestService_UndecodableCheckpointAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_UnverifiableCheckpointStillRehydratesWithoutIt
+--- PASS: TestService_UnverifiableCheckpointStillRehydratesWithoutIt (0.07s)
+=== RUN   TestService_PanicRecovered
+    rehydrate_service_test.go:884: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:560
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:884
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestService_PanicRecovered
+        	Messages:   	a rehydration that could not be built is answered, never silently
+--- FAIL: TestService_PanicRecovered (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.731s
+FAIL

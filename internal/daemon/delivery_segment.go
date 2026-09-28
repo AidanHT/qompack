@@ -125,6 +125,10 @@ type deliverySegments struct {
 	baseRoot string
 	chain    radixHash
 	logBytes int64
+
+	// syncDir is paths.SyncDir. It is a field so a test can count the directory barriers a
+	// transition issues.
+	syncDir func(string) error
 }
 
 // openDeliverySegments opens (confined) the authority under stateDir and recovers it. authorityExists is
@@ -142,6 +146,7 @@ func openDeliverySegments(stateDir string) (handle *deliverySegments, authorityE
 		headPath: filepath.Join(stateDir, deliverySegmentHeadFile),
 		seq:      -1,
 		chain:    segChainSeed,
+		syncDir:  paths.SyncDir,
 	}
 	exists, err := s.recover()
 	if err != nil {
@@ -263,6 +268,10 @@ func (s *deliverySegments) commitTransition(active uint64, baseRoot string) erro
 }
 
 // appendTransition writes the record durably (append + fsync = the commit), then WriteAtomic-s the head.
+// The head's directory fsync is the transition's only one, and it is enough: it runs after the head's
+// rename, the last entry the transition creates in stateDir, and after the log file's own creation at
+// open, so it makes durable every entry the transition depends on. A second fsync of stateDir after it
+// made nothing more durable (SP08-D1, owner decision D20).
 func (s *deliverySegments) appendTransition(active uint64, baseRoot string) error {
 	seq := s.seq + 1
 	chain := segChain(s.chain, seq, active, baseRoot)
@@ -288,7 +297,7 @@ func (s *deliverySegments) appendTransition(active uint64, baseRoot string) erro
 		s.seq, s.active, s.baseRoot, s.chain, s.logBytes = prev.seq, prev.active, prev.baseRoot, prev.chain, prev.logBytes
 		return err
 	}
-	return paths.SyncDir(s.stateDir)
+	return nil
 }
 
 func (s *deliverySegments) writeHead(lastLen int64) error {
@@ -329,7 +338,7 @@ func (s *deliverySegments) writeConfinedAtomic(name string, data []byte) error {
 		_ = s.confine.Remove(tmp)
 		return errSegmentUnavailable
 	}
-	return paths.SyncDir(s.stateDir)
+	return s.syncDir(s.stateDir)
 }
 
 // ── head/log IO (confined, bounded, SameFile-guarded) ──────────────────────────────────────────────
@@ -521,9 +530,10 @@ func segmentLeasePath(stateDir string, seq uint64) string {
 }
 
 // segmentIsFreshEmpty reports whether a staged segment directory is EXACTLY a fresh, empty, valid
-// segment. A crashed attempt that produced anything else is a conflict — preserved and refused, never
-// overwritten. A dir that does not exist yet is (false, nil): create, do not adopt.
-func segmentIsFreshEmpty(stateDir string, seq uint64) (bool, error) {
+// segment carrying exactly carry (its carried-lease file, delivery_carry.go). A crashed attempt that
+// produced anything else is a conflict — preserved and refused, never overwritten. A dir that does not
+// exist yet is (false, nil): create, do not adopt.
+func segmentIsFreshEmpty(stateDir string, seq uint64, carry []byte) (bool, error) {
 	if seq == 0 {
 		return false, errSegmentUnavailable
 	}
@@ -554,10 +564,14 @@ func segmentIsFreshEmpty(stateDir string, seq uint64) (bool, error) {
 	if err != nil {
 		return false, errSegmentUnavailable
 	}
-	// Four files are the whole staged format. A fifth name is conflicting evidence.
-	names, readErr := directory.ReadDir(5)
+	// Five files are the whole staged format: the two journals, their seals and the carry. A sixth name
+	// is conflicting evidence.
+	names, readErr := directory.ReadDir(6)
 	closeErr := directory.Close()
-	if (readErr != nil && readErr != io.EOF) || closeErr != nil || len(names) != 4 {
+	if (readErr != nil && readErr != io.EOF) || closeErr != nil || len(names) != 5 {
+		return false, errSegmentUnavailable
+	}
+	if !freshSegmentFileMatches(segment, deliveryCarryFile, carry) {
 		return false, errSegmentUnavailable
 	}
 	for _, jp := range []struct {
@@ -600,10 +614,12 @@ func freshSegmentFileMatches(root *os.Root, name string, expected []byte) bool {
 	return err == nil && bytes.Equal(raw, expected)
 }
 
-// createFreshSegment stages a new, empty segment (dir + four empty journal/seal files, fsynced),
-// idempotent against an identical fresh segment and refusing a dir that already exists with any other
-// content — a staged conflicting attempt is preserved, never overwritten.
-func createFreshSegment(stateDir string, seq uint64) error {
+// createFreshSegment stages a new, empty segment (dir + four empty journal/seal files and the carry the
+// rotation computed, fsynced), idempotent against an identical fresh segment and refusing a dir that
+// already exists with any other content — a staged conflicting attempt is preserved, never overwritten.
+// The carry is written last, so an attempt interrupted before it is a four-file directory, which is
+// refused as a conflict like any other partial attempt.
+func createFreshSegment(stateDir string, seq uint64, carry []byte) error {
 	if seq == 0 {
 		return errSegmentUnavailable
 	}
@@ -617,7 +633,7 @@ func createFreshSegment(stateDir string, seq uint64) error {
 		return errSegmentUnavailable
 	}
 	defer func() { _ = segments.Close() }()
-	fresh, err := segmentIsFreshEmpty(stateDir, seq)
+	fresh, err := segmentIsFreshEmpty(stateDir, seq, carry)
 	if err != nil {
 		return err
 	}
@@ -656,6 +672,9 @@ func createFreshSegment(stateDir string, seq uint64) error {
 		if err := createSegmentFile(segment, filepath.Base(f.seal), data); err != nil {
 			return errSegmentUnavailable
 		}
+	}
+	if err := createSegmentFile(segment, deliveryCarryFile, carry); err != nil {
+		return errSegmentUnavailable
 	}
 	if !samePinnedDirectory(state, stateDir) ||
 		!samePinnedDirectory(segments, filepath.Join(stateDir, deliverySegmentsDir)) ||

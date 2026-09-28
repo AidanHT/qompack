@@ -1,0 +1,22 @@
+# cmd: for each commit in f6095e2..ffa6ae7: git log -1 --format=%B <commit> > msg; devtool check-commit-msg msg
+# devtool built from this tree (tools/devtool, the commit-msg hook's checker); Refs: is required on feat/fix only (checkcommitmsg.go refsRE)
+# commit: ffa6ae7; host: windows
+PASS 3c17dbb fix(store): run one gc pass per store at a time
+PASS 769108e test(daemon): queue session-end gc behind the idle pass
+PASS 19e990f test(guards): pin store gc to the daemon's two callers
+PASS 7397da9 docs: describe one gc pass per store at a time
+PASS 7be8117 docs(store): qualify the gate's two-pass bound and its hazards
+PASS b9c2676 fix(store): keep the pass's re-check to the closed-store guard
+PASS 2ac9c6e test(store): count a resumed gc cursor once across two calls
+PASS 4b33c19 docs(store): name every user of the after-harvest test hook
+PASS ffa6ae7 docs(sdd): add the w6-gcserial run evidence
+# Refs trailers per commit:
+3c17dbb fix(store): run one gc pass per store at a time | Refs: V6-VERIFY, C1.10/C3.2
+769108e test(daemon): queue session-end gc behind the idle pass | Refs: 
+19e990f test(guards): pin store gc to the daemon's two callers | Refs: 
+7397da9 docs: describe one gc pass per store at a time | Refs: 
+7be8117 docs(store): qualify the gate's two-pass bound and its hazards | Refs: 
+b9c2676 fix(store): keep the pass's re-check to the closed-store guard | Refs: V6-VERIFY, C1.10/C3.2
+2ac9c6e test(store): count a resumed gc cursor once across two calls | Refs: 
+4b33c19 docs(store): name every user of the after-harvest test hook | Refs: 
+ffa6ae7 docs(sdd): add the w6-gcserial run evidence | Refs: 

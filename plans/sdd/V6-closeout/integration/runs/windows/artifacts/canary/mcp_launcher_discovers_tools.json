@@ -1,0 +1,14 @@
+{
+  "name": "mcp_launcher_discovers_tools",
+  "capability": "observation",
+  "scope": "repository",
+  "outcome": "verified",
+  "reason": "repository-level: `qompack mcp` (this build's own binary, launched the way plugin/.mcp.json instructs) negotiated protocol 2025-06-18 as qompack 0.1.0 and advertised all 8 §8.7 tools over stdio, then exited 0 on EOF. Installed-host discovery is unverified: this test launched the server itself rather than an installed host loading the plugin and finding it (B01).",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.280",
+    "platform": "windows/amd64",
+    "date": "2026-09-23T16:02:14Z"
+  },
+  "recorded_at": "2026-09-23T16:02:15Z"
+}

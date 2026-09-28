@@ -1,0 +1,9 @@
+{"Time":"2026-09-22T22:10:01.806284923Z","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-09-22T22:10:01.888107469Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T22:10:01.888186457Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T22:10:01.941158906Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"--- PASS: TestAdminShutdownStopsTheDaemon (0.05s)\n"}
+{"Time":"2026-09-22T22:10:01.941224069Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Elapsed":0.05}
+{"Time":"2026-09-22T22:10:01.942499686Z","Action":"run","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon"}
+{"Time":"2026-09-22T22:10:01.94253164Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestAdminShutdownStopsTheDaemon","Output":"=== RUN   TestAdminShutdownStopsTheDaemon\n"}
+{"Time":"2026-09-22T22:10:01.975460871Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"FAIL\tgithub.com/qompack/qompack/internal/daemon\t0.168s\n"}
+{"Time":"2026-09-22T22:10:01.97552701Z","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":0.169}

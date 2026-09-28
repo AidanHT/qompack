@@ -1,0 +1,10 @@
+run_id=cx-linux-daemon-race-fixed2-a448561-20260922T220935Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack
+rev=a448561
+commit=a448561cd9d1bb1f02f939733a381b6438086f51
+bundle_sha256=30c5dc4ecc97f8d165f94ebdca771a036b1ad74e59f88cc6aaee76defdc06192
+host_started_utc=2026-09-22T22:09:44Z
+inner_args=--run ^(TestRunReturnsOnlyAfterAsyncStopHasFinished|TestAdminShutdownStopsTheDaemon)$ --count 400 -- ./internal/daemon
+host_finished_utc=2026-09-22T22:12:42Z
+container_exit=0

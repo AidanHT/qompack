@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-daemon-rows-idle-f6095e2-20260927T023221Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows
+rev=f6095e2
+commit=f6095e2704d55336e2e4eac1c2ffc82f566c423b
+bundle_sha256=1540fa6bc3b0dffba50d3dc247779ba6edd21c4445d183a631855e384d9bfccf
+host_started_utc=2026-09-27T02:32:29Z
+inner_args=--count 20 --timeout 30m --run ^(TestDeliveryOrder_LaneOverflowIsDrainedOnRequest|TestFeaturesFrom_LexicalCohesionShingleCap)$ -- ./internal/daemon
+host_finished_utc=2026-09-27T02:32:58Z
+container_exit=0

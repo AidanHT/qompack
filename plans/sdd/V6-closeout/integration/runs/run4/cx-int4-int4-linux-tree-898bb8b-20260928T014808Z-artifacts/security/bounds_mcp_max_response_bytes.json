@@ -1,0 +1,16 @@
+{
+  "name": "bounds_mcp_max_response_bytes",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "f81a30f2bfc81e805526fae2797fb4ece734c17a0d7460babb4d3576ef6db3a7"
+  },
+  "outcome": "verified",
+  "reason": "with runtime.mcp.maxResponseBytes=4096, a full expand of a 24636-byte object returned 4096 bytes, marked truncated, with a next_span cursor."
+}

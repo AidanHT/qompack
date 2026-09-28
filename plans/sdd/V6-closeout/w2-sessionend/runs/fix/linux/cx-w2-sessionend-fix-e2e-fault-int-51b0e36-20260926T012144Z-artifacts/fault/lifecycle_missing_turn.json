@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_missing_turn",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "721af7689f8e64131bb83024870d1c954f98679037d9b2e6b87fb5523e556c04"
+  },
+  "boundary": "a turn the host never delivered, followed by the next one",
+  "seed_method": "turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

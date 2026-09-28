@@ -1,0 +1,25 @@
+## HEAD 88373aa; Windows
+## go test ./internal/cli -run '^TestBackupCLI_CreateVerifyRestoreBeyondMaxPath$' -count=1 -v
+=== RUN   TestBackupCLI_CreateVerifyRestoreBeyondMaxPath
+--- PASS: TestBackupCLI_CreateVerifyRestoreBeyondMaxPath (1.29s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.489s
+exit=0
+## go test ./internal/cli -run '^TestFsckCLI_PassesBeyondMaxPath$' -count=1 -v
+=== RUN   TestFsckCLI_PassesBeyondMaxPath
+--- PASS: TestFsckCLI_PassesBeyondMaxPath (0.37s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.624s
+exit=0
+## go test ./internal/cli -run '^TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites$' -count=1 -v
+=== RUN   TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites
+--- PASS: TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites (1.49s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.815s
+exit=0
+## go test ./internal/cli -run '^TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader$' -count=1 -v
+=== RUN   TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader
+--- PASS: TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader (0.90s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.172s
+exit=0

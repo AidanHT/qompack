@@ -25,6 +25,7 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/symbols"
 	"github.com/qompack/qompack/internal/testutil"
@@ -589,8 +590,9 @@ func hotpathBudgetLimitMs(t *testing.T, p *testutil.Project, id obs.BudgetID) fl
 
 // hotpathBuildBenchBinary compiles ./test/bench/hotpath and returns the executable — the exact
 // §4.4 pattern (buildReplayDriver): the harness is package main, so it is driven as the process
-// CI drives, flags and exit codes included; initialEnv keeps the pinned pre-test HOME so `go
-// build` resolves the real module cache.
+// CI drives, flags and exit codes included; pathstest.Environ keeps the isolated home and the pinned
+// toolchain (not the per-test HOME testutil.NewProject sets), so `go build` resolves the real module
+// cache.
 func hotpathBuildBenchBinary(t *testing.T) string {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "bench-hotpath")
@@ -599,7 +601,7 @@ func hotpathBuildBenchBinary(t *testing.T) string {
 	}
 	cmd := exec.Command("go", "build", "-o", out, "./test/bench/hotpath")
 	cmd.Dir = growthModuleRoot(t)
-	cmd.Env = initialEnv
+	cmd.Env = pathstest.Environ()
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	require.NoError(t, cmd.Run(), "go build -o %s ./test/bench/hotpath:\n%s", out, stderr.String())
@@ -755,7 +757,7 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	defer hcancel()
 	cmd := exec.CommandContext(hctx, bench, args...)
 	cmd.Dir = growthModuleRoot(t)
-	cmd.Env = initialEnv
+	cmd.Env = pathstest.Environ()
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

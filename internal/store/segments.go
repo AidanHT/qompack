@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"path/filepath"
 	"sort"
 	"sync"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 // The four index/segments.jsonl record operations. The log is append-only, so a segment's
@@ -97,6 +99,13 @@ type segLog struct {
 	// warnedNoTokens records which segments have already produced the missing-tokens warning, so
 	// a reopened log does not repeat it per call.
 	warnedNoTokens map[core.SegmentID]bool
+
+	// dir is the directory holding the log (index/), and dirSynced records that Sync has made the
+	// log's own name durable in it once this log lifetime. syncDir is that directory barrier:
+	// paths.SyncDir when nil (a no-op on Windows, D24); a test sets it to observe the barrier.
+	dir       string
+	dirSynced bool
+	syncDir   func(string) error
 }
 
 // segLog must satisfy the frozen §5.8 seam.
@@ -114,6 +123,7 @@ func openSegLog(p string, clk core.Clock, log logging.Logger) (*segLog, error) {
 		clk:            clk,
 		log:            log,
 		warnedNoTokens: make(map[core.SegmentID]bool),
+		dir:            filepath.Dir(p),
 	}
 	if err := l.load(p); err != nil {
 		_ = f.close()
@@ -236,7 +246,50 @@ func (l *segLog) append(v any) error {
 	return l.f.write(line)
 }
 
-// sync flushes the log's handle. Flush calls it.
+// Sync is SegmentSync: it flushes the log's handle, making every appended record durable, and the
+// first time in this log's lifetime it also syncs index/, so the log's NAME is durable too.
+//
+// The name needs its own barrier because the store's Open creates index/segments.jsonl without
+// syncing index/, and on POSIX a file's sync does not make its directory entry durable. A publication
+// pass syncs index/ as its last step, which covers the name whenever one has run since the file was
+// created — but nothing orders a pass before a checkpoint's seal, and a seal whose marks survive a
+// power cut in a file whose name did not has lost every mark the log ever held. Once per lifetime is
+// enough: a directory sync makes every entry that exists when it runs durable, and it also covers a
+// log an earlier daemon created without one. A degraded (closed) log answers core.ErrDegraded rather
+// than claiming a durability it can no longer provide.
+func (l *segLog) Sync(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.degraded {
+		return core.ErrDegraded
+	}
+	if l.f == nil {
+		return nil // a read-only log appends nothing, so it has nothing to make durable
+	}
+	if err := l.f.sync(); err != nil {
+		return err
+	}
+	if l.dirSynced {
+		return nil
+	}
+	syncDir := l.syncDir
+	if syncDir == nil {
+		syncDir = paths.SyncDir
+	}
+	if err := syncDir(l.dir); err != nil {
+		return err
+	}
+	l.dirSynced = true
+	return nil
+}
+
+// The store's own segment log offers the durability half checkpoint.Finalize asks for.
+var _ SegmentSync = (*segLog)(nil)
+
+// sync flushes the log's handle. Flush and Sync call it.
 func (l *segLog) sync() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()

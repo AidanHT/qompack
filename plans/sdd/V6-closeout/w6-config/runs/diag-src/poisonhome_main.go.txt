@@ -1,0 +1,41 @@
+// Command poisonhome builds a fake "real home" for the w6-config proof runs (scratch only, never
+// committed). It is copied into a module tree before running so it can import internal/tokens.
+//
+//	go run ./tools/poisonhome <dir>
+//
+// It writes <dir>/.qompack/config.json (checkpoint.budgetTokens 4242 and runtime.mode "off", so a
+// non-isolated hook records nothing), <dir>/.qompack/calibration.json (the store-scoped entry a
+// store.Open estimator reads, pushed to calibrationMax), and <dir>/.claude/settings.json (deny every
+// Read under the project).
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/tokens"
+)
+
+func main() {
+	home := os.Args[1]
+	must(os.MkdirAll(filepath.Join(home, ".qompack"), 0o700))
+	must(os.MkdirAll(filepath.Join(home, ".claude"), 0o700))
+	calib := filepath.Join(home, ".qompack", "calibration.json")
+	est := tokens.NewExact(config.Defaults(), calib, "")
+	for range 8 {
+		est.Calibrate(300, 100)
+	}
+	fmt.Println("store-scoped poisoned factor:", tokens.NewExact(config.Defaults(), calib, "").Factor())
+	must(os.WriteFile(filepath.Join(home, ".qompack", "config.json"),
+		[]byte(`{"checkpoint":{"budgetTokens":4242},"runtime":{"mode":"off"}}`), 0o600))
+	must(os.WriteFile(filepath.Join(home, ".claude", "settings.json"),
+		[]byte(`{"permissions":{"deny":["Read(./**)"]}}`), 0o600))
+}
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}

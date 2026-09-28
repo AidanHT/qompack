@@ -1,0 +1,80 @@
+{
+  "hook_runs": [
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:startup",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 5611,
+      "has_duration": true,
+      "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 297,
+      "has_duration": true,
+      "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 278,
+      "has_duration": true,
+      "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:compact",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 5999,
+      "has_duration": true,
+      "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 2664,
+      "has_duration": true,
+      "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 664,
+      "has_duration": true,
+      "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe stop"
+    }
+  ],
+  "contexts": [
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 583,
+      "qompack": true,
+      "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session aef1d085\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\n\u003e Run go run ./cmd/code and tell me the code word it prints, in one line.\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-9bfd11ce23ad --\u003e"
+    }
+  ],
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 25552,
+      "post_tokens": 0,
+      "duration_ms": 19867
+    }
+  ],
+  "local_output": [
+    "Compacted PreCompact [\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" checkpoint] failed: Hook JSON output validation failed — hookSpecificOutput.hookEventName: expected one of \"PreToolUse\" | \"UserPromptSubmit\" | \"UserPromptExpansion\" | \"SessionStart\" | \"Setup\" | \"PreModelSwitch\" | …\n\nThe hook's output was: {\n  \"hookSpecificOutput\": {\n    \"hookEventName\": \"PreCompact\",\n    \"customInstructions\": \"Encode what a competent engineer with no session history would get wrong. Do not restate file contents, directory structure, or command output — those are retrievable. Prioritise: intent, decisions and their rationale, approaches eliminated and why, and constraints discovered empirically.\\n\\nDo not include code snippets: every file named above is available by path and hash through the qompack checkpoint, and a pointer costs roughly 20 tokens where a snippet costs roughly 500.\"\n  }\n}\n\nExpected schema:\n{\n  \"continue\": \"boolean (optional)\",\n  \"suppressOutput\": \"boolean (optional)\",\n  \"stopReason\": \"string (optional)\",\n  \"decision\": \"\\\"approve\\\" | \\\"block\\\" (optional)\",\n  \"reason\": \"string (optional)\",\n  \"systemMessage\": \"string (optional)\",\n  \"terminalSequence\": \"string (optional)\",\n  \"hookSpecificOutput\": {\n    \"for PreToolUse\": {\n      \"hookEventName\": \"\\\"PreToolUse\\\"\",\n      \"permissionDecision\": \"\\\"allow\\\" | \\\"deny\\\" | \\\"ask\\\" | \\\"defer\\\" (optional)\",\n      \"permissionDecisionReason\": \"string (optional)\",\n      \"updatedInput\": \"object (optional) - Modified tool input to use\"\n    },\n    \"for PermissionRequest\": {\n      \"hookEventName\": \"\\\"PermissionRequest\\\"\",\n      \"decision\": {\n        \"to allow\": {\n          \"behavior\": \"\\\"allow\\\"\",\n          \"updatedInput\": \"object (optional) - Modified tool input to use\",\n          \"updatedPermissions\": \"array (optional) - Permission updates\"\n        },\n        \"to deny\": {\n          \"behavior\": \"\\\"deny\\\"\",\n          \"message\": \"string (optional)\",\n          \"interrupt\": \"boolean (optional)\"\n        }\n      }\n    },\n    \"for UserPromptSubmit\": {\n      \"hookEventName\": \"\\\"UserPromptSubmit\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for PostToolUse\": {\n      \"hookEventName\": \"\\\"PostToolUse\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for PostToolBatch\": {\n      \"hookEventName\": \"\\\"PostToolBatch\\\"\",\n      \"additionalContext\": \"string (optional)\"\n    },\n    \"for Stop / SubagentStop\": {\n      \"hookEventName\": \"\\\"Stop\\\" | \\\"SubagentStop\\\"\",\n      \"additionalContext\": \"string (optional) - Feedback for the model; the conversation continues so the model can act on it\"\n    }\n  }\n}"
+  ],
+  "lines": 70,
+  "truncated_tail": false
+}

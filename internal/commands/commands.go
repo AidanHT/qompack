@@ -51,9 +51,6 @@ type Deps struct {
 	// fidelity distinctions its handlers make survive into the command output instead of being
 	// re-derived — and re-derived differently — here.
 	MCP mcp.Server
-	// CheckpointNow requests one Qompack-local checkpoint. nil means this build has no route for
-	// it, which the checkpoint command reports rather than falling back to anything native.
-	CheckpointNow CheckpointNow
 	// EvalArtifacts supplies a completed evaluation's artifacts. Running the replay harness is
 	// test/replay's job; a command that re-ran it would be a second driver with its own corpus
 	// selection and its own idea of what a trial is.
@@ -65,7 +62,18 @@ type Deps struct {
 	// worth failing over a missing seam, and every caller that cares about determinism — every
 	// test, every golden fixture — sets it.
 	Clock core.Clock
+	// Refused, when non-nil, is why this invocation has no project to act on at all: owner decision
+	// D18 refuses a project root that is the user's home directory. Every command that reads or
+	// writes a project then reports it as unavailable instead of running (refusalExempt names the
+	// two that do not), and the error keeps its own identity under errors.Is, so a caller can still
+	// branch on paths.ErrHomeRoot.
+	Refused error
 }
+
+// refusalExempt are the commands that still run when Deps.Refused is set. status reports the
+// refusal as its answer (Status.Refused), because "why is nothing recorded here" is the question it
+// exists to answer; eval reads a completed evaluation's artifacts and never a project.
+var refusalExempt = map[string]bool{"status": true, "eval": true}
 
 // now reads the injected clock, defaulting to the system one.
 func (d Deps) now() time.Time {
@@ -75,9 +83,14 @@ func (d Deps) now() time.Time {
 	return d.Clock.Now()
 }
 
-// commandNames is the §5.17 list, in the order `/qompack:help` should present them: the three a
-// user reaches for daily first, then the three that explain what happened, then the harness.
-var commandNames = []string{"status", "recall", "pin", "checkpoint", "why", "dropped", "eval"}
+// commandNames is the shipped §5.17 list, in the order `/qompack:help` should present them: the
+// three a user reaches for daily first, then the two that explain what happened, then the harness.
+//
+// §5.17's checkpoint is not here. Its only route would be `qompack checkpoint`, which is the
+// PreCompact hook entry point — it reads a hook event from stdin and exits 0 whatever happens — so
+// the command wrote nothing. Checkpoints are sealed automatically before every compaction and on the
+// checkpointer's cadence; internal/pluginmanifest's commandSpecs records why no manual route ships.
+var commandNames = []string{"status", "recall", "pin", "why", "dropped", "eval"}
 
 // All returns one Command per §5.17 name.
 //
@@ -151,8 +164,6 @@ func bodyFor(name string) body {
 		return droppedBody
 	case "pin":
 		return pinBody
-	case "checkpoint":
-		return checkpointBody
 	case "eval":
 		return evalBody
 	default:
@@ -190,6 +201,9 @@ func (f *frontend) Run(ctx context.Context, args []string, out io.Writer) error 
 	}
 	if help {
 		return f.spec.WriteHelp(out)
+	}
+	if f.deps.Refused != nil && !refusalExempt[f.spec.Name] {
+		return f.report(inv, nil, fmt.Errorf("%w: %w", ErrUnavailable, f.deps.Refused))
 	}
 
 	data, runErr := f.body(ctx, inv)

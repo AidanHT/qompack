@@ -1,0 +1,16 @@
+github.com/qompack/qompack/internal/paths
+github.com/qompack/qompack/internal/store
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/internal/ipc
+github.com/qompack/qompack/internal/cli
+github.com/qompack/qompack/internal/tokens
+github.com/qompack/qompack/internal/contract
+github.com/qompack/qompack/internal/checkpoint
+github.com/qompack/qompack/internal/observer
+github.com/qompack/qompack/internal/obs
+github.com/qompack/qompack/internal/rehydrate
+github.com/qompack/qompack/internal/sketch
+github.com/qompack/qompack/internal/dag
+github.com/qompack/qompack/internal/mcp
+github.com/qompack/qompack/internal/eval
+github.com/qompack/qompack/internal/testutil

@@ -1,0 +1,30 @@
+#!/bin/sh
+# TEMPORARY (w6-borrow, third seat): each new row shown red with its fix reverted, one mutation at a
+# time, in a scratch `git archive` export of the head (never in the tree). Fake HOME/USERPROFILE.
+S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow
+. "$S/v2/fakehome.env"
+W=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+R=$W/plans/sdd/V6-closeout/w6-borrow/runs
+RT=$S/v3/red
+REV=$(cd "$W" && git rev-parse --short HEAD)
+rm -rf "$RT" && mkdir -p "$RT" && (cd "$W" && git archive HEAD) | tar -x -C "$RT"
+one() { # log mutation pkg pattern file...
+	log=$R/$1; mut=$2; pkg=$3; pat=$4; shift 4
+	{
+		echo "== RED: git archive $REV with the '$mut' mutation of scratch mutate.py (the fix reverted), fake HOME, started $(date -u +%H:%M:%SZ)"
+		python "$S/v2/mutate.py" "$RT" "$mut"
+		echo "== mutation diff:"
+		for f in "$@"; do (cd "$W" && git show HEAD:"$f") | diff -u --label "a/$f" --label "b/$f" - "$RT/$f"; done
+		echo "== go test $pkg -run '$pat' -count=1 -v -timeout=10m"
+		(cd "$RT" && go test "$pkg" -run "$pat" -count=1 -v -timeout=10m)
+		echo "exit=$?"
+	} > "$log" 2>&1
+	for f in "$@"; do (cd "$W" && git show HEAD:"$f") > "$RT/$f"; done
+}
+one 02-red-borrow-off-windows.log borrow-off ./internal/cli/ '^TestSessionStartBudget_' internal/cli/hookbudget.go
+one 03-red-callsite-off-windows.log callsite-off ./internal/cli/ '^TestSessionStartBudget_' internal/cli/sessionstart.go
+one 04-red-claim-home-off-windows.log claim-home-off ./internal/ipc/ '^(TestClaimSpawn_RefusesTheHomeDirectory|TestLazySpawn_RefusesTheHomeDirectory)$' internal/ipc/spawnlock.go
+one 05-red-spawner-home-off-windows.log spawner-home-off ./internal/daemon/ '^(TestEnsureRunning_RefusesTheHomeDirectory|TestSpawnDetached_RefusesTheHomeDirectory)$' internal/daemon/spawn.go
+one 06-red-loud-off-windows.log loud-off ./internal/cli/ '^TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud$' internal/cli/hookclient.go
+(cd "$W" && git archive HEAD internal) | tar -x -C "$S/v3/red-check" 2>/dev/null
+diff -r -q "$W/internal" "$RT/internal" && echo "red export restored to HEAD" > "$S/v3/red.done" || echo "red export NOT restored" > "$S/v3/red.done"

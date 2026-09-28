@@ -82,12 +82,16 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	display := NormalizeToolName(e.ToolName)
 	ephemeral := strings.HasPrefix(e.ToolName, mcpToolPrefix)
 
-	// 3. The configured hot-path cap binds here, after signals.go's own allocation bound.
-	body := responseText(e)
+	// 3. The configured hot-path cap binds here, after signals.go's own allocation bound. The
+	//    uncapped text is kept as well: it is what the §5.21 extractors read at steps 11 and 12,
+	//    which would otherwise each unwrap the payload again (SP08-D1).
+	full := responseText(e)
+	body := full
 	if len(body) > o.maxResultBytes {
 		body = body[:o.maxResultBytes]
 	}
 	empty := len(body) == 0
+	text := func() []byte { return full }
 
 	// 4. The path this call touched, normalized once, in paths.Key form for everything downstream.
 	//    This is also the capture-time path-scope boundary's last line (V6-AUTH-1,
@@ -184,7 +188,12 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     the record and its marks leaves a record whose marks never landed, and the at-least-once
 	//     redelivery that follows appends those marks alone, behind a record line that predates the
 	//     flush — a supersede mark with no new record behind it, which x09's flush arm rejects.
-	if obs != "" {
+	//
+	//     A leased record's root must be durable before any line names it (00-ARCHITECTURE.md
+	//     §0.2.2). A recorder that declares the barriers proves it inside the call, before its
+	//     intent; otherwise the observer proves it here (SP08-D1: doing both was one pass too many).
+	storeSynced := obs != "" && recorderPublishesDurably(o.toolRecorder())
+	if obs != "" && !storeSynced {
 		if err := o.syncObservation(ctx, rec.Root); err != nil {
 			return hookio.Empty(), err
 		}
@@ -203,7 +212,11 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     It runs BEFORE the replay check below on purpose: a first run killed between its record
 	//     and this link left a durable record with no join, and the redelivery completing that join
 	//     is the only thing that can repair it.
-	if err := o.finishObservation(ctx, obs, rec); err != nil {
+	//
+	//     The record must be durable before the link. A recorder that declares the barriers synced
+	//     the index after its write, in the call that just returned, so only the link remains; a
+	//     second pass here would re-read and re-sync a publication nothing has touched since.
+	if err := o.linkPublished(ctx, obs, rec, storeSynced); err != nil {
 		return hookio.Empty(), err
 	}
 
@@ -266,7 +279,7 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     them, because PostToolUse has no channel to say anything through.
 	if o.opt.Grammar != nil {
 		o.opt.Grammar.Append(grammar.Symbol(display))
-		switch ExtractTestOutcome(e) {
+		switch testOutcome(e, text) {
 		case TestPass:
 			o.opt.Grammar.Append(grammarTestPass)
 		case TestFail:
@@ -278,7 +291,7 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 
 	// 12. Task-boundary evidence. ExtractSignals stays pure, so the transition detector and the
 	//     path normalization are applied here rather than inside it.
-	sig := ExtractSignals(e)
+	sig := extractSignals(e, text)
 	sig.TodoCompleted = o.newlyCompletedTodos(st, e)
 	sig.Paths = normalizedPaths(o.opt.ProjectRoot, sig.Paths)
 	if sig.TodoCompleted {

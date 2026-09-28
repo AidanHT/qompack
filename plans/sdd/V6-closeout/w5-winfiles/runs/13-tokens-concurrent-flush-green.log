@@ -1,0 +1,25 @@
+## flush holds fmu for its whole disk phase
+## go test ./internal/tokens -run '^TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk$' -count=10 -v
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.10s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (3.01s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.24s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (2.54s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.24s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.13s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.73s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.47s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.23s)
+=== RUN   TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk
+--- PASS: TestChunkCache_ConcurrentFlushesNeverOverlapOnDisk (1.93s)
+PASS
+ok  	github.com/qompack/qompack/internal/tokens	18.104s
+exit=0

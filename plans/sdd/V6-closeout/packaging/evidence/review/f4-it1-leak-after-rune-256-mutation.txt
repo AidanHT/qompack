@@ -1,0 +1,17 @@
+Reviewer finding 4 (IT-1), mutation check, 2026-09-22, windows/amd64.
+Temporary mutation (reverted with git checkout right after the run): internal/checkpoint/focus.go
+FocusInstructions appended paragraphSep + "MUTATION /home/u/proj" when o.ForbidSnippets, i.e. a
+payload secret AFTER rune 256 of the rendered instruction. FocusInstructions(FocusOptions{}) - the
+test's own standing paragraph - is unaffected.
+Command: go test ./test/e2e -run '^(TestV1_HookLifecycleThroughRealBinary)$' -count=1 -timeout=30m
+Result: the recorded-history checks (256 runes) all passed; the new whole-instruction check failed:
+-----
+--- FAIL: TestV1_HookLifecycleThroughRealBinary (3.43s)
+    v1_integration_test.go:249: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-packaging/test/e2e/v1_integration_test.go:249
+        	Error:      	"Encode what a competent engineer with no session history would get wrong. Do not restate file contents, directory structure, or command output — those are retrievable. Prioritise: intent, decisions and their rationale, approaches eliminated and why, and constraints discovered empirically.\n\nDo not include code snippets: every file named above is available by path and hash through the qompack checkpoint, and a pointer costs roughly 20 tokens where a snippet costs roughly 500.\n\nMUTATION /home/u/proj" should not contain "/home/u/proj"
+        	Test:       	TestV1_HookLifecycleThroughRealBinary
+        	Messages:   	the focus instruction is built from the SourceSet, never from the live payload (§5.14): "/home/u/proj" leaked
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	3.652s
+FAIL

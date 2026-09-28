@@ -1369,7 +1369,7 @@ func installImportAndBackup(t *testing.T, m *store.Migrator, id string) {
 // holds the project's lock, and succeeds once nothing does.
 func installStopWriters(root string) func(context.Context) error {
 	return func(context.Context) error {
-		if pid, held := e2eDaemonHoldingLock(root); held {
+		if pid, held := testutil.DaemonHoldingLock(root); held {
 			return fmt.Errorf("the qompack daemon (pid %d) still holds %s", pid, daemon.LockPath(root))
 		}
 		return nil

@@ -1,0 +1,20 @@
+{
+  "name": "historical_resolvability_blind_to_deleted_object",
+  "phase": "historical",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "76fbd2d17c6fbddf1a6e5a9263d45d4a5c4774fc3abd6765b1fbc56ef6694af0"
+  },
+  "boundary": "store.Has answers `held` for an object whose bytes are gone but whose index line survives, and checkpoint finalize decides pointer resolvability with it",
+  "seed_method": "a real session through the installed binary, then one object file deleted from objects/ with index/roots.jsonl untouched; store.Has and an on-disk Lstat are then asked the same question",
+  "outcome": "recovered",
+  "reason": "the predicate internal/checkpoint decides pointer resolvability with agrees with the filesystem about a deleted object, and so does the root-level form of it. store.Has still answers from the index, which is its documented contract and no longer what a durable promise is made on.",
+  "detail": "after deleting the object backing chunk 6139dde14f6a with its index line intact: store.Has(chunk)=true (the index's belief), store.ObjectOnDisk(chunk)=false (offered=true, the predicate the checkpoint decides with), the bytes are on disk=false, and the whole root 91daa03aa2e6 answers resolvable=false",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

@@ -1,0 +1,17 @@
+{
+  "name": "posture_telemetry_is_refused",
+  "capability": "posture",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "130331b6dd03f626d33828a7d2e79ccb4da5935cbbecf988d30c6d04f7441baf"
+  },
+  "outcome": "verified",
+  "reason": "a project config setting runtime.telemetry.enabled=true was refused: the effective configuration reports false and state/config-violations.json names the key, so the refusal is loud rather than silent (§7.1, §11.3).",
+  "detail": "1 configuration violation(s) recorded"
+}

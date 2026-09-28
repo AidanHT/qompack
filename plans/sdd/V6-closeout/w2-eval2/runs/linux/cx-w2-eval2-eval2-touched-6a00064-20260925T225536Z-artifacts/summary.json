@@ -1,0 +1,43 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/eval": {
+   "result": "pass",
+   "passed": 402,
+   "failed": [],
+   "skipped": [
+    "TestSynthesize_WriteCorpus"
+   ]
+  },
+  "github.com/qompack/qompack/internal/commands": {
+   "result": "pass",
+   "passed": 108,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 349,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/pluginmanifest": {
+   "result": "pass",
+   "passed": 29,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/tools/devtool": {
+   "result": "pass",
+   "passed": 295,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/docs": {
+   "result": "pass",
+   "passed": 19,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

@@ -1,0 +1,21 @@
+=== RUN   TestParseHash_AgreesWithCore
+    open_cost_test.go:44: [rapid] OK, passed 100 tests (6.1775ms)
+--- PASS: TestParseHash_AgreesWithCore (0.01s)
+=== RUN   TestParseHashOrZero_DoesNotAllocate
+    open_cost_test.go:56: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-perfobs/internal/negknow/open_cost_test.go:56
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestParseHashOrZero_DoesNotAllocate
+        	Messages:   	parseHashOrZero("sha256:24d7908ccb4e51373fb41f354d02bc18c57e135bfb3e1c7f595b664dc9835bcf") allocated 1 times
+--- FAIL: TestParseHashOrZero_DoesNotAllocate (0.01s)
+=== RUN   TestReindex_AllocatesNoPerRecordKeys
+    open_cost_test.go:75: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-perfobs/internal/negknow/open_cost_test.go:75
+        	Error:      	"6021" is not less than or equal to "2032"
+        	Test:       	TestReindex_AllocatesNoPerRecordKeys
+        	Messages:   	reindex over 2000 records with 2000 distinct match keys allocated 6021 times
+--- FAIL: TestReindex_AllocatesNoPerRecordKeys (4.87s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	5.344s
+FAIL
+exit=1

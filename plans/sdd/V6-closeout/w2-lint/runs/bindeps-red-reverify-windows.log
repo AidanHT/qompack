@@ -1,0 +1,17 @@
+== re-verification: tools/devtool/bindeps.go reverted to b070bbe, rest of the tree at 1d6db42
+=== RUN   TestAllowedBinDep
+    bindeps_test.go:45: allowedBinDep("golang.org/x/sys/unix") = false, want true
+--- FAIL: TestAllowedBinDep (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	1.491s
+FAIL
+test exit=1
+== devtool lint: bindeps ==
+  linux/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  linux/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/amd64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+  darwin/arm64: disallowed dependency golang.org/x/sys/unix reaches the shipped binary (00-ARCHITECTURE.md §2.5)
+FAIL bindeps: bindeps: 4 violation(s)
+devtool: lint: lint: failed sub-check(s): bindeps
+exit status 1
+bindeps exit=1

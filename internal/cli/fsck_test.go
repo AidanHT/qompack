@@ -137,9 +137,14 @@ type seededProject struct {
 // seedFsckProject builds that project through the product's own writers.
 func seedFsckProject(t *testing.T) seededProject {
 	t.Helper()
+	return seedFsckProjectAt(t, t.TempDir())
+}
 
-	root := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o700))
+// seedFsckProjectAt is seedFsckProject at a root the caller chose, which must exist.
+func seedFsckProjectAt(t *testing.T, root string) seededProject {
+	t.Helper()
+
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Join(root, ".git")), 0o700))
 	l := paths.Of(root)
 	require.NoError(t, paths.EnsureLayout(l))
 

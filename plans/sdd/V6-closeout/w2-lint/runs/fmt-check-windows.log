@@ -1,0 +1,2 @@
+== go run ./tools/devtool fmt-check @ 8116d69
+exit=0

@@ -86,6 +86,7 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
@@ -463,6 +464,61 @@ func runHookWithEnv(t *testing.T, bin string, p project, argv []string, payload 
 	}
 }
 
+// runFlush drives the SessionEnd flush hook for sess and waits for the daemon to end the session.
+//
+// Since C1.15 the hook answers as soon as the flush is durable — Claude Code gives a plugin's
+// SessionEnd hooks one shared 1.5 s budget and cancels a hook still running when it runs out — and the
+// daemon ends the session on a goroutine of its own (internal/daemon/session_end.go). The hook's exit
+// therefore no longer says the session's deliveries have all published or that SessionEnd has run,
+// which is what every row that audits the store right after its flush relied on. The end writes the
+// terminal-hook marker (contract.MarkerPath) right after SessionEnd, which it runs only once the
+// session's earlier deliveries are on the committed frontier (settleSession); so a marker naming sess,
+// and not the one that stood before the hook ran, is the daemon's own record of both.
+//
+// It reports rather than fatals, like waitIndexed: a row whose daemon never ends the session is a
+// finding its record must still carry.
+func runFlush(t *testing.T, b bundle, p project, sess core.SessionID) {
+	t.Helper()
+	if !flushAndAwaitEnd(t, b, p, sess) {
+		t.Errorf("fault: the daemon did not end session %s within %s of its flush hook "+
+			"(no terminal-hook marker naming it)", sess, indexBound)
+	}
+}
+
+// flushAndAwaitEnd is runFlush's body without the verdict: it drives the flush hook and reports
+// whether the daemon ended the session within indexBound. A caller whose cut may legitimately leave
+// the product unable to take the flush at all (recoverSession) reads the answer as a measurement.
+//
+// Both marker reads are shared (paths.ReadFileShared). The daemon writes the marker once per session
+// end with paths.WriteAtomic and never retries it, and on Windows an ordinary handle held by this
+// poll would fail that replace, so the wait would time out on a write its own read prevented
+// (test/guards' sharedReaders; the same defect w4-e2eflakes fixed in test/e2e's marker poll).
+func flushAndAwaitEnd(t *testing.T, b bundle, p project, sess core.SessionID) bool {
+	t.Helper()
+	before, _ := paths.ReadFileShared(contract.MarkerPath(p.Root))
+	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+
+	ticker := time.NewTicker(daemonPollTick)
+	defer ticker.Stop()
+	deadline := time.NewTimer(indexBound)
+	defer deadline.Stop()
+	for {
+		if raw, err := paths.ReadFileShared(contract.MarkerPath(p.Root)); err == nil && !bytes.Equal(raw, before) {
+			var m struct {
+				Session core.SessionID `json:"session"`
+			}
+			if json.Unmarshal(raw, &m) == nil && m.Session == sess {
+				return true
+			}
+		}
+		select {
+		case <-ticker.C:
+		case <-deadline.C:
+			return false
+		}
+	}
+}
+
 // emptyOrParseableJSON reports whether stdout is something a host could safely consume: either
 // nothing at all, or one JSON document. It is the half of the hook contract the exit code does not
 // cover — a hook that exits 0 while writing garbage to stdout breaks the host just as thoroughly.
@@ -756,9 +812,11 @@ const (
 	probeTimeout = 250 * time.Millisecond
 	// roundTripDeadline bounds one admin request's connect and ACK.
 	roundTripDeadline = 5 * time.Second
-	// daemonUpBound is how long a case waits for session-start's daemon to answer a dial. It is
-	// longer than daemon.SpawnPollBound on purpose: EnsureRunning has already waited that long, so
-	// anything still outstanding is a cold start on a loaded machine.
+	// daemonUpBound is how long a case waits for session-start's daemon to answer a dial. It is far
+	// longer than session-start's own wait on purpose: its EnsureRunningUntil has already polled
+	// until the hook budget's borrow limit, 8.25 s after the hook began (V6 close-out D21), or for
+	// daemon.SpawnPollBound after a spawn that itself ran late, so anything still outstanding is a
+	// cold start on a loaded machine.
 	daemonUpBound = 60 * time.Second
 	// daemonPollTick is the interval every poll here re-asks on. A ticker, not time.Sleep, per
 	// §6.1's wall-clock-sleep ban (devtool lint's sleepcheck sub-check).
@@ -812,7 +870,7 @@ func waitDaemonUpFor(t *testing.T, root string, bound time.Duration) bool {
 		case <-deadline.C:
 			// Every expiry says what it was waiting for and for how long: a bound that expires
 			// silently is barely better than none.
-			pid, held := daemonHoldingLock(root)
+			pid, held := testutil.DaemonHoldingLock(root)
 			t.Logf("fault: no daemon answered %s within %s (lock pid %d, held=%v)", root, bound, pid, held)
 			return false
 		}
@@ -856,21 +914,20 @@ func requireIndexed(t *testing.T, root, id string) {
 	if fi, statErr := os.Stat(paths.Long(path)); statErr == nil {
 		size = fi.Size()
 	}
-	pid, held := daemonHoldingLock(root)
+	pid, held := testutil.DaemonHoldingLock(root)
 	t.Fatalf("fault: the observer never indexed %s into %s within %s "+
 		"(index size %d bytes, daemon lock pid %d held=%v)", id, path, indexBound, size, pid, held)
 }
 
 // shutdownIfReachable dials root's resolved address and, if anything answers or a live process still
-// holds the lock, sends admin.shutdown until the daemon goes away.
+// holds the lock, sends admin.shutdown until the daemon is gone.
 //
-// This is test/e2e's e2eShutdownIfReachable reduced to what this package needs, cloned rather than
-// imported because test/e2e is a composition root. The two properties worth keeping are the ones its
-// own comments were written around: "gone" is the LOCK disappearing rather than the address going
-// unreachable, because Stop closes the listener first and then goes on writing under .qompack/ for
-// the rest of its unwind; and a daemon that is still COMING UP holds the lock while answering no
-// dial at all, so liveness of the lock holder — not reachability — decides whether there is anything
-// to wait for.
+// What "gone" means is testutil.ShutdownDaemonUntilGone's one definition, shared with every other
+// shutdown helper under test/: no live process holds the lock, every process seen holding it during
+// the call has exited, and no holder went unidentified. This helper keeps only what is this
+// package's own: a daemon that is still COMING UP holds the lock while answering no dial at all, so
+// liveness of the lock holder — not reachability alone — decides whether there is anything to wait
+// for; and a daemon that never goes is terminated, if it serves one of this package's fixtures.
 //
 // It never signals a process on the ordinary path: shutdown is requested over the daemon's own admin
 // channel. terminateOwnDaemon is the last resort and it is guarded to this package's own fixtures.
@@ -881,43 +938,19 @@ func shutdownIfReachable(t *testing.T, root string) {
 		return
 	}
 	if !ipc.Probe(addr, probeTimeout) {
-		if _, held := daemonHoldingLock(root); !held {
+		if _, held := testutil.DaemonHoldingLock(root); !held {
 			return
 		}
 	}
 
-	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
-		ProjectRoot:     root,
-		ConnectDeadline: roundTripDeadline,
-		AckDeadline:     roundTripDeadline,
+	out := testutil.ShutdownDaemonUntilGone(root, addr, testutil.ShutdownWait{
+		Tick: daemonPollTick, Bound: daemonDownBound, RoundTrip: roundTripDeadline,
 	})
-	defer func() { _ = c.Close() }()
-
-	shutdownPID, _ := daemonHoldingLock(root)
-
-	ticker := time.NewTicker(daemonPollTick)
-	defer ticker.Stop()
-	timeout := time.NewTimer(daemonDownBound)
-	defer timeout.Stop()
-	for {
-		_, _ = c.Send(context.Background(), ipc.Request{
-			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
-		}, roundTripDeadline)
-
-		lockPID, held := daemonHoldingLock(root)
-		if !held && processSettled(shutdownPID) {
-			return
-		}
-		select {
-		case <-ticker.C:
-		case <-timeout.C:
-			t.Logf("fault: a daemon (lock pid %d, shutdown pid %d) still held %s after %s of "+
-				"retried admin.shutdown", lockPID, shutdownPID, daemon.LockPath(root), daemonDownBound)
-			terminateOwnDaemon(t, root, lockPID)
-			return
-		}
+	if out.Gone {
+		return
 	}
+	t.Logf("fault: %s", out.Describe(daemon.LockPath(root), daemonDownBound))
+	terminateOwnDaemon(t, root, out.LockPID)
 }
 
 // killDaemon is this package's daemon-side cut: it takes the pid out of root's daemon.lock and kills
@@ -937,7 +970,7 @@ func shutdownIfReachable(t *testing.T, root string) {
 // as the observation it is rather than as a silent pass.
 func killDaemon(t *testing.T, root string) bool {
 	t.Helper()
-	pid, held := daemonHoldingLock(root)
+	pid, held := testutil.DaemonHoldingLock(root)
 	if !held || pid <= 0 {
 		t.Logf("fault: no live daemon held %s; there was nothing to cut", daemon.LockPath(root))
 		return false
@@ -1018,36 +1051,12 @@ func terminateOwnDaemon(t *testing.T, root string, pid int) {
 // its daemon down (lock gone, pid dead)" made checkable rather than assumed.
 func requireNoOrphan(t *testing.T, root string) {
 	t.Helper()
-	if pid, held := daemonHoldingLock(root); held {
+	if pid, held := testutil.DaemonHoldingLock(root); held {
 		t.Errorf("fault: daemon pid %d still holds %s after the case finished", pid, daemon.LockPath(root))
 	}
 	if addr, err := ipc.Resolve(root); err == nil && ipc.Probe(addr, probeTimeout) {
 		t.Errorf("fault: something still answers %s after the case finished", root)
 	}
-}
-
-// processSettled reports whether the pid that held the lock can no longer write inside the tree.
-func processSettled(shutdownPID int) bool {
-	if shutdownPID == 0 || shutdownPID == os.Getpid() {
-		return true
-	}
-	return !testutil.ProcessAlive(shutdownPID)
-}
-
-// daemonHoldingLock reports the pid recorded in root's daemon.lock and whether a live process still
-// holds it. The lock is read with paths.ReadFileShared, whose handle carries FILE_SHARE_DELETE, so
-// polling it cannot make the daemon's own Release fail on Windows and thereby CAUSE the abandoned
-// lock it is checking for.
-func daemonHoldingLock(root string) (pid int, held bool) {
-	b, err := paths.ReadFileShared(daemon.LockPath(root))
-	if err != nil {
-		return 0, false
-	}
-	var info daemon.LockInfo
-	if err := json.Unmarshal(b, &info); err != nil {
-		return 0, true
-	}
-	return info.PID, testutil.ProcessAlive(info.PID)
 }
 
 // ---------------------------------------------------------------------------
@@ -1081,7 +1090,9 @@ func seedSession(t *testing.T, b bundle, p project, sess core.SessionID) {
 		readToolPayload(t, p.Root, sess, second, "src/beta.ts", seedContent("beta", 64)))
 	requireIndexed(t, p.Root, second)
 
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	// The flush's end runs in the daemon after the hook answers (C1.15); the seed is complete, and
+	// the baseline the caller takes next is comparable, only once that end has finished.
+	runFlush(t, b, p, sess)
 	// The daemon is deliberately LEFT UP. The caller takes its pre-cut degradation baseline while
 	// something can still answer `status --json` — `StatusReport.Snapshot` is the daemon's, and a
 	// baseline taken with the daemon down would not be comparable with the post-recovery reading,
@@ -1108,7 +1119,15 @@ func recoverSession(t *testing.T, b bundle, p project, sess core.SessionID) bool
 		readToolPayload(t, p.Root, sess, id, "src/gamma.ts", seedContent("gamma", 40)))
 	indexed := up && waitIndexed(t, p.Root, id, indexBound)
 
-	runHook(t, b.Bin, p, []string{"flush"}, sessionEndPayload(t, p.Root, sess))
+	// The recovery session's end runs in the daemon after the hook answers (C1.15), and what it
+	// does — its GC over the cut state among them — is part of what the degradation reading taken
+	// next must see. A cut can leave the product unable to take the flush at all (a refused
+	// configuration, an unavailable delivery identity), and then there is no end to wait for: that
+	// is part of what the row measures, so it is logged, not failed.
+	if !flushAndAwaitEnd(t, b, p, sess) {
+		t.Logf("fault: the recovery session %s was not ended within %s of its flush hook; the "+
+			"degradation reading is taken without that end", sess, indexBound)
+	}
 	return indexed
 }
 

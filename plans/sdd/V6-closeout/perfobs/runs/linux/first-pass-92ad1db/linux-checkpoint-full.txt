@@ -1,0 +1,2 @@
+PASS
+exit=0 user=qtest pkg=checkpoint commit=92ad1db

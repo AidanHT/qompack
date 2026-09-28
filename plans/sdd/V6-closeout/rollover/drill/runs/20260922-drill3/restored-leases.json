@@ -1,0 +1,119 @@
+[
+  {
+    "_file": "delivery-leases.jsonl",
+    "arrival": 1,
+    "delivery": "dca4e83ee708c50afc3539323823594fb8c908988f1450893b1cce257492fc91",
+    "observation_id": "sha256:e8f924bc5874a16e66d55875ca92803b5846d28d3626be3c8e2554ae2fa0afa6",
+    "request": "sha256:d393f0237bb8094cf95b58ac3eb50da7579322057d1e138e3ecb8720d16a69ec",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-leases.jsonl",
+    "arrival": 2,
+    "delivery": "2e283188cba2264a7f94ca09414b4f8c1778ef762b4c4f3da781592351072066",
+    "observation_id": "sha256:2cd08e623129922baa29ad250755601cbdc3b7431d49394d59dd86ad3c41292b",
+    "request": "sha256:3c0eb21b775dbc682219a04aa9faecd06075ca2344e5d09942eec892ba43f1e7",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-leases.jsonl",
+    "arrival": 3,
+    "delivery": "3a6c22d227b435414493d1b611beb7052cf5946a5011f1f5ca9451c92a088956",
+    "observation_id": "sha256:3009d930784147d4864339111cf187c7fbc3794a735dd32f9afec55e02c84607",
+    "request": "sha256:0ae1069e44f29d488388956ea6b098ff79c927f566e082d44fd2d58021eebdc5",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000001/delivery-leases.jsonl",
+    "arrival": 4,
+    "delivery": "32a44e6d742c06100dfab58572b6c29ac2b8d8e4fca9c2d64066a8f85b1bfcb3",
+    "observation_id": "sha256:d24198cbf4e4d30289d91900e0c763b7c7e72dacae5a6f4839afcf73d5d49c7b",
+    "request": "sha256:e718ae03b9607777c6dfa62cb3e243ceb08f88bf2a9d6cdd0f09df08c7ea678e",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000001/delivery-leases.jsonl",
+    "arrival": 5,
+    "delivery": "82a26d5ba9c660a1b862a9be55a70e9ef8504b3c34eaefe75ef32badaf9d0dd3",
+    "observation_id": "sha256:6b50c3e75a72385aea883d62deb75c0124e05c934799b227f72325b60d359258",
+    "request": "sha256:4a84971451de943f70130460b264c4b8e4d0b011b7417509fe3edc3dc34a4ced",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000001/delivery-leases.jsonl",
+    "arrival": 6,
+    "delivery": "ccb95bff87c3cff511f60bd34128a3c358dbdc5eb2a87420db71fcc8e4737e08",
+    "observation_id": "sha256:c32f039c53c9d15bd208fe5b93566710dcc8d0ae25bc8ac217c5f71e9be65ad8",
+    "request": "sha256:5bca4c5501cfd603a086dcaabefca95060c50770cf978073878b97d7a1c72952",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000002/delivery-leases.jsonl",
+    "arrival": 7,
+    "delivery": "e541cd1c9d74ce8790126701ee8bc43acc303fefb787e433aa432840f862ddac",
+    "observation_id": "sha256:42ec3284f357a112ad6de531678cfec47056af3e344e4cb4353ba426a363f19b",
+    "request": "sha256:976802ae990aaad29cb647444e623fc6ef374581951e5ed29249028f3ab1ddc1",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000002/delivery-leases.jsonl",
+    "arrival": 8,
+    "delivery": "a7ef1d7b5ca6444b200103c523a04070599470e093f35d0b4d0492d565979ab7",
+    "observation_id": "sha256:8a06468ec3165078e808ae2f57dc25c9fd97127096eee444a77c5bf1ac1d608f",
+    "request": "sha256:fd68c8b5f37208b89feba5844083488e5968a1944d0423b59c2db656df9dc4d3",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000002/delivery-leases.jsonl",
+    "arrival": 9,
+    "delivery": "d1dfea94512c91096574e12930b98e3b6b64dd1c534296d7ccbe58ba9ab6d16a",
+    "observation_id": "sha256:d2eb33ab0f6c7a54418f68b37d08da1c91b8a8bdb877682a0e11f89aa0be71b5",
+    "request": "sha256:784ff650152d861115e874e3210e17cced7de20cea5df2031ac9a4684a2ea078",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000003/delivery-leases.jsonl",
+    "arrival": 10,
+    "delivery": "6e190cf63a58da40687da99cfc943cee2cd93ea9b27315fbf6d07fa35df12465",
+    "observation_id": "sha256:f9276396426f23a954fb91ab5f4acbc212606487fccad0f3b4a8e492fe165ad0",
+    "request": "sha256:a050dddad007dbc98d8237a41d9c71f447c533c4cf613ceb3919bf1b1b5f97fc",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000005/delivery-leases.jsonl",
+    "arrival": 11,
+    "delivery": "6a4d2e65d28b16fb8086886b693cd081bda094ad4695a985e7522f0bd46099fd",
+    "observation_id": "sha256:ab7f915c878c7b1ea579ee426b6762d91b1cd8c1954f6dec2f31b11727e7f64c",
+    "request": "sha256:1d7a937772f203c2f8426949635e4cca79553404c63da785d9ac97c922729dc9",
+    "session": "sess-drill-history",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000006/delivery-leases.jsonl",
+    "arrival": 1,
+    "delivery": "63d95cc16047074f06e8df27599d5d1bfd9e26dd768a3c11ee62e352437fd57d",
+    "observation_id": "sha256:a490107776b345f63710554b50b6db7aafe5c937adf2bf83547240cc1bc74276",
+    "request": "sha256:b6c4afabcc668e237ef31315f0fbb82223ad02bdb5a55b1e883997decb83535e",
+    "session": "sess-drill-after-restore",
+    "v": 1
+  },
+  {
+    "_file": "delivery-segments/00000000000000000006/delivery-leases.jsonl",
+    "arrival": 12,
+    "delivery": "e4f076056e0bc170883c110a711d229f4154601b5724d72637e4b85839efc868",
+    "observation_id": "sha256:feb92560a4f32fe85871ddad1e5a7b6c54b42fb15639f22742289ec2352a93e1",
+    "request": "sha256:8afdcd8c8f34c09f7a3a03a1a8de0bd1f782233bcd1775a1686f20993c784647",
+    "session": "sess-drill-history",
+    "v": 1
+  }
+]

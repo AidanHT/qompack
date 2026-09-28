@@ -1,0 +1,30 @@
+{
+ "out": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/smoke1/out",
+ "cwd": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/smoke1/project",
+ "timeout_s": 300,
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "4",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read"
+ ],
+ "messages": [
+  "Read notes.txt and tell me the release codeword. Reply in one short sentence.",
+  "/compact",
+  "Without reading any file again: what was the release codeword and which port must the config keep? One short sentence."
+ ],
+ "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe"
+}

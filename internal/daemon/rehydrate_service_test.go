@@ -19,6 +19,8 @@ package daemon_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -146,6 +148,13 @@ func (l *rsLogger) Loud(msg string, _ ...any) {
 }
 
 func (l *rsLogger) loudCount() int { l.mu.Lock(); defer l.mu.Unlock(); return len(l.louds) }
+
+func (l *rsLogger) loudMsgs() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string(nil), l.louds...)
+}
+
 func (l *rsLogger) warnCount() int { l.mu.Lock(); defer l.mu.Unlock(); return len(l.warns) }
 
 var _ logging.Logger = (*rsLogger)(nil)
@@ -546,17 +555,214 @@ func TestService_CheckpointNotFoundStillEmits(t *testing.T) {
 	require.True(t, st.Degraded, "the state file must record that this rehydration was degraded")
 }
 
-// TestService_CheckpointErrorEmitsNothing separates "there is no checkpoint" from "the checkpoint
-// store is broken". The first is normal; the second is a fault, and injecting a half-known context
-// on top of a broken store would be worse than injecting nothing.
-func TestService_CheckpointErrorEmitsNothing(t *testing.T) {
+// rsNoteCeiling is how long a deferred note may ever be: far under the host's per-field cap, so it
+// always reaches the model whole and never competes with anything for it
+// (TestCompactDeferredNote_FitsTheHostCap pins the same ceiling in package daemon).
+const rsNoteCeiling = 1000
+
+// rsRequireDeferredNote asserts out is exactly the explicit deferred note for reason: a SessionStart
+// additionalContext that says the rehydration did not arrive, and why, and nothing else.
+func rsRequireDeferredNote(t *testing.T, out hookio.Output, reason string) {
+	t.Helper()
+	require.NotNil(t, out.HookSpecificOutput, "a rehydration that could not be built is answered, never silently")
+	require.Equal(t, "SessionStart", out.HookSpecificOutput.HookEventName)
+	ac := out.HookSpecificOutput.AdditionalContext
+	require.Equal(t, daemon.CompactDeferredNote(rsSession, reason), ac, "the answer is the deferred note naming why")
+	require.LessOrEqual(t, hookio.HostChars(ac), rsNoteCeiling, "the note stays far under the host's cap")
+	require.Empty(t, hookio.HostCapOverruns(hookio.ConformOutput(hookio.EventSessionStart, out)))
+}
+
+// rsRequireNotBuiltReport asserts the drop report `dropped()` reads now leads with the rehydration
+// that was never built, and why — never a report describing a payload as delivered.
+func rsRequireNotBuiltReport(t *testing.T, root, why string) {
+	t.Helper()
+	st := rsReadState(t, root)
+	require.Equal(t, rsSession, st.Session)
+	require.True(t, st.Degraded, "a rehydration that was never built is a degraded one")
+	require.Empty(t, st.Items, "nothing was emitted, so no item is listed as emitted")
+	require.Zero(t, st.Tokens)
+	require.NotEmpty(t, st.Dropped)
+	lead := st.Dropped[0]
+	require.Equal(t, "rehydration", lead.Kind, "the report leads with the whole rehydration: %+v", st.Dropped)
+	require.True(t, strings.HasPrefix(lead.Detail, "not delivered: "), "and says it never reached the model: %q", lead.Detail)
+	require.Contains(t, lead.Detail, why)
+
+	drops, err := rehydrate.NewReporter(root, logging.Nop()).CurrentDrops(context.Background(), rsSession)
+	require.NoError(t, err)
+	require.Equal(t, st.Dropped, drops, "dropped() reads exactly this report")
+}
+
+// TestService_CheckpointErrorAnswersWithTheDeferredNote separates "there is no checkpoint" from "the
+// checkpoint store is broken". The first is normal and still builds a payload
+// (TestService_CheckpointNotFoundStillEmits); the second is a fault, and injecting a half-known
+// context on top of a broken store would be worse than injecting none, so nothing is built. It is
+// answered with the explicit deferred note all the same (owner decision D11), never with silence,
+// and its drop report says the rehydration was never built, so dropped() does not describe an
+// earlier one as if it were this compaction's.
+//
+// Criterion change (D11, 2026-09-25): this row was TestService_CheckpointErrorEmitsNothing and
+// required an EMPTY output. D11 rules that an unreadable checkpoint store also answers with the
+// deferred note C1.16 introduced for a late or failed rehydration: silence leaves the model with a
+// compacted context and no word of what it lost. What the old row protected is kept — nothing is
+// built on the broken store (zero estimator calls), and the failure is Loud exactly once.
+func TestService_CheckpointErrorAnswersWithTheDeferredNote(t *testing.T) {
 	f := rsNewFixture(t)
 	f.reader.err = errors.New("io")
 
 	out, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
 	require.NoError(t, err, "a hook may exit only 0 (§2.3); the failure is reported, never returned")
-	require.True(t, rsIsEmptyOutput(out), "an unreadable checkpoint store emits nothing")
+	rsRequireDeferredNote(t, out, daemon.DeferredCheckpointUnreadable)
+	require.Zero(t, f.tok.count(), "nothing is built on top of a broken checkpoint store")
 	require.Equal(t, 1, f.log.loudCount(), "a broken checkpoint store is never silent (§12)")
+	rsRequireNotBuiltReport(t, f.proj.Root, "the checkpoint store could not be read")
+}
+
+// TestService_BuildFailureAnswersWithTheDeferredNote: a build that returns an error is answered
+// with the deferred note (D11), Loud once, and recorded as never built. The only error
+// rehydrate.BuildWithStats returns is its context's, and in the daemon that context ends only when
+// Stop cancels the rehydration (startReplyWork), so the note and the report say the daemon was
+// shutting down — the build did not fail on its merits, and nothing about it needs repairing.
+//
+// Criterion change (w3-startroute review, 2026-09-26): this row required DeferredFailed ("building
+// it failed") and a report saying the build failed. That named the wrong cause for the one error a
+// build can return: the rehydration was cut short by the daemon stopping. The row now requires the
+// cause the rest of the route already uses for a stopping daemon (DeferredStopping), still Loud once
+// and still recorded as never built. A failure on the build's merits is still DeferredFailed
+// (TestService_PanicRecovered, and the route's
+// TestSessionStartCompact_FailedRehydrationSeamIsAnsweredWithTheNote).
+func TestService_BuildFailureAnswersWithTheDeferredNote(t *testing.T) {
+	f := rsNewFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	out, err := f.svc.OnCompact(ctx, rsCompactEvent(f.proj.Root))
+	require.NoError(t, err, "a hook may exit only 0 (§2.3); the failure is reported, never returned")
+	rsRequireDeferredNote(t, out, daemon.DeferredStopping)
+	require.Equal(t, 1, f.log.loudCount(), "a rehydration lost to a stopping daemon is never silent (§12)")
+	rsRequireNotBuiltReport(t, f.proj.Root, "the Qompack daemon was shutting down")
+	require.NotContains(t, rsReadState(t, f.proj.Root).Dropped[0].Detail, "building the rehydration failed",
+		"a build cut short by the daemon stopping did not fail on its merits")
+}
+
+// TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping: the shipped reader returns its
+// context's error once that context has ended, before it reads a checkpoint (fileReader.load), and
+// in the daemon the rehydration's context ends only when Stop cancels it (startReplyWork). That is
+// the daemon stopping, not the store failing: the note and the drop report say so, and the store is
+// not Loud'd as unreadable, so neither the transcript nor dropped() sends anyone to repair a store
+// that is healthy. The same store read under a live context then rehydrates, which is what shows it
+// was healthy.
+func TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping(t *testing.T) {
+	f := rsNewFixture(t)
+	body, err := checkpoint.Marshal(rsGoldenCheckpoint(t))
+	require.NoError(t, err)
+	rsWriteCheckpointArtifact(t, f.proj.Root, body)
+	svc := rsRealReaderService(t, f)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	out, err := svc.OnCompact(ctx, rsCompactEvent(f.proj.Root))
+	require.NoError(t, err, "a hook may exit only 0 (§2.3); the failure is reported, never returned")
+	rsRequireDeferredNote(t, out, daemon.DeferredStopping)
+	require.Zero(t, f.tok.count(), "nothing is built once the daemon is stopping")
+	require.Equal(t, 1, f.log.loudCount(), "a rehydration lost to a stopping daemon is never silent (§12)")
+	require.NotContains(t, f.log.loudMsgs(), "rehydrate: checkpoint unreadable",
+		"a healthy store is never reported unreadable")
+	rsRequireNotBuiltReport(t, f.proj.Root, "the Qompack daemon was shutting down")
+	require.NotContains(t, rsReadState(t, f.proj.Root).Dropped[0].Detail, "checkpoint store could not be read",
+		"dropped() must not blame the store for the daemon stopping")
+
+	out, err = svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.NotNil(t, out.HookSpecificOutput)
+	ac := out.HookSpecificOutput.AdditionalContext
+	require.NotEmpty(t, ac, "the store the cancelled read did not blame is healthy: it rehydrates")
+	require.NotContains(t, ac, daemon.DeferredNoteTag)
+	require.Equal(t, 1, f.log.loudCount(), "and reading it is not a contract event")
+}
+
+// rsRealReaderService is rsNewFixture's service over the SHIPPED checkpoint reader instead of the
+// fake, for the rows about what the real reader reports for a broken store. It writes nothing; each
+// row lays out the store it needs by hand.
+func rsRealReaderService(t *testing.T, f *rsFixture) observer.Rehydrator {
+	t.Helper()
+	reader, err := checkpoint.OpenReader(f.proj.Root, f.log, nil)
+	require.NoError(t, err)
+	return daemon.NewRehydrateService(daemon.RehydrateOptions{
+		ProjectRoot: f.proj.Root,
+		Cfg:         f.proj.Cfg,
+		Checkpoints: reader,
+		Deps: rehydrate.Deps{
+			Store: f.st, Ledger: f.ledger, Tokens: f.tok, Log: f.log,
+			Rules: rules.New(rules.WithLogger(f.log)), Skills: skills.New(skills.WithLogger(f.log)),
+		},
+		Reporter: rehydrate.NewReporter(f.proj.Root, f.log),
+		Contract: f.mon,
+		Log:      f.log,
+		Metrics:  obs.New(f.clock),
+		Clock:    f.clock,
+	})
+}
+
+// rsWriteCheckpointArtifact lays out checkpoint 0001 with body and a manifest line whose digest
+// matches it, exactly as the writer would for a body that decoded.
+func rsWriteCheckpointArtifact(t *testing.T, root string, body []byte) {
+	t.Helper()
+	l := paths.Of(root)
+	require.NoError(t, os.MkdirAll(paths.Long(l.Checkpoints), 0o700))
+	p := paths.CheckpointPath(l, 1)
+	require.NoError(t, os.WriteFile(paths.Long(p), body, 0o600))
+	sum := sha256.Sum256(body)
+	line, err := json.Marshal(paths.ManifestEntry{Seq: 1, SHA256: hex.EncodeToString(sum[:]), Bytes: int64(len(body))})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(paths.Long(paths.ManifestPath(l)), append(line, '\n'), 0o600))
+}
+
+// TestService_UnreadableCheckpointManifestAnswersWithTheDeferredNote: the shipped reader over a
+// MANIFEST.jsonl it cannot parse — the whole store is unreadable, since the manifest is what every
+// read verifies against — reports a fatal error, and the compaction is answered with the note (D11).
+func TestService_UnreadableCheckpointManifestAnswersWithTheDeferredNote(t *testing.T) {
+	f := rsNewFixture(t)
+	l := paths.Of(f.proj.Root)
+	require.NoError(t, os.MkdirAll(paths.Long(l.Checkpoints), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(paths.ManifestPath(l)), []byte("{not a manifest line\n"), 0o600))
+
+	out, err := rsRealReaderService(t, f).OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	rsRequireDeferredNote(t, out, daemon.DeferredCheckpointUnreadable)
+	require.Zero(t, f.tok.count(), "nothing is built on top of an unreadable store")
+	rsRequireNotBuiltReport(t, f.proj.Root, "the checkpoint store could not be read")
+}
+
+// TestService_UndecodableCheckpointAnswersWithTheDeferredNote: a checkpoint whose bytes match their
+// manifest digest but whose fields do not decode is not one the reader can step over to its parent
+// (it verified), so it is fatal, and the compaction is answered with the note (D11).
+func TestService_UndecodableCheckpointAnswersWithTheDeferredNote(t *testing.T) {
+	f := rsNewFixture(t)
+	rsWriteCheckpointArtifact(t, f.proj.Root, []byte(`{"version":1,"session":["not","a","session"]}`))
+
+	out, err := rsRealReaderService(t, f).OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	rsRequireDeferredNote(t, out, daemon.DeferredCheckpointUnreadable)
+	require.Zero(t, f.tok.count(), "nothing is built on top of a checkpoint that cannot be read")
+	rsRequireNotBuiltReport(t, f.proj.Root, "the checkpoint store could not be read")
+}
+
+// TestService_UnverifiableCheckpointStillRehydratesWithoutIt pins the boundary of D11: a checkpoint
+// that fails its digest (or is not JSON, or names a newer schema) is one the reader steps over, and
+// with no verifiable checkpoint left the compaction rehydrates from L0 and the ledger exactly as for
+// a project with no checkpoint yet. That is a degraded payload, not a failure, so it is NOT the note.
+func TestService_UnverifiableCheckpointStillRehydratesWithoutIt(t *testing.T) {
+	f := rsNewFixture(t)
+	rsWriteCheckpointArtifact(t, f.proj.Root, []byte(`{"version":1}`))
+	require.NoError(t, os.WriteFile(paths.Long(paths.CheckpointPath(paths.Of(f.proj.Root), 1)), []byte(`{"version":1,"x":1}`), 0o600))
+
+	out, err := rsRealReaderService(t, f).OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.NotNil(t, out.HookSpecificOutput)
+	ac := out.HookSpecificOutput.AdditionalContext
+	require.NotEmpty(t, ac, "a checkpoint the reader steps over degrades the payload; it does not suppress it")
+	require.NotContains(t, ac, daemon.DeferredNoteTag, "a degraded rehydration is delivered, not deferred")
+	require.True(t, rsReadState(t, f.proj.Root).Degraded)
 }
 
 // ── work unit H: lifecycle coverage (fresh/resume/fork/restart, repeated compaction, duplicate
@@ -711,9 +917,15 @@ func TestService_MissingSessionIDDoesNotPanic(t *testing.T) {
 	_ = out // either an empty or a degraded payload is acceptable; not panicking is the contract
 }
 
-// TestService_PanicRecovered: a panic anywhere under the seam becomes an empty payload and a Loud
-// line. The hook process must still exit 0 — §2.3 permits it no other outcome — so a panic that
-// escaped here would take the host's session start with it.
+// TestService_PanicRecovered: a panic anywhere under the seam is recovered with a Loud line and
+// answered with the deferred note. The hook process must still exit 0 — §2.3 permits it no other
+// outcome — so a panic that escaped here would take the host's session start with it.
+//
+// Criterion change (D11, 2026-09-25): this row required an EMPTY output after the panic. A panic is
+// a failed build, and D11 rules that a failed build answers with the deferred note, never silence;
+// the session.start route already turned this panic into that note through its ticket (C1.16), so
+// the service's own answer now says the same thing to any caller, and the drop report records the
+// rehydration as never built. Recovery, the nil error and the single Loud are unchanged.
 func TestService_PanicRecovered(t *testing.T) {
 	f := rsNewFixture(t)
 	f.reader.panics = true
@@ -724,8 +936,9 @@ func TestService_PanicRecovered(t *testing.T) {
 		out, err = f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
 	}, "a panic under the rehydrator must not reach the hook process")
 	require.NoError(t, err)
-	require.True(t, rsIsEmptyOutput(out))
+	rsRequireDeferredNote(t, out, daemon.DeferredFailed)
 	require.Equal(t, 1, f.log.loudCount(), "a recovered panic is a contract-grade event: LOUD, once")
+	rsRequireNotBuiltReport(t, f.proj.Root, "building the rehydration failed")
 }
 
 // TestService_RecordsState: the drop report backing the `dropped` MCP tool is only answerable if

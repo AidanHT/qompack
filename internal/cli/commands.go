@@ -69,23 +69,33 @@ func runVersion(_ context.Context, _ Env, _ []string, out, _ io.Writer) error {
 
 // loadForCommand resolves the project root and loads configuration for a non-hook subcommand.
 // Unlike a hook, an ordinary command may fail loudly: there is no turn to protect.
-func loadForCommand(env Env) (config.Config, config.Provenance, error) {
+//
+// A root refused under D18 — the home directory — has no project layer, and its .qompack is the
+// user-global layer, where LoadConfigAndReport would persist a violation list. There the
+// configuration is the user-global one (loadUserGlobalConfig), nothing is written, and refused says
+// why, so the caller can tell the user that no project layer applies.
+func loadForCommand(env Env) (cfg config.Config, prov config.Provenance, refused, err error) {
 	root, err := paths.Resolve(env.Getenv, "")
 	if err != nil {
 		cwd, cwdErr := currentDir()
 		if cwdErr != nil {
-			return config.Config{}, nil, fmt.Errorf("resolving project root: %w", err)
+			return config.Config{}, nil, nil, fmt.Errorf("resolving project root: %w", err)
 		}
 		if root, err = paths.Resolve(env.Getenv, cwd); err != nil {
-			return config.Config{}, nil, fmt.Errorf("resolving project root: %w", err)
+			return config.Config{}, nil, nil, fmt.Errorf("resolving project root: %w", err)
 		}
 	}
-	return LoadConfigAndReport(config.Env{
+	if refused = refuseHomeRoot(env, root); refused != nil {
+		cfg, prov, _, err = loadUserGlobalConfig(env)
+		return cfg, prov, refused, err
+	}
+	cfg, prov, err = LoadConfigAndReport(config.Env{
 		ProjectRoot: root,
 		HomeDir:     homeDir(env),
 		Getenv:      env.Getenv,
 		Flags:       env.Set,
 	}, logging.Nop(), nil)
+	return cfg, prov, nil, err
 }
 
 // runConfigPrint implements `qompack config print [--provenance] [--json]`. §11.4 makes this the
@@ -100,9 +110,13 @@ func runConfigPrint(_ context.Context, env Env, args []string, out, errw io.Writ
 		return err
 	}
 
-	cfg, prov, err := loadForCommand(env)
+	cfg, prov, refused, err := loadForCommand(env)
 	if err != nil {
 		return err
+	}
+	if refused != nil {
+		fmt.Fprintf(errw, "qompack config print: %v; no project layer applies here, so this is the "+
+			"user-global configuration\n", refused)
 	}
 
 	if *withProvenance && !*asJSON {
@@ -118,7 +132,7 @@ func runConfigPrint(_ context.Context, env Env, args []string, out, errw io.Writ
 // runConfigSchema implements `qompack config schema`, the machine-readable counterpart to
 // docs/config-reference.md.
 func runConfigSchema(_ context.Context, env Env, _ []string, out, _ io.Writer) error {
-	cfg, _, err := loadForCommand(env)
+	cfg, _, _, err := loadForCommand(env)
 	if err != nil {
 		// A schema is a property of the type, not of this project's values, so emit it from the
 		// defaults rather than failing when there is no project to resolve.

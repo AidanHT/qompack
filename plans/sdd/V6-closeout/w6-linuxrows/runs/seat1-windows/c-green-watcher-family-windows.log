@@ -1,0 +1,45 @@
+=== RUN   TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive
+--- PASS: TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive (28.01s)
+=== RUN   TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+    spool_watch_test.go:176: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/spool_watch_test.go:176
+        	Error:      	Condition never satisfied
+        	Test:       	TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook
+        	Messages:   	the watcher passed the spool again, with no hook after it and no other drain, and published it
+--- FAIL: TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook (46.34s)
+=== RUN   TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+    spool_watch_test.go:212: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/spool_watch_test.go:212
+        	Error:      	Condition never satisfied
+        	Test:       	TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick
+        	Messages:   	the unconsumed spool is passed again
+--- FAIL: TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick (41.52s)
+=== RUN   TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+    spool_watch_test.go:278: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/spool_watch_test.go:278
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+        	Messages:   	the pass that started the slow line let it finish instead of cancelling it to try again
+--- FAIL: TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished (30.47s)
+=== RUN   TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft
+    spool_watch_test.go:307: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/spool_watch_test.go:307
+        	Error:      	Should be true
+        	Test:       	TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft
+        	Messages:   	fixture: the pass finished the line it started
+--- FAIL: TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft (63.65s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (7.35s)
+=== RUN   TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool
+--- PASS: TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool (16.27s)
+=== RUN   TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight
+--- PASS: TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight (7.59s)
+=== RUN   TestSpoolWatch_KnowsTheClientSpoolFamily
+--- PASS: TestSpoolWatch_KnowsTheClientSpoolFamily (0.00s)
+=== RUN   TestSpoolRetryAfter_Doubles
+--- PASS: TestSpoolRetryAfter_Doubles (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	243.816s
+FAIL

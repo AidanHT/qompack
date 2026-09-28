@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"math"
 	"sort"
@@ -152,6 +153,7 @@ func (s *FSStore) materializeAll(ctx context.Context, cands []searchCand, needCo
 	if !needContent || len(cands) == 0 {
 		return out
 	}
+	reads := newSharedChunkReads(cands)
 
 	workers := searchFetchers
 	if workers > len(cands) {
@@ -168,7 +170,7 @@ func (s *FSStore) materializeAll(ctx context.Context, cands []searchCand, needCo
 				if i >= len(cands) || ctx.Err() != nil {
 					return
 				}
-				content, bounds, err := s.materialize(cands[i].root)
+				content, bounds, err := s.materializeWith(cands[i].root, reads)
 				out[i] = materializedBody{content: content, bounds: bounds, err: err}
 			}
 		}()
@@ -326,11 +328,17 @@ func exactSymbol(syms []symbols.Symbol, name string) (symbols.Symbol, bool) {
 // materialize decompresses a root's whole content and returns it with each chunk's END offset, so
 // a span can be widened outward to chunk boundaries.
 func (s *FSStore) materialize(entry *rootEntry) ([]byte, []int64, error) {
+	return s.materializeWith(entry, nil)
+}
+
+// materializeWith is materialize with the chunk reads of one Search shared through reads, which may
+// be nil (every chunk read on its own).
+func (s *FSStore) materializeWith(entry *rootEntry, reads *sharedChunkReads) ([]byte, []int64, error) {
 	chunks := entry.Root.Chunks
 	buf := make([]byte, 0, entry.Root.CanonBytes)
 	bounds := make([]int64, 0, len(chunks))
 	for _, c := range chunks {
-		plain, err := s.getObject(c.Hash, c.Len)
+		plain, err := reads.get(s, c)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -338,6 +346,73 @@ func (s *FSStore) materialize(entry *rootEntry) ([]byte, []int64, error) {
 		bounds = append(bounds, int64(len(buf)))
 	}
 	return buf, bounds, nil
+}
+
+// sharedChunkReads lets the candidates of ONE Search share a single verified read of every chunk
+// more than one of them references, so the object behind it is opened, decoded and hashed once per
+// Search rather than once per candidate.
+//
+// Sharing is what content addressing is for, so recall meets it constantly: a file read four times
+// is four tool-use records over one root, and a test run repeated with one new failure is two roots
+// that share every chunk but one. Without this, each such candidate paid the whole verify-on-read
+// cost (SP20-D2) again for bytes the Search had already verified.
+//
+// It is not a cache. It lives for one materializeAll call and is dropped with it; it holds only the
+// chunks two or more scanned candidates reference, so its bytes never exceed half of the
+// maxScanBytes the scan is already bounded by; and what it shares is getObject's own outcome — the
+// plaintext AFTER the length check and the DomainChunk content hash passed, or the error that
+// refused it — so nothing it hands out is unverified, and bytes verified against their content
+// address cannot be stale for that address. Entries are keyed by hash AND indexed length, so two
+// index lines that disagree about a chunk's length still get one getObject each, and the length
+// check refuses whichever is wrong, as it did before this existed.
+type sharedChunkReads struct {
+	shared map[ChunkRef]*sharedChunkRead
+}
+
+// sharedChunkRead is one shared chunk's single read.
+type sharedChunkRead struct {
+	once  sync.Once
+	plain []byte
+	err   error
+}
+
+// newSharedChunkReads counts every chunk reference across cands, from the in-memory index alone,
+// and keeps an entry for each reference that occurs more than once. It returns nil when nothing is
+// shared, which get treats as "read every chunk on its own".
+func newSharedChunkReads(cands []searchCand) *sharedChunkReads {
+	seen := make(map[ChunkRef]uint8)
+	var shared map[ChunkRef]*sharedChunkRead
+	for _, c := range cands {
+		for _, ref := range c.root.Root.Chunks {
+			switch seen[ref] {
+			case 0:
+				seen[ref] = 1
+			case 1:
+				seen[ref] = 2
+				if shared == nil {
+					shared = make(map[ChunkRef]*sharedChunkRead)
+				}
+				shared[ref] = &sharedChunkRead{}
+			}
+		}
+	}
+	if shared == nil {
+		return nil
+	}
+	return &sharedChunkReads{shared: shared}
+}
+
+// get returns ref's plaintext through getObject, once per Search for a shared reference and every
+// time for any other. The map is complete before the fetchers start and is never written after,
+// so concurrent lookups need no lock; the entry's Once is what makes the read itself single.
+func (r *sharedChunkReads) get(s *FSStore, ref ChunkRef) ([]byte, error) {
+	if r != nil {
+		if e, ok := r.shared[ref]; ok {
+			e.once.Do(func() { e.plain, e.err = s.getObject(ref.Hash, ref.Len) })
+			return e.plain, e.err
+		}
+	}
+	return s.getObject(ref.Hash, ref.Len)
 }
 
 // widenToChunks expands [lo, hi) outward to the boundaries of the chunks it intersects.
@@ -485,18 +560,24 @@ func foldEqualAt(hay []byte, at int, needle string) bool {
 }
 
 // countFold counts non-overlapping, ASCII-case-insensitive occurrences of needle in hay.
+//
+// It visits only the offsets whose byte can start a match (foldCursor), because Search runs it over
+// every scanned candidate's whole content — about 4 MiB for BenchmarkSearch_1000Roots, where
+// comparing at every offset was 40 % of a Search's CPU on Linux. The count is the same: an offset
+// the cursor skips is one where foldEqualAt would have failed on its first byte.
 func countFold(hay []byte, needle string) int {
 	if needle == "" || len(hay) < len(needle) {
 		return 0
 	}
+	c := newFoldCursor(hay[:len(hay)-len(needle)+1], needle[0])
 	n := 0
-	for i := 0; i+len(needle) <= len(hay); {
+	for i := c.next(0); i >= 0; {
 		if foldEqualAt(hay, i, needle) {
 			n++
-			i += len(needle)
+			i = c.next(i + len(needle))
 			continue
 		}
-		i++
+		i = c.next(i + 1)
 	}
 	return n
 }
@@ -506,10 +587,63 @@ func indexFold(hay []byte, needle string) int {
 	if needle == "" || len(hay) < len(needle) {
 		return -1
 	}
-	for i := 0; i+len(needle) <= len(hay); i++ {
+	c := newFoldCursor(hay[:len(hay)-len(needle)+1], needle[0])
+	for i := c.next(0); i >= 0; i = c.next(i + 1) {
 		if foldEqualAt(hay, i, needle) {
 			return i
 		}
 	}
 	return -1
+}
+
+// foldCursor walks hay left to right over the offsets whose byte folds, under lowerASCII, to the
+// same byte as a given one: both spellings of an ASCII letter, or the byte itself otherwise. It
+// finds each with bytes.IndexByte and remembers the next hit of each spelling, so a walk costs one
+// vectorized scan of hay per spelling however many offsets it visits.
+type foldCursor struct {
+	hay    []byte
+	lo, up byte
+	// nextLo and nextUp are the next offsets of lo and up at or after the last query, len(hay) when
+	// there is none, and -1 before the first query.
+	nextLo, nextUp int
+}
+
+// newFoldCursor returns a cursor over the offsets of hay whose byte folds to b's fold.
+func newFoldCursor(hay []byte, b byte) foldCursor {
+	lo := lowerASCII(b)
+	up := lo
+	if lo >= 'a' && lo <= 'z' {
+		up = lo - ('a' - 'A')
+	}
+	return foldCursor{hay: hay, lo: lo, up: up, nextLo: -1, nextUp: -1}
+}
+
+// next returns the first offset at or after from whose byte is either spelling, or -1. from must
+// never decrease across calls, which every caller's left-to-right walk guarantees.
+func (c *foldCursor) next(from int) int {
+	if from >= len(c.hay) {
+		return -1
+	}
+	if c.nextLo < from {
+		c.nextLo = indexByteFrom(c.hay, from, c.lo)
+	}
+	at := c.nextLo
+	if c.up != c.lo {
+		if c.nextUp < from {
+			c.nextUp = indexByteFrom(c.hay, from, c.up)
+		}
+		at = min(at, c.nextUp)
+	}
+	if at >= len(c.hay) {
+		return -1
+	}
+	return at
+}
+
+// indexByteFrom returns the first offset at or after from holding b, or len(hay) when none does.
+func indexByteFrom(hay []byte, from int, b byte) int {
+	if j := bytes.IndexByte(hay[from:], b); j >= 0 {
+		return from + j
+	}
+	return len(hay)
 }

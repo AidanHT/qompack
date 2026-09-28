@@ -1,0 +1,3 @@
+cli exit=0
+commands exit=0
+checkpoint exit=0

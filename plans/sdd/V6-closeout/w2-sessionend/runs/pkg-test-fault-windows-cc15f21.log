@@ -1,0 +1,56 @@
+# Windows full package test/fault at cc15f21 (co-loaded host)
+# go test ./test/fault -count=1 -timeout=60m
+--- FAIL: TestFault_CheckpointDropsAnUnresolvablePointer (12.05s)
+    historical_test.go:222: fault historical_checkpoint_drops_pointer: failed — a checkpoint sealed after the object went away carries 1 pointer(s) into bytes that are gone, with no DropEntry naming them: checkpoint_pointer(0001/file/src/alpha.ts): checkpoint 0001 points at file src/alpha.ts (e5ec33f50136), which does not resolve. Owner: internal/checkpoint.
+          boundary: a checkpoint written after the object one of its pointers names went away
+          seed:     a real session, one stored object removed outright, then a real PreCompact through the installed binary, then one more observation so the judge has a measured "did recording go on" rather than an assumed one
+          dangling: 0→4
+          detail:   removed: removed the object file for chunk 62706e319837
+        artifacts 0 -> 1 (sealed 1); pointers across them: 3
+        new drop entries: [pointer_git_unavailable() pointer_unresolvable(toolu_fault_historical_drop_01)], of which naming the cut: [pointer_unresolvable(toolu_fault_historical_drop_01)]
+        recovery observation toolu_fault_historical_drop_03 indexed: true
+        everything the surfaces gained: daylog[3]: qompack-20260925.log: ts=2026-09-25T23:25:31.795332Z level=warn msg="daemon: drain: file error" path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1373009612\proj\.qompack\spool\client-52176.ndjson err="remove C:\\Users\\Quant\\AppData\\L…; drop[2]: pointer_git_unavailable(); status[1]: spool_files=1; surfaces status --json+checkpoint DropEntry+day log (warn)
+        of which naming this cut (quarantin, materialize, dangling, missing object, toolu_fault_historical_drop_01, 62706e319837): drop[1]: pointer_unresolvable(toolu_fault_historical_drop_01); surfaces checkpoint DropEntry
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}; after {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:4 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_CheckpointDropsAnUnresolvablePointer1649739513\001\historical_checkpoint_drops_pointer.json
+    historical_test.go:225: fault historical_checkpoint_drops_pointer: a checkpoint points at nothing and does not say so
+        removed: removed the object file for chunk 62706e319837
+        artifacts 0 -> 1 (sealed 1); pointers across them: 3
+        new drop entries: [pointer_git_unavailable() pointer_unresolvable(toolu_fault_historical_drop_01)], of which naming the cut: [pointer_unresolvable(toolu_fault_historical_drop_01)]
+        recovery observation toolu_fault_historical_drop_03 indexed: true
+        everything the surfaces gained: daylog[3]: qompack-20260925.log: ts=2026-09-25T23:25:31.795332Z level=warn msg="daemon: drain: file error" path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-1373009612\proj\.qompack\spool\client-52176.ndjson err="remove C:\\Users\\Quant\\AppData\\L…; drop[2]: pointer_git_unavailable(); status[1]: spool_files=1; surfaces status --json+checkpoint DropEntry+day log (warn)
+        of which naming this cut (quarantin, materialize, dangling, missing object, toolu_fault_historical_drop_01, 62706e319837): drop[1]: pointer_unresolvable(toolu_fault_historical_drop_01); surfaces checkpoint DropEntry
+        audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}; after {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:4 reported:0}
+--- FAIL: TestFault_PublicationBoundaries (163.85s)
+    --- FAIL: TestFault_PublicationBoundaries/retention_roots_truncated (6.44s)
+        publication_test.go:71: fault retention_roots_truncated: SP17-M7-04 is not met and no finding is pinned for this row. Either the product regressed or a defect nobody has been told about was just found; return it to Task 6 with its owner (internal/store) and pin it.
+            1 reference(s) the cut introduced do not resolve and NO surface gained anything about it — not LOUD.log, not status --json taken with the recovery daemon up, not self-test --json, not the day log, not a DropEntry. Owner: internal/store.
+            cut: truncated retention-roots.jsonl from 603 to 578 bytes, inside its final record
+            everything the surfaces gained: daylog[3]: qompack-20260925.log: ts=2026-09-25T23:27:46.8281976Z level=warn msg="daemon: drain: file error" path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3058219301\proj\.qompack\spool\client-52176.ndjson err="remove C:\\Users\\Quant\\AppData\\…; status[1]: spool_files=3; surfaces status --json+day log (warn)
+            of which naming this cut (retention, retention-roots.jsonl, collect): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+            measured: a forced GC pass (RetainDays -1, RetainSessions -1) over the torn retention-roots.jsonl completed: RetentionRootsError=true, scanned 0 object(s), deleted 0, retained 0 root(s) of which 0 under the blanket `rollback` class that gcrun.go's declaredRetentionLine gives an unparseable line. Collection was NOT stopped, so round 1's claim that a torn file makes GC collect nothing is refuted by measurement; whether this particular torn line also OVER-retained depends on whether its surviving hash-shaped tokens name anything live, and the blanket count above is what says so for this fixture
+            audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}
+            audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:1 reported:1}
+            degradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+            newly dangling: retention_root(retention-roots.jsonl:3): retention root line does not parse: invalid character 'h' after object key:value pair
+            newly reported: none
+            remaining dangling after recovery: retention_root(retention-roots.jsonl:3): retention root line does not parse: invalid character 'h' after object key:value pair
+        publication_test.go:71: fault retention_roots_truncated: failed — 1 reference(s) the cut introduced do not resolve and NO surface gained anything about it — not LOUD.log, not status --json taken with the recovery daemon up, not self-test --json, not the day log, not a DropEntry. Owner: internal/store.
+              boundary: retention-roots file truncated
+              seed:     state/retention-roots.jsonl is truncated mid-record, then a forced GC pass is run to measure what that actually costs (declaredRetentionLine retains everything on a line it cannot parse; only an in-process source failure stops a pass)
+              dangling: 0→1
+              detail:   cut: truncated retention-roots.jsonl from 603 to 578 bytes, inside its final record
+            everything the surfaces gained: daylog[3]: qompack-20260925.log: ts=2026-09-25T23:27:46.8281976Z level=warn msg="daemon: drain: file error" path=C:\Users\Quant\AppData\Local\Temp\qompack-fault-3058219301\proj\.qompack\spool\client-52176.ndjson err="remove C:\\Users\\Quant\\AppData\\…; status[1]: spool_files=3; surfaces status --json+day log (warn)
+            of which naming this cut (retention, retention-roots.jsonl, collect): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+            measured: a forced GC pass (RetainDays -1, RetainSessions -1) over the torn retention-roots.jsonl completed: RetentionRootsError=true, scanned 0 object(s), deleted 0, retained 0 root(s) of which 0 under the blanket `rollback` class that gcrun.go's declaredRetentionLine gives an unparseable line. Collection was NOT stopped, so round 1's claim that a torn file makes GC collect nothing is refuted by measurement; whether this particular torn line also OVER-retained depends on whether its surviving hash-shaped tokens name anything live, and the blanket count above is what says so for this fixture
+            audit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}
+            audit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:1 reported:1}
+            degradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry
+            newly dangling: retention_root(retention-roots.jsonl:3): retention root line does not parse: invalid character 'h' after object key:value pair
+            newly reported: none
+            remaining dangling after recovery: retention_root(retention-roots.jsonl:3): retention root line does not parse: invalid character 'h' after object key:value pair
+              artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_PublicationBoundariesretention_roots_truncated3424471478\001\retention_roots_truncated.json
+FAIL
+FAIL	github.com/qompack/qompack/test/fault	288.192s
+FAIL
+exit=1

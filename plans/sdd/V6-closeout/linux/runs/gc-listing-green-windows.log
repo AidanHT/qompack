@@ -1,0 +1,9 @@
+=== RUN   TestListRetentionDir_AShortListingCompletesUnderAnExpiredDeadline
+--- PASS: TestListRetentionDir_AShortListingCompletesUnderAnExpiredDeadline (0.08s)
+=== RUN   TestListRetentionDir_AFullBatchStillAnswersAnExpiredDeadline
+--- PASS: TestListRetentionDir_AFullBatchStillAnswersAnExpiredDeadline (0.72s)
+=== RUN   TestGC_AnExpiredDeadlineDoesNotStopASmallPassAtItsCheckpointListing
+--- PASS: TestGC_AnExpiredDeadlineDoesNotStopASmallPassAtItsCheckpointListing (0.19s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	1.213s
+exit=0

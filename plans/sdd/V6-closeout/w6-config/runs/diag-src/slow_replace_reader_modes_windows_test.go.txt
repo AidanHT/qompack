@@ -1,0 +1,125 @@
+//go:build windows
+
+package paths_test
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"testing"
+	"time"
+
+	"golang.org/x/sys/windows"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+var rtlGetLastNtStatus = windows.NewLazySystemDLL("ntdll.dll").NewProc("RtlGetLastNtStatus")
+
+// TestZZDiagSlowReplace is a TEMPORARY diagnostic (third seat, never committed). A legacy
+// MoveFileEx writer replaces config.json; DIAG_MONITOR picks the concurrent reader: lstat
+// (os.Lstat), shared (paths.OpenShared + ReadAll), leaf (paths.OpenSharedLeaf + ReadAll) or none.
+// It counts saves slower than 10 ms (the vanish windows the timeline diagnostic found sat inside
+// such saves) and each reader error class with the NTSTATUS the loader thread last saw.
+func TestZZDiagSlowReplace(t *testing.T) {
+	rounds, _ := strconv.Atoi(os.Getenv("DIAG_ROUNDS"))
+	if rounds == 0 {
+		rounds = 10
+	}
+	saves, _ := strconv.Atoi(os.Getenv("DIAG_SAVES"))
+	if saves == 0 {
+		saves = 2000
+	}
+	mon := os.Getenv("DIAG_MONITOR")
+	code := func(err error) string {
+		var en syscall.Errno
+		if errors.As(err, &en) {
+			return fmt.Sprintf("errno %d", uintptr(en))
+		}
+		return err.Error()
+	}
+	total := map[string]int{}
+	var mu sync.Mutex
+	add := func(k string) { mu.Lock(); total[k]++; mu.Unlock() }
+	var slow []time.Duration
+	for r := 0; r < rounds; r++ {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "config.json")
+		tmp := path + ".save-tmp"
+		if err := os.WriteFile(path, []byte(`{"v":0}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		var stop atomic.Bool
+		var wg sync.WaitGroup
+		if mon != "none" {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				runtime.LockOSThread()
+				defer runtime.UnlockOSThread()
+				for !stop.Load() {
+					var err error
+					switch mon {
+					case "lstat":
+						_, err = os.Lstat(path)
+					case "leaf":
+						var f *os.File
+						if f, err = paths.OpenSharedLeaf(path); err == nil {
+							_, err = io.ReadAll(f)
+							_ = f.Close()
+						}
+					default:
+						var f *os.File
+						if f, err = paths.OpenShared(path); err == nil {
+							_, err = io.ReadAll(f)
+							_ = f.Close()
+						}
+					}
+					if err != nil {
+						st, _, _ := rtlGetLastNtStatus.Call()
+						add(fmt.Sprintf("reader %s (ntstatus %#x)", code(err), uint32(st)))
+					} else {
+						add("reader ok")
+					}
+				}
+			}()
+		}
+		for i := 1; i <= saves; i++ {
+			body := fmt.Appendf(nil, `{"v":%d}`, i)
+			start := time.Now()
+			err := os.WriteFile(tmp, body, 0o600)
+			if err == nil {
+				err = os.Rename(tmp, path)
+			}
+			d := time.Since(start)
+			if err != nil {
+				add("save " + code(err))
+			} else {
+				add("save ok")
+			}
+			if d > 10*time.Millisecond {
+				slow = append(slow, d)
+				add(fmt.Sprintf("save slower than 10ms (err=%v)", err != nil))
+			}
+		}
+		stop.Store(true)
+		wg.Wait()
+	}
+	keys := make([]string, 0, len(total))
+	for k := range total {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		t.Logf("monitor=%s %s: %d", mon, k, total[k])
+	}
+	t.Logf("monitor=%s slow saves: %v", mon, slow)
+}

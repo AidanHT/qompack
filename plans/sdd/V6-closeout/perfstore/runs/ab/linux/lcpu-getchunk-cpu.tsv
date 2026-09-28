@@ -1,0 +1,18 @@
+round	variant	wall_s	user_s	sys_s	load	bench_line
+1	base	1.778	1.120	0.411	8.90	BenchmarkGetChunk-4   	   20000	     55491 ns/op	   20647 B/op	      15 allocs/op
+1	final	1.452	0.709	0.258	8.90	BenchmarkGetChunk-4   	   20000	     38967 ns/op	   19744 B/op	      10 allocs/op
+2	final	1.636	0.710	0.403	8.83	BenchmarkGetChunk-4   	   20000	     45796 ns/op	   19733 B/op	      10 allocs/op
+2	base	2.093	1.115	0.697	8.83	BenchmarkGetChunk-4   	   20000	     64153 ns/op	   20596 B/op	      15 allocs/op
+3	base	2.607	1.375	0.816	8.83	BenchmarkGetChunk-4   	   20000	     80242 ns/op	   20615 B/op	      15 allocs/op
+3	final	2.317	1.405	0.507	8.84	BenchmarkGetChunk-4   	   20000	     77279 ns/op	   19726 B/op	      10 allocs/op
+4	final	2.329	1.253	0.569	8.84	BenchmarkGetChunk-4   	   20000	     72097 ns/op	   19767 B/op	      10 allocs/op
+4	base	3.157	1.894	1.146	8.78	BenchmarkGetChunk-4   	   20000	    104261 ns/op	   20681 B/op	      15 allocs/op
+5	base	2.635	1.668	0.813	8.87	BenchmarkGetChunk-4   	   20000	     90337 ns/op	   20607 B/op	      15 allocs/op
+5	final	2.146	1.239	0.430	8.87	BenchmarkGetChunk-4   	   20000	     68516 ns/op	   19749 B/op	      10 allocs/op
+6	final	2.206	1.267	0.397	8.87	BenchmarkGetChunk-4   	   20000	     68789 ns/op	   19689 B/op	      10 allocs/op
+6	base	2.653	1.650	0.962	8.80	BenchmarkGetChunk-4   	   20000	     92581 ns/op	   20643 B/op	      15 allocs/op
+7	base	2.423	1.401	0.778	8.80	BenchmarkGetChunk-4   	   20000	     79966 ns/op	   20636 B/op	      15 allocs/op
+7	final	1.829	0.833	0.320	8.82	BenchmarkGetChunk-4   	   20000	     46380 ns/op	   19731 B/op	      10 allocs/op
+8	final	1.949	0.625	0.323	8.82	BenchmarkGetChunk-4   	   20000	     37440 ns/op	   19732 B/op	      10 allocs/op
+8	base	1.928	1.119	0.469	8.67	BenchmarkGetChunk-4   	   20000	     58090 ns/op	   20643 B/op	      15 allocs/op
+done

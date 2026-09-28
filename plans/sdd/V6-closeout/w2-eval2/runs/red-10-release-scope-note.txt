@@ -1,0 +1,6 @@
+--- FAIL: TestReleaseScope_EmptyEvidenceIsUnknown (0.00s)
+    releasescope_test.go:86: the live-task layer's note is stale: "no live model runs are executed by this repository's tests; eval.LiveRunner is nil in every shipped build and is deliberately left unwired (ruling R7-2)"
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	1.687s
+FAIL
+exit=1

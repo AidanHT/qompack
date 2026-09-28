@@ -11,6 +11,7 @@ import (
 
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/testutil"
 )
 
 // Disk full, permission errors and lock contention (deliverable 5).
@@ -280,7 +281,7 @@ func TestFault_LockContention(t *testing.T) {
 	if !waitDaemonUp(t, p.Root) {
 		t.Fatalf("fault: session-start did not bring the first daemon up")
 	}
-	firstPID, held := daemonHoldingLock(p.Root)
+	firstPID, held := testutil.DaemonHoldingLock(p.Root)
 	if !held {
 		t.Fatalf("fault: nothing held %s after session-start", daemon.LockPath(p.Root))
 	}
@@ -291,7 +292,7 @@ func TestFault_LockContention(t *testing.T) {
 	// finding the lock held is not an error, it is the singleton working.
 	stdout, stderr, code := run(t, b.Bin, p.Root, []string{"daemon"}, nil,
 		p.EnvWith(map[string]string{"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "1"}))
-	secondPID, stillHeld := daemonHoldingLock(p.Root)
+	secondPID, stillHeld := testutil.DaemonHoldingLock(p.Root)
 
 	// Hooks delivered during the contention.
 	runHook(t, b.Bin, p, []string{"observe", "tool"},
@@ -356,7 +357,7 @@ const stalePID = 0
 func plantStaleLockAndReclaim(t *testing.T, b bundle, p project) (bool, string) {
 	t.Helper()
 	lockPath := daemon.LockPath(p.Root)
-	if pid, held := daemonHoldingLock(p.Root); held {
+	if pid, held := testutil.DaemonHoldingLock(p.Root); held {
 		return false, fmt.Sprintf("a live daemon (pid %d) still held the lock; the stale-lock half "+
 			"of this row needs the project quiet", pid)
 	}
@@ -382,7 +383,7 @@ func plantStaleLockAndReclaim(t *testing.T, b bundle, p project) (bool, string) 
 	runHook(t, b.Bin, p, []string{"session-start"},
 		sessionStartPayload(t, p.Root, sessionID("resource-lock-stale"), "startup"))
 	up := waitDaemonUpFor(t, p.Root, daemonSettleBound)
-	pid, held := daemonHoldingLock(p.Root)
+	pid, held := testutil.DaemonHoldingLock(p.Root)
 	detail := fmt.Sprintf("planted a lock naming pid %d with an ancient heartbeat; a daemon %s and "+
 		"the lock is now held=%v by pid %d", stalePID,
 		map[bool]string{true: "answered", false: "did not answer"}[up], held, pid)

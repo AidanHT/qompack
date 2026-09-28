@@ -1,0 +1,23 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1526,
+   "failed": [],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "pass",
+   "passed": 308,
+   "failed": [],
+   "skipped": [
+    "TestInstall_HostCLIInstallUpgradeUninstall",
+    "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting",
+    "TestE2E_RequiredProductChildRaceInstrumentation"
+   ]
+  }
+ },
+ "unreported": []
+}

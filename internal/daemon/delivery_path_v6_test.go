@@ -12,20 +12,20 @@ import (
 
 func TestDeliveryPath_V6_ExtraStagedEvidenceRefusesAdoption(t *testing.T) {
 	state := t.TempDir()
-	require.NoError(t, createFreshSegment(state, 1))
+	require.NoError(t, createFreshSegment(state, 1, emptyCarry(t, 1)))
 	conflict := filepath.Join(segmentDir(state, 1), "interrupted-attempt")
 	want := []byte("retain for recovery")
 	require.NoError(t, os.WriteFile(conflict, want, 0o600))
-	require.Error(t, createFreshSegment(state, 1))
+	require.Error(t, createFreshSegment(state, 1, emptyCarry(t, 1)))
 	got, err := os.ReadFile(conflict)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
 
 func TestDeliveryPath_V6_RotationCloseFailureStopsTheLiveSwitch(t *testing.T) {
-	setRollover(t, 1)
+	roll := parallelRollover(t, 1)
 	root := t.TempDir()
-	j := openRolloverJournal(t, root)
+	j := roll.open(t, root)
 	_, err := j.lease(context.Background(), genNonce(0), "s", testDeliveryRequest("first"))
 	require.NoError(t, err)
 	oldPath := j.path
@@ -40,7 +40,7 @@ func TestDeliveryPath_V6_RotationCloseFailureStopsTheLiveSwitch(t *testing.T) {
 	require.False(t, j.usable())
 	// The durable transition can be recovered by a new owner, with no second delivery assigned.
 	require.NoError(t, j.owner.Release())
-	reopened := openRolloverJournal(t, root)
+	reopened := roll.open(t, root)
 	l, err := reopened.lease(context.Background(), genNonce(1), "s", testDeliveryRequest("second"))
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), l.ArrivalSeq)
@@ -75,12 +75,17 @@ func TestDeliveryPath_V6_TransitionLimitRefusesBeforeAppend(t *testing.T) {
 	require.Equal(t, before, after, "the writer must stop before exceeding its reader's limit")
 }
 
+// The alias is a symlink where the host allows one and an NTFS junction otherwise: an unprivileged
+// Windows process cannot create a symlink, but it can create a junction, and pinDeliveryChild
+// refuses both (os.ModeSymlink, os.ModeIrregular).
 func TestDeliveryPath_V6_RefusesAliasedSegmentParent(t *testing.T) {
 	state, outside := t.TempDir(), t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(state, deliverySegmentsDir)); err != nil {
-		t.Skipf("platform cannot create this symlink fixture: %v", err)
+	alias := filepath.Join(state, deliverySegmentsDir)
+	if err := makeDirLink(alias, outside); err != nil {
+		t.Skip("platform: this host will create neither a directory symlink nor a junction: " + err.Error())
 	}
-	require.Error(t, createFreshSegment(state, 1))
+	t.Cleanup(func() { _ = os.Remove(alias) })
+	require.Error(t, createFreshSegment(state, 1, emptyCarry(t, 1)))
 	entries, err := os.ReadDir(outside)
 	require.NoError(t, err)
 	require.Empty(t, entries, "no stage may be written through the alias")

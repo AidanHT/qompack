@@ -1,0 +1,537 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/cmd/qompack": {
+   "result": "skip",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/admission": {
+   "result": "pass",
+   "passed": 127,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/analyzer": {
+   "result": "pass",
+   "passed": 111,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/analyzer/analyzertest": {
+   "result": "pass",
+   "passed": 20,
+   "failed": [],
+   "skipped": [
+    "TestAnalyzerSuite_ShapePassesAgainstStub/selector"
+   ]
+  },
+  "github.com/qompack/qompack/internal/canon": {
+   "result": "pass",
+   "passed": 732,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/canon/canontest": {
+   "result": "pass",
+   "passed": 15,
+   "failed": [],
+   "skipped": [
+    "TestRunRegistrySuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/checkpoint": {
+   "result": "pass",
+   "passed": 405,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/checkpoint/checkpointtest": {
+   "result": "pass",
+   "passed": 3,
+   "failed": [],
+   "skipped": [
+    "TestCheckpointSuite_ShapePassesAgainstStub/writer-fake-stub",
+    "TestCheckpointSuite_ShapePassesAgainstStub/reader-fake-stub"
+   ]
+  },
+  "github.com/qompack/qompack/internal/chunk": {
+   "result": "pass",
+   "passed": 125,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/chunk/chunktest": {
+   "result": "pass",
+   "passed": 8,
+   "failed": [],
+   "skipped": [
+    "TestRunChunkerSuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 371,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/commands": {
+   "result": "pass",
+   "passed": 114,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/config": {
+   "result": "pass",
+   "passed": 311,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/contract": {
+   "result": "pass",
+   "passed": 158,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/contract/contracttest": {
+   "result": "pass",
+   "passed": 29,
+   "failed": [],
+   "skipped": [
+    "TestContractSuite_ShapePassesAgainstStub/monitor",
+    "TestContractSuite_ShapePassesAgainstStub/history",
+    "TestRunMonitorSuite_StubIsSkipped",
+    "TestRunHistorySuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/core": {
+   "result": "pass",
+   "passed": 27,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 1472,
+   "failed": [
+    "TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget"
+   ],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/internal/dag": {
+   "result": "pass",
+   "passed": 171,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/dag/dagtest": {
+   "result": "pass",
+   "passed": 45,
+   "failed": [],
+   "skipped": [
+    "TestRunGraphSuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/eval": {
+   "result": "pass",
+   "passed": 403,
+   "failed": [],
+   "skipped": [
+    "TestSynthesize_WriteCorpus"
+   ]
+  },
+  "github.com/qompack/qompack/internal/eval/evaltest": {
+   "result": "pass",
+   "passed": 5,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/grammar": {
+   "result": "pass",
+   "passed": 180,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/grammar/grammartest": {
+   "result": "pass",
+   "passed": 19,
+   "failed": [],
+   "skipped": [
+    "TestRunSequiturSuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/hookio": {
+   "result": "pass",
+   "passed": 112,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/hostperm": {
+   "result": "pass",
+   "passed": 111,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/ipc": {
+   "result": "pass",
+   "passed": 143,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/ipc/ipctest": {
+   "result": "pass",
+   "passed": 40,
+   "failed": [],
+   "skipped": [
+    "TestIPCSuite_ShapePassesAgainstStub/client",
+    "TestIPCSuite_ShapePassesAgainstStub/spool",
+    "TestIPCSuite_ShapePassesAgainstStub/server",
+    "TestIPCSuite_ShapePassesAgainstStub/transport",
+    "TestRunServerSuite_StubIsSkipped",
+    "TestRunTransportSuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/logging": {
+   "result": "pass",
+   "passed": 12,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/mcp": {
+   "result": "pass",
+   "passed": 387,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/mcp/mcptest": {
+   "result": "pass",
+   "passed": 23,
+   "failed": [],
+   "skipped": [
+    "TestMCPSuite_ShapePassesAgainstStub/server-fake-stub"
+   ]
+  },
+  "github.com/qompack/qompack/internal/negknow": {
+   "result": "pass",
+   "passed": 392,
+   "failed": [],
+   "skipped": [
+    "TestRecordContractFixtures"
+   ]
+  },
+  "github.com/qompack/qompack/internal/negknow/negknowtest": {
+   "result": "pass",
+   "passed": 12,
+   "failed": [],
+   "skipped": [
+    "TestRunLedgerSuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/obs": {
+   "result": "pass",
+   "passed": 25,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/observer": {
+   "result": "pass",
+   "passed": 454,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/observer/observertest": {
+   "result": "pass",
+   "passed": 25,
+   "failed": [],
+   "skipped": [
+    "TestObserverSuite_ShapePassesAgainstStub/fake-stub"
+   ]
+  },
+  "github.com/qompack/qompack/internal/paths": {
+   "result": "pass",
+   "passed": 134,
+   "failed": [],
+   "skipped": [
+    "TestOpenFile_HandlesUnresolvableRootGracefully",
+    "TestRestoreLog_UnstatablePathIsNotCreated",
+    "TestReplaceBloom_PruneSurvivesUnreadableSketchesDir",
+    "TestHighestBloomBackupSeq_UnreadableDirIsAnError",
+    "TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows",
+    "TestReplacePinsView_DeniedStagingCreatePreservesView",
+    "TestTerminatePartialTail_UnreadablePathIsLeftAlone",
+    "TestWriteAtomic_CreateTempFailureLeavesNoStaging",
+    "TestEnsureLayout_WriteAtomicFailureIsPropagated",
+    "TestLong_IdentityWhenAbsFails",
+    "TestLong_PrefixesOverThreshold",
+    "TestLong_IdempotentOnAlreadyPrefixed",
+    "TestLong_UNCGetsUNCPrefix",
+    "TestManifest_ReadPropagatesNonNotExistOpenError",
+    "TestNorm_RejectsDifferentVolume",
+    "TestNorm_LeavesUNCVolumeMismatchUnresolved",
+    "TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved",
+    "TestResolve_PropagatesAbsFailure"
+   ]
+  },
+  "github.com/qompack/qompack/internal/pins": {
+   "result": "pass",
+   "passed": 54,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/pins/pinstest": {
+   "result": "pass",
+   "passed": 1,
+   "failed": [],
+   "skipped": [
+    "TestRunPinsSuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/pluginmanifest": {
+   "result": "pass",
+   "passed": 29,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/redact": {
+   "result": "pass",
+   "passed": 226,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/redact/redacttest": {
+   "result": "pass",
+   "passed": 18,
+   "failed": [],
+   "skipped": [
+    "TestRunRedactorSuite_StubIsSkipped",
+    "TestRunRedactorSuite_AgainstNop"
+   ]
+  },
+  "github.com/qompack/qompack/internal/rehydrate": {
+   "result": "pass",
+   "passed": 196,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/rehydrate/rehydratetest": {
+   "result": "pass",
+   "passed": 14,
+   "failed": [],
+   "skipped": [
+    "TestRehydrateSuite_ShapePassesAgainstStub/fake-stub"
+   ]
+  },
+  "github.com/qompack/qompack/internal/rules": {
+   "result": "pass",
+   "passed": 41,
+   "failed": [],
+   "skipped": [
+    "TestPathScoped_CaseInsensitivePointer"
+   ]
+  },
+  "github.com/qompack/qompack/internal/rules/rulestest": {
+   "result": "pass",
+   "passed": 5,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/scheduler": {
+   "result": "pass",
+   "passed": 210,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/scheduler/schedulertest": {
+   "result": "pass",
+   "passed": 25,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/sketch": {
+   "result": "pass",
+   "passed": 380,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/sketch/sketchtest": {
+   "result": "pass",
+   "passed": 126,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/skills": {
+   "result": "pass",
+   "passed": 21,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/skills/skillstest": {
+   "result": "pass",
+   "passed": 6,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/state": {
+   "result": "pass",
+   "passed": 37,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/store": {
+   "result": "pass",
+   "passed": 835,
+   "failed": [],
+   "skipped": [
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/backslashes_become_slashes",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/mixed_separators_and_..",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/windows_absolute",
+    "TestRenameObject_ContentionIsRetriedThenReported"
+   ]
+  },
+  "github.com/qompack/qompack/internal/store/storetest": {
+   "result": "pass",
+   "passed": 14,
+   "failed": [],
+   "skipped": [
+    "TestRunStoreSuite_StubIsSkipped",
+    "TestRunSegmentLogSuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/symbols": {
+   "result": "pass",
+   "passed": 89,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/symbols/symbolstest": {
+   "result": "pass",
+   "passed": 6,
+   "failed": [],
+   "skipped": [
+    "TestRunExtractorSuite_StubIsSkipped"
+   ]
+  },
+  "github.com/qompack/qompack/internal/testutil": {
+   "result": "pass",
+   "passed": 40,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/tokens": {
+   "result": "pass",
+   "passed": 119,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/tokens/tokenstest": {
+   "result": "pass",
+   "passed": 4,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/bench/hotpath": {
+   "result": "pass",
+   "passed": 55,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/canary": {
+   "result": "pass",
+   "passed": 5,
+   "failed": [],
+   "skipped": [
+    "TestCanary_HostInventory",
+    "TestCanary_SessionStartReinjection",
+    "TestCanary_NewResultReplacement",
+    "TestCanary_CompactionBlocking",
+    "TestCanary_UsageAttribution",
+    "TestCanary_PluginValidate"
+   ]
+  },
+  "github.com/qompack/qompack/test/dedup": {
+   "result": "pass",
+   "passed": 2,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/docs": {
+   "result": "pass",
+   "passed": 19,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/fault": {
+   "result": "pass",
+   "passed": 56,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "fail",
+   "passed": 162,
+   "failed": [
+    "TestCarriedDefects_WaveReportRequiresResolution/SP06-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP10-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP09-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D3",
+    "TestCarriedDefects_WaveReportRequiresResolution"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/integration": {
+   "result": "fail",
+   "passed": 69,
+   "failed": [
+    "TestIntegration_HotPathWarmWithRealResidentState"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/platform": {
+   "result": "pass",
+   "passed": 14,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/release": {
+   "result": "pass",
+   "passed": 8,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/replay": {
+   "result": "pass",
+   "passed": 93,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/replay/l3policy": {
+   "result": "pass",
+   "passed": 6,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/security": {
+   "result": "pass",
+   "passed": 30,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/tools/devtool": {
+   "result": "pass",
+   "passed": 299,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/tools/lint/nomagic": {
+   "result": "pass",
+   "passed": 2,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

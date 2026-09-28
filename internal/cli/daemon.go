@@ -31,6 +31,12 @@ import (
 // matter to a user or block a turn. Every error path here is therefore logged Loud (never silent,
 // §12) and swallowed into a nil return — Dispatch's own exit-code mapping (non-hook, err == nil ->
 // ExitOK) does the rest.
+//
+// The one deliberate exception is a project whose runtime.daemon.enabled is false (coordinator
+// decision D36(b)): the daemon refuses to run there and exits non-zero, before it creates run/,
+// the lock or the socket (refuseDisabledDaemon). No spawner in this build launches it for such a
+// project, so the non-zero exit only reaches an operator who started it by hand, or an older
+// binary's spawner, which does not wait for the detached child's exit status.
 func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer) error {
 	fs := flag.NewFlagSet("daemon", flag.ContinueOnError)
 	fs.SetOutput(errw)
@@ -47,6 +53,21 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if root == "" {
 		fmt.Fprintln(errw, "qompack daemon: could not resolve a project root")
 		return nil
+	}
+	// D18: no daemon serves the home directory, however it was named — the override, --project or
+	// the working directory. The refusal comes before the writer lease, which would create run/ and
+	// daemon.lock inside the user-global layer's directory. daemon.AcquireLock refuses the same root
+	// again for any other embedder.
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		fmt.Fprintf(errw, "qompack daemon: %v\n", refused)
+		return nil
+	}
+	// D36(b): refuse a daemon-disabled project before the writer lease, which creates run/ and
+	// daemon.lock, so docs/release.md §4's "no resident process and no lock file" holds whoever
+	// starts this process. Dispatch prints the error as one "qompack daemon: ..." line and exits
+	// ExitError.
+	if refused := refuseDisabledDaemon(env, root); refused != nil {
+		return refused
 	}
 
 	// Exclude maintenance and competing daemon bootstraps before wiring opens
@@ -200,6 +221,27 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 		log.Loud("daemon: run exited with an error", "err", runErr.Error())
 		return nil
 	}
+}
+
+// daemonEnabledKey is the configuration key that switches the resident daemon on and off.
+const daemonEnabledKey = "runtime.daemon.enabled"
+
+// refuseDisabledDaemon returns the D36(b) refusal when the merged configuration (user file,
+// project file, environment and --set, as config.Load merges them) sets runtime.daemon.enabled to
+// false, and nil otherwise. config.Load only reads, so the check creates nothing. A configuration
+// that cannot be loaded at all falls back to the defaults, where the daemon is enabled: the same
+// fallback runDaemon's own load and self-test apply, and that later load is the one that reports
+// the problem.
+func refuseDisabledDaemon(env Env, root string) error {
+	cfg, prov, _, err := config.Load(config.Env{
+		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
+	})
+	if err != nil || cfg.Runtime.Daemon.Enabled {
+		return nil
+	}
+	src := prov[daemonEnabledKey]
+	return fmt.Errorf("the daemon is disabled for this project: %s is false (%s layer, %s); "+
+		"set %s to true to enable it", daemonEnabledKey, src.Origin, src.Location, daemonEnabledKey)
 }
 
 // installMCPTools registers the L6 retrieval tools on the daemon's op table (SP-13).

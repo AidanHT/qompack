@@ -1,0 +1,11 @@
+# run: 36-plan-doc-lint-windows (working tree: this round's doc edits, uncommitted)
+  plans/sdd/V6-SP-17-packaging-hardening-and-release/commit7-evidence.md:338: "^(TestBackup_RestoreOpensAsARealStore" — the alternation is split at the shell-pipeline character by this checker's parser; the -list output directly below names every branch
+PASS runpatterns
+== devtool lint: docmarkers ==
+docmarkers: 257 plan document(s) scanned
+PASS docmarkers
+== devtool lint: coveragefloors ==
+coveragefloors: 63 floor claim(s) across 257 plan document(s) checked against plans/OWNERS.tsv
+PASS coveragefloors
+exit=0
+# devtool exit re-checked without a pipe: 0

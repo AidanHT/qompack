@@ -1,0 +1,8 @@
+# github.com/qompack/qompack/tools/devtool [github.com/qompack/qompack/tools/devtool.test]
+tools\devtool\liveeval_test.go:803:6: env.workRoot undefined (type *liveEnv has no field or method workRoot)
+FAIL	github.com/qompack/qompack/tools/devtool [build failed]
+FAIL
+exit=1
+
+# Leftovers in the shared temporary directory before the fix, 2026-09-25 (not removed: not all are this lane's):
+80

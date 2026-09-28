@@ -1,0 +1,17 @@
+{
+  "name": "bounds_truncated_object",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "outcome": "verified",
+  "reason": "truncated_object was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a zstd frame cut in half.",
+  "detail": "read error: qompack: not found: object refused as damaged: object 2e2772655b5f failed to decode"
+}

@@ -1,0 +1,4 @@
+# 2026-09-25T23:31:42Z at b22a075 (clean tree; this log was written outside the worktree): go run ./tools/devtool bundle --target windows/amd64 --version 0.3.0-eval2fix.dryrun --out dist/live-bundle-fix
+bundle: qompack-plugin-0.3.0-eval2fix.dryrun-windows-amd64 (11 file(s), version 0.3.0-eval2fix.dryrun)
+exit=0
+4cde73875a0f7a7280f0e321b9dbb461a044dfbc4a29a8437569073dff18d6de *dist/live-bundle-fix/qompack-plugin-0.3.0-eval2fix.dryrun-windows-amd64/BUNDLE.json

@@ -1,0 +1,6 @@
+# GREEN: the same ipc row after the rootOf fix (committed as d660423/63c3d07), Windows
+=== RUN   TestStateRoundTrip_BelowAUserGlobalStore
+--- PASS: TestStateRoundTrip_BelowAUserGlobalStore (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	1.474s
+exit=0

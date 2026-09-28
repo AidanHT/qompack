@@ -1,0 +1,10 @@
+# re-run alone of TestGC_DeadlineTruncatesAndResumes after rep3 (storeB-rep3) failed it; Windows, 2026-09-22T23:56:57-04:00
+--- PASS: TestGC_DeadlineTruncatesAndResumes (9.44s)
+ok  	github.com/qompack/qompack/internal/store	9.639s
+exit=0
+--- PASS: TestGC_DeadlineTruncatesAndResumes (9.76s)
+ok  	github.com/qompack/qompack/internal/store	9.964s
+exit=0
+--- PASS: TestGC_DeadlineTruncatesAndResumes (9.46s)
+ok  	github.com/qompack/qompack/internal/store	9.694s
+exit=0

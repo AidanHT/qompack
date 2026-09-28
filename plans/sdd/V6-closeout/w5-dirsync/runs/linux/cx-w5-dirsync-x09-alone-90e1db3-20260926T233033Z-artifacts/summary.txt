@@ -1,0 +1,3 @@
+FAIL      github.com/qompack/qompack/test/e2e  (pass=0 fail=2 skip=0)
+    FAIL TestV3_LiveSessionWriteSetAndAppendOnly
+    FAIL TestV3_LiveSessionWriteSetAndAppendOnly

@@ -1,0 +1,17 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/security": {
+   "result": "fail",
+   "passed": 0,
+   "failed": [
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk",
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk",
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk",
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk",
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

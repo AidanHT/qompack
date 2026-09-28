@@ -1,0 +1,13 @@
+HEAD 692343c; CLAUDE_CONFIG_DIR=<scratch dir holding {"permissions":{"deny":["Read"]}}>; internal/daemon not modified
+--- control: no CLAUDE_CONFIG_DIR
+--- PASS: TestDaemonMCPOpDispatchesToolCall (0.37s)
+ok  	github.com/qompack/qompack/internal/daemon	0.605s
+exit=0
+--- with the machine-level deny-all rule
+        	Error:      	Should be true
+        	Messages:   	recall must report a hit for content it just indexed
+--- FAIL: TestDaemonMCPOpDispatchesToolCall (0.22s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.438s
+FAIL
+exit=1

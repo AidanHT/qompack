@@ -1,0 +1,16 @@
+{
+  "name": "path-root-mixed-case",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.280"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "outcome": "verified",
+  "reason": "mixed-case project root, resolved through the payload cwd, with the product exercised at both spellings",
+  "detail": "case-insensitive volume and case-folding normalization agree: \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-144387706\\\\Proj-Case\" and \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-144387706\\\\proj-case\" share ipc.ProjectHash12 92113bbb641c and transport \\\\.\\pipe\\qompack.92113bbb641c; session-start ran at BOTH spellings and one daemon (pid 59528) served both, answering admin.ping (mode=full hot=sync)"
+}

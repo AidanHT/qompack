@@ -1,0 +1,16 @@
+{
+  "name": "restrict-readonly-project-root",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "d5674c90e3b40da7e5989cb3b8013996f4d9d69f630cffad89d3d065fbdc9c3e"
+  },
+  "outcome": "verified",
+  "reason": "all six hooks exit 0 with consumable output on a read-only project root",
+  "detail": "deny applied to \"/tmp/qompack-platform-2325859857/plain-project\" before any store existed; .qompack present afterwards=false; daemon suppressed through QOMPACK_RUNTIME__DAEMON__ENABLED=false, so this row covers the hook adapter's exit contract, not the daemon; hook stderr was 0 bytes"
+}

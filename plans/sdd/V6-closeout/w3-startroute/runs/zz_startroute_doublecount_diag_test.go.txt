@@ -1,0 +1,102 @@
+package e2e
+
+// TEMPORARY DIAGNOSTIC for the w3-startroute lane: where does ONE prompt become TWO §12.1 misses?
+// Never committed as a test: a copy is kept under plans/sdd/V6-closeout/w3-startroute/runs/ as
+// .go.txt evidence.
+//
+// Each iteration replays the cold-start diagnostic's compact seed through the real binary — a
+// startup SessionStart (mints the probe), ONE prompt, a PreCompact, the daemon shut down, then a
+// compact SessionStart on a fresh daemon — and records the probe's Chances after each stage, with
+// every op left in the client spools.
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/testutil"
+)
+
+func zzdChances(root string) (int, string) {
+	h := contract.LoadHistory(contract.HistoryPath(root))
+	return h.Sentinel.Chances, h.Sentinel.Token
+}
+
+func TestZZStartroute_PromptDoubleCount(t *testing.T) {
+	bin := Build(t)
+	iters := zzsEnvInt("ZZ_ITERS", 10)
+	for i := range iters {
+		p := testutil.NewProject(t)
+		transcript := x14v5Transcript(t, p.Root)
+		sess := core.SessionID(fmt.Sprintf("sess-zzd-%d", i))
+		env := e2eEnv(p)
+
+		obsRunHook(t, bin, []string{"session-start"}, x14v5StartPayload(t, p.Root, sess, "startup", transcript), env)
+		e2eWaitDaemonUp(t, p.Root)
+		c0, tok0 := zzdChances(p.Root)
+		obsRunHook(t, bin, []string{"observe", "prompt"},
+			x14v5PromptPayload(t, p.Root, sess, transcript, "Keep the config port at 8443."), env)
+		c1, _ := zzdChances(p.Root) // read at once: the seed goes straight on to the PreCompact
+		spool1 := spooledOps(t, p.Root)
+		if len(spool1) > 1 {
+			_ = filepath.Walk(filepath.Join(p.Root, ".qompack", "spool"), func(fp string, info os.FileInfo, err error) error {
+				if err != nil || info.IsDir() {
+					return nil
+				}
+				b, _ := os.ReadFile(fp)
+				for _, line := range strings.Split(string(b), string(rune(10))) {
+					if line == "" {
+						continue
+					}
+					var r struct {
+						Op    string `json:"op"`
+						Nonce string `json:"nonce"`
+						TS    int64  `json:"ts"`
+					}
+					_ = json.Unmarshal([]byte(line), &r)
+					t.Logf("SPOOLLINE i=%d file=%s op=%s nonce=%s ts=%d len=%d", i, filepath.Base(fp), r.Op, r.Nonce, r.TS, len(line))
+				}
+				return nil
+			})
+		}
+		obsRunHook(t, bin, []string{"checkpoint"}, cpPreCompactPayload(t, p.Root, sess), env)
+		require.Eventually(t, func() bool { return len(cpCheckpointArtifacts(t, p.Root)) > 0 },
+			30e9, 50e6, "the seed PreCompact never sealed a checkpoint")
+		c2, _ := zzdChances(p.Root)
+		spool2 := spooledOps(t, p.Root)
+		e2eShutdownIfReachable(t, p.Root)
+		c3, _ := zzdChances(p.Root)
+		spool3 := spooledOps(t, p.Root)
+
+		stdout, _, _ := Run(t, bin, []string{"session-start"}, x14v5StartPayload(t, p.Root, sess, "compact", transcript), env)
+		c4, tok4 := zzdChances(p.Root)
+		spool4 := spooledOps(t, p.Root)
+		mode := e2eStatus(t, p.Root).Mode
+		t.Logf("ITER i=%d tok0=%s c0=%d c1(after prompt)=%d spool1=%v c2(after precompact)=%d spool2=%v "+
+			"c3(after shutdown)=%d spool3=%v c4(after compact start)=%d tok4=%s spool4=%v mode=%s answer=%s",
+			i, tok0, c0, c1, spool1, c2, spool2, c3, spool3, c4, tok4, spool4, mode, zzsClassify(stdout))
+		if c3 >= 2 || c4 >= 2 || mode != contract.ModeFull.String() {
+			logDir := filepath.Join(p.Root, ".qompack", "logs")
+			les, _ := os.ReadDir(logDir)
+			for _, e := range les {
+				b, _ := os.ReadFile(filepath.Join(logDir, e.Name()))
+				var keep []string
+				for _, line := range strings.Split(string(b), "\n") {
+					if strings.Contains(line, "prompt") || strings.Contains(line, "drain") || strings.Contains(line, "spool") ||
+						strings.Contains(line, "replay") || strings.Contains(line, "degrad") || strings.Contains(line, "retry") {
+						keep = append(keep, line)
+					}
+				}
+				t.Logf("ANOMALY i=%d log %s:\n%s", i, e.Name(), strings.Join(keep, "\n"))
+			}
+		}
+		e2eShutdownIfReachable(t, p.Root)
+	}
+}

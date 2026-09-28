@@ -1,0 +1,4 @@
+== head d6c103f
+== $ go test ./internal/daemon/ -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/daemon	495.742s
+exit=0

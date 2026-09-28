@@ -1,0 +1,47 @@
+=== RUN   TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+    session_start_compact_failure_test.go:166: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_compact_failure_test.go:106
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_compact_failure_test.go:166
+        	Error:      	Should be true
+        	Test:       	TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping
+        	Messages:   	the answer must be the deferred note naming why, never silence: "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the checkpoint store could not be read), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-d11-stopping_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).\n<!-- qompack-contract-probe qompack-contract-78df357da107 -->"
+--- FAIL: TestSessionStartCompact_StopDuringTheCheckpointReadIsAnsweredAsStopping (0.06s)
+=== RUN   TestService_BuildFailureAnswersWithTheDeferredNote
+    rehydrate_service_test.go:638: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:569
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:638
+        	Error:      	Not equal: 
+        	            	expected: "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the Qompack daemon was shutting down), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-sp11-rehydrate_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest)."
+        	            	actual  : "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (building it failed), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-sp11-rehydrate_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest)."
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	 <!-- qompack:rehydration-deferred -->
+        	            	-Qompack could not deliver this compaction's rehydration (the Qompack daemon was shutting down), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-sp11-rehydrate_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).
+        	            	+Qompack could not deliver this compaction's rehydration (building it failed), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-sp11-rehydrate_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).
+        	Test:       	TestService_BuildFailureAnswersWithTheDeferredNote
+        	Messages:   	the answer is the deferred note naming why
+--- FAIL: TestService_BuildFailureAnswersWithTheDeferredNote (0.05s)
+=== RUN   TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+    rehydrate_service_test.go:663: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:569
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/rehydrate_service_test.go:663
+        	Error:      	Not equal: 
+        	            	expected: "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the Qompack daemon was shutting down), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-sp11-rehydrate_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest)."
+        	            	actual  : "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the checkpoint store could not be read), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-sp11-rehydrate_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest)."
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	 <!-- qompack:rehydration-deferred -->
+        	            	-Qompack could not deliver this compaction's rehydration (the Qompack daemon was shutting down), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-sp11-rehydrate_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).
+        	            	+Qompack could not deliver this compaction's rehydration (the checkpoint store could not be read), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-sp11-rehydrate_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).
+        	Test:       	TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping
+        	Messages:   	the answer is the deferred note naming why
+--- FAIL: TestService_CancelledCheckpointReadAnswersThatTheDaemonWasStopping (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.452s
+FAIL

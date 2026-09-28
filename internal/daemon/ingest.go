@@ -3,13 +3,17 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
@@ -155,9 +159,29 @@ type ingest struct {
 	// them per segment; nothing else sets them.
 	writeWAL func(*os.File, []byte) (int, error)
 	syncWAL  func(*os.File) error
+	// syncSpoolDir makes the spool directory's entries durable when a WAL segment handle is opened
+	// and after an externalized payload is synced: paths.SyncDir in production (a no-op on Windows,
+	// D24). syncBlobFile makes an externalized payload's bytes durable: syncSpoolFile in production.
+	// They are fields so a test can observe them.
+	syncSpoolDir func(string) error
+	syncBlobFile func(string) error
 
 	ring chan job
 	seen *seenSet
+
+	// lanes serializes each session's leased jobs in arrival order (delivery_order.go, C1.1), and
+	// wake hands the workers the lanes a drain released (wakeSession). wake has room for one signal:
+	// the ready list itself lives in lanes, so a signal is never lost, only merged.
+	lanes *dispatchLanes
+	wake  chan struct{}
+	// drainKick carries the lanes' requests for a drain pass (requestDrain) to the daemon's drain
+	// requester (daemon.drainOnRequest). It has room for one request: requests made while one is
+	// pending merge into it.
+	drainKick chan struct{}
+	// settleStall and settleLimit, when positive, replace settleSessionStall and settleSessionLimit()
+	// as how long a flush waits for its session to settle (daemon.settleSession). Only tests set them.
+	settleStall time.Duration
+	settleLimit time.Duration
 
 	// journal resolves the daemon's held delivery journal. It is a function rather than a field
 	// because the journal belongs to the singleton Lock, which Run acquires after the ingest queue
@@ -195,8 +219,14 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 		walQ:     groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
 		writeWAL: (*os.File).Write,
 		syncWAL:  (*os.File).Sync,
-		ring:     make(chan job, ringCapacity),
-		seen:     newSeenSet(seenCapacity),
+
+		syncSpoolDir: paths.SyncDir,
+		syncBlobFile: syncSpoolFile,
+		ring:         make(chan job, ringCapacity),
+		seen:         newSeenSet(seenCapacity),
+		lanes:        newDispatchLanes(laneCapacity, laneSessionCapacity),
+		wake:         make(chan struct{}, 1),
+		drainKick:    make(chan struct{}, 1),
 	}
 }
 
@@ -268,31 +298,19 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 	// the SessionEnd flush drain.
 	line = bytes.TrimSuffix(line, []byte{'\n'})
 	work := func() error {
-		if err := i.appendWAL(req.Session, line); err != nil {
+		j, err := i.makeDurable(req, line)
+		if err != nil {
 			return err
-		}
-		// Identity is assigned here, before the job is queued and therefore before anything can
-		// process it. A redelivery of the same nonce — the client's spool fallback, a drained WAL
-		// line after restart — takes the same lease back unchanged and reuses this identity.
-		lease, leased := i.leaseDelivery(context.Background(), req)
-		if req.Nonce != "" && i.journal != nil && !leased {
-			// The WAL is durable but publication has no identity. Preserve it
-			// for retry; do not ACK or run an unleased substitute observation.
-			i.log.Loud("daemon: delivery identity unavailable; durable WAL retained for recovery")
-			return core.ErrDegraded
-		}
-		j := job{
-			req:    req,
-			recv:   core.NowMilli(i.clk),
-			key:    deliveryIdentityKey(lease, leased, line),
-			lease:  lease,
-			leased: leased,
 		}
 		select {
 		case i.ring <- j:
 		default:
 			if i.m != nil {
 				i.m.Counter(counterL0RingFull).Add(1)
+			}
+			if j.leased {
+				// Only the WAL holds it now, and its session's later arrivals wait on it (C1.1).
+				i.requestDrain()
 			}
 		}
 		return nil
@@ -308,6 +326,101 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 		return fmt.Errorf("daemon: ingest: accept: %w", err)
 	}
 	return nil
+}
+
+// makeDurable is Accept's durable half: line — already trimmed of its terminator — appended to the
+// session's WAL and synced, then the delivery's lease, and the job that carries both. It queues
+// nothing.
+func (i *ingest) makeDurable(req ipc.Request, line []byte) (job, error) {
+	if err := i.syncExternalized(req); err != nil {
+		return job{}, err
+	}
+	if err := i.appendWAL(req.Session, line); err != nil {
+		return job{}, err
+	}
+	// Identity is assigned here, before the job is queued and therefore before anything can
+	// process it. A redelivery of the same nonce — the client's spool fallback, a drained WAL
+	// line after restart — takes the same lease back unchanged and reuses this identity.
+	lease, leased := i.leaseDelivery(context.Background(), req)
+	if req.Nonce != "" && i.journal != nil && !leased {
+		// The WAL is durable but publication has no identity. Preserve it
+		// for retry; do not ACK or run an unleased substitute observation.
+		i.log.Loud("daemon: delivery identity unavailable; durable WAL retained for recovery")
+		return job{}, core.ErrDegraded
+	}
+	return job{
+		req:    req,
+		recv:   core.NowMilli(i.clk),
+		key:    deliveryIdentityKey(lease, leased, line),
+		lease:  lease,
+		leased: leased,
+	}, nil
+}
+
+// syncExternalized makes a client-externalized payload durable before the WAL line that refers to
+// it is, and so before the ACK. A request whose tool response was too large to send inline carries
+// only a descriptor; the bytes are in spool/blob-<pid>-<n>.bin, which the hook wrote and closed
+// without a sync, and the job that reads them runs after the ACK. On POSIX a power cut between the two
+// could keep the durable WAL line and lose the blob (or keep its name with none of its bytes: a
+// delayed-allocation file comes back empty), and the capture the ACK called durable — always one of
+// the largest a session makes — could never be published. So the blob's bytes are synced and then
+// the spool directory, for its name, before the line is appended.
+//
+// Only a well-formed descriptor naming a regular file costs anything: an ordinary request has no
+// blob, and a missing or malformed one is left to readBlob to report, exactly as before — there is
+// nothing here to make durable. The name is Lstat'ed before anything opens it, because a descriptor
+// is caller-supplied: a directory, a symbolic link or a FIFO at that name is not a blob the shipped
+// client wrote, readBlob refuses it by the same test, and opening a FIFO for writing would block the
+// ingest until some reader appeared. A sync that fails fails the delivery, which is not ACKed; the
+// hook's own fallback keeps the line and the blob stays in place for it.
+func (i *ingest) syncExternalized(req ipc.Request) error {
+	name, ok := externalizedBlob(req)
+	if !ok {
+		return nil
+	}
+	blobPath := filepath.Join(i.spoolDir, name)
+	if fi, err := os.Lstat(paths.Long(blobPath)); err != nil || !fi.Mode().IsRegular() {
+		return nil
+	}
+	if err := i.syncBlobFile(blobPath); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("daemon: ingest: sync externalized payload: %w", err)
+	}
+	if err := i.syncSpoolDir(i.spoolDir); err != nil {
+		return fmt.Errorf("daemon: ingest: sync spool directory for an externalized payload: %w", err)
+	}
+	return nil
+}
+
+// externalizedBlob reports the blob file a client-externalized request's descriptor names, under the
+// same rules readBlob reads it by: a descriptor for the tool response, on a request with an event, and
+// a name the shipped client could have written.
+func externalizedBlob(req ipc.Request) (string, bool) {
+	if len(req.Raw) == 0 || req.Event == nil {
+		return "", false
+	}
+	var ref blobRef
+	if err := json.Unmarshal(req.Raw, &ref); err != nil || ref.Blob == "" ||
+		ref.Field != drainBlobToolResponse || !safeBlobName(ref.Blob) {
+		return "", false
+	}
+	return ref.Blob, true
+}
+
+// acceptDurable makes a CONTROL delivery — a SessionEnd flush — durable exactly as Accept makes an
+// observe event durable (makeDurable: the WAL line synced, then the lease), and returns its job
+// without queueing it: the worker pool publishes observations, and the caller runs the flush itself
+// (session_end.go). It is not timed into B-B, whose budget is the observe hot path's. Its answer is
+// Accept's: an error means the delivery must not be acknowledged, and one with a nonce that could not
+// be leased is retained in the WAL for recovery and refused with core.ErrDegraded.
+func (i *ingest) acceptDurable(req ipc.Request, line []byte) (job, error) {
+	j, err := i.makeDurable(req, bytes.TrimSuffix(line, []byte{'\n'}))
+	if err != nil {
+		return job{}, fmt.Errorf("daemon: ingest: accept: %w", err)
+	}
+	return j, nil
 }
 
 // walItem is one WAL append's request in walQ (design §2.4).
@@ -563,6 +676,14 @@ func (i *ingest) rotateWALLocked(sess core.SessionID, wf *walFile) error {
 
 // openWALLocked opens (creating if needed) the WAL segment file for sess at wf's current
 // rotation sequence. mu must be held.
+//
+// It syncs the spool directory before it hands the handle back, and that is part of the WAL being
+// the durability boundary (§2.4). The ACK a hook gets is sent after its line's Sync, and on POSIX a
+// file's Sync does not make the file's NAME durable: a segment created for a new session or by a
+// rotation, whose directory entry a power cut then took, would lose every line an ACK had already
+// called durable. Once per opened handle is enough — a directory sync makes every entry that exists
+// when it runs durable — and it also covers a segment an earlier daemon created and never synced the
+// directory of. One directory sync per session per daemon lifetime, and per rotation, not per line.
 func (i *ingest) openWALLocked(sess core.SessionID, wf *walFile) error {
 	if err := os.MkdirAll(paths.Long(i.spoolDir), 0o700); err != nil {
 		return fmt.Errorf("daemon: ingest: mkdir spool: %w", err)
@@ -575,6 +696,10 @@ func (i *ingest) openWALLocked(sess core.SessionID, wf *walFile) error {
 	f, ok := wc.(*os.File)
 	if !ok {
 		return fmt.Errorf("daemon: ingest: AppendOnly returned a non-*os.File writer")
+	}
+	if err := i.syncSpoolDir(i.spoolDir); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("daemon: ingest: sync spool directory: %w", err)
 	}
 	wf.w = f
 	wf.name = filepath.Base(p)
@@ -636,8 +761,111 @@ func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Reque
 			if !ok {
 				return
 			}
-			i.dispatch(ctx, run, j)
+			i.route(ctx, run, j)
+		case <-i.wake:
+			i.runWoken(ctx, run)
 		}
+	}
+}
+
+// route hands a job to its session's lane (delivery_order.go). A leased job is dispatched only by
+// the worker that owns its lane, lowest arrival first, so a same-session successor never reaches the
+// ordering gate while its predecessor is still publishing. An unleased job is never ordering-gated
+// and keeps its existing qualified path: it is dispatched at once, in parallel with everything else.
+func (i *ingest) route(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, j job) {
+	if !j.leased {
+		i.dispatch(ctx, run, j)
+		return
+	}
+	own, full, drain := i.lanes.join(j)
+	if full {
+		if i.m != nil {
+			i.m.Counter(counterOrderingLaneFull).Add(1)
+		}
+		if drain {
+			i.requestDrain()
+		}
+	}
+	if own {
+		i.runLane(ctx, run, j.lease.Session)
+	}
+}
+
+// runLane dispatches sess's queued jobs, lowest arrival first, for as long as this worker owns the
+// lane: until it empties, or its head stays pending with nothing to retry it for (the lane parks,
+// and a later join or wake runs it again). When the lane parks on a head only a drain can now
+// publish, or runs dry after the lanes refused one of its session's jobs, it asks for that drain. It
+// stops between jobs once ctx is done; the jobs it leaves are durable in the WAL.
+func (i *ingest) runLane(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, sess core.SessionID) {
+	for {
+		j, signals, ok, drain := i.lanes.head(sess)
+		if !ok {
+			if drain {
+				i.requestDrain()
+			}
+			return
+		}
+		if ctx.Err() != nil {
+			i.lanes.park(sess)
+			return
+		}
+		goOn, drain := i.lanes.settle(sess, j, i.dispatch(ctx, run, j), signals)
+		if !goOn {
+			if drain {
+				i.requestDrain()
+			}
+			return
+		}
+	}
+}
+
+// requestDrain asks the daemon's drain requester (daemon.drainOnRequest) for a pass, without ever
+// blocking: a request made while one is pending merges into it.
+func (i *ingest) requestDrain() {
+	if i.m != nil {
+		i.m.Counter(counterOrderingDrainRequested).Add(1)
+	}
+	select {
+	case i.drainKick <- struct{}{}:
+	default:
+	}
+}
+
+// resumeDrain asks the drain requester for one more pass on its own behalf, for a pass its budget
+// cut short (daemon.drainOnRequest), without ever blocking. It is not a request the lanes made, so it
+// is not counted as one (counterOrderingDrainRequested).
+func (i *ingest) resumeDrain() {
+	select {
+	case i.drainKick <- struct{}{}:
+	default:
+	}
+}
+
+// runWoken runs one lane a wake listed, first passing the signal on if more remain listed so another
+// idle worker takes the next one.
+func (i *ingest) runWoken(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response) {
+	sess, ok, more := i.lanes.claimReady()
+	if more {
+		i.signalWake()
+	}
+	if ok {
+		i.runLane(ctx, run, sess)
+	}
+}
+
+// wakeSession tells sess's lane that one of the session's leased deliveries was settled outside the
+// worker pool -- a drain pass published it or retired it -- so a live successor parked behind it
+// runs again instead of waiting for the next drain (DrainConfig.Released). It never blocks.
+func (i *ingest) wakeSession(sess core.SessionID) {
+	if i.lanes.wake(sess) {
+		i.signalWake()
+	}
+}
+
+func (i *ingest) signalWake() {
+	select {
+	case i.wake <- struct{}{}:
+	default:
 	}
 }
 
@@ -650,7 +878,11 @@ func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Reque
 // bytes Drain might independently see share same-process ownership. Only a successful handler
 // acknowledgement enters the bounded completed set; rejection remains retryable. Restart does
 // not retain this set, so handlers must tolerate at-least-once delivery.
-func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, j job) {
+//
+// The outcome is what the job's lane needs to know (dispatchOutcome): settled once nothing is left
+// for a live dispatch to do, pending otherwise. It changes nothing about what the dispatch itself
+// publishes or retains.
+func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, j job) (outcome dispatchOutcome) {
 	defer func() {
 		if r := recover(); r != nil {
 			if i.m != nil {
@@ -660,9 +892,12 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		}
 	}()
 
-	_, acquired := i.seen.begin(j.key)
+	completed, acquired := i.seen.begin(j.key)
+	if completed {
+		return dispatchSettled
+	}
 	if !acquired {
-		return
+		return dispatchBusy // another handler owns it; the drain wakes the lane when its pass ends
 	}
 	acknowledged := false
 	defer func() { i.seen.finish(j.key, acknowledged) }()
@@ -670,7 +905,7 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 	req, _, err := readBlob(i.root, j.req)
 	if err != nil {
 		i.log.Warn("daemon: ingest blob unavailable; WAL retained for retry", "op", string(j.req.Op))
-		return // retain the WAL and blob for recovery
+		return dispatchPending // retain the WAL and blob for recovery
 	}
 	work := func() error {
 		if j.leased {
@@ -678,14 +913,17 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 			if err != nil || retired {
 				// Drain accounts for the retired WAL source; this worker must
 				// neither capture it nor turn its denial into a capture ACK.
+				if err == nil {
+					outcome = dispatchSettled
+				}
 				return nil
 			}
 		}
 		if i.admit != nil {
 			verdict := i.admit(req)
 			if verdict.Denied || verdict.Failed {
-				if verdict.Denied && j.leased {
-					_ = retireDelivery(i.journal, ctx, j.lease)
+				if verdict.Denied && j.leased && retireDelivery(i.journal, ctx, j.lease) == nil {
+					outcome = dispatchSettled // retired: the gate now lets its successors pass
 				}
 				return nil // Drain accounts for the retained WAL and disposition.
 			}
@@ -695,8 +933,9 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		// publish only after every earlier leased arrival of its session has reached the committed
 		// frontier. A blocked predecessor makes this delivery retryable — publish nothing, run
 		// nothing, leave the WAL bytes and any blob intact, and release seen ownership (acknowledged
-		// stays false), so a later drain re-dispatches it once the predecessor is acknowledged. It
-		// never waits on another worker.
+		// stays false). It stays queued in its session's lane, which re-dispatches it when the lane is
+		// next joined or woken once the predecessor is acknowledged; the parked lane asks for a drain,
+		// which retries it too (delivery_order.go). It never waits on another worker.
 		if !i.leasedPredecessorsReady(j.lease, j.leased) {
 			if i.m != nil {
 				i.m.Counter(counterOrderingDeferred).Add(1)
@@ -705,8 +944,10 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		}
 		// Publication order, stage 1: the durable object. A capture that cannot be made durable
 		// blocks the reference and the frontier behind it; the delivery stays retryable and the
-		// host's own result is untouched either way (invariant 4).
-		if j.leased {
+		// host's own result is untouched either way (invariant 4). Only an observation has one: the
+		// worker pool is handed nothing else today, and a control line must never publish a
+		// sidecar (drain.go dispatchPending says why).
+		if j.leased && j.req.Op.HotPath() {
 			if err := publishCapture(i.root, req, j.lease); err != nil {
 				if i.m != nil {
 					i.m.Counter(counterSidecarFailed).Add(1)
@@ -732,7 +973,9 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 				i.m.Counter(counterDeliveryAckFailed).Add(1)
 			}
 			i.log.Warn("daemon: delivery not acknowledged; WAL retained for retry", "op", string(j.req.Op), "err", err)
+			return nil
 		}
+		outcome = dispatchSettled
 		// The WAL still names any externalized blob. Only Drain's persisted offset may release
 		// it; an in-memory success is lost on restart and is not a durable acknowledgement.
 		return nil
@@ -742,6 +985,7 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 	} else {
 		_ = work()
 	}
+	return outcome
 }
 
 // CloseSession closes and forgets sess's cached WAL handle, releasing the file descriptor once a

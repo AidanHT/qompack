@@ -1,0 +1,273 @@
+# run 'e2e-b763d72': go test in C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config (b763d72, status: 9 changed paths)
+# (Every case failed at `go build ./cmd/qompack`: Windows Defender now refuses the linker output, the binary it quarantined during runs/62. The Linux e2e run at b763d72 is the e2e evidence: runs/linux/*e2e-race-b763d72*.)
+# poisoned fake real home: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w6\config\s3\fakehome-e2e-b763d72; HOME, USERPROFILE, QOMPACK_HOME, CLAUDE_CONFIG_DIR point into it; GOPATH=C:\Users\Quant\go GOMODCACHE=C:\Users\Quant\go\pkg\mod GOCACHE=C:\Users\Quant\AppData\Local\go-build GOENV=C:\Users\Quant\AppData\Roaming\go\env pinned
+store-scoped poisoned factor: 1.6
+# poisoned files:
+{"checkpoint":{"budgetTokens":4242},"runtime":{"mode":"off"}}
+{"7556ed9e53c6":1.6}
+{"permissions":{"deny":["Read(./**)"]}}
+# snapshot before:
+.claude d
+.claude/settings.json f 39 1790540526 1782a660312d0b4334ab699b34cc4e8928cc78ca517da20d69a224f0693a26b3
+.qompack d
+.qompack/calibration.json f 20 1790540526 97c73b3b7be0cd8069f818799cd6cd14328e664f719568a3c7c60215b27e8a0b
+.qompack/config.json f 61 1790540526 2cc93be31c257948859c78c46c3763a1f139d2bc3a4cf5f1dd9b701703759f04
+.qompack/tmp d
+# started 2026-09-27T20:22:07Z: go test -count=1 -timeout=60m ./test/e2e
+--- FAIL: TestE2E_SessionStartCompactFitsTheHostCap (2.56s)
+    c114_hostcap_test.go:37: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_CheckpointDegradedPassiveSealsNothing (0.00s)
+    checkpoint_degraded_test.go:54: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_CheckpointHookWritesImmutableArtifact (0.00s)
+    checkpoint_test.go:503: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2EHookRoundTrip (0.00s)
+    daemon_e2e_test.go:253: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2ELazySpawn (0.00s)
+    daemon_e2e_test.go:300: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2EIdleExit (0.00s)
+    daemon_e2e_test.go:396: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2ESelfTestExitsZeroOnHealthy (0.00s)
+    daemon_e2e_test.go:424: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2ESelfTestExitsNonZeroOnCritical (0.00s)
+    daemon_e2e_test.go:454: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2ESpoolSubmodeEndToEnd (0.00s)
+    daemon_e2e_test.go:506: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestHooksExitZeroUnderFaults (0.00s)
+    faultinject_test.go:59: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestFaultSitesInertWhenUnset (0.00s)
+    faultinject_test.go:394: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestSelfTestIsTheOnlyNonZeroExit (0.00s)
+    faultinject_test.go:436: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_AllSixHooksExitZero (0.00s)
+    hooks_test.go:67: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_ConfigPrintFromRealBinary (0.00s)
+    hooks_test.go:104: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_RunHookRealBinaryMode (0.00s)
+    hooks_test.go:128: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_UnknownCommandExitsTwo (0.00s)
+    hooks_test.go:143: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestStdioServerEndToEnd (0.00s)
+    mcp_e2e_test.go:336: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_ObserverThroughDaemon (0.00s)
+    observer_e2e_test.go:247: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_HooksExitZeroUnderFaultInjection (0.00s)
+    observer_e2e_test.go:362: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SupersessionVisibleAfterRestart (0.00s)
+    observer_e2e_test.go:394: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_VerbatimPromptSurvivesRestart (0.00s)
+    observer_e2e_test.go:437: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SubagentNameReachesTheDaemon (0.00s)
+    observer_e2e_test.go:476: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_ThinSliceDropsControlOnlyEdges (0.00s)
+    observer_e2e_test.go:512: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_DaemonLeavesThePluginDirectoryRemovable (0.00s)
+    plugin_dir_lifetime_test.go:33: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable (0.00s)
+    plugin_dir_lifetime_test.go:58: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestDaemonIdleRunsSchedulerWork (0.00s)
+    scheduler_idle_test.go:107: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SessionStartCompact (0.00s)
+    sessionstart_compact_test.go:338: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SessionStartCompactRestoresCheckpointItems (0.00s)
+    sessionstart_compact_test.go:378: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_ContractSentinelIsAppendedByTheDaemon (0.00s)
+    sessionstart_compact_test.go:417: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SessionStartCompactUnderBudget (0.00s)
+    sessionstart_compact_test.go:504: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SessionStartClear (0.00s)
+    sessionstart_compact_test.go:531: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SessionStartCompactNoStore (0.00s)
+    sessionstart_compact_test.go:568: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SessionStartCompactAfterFailedSummary (0.00s)
+    sessionstart_compact_test.go:604: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SessionStartLatency (0.00s)
+    sessionstart_compact_test.go:663: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SessionStartCompactUnreadableCheckpointStore (0.00s)
+    sessionstart_d11_test.go:28: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (0.00s)
+    shutdown_spawn_inflight_test.go:44: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (0.00s)
+    shutdown_spawn_inflight_test.go:154: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestE2E_SpooledSessionStartNeverDegradesTheProject (0.00s)
+    spooled_sessionstart_test.go:93: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV1_HookLifecycleThroughRealBinary (0.00s)
+    v1_integration_test.go:164: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV1_ConfigPrecedenceReachesHookBehaviour (0.00s)
+    v1_integration_test.go:259: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV1_PluginManifestCommandsExecuteAgainstRealBinary (0.00s)
+    v1_integration_test.go:511: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV3_HookEventToTombstoneToRetrievalRoundTrip (0.00s)
+    v3_x01_test.go:143: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV3_DegradedPassiveStillRecordsEverything (0.00s)
+    v3_x08_test.go:111: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV3_LiveSessionWriteSetAndAppendOnly (0.00s)
+    v3_x09_test.go:116: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (0.00s)
+    v3_x10_test.go:300: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV3_HotPathUnchangedWithLedgerResident (184.84s)
+    v3_x11_test.go:431: X11 resident state: ToolUses=2000 RawBytes=43120000 (41.1 MB) StoredBytes=3682837 DedupRatio=11.71; DAG Nodes=9041 Edges=17920; ledger Active=5000 Stale=0 FillRatio=0.306 tried.bloom=24056B
+    v3_x11_test.go:483: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-1381918965\qompack.exe...
+    v3_x11_test.go:487: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/e2e/v3_x11_test.go:487
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestV3_HotPathUnchangedWithLedgerResident
+        	Messages:   	bench-hotpath exited non-zero with the observer and the 5 000-elimination ledger resident (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<15ms and B-E's wall row p99<2000ms) breached, or the harness itself failed
+        	            	stderr:
+        	            	hotpath: hotpath: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-1381918965\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        	            	github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build3474014413\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+        	            	
+--- FAIL: TestV4_T13HandleResolvesAfterCompactionOverStdio (0.00s)
+    v4_t13_handle_stdio_test.go:64: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (1.70s)
+    v4_x01_test.go:86: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_SchedulerFiresBeforeTheSimulatedStockThreshold (1.70s)
+    v4_x02_test.go:112: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_O1SpanInstructionFromARealCheckpointFrontier (1.85s)
+    v4_x03_test.go:68: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_TombstoneToRecallToExpandRoundTrip (2.10s)
+    v4_x05_test.go:85: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction (3.62s)
+    v4_x06_test.go:76: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint (1.93s)
+    v4_x08_test.go:58: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_WhyAndDroppedAnswerFromRealProducers (2.00s)
+    v4_x10_test.go:45: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_LiveSessionWriteSetAppendOnlyAndImmutability (1.97s)
+    v4_x11_test.go:48: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_DegradedPassiveWithEverySubsystem (2.02s)
+    v4_x12_test.go:60: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (1.71s)
+    v4_x13_test.go:865: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV4_EveryContractAssertionHasARealProducer (1.77s)
+    v4_x14_test.go:73: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_ObserveToStatusRoundTrip (0.00s)
+    v5_x01_test.go:357: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (0.00s)
+    v5_x02_test.go:453: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_HookEventToTombstoneToRetrievalAfterRestart (1.75s)
+    v5_x03_test.go:392: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestV5_HookEventToTombstoneToRetrievalAfterRestart161823140\001\project\.qompack\index\files.jsonl: The process cannot access the file because it is being used by another process.
+--- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip (5.65s)
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (2.01s)
+        v5_x04_test.go:425: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (1.82s)
+        v5_x04_test.go:507: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (1.83s)
+        v5_x04_test.go:550: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_EliminationThroughEveryFourSurfaces (0.00s)
+    v5_x05_test.go:364: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_SelectorGatedByRealScheduler (1.73s)
+    v5_x06_test.go:209: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint (7.14s)
+    --- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/selected_complete_records_reach_item3 (1.70s)
+        v5_x07_test.go:282: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/explicit_overflow_reaches_item7 (1.79s)
+        v5_x07_test.go:342: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/negative_control_operator_switch_off (1.88s)
+        v5_x07_test.go:371: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint/negative_control_gate_closed (1.78s)
+        v5_x07_test.go:398: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (4.07s)
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule (2.04s)
+        v5_x10_test.go:390: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/degraded_passive_records_the_loop_and_says_nothing_until_restored (2.04s)
+        v5_x10_test.go:475: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself (0.00s)
+        v5_x10_test.go:556: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_EveryContractAssertionHasARealProducer (5.48s)
+    --- FAIL: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence (1.76s)
+        v5_x14_test.go:306: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud (1.84s)
+        v5_x14_test.go:455: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+    --- FAIL: TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set (1.88s)
+        v5_x14_test.go:508: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+            github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent (0.00s)
+    v5_x15_test.go:353: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+--- FAIL: TestV5_NoPackageWritesOutsideDotQompack (0.00s)
+    v5_x16_test.go:303: e2e: building ./cmd/qompack: go build -o C:\Users\Quant\AppData\Local\Temp\qompack-e2e-3932124742\qompack.exe ./cmd/qompack (in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w6-config): exit status 1
+        github.com/qompack/qompack/cmd/qompack: go build github.com/qompack/qompack/cmd/qompack: open C:\Users\Quant\AppData\Local\Temp\go-build1035454442\b001\exe\a.out.exe: Operation did not complete successfully because the file contains a virus or potentially unwanted software.
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	721.582s
+FAIL
+# finished 2026-09-27T20:34:21Z
+go-test-exit=1
+# fake real home .qompack/.claude diff (before -> after); empty means untouched:
+diff-exit=0

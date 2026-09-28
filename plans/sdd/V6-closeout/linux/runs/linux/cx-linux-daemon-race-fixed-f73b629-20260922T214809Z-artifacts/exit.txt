@@ -1,0 +1,3 @@
+go_test_exit=1
+a race detector report was retained
+exit=1

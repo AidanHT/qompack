@@ -1,0 +1,623 @@
+package eval
+
+// ── The live evaluation layer: real host sessions, recorded and scored ─────────────────────────
+//
+// V6 close-out C5.4. Everything in this file is the CONTRACT between the three halves of the live
+// evaluation harness, and nothing in it runs a model:
+//
+//   - internal/eval (this package) owns every pure function: parsing the host's own stream-json
+//     output and transcript JSONL, turning the host's cumulative usage into a request ledger that
+//     never double-counts, pricing that ledger from a dated rate table, evaluating a task's
+//     checks against what the trial left behind, and summarizing trials per arm with honest
+//     uncertainty. It stays foundation-only (00-ARCHITECTURE.md §3.2) and imports no os/exec.
+//   - tools/devtool `live-eval` owns every side effect: building the disposable project, starting
+//     `claude -p`, feeding it one step at a time, forcing the compaction, running command checks,
+//     stopping the trial's daemon and guarding the operator's real ~/.claude.
+//   - the task set (testdata/eval/live/) owns what is measured, frozen before any outcome exists
+//     (plans/sdd/V6-closeout/eval/preregistration.md).
+//
+// The on-disk documents below are versioned artifacts, so their JSON keys are snake_case like the
+// request ledger's (ledger.go) and unlike the frozen camelCase §5.18 shapes in types.go.
+//
+// Three rules from the ledger carry over unchanged: missing usage is unknown and never zero; an
+// estimate is never an invoice (a subscription session has no per-token cash charge, so every
+// amount here is a list-price-equivalent ESTIMATE); rates are data with provenance.
+
+import (
+	"encoding/json"
+	"time"
+)
+
+// Schema versions of the live documents.
+const (
+	// LiveTaskSetSchema is the version LoadLiveTaskSet accepts.
+	LiveTaskSetSchema = 1
+	// LiveTrialSchema is the version of LiveTrialRecord and LiveSummary.
+	LiveTrialSchema = 1
+	// LiveRateTableSchema is the version LoadLiveRateTable accepts.
+	LiveRateTableSchema = 1
+)
+
+// LiveArm is one side of the comparison.
+type LiveArm string
+
+const (
+	// ArmStock runs the host with no Qompack plugin at all.
+	ArmStock LiveArm = "stock"
+	// ArmQompack runs the host with the Qompack plugin loaded.
+	ArmQompack LiveArm = "qompack"
+)
+
+// ── the task set ───────────────────────────────────────────────────────────────────────────────
+
+// LiveTaskVariant classifies a task for the pre-registered analysis.
+type LiveTaskVariant string
+
+const (
+	// VariantStandard is a task whose requirements do not change.
+	VariantStandard LiveTaskVariant = "standard"
+	// VariantChangingRequirement is a task whose requirement changes after the compaction, so the
+	// post-compaction work must apply the new requirement AND keep the earlier constraints.
+	VariantChangingRequirement LiveTaskVariant = "changing_requirement"
+	// VariantHeldOut is a task that is never run during harness development or piloting; it is
+	// only run in the confirmatory phase, so nothing about the harness was tuned against it.
+	VariantHeldOut LiveTaskVariant = "held_out"
+)
+
+// LiveTaskSet is the declared task set: a versioned, frozen document.
+type LiveTaskSet struct {
+	// Schema is LiveTaskSetSchema.
+	Schema int `json:"schema"`
+	// ID names the set in every trial record, e.g. "qompack-live-v1".
+	ID string `json:"id"`
+	// Frozen is the date (YYYY-MM-DD) the set was frozen, before any trial outcome existed.
+	Frozen string `json:"frozen"`
+	// Tasks is the set, in a fixed order.
+	Tasks []LiveTask `json:"tasks"`
+}
+
+// LiveTask is one task: a repository fixture, a sequence of steps with a forced compaction, and
+// the checks that decide the outcome automatically.
+type LiveTask struct {
+	// ID is unique within the set and stable across revisions of it.
+	ID string `json:"id"`
+	// Title is a short human description.
+	Title string `json:"title"`
+	// Variant classifies the task.
+	Variant LiveTaskVariant `json:"variant"`
+	// Claim names what the task probes (e.g. "verbatim constraint survives compaction").
+	Claim string `json:"claim"`
+	// Fixture is the directory, relative to the task-set file, copied into the trial project.
+	Fixture string `json:"fixture"`
+	// AllowedTools is the --allowedTools list, identical for both arms. Rules naming a tool the
+	// arm does not have (the Qompack MCP tools on the stock arm) are inert, so one list serves both.
+	AllowedTools []string `json:"allowed_tools"`
+	// MaxTurnsPerStep bounds each step (--max-turns); 0 means the driver's default.
+	MaxTurnsPerStep int `json:"max_turns_per_step,omitempty"`
+	// Steps run in order, one user message each, inside one host process.
+	Steps []LiveStep `json:"steps"`
+	// Checks decide the outcome.
+	Checks []LiveCheck `json:"checks"`
+}
+
+// LiveStepKind is what a step sends.
+type LiveStepKind string
+
+const (
+	// StepPrompt sends Prompt as a user message.
+	StepPrompt LiveStepKind = "prompt"
+	// StepCompact sends "/compact" (followed by Prompt, when set, as custom instructions). Both
+	// arms send the identical text.
+	StepCompact LiveStepKind = "compact"
+)
+
+// LiveStep is one user message.
+type LiveStep struct {
+	// ID is unique within the task; answer checks name it.
+	ID string `json:"id"`
+	// Kind is what the step sends.
+	Kind LiveStepKind `json:"kind"`
+	// Prompt is the message text (StepPrompt) or the optional /compact instructions (StepCompact).
+	Prompt string `json:"prompt,omitempty"`
+}
+
+// LiveOutcomeCategory is which pre-registered outcome a check contributes to.
+type LiveOutcomeCategory string
+
+const (
+	// OutcomeCompletion checks decide task success after compaction (primary outcome 1).
+	OutcomeCompletion LiveOutcomeCategory = "completion"
+	// OutcomeConstraint checks decide constraint/regression violations (primary outcome 2): a
+	// failed constraint check is one violation.
+	OutcomeConstraint LiveOutcomeCategory = "constraint"
+	// OutcomeRecovery checks decide recoverability of pre-compaction facts (primary outcome 3).
+	OutcomeRecovery LiveOutcomeCategory = "recovery"
+)
+
+// LiveCheckKind is how a check is evaluated.
+type LiveCheckKind string
+
+const (
+	// CheckAnswerRegex passes when the named step's final answer matches Pattern.
+	CheckAnswerRegex LiveCheckKind = "answer_regex"
+	// CheckAnswerNotRegex passes when the named step's final answer does NOT match Pattern. A
+	// missing answer fails it: silence is not evidence of compliance.
+	CheckAnswerNotRegex LiveCheckKind = "answer_not_regex"
+	// CheckFileRegex passes when the file at Path exists and matches Pattern.
+	CheckFileRegex LiveCheckKind = "file_regex"
+	// CheckFileNotRegex passes when the file at Path exists and does NOT match Pattern.
+	CheckFileNotRegex LiveCheckKind = "file_not_regex"
+	// CheckFileUnchanged passes when the file at Path is byte-identical to the fixture's copy (an
+	// absent file on either side fails it, unless both are absent).
+	CheckFileUnchanged LiveCheckKind = "file_unchanged"
+	// CheckFileExists passes when the file at Path exists.
+	CheckFileExists LiveCheckKind = "file_exists"
+	// CheckFileAbsent passes when the file at Path does not exist.
+	CheckFileAbsent LiveCheckKind = "file_absent"
+	// CheckCommand passes when Command exits 0 in the trial project within TimeoutSeconds. The
+	// driver runs it; EvaluateChecks only reads the recorded LiveCommandResult.
+	CheckCommand LiveCheckKind = "command"
+)
+
+// LiveCheck is one automatic check.
+type LiveCheck struct {
+	// ID is unique within the task.
+	ID string `json:"id"`
+	// Category is which outcome the check contributes to.
+	Category LiveOutcomeCategory `json:"category"`
+	// Kind is how it is evaluated.
+	Kind LiveCheckKind `json:"kind"`
+	// Description says, in words, what passing means.
+	Description string `json:"description"`
+	// Step names the step whose answer an answer check reads.
+	Step string `json:"step,omitempty"`
+	// Path is a slash-separated path relative to the project root, for file checks.
+	Path string `json:"path,omitempty"`
+	// Pattern is a Go RE2 expression for the regex kinds; flags such as (?i) or (?s) go inline.
+	Pattern string `json:"pattern,omitempty"`
+	// Command is the argv a command check runs in the project root (no shell).
+	Command []string `json:"command,omitempty"`
+	// TimeoutSeconds bounds a command check; 0 means the driver's default.
+	TimeoutSeconds int `json:"timeout_seconds,omitempty"`
+}
+
+// ── what a trial left behind, and how it scored ────────────────────────────────────────────────
+
+// LiveCommandResult is one command check's recorded run.
+type LiveCommandResult struct {
+	ExitCode int    `json:"exit_code"`
+	TimedOut bool   `json:"timed_out"`
+	Output   string `json:"output"`
+	Err      string `json:"err,omitempty"`
+}
+
+// LiveObservation is everything EvaluateChecks reads. The driver fills it; evaluation is pure.
+type LiveObservation struct {
+	// Answers maps a step ID to that step's final answer text (the host's result text).
+	Answers map[string]string `json:"answers"`
+	// Files maps every path a file check names to its final content; nil means absent.
+	Files map[string]*string `json:"files"`
+	// Fixture maps every path a file_unchanged check names to the fixture's content; nil = absent.
+	Fixture map[string]*string `json:"fixture"`
+	// Commands maps a command check's ID to its recorded run. A missing entry fails the check.
+	Commands map[string]LiveCommandResult `json:"commands"`
+}
+
+// LiveCheckOutcome is one check's verdict.
+type LiveCheckOutcome struct {
+	ID       string              `json:"id"`
+	Category LiveOutcomeCategory `json:"category"`
+	Kind     LiveCheckKind       `json:"kind"`
+	Passed   bool                `json:"passed"`
+	Detail   string              `json:"detail"`
+}
+
+// ── the host's stream-json output ──────────────────────────────────────────────────────────────
+
+// StreamUsage is one usage object as the host reports it (assistant message, or result).
+type StreamUsage struct {
+	InputTokens              int64 `json:"input_tokens"`
+	CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+	OutputTokens             int64 `json:"output_tokens"`
+	// CacheCreation5m and CacheCreation1h are the TTL split; HasTTLSplit says whether the host
+	// reported one at all (absent is unknown, not zero).
+	CacheCreation5m int64 `json:"cache_creation_5m"`
+	CacheCreation1h int64 `json:"cache_creation_1h"`
+	HasTTLSplit     bool  `json:"has_ttl_split"`
+	// ThinkingTokens is output_tokens_details.thinking_tokens when reported (results only).
+	ThinkingTokens int64 `json:"thinking_tokens"`
+}
+
+// StreamModelUsage is one model's entry of a result's modelUsage: CUMULATIVE over the whole host
+// session, including subagents, compaction and — on a resumed session — restored earlier spend.
+type StreamModelUsage struct {
+	InputTokens              int64   `json:"input_tokens"`
+	OutputTokens             int64   `json:"output_tokens"`
+	CacheReadInputTokens     int64   `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int64   `json:"cache_creation_input_tokens"`
+	ThinkingTokens           int64   `json:"thinking_tokens"`
+	WebSearchRequests        int64   `json:"web_search_requests"`
+	CostUSD                  float64 `json:"cost_usd"`
+	ContextWindow            int64   `json:"context_window"`
+	CanonicalModel           string  `json:"canonical_model"`
+	CostBasis                string  `json:"cost_basis"`
+}
+
+// StreamPlugin is one loaded plugin from a system/init event.
+type StreamPlugin struct {
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Source  string `json:"source"`
+	Version string `json:"version"`
+}
+
+// StreamMCPServer is one MCP server from a system/init event.
+type StreamMCPServer struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Source string `json:"source"`
+}
+
+// StreamInit is one system/init event. The host emits one per turn, so there are many.
+type StreamInit struct {
+	Line              int               `json:"line"`
+	SessionID         string            `json:"session_id"`
+	Model             string            `json:"model"`
+	CWD               string            `json:"cwd"`
+	ClaudeCodeVersion string            `json:"claude_code_version"`
+	PermissionMode    string            `json:"permission_mode"`
+	APIKeySource      string            `json:"api_key_source"`
+	Plugins           []StreamPlugin    `json:"plugins"`
+	PluginErrors      []json.RawMessage `json:"plugin_errors,omitempty"`
+	MCPServers        []StreamMCPServer `json:"mcp_servers"`
+	Tools             []string          `json:"tools"`
+}
+
+// StreamRequest is one model request, deduplicated by message ID: the host repeats an assistant
+// message once per content block with identical usage, and counting each repetition would
+// multiply the request. Its OutputTokens is the host's start-of-response placeholder and is
+// never used for accounting.
+type StreamRequest struct {
+	Line            int         `json:"line"`
+	MessageID       string      `json:"message_id"`
+	RequestID       string      `json:"request_id"`
+	Model           string      `json:"model"`
+	ParentToolUseID string      `json:"parent_tool_use_id,omitempty"`
+	Usage           StreamUsage `json:"usage"`
+}
+
+// StreamToolUse is one tool_use block from an assistant message.
+type StreamToolUse struct {
+	Line            int             `json:"line"`
+	ID              string          `json:"id"`
+	Name            string          `json:"name"`
+	ParentToolUseID string          `json:"parent_tool_use_id,omitempty"`
+	Input           json.RawMessage `json:"input"`
+}
+
+// StreamResult is one result event: the end of one user message's turn (or a local command).
+type StreamResult struct {
+	Line           int                         `json:"line"`
+	SessionID      string                      `json:"session_id"`
+	Subtype        string                      `json:"subtype"`
+	IsError        bool                        `json:"is_error"`
+	NumTurns       int                         `json:"num_turns"`
+	DurationMS     int64                       `json:"duration_ms"`
+	DurationAPIMS  int64                       `json:"duration_api_ms"`
+	StopReason     string                      `json:"stop_reason"`
+	TerminalReason string                      `json:"terminal_reason"`
+	Result         string                      `json:"result"`
+	LocalCommand   string                      `json:"local_command,omitempty"`
+	TotalCostUSD   *float64                    `json:"total_cost_usd"`
+	Usage          StreamUsage                 `json:"usage"`
+	ModelUsage     map[string]StreamModelUsage `json:"model_usage"`
+	// PermissionDenials counts the result's permission_denials entries.
+	PermissionDenials int      `json:"permission_denials"`
+	Errors            []string `json:"errors,omitempty"`
+}
+
+// StreamCompaction is one compact_boundary: a compaction that happened.
+type StreamCompaction struct {
+	Line       int    `json:"line"`
+	Trigger    string `json:"trigger"`
+	PreTokens  int64  `json:"pre_tokens"`
+	PostTokens int64  `json:"post_tokens"`
+	DurationMS int64  `json:"duration_ms"`
+}
+
+// StreamCompactAttempt is one system/status event carrying a compact_result: success or failed,
+// with the host's reason for a failure (e.g. "too_few_groups").
+type StreamCompactAttempt struct {
+	Line   int    `json:"line"`
+	Result string `json:"result"`
+	Error  string `json:"error,omitempty"`
+}
+
+// StreamHook is one hook_response event (requires --include-hook-events). The host does not emit
+// one for every event — PreCompact, for instance, has none — so absence proves nothing.
+type StreamHook struct {
+	Line      int    `json:"line"`
+	HookName  string `json:"hook_name"`
+	HookEvent string `json:"hook_event"`
+	Outcome   string `json:"outcome"`
+	ExitCode  int    `json:"exit_code"`
+	Output    string `json:"output"`
+}
+
+// LiveStream is one host process's parsed stream-json output. Parsing never fails on content: a
+// line that is not JSON is counted in ParseErrors and an event this parser does not know is
+// counted in Unknown, so schema drift shows up as a number rather than as a silent zero.
+type LiveStream struct {
+	Inits              []StreamInit           `json:"inits"`
+	Requests           []StreamRequest        `json:"requests"`
+	ToolUses           []StreamToolUse        `json:"tool_uses"`
+	Results            []StreamResult         `json:"results"`
+	Compactions        []StreamCompaction     `json:"compactions"`
+	CompactAttempts    []StreamCompactAttempt `json:"compact_attempts"`
+	Hooks              []StreamHook           `json:"hooks"`
+	APIRetries         int                    `json:"api_retries"`
+	LocalCommandOutput []string               `json:"local_command_output,omitempty"`
+	Unknown            map[string]int         `json:"unknown,omitempty"`
+	ParseErrors        []int                  `json:"parse_errors,omitempty"`
+	Lines              int                    `json:"lines"`
+}
+
+// ── the host's transcript JSONL ────────────────────────────────────────────────────────────────
+
+// TranscriptHookRun is one hook execution the host recorded (attachment hook_success/hook_error…),
+// with the host-measured duration: the hook latency the host actually saw.
+type TranscriptHookRun struct {
+	Line       int    `json:"line"`
+	Type       string `json:"type"`
+	HookEvent  string `json:"hook_event"`
+	HookName   string `json:"hook_name"`
+	DurationMS int64  `json:"duration_ms"`
+	ExitCode   int    `json:"exit_code"`
+	Stdout     string `json:"stdout,omitempty"`
+}
+
+// TranscriptContext is one hook_additional_context attachment: text the host injected.
+type TranscriptContext struct {
+	Line      int    `json:"line"`
+	HookEvent string `json:"hook_event"`
+	Content   string `json:"content"`
+}
+
+// LiveTranscript is one parsed host transcript.
+type LiveTranscript struct {
+	HookRuns          []TranscriptHookRun `json:"hook_runs"`
+	Contexts          []TranscriptContext `json:"contexts"`
+	CompactBoundaries []StreamCompaction  `json:"compact_boundaries"`
+	CompactSummaries  int                 `json:"compact_summaries"`
+	// HookFailures are host messages reporting a hook failure, verbatim (e.g. a rejected
+	// PreCompact output inside a /compact local-command stdout).
+	HookFailures []string `json:"hook_failures,omitempty"`
+	ParseErrors  []int    `json:"parse_errors,omitempty"`
+	Lines        int      `json:"lines"`
+}
+
+// ── accounting ─────────────────────────────────────────────────────────────────────────────────
+
+// LiveUsageDelta is one model's usage within one turn: the difference between two consecutive
+// cumulative modelUsage readings. Output excludes thinking; Thinking carries it; their sum is
+// the host's outputTokens, so pricing both at the output rate never double-counts.
+type LiveUsageDelta struct {
+	Model      string `json:"model"`
+	Input      int64  `json:"input"`
+	Output     int64  `json:"output"`
+	Thinking   int64  `json:"thinking"`
+	CacheRead  int64  `json:"cache_read"`
+	CacheWrite int64  `json:"cache_write"`
+	// CacheWrite5m/1h are known only when the whole CacheWrite is attributable to requests that
+	// reported a TTL split; otherwise they are unknown and the record says so.
+	CacheWrite5m TokenCount `json:"cache_write_5m"`
+	CacheWrite1h TokenCount `json:"cache_write_1h"`
+	// HostCostUSD is the delta of the host's own cumulative costUSD: a client-side list-price
+	// estimate, reported beside ours and never merged with it.
+	HostCostUSD float64 `json:"host_cost_usd"`
+}
+
+// LiveTurnUsage is one result's worth of usage.
+type LiveTurnUsage struct {
+	// Index is the result's position in the stream (0-based).
+	Index int `json:"index"`
+	// Kind is KindCompaction for a /compact local command, KindTurn otherwise.
+	Kind RequestKind `json:"kind"`
+	// AutoCompacted records that an automatic compaction happened inside this turn, so its usage
+	// includes the summarization request.
+	AutoCompacted bool             `json:"auto_compacted"`
+	ByModel       []LiveUsageDelta `json:"by_model"`
+	Notes         []string         `json:"notes,omitempty"`
+}
+
+// LiveAccounting is a trial's usage: per-turn deltas, final totals and the request ledger built
+// from them.
+type LiveAccounting struct {
+	Turns []LiveTurnUsage `json:"turns"`
+	// Totals is the final cumulative modelUsage per model: the session total, counted once.
+	Totals map[string]StreamModelUsage `json:"totals"`
+	// HostCostUSD is the sum of Totals' costUSD: the host's own client-side estimate.
+	HostCostUSD float64 `json:"host_cost_usd"`
+	// Ledger has one record per (turn, model) with PricingSubscription.
+	Ledger RequestLedger `json:"ledger"`
+	Notes  []string      `json:"notes,omitempty"`
+}
+
+// ── rates ──────────────────────────────────────────────────────────────────────────────────────
+
+// LiveModelRates is one model's list prices.
+type LiveModelRates struct {
+	// InputPerMTok and OutputPerMTok are integer micros per million tokens.
+	InputPerMTok  int64 `json:"input_per_mtok_micros"`
+	OutputPerMTok int64 `json:"output_per_mtok_micros"`
+	// The multipliers are applied to InputPerMTok.
+	CacheReadMultiplier    float64 `json:"cache_read_multiplier"`
+	CacheWrite5mMultiplier float64 `json:"cache_write_5m_multiplier"`
+	CacheWrite1hMultiplier float64 `json:"cache_write_1h_multiplier"`
+}
+
+// LiveRateTable is a dated list-price table with provenance, keyed by canonical model ID
+// (e.g. "claude-haiku-4-5"; a dated suffix such as -20251001 is stripped before lookup).
+type LiveRateTable struct {
+	Schema   int                       `json:"schema"`
+	Date     string                    `json:"date"`
+	Source   string                    `json:"source"`
+	Currency string                    `json:"currency"`
+	Models   map[string]LiveModelRates `json:"models"`
+}
+
+// ── one trial, and the summary over many ───────────────────────────────────────────────────────
+
+// LivePluginIdentity says exactly which plugin build a qompack-arm trial ran.
+type LivePluginIdentity struct {
+	Version string `json:"version"`
+	// Install is "plugin-dir" or "marketplace".
+	Install    string `json:"install"`
+	BundleDir  string `json:"bundle_dir"`
+	BundleSHA  string `json:"bundle_json_sha256"`
+	CommitDesc string `json:"commit,omitempty"`
+}
+
+// LiveStepRecord is one step's host-side outcome.
+type LiveStepRecord struct {
+	ID                string       `json:"id"`
+	Kind              LiveStepKind `json:"kind"`
+	WallMS            int64        `json:"wall_ms"`
+	ResultSubtype     string       `json:"result_subtype"`
+	IsError           bool         `json:"is_error"`
+	NumTurns          int          `json:"num_turns"`
+	PermissionDenials int          `json:"permission_denials"`
+	Answer            string       `json:"answer"`
+}
+
+// LiveCompactionRecord is what happened to the forced compaction.
+type LiveCompactionRecord struct {
+	// Requested is how many compact steps the task sent.
+	Requested int `json:"requested"`
+	// Observed is every compaction that happened (manual and automatic).
+	Observed []StreamCompaction `json:"observed"`
+	// FailedAttempts counts compact_result=failed statuses.
+	FailedAttempts int `json:"failed_attempts"`
+}
+
+// LiveQompackRecord is the plugin-side evidence of a qompack-arm trial.
+type LiveQompackRecord struct {
+	PluginLoaded bool `json:"plugin_loaded"`
+	MCPConnected bool `json:"mcp_connected"`
+	// Checkpoints is the number of entries in .qompack/checkpoints/MANIFEST.jsonl: the evidence
+	// that PreCompact ran, since the host emits no stream event for it.
+	Checkpoints int `json:"checkpoints"`
+	// Injections counts SessionStart outputs carrying a qompack rehydration block; InjectedBytes
+	// is their total size.
+	Injections    int   `json:"injections"`
+	InjectedBytes int64 `json:"injected_bytes"`
+	StoreBytes    int64 `json:"store_bytes"`
+	StoreFiles    int   `json:"store_files"`
+	// IndexLines counts lines per .qompack/index/*.jsonl file.
+	IndexLines   map[string]int `json:"index_lines"`
+	HookFailures []string       `json:"hook_failures,omitempty"`
+}
+
+// LiveHomeGuard is the real-home guard's verdict for one trial.
+type LiveHomeGuard struct {
+	Checked   bool     `json:"checked"`
+	Unchanged bool     `json:"unchanged"`
+	Removed   []string `json:"removed,omitempty"`
+	Diff      []string `json:"diff,omitempty"`
+}
+
+// LiveTrialRecord is one trial's complete record, written as trial.json in the trial directory.
+type LiveTrialRecord struct {
+	Schema            int                 `json:"schema"`
+	TaskSet           string              `json:"task_set"`
+	Task              string              `json:"task"`
+	Variant           LiveTaskVariant     `json:"variant"`
+	Arm               LiveArm             `json:"arm"`
+	Trial             int                 `json:"trial"`
+	Model             string              `json:"model"`
+	ClaudeCodeVersion string              `json:"claude_code_version"`
+	Plugin            *LivePluginIdentity `json:"plugin,omitempty"`
+	SessionID         string              `json:"session_id"`
+	StartedAt         time.Time           `json:"started_at"`
+	EndedAt           time.Time           `json:"ended_at"`
+	WallMS            int64               `json:"wall_ms"`
+	ExitCode          int                 `json:"exit_code"`
+	// HarnessError is set when the trial could not be run or recorded as designed. Such a trial is
+	// counted as failed in the summary, never silently dropped.
+	HarnessError string                       `json:"harness_error,omitempty"`
+	Steps        []LiveStepRecord             `json:"steps"`
+	Compaction   LiveCompactionRecord         `json:"compaction"`
+	Qompack      *LiveQompackRecord           `json:"qompack,omitempty"`
+	HookLatency  map[string]Percentiles       `json:"hook_latency_ms"`
+	Usage        LiveAccounting               `json:"usage"`
+	Categories   map[UsageCategory]CategorySum `json:"categories"`
+	Estimate     *Money                       `json:"estimate,omitempty"`
+	Completeness *Completeness                `json:"estimate_completeness,omitempty"`
+	RateTable    string                       `json:"rate_table,omitempty"`
+	Checks       []LiveCheckOutcome           `json:"checks"`
+	// Completion is true when every completion check passed (and there was at least one).
+	Completion bool `json:"completion"`
+	// ConstraintViolations counts failed constraint checks.
+	ConstraintViolations int `json:"constraint_violations"`
+	// RecoveryPassed and RecoveryTotal count recovery checks.
+	RecoveryPassed int            `json:"recovery_passed"`
+	RecoveryTotal  int            `json:"recovery_total"`
+	HomeGuard      LiveHomeGuard  `json:"home_guard"`
+	Evidence       map[string]string `json:"evidence"`
+	Notes          []string       `json:"notes,omitempty"`
+}
+
+// LiveRate is a proportion with its Wilson 95% interval.
+type LiveRate struct {
+	Successes int     `json:"successes"`
+	N         int     `json:"n"`
+	Rate      float64 `json:"rate"`
+	Lo        float64 `json:"lo"`
+	Hi        float64 `json:"hi"`
+}
+
+// LiveDiff is a difference of two proportions (qompack − stock) with its Newcombe hybrid-score
+// 95% interval.
+type LiveDiff struct {
+	Diff float64 `json:"diff"`
+	Lo   float64 `json:"lo"`
+	Hi   float64 `json:"hi"`
+}
+
+// LiveArmSummary aggregates one arm.
+type LiveArmSummary struct {
+	Arm LiveArm `json:"arm"`
+	// Trials counts every planned trial that produced a record; HarnessFailed counts those with a
+	// HarnessError (scored as failures, never dropped).
+	Trials        int `json:"trials"`
+	HarnessFailed int `json:"harness_failed"`
+	// Completion, NoViolation and Recovery are the three primary outcomes as proportions over
+	// trials (Recovery over recovery checks).
+	Completion  LiveRate `json:"completion"`
+	NoViolation LiveRate `json:"no_violation"`
+	Recovery    LiveRate `json:"recovery"`
+	// Secondary outcomes: per-trial distributions.
+	TotalTokens  Percentiles `json:"total_tokens"`
+	EstimateUSD  Percentiles `json:"estimate_usd"`
+	HostCostUSD  Percentiles `json:"host_cost_usd"`
+	WallMS       Percentiles `json:"wall_ms"`
+	// Categories sums every trial's categories.
+	Categories map[UsageCategory]CategorySum `json:"categories"`
+}
+
+// LiveSummary is the whole run's summary, written as summary.json beside the trial directories.
+type LiveSummary struct {
+	Schema      int                        `json:"schema"`
+	TaskSet     string                     `json:"task_set"`
+	Models      []string                   `json:"models"`
+	GeneratedAt time.Time                  `json:"generated_at"`
+	Arms        map[LiveArm]LiveArmSummary `json:"arms"`
+	// PerVariant repeats the arm summaries restricted to each task variant.
+	PerVariant map[LiveTaskVariant]map[LiveArm]LiveArmSummary `json:"per_variant"`
+	// CompletionDiff, NoViolationDiff and RecoveryDiff are qompack − stock.
+	CompletionDiff  LiveDiff `json:"completion_diff"`
+	NoViolationDiff LiveDiff `json:"no_violation_diff"`
+	RecoveryDiff    LiveDiff `json:"recovery_diff"`
+	Notes           []string `json:"notes,omitempty"`
+}

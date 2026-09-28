@@ -1,0 +1,89 @@
+{
+  "source": "claude transcript JSONL (session_context, prompt_snapshot and message bodies deliberately NOT copied)",
+  "hooks": [
+    {
+      "type": "hook_success",
+      "hookName": "SessionStart:startup",
+      "hookEvent": "SessionStart",
+      "exitCode": 0,
+      "durationMs": 1249
+    },
+    {
+      "type": "hook_success",
+      "hookName": "PostToolUse:Read",
+      "hookEvent": "PostToolUse",
+      "exitCode": 0,
+      "durationMs": 430
+    },
+    {
+      "type": "hook_success",
+      "hookName": "Stop",
+      "hookEvent": "Stop",
+      "exitCode": 0,
+      "durationMs": 331
+    },
+    {
+      "type": "hook_success",
+      "hookName": "SessionStart:compact",
+      "hookEvent": "SessionStart",
+      "exitCode": 0,
+      "durationMs": 589
+    },
+    {
+      "type": "hook_success",
+      "hookName": "Stop",
+      "hookEvent": "Stop",
+      "exitCode": 0,
+      "durationMs": 338
+    }
+  ],
+  "additional_context": [
+    {
+      "hookName": "SessionStart",
+      "content": [
+        "<!-- qompack-contract-probe qompack-contract-bb2f78a5e3d8 -->"
+      ]
+    },
+    {
+      "hookName": "SessionStart",
+      "content": [
+        "<!-- qompack:injected seq=1 ver=1 -->\n# Qompack rehydration — checkpoint 0001, session 9d21f1b7\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\n> Read notes.txt and tell me the release codeword. Reply in one short sentence.\n\n## 7. No longer in context\n- pointer_git_unavailable — checkpoint: no .git at the project root\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n<!-- /qompack:injected -->\n<!-- qompack-contract-probe qompack-contract-3177116df881 -->"
+      ]
+    }
+  ],
+  "compact_boundaries": [
+    {
+      "trigger": "manual",
+      "preTokens": 25598,
+      "postTokens": 2016,
+      "durationMs": 12934
+    }
+  ],
+  "post_compact_file_attachments": [
+    "notes.txt"
+  ],
+  "hook_system_records": [
+    {
+      "subtype": "stop_hook_summary",
+      "hookCount": 1,
+      "hookErrors": [],
+      "hookInfos": [
+        {
+          "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe stop",
+          "durationMs": 331
+        }
+      ]
+    },
+    {
+      "subtype": "stop_hook_summary",
+      "hookCount": 1,
+      "hookErrors": [],
+      "hookInfos": [
+        {
+          "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\" observe stop",
+          "durationMs": 338
+        }
+      ]
+    }
+  ]
+}

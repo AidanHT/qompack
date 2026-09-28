@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-lane-overflow-alone-head-c3e3519-20260926T165614Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=83d6a6391841bca5b8440b53385d5a182de3fb5a0d475ba7eff1b0a987066b6c
+host_started_utc=2026-09-26T16:56:46Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 10 -- ./internal/daemon
+host_finished_utc=2026-09-26T16:59:11Z
+container_exit=1

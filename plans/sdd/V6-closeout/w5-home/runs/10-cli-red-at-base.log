@@ -1,0 +1,955 @@
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/QOMPACK_PROJECT_ROOT_names_home
+    homeroot_test.go:220: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:220
+        	Error:      	Not equal: 
+        	            	expected: hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(nil), SystemMessage:"Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."}
+        	            	actual  : hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(0x25225100e7e0), SystemMessage:""}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -3,4 +3,8 @@
+        	            	  SuppressOutput: (*bool)(<nil>),
+        	            	- HookSpecificOutput: (*hookio.HSO)(<nil>),
+        	            	- SystemMessage: (string) (len=165) "Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."
+        	            	+ HookSpecificOutput: (*hookio.HSO)({
+        	            	+  HookEventName: (string) (len=12) "SessionStart",
+        	            	+  AdditionalContext: (string) (len=599) "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the Qompack daemon did not answer in time), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-host-contract_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).",
+        	            	+  CustomInstructions: (string) ""
+        	            	+ }),
+        	            	+ SystemMessage: (string) ""
+        	            	 }
+        	Test:       	TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/QOMPACK_PROJECT_ROOT_names_home
+        	Messages:   	SessionStart must answer with the one host message and nothing else
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaksQO510821002\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_started_in_the_home_directory
+    homeroot_test.go:220: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:220
+        	Error:      	Not equal: 
+        	            	expected: hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(nil), SystemMessage:"Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."}
+        	            	actual  : hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(0x25225104dc20), SystemMessage:""}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -3,4 +3,8 @@
+        	            	  SuppressOutput: (*bool)(<nil>),
+        	            	- HookSpecificOutput: (*hookio.HSO)(<nil>),
+        	            	- SystemMessage: (string) (len=165) "Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."
+        	            	+ HookSpecificOutput: (*hookio.HSO)({
+        	            	+  HookEventName: (string) (len=12) "SessionStart",
+        	            	+  AdditionalContext: (string) (len=599) "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the Qompack daemon did not answer in time), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-host-contract_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).",
+        	            	+  CustomInstructions: (string) ""
+        	            	+ }),
+        	            	+ SystemMessage: (string) ""
+        	            	 }
+        	Test:       	TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_started_in_the_home_directory
+        	Messages:   	SessionStart must answer with the one host message and nothing else
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaksse1706522202\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_is_the_home_directory
+    homeroot_test.go:220: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:220
+        	Error:      	Not equal: 
+        	            	expected: hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(nil), SystemMessage:"Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."}
+        	            	actual  : hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(0x25225104cea0), SystemMessage:""}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -3,4 +3,8 @@
+        	            	  SuppressOutput: (*bool)(<nil>),
+        	            	- HookSpecificOutput: (*hookio.HSO)(<nil>),
+        	            	- SystemMessage: (string) (len=165) "Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."
+        	            	+ HookSpecificOutput: (*hookio.HSO)({
+        	            	+  HookEventName: (string) (len=12) "SessionStart",
+        	            	+  AdditionalContext: (string) (len=599) "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the Qompack daemon did not answer in time), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-host-contract_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).",
+        	            	+  CustomInstructions: (string) ""
+        	            	+ }),
+        	            	+ SystemMessage: (string) ""
+        	            	 }
+        	Test:       	TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_is_the_home_directory
+        	Messages:   	SessionStart must answer with the one host message and nothing else
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeakspa1706882390\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_below_a_dotfiles_home
+    homeroot_test.go:220: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:220
+        	Error:      	Not equal: 
+        	            	expected: hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(nil), SystemMessage:"Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."}
+        	            	actual  : hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(0x252251221e60), SystemMessage:""}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -3,4 +3,8 @@
+        	            	  SuppressOutput: (*bool)(<nil>),
+        	            	- HookSpecificOutput: (*hookio.HSO)(<nil>),
+        	            	- SystemMessage: (string) (len=165) "Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."
+        	            	+ HookSpecificOutput: (*hookio.HSO)({
+        	            	+  HookEventName: (string) (len=12) "SessionStart",
+        	            	+  AdditionalContext: (string) (len=599) "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the Qompack daemon did not answer in time), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-host-contract_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).",
+        	            	+  CustomInstructions: (string) ""
+        	            	+ }),
+        	            	+ SystemMessage: (string) ""
+        	            	 }
+        	Test:       	TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_below_a_dotfiles_home
+        	Messages:   	SessionStart must answer with the one host message and nothing else
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaksse3379041732\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_below_a_dotfiles_home
+    homeroot_test.go:220: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:220
+        	Error:      	Not equal: 
+        	            	expected: hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(nil), SystemMessage:"Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."}
+        	            	actual  : hookio.Output{Continue:(*bool)(nil), SuppressOutput:(*bool)(nil), HookSpecificOutput:(*hookio.HSO)(0x25225104c540), SystemMessage:""}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -3,4 +3,8 @@
+        	            	  SuppressOutput: (*bool)(<nil>),
+        	            	- HookSpecificOutput: (*hookio.HSO)(<nil>),
+        	            	- SystemMessage: (string) (len=165) "Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."
+        	            	+ HookSpecificOutput: (*hookio.HSO)({
+        	            	+  HookEventName: (string) (len=12) "SessionStart",
+        	            	+  AdditionalContext: (string) (len=599) "<!-- qompack:rehydration-deferred -->\nQompack could not deliver this compaction's rehydration (the Qompack daemon did not answer in time), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-host-contract_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).",
+        	            	+  CustomInstructions: (string) ""
+        	            	+ }),
+        	            	+ SystemMessage: (string) ""
+        	            	 }
+        	Test:       	TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_below_a_dotfiles_home
+        	Messages:   	SessionStart must answer with the one host message and nothing else
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeakspa1100614455\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+--- FAIL: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks (10.64s)
+    --- FAIL: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/QOMPACK_PROJECT_ROOT_names_home (1.77s)
+    --- FAIL: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_started_in_the_home_directory (2.02s)
+    --- FAIL: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_is_the_home_directory (2.24s)
+    --- FAIL: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_below_a_dotfiles_home (2.41s)
+    --- FAIL: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_below_a_dotfiles_home (2.18s)
+=== RUN   TestHomeRoot_ASessionStartedInHomeStaysRefusedWhenAPayloadNamesAProject
+    homeroot_test.go:256: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:256
+        	Error:      	"{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"<!-- qompack:rehydration-deferred -->\\nQompack could not deliver this compaction's rehydration (the Qompack daemon did not answer in time), so none of it is in this context. What Qompack captured before the compaction can still be retrieved with its MCP tools: expand(tool_use_id=prompt_sess-host-contract_0) returns this session's first request verbatim, recall(query) searches the captured tool results and prompts, and dropped() reports on the most recently recorded rehydration, which may be an earlier one. Checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest).\"}}\n" does not contain "Qompack is inactive in this session: its project root is your home directory, so it records nothing. Open a project directory (one with its own .git) to use Qompack."
+        	Test:       	TestHomeRoot_ASessionStartedInHomeStaysRefusedWhenAPayloadNamesAProject
+        	Messages:   	SessionStart still says why
+--- FAIL: TestHomeRoot_ASessionStartedInHomeStaysRefusedWhenAPayloadNamesAProject (0.40s)
+=== RUN   TestHomeRoot_SessionStartNoticeIsShortAndSaysHowToFixIt
+--- PASS: TestHomeRoot_SessionStartNoticeIsShortAndSaysHowToFixIt (0.00s)
+=== RUN   TestHomeRoot_AProjectBelowHomeStillRecords
+=== RUN   TestHomeRoot_AProjectBelowHomeStillRecords/a_git_project_below_a_plain_home
+=== RUN   TestHomeRoot_AProjectBelowHomeStillRecords/a_git_project_below_a_dotfiles_home
+=== RUN   TestHomeRoot_AProjectBelowHomeStillRecords/a_plain_directory_below_a_plain_home
+--- PASS: TestHomeRoot_AProjectBelowHomeStillRecords (0.96s)
+    --- PASS: TestHomeRoot_AProjectBelowHomeStillRecords/a_git_project_below_a_plain_home (0.25s)
+    --- PASS: TestHomeRoot_AProjectBelowHomeStillRecords/a_git_project_below_a_dotfiles_home (0.41s)
+    --- PASS: TestHomeRoot_AProjectBelowHomeStillRecords/a_plain_directory_below_a_plain_home (0.30s)
+=== RUN   TestHomeRoot_MCPToolsAnswerWithTheStableRefusal
+    homeroot_test.go:372: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:372
+        	Error:      	"" does not contain "home directory"
+        	Test:       	TestHomeRoot_MCPToolsAnswerWithTheStableRefusal
+        	Messages:   	stderr says why, once
+--- FAIL: TestHomeRoot_MCPToolsAnswerWithTheStableRefusal (3.03s)
+=== RUN   TestHomeRoot_StatusSaysWhy
+    homeroot_test.go:406: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:406
+        	Error:      	"qompack status — collected 2026-08-12T10:30:00Z\n\nsource: none (error, age unknown)\n  daemon: status refused: \n  disk: reading\n  C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n  ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n  StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: open\n  C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n  ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n  StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: The system cannot\n  find the path specified.\n\nhooks — per-entry-point latency\n  EVENT              SUBCOMMAND                       BUDGET  LATENCY\n  PostToolUse        qompack observe tool             B-A     unavailable\n                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  UserPromptSubmit   qompack observe prompt           B-A     unavailable\n                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled\n                       aggregate, which mixes every delivering hook and cannot be attributed to one\n  SessionStart       qompack session-start            B-A     unavailable\n                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  PreCompact         qompack checkpoint               B-E     unavailable\n                       daemon: status refused: \n                       disk: reading\n                       C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n                       ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n                       StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: open\n                       C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n                       ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n                       StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: The system cannot\n                       find the path specified.\n  Stop               qompack observe stop             B-A     unavailable\n                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which\n                       mixes every delivering hook and cannot be attributed to one\n  SubagentStop       qompack observe stop --subagent  B-A     unavailable\n                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  SessionEnd         qompack flush                    B-A     unavailable\n                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n\nbudgets — §2.4\n  ID    HISTOGRAM             MEASURE     LATENCY\n  B-A   hook_controlled       —           unavailable\n          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd\n          daemon: status refused: \n          disk: reading\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: open\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: The system cannot\n          find the path specified.\n  B-B   l0_ingest             —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          daemon: status refused: \n          disk: reading\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: open\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: The system cannot\n          find the path specified.\n  B-C   l0_process            —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          daemon: status refused: \n          disk: reading\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: open\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: The system cannot\n          find the path specified.\n  B-D   hook_wall             —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          no instrument records this histogram in this build\n          it measures host process creation, which the created process cannot observe\n  B-E   checkpoint_finalize   —           unavailable\n          daemon: status refused: \n          disk: reading\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: open\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: The system cannot\n          find the path specified.\n  B-F   mcp_tool_call         —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          daemon: status refused: \n          disk: reading\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: open\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: The system cannot\n          find the path specified.\n  B-G   hook_degraded         —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          daemon: status refused: \n          disk: reading\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: open\n          C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projec\n          ts-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_\n          StatusSaysWhy3881120745\\001\\home\\.qompack\\metrics\\latency.json: The system cannot\n          find the path specified.\n" does not contain "the project root is the home directory"
+        	Test:       	TestHomeRoot_StatusSaysWhy
+        	Messages:   	status says why:
+        	            	qompack status — collected 2026-08-12T10:30:00Z
+        	            	
+        	            	source: none (error, age unknown)
+        	            	  daemon: status refused: 
+        	            	  disk: reading
+        	            	  C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	  ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	  StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: open
+        	            	  C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	  ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	  StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: The system cannot
+        	            	  find the path specified.
+        	            	
+        	            	hooks — per-entry-point latency
+        	            	  EVENT              SUBCOMMAND                       BUDGET  LATENCY
+        	            	  PostToolUse        qompack observe tool             B-A     unavailable
+        	            	                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  UserPromptSubmit   qompack observe prompt           B-A     unavailable
+        	            	                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled
+        	            	                       aggregate, which mixes every delivering hook and cannot be attributed to one
+        	            	  SessionStart       qompack session-start            B-A     unavailable
+        	            	                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  PreCompact         qompack checkpoint               B-E     unavailable
+        	            	                       daemon: status refused: 
+        	            	                       disk: reading
+        	            	                       C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	                       ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	                       StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: open
+        	            	                       C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	                       ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	                       StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: The system cannot
+        	            	                       find the path specified.
+        	            	  Stop               qompack observe stop             B-A     unavailable
+        	            	                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which
+        	            	                       mixes every delivering hook and cannot be attributed to one
+        	            	  SubagentStop       qompack observe stop --subagent  B-A     unavailable
+        	            	                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  SessionEnd         qompack flush                    B-A     unavailable
+        	            	                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	
+        	            	budgets — §2.4
+        	            	  ID    HISTOGRAM             MEASURE     LATENCY
+        	            	  B-A   hook_controlled       —           unavailable
+        	            	          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd
+        	            	          daemon: status refused: 
+        	            	          disk: reading
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: open
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: The system cannot
+        	            	          find the path specified.
+        	            	  B-B   l0_ingest             —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          daemon: status refused: 
+        	            	          disk: reading
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: open
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: The system cannot
+        	            	          find the path specified.
+        	            	  B-C   l0_process            —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          daemon: status refused: 
+        	            	          disk: reading
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: open
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: The system cannot
+        	            	          find the path specified.
+        	            	  B-D   hook_wall             —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          no instrument records this histogram in this build
+        	            	          it measures host process creation, which the created process cannot observe
+        	            	  B-E   checkpoint_finalize   —           unavailable
+        	            	          daemon: status refused: 
+        	            	          disk: reading
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: open
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: The system cannot
+        	            	          find the path specified.
+        	            	  B-F   mcp_tool_call         —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          daemon: status refused: 
+        	            	          disk: reading
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: open
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: The system cannot
+        	            	          find the path specified.
+        	            	  B-G   hook_degraded         —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          daemon: status refused: 
+        	            	          disk: reading
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: open
+        	            	          C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projec
+        	            	          ts-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_
+        	            	          StatusSaysWhy3881120745\001\home\.qompack\metrics\latency.json: The system cannot
+        	            	          find the path specified.
+--- FAIL: TestHomeRoot_StatusSaysWhy (0.22s)
+=== RUN   TestHomeRoot_DoctorSaysWhy
+    homeroot_test.go:448: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:448
+        	Error:      	Not equal: 
+        	            	expected: "disabled"
+        	            	actual  : "ok"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-disabled
+        	            	+ok
+        	Test:       	TestHomeRoot_DoctorSaysWhy
+        	Messages:   	the refusal is a decision (D18), reported as disabled
+--- FAIL: TestHomeRoot_DoctorSaysWhy (0.09s)
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck
+        	Messages:   	[qompack fsck] must refuse with exit 1; stdout=project: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck1355294437\001\home
+        	            	CHECK                OK    SEVERITY  SCANNED   DEFECTS   DETAIL
+        	            	store                ok    info      -         0         store present at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck1355294437\001\home\.qompack
+        	            	daemon               ok    info      -         0         no daemon holds the lock; this project is quiet
+        	            	objects              ok    info      0         0         objects/ does not exist yet
+        	            	index.roots          ok    info      0         0         index/roots.jsonl does not exist yet
+        	            	index.tool_use       ok    info      0         0         index/tool_use.jsonl does not exist yet
+        	            	index.files          ok    info      0         0         
+        	            	index.segments       ok    info      0         0         index/segments.jsonl does not exist yet
+        	            	captures             ok    info      0         0         
+        	            	publication          ok    info      0         0         
+        	            	checkpoints          ok    info      0         0         no checkpoint has been written yet
+        	            	pins                 ok    info      0         0         pins/invariants.jsonl does not exist yet
+        	            	negknow              ok    info      0         0         records/eliminations.jsonl does not exist yet: nothing has been eliminated
+        	            	                                                         eliminations: 0 record(s), 0 active, 0 stale
+        	            	                                                         sketches/tried.bloom is absent, which is an ordinary cold start
+        	            	delivery             ok    info      0         0         the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project
+        	            	spool                ok    info      0         0         state/drain.json does not exist yet: no drain has run
+        	            	retention            ok    info      0         0         state/retention-roots.jsonl does not exist yet
+        	            	migrate              ok    info      0         0         backups are checked by the read-only maintenance verifier; legacy import/cutover is separate
+        	            	fidelity             ok    info      0         0         no live root to restore
+        	            	quarantine           ok    info      0         0         0 quarantined file(s), 0 byte(s), preserved as evidence and never swept
+        	            	
+        	            	fidelity: no live roots
+        	            	quarantine: 0 file(s), 0 byte(s) preserved as evidence
+        	            	exit: 0
+        	            	 stderr=
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--json
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--json
+        	Messages:   	[qompack fsck --json] must refuse with exit 1; stdout={
+        	            	  "schema": 1,
+        	            	  "project": "C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--json3941762595\\001\\home",
+        	            	  "daemon_running": false,
+        	            	  "read_only": true,
+        	            	  "repairing": false,
+        	            	  "attempts_daemon_lock": false,
+        	            	  "checks": [
+        	            	    {
+        	            	      "id": "store",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "store present at C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--json3941762595\\001\\home\\.qompack"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "daemon",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "no daemon holds the lock; this project is quiet"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "objects",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "objects/ does not exist yet"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "index.roots",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "index/roots.jsonl does not exist yet"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "index.tool_use",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "index/tool_use.jsonl does not exist yet"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "index.files",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0
+        	            	    },
+        	            	    {
+        	            	      "id": "index.segments",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "index/segments.jsonl does not exist yet"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "captures",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0
+        	            	    },
+        	            	    {
+        	            	      "id": "publication",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0
+        	            	    },
+        	            	    {
+        	            	      "id": "checkpoints",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "no checkpoint has been written yet"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "pins",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "pins/invariants.jsonl does not exist yet"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "negknow",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "records/eliminations.jsonl does not exist yet: nothing has been eliminated",
+        	            	        "eliminations: 0 record(s), 0 active, 0 stale",
+        	            	        "sketches/tried.bloom is absent, which is an ordinary cold start"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "delivery",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "spool",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "state/drain.json does not exist yet: no drain has run"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "retention",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "state/retention-roots.jsonl does not exist yet"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "migrate",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "backups are checked by the read-only maintenance verifier; legacy import/cutover is separate"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "fidelity",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "no live root to restore"
+        	            	      ]
+        	            	    },
+        	            	    {
+        	            	      "id": "quarantine",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "scanned": 0,
+        	            	      "count": 0,
+        	            	      "detail": [
+        	            	        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+        	            	      ]
+        	            	    }
+        	            	  ],
+        	            	  "repairs": [],
+        	            	  "fidelity": {},
+        	            	  "quarantine": {
+        	            	    "files": 0,
+        	            	    "bytes": 0
+        	            	  },
+        	            	  "exit": 0
+        	            	}
+        	            	 stderr=
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--seal-check
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--seal-check
+        	Messages:   	[qompack fsck --seal-check] must refuse with exit 1; stdout=project: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--seal-che766620549\001\home
+        	            	not read-only: this run attempts the daemon lock, and acquiring it creates .qompack/run/
+        	            	CHECK                OK    SEVERITY  SCANNED   DEFECTS   DETAIL
+        	            	store                ok    info      -         0         store present at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--seal-che766620549\001\home\.qompack
+        	            	daemon               ok    info      -         0         no daemon holds the lock; this project is quiet
+        	            	objects              ok    info      0         0         objects/ does not exist yet
+        	            	index.roots          ok    info      0         0         index/roots.jsonl does not exist yet
+        	            	index.tool_use       ok    info      0         0         index/tool_use.jsonl does not exist yet
+        	            	index.files          ok    info      0         0         
+        	            	index.segments       ok    info      0         0         index/segments.jsonl does not exist yet
+        	            	captures             ok    info      0         0         
+        	            	publication          ok    info      0         0         
+        	            	checkpoints          ok    info      0         0         no checkpoint has been written yet
+        	            	pins                 ok    info      0         0         pins/invariants.jsonl does not exist yet
+        	            	negknow              ok    info      0         0         records/eliminations.jsonl does not exist yet: nothing has been eliminated
+        	            	                                                         eliminations: 0 record(s), 0 active, 0 stale
+        	            	                                                         sketches/tried.bloom is absent, which is an ordinary cold start
+        	            	delivery             ok    info      0         0         the full dual-reader seal check passed
+        	            	spool                ok    info      0         0         state/drain.json does not exist yet: no drain has run
+        	            	retention            ok    info      0         0         state/retention-roots.jsonl does not exist yet
+        	            	migrate              ok    info      0         0         backups are checked by the read-only maintenance verifier; legacy import/cutover is separate
+        	            	fidelity             ok    info      0         0         no live root to restore
+        	            	quarantine           ok    info      0         0         0 quarantined file(s), 0 byte(s), preserved as evidence and never swept
+        	            	
+        	            	fidelity: no live roots
+        	            	quarantine: 0 file(s), 0 byte(s) preserved as evidence
+        	            	exit: 0
+        	            	 stderr=
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--repair_--yes
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--repair_--yes
+        	Messages:   	[qompack fsck --repair --yes] must refuse with exit 1; stdout=project: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--repair_-3709345716\001\home
+        	            	not read-only: --repair writes the repairs listed below, and takes the daemon lock first, which creates .qompack/run/
+        	            	CHECK                OK    SEVERITY  SCANNED   DEFECTS   DETAIL
+        	            	store                ok    info      -         0         store present at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--repair_-3709345716\001\home\.qompack
+        	            	daemon               ok    info      -         0         no daemon holds the lock; this project is quiet
+        	            	objects              ok    info      0         0         objects/ does not exist yet
+        	            	index.roots          ok    info      0         0         index/roots.jsonl does not exist yet
+        	            	index.tool_use       ok    info      0         0         index/tool_use.jsonl does not exist yet
+        	            	index.files          ok    info      0         0         
+        	            	index.segments       ok    info      0         0         index/segments.jsonl does not exist yet
+        	            	captures             ok    info      0         0         
+        	            	publication          ok    info      0         0         
+        	            	checkpoints          ok    info      0         0         no checkpoint has been written yet
+        	            	pins                 ok    info      0         0         pins/invariants.jsonl does not exist yet
+        	            	negknow              ok    info      0         0         records/eliminations.jsonl does not exist yet: nothing has been eliminated
+        	            	                                                         eliminations: 0 record(s), 0 active, 0 stale
+        	            	                                                         sketches/tried.bloom is absent, which is an ordinary cold start
+        	            	delivery             ok    info      0         0         the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project
+        	            	spool                ok    info      0         0         state/drain.json does not exist yet: no drain has run
+        	            	retention            ok    info      0         0         state/retention-roots.jsonl does not exist yet
+        	            	migrate              ok    info      0         0         backups are checked by the read-only maintenance verifier; legacy import/cutover is separate
+        	            	fidelity             ok    info      0         0         no live root to restore
+        	            	quarantine           ok    info      0         0         0 quarantined file(s), 0 byte(s), preserved as evidence and never swept
+        	            	
+        	            	fidelity: no live roots
+        	            	quarantine: 0 file(s), 0 byte(s) preserved as evidence
+        	            	exit: 0
+        	            	 stderr=
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--project_<home>
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--project_<home>
+        	Messages:   	[qompack fsck --project C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--project_906809070\001\home] must refuse with exit 1; stdout=project: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--project_906809070\001\home
+        	            	CHECK                OK    SEVERITY  SCANNED   DEFECTS   DETAIL
+        	            	store                ok    info      -         0         store present at C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitfsck_--project_906809070\001\home\.qompack
+        	            	daemon               ok    info      -         0         no daemon holds the lock; this project is quiet
+        	            	objects              ok    info      0         0         objects/ does not exist yet
+        	            	index.roots          ok    info      0         0         index/roots.jsonl does not exist yet
+        	            	index.tool_use       ok    info      0         0         index/tool_use.jsonl does not exist yet
+        	            	index.files          ok    info      0         0         
+        	            	index.segments       ok    info      0         0         index/segments.jsonl does not exist yet
+        	            	captures             ok    info      0         0         
+        	            	publication          ok    info      0         0         
+        	            	checkpoints          ok    info      0         0         no checkpoint has been written yet
+        	            	pins                 ok    info      0         0         pins/invariants.jsonl does not exist yet
+        	            	negknow              ok    info      0         0         records/eliminations.jsonl does not exist yet: nothing has been eliminated
+        	            	                                                         eliminations: 0 record(s), 0 active, 0 stale
+        	            	                                                         sketches/tried.bloom is absent, which is an ordinary cold start
+        	            	delivery             ok    info      0         0         the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project
+        	            	spool                ok    info      0         0         state/drain.json does not exist yet: no drain has run
+        	            	retention            ok    info      0         0         state/retention-roots.jsonl does not exist yet
+        	            	migrate              ok    info      0         0         backups are checked by the read-only maintenance verifier; legacy import/cutover is separate
+        	            	fidelity             ok    info      0         0         no live root to restore
+        	            	quarantine           ok    info      0         0         0 quarantined file(s), 0 byte(s), preserved as evidence and never swept
+        	            	
+        	            	fidelity: no live roots
+        	            	quarantine: 0 file(s), 0 byte(s) preserved as evidence
+        	            	exit: 0
+        	            	 stderr=
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create
+    homeroot_test.go:502: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:502
+        	Error:      	"qompack backup create: backup: resolve configuration violations and warnings before maintenance\n" does not contain "the project root is the home directory"
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create
+        	Messages:   	[qompack backup create --id b1] must say why; stdout= stderr=qompack backup create: backup: resolve configuration violations and warnings before maintenance
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_verify
+    homeroot_test.go:502: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:502
+        	Error:      	"qompack backup verify: backup: resolve configuration violations and warnings before maintenance\n" does not contain "the project root is the home directory"
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_verify
+        	Messages:   	[qompack backup verify --id b1] must say why; stdout= stderr=qompack backup verify: backup: resolve configuration violations and warnings before maintenance
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create_--project_<home>
+    homeroot_test.go:502: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:502
+        	Error:      	"qompack backup create: backup: resolve configuration violations and warnings before maintenance\n" does not contain "the project root is the home directory"
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create_--project_<home>
+        	Messages:   	[qompack backup create --id b1 --project C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitbackup_create_-762246399\001\home] must say why; stdout= stderr=qompack backup create: backup: resolve configuration violations and warnings before maintenance
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--check
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--check
+        	Messages:   	[qompack admin delivery-seal --check] must refuse with exit 1; stdout=delivery-seal: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitadmin_delivery-721493303\001\home
+        	            	  no delivery journal in this project; nothing to check
+        	            	 stderr=
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--project_<home>_--check
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--project_<home>_--check
+        	Messages:   	[qompack admin delivery-seal --project C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitadmin_delivery-3474016762\001\home --check] must refuse with exit 1; stdout=delivery-seal: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitadmin_delivery-3474016762\001\home
+        	            	  no delivery journal in this project; nothing to check
+        	            	 stderr=
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test
+        	Messages:   	[qompack self-test] must refuse with exit 1; stdout=CHECK                            OK    SEVERITY  OBSERVED
+        	            	config.load                      ok    info      loaded
+        	            	config.capture                   FAIL  warn      capture continues: 1 setting(s) fell back to the default, 0 key(s) not applied
+        	            	qompack.writable                 ok    info      writable
+        	            	paths.guard                      ok    info      refused
+        	            	ipc.resolve                      ok    info      \\.\pipe\qompack.df49dabaad5d
+        	            	daemon.reachable                 FAIL  warn      spawn attempted but the daemon did not come up in time
+        	            	admin.ping                       FAIL  warn      no OK response (daemon not reachable, or refused)
+        	            	ops.coverage                     ok    info      13 known ops
+        	            	session_start.fires              ok    info      first-session
+        	            	session_start.source_compact     ok    info      no-precompact-pending
+        	            	hook.additional_context_delivered ok    info      not-yet-implemented
+        	            	precompact.has_time_to_write     ok    info      not-yet-implemented
+        	            	precompact.custom_instructions_accepted ok    info      not-yet-implemented
+        	            	hook.payload_shape               ok    info      payload shape valid
+        	            	mcp.server_registered            ok    info      not-yet-implemented
+        	            	transcript.readable              ok    info      no-transcript-path
+        	            	plugin.root_resolves             ok    info      unset
+        	            	
+        	            	mode: full
+        	            	 stderr=
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitself-test927945375\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test_--json
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test_--json
+        	Messages:   	[qompack self-test --json] must refuse with exit 1; stdout={
+        	            	  "checks": [
+        	            	    {
+        	            	      "id": "config.load",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "configuration loads",
+        	            	      "observed": "loaded"
+        	            	    },
+        	            	    {
+        	            	      "id": "config.capture",
+        	            	      "ok": false,
+        	            	      "severity": 1,
+        	            	      "expected": "hooks load the configuration as written",
+        	            	      "observed": "capture continues: 1 setting(s) fell back to the default, 0 key(s) not applied",
+        	            	      "detail": "eval.minSessions: invalid value, using default: -3 not in >= 1"
+        	            	    },
+        	            	    {
+        	            	      "id": "qompack.writable",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": ".qompack/ is writable",
+        	            	      "observed": "writable"
+        	            	    },
+        	            	    {
+        	            	      "id": "paths.guard",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "the append-only guard refuses a truncating rewrite",
+        	            	      "observed": "refused"
+        	            	    },
+        	            	    {
+        	            	      "id": "ipc.resolve",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "a local transport endpoint resolves",
+        	            	      "observed": "\\\\.\\pipe\\qompack.115448fe21d3"
+        	            	    },
+        	            	    {
+        	            	      "id": "daemon.reachable",
+        	            	      "ok": false,
+        	            	      "severity": 1,
+        	            	      "expected": "the daemon is reachable or spawnable",
+        	            	      "observed": "spawn attempted but the daemon did not come up in time",
+        	            	      "detail": "daemon: spawn: fork/exec C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitself-test_--jso2597330037\\002\\no-such-qompack.exe: The system cannot find the file specified."
+        	            	    },
+        	            	    {
+        	            	      "id": "admin.ping",
+        	            	      "ok": false,
+        	            	      "severity": 1,
+        	            	      "expected": "admin.ping round trips OK:true",
+        	            	      "observed": "no OK response (daemon not reachable, or refused)"
+        	            	    },
+        	            	    {
+        	            	      "id": "ops.coverage",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "every known op has a route",
+        	            	      "observed": "13 known ops"
+        	            	    },
+        	            	    {
+        	            	      "id": "session_start.fires",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "SessionStart hook fires",
+        	            	      "observed": "first-session"
+        	            	    },
+        	            	    {
+        	            	      "id": "session_start.source_compact",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "SessionStart arrives with source=compact after PreCompact",
+        	            	      "observed": "no-precompact-pending"
+        	            	    },
+        	            	    {
+        	            	      "id": "hook.additional_context_delivered",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "additionalContext reaches the transcript",
+        	            	      "observed": "not-yet-implemented"
+        	            	    },
+        	            	    {
+        	            	      "id": "precompact.has_time_to_write",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "PreCompact has time to write",
+        	            	      "observed": "not-yet-implemented"
+        	            	    },
+        	            	    {
+        	            	      "id": "precompact.custom_instructions_accepted",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "custom_instructions accepted",
+        	            	      "observed": "not-yet-implemented"
+        	            	    },
+        	            	    {
+        	            	      "id": "hook.payload_shape",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "hook payload shape matches hookio.Event",
+        	            	      "observed": "payload shape valid"
+        	            	    },
+        	            	    {
+        	            	      "id": "mcp.server_registered",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "MCP server received initialize",
+        	            	      "observed": "not-yet-implemented"
+        	            	    },
+        	            	    {
+        	            	      "id": "transcript.readable",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "transcript_path exists and parses",
+        	            	      "observed": "no-transcript-path"
+        	            	    },
+        	            	    {
+        	            	      "id": "plugin.root_resolves",
+        	            	      "ok": true,
+        	            	      "severity": 0,
+        	            	      "expected": "CLAUDE_PLUGIN_ROOT expands to an existing binary",
+        	            	      "observed": "unset"
+        	            	    }
+        	            	  ],
+        	            	  "mode": "full",
+        	            	  "exit": 0
+        	            	}
+        	            	 stderr=
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w5\home\tmp\TestHomeRoot_StoreCommandsRefuseWithANonZeroExitself-test_--jso2597330037\001\home\.qompack\logs\qompack-20260926.log: The process cannot access the file because it is being used by another process.
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/recall
+    homeroot_test.go:502: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:502
+        	Error:      	"qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running\nqompack recall: recall: qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running\n" does not contain "the project root is the home directory"
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/recall
+        	Messages:   	[qompack recall pool timeout] must say why; stdout=qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running
+        	            	 stderr=qompack recall: recall: qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/why
+    homeroot_test.go:502: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:502
+        	Error:      	"qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running\nqompack why: why: qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running\n" does not contain "the project root is the home directory"
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/why
+        	Messages:   	[qompack why src/a.go] must say why; stdout=qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running
+        	            	 stderr=qompack why: why: qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/dropped
+    homeroot_test.go:502: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:502
+        	Error:      	"qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running\nqompack dropped: dropped: qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running\n" does not contain "the project root is the home directory"
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/dropped
+        	Messages:   	[qompack dropped] must say why; stdout=qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running
+        	            	 stderr=qompack dropped: dropped: qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin
+        	Messages:   	[qompack pin keep the port at 8443] must refuse with exit 1; stdout=pinned inv_4d2177553fab (source: user)
+        	            	 stderr=
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin_--list
+    homeroot_test.go:501: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:501
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin_--list
+        	Messages:   	[qompack pin --list] must refuse with exit 1; stdout=no invariants are pinned in this project
+        	            	 stderr=
+--- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit (9.91s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck (0.05s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--json (0.05s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--seal-check (0.09s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--repair_--yes (0.11s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--project_<home> (0.11s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create (0.09s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_verify (0.09s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create_--project_<home> (0.07s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--check (0.08s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--project_<home>_--check (0.13s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test (2.09s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test_--json (1.85s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/recall (1.54s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/why (1.49s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/dropped (1.55s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin (0.33s)
+    --- FAIL: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin_--list (0.20s)
+=== RUN   TestHomeRoot_ARelativeProjectFlagTypedInHomeIsRefused
+    homeroot_test.go:519: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:519
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestHomeRoot_ARelativeProjectFlagTypedInHomeIsRefused
+        	Messages:   	stdout=project: .
+        	            	CHECK                OK    SEVERITY  SCANNED   DEFECTS   DETAIL
+        	            	store                ok    info      -         0         store present at .qompack
+        	            	daemon               ok    info      -         0         no daemon holds the lock; this project is quiet
+        	            	objects              ok    info      0         0         objects/ does not exist yet
+        	            	index.roots          ok    info      0         0         index/roots.jsonl does not exist yet
+        	            	index.tool_use       ok    info      0         0         index/tool_use.jsonl does not exist yet
+        	            	index.files          ok    info      0         0         
+        	            	index.segments       ok    info      0         0         index/segments.jsonl does not exist yet
+        	            	captures             ok    info      0         0         
+        	            	publication          ok    info      0         0         
+        	            	checkpoints          ok    info      0         0         no checkpoint has been written yet
+        	            	pins                 ok    info      0         0         pins/invariants.jsonl does not exist yet
+        	            	negknow              ok    info      0         0         records/eliminations.jsonl does not exist yet: nothing has been eliminated
+        	            	                                                         eliminations: 0 record(s), 0 active, 0 stale
+        	            	                                                         sketches/tried.bloom is absent, which is an ordinary cold start
+        	            	delivery             ok    info      0         0         the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project
+        	            	spool                ok    info      0         0         state/drain.json does not exist yet: no drain has run
+        	            	retention            ok    info      0         0         state/retention-roots.jsonl does not exist yet
+        	            	migrate              ok    info      0         0         backups are checked by the read-only maintenance verifier; legacy import/cutover is separate
+        	            	fidelity             ok    info      0         0         no live root to restore
+        	            	quarantine           ok    info      0         0         0 quarantined file(s), 0 byte(s), preserved as evidence and never swept
+        	            	
+        	            	fidelity: no live roots
+        	            	quarantine: 0 file(s), 0 byte(s) preserved as evidence
+        	            	exit: 0
+        	            	 stderr=
+--- FAIL: TestHomeRoot_ARelativeProjectFlagTypedInHomeIsRefused (0.04s)
+=== RUN   TestHomeRoot_RecallJSONReportsTheRefusalAsUnavailable
+    homeroot_test.go:543: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:543
+        	Error:      	Not equal: 
+        	            	expected: "unavailable"
+        	            	actual  : "failed"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-unavailable
+        	            	+failed
+        	Test:       	TestHomeRoot_RecallJSONReportsTheRefusalAsUnavailable
+--- FAIL: TestHomeRoot_RecallJSONReportsTheRefusalAsUnavailable (1.55s)
+=== RUN   TestHomeRoot_BackupRestoreRefusesTheHomeDirectoryAsItsDestination
+    homeroot_test.go:562: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:562
+        	Error:      	"qompack backup restore: backup: resolve configuration violations and warnings before maintenance\n" does not contain "the project root is the home directory"
+        	Test:       	TestHomeRoot_BackupRestoreRefusesTheHomeDirectoryAsItsDestination
+--- FAIL: TestHomeRoot_BackupRestoreRefusesTheHomeDirectoryAsItsDestination (0.20s)
+=== RUN   TestHomeRoot_ConfigPrintShowsOnlyTheUserGlobalLayer
+    homeroot_test.go:609: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:332
+        	            				C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/home/base-red/internal/cli/homeroot_test.go:609
+        	Error:      	"    \"softFloorPct\": 0.42,  // project C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_ConfigPrintShowsOnlyTheUserGlobalLayer2587490120\\001\\home\\.qompack\\config.json:1" does not contain "// user C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\w5\\home\\tmp\\TestHomeRoot_ConfigPrintShowsOnlyTheUserGlobalLayer2587490120\\001\\home\\.qompack\\config.json"
+        	Test:       	TestHomeRoot_ConfigPrintShowsOnlyTheUserGlobalLayer
+        	Messages:   	and attributed to the user layer's file
+--- FAIL: TestHomeRoot_ConfigPrintShowsOnlyTheUserGlobalLayer (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	27.730s
+FAIL
+exit=1

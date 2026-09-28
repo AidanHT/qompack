@@ -1,0 +1,33 @@
+=== RUN   TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending
+=== RUN   TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending/restart_redelivers_the_interrupted_line
+=== RUN   TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending/same_process_retries_the_interrupted_line
+--- PASS: TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending (0.32s)
+    --- PASS: TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending/restart_redelivers_the_interrupted_line (0.23s)
+    --- PASS: TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending/same_process_retries_the_interrupted_line (0.09s)
+=== RUN   TestIdleDrain_ALineSlowerThanTheIdleBudgetIsPublishedAndDoesNotStrandTheRest
+--- PASS: TestIdleDrain_ALineSlowerThanTheIdleBudgetIsPublishedAndDoesNotStrandTheRest (4.64s)
+=== RUN   TestIdleTaskPanicIsolated
+=== PAUSE TestIdleTaskPanicIsolated
+=== RUN   TestIdleTaskErrorIsNotFatal
+=== PAUSE TestIdleTaskErrorIsNotFatal
+=== RUN   TestIdleTasksRegistered
+=== PAUSE TestIdleTasksRegistered
+=== RUN   TestIdleActingTaskSkippedInDegradedPassive
+=== PAUSE TestIdleActingTaskSkippedInDegradedPassive
+=== RUN   TestIdleTaskGCPassesRemainingDeadline
+=== PAUSE TestIdleTaskGCPassesRemainingDeadline
+=== RUN   TestIdleTasksHonourContextCancellation
+--- PASS: TestIdleTasksHonourContextCancellation (0.11s)
+=== CONT  TestIdleTaskPanicIsolated
+=== CONT  TestIdleActingTaskSkippedInDegradedPassive
+--- PASS: TestIdleTaskPanicIsolated (0.00s)
+=== CONT  TestIdleTasksRegistered
+=== CONT  TestIdleTaskErrorIsNotFatal
+--- PASS: TestIdleTaskErrorIsNotFatal (0.00s)
+=== CONT  TestIdleTaskGCPassesRemainingDeadline
+--- PASS: TestIdleActingTaskSkippedInDegradedPassive (0.29s)
+--- PASS: TestIdleTaskGCPassesRemainingDeadline (0.29s)
+--- PASS: TestIdleTasksRegistered (0.32s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	5.780s
+exit=0

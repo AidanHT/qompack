@@ -1,0 +1,137 @@
+# probe of closeout/config 20fce35 (C1.8 fix), 2026-09-22T21:46:06Z, windows
+=== case p1: {}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-8552.ndjson ./state ./state/delivery-lease-position.json ./state/delivery-leases.jsonl ./tmp 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=True severity=0 observed=applied as written 
+stopped self-test-spawned daemon pid=62104
+=== case p2: {"runtime":{"notAKey":1}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-61008.ndjson ./state ./state/delivery-acks.jsonl ./state/delivery-lease-position.json ./state/delivery-leases.jsonl ./tmp ./tmp/wa-4293057941 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 0 value(s) fell back to the default, 1 key(s) not applied detail=runtime.notAKey: unknown key
+stopped self-test-spawned daemon pid=40244
+=== case p3: {"runtime":{"migration":{"settingsVersion":99}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-32048.ndjson ./state ./state/config-violations.json ./state/delivery-lease-position.json ./state/delivery-leases.jsonl ./tmp 
+config-violations.json:
+[
+  {
+    "Key": "runtime.migration",
+    "Message": "settingsVersion 99 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off",
+    "Got": null,
+    "Want": null
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 1 value(s) fell back to the default, 0 key(s) not applied detail=runtime.migration: settingsVersion 99 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off
+stopped self-test-spawned daemon pid=40780
+=== case p4: {"runtime":{"mode":"sideways"}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/LOUD.log ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-61984.ndjson ./state ./state/config-violations.json ./tmp 
+config-violations.json:
+[
+  {
+    "Key": "runtime.mode",
+    "Message": "invalid value, using default: sideways not in auto|full|passive|off",
+    "Got": "sideways",
+    "Want": "auto|full|passive|off"
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 1 value(s) fell back to the default, 0 key(s) not applied detail=runtime.mode: invalid value, using default: sideways not in auto|full|passive|off
+stopped self-test-spawned daemon pid=50660
+=== case p5: {"runtime":{"phase7":{"reuse":{"scopedCandidates":true}}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/LOUD.log ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-51720.ndjson ./state ./state/config-violations.json ./state/delivery-leases.jsonl ./tmp ./tmp/wa-1594656659 
+config-violations.json:
+[
+  {
+    "Key": "runtime.phase7.reuse.scopedCandidates",
+    "Message": "invalid value, using default: true not in false",
+    "Got": "true",
+    "Want": "false"
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 1 value(s) fell back to the default, 0 key(s) not applied detail=runtime.phase7.reuse.scopedCandidates: invalid value, using default: true not in false
+stopped self-test-spawned daemon pid=22908
+=== case p6: {"scheduler":{"youngDaly":{"enabled":true}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-53832.ndjson ./state ./state/delivery-acks.jsonl ./state/delivery-lease-position.json ./state/delivery-leases.jsonl ./tmp ./tmp/wa-3642934306 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=True severity=0 observed=applied as written 
+stopped self-test-spawned daemon pid=39348
+=== case p7: {"checkpoint":{"budgetTokens":"12000"}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/observations.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./objects/00 ./objects/00/7a ./objects/00/7a/007a28470fc28bd615824e20f896fa01d5dde5655be70bb6f6f2d12c2a43487c.zst ./pins ./records ./records/captures ./records/captures/e6 ./records/captures/e6/e6b720e69b1753a146bec3d0b614882527a1d69aec54bb413da668e23224b59d.json ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-49764.ndjson ./state ./state/delivery-ack-position.json ./state/delivery-acks.jsonl ./state/delivery-lease-position.json ./state/delivery-leases.jsonl ./state/pending ./state/retention-roots.jsonl ./tmp 
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 0 value(s) fell back to the default, 1 key(s) not applied detail=checkpoint.budgetTokens: invalid type for checkpoint.budgetTokens: expected int
+stopped self-test-spawned daemon pid=42044
+=== case p8: {"runtime":{"mode":"sideways","notAKey":1}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 1
+.qompack entries after hook: ./.gitignore ./backup ./checkpoints ./config.json ./dag ./eval ./eval/opt ./eval/replay ./grammar ./index ./index/files.jsonl ./index/roots.jsonl ./index/segments.jsonl ./index/sessions.jsonl ./index/tool_use.jsonl ./logs ./logs/LOUD.log ./logs/qompack-20260922.log ./metrics ./migrate ./objects ./pins ./records ./run ./run/daemon.hb ./run/daemon.lock ./run/state.bin ./sketches ./spool ./spool/client-51376.ndjson ./state ./state/config-violations.json ./tmp 
+config-violations.json:
+[
+  {
+    "Key": "runtime.mode",
+    "Message": "invalid value, using default: sideways not in auto|full|passive|off",
+    "Got": "sideways",
+    "Want": "auto|full|passive|off"
+  }
+]
+config print exit=0
+self-test exit=0
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=1 observed=capture continues: 1 value(s) fell back to the default, 1 key(s) not applied detail=runtime.mode: invalid value, using default: sideways not in auto|full|passive|off; runtime.notAKey: unknown key
+stopped self-test-spawned daemon pid=35484
+=== case p9: {"runtime":{"redact":{"patterns":"PRIVATE-[A-Z]{12}"}}}
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: a runtime.redact setting cannot be applied as written, and the capture privacy policy has no per-leaf fallback
+stopped self-test-spawned daemon pid=4560
+=== case p10: {"runtime":
+hook stdout+stderr: {}
+hook exit=0
+spool files after hook: 0
+.qompack entries after hook: ./config.json 
+config print exit=0
+self-test exit=1
+self-test row: config.load ok=True severity=0 observed=loaded 
+self-test row: config.capture ok=False severity=2 observed=refused: every hook admits nothing detail=qompack: running in degraded mode: capture configuration unavailable: the project config file is not a single strict JSONC object
+stopped self-test-spawned daemon pid=62104

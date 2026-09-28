@@ -1,0 +1,4 @@
+== HEAD 24eae18, fake HOME/USERPROFILE, started 17:47:43Z: go test ./internal/cli/ -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/cli	59.208s
+exit=0
+ended 17:48:44Z

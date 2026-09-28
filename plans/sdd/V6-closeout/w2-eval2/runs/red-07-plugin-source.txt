@@ -1,0 +1,34 @@
+--- FAIL: TestHostStream_PluginFromAndForeignPlugins (0.00s)
+    live_stream_test.go:185: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_stream_test.go:185
+        	Error:      	Should be true
+        	Test:       	TestHostStream_PluginFromAndForeignPlugins
+--- FAIL: TestSummarizeLive_ForeignPluginsAreNamed (0.00s)
+    live_summary_test.go:241: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_summary_test.go:241
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestSummarizeLive_ForeignPluginsAreNamed
+FAIL
+FAIL	github.com/qompack/qompack/internal/eval	0.314s
+FAIL
+exit=1
+--- FAIL: TestRunLiveEval_PluginMustComeFromTheArmsInstall (2.88s)
+    liveeval_test.go:713: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/tools/devtool/liveeval_test.go:713
+        	Error:      	Not equal: 
+        	            	expected: "qompack@qompack-live-eval"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-qompack@qompack-live-eval
+        	            	+
+        	Test:       	TestRunLiveEval_PluginMustComeFromTheArmsInstall
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	4.735s
+FAIL
+exit=1

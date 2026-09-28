@@ -41,8 +41,9 @@ func TestManifest_CoversAllSixHooks(t *testing.T) {
 		require.Len(t, groups[0].Hooks, 1, "%s", event)
 		require.Equal(t, wantTimeout, groups[0].Hooks[0].Timeout, "%s timeout", event)
 		require.Equal(t, "command", groups[0].Hooks[0].Type, "%s type", event)
-		require.True(t, strings.HasPrefix(groups[0].Hooks[0].Command, `"${CLAUDE_PLUGIN_ROOT}/bin/qompack" `),
-			"%s must invoke the bundled binary, got %q", event, groups[0].Hooks[0].Command)
+		require.Equal(t, "${CLAUDE_PLUGIN_ROOT}/bin/qompack", groups[0].Hooks[0].Command,
+			"%s must invoke the bundled binary", event)
+		require.NotEmpty(t, groups[0].Hooks[0].Args, "%s must carry its subcommand in args", event)
 	}
 
 	require.Equal(t, "*", m.Hooks.Hooks["PostToolUse"][0].Matcher,
@@ -53,14 +54,19 @@ func TestManifest_CoversAllSixHooks(t *testing.T) {
 	}
 }
 
+// TestManifest_SevenCommands pins the shipped command list. Its name is historical and kept because
+// the V1/V3 verification plans quote it: §7.5 names seven commands, and the bundle ships six of
+// them. /qompack:checkpoint is not shipped — its only route, `qompack checkpoint`, is the PreCompact
+// hook entry point, so the command wrote nothing (V6 close-out w7b-checkpoint). Checkpoints are
+// written automatically before every compaction; docs/cannot-do.md says a manual one is not offered.
 func TestManifest_SevenCommands(t *testing.T) {
 	m := pluginmanifest.Default(testVersion)
 	names := make([]string, 0, len(m.Commands))
 	for _, c := range m.Commands {
 		names = append(names, c.Name)
 	}
-	require.Equal(t, []string{"status", "recall", "pin", "checkpoint", "why", "dropped", "eval"}, names,
-		"exactly the seven §7.5 commands, in §7.5 order")
+	require.Equal(t, []string{"status", "recall", "pin", "why", "dropped", "eval"}, names,
+		"the six shipped §7.5 commands, in §7.5 order; checkpoint is not shipped")
 }
 
 func TestManifest_CommandsShellOutToBinary(t *testing.T) {
@@ -107,7 +113,7 @@ func TestManifest_FilesAreStableBytes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, a, b, "generation must be deterministic")
 
-	require.Len(t, a, 10, "3 JSON files + 7 command docs")
+	require.Len(t, a, 9, "3 JSON files + 6 command docs")
 
 	for path, content := range a {
 		require.True(t, strings.HasSuffix(string(content), "\n"), "%s must end with a newline", path)
@@ -199,31 +205,104 @@ func TestManifest_NoUnexpandedTemplateLeftovers(t *testing.T) {
 	}
 }
 
-// TestManifest_HookCommandQuotesThePluginRoot is finding F-1, measured by test/platform under Git
-// Bash: hooks.json is SHELL form, so an install directory containing a space word-splits the
-// unquoted `${CLAUDE_PLUGIN_ROOT}/bin/qompack` into two arguments and the hook exits 127. The host
-// documentation's own remedy is to quote the placeholder, and the quoted form was measured green in
-// both the environment expansion and the textual substitution.
-//
-// `.mcp.json` is EXEC form (`args` present, no shell), so quoting there would make the quotes
-// literal characters in the path and break every install directory. TestMCPJSON_UsesPluginRoot
-// keeps it unquoted; this test keeps the two forms apart on purpose.
-func TestManifest_HookCommandQuotesThePluginRoot(t *testing.T) {
-	m := pluginmanifest.Default(testVersion)
-	require.Len(t, m.Hooks.Hooks, 7, "the hook event count is part of the plugin-validate contract")
-	for event, groups := range m.Hooks.Hooks {
-		cmd := groups[0].Hooks[0].Command
-		require.True(t, strings.HasPrefix(cmd, `"${CLAUDE_PLUGIN_ROOT}/bin/qompack" `),
-			"%s: the shell-form hook command must quote the plugin root, got %q", event, cmd)
-		require.NotContains(t, strings.TrimPrefix(cmd, `"${CLAUDE_PLUGIN_ROOT}/bin/qompack"`), `"`,
-			"%s: only the executable is quoted; the subcommand tail stays bare, got %q", event, cmd)
+// manifestTargets are the three spellings of GOOS the six release targets use.
+var manifestTargets = []string{"windows", "linux", "darwin"}
+
+// wantBinaryRef is the executable each target's bundle ships, restated here rather than read from
+// BinaryRef so a change to the generator's path cannot pass by agreeing with itself.
+func wantBinaryRef(goos string) string {
+	if goos == "windows" {
+		return "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe"
+	}
+	return "${CLAUDE_PLUGIN_ROOT}/bin/qompack"
+}
+
+// TestManifest_HooksAreExecForm is C1.11. A hooks.json `command` with no `args` is SHELL form, and
+// the host picks the shell: "sh -c on macOS and Linux, Git Bash on Windows, or PowerShell when Git
+// Bash isn't installed" (hooks reference, 2026-09-22). The quoted string this package used to ship
+// — `"${CLAUDE_PLUGIN_ROOT}/bin/qompack" observe tool` — is a PowerShell ParserError, so every hook
+// broke on a Windows machine without Git Bash. Exec form has no shell on any platform: `command` is
+// the exact executable, the subcommand is the argument vector, and nothing is quoted — which also
+// closes finding F-1 (a spaced install directory) structurally rather than by quoting.
+func TestManifest_HooksAreExecForm(t *testing.T) {
+	for _, goos := range manifestTargets {
+		m := pluginmanifest.ForTarget(testVersion, goos)
+		require.Len(t, m.Hooks.Hooks, 7, "the hook event count is part of the plugin-validate contract")
+		entries := map[string]string{}
+		for _, e := range pluginmanifest.HookEntryPoints() {
+			entries[e.Event] = e.Subcommand
+		}
+		for event, groups := range m.Hooks.Hooks {
+			h := groups[0].Hooks[0]
+			require.Equal(t, wantBinaryRef(goos), h.Command,
+				"%s/%s: command must be exactly the bundled executable and nothing else", goos, event)
+			require.Equal(t, strings.Fields(entries[event]), h.Args,
+				"%s/%s: the subcommand travels as the argument vector", goos, event)
+			require.NotContains(t, h.Command, `"`, "%s/%s: exec form takes no shell quoting", goos, event)
+			for _, a := range h.Args {
+				require.NotContains(t, a, `"`, "%s/%s: exec form takes no shell quoting", goos, event)
+			}
+		}
 	}
 }
 
-// TestManifest_MCPCommandIsNotQuoted is the other half of F-1 and the reviewer's Critical 1: the
-// exec-form server command must NOT gain the quotes hooks.json needs.
-func TestManifest_MCPCommandIsNotQuoted(t *testing.T) {
-	srv := pluginmanifest.Default(testVersion).MCP.MCPServers["qompack"]
-	require.NotContains(t, srv.Command, `"`,
-		"the MCP server command is exec form and must carry no shell quoting, got %q", srv.Command)
+// TestManifest_HooksJSONCarriesArgs pins the wire shape: `args` is always present in hooks.json,
+// because its presence — not its content — is what the host reads as "exec form".
+func TestManifest_HooksJSONCarriesArgs(t *testing.T) {
+	for _, goos := range manifestTargets {
+		files, err := pluginmanifest.ForTarget(testVersion, goos).Files()
+		require.NoError(t, err)
+		var doc struct {
+			Hooks map[string][]struct {
+				Hooks []map[string]json.RawMessage `json:"hooks"`
+			} `json:"hooks"`
+		}
+		require.NoError(t, json.Unmarshal(files["plugin/hooks/hooks.json"], &doc))
+		for event, groups := range doc.Hooks {
+			for _, h := range groups[0].Hooks {
+				_, hasArgs := h["args"]
+				require.True(t, hasArgs, "%s/%s: hooks.json must carry args", goos, event)
+				_, hasShell := h["shell"]
+				require.False(t, hasShell, "%s/%s: exec form ignores `shell`; naming one would mislead", goos, event)
+			}
+		}
+	}
+}
+
+// TestManifest_MCPCommandIsTheExactBinary: .mcp.json launches the same executable the hooks do,
+// exec form, unquoted.
+func TestManifest_MCPCommandIsTheExactBinary(t *testing.T) {
+	for _, goos := range manifestTargets {
+		srv := pluginmanifest.ForTarget(testVersion, goos).MCP.MCPServers["qompack"]
+		require.Equal(t, wantBinaryRef(goos), srv.Command, goos)
+		require.Equal(t, []string{"mcp"}, srv.Args, goos)
+		require.NotContains(t, srv.Command, `"`,
+			"the MCP server command is exec form and must carry no shell quoting, got %q", srv.Command)
+	}
+}
+
+// TestManifest_DefaultIsThePOSIXRendering says what the committed plugin/ tree is: the rendering
+// linux and darwin share. Only windows differs, and only in the executable path.
+func TestManifest_DefaultIsThePOSIXRendering(t *testing.T) {
+	def, err := pluginmanifest.Default(testVersion).Files()
+	require.NoError(t, err)
+	linux, err := pluginmanifest.ForTarget(testVersion, "linux").Files()
+	require.NoError(t, err)
+	darwin, err := pluginmanifest.ForTarget(testVersion, "darwin").Files()
+	require.NoError(t, err)
+	require.Equal(t, linux, def, "the committed tree is the linux rendering")
+	require.Equal(t, linux, darwin, "linux and darwin render byte-identical trees")
+
+	windows, err := pluginmanifest.ForTarget(testVersion, "windows").Files()
+	require.NoError(t, err)
+	require.Len(t, windows, len(linux))
+	for rel, lb := range linux {
+		wb := windows[rel]
+		if rel == "plugin/hooks/hooks.json" || rel == "plugin/.mcp.json" {
+			require.Equal(t, strings.ReplaceAll(string(lb), `/bin/qompack"`, `/bin/qompack.exe"`), string(wb),
+				"%s: the windows rendering differs only in the executable's .exe", rel)
+			continue
+		}
+		require.Equal(t, string(lb), string(wb), "%s is target-independent", rel)
+	}
 }

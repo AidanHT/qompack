@@ -1,0 +1,283 @@
+# Review finding (DaemonHoldingLock has no sharedReaders row): mutation evidence, Windows, co-loaded host
+# step 1: HEAD 2be9b85 (no row), DaemonHoldingLock mutated to os.ReadFile
+diff --git a/internal/testutil/daemongone.go b/internal/testutil/daemongone.go
+index 96699d3..887102d 100644
+--- a/internal/testutil/daemongone.go
++++ b/internal/testutil/daemongone.go
+@@ -166,7 +166,7 @@ func ShutdownDaemonUntilGone(root string, addr ipc.Addr, w ShutdownWait) Shutdow
+ // asks again on a tick, so that answer costs a tick, never a bound. Any read error, overwhelmingly
+ // "no lock file", answers not held.
+ func DaemonHoldingLock(root string) (pid int, held bool) {
+-	b, err := paths.ReadFileShared(daemon.LockPath(root))
++	b, err := os.ReadFile(daemon.LockPath(root))
+ 	if err != nil {
+ 		return 0, false
+ 	}
+# go test ./test/guards -run "^TestGuard_HotFilesAreReadWithDeleteSharing$" -count=1 -v
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- PASS: TestGuard_HotFilesAreReadWithDeleteSharing (0.11s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.01s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.850s
+exit=0
+vet_exit=0
+
+# step 2: row added to sharedReaders, mutation still in place (expect FAIL on the new row)
+diff --git a/test/guards/sharedreaders_test.go b/test/guards/sharedreaders_test.go
+index 67e21cd..6f3828e 100644
+--- a/test/guards/sharedreaders_test.go
++++ b/test/guards/sharedreaders_test.go
+@@ -13,8 +13,8 @@ import (
+ )
+ 
+ // sharedReader names one function that MUST take its handle through paths.ReadFileShared /
+-// paths.OpenShared rather than os.ReadFile / os.Open: a production reader, or a test/e2e helper that
+-// polls a file a live daemon is replacing.
++// paths.OpenShared rather than os.ReadFile / os.Open: a production reader, or a test helper (under
++// test/ or internal/testutil) that polls a file a live daemon is replacing or deleting.
+ //
+ // The list is an inventory, not a pattern: "reads a file some other process replaces or deletes
+ // while this one is live" is a judgement about the file, and there is no syntax that carries it.
+@@ -100,6 +100,16 @@ var sharedReaders = []sharedReader{
+ 			"ERROR_SHARING_VIOLATION (V5 x04's co-load red) and failed that replace " +
+ 			"(w4-e2eflakes runs/diag-b-sharing-modes-rerun-windows.txt)",
+ 	},
++	{
++		file:  "internal/testutil/daemongone.go",
++		fn:    "DaemonHoldingLock",
++		holds: "run/daemon.lock",
++		why: "Lock.Release's os.Remove, the last act of a daemon shutdown, which every test/ shutdown " +
++			"helper polls for through this one reader (testutil.ShutdownDaemonUntilGone, and the " +
++			"e2e/fault/platform/release/security/guards gates and diagnostics around it). An ordinary " +
++			"handle there made that remove fail about one run in twenty, so the helper caused the " +
++			"abandoned lock it was waiting to see go (v1StopDaemonAndWaitGone measured it)",
++	},
+ 	{
+ 		file: "internal/store/backup.go",
+ 		fn:   "backupFileDigest",
+# go test ./test/guards -run "^TestGuard_HotFilesAreReadWithDeleteSharing$" -count=1 -v
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock
+    sharedreaders_test.go:176: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/sharedreaders_test.go:176
+        	Error:      	Should be empty, but was [os.ReadFile]
+        	Test:       	TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock
+        	Messages:   	DaemonHoldingLock reads run/daemon.lock with os.ReadFile. On Windows that handle carries no FILE_SHARE_DELETE, so while the read is in flight it blocks Lock.Release's os.Remove, the last act of a daemon shutdown, which every test/ shutdown helper polls for through this one reader (testutil.ShutdownDaemonUntilGone, and the e2e/fault/platform/release/security/guards gates and diagnostics around it). An ordinary handle there made that remove fail about one run in twenty, so the helper caused the abandoned lock it was waiting to see go (v1StopDaemonAndWaitGone measured it).
+        	            	
+        	            	Use paths.ReadFileShared (or paths.OpenShared) instead: same bytes, same *os.PathError shapes, plus delete sharing — see internal/paths/shared.go.
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing (0.05s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.00s)
+    --- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.332s
+FAIL
+exit=1
+
+# step 3: mutation reverted (git checkout -- internal/testutil/daemongone.go), row kept, why reworded (expect PASS)
+# go test ./test/guards -run "^(TestGuard_HotFilesAreReadWithDeleteSharing|TestGuard_SharedReaderScannerSeesAForbiddenCall)$" -count=1 -v
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- PASS: TestGuard_HotFilesAreReadWithDeleteSharing (0.19s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.02s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+=== RUN   TestGuard_SharedReaderScannerSeesAForbiddenCall
+--- PASS: TestGuard_SharedReaderScannerSeesAForbiddenCall (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.620s
+exit=0
+
+# adjacent row (same rule, found while verifying): test/e2e e2eSpawnInFlight reads run/spawn.lock
+# step A1: HEAD 90ab6ad (no row for it), e2eSpawnInFlight mutated to os.ReadFile (expect PASS: the gap)
+diff --git a/test/e2e/faultinject_test.go b/test/e2e/faultinject_test.go
+index ab54c33..c8e7ccc 100644
+--- a/test/e2e/faultinject_test.go
++++ b/test/e2e/faultinject_test.go
+@@ -276,7 +276,7 @@ const e2eSpawnLockStaleAfter = 10 * time.Second
+ // itself, and a reader without FILE_SHARE_DELETE would make that delete fail on Windows. A file that
+ // does not parse is stale, as ipc's own spawnLockIsStale reads it.
+ func e2eSpawnInFlight(root string) bool {
+-	b, err := paths.ReadFileShared(filepath.Join(paths.Of(root).Run, e2eSpawnLockName))
++	b, err := os.ReadFile(filepath.Join(paths.Of(root).Run, e2eSpawnLockName))
+ 	if err != nil {
+ 		return false
+ 	}
+vet_exit=0
+# go test ./test/guards -run "^TestGuard_HotFilesAreReadWithDeleteSharing$" -count=1 -v
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- PASS: TestGuard_HotFilesAreReadWithDeleteSharing (0.59s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.05s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.02s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.02s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	1.188s
+exit=0
+
+# step A2: e2eSpawnInFlight row added, mutation still in place (expect FAIL on the new row)
+diff --git a/test/guards/sharedreaders_test.go b/test/guards/sharedreaders_test.go
+index 040652e..098a31c 100644
+--- a/test/guards/sharedreaders_test.go
++++ b/test/guards/sharedreaders_test.go
+@@ -110,6 +110,15 @@ var sharedReaders = []sharedReader{
+ 			"handle in this read made that remove fail about one run in twenty, so the helper itself " +
+ 			"caused the abandoned lock it was waiting on (v1StopDaemonAndWaitGone measured it)",
+ 	},
++	{
++		file:  "test/e2e/faultinject_test.go",
++		fn:    "e2eSpawnInFlight",
++		holds: "run/spawn.lock",
++		why: "daemon.removeSpawnLockFile, the spawned daemon's single, unretried os.Remove of the marker " +
++			"once it listens. e2eAwaitSpawnInFlight polls through this helper for exactly that daemon " +
++			"(e2eShutdownIfReachable's spawn-in-flight wait), and a remove its read made fail leaves a " +
++			"marker every client then counts as a spawn in flight until it goes stale",
++	},
+ 	{
+ 		file: "internal/store/backup.go",
+ 		fn:   "backupFileDigest",
+# go test ./test/guards -run "^TestGuard_HotFilesAreReadWithDeleteSharing$" -count=1 -v
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight
+    sharedreaders_test.go:185: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/guards/sharedreaders_test.go:185
+        	Error:      	Should be empty, but was [os.ReadFile]
+        	Test:       	TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight
+        	Messages:   	e2eSpawnInFlight reads run/spawn.lock with os.ReadFile. On Windows that handle carries no FILE_SHARE_DELETE, so while the read is in flight it blocks daemon.removeSpawnLockFile, the spawned daemon's single, unretried os.Remove of the marker once it listens. e2eAwaitSpawnInFlight polls through this helper for exactly that daemon (e2eShutdownIfReachable's spawn-in-flight wait), and a remove its read made fail leaves a marker every client then counts as a spawn in flight until it goes stale.
+        	            	
+        	            	Use paths.ReadFileShared (or paths.OpenShared) instead: same bytes, same *os.PathError shapes, plus delete sharing — see internal/paths/shared.go.
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing (0.09s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock (0.00s)
+    --- FAIL: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.335s
+FAIL
+exit=1
+
+# step A3: mutation reverted (git checkout -- test/e2e/faultinject_test.go), both rows kept (expect PASS)
+# go test ./test/guards -run "^(TestGuard_HotFilesAreReadWithDeleteSharing|TestGuard_SharedReaderScannerSeesAForbiddenCall)$" -count=1 -v
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest
+=== RUN   TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup
+--- PASS: TestGuard_HotFilesAreReadWithDeleteSharing (0.09s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/daemon/lock.go:readLockFile (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/client.go:spawnLockIsStale (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/monitor.go:load (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/contract/history.go:LoadHistory (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/rehydrate/drops.go:CurrentDrops (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/ipc/state.go:ReadState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/observer_e2e_test.go:obsSessionEndMarker (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/sessionstart_compact_test.go:scAwaitState (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/testutil/daemongone.go:DaemonHoldingLock (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/test/e2e/faultinject_test.go:e2eSpawnInFlight (0.03s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:backupFileDigest (0.00s)
+    --- PASS: TestGuard_HotFilesAreReadWithDeleteSharing/internal/store/backup.go:TakeBackup (0.00s)
+=== RUN   TestGuard_SharedReaderScannerSeesAForbiddenCall
+--- PASS: TestGuard_SharedReaderScannerSeesAForbiddenCall (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.333s
+exit=0

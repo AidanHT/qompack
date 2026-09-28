@@ -85,7 +85,11 @@ func readBlob(root string, req ipc.Request) (ipc.Request, string, error) {
 	if err != nil || !fi.Mode().IsRegular() || ref.Bytes < 0 || fi.Size() != int64(ref.Bytes) {
 		return req, "", fmt.Errorf("blob missing or invalid size/type")
 	}
-	f, err := os.Open(paths.Long(blobPath))
+	// Shared (paths.OpenShared): the drain's cleanupAcknowledged removes a consumed blob from a pass
+	// that no lock of this reader's orders, and a lost-ACK duplicate can be read here live while the
+	// drain retires its other copy. On Windows an ordinary handle would fail that os.Remove and fail
+	// the drain pass with it (test/guards' sharedReaders).
+	f, err := paths.OpenShared(blobPath)
 	if err != nil {
 		return req, "", fmt.Errorf("blob unavailable")
 	}

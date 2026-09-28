@@ -2,7 +2,9 @@ package rehydrate
 
 import (
 	"context"
+	"errors"
 	"io"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/rules"
 	"github.com/qompack/qompack/internal/skills"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // ── the builder seam ──
@@ -32,12 +35,20 @@ type unit struct {
 	text string
 	// tokens is this unit's cost. Builders leave it zero; the budget pass fills it.
 	tokens core.Tokens
+	// chars is this unit's exact length in host characters (hostChars of text), the dimension the
+	// PayloadCeilingChars ceiling is enforced in. Builders leave it zero; the budget pass fills it.
+	chars int
 	// drop is the DropEntry to emit if this unit does not fit the budget.
 	//
 	// A ZERO drop marks a unit that must never be truncated: tier-1 material (items 1, 2's
 	// original-intent unit, 8) and item 3's trailing note. isFixedUnit is the predicate, and it is
 	// how the budget pass tells "charge this first, whole" from "drop this and say so".
 	drop checkpoint.DropEntry
+	// overflow is the explicit-overflow entry for a FIXED tier-1 unit that the budget or the host
+	// ceiling forces out whole: it names the record and the call that restores it (tier1Drop). It
+	// is never consulted for a discretionary unit, whose drop already does that job, and it does not
+	// make a unit discretionary — isFixedUnit reads drop alone.
+	overflow checkpoint.DropEntry
 }
 
 // built is what every item builder returns.
@@ -234,6 +245,9 @@ func buildAll(ctx context.Context, r Request, d Deps, sc map[dag.NodeID]float32)
 // Order is as stored — §7.4 makes pins append-only, so the checkpoint's order is stable. Every
 // unit carries the zero DropEntry: tier 1 is never truncated, so there is nothing to report.
 // The no-contents guard deliberately never runs here; a pinned invariant is verbatim human text.
+//
+// Each invariant is one whole record. One that cannot fit is named as an explicit overflow carrying
+// the pointer that restores it — the checkpoint artifact it was read from — never shortened.
 func buildInvariants(_ context.Context, r Request, d Deps) built { //nolint:unparam // the nine item builders share one signature so buildAll can call them uniformly
 	var b built
 	for _, inv := range r.Checkpoint.Invariants {
@@ -242,9 +256,56 @@ func buildInvariants(_ context.Context, r Request, d Deps) built { //nolint:unpa
 		if inv.Source != "" {
 			line += " (source: " + inv.Source + ")"
 		}
-		b.units = append(b.units, unit{text: line + "\n"})
+		b.units = append(b.units, unit{
+			text:     line + "\n",
+			overflow: tier1Overflow(ItemInvariants, "pinned invariant "+oneLine(inv.ID), checkpointPointer(r, "invariants")),
+		})
 	}
 	return b
+}
+
+// checkpointPointer is the restore instruction for material whose only durable home is the
+// checkpoint artifact this payload was built from: the file itself, with the field to look in. The
+// model reads it with the host's own Read tool. It is empty when there is no artifact to point at
+// (the no-checkpoint path, where no checkpoint-derived material exists either).
+//
+// The path is given relative to the project root when it lies inside it, in slash form. The model
+// works in that root, and a pointer is a line of the overflow report: every character it costs is
+// one the report cannot spend naming another omission, so a drop line should cost less than the
+// record it replaces (PropBuild_MonotoneInBudget holds the payload to that).
+func checkpointPointer(r Request, field string) string {
+	p := strings.TrimSpace(r.Ref.Path)
+	if p == "" {
+		return ""
+	}
+	if root := strings.TrimSpace(r.ProjectRoot); root != "" {
+		if rel, err := filepath.Rel(root, p); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			p = filepath.ToSlash(rel)
+		}
+	}
+	return "Read " + oneLine(p) + " (" + field + ")"
+}
+
+// restoreClause is the "; restore: <pointer>" suffix a rehydration-minted drop detail ends in, or
+// "; call dropped() for the full accounting" when there is nothing more specific to say.
+func restoreClause(pointer string) string {
+	if pointer == "" {
+		return "; call dropped() for the full accounting"
+	}
+	return "; restore: " + pointer
+}
+
+// tier1Overflow is the explicit-overflow entry for one fixed tier-1 record that could not be
+// emitted whole. ID "tier1" is what Overflowed recognizes; the detail names the record and the
+// pointer that restores it, and keeps the "emitted whole or not at all" clause that says why it is
+// absent rather than shortened.
+func tier1Overflow(k ItemKind, label, pointer string) checkpoint.DropEntry {
+	return checkpoint.DropEntry{
+		Kind: k.String(),
+		ID:   "tier1",
+		Detail: "OVERFLOW: " + label + " did not fit the rehydration payload and is emitted whole " +
+			"or not at all" + restoreClause(pointer),
+	}
 }
 
 // firstPromptID is the tool_use id SP-08 records this session's FIRST UserPromptSubmit capture
@@ -275,7 +336,12 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	log := loggerOf(d)
 	fallback := strings.TrimSpace(r.Checkpoint.UserIntent.Original)
 
-	text, ok := readL0Intent(ctx, r, d)
+	text, rec0, ok := readL0Intent(ctx, r, d)
+	if ok {
+		if drop, substituted := hostOrderNotice(ctx, r, d, rec0); substituted {
+			b.drops = append(b.drops, drop)
+		}
+	}
 	switch {
 	case !ok:
 		// Degraded but correct: §8.5 guarantees the checkpoint's copy is itself verbatim-from-L0
@@ -303,7 +369,15 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 
 	if text != "" {
 		b.seen++
-		b.units = append(b.units, unit{text: quoteLines(text)})
+		// L0 is the source of record when it answered; otherwise the checkpoint's own copy is.
+		pointer := "expand(tool_use_id=" + string(firstPromptID(r.Session)) + ")"
+		if !ok {
+			pointer = checkpointPointer(r, "user_intent.original")
+		}
+		b.units = append(b.units, unit{
+			text:     quoteLines(text),
+			overflow: tier1Overflow(ItemUserIntent, "the verbatim original user intent", pointer),
+		})
 	}
 	// Evolution is append-only and oldest-first (checkpoint/writer.go's appendEvolutionLocked), but
 	// units are built NEWEST-FIRST here: fillPrefix admits a PREFIX of whatever order it is given
@@ -334,7 +408,11 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		}
 		b.units = append(b.units, unit{
 			text: body,
-			drop: checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: itoa(i)},
+			drop: checkpoint.DropEntry{
+				Kind: dropKindUserIntentEvolution, ID: itoa(i),
+				Detail: "did not fit the rehydration budget" +
+					restoreClause(checkpointPointer(r, "user_intent.evolution["+itoa(i)+"]")),
+			},
 		})
 	}
 	return b
@@ -347,31 +425,31 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 // the derived id means SP-08's id scheme drifted, and injecting a record this slice cannot vouch
 // for is worse than injecting the checkpoint copy. That case is a Warn, because it is a contract
 // drift rather than an ordinary absence.
-func readL0Intent(ctx context.Context, r Request, d Deps) (string, bool) {
+func readL0Intent(ctx context.Context, r Request, d Deps) (string, store.ToolUseRecord, bool) {
 	if d.Store == nil {
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 	log := loggerOf(d)
 
 	rec, err := d.Store.ToolUse(ctx, firstPromptID(r.Session))
 	if err != nil || rec.Root == (core.Hash{}) {
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 	if rec.Session != r.Session || rec.Turn != 0 {
 		log.Warn("rehydrate: L0 prompt record does not match its derived id; using the checkpoint copy",
 			"session", string(r.Session), "got_session", string(rec.Session), "turn", int(rec.Turn))
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 
 	rc, err := d.Store.Open(ctx, rec.Root)
 	if err != nil || rc == nil {
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 	raw, readErr := io.ReadAll(io.LimitReader(rc, maxIntentBytes))
 	closeErr := rc.Close()
 	if readErr != nil {
 		log.Debug("rehydrate: L0 prompt read failed", "err", readErr.Error())
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
 	if closeErr != nil {
 		log.Debug("rehydrate: L0 prompt close failed", "err", closeErr.Error())
@@ -381,9 +459,55 @@ func readL0Intent(ctx context.Context, r Request, d Deps) (string, bool) {
 	// prompt; §8.5's tagging exists precisely so that material is identifiable and ignorable.
 	text := strings.TrimSpace(checkpoint.StripInjections(string(trimToRuneBoundary(raw))))
 	if text == "" {
-		return "", false
+		return "", store.ToolUseRecord{}, false
 	}
-	return text, true
+	return text, rec, true
+}
+
+// hostOrderDropID is the drop ID of the notice hostOrderNotice writes, under
+// dropKindUserIntentSource: it qualifies where item 2's original came from.
+const hostOrderDropID = "host_order"
+
+// hostOrderNotice reports whether prompt_<s>_0 (rec0) is NOT the prompt its host sent first, and
+// the drop entry that says so (SP08-D3, owner decision D35).
+//
+// prompt_<s>_0 is the session's first PUBLISHED prompt. The daemon replays client spools in host
+// order, but a prompt that reached only its hook's spool can still be published after a later prompt
+// that arrived live; D35 rules that race out of the host-order guarantee and does not re-number
+// published turns. Each prompt record carries its host timestamp, so a later turn stamped earlier
+// than turn 0 is the substitution this item would otherwise present, silently, as the original
+// request. Item 2 still injects turn 0 — it is the verbatim capture its heading names — and this
+// entry says which record the host sent first and how to read it.
+//
+// The check needs the store's PromptOrder capability (one bounded index scan, once per
+// rehydration); a store without it answers as before. A store that has it but cannot answer is
+// logged, and no substitution is claimed on a guess.
+func hostOrderNotice(ctx context.Context, r Request, d Deps, rec0 store.ToolUseRecord) (checkpoint.DropEntry, bool) {
+	po, ok := d.Store.(store.PromptOrder)
+	if !ok {
+		return checkpoint.DropEntry{}, false
+	}
+	log := loggerOf(d)
+	first, err := po.EarliestPrompt(ctx, r.Session)
+	if err != nil {
+		if !errors.Is(err, core.ErrNotFound) {
+			log.Warn("rehydrate: could not check that the L0 original is the host's first prompt",
+				"session", string(r.Session), "err", err.Error())
+		}
+		return checkpoint.DropEntry{}, false
+	}
+	if first.ID == rec0.ID || first.TS >= rec0.TS {
+		return checkpoint.DropEntry{}, false
+	}
+	log.Warn("rehydrate: the L0 original is not the host's first prompt of the session",
+		"session", string(r.Session), "substituted_id", string(rec0.ID), "host_first_id", string(first.ID))
+	return checkpoint.DropEntry{
+		Kind: dropKindUserIntentSource, ID: hostOrderDropID,
+		Detail: string(rec0.ID) + " is this session's first captured prompt, not the first its host " +
+			"sent: " + string(first.ID) + " carries an earlier host timestamp and was captured after " +
+			"it, so the original request may be that one" +
+			restoreClause("expand(tool_use_id="+string(first.ID)+")"),
+	}, true
 }
 
 // buildEliminations is item 3: the top-N eliminations by slice relevance, plus the standing
@@ -454,7 +578,7 @@ func buildEliminations(ctx context.Context, r Request, d Deps, sc map[dag.NodeID
 			text: eliminationLine(rec),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindElimination, ID: rec.ID,
-				Detail: "did not fit the rehydration budget; call already_tried(target, approach) or dropped()",
+				Detail: "did not fit the rehydration budget; call " + alreadyTriedCall(rec),
 			},
 		})
 	}
@@ -543,6 +667,18 @@ func eliminationCandidates(ctx context.Context, r Request, d Deps) ([]negknow.Re
 }
 
 // eliminationLine renders one elimination.
+// alreadyTriedCall is the call that brings one elimination back: already_tried keyed on the
+// record's OWN target and approach, which is what the ledger matches (whitespace-collapsed, so
+// oneLine's newline folding still hits the same descriptor) and what the call answers with the
+// reason and evidence for. A drop line names the record only by its elim_ id, which no tool takes,
+// so a detail that said "already_tried(target, approach)" left the model nothing to pass. Both
+// fields are free text and are Go-quoted: a comma or quote inside one must not read as an argument
+// boundary.
+func alreadyTriedCall(rec negknow.Record) string {
+	return "already_tried(target=" + strconv.Quote(oneLine(rec.Target)) +
+		", approach=" + strconv.Quote(oneLine(rec.Approach)) + ")"
+}
+
 func eliminationLine(rec negknow.Record) string {
 	tag := activeStatusTag
 	if rec.Status == negknow.StatusStale {
@@ -718,7 +854,10 @@ func buildCurrentWork(_ context.Context, r Request, d Deps) built { //nolint:unp
 	b := built{seen: 1}
 	u := unit{
 		text: sb.String(),
-		drop: checkpoint.DropEntry{Kind: dropKindCurrentWork, ID: dropKindCurrentWork},
+		drop: checkpoint.DropEntry{
+			Kind: dropKindCurrentWork, ID: dropKindCurrentWork,
+			Detail: "did not fit the rehydration budget" + restoreClause(checkpointPointer(r, "current_work")),
+		},
 	}
 	if guardNoContents(u) {
 		b.drops = append(b.drops, checkpoint.DropEntry{
@@ -751,7 +890,7 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 			text: pointerLine(f.Path, f.Hash, f.Why),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindPointer, ID: f.Path,
-				Detail: "did not fit the rehydration budget; call recall or re_read",
+				Detail: "did not fit the rehydration budget; call re_read(" + oneLine(f.Path) + ")",
 			},
 		}, dropKindPointer, f.Path)
 	}
@@ -772,7 +911,8 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 			text: pointerLine("tool_use "+string(t.ToolUseID), t.Hash, t.Summary),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindPointer, ID: string(t.ToolUseID),
-				Detail: "did not fit the rehydration budget; call recall or re_read",
+				Detail: "did not fit the rehydration budget; call expand(tool_use_id=" +
+					oneLine(string(t.ToolUseID)) + ")",
 			},
 		}, dropKindPointer, string(t.ToolUseID))
 	}
@@ -927,7 +1067,9 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		}
 		b.units = append(b.units, unit{
 			text: ruleUnitText(rule, ruleScopeLabel(rule)),
-			drop: checkpoint.DropEntry{Kind: dropKindPathRule, ID: rule.Path, Detail: detail},
+			drop: checkpoint.DropEntry{
+				Kind: dropKindPathRule, ID: rule.Path, Detail: detail + restoreClause("Read "+oneLine(rule.Path)),
+			},
 		})
 	}
 	for _, rule := range nested {
@@ -936,7 +1078,7 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 			text: ruleUnitText(rule, "nested"),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindNestedClaudeMD, ID: rule.Path,
-				Detail: "did not fit the rehydration budget",
+				Detail: "did not fit the rehydration budget" + restoreClause("Read "+oneLine(rule.Path)),
 			},
 		})
 	}
@@ -989,6 +1131,18 @@ func firstMatchingPointer(rule rules.Rule, pointers []string, match matchFunc) s
 	return ""
 }
 
+// skillPointer is the pointer that restores one skill-index entry: a Read of its SKILL.md, whose
+// frontmatter carries the name and description the index line would have shown. Source is the
+// project-relative forward-slash path the indexer always sets; an entry without one yields "", and
+// restoreClause falls back to dropped() rather than rendering a bare "Read ".
+func skillPointer(e skills.Entry) string {
+	src := oneLine(e.Source)
+	if src == "" {
+		return ""
+	}
+	return "Read " + src
+}
+
 // buildSkillIndex is item 6b: names and one-line descriptions only (G4.4). The host re-injects
 // invoked skill BODIES but never the index, so the model loses awareness of what it could invoke
 // at all; this restores the awareness without paying for the bodies.
@@ -1030,7 +1184,7 @@ func buildSkillIndex(ctx context.Context, r Request, d Deps, bodyTokens bodyToke
 			text: "- " + oneLine(e.Name) + ": " + oneLine(e.Description) + "\n",
 			drop: checkpoint.DropEntry{
 				Kind: dropKindSkill, ID: e.Name,
-				Detail: "did not fit the rehydration budget",
+				Detail: "did not fit the rehydration budget" + restoreClause(skillPointer(e)),
 			},
 		})
 	}
@@ -1039,7 +1193,8 @@ func buildSkillIndex(ctx context.Context, r Request, d Deps, bodyTokens bodyToke
 		if _, ok := inIndex[e.Name]; !ok {
 			b.drops = append(b.drops, checkpoint.DropEntry{
 				Kind: dropKindSkill, ID: e.Name,
-				Detail: "not in the compact skill index (budget " + itoa(int(skillBudget)) + " tokens)",
+				Detail: "not in the compact skill index (budget " + itoa(int(skillBudget)) + " tokens)" +
+					restoreClause(skillPointer(e)),
 			})
 		}
 	}
@@ -1091,7 +1246,7 @@ func buildDropReport(entries []checkpoint.DropEntry) built {
 	sorted := make([]checkpoint.DropEntry, len(entries))
 	copy(sorted, entries)
 	sort.SliceStable(sorted, func(i, j int) bool {
-		ri, rj := rankOfKind(sorted[i].Kind), rankOfKind(sorted[j].Kind)
+		ri, rj := dropRank(sorted[i]), dropRank(sorted[j])
 		if ri != rj {
 			return ri < rj
 		}
@@ -1110,6 +1265,20 @@ func buildDropReport(entries []checkpoint.DropEntry) built {
 	}
 	b.seen = len(b.units)
 	return b
+}
+
+// dropRank is where e sorts in item 7. An explicit overflow — a tier-1 record that could not be
+// emitted whole, or a section the hard cap evicted — carries its ITEM's own kind so the line says
+// which requirement is gone, and that kind ("invariants", "user_intent", …) is not in kindRank. It
+// would therefore sort after every known kind, which is the last place the report should put the
+// one line naming essential material the payload could not carry: under a bounded report it would
+// be the first line the counted tail swallows. So every explicit overflow sorts with
+// dropKindOverflow, first.
+func dropRank(e checkpoint.DropEntry) int {
+	if Overflowed([]checkpoint.DropEntry{e}) {
+		return kindRank[dropKindOverflow]
+	}
+	return rankOfKind(e.Kind)
 }
 
 // rankOfKind is kindRank with a deterministic answer for a kind no version of this package minted.
@@ -1146,6 +1315,7 @@ func dropLine(e checkpoint.DropEntry) string {
 func moreDropsUnit(d Deps, n int) unit {
 	u := unit{text: "- … and " + itoa(n) + " more; call dropped()\n"}
 	u.tokens = estimate(d, u.text)
+	u.chars = hostChars(u.text)
 	return u
 }
 

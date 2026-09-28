@@ -84,32 +84,3 @@ func TestPercentileMs(t *testing.T) {
 
 	require.Equal(t, int64(300), percentileMs([]int64{500, 100, 300, 200, 400}, 50))
 }
-
-// TestFirstLine pins the probe-phrase extraction precompact.custom_instructions_accepted uses.
-func TestFirstLine(t *testing.T) {
-	require.Equal(t, "one line only", firstLine("one line only"))
-	require.Equal(t, "first", firstLine("first\nsecond\nthird"))
-	require.Equal(t, "", firstLine(""))
-}
-
-// TestProbePhrase pins the >= customInstrMinPhraseChars selection rule directly against the
-// unexported helper (Important I3): a qualifying first line is returned verbatim; a short one, and
-// an empty one (the leading-newline case), report ok=false rather than a phrase bytes.Contains
-// could match vacuously.
-func TestProbePhrase(t *testing.T) {
-	long := "this first line is exactly long enough to qualify"
-	require.GreaterOrEqual(t, len(long), customInstrMinPhraseChars)
-
-	phrase, ok := probePhrase(long + "\nsecond line")
-	require.True(t, ok)
-	require.Equal(t, long, phrase)
-
-	_, ok = probePhrase("too short")
-	require.False(t, ok)
-
-	_, ok = probePhrase("\nsecond line is long enough but is not first")
-	require.False(t, ok, "an empty first line (leading newline) must never qualify")
-
-	_, ok = probePhrase("")
-	require.False(t, ok)
-}

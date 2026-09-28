@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -190,6 +191,29 @@ func BenchmarkPutBytes_100KB_Warm_KeepRaw(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+// BenchmarkPutObject_NovelChunk measures the write PutBytes pays for each novel chunk of a cold put
+// (SP06-D2): the presence stat, the zstd encode, the fanout-leaf create, the exclusive staging
+// create and write, and the publishing rename. It leaves out what surrounds those in PutBytes —
+// redaction, canonicalization, chunking, the pending-write marker with its fsync, and the index
+// append — so the per-chunk filesystem cost can be compared on its own. Every iteration writes a
+// 4 KiB chunk no earlier iteration wrote into one store, so the fanout directories fill as a real
+// store's do; computing the chunk's address (about 4 KiB of SHA-256) is inside the timed loop.
+func BenchmarkPutObject_NovelChunk(b *testing.B) {
+	s := benchStore(b)
+	plain := benchPayload(4 << 10)
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(plain)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		binary.LittleEndian.PutUint64(plain, uint64(i))
+		h := core.HashBytes(core.DomainChunk, plain)
+		if _, novel, err := s.putObject(h, plain); err != nil || !novel {
+			b.Fatalf("iteration %d: novel %v, err %v", i, novel, err)
+		}
 	}
 }
 

@@ -1,0 +1,69 @@
+# w4-e2eflakes item (a): the five cases testutil.ProcessAlive's doc comment tabulates, measured with the new
+# probe, OpenProcess(SYNCHRONIZE) + WaitForSingleObject(h, 0). Host: Windows 11, go1.26.6, 2026-09-26.
+
+this process: WAIT_TIMEOUT (not signaled) -> alive
+a live detached child: WAIT_TIMEOUT (not signaled) -> alive
+that child after Kill + Wait + Release: OpenProcess ERROR_INVALID_PARAMETER -> dead
+a pid that never existed (0x7ffffff0): OpenProcess ERROR_INVALID_PARAMETER -> dead
+pid 4 (System): OpenProcess ERROR_ACCESS_DENIED -> alive
+
+# ---- source (main.go) ----
+//go:build windows
+
+// probetable measures the proposed SYNCHRONIZE + WaitForSingleObject probe against the five cases
+// testutil.ProcessAlive's doc comment tabulates.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"syscall"
+)
+
+const createNoWindow, detachedProcess = 0x08000000, 0x00000008
+
+func probe(pid int) string {
+	h, err := syscall.OpenProcess(syscall.SYNCHRONIZE, false, uint32(pid))
+	if err != nil {
+		switch {
+		case errors.Is(err, syscall.ERROR_ACCESS_DENIED):
+			return "OpenProcess ERROR_ACCESS_DENIED -> alive"
+		case errors.Is(err, syscall.Errno(87)): // ERROR_INVALID_PARAMETER
+			return "OpenProcess ERROR_INVALID_PARAMETER -> dead"
+		}
+		return "OpenProcess " + err.Error()
+	}
+	defer syscall.CloseHandle(h)
+	ev, err := syscall.WaitForSingleObject(h, 0)
+	if err != nil {
+		return "WAIT_FAILED " + err.Error()
+	}
+	switch ev {
+	case syscall.WAIT_OBJECT_0:
+		return "WAIT_OBJECT_0 (signaled) -> dead"
+	case syscall.WAIT_TIMEOUT:
+		return "WAIT_TIMEOUT (not signaled) -> alive"
+	}
+	return fmt.Sprintf("event %#x", ev)
+}
+
+func main() {
+	fmt.Println("this process:", probe(os.Getpid()))
+	cmd := exec.Command("cmd.exe", "/c", "pause")
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNoWindow | detachedProcess}
+	in, _ := cmd.StdinPipe()
+	if err := cmd.Start(); err != nil {
+		panic(err)
+	}
+	pid := cmd.Process.Pid
+	fmt.Println("a live detached child:", probe(pid))
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+	_ = in.Close()
+	_ = cmd.Process.Release()
+	fmt.Println("that child after Kill + Wait + Release:", probe(pid))
+	fmt.Println("a pid that never existed (0x7ffffff0):", probe(0x7ffffff0))
+	fmt.Println("pid 4 (System):", probe(4))
+}

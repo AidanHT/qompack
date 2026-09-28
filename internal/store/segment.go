@@ -55,3 +55,17 @@ type SegmentLog interface {
 	// Unencoded returns every Segment of s with EncodedOnce==false.
 	Unencoded(ctx context.Context, s core.SessionID) ([]Segment, error)
 }
+
+// SegmentSync is SegmentLog's optional durability half. Sync makes every record the log has
+// appended durable — each MarkEncoded among them — before it returns.
+//
+// MarkEncoded itself does not sync: the scheduler's idle Advance marks segments into an unsealed
+// draft, and nothing depends on those marks until the draft is sealed. What does depend on them is
+// the seal. A checkpoint whose MANIFEST line survives a power cut while the marks naming it do not
+// leaves its segments unencoded in the log, and the next draft encodes them again — the §4.6 DPI
+// guard broken by a lost tail. checkpoint.Finalize therefore re-marks the draft's segments and calls
+// Sync before it appends the MANIFEST line, and skips the call only for a SegmentLog that does not
+// offer it (a test double). *segLog, the store's own log, does.
+type SegmentSync interface {
+	Sync(ctx context.Context) error
+}

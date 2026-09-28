@@ -1,0 +1,2 @@
+        	Messages:   	row=map[detail:qompack: running in degraded mode: capture configuration unavailable: project or home root is not an absolute path; hooks still exit 0 with empty output, and nothing is recorded until the configuration is repaired id:config.capture observed:refused: every hook ad
+--- FAIL: TestDoctor_CaptureConfigResolvesARelativeProject (0.29s)

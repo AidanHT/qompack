@@ -1,0 +1,35 @@
+# 2026-09-25T23:13:20Z at c2e6b1b + uncommitted red tests
+# go test ./internal/commands -run '<4 tests>' -count=1 -v
+=== RUN   TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation
+    eval_live_test.go:446: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/commands/eval_live_test.go:446
+        	Error:      	Should be false
+        	Test:       	TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation
+--- FAIL: TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation (0.00s)
+=== RUN   TestEval_LiveNotConfirmatoryWhenAForeignPluginLoaded
+    eval_live_test.go:468: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/commands/eval_live_test.go:468
+        	Error:      	Should be false
+        	Test:       	TestEval_LiveNotConfirmatoryWhenAForeignPluginLoaded
+--- FAIL: TestEval_LiveNotConfirmatoryWhenAForeignPluginLoaded (0.00s)
+=== RUN   TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable
+    eval_live_test.go:498: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/commands/eval_live_test.go:498
+        	Error:      	Received unexpected error:
+        	            	decoding C:\Users\Quant\AppData\Local\Temp\TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable3707511892\001\dist\live-eval\20260929T120000Z-aaaaaa\summary.json: unexpected end of JSON input
+        	Test:       	TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable
+        	Messages:   	an older run's broken summary does not stop the newest being reported
+--- FAIL: TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable (0.04s)
+=== RUN   TestEval_ReplayJudgesEveryQompackPolicyItScored
+=== PAUSE TestEval_ReplayJudgesEveryQompackPolicyItScored
+=== CONT  TestEval_ReplayJudgesEveryQompackPolicyItScored
+    eval_test.go:436: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/commands/eval_test.go:436
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestEval_ReplayJudgesEveryQompackPolicyItScored
+        	Messages:   	the product policy fails
+--- FAIL: TestEval_ReplayJudgesEveryQompackPolicyItScored (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/commands	1.289s
+FAIL
+exit=1

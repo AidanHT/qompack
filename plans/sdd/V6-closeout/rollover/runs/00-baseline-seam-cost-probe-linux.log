@@ -1,0 +1,9 @@
+=== RUN   TestZZScratchProbe
+    zz_scratch_probe_test.go:54: seam=false lease/op=54.156287ms ack/op=31.629473ms files=6 bytes=175004
+    zz_scratch_probe_test.go:54: seam=true lease/op=1.695752995s ack/op=1.652341852s files=9781 bytes=1072298
+--- PASS: TestZZScratchProbe (688.95s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	688.972s
+exit=0
+
+[exited with code 0]

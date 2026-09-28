@@ -1,0 +1,6 @@
+FAIL      github.com/qompack/qompack/test/security  (pass=0 fail=2 skip=0)
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ArchivedTextIsDataNeverAnInstruction
+FAIL      github.com/qompack/qompack/test/guards  (pass=2 fail=2 skip=0)
+    FAIL TestGuard_TheV1DeliveryPositionHasOneEncoder/every_deliveryPosition_marshal_site_is_named_here
+    FAIL TestGuard_TheV1DeliveryPositionHasOneEncoder

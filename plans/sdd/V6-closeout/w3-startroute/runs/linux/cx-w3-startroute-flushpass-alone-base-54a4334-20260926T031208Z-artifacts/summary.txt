@@ -1,0 +1,11 @@
+NO RESULT github.com/qompack/qompack/internal/daemon  (pass=0 fail=9 skip=0)
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    FAIL TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+UNREPORTED (no package result): github.com/qompack/qompack/internal/daemon

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "session": "9d21f1b7-4f31-42ce-a172-97bebe878414",
+  "seq": 1,
+  "created": "2026-09-22T21:28:48.911Z",
+  "encoded_segments": [],
+  "invariants": [],
+  "user_intent": {
+    "original": "Read notes.txt and tell me the release codeword. Reply in one short sentence.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [
+    {
+      "kind": "pointer_git_unavailable",
+      "id": "",
+      "detail": "checkpoint: no .git at the project root"
+    }
+  ],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

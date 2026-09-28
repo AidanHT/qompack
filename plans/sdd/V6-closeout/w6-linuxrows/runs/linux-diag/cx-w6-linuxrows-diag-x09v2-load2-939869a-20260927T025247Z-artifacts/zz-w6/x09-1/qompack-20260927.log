@@ -1,0 +1,7 @@
+ts=2026-09-27T02:54:50.465718948Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-27T02:54:51.104169922Z level=info msg="observer: session registered" session=sess-e2e-x9 source=startup turn=0 segment=1
+ts=2026-09-27T02:54:51.104411614Z level=info msg="scheduler: session bound" session=sess-e2e-x9 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-27T02:55:12.299023101Z level=warn msg="daemon: ingest handler did not acknowledge; WAL retained for retry" op=observe.tool
+ts=2026-09-27T02:55:17.402254377Z level=warn msg="observer: stage failed" stage=fileversion err="context deadline exceeded"
+ts=2026-09-27T02:55:20.76669736Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-27T02:59:23.940534071Z level=info msg="observer: gc" scanned=66 deleted=0 freed=0 truncated=false

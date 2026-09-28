@@ -96,6 +96,11 @@ func runAdminDeliverySeal(_ context.Context, env Env, args []string, out, errw i
 		fmt.Fprintln(errw, "qompack admin delivery-seal: could not resolve a project root")
 		return errAlreadyReported
 	}
+	// D18: the home directory's .qompack is the user-global layer, and it holds no journals.
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		fmt.Fprintf(errw, "qompack admin delivery-seal: %v\n", refused)
+		return errAlreadyReported
+	}
 	clk := env.Clock
 	if clk == nil {
 		clk = core.SystemClock()

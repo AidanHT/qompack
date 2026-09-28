@@ -1,0 +1,17 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 915,
+   "failed": [],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent",
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent",
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent",
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent",
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  }
+ },
+ "unreported": []
+}

@@ -1,0 +1,2 @@
+# head=7abddc7: GOOS=darwin golangci-lint run ./... (pinned build, committed .golangci.yml)
+darwin exit=0

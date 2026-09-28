@@ -54,8 +54,17 @@ func WriteMarker(projectRoot string, sess core.SessionID, now core.UnixMilli) er
 // caller, which treats every one of them as "no observation yet", never as a failure: a marker file
 // is evidence of a PAST terminal hook firing, and its absence proves nothing about whether the host
 // contract itself is broken until it has been absent across two sessions (§12.1).
+//
+// The read goes through paths.ReadFileShared. The marker's writer is the daemon's WriteMarker, one
+// paths.WriteAtomic per SessionEnd and PreCompact that nothing retries, and on Windows an ordinary
+// os.ReadFile handle both fails that replace and is itself refused with ERROR_SHARING_VIOLATION
+// while the replace is finishing. checkSessionStartFires reads here in the daemon while another
+// session's terminal hook may be writing (session ends run concurrently since C1.15), and
+// `qompack selftest` reads here from its own process. A marker read that failed that way used to
+// count toward the two-session absence that raises the SevCritical §12.1 degradation although the
+// hook had fired; test/guards' sharedReaders pins this call.
 func readMarker(projectRoot string) (markerRecord, error) {
-	b, err := os.ReadFile(paths.Long(MarkerPath(projectRoot)))
+	b, err := paths.ReadFileShared(MarkerPath(projectRoot))
 	if err != nil {
 		return markerRecord{}, err
 	}

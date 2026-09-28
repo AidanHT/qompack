@@ -1,0 +1,83 @@
+# x/sys v0.44.0 supply-chain checks at HEAD 4316e06, Windows
+## go run ./tools/devtool licenses --check
+licenses: THIRD_PARTY_NOTICES.md is current
+exit=0
+## go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./...
+=== Symbol Results ===
+
+No vulnerabilities found.
+
+Your code is affected by 0 vulnerabilities.
+This scan also found 0 vulnerabilities in packages you import and 3
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+Use '-show verbose' for more details.
+exit=0
+## go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck -show verbose ./...  (HEAD)
+=== Module Results ===
+
+Vulnerability #1: GO-2026-6180
+    Ignore unrelated, unauthenticated hashes in Lookup in golang.org/x/mod/sumdb
+  More info: https://pkg.go.dev/vuln/GO-2026-6180
+  Module: golang.org/x/mod
+    Found in: golang.org/x/mod@v0.25.0
+    Fixed in: golang.org/x/mod@v0.40.0
+
+Vulnerability #2: GO-2026-6179
+    Fix transparency log tile verification bypass in golang.org/x/mod/sumdb/tlog
+  More info: https://pkg.go.dev/vuln/GO-2026-6179
+  Module: golang.org/x/mod
+    Found in: golang.org/x/mod@v0.25.0
+    Fixed in: golang.org/x/mod@v0.40.0
+
+Vulnerability #3: GO-2026-5841
+    OOB read in github.com/klauspost/compress/s2
+  More info: https://pkg.go.dev/vuln/GO-2026-5841
+  Module: github.com/klauspost/compress
+    Found in: github.com/klauspost/compress@v1.18.0
+    Fixed in: github.com/klauspost/compress@v1.18.7
+
+Your code is affected by 0 vulnerabilities.
+This scan also found 0 vulnerabilities in packages you import and 3
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+exit=0
+## BASE for comparison: git archive 6aff949 (x/sys v0.33.0): go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck -show verbose ./...
+=== Package Results ===
+
+Vulnerability #1: GO-2026-5024
+    Invoking integer overflow in NewNTUnicodeString in golang.org/x/sys/windows
+  More info: https://pkg.go.dev/vuln/GO-2026-5024
+  Module: golang.org/x/sys
+    Found in: golang.org/x/sys@v0.33.0
+    Fixed in: golang.org/x/sys@v0.44.0
+    Platforms: windows
+
+=== Module Results ===
+
+Vulnerability #1: GO-2026-6180
+    Ignore unrelated, unauthenticated hashes in Lookup in golang.org/x/mod/sumdb
+  More info: https://pkg.go.dev/vuln/GO-2026-6180
+  Module: golang.org/x/mod
+    Found in: golang.org/x/mod@v0.25.0
+    Fixed in: golang.org/x/mod@v0.40.0
+
+Vulnerability #2: GO-2026-6179
+    Fix transparency log tile verification bypass in golang.org/x/mod/sumdb/tlog
+  More info: https://pkg.go.dev/vuln/GO-2026-6179
+  Module: golang.org/x/mod
+    Found in: golang.org/x/mod@v0.25.0
+    Fixed in: golang.org/x/mod@v0.40.0
+
+Vulnerability #3: GO-2026-5841
+    OOB read in github.com/klauspost/compress/s2
+  More info: https://pkg.go.dev/vuln/GO-2026-5841
+  Module: github.com/klauspost/compress
+    Found in: github.com/klauspost/compress@v1.18.0
+    Fixed in: github.com/klauspost/compress@v1.18.7
+
+Your code is affected by 0 vulnerabilities.
+This scan also found 1 vulnerability in packages you import and 3
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+exit=0

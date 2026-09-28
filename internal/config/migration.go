@@ -93,6 +93,12 @@ func MigrationBuildGates() []MigrationGate {
 // LegacyImportGate returns the legacy import/cutover build gate as this build ships it. Passed is
 // false until SP-20 M1-04's acceptance evidence lands, so the production wiring of
 // store.NewMigrator refuses to import or cut over at all.
+//
+// Before Passed flips, the import's two unsynced appends must become durable: the mapping line that
+// Import commits its cursor past (store/migrate.go importOne, with a publication pass for the
+// imported objects) and the new-format write line the handoff records (RecordNewFormatWrite). The
+// V6 close-out found both and left them behind this gate (w6-ckptsync review finding 5); the store
+// test TestLegacyImportGate_StaysClosedUntilTheImportIsDurable fails if the gate opens first.
 func LegacyImportGate() MigrationGate {
 	for _, g := range migrationBuildGates {
 		if g.Key == LegacyImportGateKey {
@@ -151,7 +157,7 @@ var retiredMeaningKeys = []retiredMeaningKey{
 	{"scheduler.youngDaly.enabled", "Young–Daly pacing is compatibility/harness-only: no native compaction trigger, cut or veto depends on it (Qompack.md v1.5 Appendix C; SP-12 reviewed migration)"},
 	{"scheduler.youngDaly.measuredDeltaSeconds", "Young–Daly pacing is compatibility/harness-only: the measured delta no longer times a native compaction (Qompack.md v1.5 Appendix C; SP-12 reviewed migration)"},
 	{"scheduler.idle.deepCutWhenCold", "no native cut is available to a plugin; the key is read for compatibility only and selects no history rewrite (Qompack.md v1.5 §12; SP-12 reviewed migration)"},
-	{"checkpoint.incrementalSpanInstruction", "custom_instructions is PreCompact input, not a summarizer setter; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration)"},
+	{"checkpoint.incrementalSpanInstruction", "custom_instructions is PreCompact input, not a summarizer setter, and since C1.18 Qompack emits no PreCompact instruction at all; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration)"},
 }
 
 // RetiredMeaningKey is one retired-meaning key as the reference documentation reports it: the

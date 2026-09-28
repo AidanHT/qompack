@@ -1,0 +1,8 @@
+# github.com/qompack/qompack/internal/eval_test [github.com/qompack/qompack/internal/eval.test]
+internal\eval\live_summary_test.go:22:82: unknown field HostReportedPlugins in struct literal of type eval.LiveTrial
+internal\eval\live_summary_test.go:199:4: unknown field HostReportedPlugins in struct literal of type eval.LiveTrial
+internal\eval\live_summary_test.go:257:7: q[0].HostReportedPlugins undefined (type eval.LiveTrial has no field or method HostReportedPlugins)
+internal\eval\live_summary_test.go:267:7: q[0].HostReportedPlugins undefined (type eval.LiveTrial has no field or method HostReportedPlugins)
+FAIL	github.com/qompack/qompack/internal/eval [build failed]
+FAIL
+exit=1

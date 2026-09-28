@@ -1,0 +1,1 @@
+golangci-lint ./internal/commands/... @0a7b320 exit=0

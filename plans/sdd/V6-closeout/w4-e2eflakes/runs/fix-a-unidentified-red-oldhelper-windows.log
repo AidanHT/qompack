@@ -1,0 +1,21 @@
+# red: new staged row against the current helper (HEAD 696ac7f + test only)
+=== RUN   TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified
+    shutdown_spawn_inflight_test.go:323: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:308
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:323
+        	Error:      	e2eShutdownIfReachable returned too early
+        	Test:       	TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified
+        	Messages:   	it returned once a lock whose holder it never identified was released, after 3 shutdown attempts, although no check ever read the pid of the process that held the lock
+--- FAIL: TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified (1.75s)
+=== RUN   TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified
+    shutdown_spawn_inflight_test.go:323: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:308
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/shutdown_spawn_inflight_test.go:323
+        	Error:      	e2eShutdownIfReachable returned too early
+        	Test:       	TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified
+        	Messages:   	it returned once a lock whose holder it never identified was released, after 3 shutdown attempts, although no check ever read the pid of the process that held the lock
+--- FAIL: TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified (1.74s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	3.685s
+FAIL
+exit=1

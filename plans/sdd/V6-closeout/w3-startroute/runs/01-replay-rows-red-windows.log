@@ -1,0 +1,67 @@
+=== RUN   TestCheckpointReplay_DoesNotReopenACompactStartAlreadyObserved
+    session_start_replay_probe_test.go:42: no row in this file starts a compact rehydration
+    checkpoint_replay_test.go:41: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/checkpoint_replay_test.go:41
+        	Error:      	Should be false
+        	Test:       	TestCheckpointReplay_DoesNotReopenACompactStartAlreadyObserved
+        	Messages:   	a replayed PreCompact must not re-arm an obligation its compact SessionStart already met
+--- FAIL: TestCheckpointReplay_DoesNotReopenACompactStartAlreadyObserved (0.19s)
+=== RUN   TestCheckpointReplay_StillArmsWhenNoStartHasFollowed
+--- PASS: TestCheckpointReplay_StillArmsWhenNoStartHasFollowed (0.07s)
+=== RUN   TestSessionStartReplay_MintsNoProbeAndAnswersNothing
+    session_start_replay_probe_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_replay_probe_test.go:97
+        	Error:      	Should be empty, but was <!-- qompack-contract-probe qompack-contract-b87dc94d9976 -->
+        	Test:       	TestSessionStartReplay_MintsNoProbeAndAnswersNothing
+        	Messages:   	a replay's answer reaches no host, so it carries nothing
+--- FAIL: TestSessionStartReplay_MintsNoProbeAndAnswersNothing (0.07s)
+=== RUN   TestSessionStartReplay_NeverDegradesTheProjectTwoPromptsLater
+    session_start_replay_probe_test.go:125: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_replay_probe_test.go:125
+        	Error:      	"2" is not less than "2"
+        	Test:       	TestSessionStartReplay_NeverDegradesTheProjectTwoPromptsLater
+        	Messages:   	no probe the host never saw may run out its chances
+--- FAIL: TestSessionStartReplay_NeverDegradesTheProjectTwoPromptsLater (0.12s)
+=== RUN   TestSessionStartReplay_WithdrawsTheProbeItsLostAnswerCarried
+    session_start_replay_probe_test.go:156: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_replay_probe_test.go:156
+        	Error:      	Not equal: 
+        	            	expected: "qompack-contract-7b828573fba4"
+        	            	actual  : "qompack-contract-72e6f7053f39"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-qompack-contract-7b828573fba4
+        	            	+qompack-contract-72e6f7053f39
+        	Test:       	TestSessionStartReplay_WithdrawsTheProbeItsLostAnswerCarried
+        	Messages:   	a replay of another request withdraws nothing
+--- FAIL: TestSessionStartReplay_WithdrawsTheProbeItsLostAnswerCarried (0.19s)
+=== RUN   TestSessionStartReplay_LeavesTheDegradeBannerToTheNextLiveStart
+    session_start_replay_probe_test.go:191: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_replay_probe_test.go:191
+        	Error:      	Should be empty, but was Qompack: degraded to passive recording — session_start.source_compact expected "compact", observed "startup". See /qompack:status.
+        	Test:       	TestSessionStartReplay_LeavesTheDegradeBannerToTheNextLiveStart
+        	Messages:   	a replay's banner would reach no host
+--- FAIL: TestSessionStartReplay_LeavesTheDegradeBannerToTheNextLiveStart (0.10s)
+=== RUN   TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried
+    session_start_replay_probe_test.go:221: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_replay_probe_test.go:221
+        	Error:      	"" does not contain "Qompack: degraded to passive recording"
+        	Test:       	TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried
+        	Messages:   	the banner whose answer was lost is owed to the next live start
+--- FAIL: TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried (0.25s)
+=== RUN   TestDispatchOp_AReplayIsNotAServedRequest
+    session_start_replay_probe_test.go:236: a replayed request released the re-drain that waits for the first served request
+--- FAIL: TestDispatchOp_AReplayIsNotAServedRequest (0.00s)
+=== RUN   TestSentinelScan_APromptFromBeforeTheMintIsNoMiss
+    session_start_replay_probe_test.go:264: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-startroute/internal/daemon/session_start_replay_probe_test.go:264
+        	Error:      	Should be zero, but was 2
+        	Test:       	TestSentinelScan_APromptFromBeforeTheMintIsNoMiss
+        	Messages:   	prompts from before the mint are no chances to find it
+--- FAIL: TestSentinelScan_APromptFromBeforeTheMintIsNoMiss (0.13s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.364s
+FAIL

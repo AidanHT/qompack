@@ -1,0 +1,75 @@
+run_id=cx-linux-ingest-endpoint-c34acb4-c34acb4-20260922T221949Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=c34acb4
+commit=c34acb41410eadd373bf46ec8c41e455ab9031c7
+bundle_sha256=f9a5c5fb2aecab17c0ad1553dc64316020c553e1aedd3e43518bb7cbe2b64b7c
+host_started_utc=2026-09-22T22:20:02Z
+inner_args=--no-race --coload --run ^(TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites|TestIntegration_DegradedPassiveStillWritesToTheRealStore|TestIntegration_HotPathWarmWithRealResidentState|TestSecurity_.*|TestFault_.*|TestV6Backup_.*|TestV6_.*)$ -- ./test/integration ./test/security ./test/fault
+/work/cx-linux-ingest-endpoint-c34acb4-c34acb4-20260922T221949Z.bundle: OK
+run_id=cx-linux-ingest-endpoint-c34acb4-c34acb4-20260922T221949Z
+commit=c34acb41410eadd373bf46ec8c41e455ab9031c7
+tree=209a4e1e17f9a4067dd8131667ed67d7bca09e39
+bundle_sha256=f9a5c5fb2aecab17c0ad1553dc64316020c553e1aedd3e43518bb7cbe2b64b7c
+started_utc=2026-09-22T22:20:04Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=1
+run=^(TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites|TestIntegration_DegradedPassiveStillWritesToTheRealStore|TestIntegration_HotPathWarmWithRealResidentState|TestSecurity_.*|TestFault_.*|TestV6Backup_.*|TestV6_.*)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+FAIL      github.com/qompack/qompack/test/integration  (pass=1 fail=2 skip=0)
+    FAIL TestIntegration_DegradedPassiveStillWritesToTheRealStore
+    FAIL TestIntegration_HotPathWarmWithRealResidentState
+FAIL      github.com/qompack/qompack/test/security  (pass=21 fail=2 skip=0)
+    FAIL TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+    FAIL TestSecurity_ArchivedTextIsDataNeverAnInstruction
+FAIL      github.com/qompack/qompack/test/fault  (pass=12 fail=34 skip=0)
+    FAIL TestFault_AuditSeesADeletedObjectUnderALiveIndex
+    FAIL TestFault_MCPChildKilledMidRequest
+    FAIL TestFault_DaemonKilledMidIngest
+    FAIL TestFault_UnavailableHistoricalObject
+    FAIL TestFault_CheckpointDropsAnUnresolvablePointer
+    FAIL TestFault_CheckpointResolvabilityIsBlindToADeletedObject
+    FAIL TestFault_Lifecycle/startup
+    FAIL TestFault_Lifecycle/resume
+    FAIL TestFault_Lifecycle/fork
+    FAIL TestFault_Lifecycle/clear
+    FAIL TestFault_Lifecycle/compaction_manual
+    FAIL TestFault_Lifecycle/compaction_auto
+    FAIL TestFault_Lifecycle/compaction_failed
+    FAIL TestFault_Lifecycle/compaction_crossed
+    FAIL TestFault_Lifecycle/duplicate_precompact
+    FAIL TestFault_Lifecycle/missing_turn
+    FAIL TestFault_Lifecycle/out_of_order_precompact
+    FAIL TestFault_Lifecycle
+    FAIL TestFault_PublicationBoundaries/object_written_index_line_absent
+    FAIL TestFault_PublicationBoundaries/roots_last_line_truncated
+    FAIL TestFault_PublicationBoundaries/tool_use_truncated
+    FAIL TestFault_PublicationBoundaries/capture_sidecar_stage_one_only
+    FAIL TestFault_PublicationBoundaries/checkpoint_orphan_artifact
+    FAIL TestFault_PublicationBoundaries/checkpoint_manifest_artifact_missing
+    FAIL TestFault_PublicationBoundaries/checkpoint_manifest_digest_mismatch
+    FAIL TestFault_PublicationBoundaries/wal_segment_truncated
+    FAIL TestFault_PublicationBoundaries/client_spool_truncated
+    FAIL TestFault_PublicationBoundaries/stale_drain_progress
+    FAIL TestFault_PublicationBoundaries/delivery_seal_torn_slot
+    FAIL TestFault_PublicationBoundaries/retention_roots_truncated
+    FAIL TestFault_PublicationBoundaries/state_bin_corrupt
+    FAIL TestFault_PublicationBoundaries/config_json_corrupt
+    FAIL TestFault_PublicationBoundaries
+    FAIL TestFault_WriteFailures/disk_full
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/cx-linux/runs/cx-linux-ingest-endpoint-c34acb4-c34acb4-20260922T221949Z-artifacts
+exit=1
+exit=1

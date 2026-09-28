@@ -63,6 +63,9 @@ func runMCP(ctx context.Context, env Env, _ []string, out, errw io.Writer) error
 		fmt.Fprintln(errw, "qompack mcp: could not resolve a project root")
 		return nil
 	}
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		return serveRefusedMCP(ctx, env, refused, out, errw)
+	}
 
 	l := paths.Of(root)
 	if err := paths.EnsureLayout(l); err != nil {
@@ -114,6 +117,42 @@ func runMCP(ctx context.Context, env Env, _ []string, out, errw io.Writer) error
 	return nil
 }
 
+// serveRefusedMCP serves a session refused under D18: its project root is the home directory.
+//
+// The server still speaks JSON-RPC and still lists the same eight tools, so the host's view of the
+// plugin does not change between directories and no configuration has to be edited; every
+// tools/call answers mcp.HomeRootRefusedText as a tool error the model reads. Nothing else happens:
+// no layout, no log file, no handshake record, no configuration report and no client, so no daemon
+// is ever started for the home directory. stderr, which the host keeps apart from the protocol
+// stream, says why once.
+func serveRefusedMCP(ctx context.Context, env Env, refused error, out, errw io.Writer) error {
+	fmt.Fprintf(errw, "qompack mcp: %v\n", refused)
+	srv := mcp.NewServerWithOptions(mcp.ServerOptions{
+		Name:    mcp.ServerName,
+		Version: core.Version,
+		Log:     logging.Nop(),
+		MaxLine: config.Defaults().Runtime.HotPath.MaxPayloadBytes,
+	})
+	if err := mcp.RegisterProxy(srv, refusedMCPCall); err != nil {
+		fmt.Fprintf(errw, "qompack mcp: could not build the tool set: %v\n", err)
+		return err
+	}
+	serveCtx, cancel := signalContext(ctx)
+	defer cancel()
+	if err := srv.Serve(serveCtx, env.Stdin, out); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
+}
+
+// refusedMCPCall is the handler every tool is bound to in a refused session.
+func refusedMCPCall(context.Context, mcp.Request) (mcp.Response, error) {
+	return mcp.Response{
+		IsError: true,
+		Content: []mcp.Content{{Type: "text", Text: mcp.HomeRootRefusedText}},
+	}, nil
+}
+
 // newMCPClient builds the transport `qompack mcp` forwards over, using SP-05's own lazy-spawn seam
 // rather than a hand-rolled one: the first Send starts a detached daemon when none is listening,
 // and forward's retry loop is what waits for it.
@@ -123,9 +162,9 @@ func newMCPClient(root string, cfg config.Config, env Env,
 	addr, _ := ipc.Resolve(root)
 	return ipc.NewClientWithOptions(addr, nopSpool{}, log, reg, ipc.ClientOptions{
 		ProjectRoot: root,
-		State:       ipc.ReadState(root, cfg),
+		State:       daemonClientState(root, cfg),
 		Self:        env.Self,
-		Spawn:       daemon.SpawnDetached,
+		Spawn:       spawnDaemon,
 		Clock:       clk,
 	})
 }

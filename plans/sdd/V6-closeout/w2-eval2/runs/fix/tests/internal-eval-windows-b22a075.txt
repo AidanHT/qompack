@@ -1,0 +1,3 @@
+# 2026-09-25T23:32:28Z at b22a075: go test ./internal/eval -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/internal/eval	1.077s
+exit=0

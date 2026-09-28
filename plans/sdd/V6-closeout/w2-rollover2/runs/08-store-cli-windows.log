@@ -1,0 +1,10 @@
+# run: 08-store-cli-windows
+# commit: 651a8fb220859d8becfd6505c0dad91fe8a89f44
+# platform: windows/amd64 go version go1.26.6 windows/amd64
+# started: 2026-09-25T23:44:37Z
+# env: CGO_ENABLED= GOMAXPROCS= QOMPACK_UNDER_COLOAD=
+# command: go test -count=1 -timeout=30m ./internal/store ./internal/cli
+ok  	github.com/qompack/qompack/internal/store	379.294s
+ok  	github.com/qompack/qompack/internal/cli	30.654s
+# finished: 2026-09-25T23:51:19Z
+# exit: 0

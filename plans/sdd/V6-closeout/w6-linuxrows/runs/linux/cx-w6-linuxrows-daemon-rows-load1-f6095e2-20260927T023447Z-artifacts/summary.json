@@ -1,0 +1,22 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 70,
+   "failed": [
+    "TestFeaturesFrom_LexicalCohesionShingleCap",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestFeaturesFrom_LexicalCohesionShingleCap",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestFeaturesFrom_LexicalCohesionShingleCap",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

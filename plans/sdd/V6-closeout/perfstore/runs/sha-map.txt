@@ -1,0 +1,17 @@
+# closeout/perfstore commit ids before and after two over-length subjects were reworded
+# (git filter-branch --msg-filter, messages only). Trees are identical, so every log, count
+# and A/B result recorded against an old id applies unchanged to its new id.
+# old new tree subject(new)
+e91c4b6dc05b 5ed352ff4aa8 b34b0db11c4a docs(v6): record perfstore close-out evidence
+f6f7ff60b734 69d875310559 1f58168e7af9 perf(store): skip to candidate offsets in Search's text scan
+c9d1b3c28ff3 3d712ed0ecc2 d4cc3b6e753c test(store): check the read-only store type in the Search test
+989edd55b02f 6f5f3ffaa5c1 2b2a2021a81a test(store): benchmark the per-novel-chunk object write
+b10ea3c24b66 f4b537612b9a 0613b2efebe2 perf(store): keep one zstd encoder for the process
+23e67d26ad64 2ffe95ca1cdc 6f559d274fe2 perf(store): read each shared chunk once per Search
+4ea3ec20cbe0 592f148f984f d138bfbdfae0 perf(paths): walk once and skip no-op work in WriteAtomic
+7225b65c4f1d 4f6873c6cd8c 1332a90fc888 perf(paths): skip the root walk for unprotectable paths
+2e861ea1081f 2e861ea1081f 372d7f560933 perf(paths): return short absolute paths from Long directly
+e86c700b718d e86c700b718d 4489031107e2 perf(store): open staging files non-blocking on unix
+182ca37803c1 182ca37803c1 65cf0c621e70 perf(store): create fanout leaves before probing them
+07ce85e1d6aa 07ce85e1d6aa 52dbe3b9fafe perf(store): build object paths in one allocation
+5213545c11de 5213545c11de 410f35ec9427 perf(store): open object leaves once without following links

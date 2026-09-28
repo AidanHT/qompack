@@ -1,0 +1,21 @@
+## base 0c7a699 + marker_windows_test.go, readMarker still os.ReadFile
+## go test ./internal/contract -run '^(TestReadMarker_ReadsThroughAReplaceStillFinishing|TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence)$' -count=1 -v
+=== RUN   TestReadMarker_ReadsThroughAReplaceStillFinishing
+    marker_windows_test.go:51: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/contract/marker_windows_test.go:51
+        	Error:      	Received unexpected error:
+        	            	open C:\Users\Quant\AppData\Local\Temp\TestReadMarker_ReadsThroughAReplaceStillFinishing267198059\001\.qompack\run\marker.json: The process cannot access the file because it is being used by another process.
+        	Test:       	TestReadMarker_ReadsThroughAReplaceStillFinishing
+        	Messages:   	a marker whose replace is still finishing is present, not unreadable
+--- FAIL: TestReadMarker_ReadsThroughAReplaceStillFinishing (0.02s)
+=== RUN   TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence
+    marker_windows_test.go:69: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-winfiles/internal/contract/marker_windows_test.go:69
+        	Error:      	Should be true
+        	Test:       	TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence
+        	Messages:   	a marker the previous session's terminal hook is still replacing is proof the hook fired: {ID: OK:false Severity:0 Expected:SessionStart hook fires Observed:no marker from a prior terminal hook across two consecutive sessions TS:1790460602935 Detail:}
+--- FAIL: TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/contract	1.179s
+FAIL
+exit=1

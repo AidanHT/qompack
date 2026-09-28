@@ -1,0 +1,25 @@
+# green: recovery-marker writes serialized (recoveryMu), c4d27e2 + working tree
+# go test ./internal/daemon -run '^TestSessionRecovery_ConcurrentEndsLoseNoMarker$' -count=10 -v
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (2.12s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.92s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.51s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.54s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.61s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.35s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.58s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.60s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.27s)
+=== RUN   TestSessionRecovery_ConcurrentEndsLoseNoMarker
+--- PASS: TestSessionRecovery_ConcurrentEndsLoseNoMarker (1.31s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	16.275s
+exit=0

@@ -1,0 +1,10 @@
+run_id=cx-w7-layout-rerun-stop-drain-f6379c0-20260928T022025Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-layout
+rev=f6379c00
+commit=f6379c0014847ea5b846d2dad06a092e4698d21e
+bundle_sha256=1fc3b37b31ad242657259943e80e53b53f3f661acbf8859613c0dad1963c2ea1
+host_started_utc=2026-09-28T02:20:30Z
+inner_args=--run ^TestStop_IsNotHeldBehindASessionEndsDrain$ --count 5 --timeout 30m -- ./internal/daemon
+host_finished_utc=2026-09-28T02:21:04Z
+container_exit=0

@@ -1,0 +1,16 @@
+C1.14 red run — pre-change base (closeout/packaging 32e1a37), 2026-09-23T02:59Z
+Temporary test (not committed): the golden 'full' fixture at the default budget, as the host receives it
+(Build payload + the daemon's contract-probe line), measured in UTF-16 code units against D5's 9,500.
+Command: go test ./internal/rehydrate/ -run TestRedD5 -count=1 -v
+
+=== RUN   TestRedD5_LargeSessionOverTheHostCeiling
+    zz_red_d5_test.go:27: additionalContext = 32049 UTF-16 units; host overruns: [{Field:hookSpecificOutput.additionalContext Chars:32049}]
+    zz_red_d5_test.go:29: 
+        	Error Trace:	<projects>/qompack-cx-rehydrate/internal/rehydrate/zz_red_d5_test.go:29
+        	Error:      	"32049" is not less than or equal to "9500"
+        	Test:       	TestRedD5_LargeSessionOverTheHostCeiling
+        	Messages:   	D5: the whole field must be <= 9,500 host characters
+--- FAIL: TestRedD5_LargeSessionOverTheHostCeiling (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/rehydrate	1.199s
+FAIL

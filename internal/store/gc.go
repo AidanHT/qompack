@@ -22,7 +22,9 @@ type GCPolicy struct {
 	// Deadline bounds the mark's hash harvest and the sweep. The tombstone phase and the mark's
 	// in-memory index walks answer only to ctx, so a pass may overshoot the deadline by the
 	// tombstone phase's cost (SP06-D1, adjudicated wontfix at V3-VERIFY: 100-260 ms measured at
-	// 650 dead roots). GC must be resumable when it runs out (GCReport.Truncated).
+	// 650 dead roots). GC must be resumable when it runs out (GCReport.Truncated). It is counted from
+	// the moment the pass that answers the call starts: a call that waits behind another pass of the
+	// same store (gcgate.go) is bounded while it waits by its context alone.
 	Deadline time.Duration
 	// QuotaBytes is the maximum on-disk object size this store may keep, in bytes. Zero means no
 	// quota; a negative value disables one explicitly, which reads the same but says so.
@@ -121,6 +123,10 @@ type GCReport struct {
 	// RetentionRootsError reports that a retention-root source failed, so this pass deliberately
 	// collected nothing: an unreadable lease set is indistinguishable from a full one.
 	RetentionRootsError bool
+	// DeliveryCarryOverBound narrows RetentionRootsError to its one cause that is not damage: the
+	// active delivery segment carries more archived, unacknowledged leases than a pass harvests
+	// (65,536). Such a pass halts and collects nothing exactly as for any unreadable source.
+	DeliveryCarryOverBound bool
 	// RetentionRootsShed is how many duplicate lines this pass compacted out of
 	// retention-roots.jsonl. The file gains a line per declaration and removes nothing, so without
 	// a compaction it grows once per delivery forever; the number is how much of that growth was

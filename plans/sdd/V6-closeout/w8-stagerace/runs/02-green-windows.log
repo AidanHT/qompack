@@ -1,0 +1,10 @@
+=== RUN   TestStageBinary_VerifiesACopyItsRenamerStillHolds
+=== PAUSE TestStageBinary_VerifiesACopyItsRenamerStillHolds
+=== RUN   TestStageBinary_NeverRemovesACopyItCannotRead
+=== PAUSE TestStageBinary_NeverRemovesACopyItCannotRead
+=== CONT  TestStageBinary_VerifiesACopyItsRenamerStillHolds
+=== CONT  TestStageBinary_NeverRemovesACopyItCannotRead
+--- PASS: TestStageBinary_NeverRemovesACopyItCannotRead (0.05s)
+--- PASS: TestStageBinary_VerifiesACopyItsRenamerStillHolds (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.364s

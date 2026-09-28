@@ -1,0 +1,209 @@
+# TestPreCompactDerivesItsBudgetFromTheCallersDeadline failed once in runs/07 (remaining 276 ms against 875 ms after a 2.98 s subtest: a wall-clock row). Re-run alone, -count=10 each, HEAD then base (git archive 6aff949), Windows; machine co-loaded by other workstreams and this lane's Linux container run
+## HEAD c3e3519: go test ./internal/checkpoint -run '^TestPreCompactDerivesItsBudgetFromTheCallersDeadline$' -count=10 -v
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (1.10s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.31s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.29s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.25s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.93s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.29s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.19s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.89s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.23s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.91s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.21s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.24s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.24s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.87s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.21s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.22s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.86s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.21s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.24s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.20s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.89s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.20s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.23s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.85s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.21s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.21s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.21s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.91s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.21s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.93s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.24s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.23s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	9.397s
+exit=0
+## base 6aff949: same command
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (1.32s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.38s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.35s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.27s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.31s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (1.08s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.24s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.26s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.26s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.32s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (1.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.33s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.39s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.26s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (1.02s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.28s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (1.11s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.26s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.24s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.35s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.92s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.21s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.25s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.99s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.24s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.26s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.94s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.21s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.26s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.24s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.93s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.22s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.26s)
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now
+=== RUN   TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future
+--- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline (0.98s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/zero_deadline (0.24s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_in_the_past (0.25s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_equals_now (0.23s)
+    --- PASS: TestPreCompactDerivesItsBudgetFromTheCallersDeadline/deadline_well_in_the_future (0.25s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	10.767s
+exit=0

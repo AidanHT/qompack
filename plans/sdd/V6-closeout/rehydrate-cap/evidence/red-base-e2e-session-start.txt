@@ -1,0 +1,17 @@
+C1.14 red run (end to end) — pre-change base (closeout/packaging 32e1a37), 2026-09-23T03:07Z
+Temporary test (not committed), identical project to the committed TestE2E_SessionStartCompactFitsTheHostCap:
+the frozen checkpoint plus six ~2,600-character path rules matching its src/auth.ts pointer, driven through the
+real binary, hook client and daemon. Command: go test ./test/e2e/ -run TestRedC114 -count=1 -v -timeout=30m
+
+=== RUN   TestRedC114_SessionStartCompactOverTheHostCap
+    zz_red_c114_test.go:43: additionalContext = 20033 UTF-16 units; HostCapOverruns = [{Field:hookSpecificOutput.additionalContext Chars:20033}]
+    zz_red_c114_test.go:44: LOUD.log over-cap lines: ["ts=2026-09-23T03:07:36.1756501Z level=loud msg=\"hook output exceeds the host's per-field cap; Claude sees only a preview of it\" event=SessionStart field=hookSpecificOutput.additionalContext chars=20033 cap=10000 preview=2000"]
+    zz_red_c114_test.go:45: 
+        	Error Trace:	<projects>/qompack-cx-rehydrate/test/e2e/zz_red_c114_test.go:45
+        	Error:      	"20033" is not less than or equal to "9500"
+        	Test:       	TestRedC114_SessionStartCompactOverTheHostCap
+        	Messages:   	D5: the compact additionalContext must be <= 9,500 host characters
+--- FAIL: TestRedC114_SessionStartCompactOverTheHostCap (1.68s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	1.899s
+FAIL

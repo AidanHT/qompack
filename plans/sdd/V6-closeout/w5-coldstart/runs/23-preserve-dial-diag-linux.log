@@ -1,0 +1,5 @@
+go version go1.26.6 linux/amd64
+listening, no accept loop: dial 0 ok=true in 103.451µs
+listening, no accept loop: dial 1 ok=true in 25.369µs
+listening, no accept loop: dial 2 ok=true in 21.292µs
+listening, no accept loop: dial 3 ok=true in 23.067µs

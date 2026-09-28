@@ -1,0 +1,59 @@
+# RED: new internal/paths owner rows against the unfixed rootOf (54a4334 + the new test file only), Windows
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists
+    atomic_owner_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:97
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTargeta_pr2162986322\001\.qompack\tmp\wa-491384513 C:\Users\Quant\AppData\Local\Temp\TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTargeta_pr2162986322\001\src\project\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all
+    atomic_owner_test.go:102: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:102
+        	Error:      	Not equal: 
+        	            	expected: []string{".", "calibration.json"}
+        	            	actual  : []string{".", "calibration.json", "tmp"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,5 @@
+        	            	-([]string) (len=2) {
+        	            	+([]string) (len=3) {
+        	            	  (string) (len=1) ".",
+        	            	- (string) (len=16) "calibration.json"
+        	            	+ (string) (len=16) "calibration.json",
+        	            	+ (string) (len=3) "tmp"
+        	            	 }
+        	Test:       	TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all
+        	Messages:   	a write outside the user-global store must not stage in it or create anything in it
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_beside_a_project_store_but_outside_it
+--- FAIL: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget (0.11s)
+    --- FAIL: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists (0.02s)
+    --- FAIL: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all (0.04s)
+    --- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_beside_a_project_store_but_outside_it (0.05s)
+=== RUN   TestWriteAtomic_AProjectStoreBelowAUserStoreIsItsOwnOwner
+--- PASS: TestWriteAtomic_AProjectStoreBelowAUserStoreIsItsOwnOwner (0.05s)
+=== RUN   TestWriteAtomic_TheUserGlobalLayerWritesInItsOwnStore
+--- PASS: TestWriteAtomic_TheUserGlobalLayerWritesInItsOwnStore (0.05s)
+=== RUN   TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt
+    atomic_owner_test.go:166: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:166
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt
+--- FAIL: TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt (0.07s)
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively
+    atomic_owner_test.go:199: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/paths/atomic_owner_test.go:199
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: append-only violation"
+        	            	in chain: 
+        	Test:       	TestWriteAtomic_RefusesAProtectedPathNamedRelatively
+--- FAIL: TestWriteAtomic_RefusesAProtectedPathNamedRelatively (0.06s)
+=== RUN   TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows
+--- PASS: TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths	1.783s
+FAIL
+exit=1

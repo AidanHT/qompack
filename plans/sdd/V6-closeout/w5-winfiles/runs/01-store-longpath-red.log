@@ -1,0 +1,20 @@
+## tree: git archive 90e1db3 (base) + this branch's internal/store/maintenance_longpath_test.go; Windows
+## go test ./internal/store -run '^TestMaintenance_BackupVerifyRestoreBeyondMaxPath$' -count=1 -v
+=== RUN   TestMaintenance_BackupVerifyRestoreBeyondMaxPath
+    maintenance_longpath_test.go:78: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/winfiles/b90/internal/store/maintenance_longpath_test.go:78
+        	Error:      	Received unexpected error:
+        	            	store: backup "deep": Rel: can't make \\?\C:\Users\Quant\AppData\Local\Temp\TestMaintenance_BackupVerifyRestoreBeyondMaxPath2548535208\001\project\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\.qompack\.gitignore relative to C:\Users\Quant\AppData\Local\Temp\TestMaintenance_BackupVerifyRestoreBeyondMaxPath2548535208\001\project\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path
+        	Test:       	TestMaintenance_BackupVerifyRestoreBeyondMaxPath
+        	Messages:   	backup create must work on a project whose .qompack is past MAX_PATH
+--- FAIL: TestMaintenance_BackupVerifyRestoreBeyondMaxPath (0.42s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.784s
+FAIL
+exit=1
+## go test ./internal/store -run '^TestGC_RunsBeyondMaxPath$' -count=1 -v
+=== RUN   TestGC_RunsBeyondMaxPath
+--- PASS: TestGC_RunsBeyondMaxPath (1.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	1.292s
+exit=0

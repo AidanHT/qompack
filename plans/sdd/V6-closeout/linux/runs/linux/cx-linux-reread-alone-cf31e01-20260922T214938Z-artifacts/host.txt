@@ -1,0 +1,10 @@
+run_id=cx-linux-reread-alone-cf31e01-20260922T214938Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=cf31e01
+commit=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+bundle_sha256=78524701c92c2971285b4481951f55a3e1480fad3c85e30231a2ea5569e2d915
+host_started_utc=2026-09-22T21:49:52Z
+inner_args=--run ^TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk$ --count 5 -- ./test/security
+host_finished_utc=2026-09-22T21:51:14Z
+container_exit=1

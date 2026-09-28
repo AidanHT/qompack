@@ -1,0 +1,6 @@
+== go test -count=1 -timeout=30m ./internal/daemon @ 8116d69 (Windows, machine co-loaded by other workstreams)
+--- SKIP: TestService_StateWriteFailureStillEmits (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	432.721s
+exit=0
+top-level PASS lines: 646

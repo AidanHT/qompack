@@ -22,22 +22,56 @@ import (
 // (which is where checkpoints/MANIFEST.jsonl lives too, deliberately, so only AppendOnly can
 // write it), and everything under pins/. A p that is not under root's .qompack tree at all is
 // never protected.
+//
+// Names are compared as the filesystem resolves them (protected_names.go): case-folded where
+// DefaultFold holds, and on Windows with every NTFS stream suffix removed first, so neither
+// CHECKPOINTS\0001.json nor sketches\tried.bloom::$DATA escapes the guard where it names the
+// protected file.
 func IsProtected(root, p string) bool {
-	l := Of(root)
-	rel, err := filepath.Rel(l.Dot, filepath.Clean(p))
-	if err != nil || strings.HasPrefix(rel, "..") {
+	dot := filepath.Clean(streamless(Of(root).Dot))
+	rel, ok := relUnderDot(dot, filepath.Clean(streamless(p)))
+	if !ok {
 		return false
 	}
-	rel = filepath.ToSlash(rel)
+	first, rest := cutElem(rel)
 	switch {
-	case rel == "sketches/tried.bloom":
-		return true
-	case strings.HasPrefix(rel, "checkpoints/"):
-		return true
-	case strings.HasPrefix(rel, "pins/"):
-		return true
+	case sameName(first, protectedCheckpointsDir), sameName(first, protectedPinsDir):
+		return rest != ""
+	case sameName(first, protectedSketchesDir):
+		second, more := cutElem(rest)
+		return more == "" && sameName(second, protectedBloomName)
 	}
 	return false
+}
+
+// The names IsProtected matches, relative to <root>/.qompack. mayBeProtected reads the same
+// constants, so the two cannot drift apart.
+const (
+	protectedSketchesDir    = "sketches"
+	protectedBloomName      = "tried.bloom"
+	protectedCheckpointsDir = "checkpoints"
+	protectedPinsDir        = "pins"
+)
+
+// mayBeProtected reports whether p, an ABSOLUTE path, could be a protected path under ANY project
+// root, from p's text alone. False is a proof, not a guess. ownerOf asks each store about
+// filepath.Abs(p) with its stream suffixes removed; IsProtected matches only a path whose position
+// relative to <root>/.qompack begins with an element spelling checkpoints or pins, or is an element
+// spelling sketches followed by one spelling tried.bloom, "spelling" meaning sameName's comparison;
+// relUnderDot returns that relative position as a suffix of the cleaned path it is given; and for an
+// absolute p, Abs only cleans — on Windows after full-path normalization, which converts separators,
+// drops "." and ".." elements and strips trailing dots and spaces (Long's comment has the list) —
+// while streamless only removes text, so every element of the path judged appears within p's text.
+// containsName compares as sameName does, so a p in which it finds none of the three names cannot be
+// protected, whatever stores ownerOf would find, and OpenFile need not walk p's ancestors to find
+// out. True means only that the walk must run.
+//
+// A RELATIVE p proves nothing: Abs takes its leading elements from the working directory, not from
+// its text, and "invariants.jsonl" opened from inside pins/ is the pins log. OpenFile makes a
+// relative p absolute before asking.
+func mayBeProtected(p string) bool {
+	return containsName(p, protectedCheckpointsDir) || containsName(p, protectedPinsDir) ||
+		containsName(p, protectedBloomName)
 }
 
 // OpenFile is the only opener this package exposes for a path that may live under .qompack, and
@@ -47,8 +81,21 @@ func IsProtected(root, p string) bool {
 // refuses any write that is neither an append (O_APPEND) nor an exclusive create (O_EXCL) — the
 // two operations the invariant actually allows.
 func OpenFile(p string, flag int, perm fs.FileMode) (*os.File, error) {
-	root, ok := rootOf(p)
-	if ok && IsProtected(root, p) {
+	measured := p
+	if !filepath.IsAbs(p) {
+		// mayBeProtected reasons only over an absolute path. A relative p that cannot be made
+		// absolute is one ownerOf guards nothing for either, so its own text answers as well.
+		if abs, err := filepath.Abs(p); err == nil {
+			measured = abs
+		}
+	}
+	if !mayBeProtected(measured) {
+		// No root can make p protected (mayBeProtected), so the guard below could only pass.
+		// Skipping the ancestor walk is what keeps the store's per-object staging open at one
+		// syscall rather than one per directory level up to the project root.
+		return os.OpenFile(Long(p), flag, perm)
+	}
+	if ownerOf(p).protected {
 		if flag&os.O_TRUNC != 0 {
 			return nil, fmt.Errorf("%w: O_TRUNC on %s", core.ErrAppendOnly, p)
 		}
@@ -84,18 +131,15 @@ const jsonRecordNewline = '\n'
 // trailing terminator would silently split one record into two lines on disk, which is exactly
 // the failure mode the one-record-per-line contract every reader assumes must never happen — and
 // rejects the write rather than trust that guarantee blindly.
+//
+// It syncs nothing: a line it returns from can still be lost to a power cut, and so can the file's
+// name when the append created the file. A log whose line something durable depends on uses
+// AppendJSONLDurable (barriers.go), which appends exactly the same bytes and then syncs them.
 func AppendJSONL(p string, v any) error {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
+	record, err := encodeJSONLRecord(p, v)
+	if err != nil {
 		return err
 	}
-	line := bytes.TrimSuffix(buf.Bytes(), []byte{jsonRecordNewline})
-	if bytes.IndexByte(line, jsonRecordNewline) >= 0 {
-		return fmt.Errorf("%w: AppendJSONL payload contains a raw newline: %s", core.ErrAppendOnly, p)
-	}
-
 	w, err := AppendOnly(p)
 	if err != nil {
 		return err
@@ -112,11 +156,28 @@ func AppendJSONL(p string, v any) error {
 	if err := TerminatePartialTail(w, p); err != nil {
 		return err
 	}
+	_, err = w.Write(record)
+	return err
+}
+
+// encodeJSONLRecord renders v as the one newline-terminated line AppendJSONL and AppendJSONLDurable
+// append: compact, HTML escaping off, and refused when the encoding would put a raw newline before
+// the terminator.
+func encodeJSONLRecord(p string, v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	line := bytes.TrimSuffix(buf.Bytes(), []byte{jsonRecordNewline})
+	if bytes.IndexByte(line, jsonRecordNewline) >= 0 {
+		return nil, fmt.Errorf("%w: AppendJSONL payload contains a raw newline: %s", core.ErrAppendOnly, p)
+	}
 	record := make([]byte, len(line)+1)
 	copy(record, line)
 	record[len(line)] = jsonRecordNewline
-	_, err = w.Write(record)
-	return err
+	return record, nil
 }
 
 // TerminatePartialTail writes a newline to w when p is non-empty and its last byte is not one.
@@ -160,7 +221,16 @@ func TerminatePartialTail(w io.Writer, p string) error {
 // would skip past a directory sitting at its artifact path — the V5 close-out's first CI run on
 // those runners found precisely that — so the existing entry is stat'ed and anything that is not
 // a regular file is reported as syscall.EISDIR (a directory) or fs.ErrInvalid, never ErrExist.
-func CreateNew(p string, b []byte) error {
+//
+// "Durably written" means the file's BYTES: CreateNew syncs the file and not its directory, so on
+// POSIX a power cut can still lose the new name. That is deliberate. A lock file (the daemon lock,
+// the spawn lock) is stale after a power cut whatever survives, and a directory fsync there would
+// only lengthen a cold start; a caller whose file must keep its name makes the name durable itself,
+// as checkpoint.Finalize does through AppendManifest before a MANIFEST line names the artifact.
+func CreateNew(p string, b []byte) error { return createNew(p, b, Barriers{}) }
+
+// createNew is CreateNew's body, issuing its file sync through x.
+func createNew(p string, b []byte, x Barriers) error {
 	f, err := OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
@@ -178,7 +248,7 @@ func CreateNew(p string, b []byte) error {
 		_ = f.Close()
 		return err
 	}
-	if err := f.Sync(); err != nil {
+	if err := x.syncFile(f); err != nil {
 		_ = f.Close()
 		return err
 	}

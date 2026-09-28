@@ -125,3 +125,32 @@ and `go vet ./internal/daemon/` clean; gofmt clean on all changed files.
   optimization but needs durable state and was not added (scope + no over-claim).
 - A deferred LIVE delivery retries on the next scheduled drain (no re-enqueue, no polling/busy-wait).
 - Exactly-once is claimed only to the tested cuts.
+
+## Close-out addendum (2026-09-23, C1.1)
+
+The limitation "A deferred LIVE delivery retries on the next scheduled drain" was the C1.1
+live-ingest regression. With several workers, every event of a busy session after the first was
+deferred and stranded until a drain ran. It is superseded by the per-session live lanes and the
+drain requests recorded in the decision's 2026-09-23 addendum. That round added these counters:
+
+- `l0_ordering_lane_full`: leased jobs the lanes refused because all lanes together, or the job's
+  own session, were at their bound. Each refused job stays in the WAL.
+- `l0_ordering_drain_requested`: drain passes the lanes requested. Requests that arrive while one
+  is pending merge into it.
+- `l0_flush_unsettled`: flushes whose SessionEnd ran while some of the session's leased deliveries
+  were still unpublished, or while the committed frontier could not be read to tell.
+
+Record: `plans/sdd/V6-closeout/ingest/report.md`.
+
+## Close-out addendum (2026-09-25, C1.15 and C1.13)
+
+The flush became a leased arrival that is answered once it is durable, and the session's end runs
+asynchronously. Client spools are replayed while their session is active. Both are recorded in the
+decision's 2026-09-25 addendum. That round added these counters:
+
+- `l0_session_end_refused`: flushes acknowledged while Stop was already joining the session ends,
+  so no end was started for them in that process. Each one's line stays durable in its session's WAL
+  and its session stays marked as needing recovery.
+- `l0_spool_watch_drains`: client-spool passes the watcher ran.
+
+Record: the `w2-sessionend` report, committed by the coordinator under `plans/sdd/V6-closeout/`.

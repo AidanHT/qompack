@@ -1,0 +1,20 @@
+ts=2026-09-27T02:56:31.920893775Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-27T02:56:32.693435475Z level=info msg="observer: session registered" session=sess-e2e-x9 source=startup turn=0 segment=1
+ts=2026-09-27T02:56:32.693606748Z level=info msg="scheduler: session bound" session=sess-e2e-x9 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-27T02:56:46.813512102Z level=warn msg="daemon: drain: delivery lease unavailable" err="context deadline exceeded"
+ts=2026-09-27T02:56:46.813569807Z level=loud msg="daemon: drain: delivery identity unavailable; spool retained for recovery"
+ts=2026-09-27T02:56:46.901997795Z level=warn msg="daemon: drain: file error" path=/tmp/TestV3_LiveSessionWriteSetAndAppendOnly3747997512/001/project/.qompack/spool/client-60325.ndjson err="qompack: running in degraded mode"
+ts=2026-09-27T02:56:52.703358668Z level=warn msg="daemon: drain: file error" path=/tmp/TestV3_LiveSessionWriteSetAndAppendOnly3747997512/001/project/.qompack/spool/wal-sess-e2e-x9.ndjson err="daemon: drain: delivery still in progress"
+ts=2026-09-27T02:56:52.737855118Z level=warn msg="observer: tool capture unpublished" stage=index
+ts=2026-09-27T02:56:52.746565809Z level=warn msg="daemon: ObserveTool failed"
+ts=2026-09-27T02:56:52.746588851Z level=warn msg="daemon: ingest handler did not acknowledge; WAL retained for retry" op=observe.tool
+ts=2026-09-27T02:56:57.730987746Z level=warn msg="observer: tool capture unpublished" stage=index
+ts=2026-09-27T02:56:57.733161254Z level=warn msg="daemon: ObserveTool failed"
+ts=2026-09-27T02:57:00.816654261Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-27T03:00:56.051991441Z level=warn msg="observer: tool capture unpublished" stage=index
+ts=2026-09-27T03:00:56.052071306Z level=warn msg="daemon: ObservePrompt capture not durable; WAL retained for retry"
+ts=2026-09-27T03:00:56.74535826Z level=warn msg="daemon: idle task returned an error" name=drain err="context deadline exceeded"
+ts=2026-09-27T03:01:25.862414409Z level=warn msg="daemon: ObservePrompt capture not durable; WAL retained for retry"
+ts=2026-09-27T03:01:26.050390127Z level=warn msg="daemon: idle task returned an error" name=drain err="context deadline exceeded"
+ts=2026-09-27T03:01:56.172228345Z level=warn msg="daemon: ObservePrompt capture not durable; WAL retained for retry"
+ts=2026-09-27T03:01:56.524225431Z level=warn msg="daemon: idle task returned an error" name=drain err="context deadline exceeded"

@@ -1,6 +1,7 @@
 # ADR 0011 — Rehydration budget, item order, and whole-rule restoration
 
-- **Status:** accepted
+- **Status:** accepted; amended 2026-09-22 by §21 (owner decision D5: the payload fits the host's
+  10,000-character additionalContext cap)
 - **Date:** 2026-09-06
 - **Subplan:** SP-11 (L5 rehydrator)
 - **Design:** `Qompack.md` §8.6, §8.7, §6.9, §4.4, §12; `plans/00-ARCHITECTURE.md` §5.15, §11.5, §11.6, §12.1
@@ -367,7 +368,134 @@ sentence and `plans/QOMPACK-ERRATA.md` records why; the row's `-run` pattern sti
 is a stale expectation rather than a dead command, and correcting a wave-4 verification expectation
 is the coordinator's call rather than this branch's.
 
+## 21. Amendment (2026-09-22, owner decision D5): the payload fits the host's additionalContext cap
+
+**What changed.** Claude Code delivers a hook's `additionalContext` whole only up to 10,000
+characters. Past that it saves the text to a file, hands the model the file path and a
+2,000-character preview in its place, and does not ask it to read the file; the cap "has no setting
+or environment variable to raise it" (`testdata/host/hooks-output-schema.json`, `limits`). A real
+2.1.280 session confirmed it: an 11,082-character SessionStart context reached the model as a
+2,391-character `<persisted-output>` block, and the model could quote only the preview
+(`plans/sdd/V6-closeout/packaging/evidence/review/f2-live-host-cap-probe`). The payload §3 bounds in
+tokens — up to `runtime.rehydrate.maxTokens` 12,000, about 48,000 characters — rendered the frozen
+`full` fixture at 32,049 characters (`plans/sdd/V6-closeout/rehydrate-cap/evidence/`). Everything
+after the first 2,000 characters, sections 3–8 included, would not have reached the model.
+
+The owner decided (D5, `plans/V6-CLOSEOUT-CHECKLIST.md`) that the rehydration must fit under the
+cap, as a priority-ordered payload of whole records with the rest reported as overflow plus
+pointers. `Qompack.md` v1.6 §8.6 records the design change; this section records how it is built.
+
+**The ceiling.** The whole SessionStart(source=compact) `additionalContext` — wrapper, headings,
+separators, every handle, the overflow report, and the §12.1 contract probe the daemon appends after
+the close tag (§15) — is at most **9,500 host characters** (`rehydrate.HostContextCeilingChars`),
+500 under the host's 10,000. `Result.Text` gets 9,400 (`PayloadCeilingChars`), leaving 100 for the
+probe line, which is 62 characters for every session id; `TestHostCeiling_ProbeReserveCoversTheProbeLine`
+pins the margin against `contract.RenderSentinel` itself, because rehydrate may not import contract.
+
+It is a host constant, not configuration. No key raises it: raising it could only put the payload
+back behind the host's file-path fallback. `Request.Budget` and §3 are unchanged, and the token
+budget can still bound the payload lower — the `token-bound` golden is that case — but at the shipped
+defaults the character ceiling (about 2,400 tokens of prose) binds long before 8–12K tokens do.
+
+**The unit.** The hooks reference says "characters". The host's own code says which: 2.1.280 tests
+`field.length <= 1e4` on the parsed field, so the unit is UTF-16 code units and a field of exactly
+10,000 is delivered whole (`plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt`).
+`hookio.HostChars` and rehydrate's `hostChars` count exactly that, and a test ties the two. The count
+is never smaller than the rune count, so no reading of "characters" makes a passing payload long;
+the conservatism is the 500-character headroom, not a second guess at the unit.
+
+**Two dimensions, one admission rule.** Every unit is priced in tokens (as before) and in host
+characters, and is admitted only when it fits both — tier 1 against what the payload has left,
+every discretionary item against its share in each dimension with carry-forward in each. The
+character price is EXACT, not an estimate: units, each section's heading line and the blank-line
+separator before it, and the wrapper are priced on the very strings `renderBody` and `Wrap`
+concatenate, so the sum Build plans with is the length it renders. That is what makes the ceiling a
+guarantee. The §18 hard-cap loop is extended to the character dimension as a defence;
+`PropBuild_NeverExceedsTheHostCeiling` asserts it never fires on characters.
+
+**Whole records, in §8.6 order, with current authority first.** Nothing about §1, §2, §7, §8 or §19
+moves. Within that, four things were refined because a ceiling this much tighter than the token
+band exposed them:
+
+1. *Tier 1 is admitted record by record, not item by item* (refines §4). One pinned invariant too
+   large for the ceiling no longer takes the forty that fit down with it: tier-1 records are admitted
+   whole in builder order until the first one that does not fit (the §7 prefix rule), and each one
+   left out is its own explicit overflow — `ID "tier1"`, the item's own kind, a detail that names the
+   record, says it "is emitted whole or not at all", and ends in the pointer that restores it.
+2. *The retrieval line is admitted first, and item 7's floor is held from the first admission on*
+   (extends §6 and §18). Every overflow pointer depends on the model knowing the tools exist, and on
+   there being room to say what is missing. So tier 1 admits item 8 before the invariants and the
+   original prompt, and item 7's smallest form — its heading and the counted tail — is reserved
+   throughout. Render order is untouched.
+3. *Item 7 truncates instead of being evicted* (corrects §6's reserve in practice). Its lines carried
+   no DropEntry, which made them fixed units, and a fixed unit is admitted wholesale: the report was
+   never cut to its counted tail, and a payload too small to hold it had the whole section evicted by
+   the §18 loop — the pre-D5 `degraded` golden carried no section 7 at all. Item 7 is now filled as a
+   prefix of lines plus `- … and N more; call dropped()`, against its reserve (a tenth of each
+   dimension, never below the floor) plus whatever the shares carried forward. The complete list is
+   still persisted for `dropped()` either way.
+4. *An explicit overflow sorts first in item 7.* It carries its item's own kind ("invariants",
+   "user_intent"), which is not in `kindRank`, so it used to sort after every known kind — the first
+   line a bounded report's tail would swallow. It now sorts with `dropKindOverflow`.
+
+Two smaller consequences of the same shift: item 6b is offered the share carry before item 7, since
+it outranks it (a tenth of the ceiling alone would cut a skill index the payload has room for); and a
+payload whose only admitted section would be item 7 is no payload, as a payload with no items
+already was — the floor exists so that an omission can be named next to what did fit.
+
+**Pointers.** Every record the budget or the ceiling leaves out is named with the call that brings
+it back: `why(<decision id>)` for a decision, `re_read(<path>)` for a file pointer,
+`expand(tool_use_id=…)` for a tool pointer and for the verbatim original prompt (its L0 record,
+`prompt_<session>_0`), `already_tried(target="…", approach="…")` with the record's own target and
+approach, Go-quoted, for a shown elimination, `Read <path>` for a path rule, a nested `CLAUDE.md` or a
+skill-index entry (its `SKILL.md`, whether the payload or the indexer's own `skillIndexTokens`
+dropped it), and `Read .qompack/checkpoints/NNNN.json (<field>)` for material whose only durable
+home is the checkpoint — invariants, evolution deltas, current work. The checkpoint path is given
+relative to the project root so a drop line stays cheaper than the record it replaces, which
+`PropBuild_MonotoneInBudget` holds the payload to. Pointers go in `DropEntry.Detail`, so `dropped()`
+— what the counted tail points at — answers with them too.
+
+Three kinds of drop entry are not a record with a restoring call, and are left as they were before
+D5: eliminations past `runtime.rehydrate.eliminationsTopN` are one counted line (`N of M not shown`)
+whose remedy is the standing `already_tried` query on the approach about to be taken (§8.7); the
+entries in `Checkpoint.Dropped`, which the checkpointer recorded itself (an `open_question`, a
+`narrative`, a superseded tool output), are carried with its detail; and a unit the no-contents
+guard rejected, a scan or source failure, and the §2.7 skill-body warnings are reports about
+withheld, unavailable or host-side material, not omissions a call could undo.
+
+*Review correction (2026-09-23).* As first built, the skill-index drops said only "did not fit the
+rehydration budget" and a shown elimination's drop said "call already_tried(target, approach)",
+which named no target or approach the model could pass: the paragraph above claimed more than the
+code did. Both now carry the pointers listed (`TestSkillIndex_BudgetDropNamesTheSkillFile`,
+`TestSkillIndex_DropsReportUnindexedSkills`, `TestEliminations_BudgetDropNamesItsOwnQuery`), and the
+`no-checkpoint` and `state.json` goldens were re-recorded through `-update` for that change alone.
+
+**Min-fill.** It re-admits toward `minTokens` inside both bounds and never spends item 7's reserve.
+Under the baseline estimator the ceiling now binds first, so an unset build fills to the ceiling
+rather than to `minTokens`; `TestBuild_MinFillReadmitsUnits` asserts both regimes.
+
+**What this supersedes, and what it does not.** §4's "each item is admitted whole while it fits" is
+now per record. §6's drop-report reserve is now "B/10 and C/10, never below the floor". §17's and
+§18's golden figures describe the pre-D5 payloads and are left as written: `full-12k` and `full-8k`
+are now byte-identical (the ceiling binds at both ends of the old band), the new `token-bound`
+golden carries the token-budget cut the old pair used to show, and `degraded` now ends in a
+truncated section 7 instead of having it evicted. The five payload goldens and `state.json` were
+re-recorded through their generator (`go test ./internal/rehydrate -run
+'TestBuild_Golden_PayloadsMatchFrozenBytes|TestState_MatchesFrozenGolden' -update`) after reading
+each diff.
+
+**Evidence.** `internal/rehydrate` `TestBuild_HostCeiling_LargeSessionArrivesInline` (the frozen
+`full` fixture: 32,049 characters before, inside 9,500 now), `PropBuild_NeverExceedsTheHostCeiling`
+and `FuzzBuild_HostCeiling` (multibyte and astral text, one enormous record, thousands of small
+ones, pathological session ids and sequences); `test/e2e` `TestE2E_SessionStartCompactFitsTheHostCap`
+(the real binary, hook client and daemon: 20,033 characters and a Loud over-cap line before, inside
+the ceiling with no Loud line now); the real-host sessions under
+`plans/sdd/V6-closeout/rehydrate-cap/evidence/`.
+
 ## Consequences
+
+*The bullets below are the 2026-09-06 record. §21 bounds the first one's "8–12K" by the host's
+character ceiling, and replaces the golden pair the fourth one describes.*
 
 - The payload replaces the host's 50K + 25K eager restoration with 8–12K of pointers, verbatim
   non-reconstructible facts, restored instructions and an explicit drop report.

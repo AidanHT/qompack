@@ -1,0 +1,112 @@
+== 15:45:12Z start: 6aff949 gc-overshoot-alone-base --run ^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$ --count 3 -- ./internal/store
+run_id=cx-w3-paths-gc-overshoot-alone-base-6aff949-20260926T154512Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=6aff949
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+bundle_sha256=cab8e92dc2f7198286eba7003b4bc0dd0148600bdfdef27db521a46197bbb146
+host_started_utc=2026-09-26T15:45:22Z
+inner_args=--run ^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$ --count 3 -- ./internal/store
+/work/cx-w3-paths-gc-overshoot-alone-base-6aff949-20260926T154512Z.bundle: OK
+run_id=cx-w3-paths-gc-overshoot-alone-base-6aff949-20260926T154512Z
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+tree=a1bf55eca79a86f701f143562d00a101804bc299
+bundle_sha256=cab8e92dc2f7198286eba7003b4bc0dd0148600bdfdef27db521a46197bbb146
+started_utc=2026-09-26T15:45:31Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+FAIL      github.com/qompack/qompack/internal/store  (pass=0 fail=3 skip=0)
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-gc-overshoot-alone-base-6aff949-20260926T154512Z-artifacts
+exit=1
+== 15:49:55Z gate exit=0: 6aff949 gc-overshoot-alone-base --run ^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$ --count 3 -- ./internal/store
+== 15:49:55Z start: w3-paths-gcprobe-base gcprobe-base --run ^TestW3Probe_GCPhaseCosts$ -- ./internal/store
+run_id=cx-w3-paths-gcprobe-base-4570089-20260926T154956Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=w3-paths-gcprobe-base
+commit=45700897a24e885763d859cc30a6d5637a7328e1
+bundle_sha256=5133a909fbc766c181a55e84d81beaa2c0c7247839ed55c2099e233da31971aa
+host_started_utc=2026-09-26T15:50:10Z
+inner_args=--run ^TestW3Probe_GCPhaseCosts$ -- ./internal/store
+/work/cx-w3-paths-gcprobe-base-4570089-20260926T154956Z.bundle: OK
+run_id=cx-w3-paths-gcprobe-base-4570089-20260926T154956Z
+commit=45700897a24e885763d859cc30a6d5637a7328e1
+tree=44726fc8517fb2a4509105fb29513afaffe16bf5
+bundle_sha256=5133a909fbc766c181a55e84d81beaa2c0c7247839ed55c2099e233da31971aa
+started_utc=2026-09-26T15:50:14Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^TestW3Probe_GCPhaseCosts$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/store  (pass=1 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-gcprobe-base-4570089-20260926T154956Z-artifacts
+exit=0
+== 15:53:54Z gate exit=0: w3-paths-gcprobe-base gcprobe-base --run ^TestW3Probe_GCPhaseCosts$ -- ./internal/store
+== 15:53:54Z start: w3-paths-gcprobe-head gcprobe-head --run ^TestW3Probe_GCPhaseCosts$ -- ./internal/store
+run_id=cx-w3-paths-gcprobe-head-d66db7b-20260926T155354Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=w3-paths-gcprobe-head
+commit=d66db7bac4c276d54aa59527a2143091a8aaa659
+bundle_sha256=7cb9e15ff0e1f1f84904c046235b8b4705ed6020100491f9a04041476c18711a
+host_started_utc=2026-09-26T15:54:02Z
+inner_args=--run ^TestW3Probe_GCPhaseCosts$ -- ./internal/store
+/work/cx-w3-paths-gcprobe-head-d66db7b-20260926T155354Z.bundle: OK
+run_id=cx-w3-paths-gcprobe-head-d66db7b-20260926T155354Z
+commit=d66db7bac4c276d54aa59527a2143091a8aaa659
+tree=ef98699d6410c6e3c96e5e42029796af428a24c7
+bundle_sha256=7cb9e15ff0e1f1f84904c046235b8b4705ed6020100491f9a04041476c18711a
+started_utc=2026-09-26T15:54:05Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^TestW3Probe_GCPhaseCosts$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/store  (pass=1 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/plans/sdd/V6-closeout/w3-paths/runs/linux/cx-w3-paths-gcprobe-head-d66db7b-20260926T155354Z-artifacts
+exit=0
+== 15:57:48Z gate exit=0: w3-paths-gcprobe-head gcprobe-head --run ^TestW3Probe_GCPhaseCosts$ -- ./internal/store
+DONE 15:57:48Z

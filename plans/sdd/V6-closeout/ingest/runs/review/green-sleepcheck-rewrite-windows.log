@@ -1,0 +1,16 @@
+after replacing the two time.Sleep calls in delivery_order_lanes_test.go (sleepcheck)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.77s)
+=== RUN   TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls
+--- PASS: TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls (1.10s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.72s)
+=== RUN   TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls
+--- PASS: TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls (1.10s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (6.71s)
+=== RUN   TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls
+--- PASS: TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls (1.10s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	23.733s
+exit=0

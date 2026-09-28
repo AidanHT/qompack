@@ -1,0 +1,15 @@
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (6.42s)
+=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio
+--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (1.00s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (5.43s)
+=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio
+--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (1.03s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+--- PASS: TestE2E_ThinSliceDropsControlOnlyEdges (5.44s)
+=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio
+--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (0.98s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	20.501s
+exit=0

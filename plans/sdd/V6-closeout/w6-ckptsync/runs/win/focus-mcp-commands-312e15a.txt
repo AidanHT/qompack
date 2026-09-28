@@ -1,0 +1,28 @@
+=== RUN   TestRecordEliminatedWritesLedgerRecord
+--- PASS: TestRecordEliminatedWritesLedgerRecord (0.41s)
+=== RUN   TestRecordEliminatedStoresEvidence
+--- PASS: TestRecordEliminatedStoresEvidence (0.31s)
+=== RUN   TestRecordEliminatedResolvesDependsOnHashes
+--- PASS: TestRecordEliminatedResolvesDependsOnHashes (2.73s)
+=== RUN   TestRecordEliminatedUnresolvedDependencyReported
+--- PASS: TestRecordEliminatedUnresolvedDependencyReported (3.68s)
+=== RUN   TestRecordEliminatedDefaultsScopeFromConfig
+--- PASS: TestRecordEliminatedDefaultsScopeFromConfig (0.58s)
+=== RUN   TestRecordEliminatedIsNotEphemeral
+--- PASS: TestRecordEliminatedIsNotEphemeral (0.26s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	8.402s
+=== RUN   TestPin_AddRecordsUserAuthorityByDefault
+=== PAUSE TestPin_AddRecordsUserAuthorityByDefault
+=== RUN   TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+=== PAUSE TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+=== RUN   TestPin_EliminationGoesThroughTheSP13Handler
+=== PAUSE TestPin_EliminationGoesThroughTheSP13Handler
+=== CONT  TestPin_AddRecordsUserAuthorityByDefault
+=== CONT  TestPin_EliminationGoesThroughTheSP13Handler
+--- PASS: TestPin_AddRecordsUserAuthorityByDefault (0.00s)
+=== CONT  TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+--- PASS: TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord (0.00s)
+--- PASS: TestPin_EliminationGoesThroughTheSP13Handler (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/commands	2.571s

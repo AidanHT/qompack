@@ -1,0 +1,17 @@
+{
+  "name": "posture_out_of_project_capture_is_archived",
+  "capability": "posture",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "74adf409f4048486a83ade89b6763c0c42ca5ed5d9cff864381ed5411f157229"
+  },
+  "outcome": "verified",
+  "reason": "a capture whose tool_input named a file outside the project root persisted nothing: neither its bytes nor its absolute path reached any file under .qompack/, and the hook still exited 0 with a host-parseable document.",
+  "detail": "swept 22 files under .qompack/"
+}

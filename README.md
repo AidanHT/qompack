@@ -24,10 +24,16 @@ Qompack has not been released. Two version numbers exist and they do not agree:
 - the last git tag in this repository is `v0.2.0`;
 - `plugin/.claude-plugin/plugin.json` declares version `0.1.0`.
 
-Both are reported here as they stand. Release and versioning are SP-17 deliverables and neither
-number is changed by this page.
+Both are reported here as they stand. The owner has chosen **v0.3.0** as the release version (V6
+close-out decision D1): `internal/core.Version`, and with it the generated `plugin.json`, move to
+`0.3.0` in the release's own version commit ([docs/release.md](docs/release.md#1-procedure) §1).
+Until that commit lands, `qompack version` prints `0.1.0`.
 
 ## Supported environments
+
+**Claude Code 2.1.139 or later** is required for any install: every hook is exec form, and 2.1.139
+added the hook `args` field that form needs. Installing from the marketplace
+needs **2.1.224 or later**. See [docs/install.md](docs/install.md).
 
 The following checks are configured in `.github/workflows/ci.yml`; this table does not establish
 that the current candidate passed them. Go jobs pin
@@ -80,14 +86,17 @@ The plugin bundle lives in `plugin/`:
 ```
 plugin/
   .claude-plugin/plugin.json   name, version, description, homepage
-  .mcp.json                    registers the `qompack` MCP server as `${CLAUDE_PLUGIN_ROOT}/bin/qompack mcp`
-  hooks/hooks.json             the seven hook registrations, each invoking a `qompack` subcommand
+  .mcp.json                    registers the `qompack` MCP server: `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, args `["mcp"]`
+  hooks/hooks.json             the seven hook registrations, each launching the binary with a subcommand
   commands/*.md                the slash commands
 ```
 
-Every generated file in that tree refers to the binary as `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, which
-the host expands to the installed plugin directory. All four files are generated from one typed
-value in `internal/pluginmanifest`, and
+Every hook and the MCP server are exec form: `command` is exactly the bundled executable and `args`
+the subcommand, so the host spawns the binary directly and no shell — Git Bash, `sh` or PowerShell —
+ever parses the string. The committed tree is the linux/darwin rendering, naming
+`${CLAUDE_PLUGIN_ROOT}/bin/qompack`; each release bundle is rendered for its own target, and the
+windows bundles name `bin/qompack.exe`. All four files are generated from one typed value in
+`internal/pluginmanifest`, and
 
 ```
 go run ./tools/devtool plugin-validate
@@ -104,8 +113,13 @@ through five layers (defaults → `~/.qompack/config.json` → `<project>/.qompa
 `QOMPACK_*` environment → `--set <dotted.key>=<value>`), the merge is deep and per leaf, an invalid
 value is never fatal (the leaf falls back to its default, the violation is reported and recorded in
 `.qompack/state/config-violations.json`), and an unknown key produces a warning rather than an
-error. `qompack config print --provenance` shows the effective value of every key and where it came
-from.
+error. The hooks follow the same rules, except that two kinds of problem stop recording instead:
+input they cannot read safely (a config file that does not parse, is not a plain file or is over its
+size bound, or an oversized `QOMPACK_*` or `--set` value), and a setting of `runtime.redact` or
+`runtime.mode` that cannot be applied as written, where a fallback would record under a privacy
+policy you did not write, or record while you were switching recording off. `qompack config print --provenance` shows the effective value of
+every key and where it came from, and `qompack self-test`'s `config.capture` row says whether the
+hooks can load it ([docs/troubleshooting.md](docs/troubleshooting.md#6-configuration-and-schema-compatibility)).
 
 ## What ships off, and why you should leave it off
 

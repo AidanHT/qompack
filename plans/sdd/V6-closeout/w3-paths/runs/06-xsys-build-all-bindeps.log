@@ -1,0 +1,8 @@
+# x/sys v0.44.0: build-all and the bindeps lint at HEAD 4316e06, Windows
+## go run ./tools/devtool build-all
+exit=0
+## go run ./tools/devtool lint --only=bindeps
+== devtool lint: bindeps ==
+bindeps: OK (6 target(s) checked)
+PASS bindeps
+exit=0

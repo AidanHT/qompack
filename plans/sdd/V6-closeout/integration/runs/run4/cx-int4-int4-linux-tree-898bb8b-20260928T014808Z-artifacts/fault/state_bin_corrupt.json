@@ -1,0 +1,20 @@
+{
+  "name": "state_bin_corrupt",
+  "phase": "publication",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "f81a30f2bfc81e805526fae2797fb4ece734c17a0d7460babb4d3576ef6db3a7"
+  },
+  "boundary": "state.bin corrupt",
+  "seed_method": "the `state-corrupt` QOMPACK_FAULT site, which writes 32 random bytes into run/state.bin from a real hook process (internal/cli/fault.go)",
+  "outcome": "recovered",
+  "reason": "the cut introduced no dangling reference, none remains anywhere under .qompack/, and the product went on recording: the recovery session's own observation was indexed.",
+  "detail": "cut: the state-corrupt site rewrote run/state.bin (32 bytes)\neverything the surfaces gained: daylog[1]: qompack-20260928.log: ts=2026-09-28T02:10:12.632758781Z level=loud msg=\"contract: degrading to passive recording\" mode=degraded-passive reason=\"critical host-contract failure: hook.additional_context_delivered (expected \\\"additionalContext …; loud[1]: ts=2026-09-28T02:10:12.632758781Z level=loud msg=\"contract: degrading to passive recording\" mode=degraded-passive reason=\"critical host-contract failure: hook.additional_context_delivered (expected \\\"additionalContext reaches the transcript…; status[3]: counter contract.degrade=1; surfaces LOUD.log+status --json+day log (warn)\nof which naming this cut (state, state.bin): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry\nnote (INFERENCE, not a measurement): run/state.bin holds the host-contract observations, so the `contract: degrading to passive recording` LOUD line this session emits is a PLAUSIBLE consequence of the corruption — and this row did not establish that it is one. The identical line appears in lifecycle_frontier_state_is_explicit, which cuts nothing at all. The chain (state.bin corrupt → the contract observation is lost → the self-check fails → passive) is read off the message text; what was MEASURED is that the cut left no dangling reference and recording resumed.\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}\naudit after  {tool_uses:5 roots:5 sidecars:5 checkpoints:0 dangling:0 reported:1}\ndegradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

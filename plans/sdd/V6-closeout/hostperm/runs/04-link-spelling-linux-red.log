@@ -1,0 +1,11 @@
+=== RUN   TestHostPolicy_ALinkSpellingIsJudgedToo
+    hostperm_link_test.go:31: 
+        	Error Trace:	/work/cx-hostperm-linkrepro-20260922T221538Z/internal/mcp/hostperm_link_test.go:31
+        	Error:      	"{\"found\":true,\"hash\":\"sha256:d7d15980f239f61fc8ea1939932c64d08a7983254d2862f7462d375c96fcf5ca\",\"path\":\"lnk/key.pem\",\"tool\":\"Read\",\"span\":[0,17],\"total_bytes\":17,\"truncated\":false,\"widened\":false,\"expansions\":1,\"promoted\":false,\"content\":\"LINK-SPELLED-KEY\\n\"}" should not contain "LINK-SPELLED-KEY"
+        	Test:       	TestHostPolicy_ALinkSpellingIsJudgedToo
+--- FAIL: TestHostPolicy_ALinkSpellingIsJudgedToo (0.52s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.534s
+FAIL
+go_test_exit=1
+commit=ed5a80c53ef0a88e6a06c59e107d32cb29f0e89d uid=10001

@@ -1,0 +1,4 @@
+base = git archive 31255da + syscount_harness_test.go.txt (internal/observer)
+new  = git archive f133c9c + syscount_harness_test.go.txt; 2f4ebbb differs only in internal/store/readonly_test.go
+binaries: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test -c ./internal/observer on the Windows host
+run: docker run --rm golang:1.26.6-bookworm (throwaway), strace 6.1, root, GOMAXPROCS=4, N=5 timed calls after one warm-up

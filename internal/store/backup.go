@@ -77,9 +77,10 @@ const (
 	deliveryAckPositionFile = "delivery-ack-position.json"
 	// The SP20-D4 generation store internal/daemon keeps under state/delivery-generations/. Named as
 	// literals for the same reason as the sidecars: daemon imports store, so store cannot import daemon
-	// back (00-ARCHITECTURE.md §3.2). Only the manifest and its atomic head are watched — the
-	// content-addressed page files under pages/ are immutable (a page's name IS its content hash), so a
-	// captured page always equals the live one and cannot move under the walk; what CAN move is the
+	// back (00-ARCHITECTURE.md §3.2). Only the manifest and its atomic head are watched — the files
+	// under pages/ are write-once (a generation's pack under pages/packs/ and its root pointer, named by
+	// the root's content hash, are each published by a create-new link and never rewritten), so a
+	// captured one always equals the live one and cannot move under the walk; what CAN move is the
 	// store advancing a generation, which rewrites the head and appends the manifest.
 	deliveryGenerationsDir          = "delivery-generations"
 	deliveryGenerationsManifestFile = "manifest.jsonl"
@@ -114,10 +115,11 @@ const (
 // naming a root whose newest pages the walk never saw, or the copied manifest can hold a different
 // frontier from the copied head. Compare both files before, during and after the copy. A change
 // before the file's own turn in the walk must be detected too. Immutable page closure still depends
-// on the writer protocol and restore validation; this check alone does not prove that closure. These
-// files exist only when rollover is enabled (default off, delivery_generation.go); until then the
-// directory is absent and refuseIfTheProjectMoved's "not copied, still absent → continue" branch makes
-// watching them a no-op.
+// on the writer protocol and restore validation; this check alone does not prove that closure. The
+// store holds generations once the delivery journal has first rotated (rollover is on by default since
+// the V6 close-out). Before that it is absent, or an empty manifest with no head that nothing appends
+// to, and watching it changes nothing: refuseIfTheProjectMoved's "not copied, still absent → continue"
+// branch covers the absent head.
 // The active segment authority is watched too; refuseIfTheProjectMoved adds
 // each copied segment's mutable journals/seals to the same comparison.
 var backupLiveWriterFiles = []string{
@@ -255,21 +257,30 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 	}
 
 	tree := filepath.Join(dir, backupTreeDir)
-	err = filepath.WalkDir(paths.Long(m.l.Dot), func(p string, d fs.DirEntry, werr error) error {
+	// The walk runs over paths.Long(Dot), so on Windows every path it yields past MAX_PATH carries
+	// the \\?\ prefix. That spelling is for the directory enumeration only. Everything below works
+	// from src, the same file spelled from m.l.Dot the way every other path in this package is, and
+	// every callee applies paths.Long again at its own syscall. Handing on the walked spelling is
+	// what broke backups of deep projects: the copy's maintNoFollow relates its source to the
+	// unprefixed project root with filepath.Rel, which cannot relate two volume spellings, so
+	// every such backup failed with "Rel: can't make \\?\... relative to ..." (C1.7).
+	walkRoot := paths.Long(m.l.Dot)
+	err = filepath.WalkDir(walkRoot, func(p string, d fs.DirEntry, werr error) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		if werr != nil {
 			return werr
 		}
-		rel, rerr := filepath.Rel(paths.Long(m.l.Dot), p)
+		rel, rerr := filepath.Rel(walkRoot, p)
 		if rerr != nil {
 			return rerr
 		}
-		rel = filepath.ToSlash(rel)
 		if rel == "." {
 			return nil
 		}
+		src := filepath.Join(m.l.Dot, rel)
+		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
 			if backupSkipDirs[strings.SplitN(rel, "/", 2)[0]] {
 				return filepath.SkipDir
@@ -289,14 +300,14 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 				return fmt.Errorf("store: backup exceeds supported file count")
 			}
 			dst := filepath.Join(tree, filepath.FromSlash(rel))
-			size, digest, err := m.copyBackupFile(ctx, p, dst)
+			size, digest, err := m.copyBackupFile(ctx, src, dst)
 			if err != nil {
 				return err
 			}
 			man.Files = append(man.Files, BackupFile{Name: rel, Size: size, SHA256: digest})
 			return nil
 		}
-		b, ferr := paths.ReadFileShared(p)
+		b, ferr := paths.ReadFileShared(src)
 		if ferr != nil {
 			return ferr
 		}
@@ -346,6 +357,19 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 		return BackupManifest{}, fmt.Errorf("store: backup %q: %w", id, err)
 	}
 
+	// The manifest certifies the tree, and it is durable the moment WriteAtomic returns. So every name
+	// in the tree is made durable before it: each copied file synced its own bytes, but on POSIX not
+	// its directory entry, nor the entries of the directories the copy made. A power cut that kept
+	// the manifest and lost one of those names would leave a certified backup that no longer
+	// verifies — a loss the operator would learn of only when restoring from it. backup/ is synced
+	// too, for this backup's own directory entry.
+	if err := syncTreeDirs(dir, m.barriers); err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup %q: sync tree: %w", id, err)
+	}
+	if err := m.barriers.DirBarrier(m.l.Backup); err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup %q: sync %s: %w", id, m.l.Backup, err)
+	}
+
 	b, err := json.Marshal(man)
 	if err != nil {
 		return BackupManifest{}, fmt.Errorf("store: encode backup manifest: %w", err)
@@ -354,6 +378,47 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 		return BackupManifest{}, err
 	}
 	return man, nil
+}
+
+// syncTreeDirs makes every name in the tree under root durable: it syncs each directory in the tree
+// through b, every directory after all of its descendants and root last, so that once it returns a
+// power cut cannot take any entry the tree holds. A root that does not exist has nothing to sync.
+// Symbolic links are not followed; a backup or restore tree holds none (maintNoFollow).
+//
+// It is the barrier for a writer that builds a whole tree before one step certifies or publishes
+// it — TakeBackup before its manifest, Maintenance.Restore before its publishing rename — and it
+// costs one directory sync per directory, once per backup or restore.
+func syncTreeDirs(root string, b paths.Barriers) error {
+	walkRoot := paths.Long(root)
+	if _, err := os.Lstat(walkRoot); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	var dirs []string
+	err := filepath.WalkDir(walkRoot, func(p string, d fs.DirEntry, werr error) error {
+		if werr != nil {
+			return werr
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		rel, rerr := filepath.Rel(walkRoot, p)
+		if rerr != nil {
+			return rerr
+		}
+		dirs = append(dirs, filepath.Join(root, rel))
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	// WalkDir lists a directory before everything under it, so the reverse lists every directory
+	// after all of its descendants.
+	for i := len(dirs) - 1; i >= 0; i-- {
+		if err := b.DirBarrier(dirs[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // refuseIfTheProjectMoved compares the pre-copy frontier, captured bytes, and

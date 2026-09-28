@@ -1,0 +1,13 @@
+{
+ "name": "qompack",
+ "version": "0.3.0-eval2.dryrun",
+ "target": {
+  "os": "windows",
+  "arch": "amd64"
+ },
+ "go": "go1.26.6",
+ "source": {
+  "commit": "109d675a3d7ece9d0cf5e5dc5ba8f1dfa6a63964",
+  "dirty": false
+ }
+}

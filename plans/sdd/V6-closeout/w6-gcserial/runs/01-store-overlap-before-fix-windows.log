@@ -1,0 +1,15 @@
+# cmd: go test ./internal/store -run '^TestGC_PassesStartedTogetherRunOneAtATime$' -count=1 -v
+# commit: f6095e2 + uncommitted test file internal/store/gc_serial_test.go (no fix)
+=== RUN   TestGC_PassesStartedTogetherRunOneAtATime
+    gc_serial_test.go:130: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial/internal/store/gc_serial_test.go:130
+        	Error:      	Not equal: 
+        	            	expected: int(1)
+        	            	actual  : int32(2)
+        	Test:       	TestGC_PassesStartedTogetherRunOneAtATime
+        	Messages:   	two GC passes were in the middle of their work at once on one store
+--- FAIL: TestGC_PassesStartedTogetherRunOneAtATime (0.20s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.523s
+FAIL
+# exit: 1

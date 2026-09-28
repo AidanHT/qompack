@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-diag-e2e-load2-61493b6-20260927T024308Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows/diagclone
+rev=61493b6
+commit=61493b65526ea5d5ac7c32a349f846435c77045a
+bundle_sha256=fd30b419b35046407a1e90abc802ca8625e9bce2f066cc6954c741e4c3a73421
+host_started_utc=2026-09-27T02:43:32Z
+inner_args=--count 3 --timeout 90m --run ^(TestV3_LiveSessionWriteSetAndAppendOnly|TestE2E_SpooledSessionStartNeverDegradesTheProject|TestE2E_ThinSliceDropsControlOnlyEdges)$ -- ./test/e2e
+host_finished_utc=2026-09-27T03:02:39Z
+container_exit=1

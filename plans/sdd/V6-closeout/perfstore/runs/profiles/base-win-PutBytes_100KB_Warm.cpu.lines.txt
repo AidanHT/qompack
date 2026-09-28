@@ -1,0 +1,31 @@
+Total: 14.66s
+ROUTINE ======================== github.com/qompack/qompack/internal/paths.OpenFile in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\paths\appendonly.go
+         0       30ms (flat, cum)   0.2% of Total
+         .       10ms     50:)
+         .       20ms     59:func mayBeProtected(p string) bool {
+ROUTINE ======================== github.com/qompack/qompack/internal/paths.WriteAtomic in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\paths\atomic.go
+         0      110ms (flat, cum)  0.75% of Total
+         .       90ms    146:
+         .       10ms    150:	}
+         .       10ms    156:	// The staging file is removed on every path that leaves it behind, and only on those: after a
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).PutBytes in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\put.go
+         0     12.41s (flat, cum) 84.65% of Total
+         .      720ms    117:	red, matches := s.deps.Redact.Redact(b)
+         .     11.34s    121:	cr, err := s.deps.Canon.Run(o.Tool, o.Path, red, s.canonOptions(o))
+         .      240ms    130:	chunks := s.splitChecked(canonical)
+         .       10ms    131:	root := chunk.RootHash(chunks)
+         .       20ms    141:	if hit, ok := s.dedupHit(res, o, red, canonical, cr.Deltas); ok {
+         .       30ms    169:	pw := s.pending(root, refs)
+         .       50ms    172:		n, novel, perr := s.putObject(c.Hash, plain)
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).beginPendingWrite in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\lifecycle.go
+         0       30ms (flat, cum)   0.2% of Total
+         .       30ms    207:	if err := paths.WriteAtomic(p, append(b, '\n'), 0o600); err != nil {
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).putObject in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\objects.go
+         0       50ms (flat, cum)  0.34% of Total
+         .       10ms    203:// reconcile. On Windows the rename is retried a few times, because antivirus contention makes the
+         .       30ms    219:		if err = os.Rename(paths.Long(tmp), paths.Long(dst)); err == nil {
+         .       10ms    222:		// Another writer may have landed the identical object in the meantime.
+ROUTINE ======================== github.com/qompack/qompack/internal/store.(*FSStore).writeStaged in C:\Users\Quant\Documents\Programming\Projects\qompack-cx-perfstore\internal\store\objects.go
+         0       30ms (flat, cum)   0.2% of Total
+         .       20ms    236:// It returns the number of COMPRESSED bytes written and whether the object was novel. An object
+         .       10ms    251:	if s.compressing() {

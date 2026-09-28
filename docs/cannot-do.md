@@ -116,18 +116,33 @@ host change could lift — as prepared proposals, none of which has been filed.
 ### No summarizer model substitution
 
 - **Limit.** Qompack cannot perform summarizer model substitution: it cannot choose, replace or
-  configure the model that writes the host's compaction summary, and `custom_instructions` does not
-  set the summarizer's output.
+  configure the model that writes the host's compaction summary, and it cannot hand the summarizer
+  any instruction at all. A plugin's PreCompact hook has no output channel for one.
 - **Why.** `Qompack.md` v1.5 §7.3 states the boundary: "`custom_instructions` is PreCompact input,
-  not a summarizer-output setter." The key that once implied otherwise,
-  `checkpoint.incrementalSpanInstruction`, is retired-meaning and read for compatibility only.
-  Whether the host accepts the instruction at all is itself unobserved here:
-  `precompact.custom_instructions_accepted` reports `not-yet-implemented` in `qompack self-test`'s
-  zero-`Services` run, and no installed-host run has observed it (B01).
+  not a summarizer-output setter." The hooks reference (fetched 2026-09-22) gives PreCompact only
+  top-level `decision: "block"`/`reason` and no `hookSpecificOutput` variant, and "Claude Code
+  discards a PreCompact hook's `systemMessage` and `continue` fields"; `custom_instructions` is what
+  the *user* typed after `/compact`. This was observed, not only read: Claude Code 2.1.280 rejected
+  the focus instruction Qompack used to return ("Hook JSON output validation failed —
+  hookSpecificOutput.hookEventName: expected one of …") and replayed the rejection into the
+  post-compaction context (C1.12,
+  [evidence](../plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt)). The only
+  documented ways to steer the summary are `/compact <instructions>`, typed by the user, and a
+  `# Compact instructions` section in the project's `CLAUDE.md`, which Qompack does not write. The
+  key that once implied otherwise, `checkpoint.incrementalSpanInstruction`, is retired-meaning and
+  read for compatibility only.
 - **What Qompack does instead.** It writes its own checkpoint at PreCompact, which is Qompack's
-  artifact and does not depend on what the summarizer produces.
-- **Recorded at.** `Qompack.md` v1.5 §12 and §7.3;
-  [docs/config-reference.md](config-reference.md#retired-meaning-keys).
+  artifact and does not depend on what the summarizer produces, and it answers the PreCompact hook
+  with the empty object — the only response the host accepts from it. The focus instruction is
+  retired (C1.18): the daemon neither returns nor records one, and
+  `precompact.custom_instructions_accepted` reports `retired`, attributed to an unsupported
+  capability, instead of probing the transcript for text the host never received. The hook client
+  still strips any PreCompact output an older, still-resident daemon might send
+  (`internal/hookio` `ConformOutput`).
+- **Recorded at.** `Qompack.md` v1.5 §12, §7.3 and §8.5 ("Retire O1's output setter");
+  [docs/config-reference.md](config-reference.md#retired-meaning-keys);
+  `testdata/host/hooks-output-schema.json`; proposal 2 in
+  [docs/upstream-issues.md](upstream-issues.md).
 
 ### The rehydration budget is Qompack-added material, not restored native context
 
@@ -141,6 +156,36 @@ host change could lift — as prepared proposals, none of which has been filed.
   [docs/user-guide.md](user-guide.md#additional-context-budget-and-overflow).
 - **Recorded at.** [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §3 and §4;
   [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
+
+### The host delivers at most 10,000 characters of injected context whole
+
+- **Limit.** A hook field longer than 10,000 characters does not reach Claude whole: the host keeps
+  the full text in a file and gives Claude its path and a preview of the first 2,000 characters.
+  Qompack cannot raise the cap, so a rehydration can carry at most that much — less than a long
+  session's restorable material (a single restored rule can run to thousands of characters), so some
+  of it is always left for Claude to fetch.
+- **Why.** The hooks reference (fetched 2026-09-22): "A hook's `additionalContext`,
+  `systemMessage`, and `initialUserMessage` strings, and its plain stdout, are capped at 10,000
+  characters"; over it "Claude Code saves the output to a file in the session directory and
+  replaces it with the file path and a preview of up to the first 2,000 characters", "this cap has
+  no setting or environment variable to raise it", and "Claude Code doesn't ask Claude to read the
+  file". Observed on Claude Code 2.1.280: an 11,082-character SessionStart context reached Claude as
+  a 2,391-character `<persisted-output>` block, and the model could quote only what the preview held
+  ([evidence](../plans/sdd/V6-closeout/packaging/evidence/review/f2-live-host-cap-probe/README.txt)).
+  The host accepts such a response, so no check fails. The unit is UTF-16 code units: the host's own
+  code tests `field.length <= 1e4`
+  ([evidence](../plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt)).
+- **What Qompack does instead.** It fits the cap (owner decision D5). The whole compact
+  `additionalContext`, contract probe included, is at most 9,500 host characters. Records are chosen
+  in the fixed §8.6 order and admitted whole or not at all; each one left out is named in section 7
+  of the payload with the call that brings it back (`why`, `re_read`, `expand`, `already_tried` with
+  the elimination's own target and approach, or `Read` on the rule, skill or checkpoint file), and the
+  section ends in a counted tail pointing at `dropped()` when it cannot list everything. The hook client still records a Loud line if any field ever overruns the cap
+  (`internal/hookio` `HostCapOverruns`); for the rehydration that is a defence that does not fire.
+- **Recorded at.** `testdata/host/hooks-output-schema.json` (`limits`);
+  [ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md);
+  `internal/rehydrate` `TestBuild_NeverExceedsTheHostCeiling`; `test/e2e`
+  `TestE2E_SessionStartCompactFitsTheHostCap`; `internal/cli` `TestHookOutput_OverTheHostCapIsLoud`.
 
 ### No PostCompact dependency
 
@@ -218,6 +263,56 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `Qompack.md` v1.5 §12; `plans/V5-report.md` §24 (the SP-21 enabled-surface matrix)
   and §26; [docs/architecture.md §10](architecture.md#10-what-is-not-supported).
 
+### The first captured prompt is not always the first prompt the host sent
+
+- **Limit.** Qompack cannot promise that `prompt_<session>_0`, which rehydration item 2 injects as the
+  verbatim original intent, is the prompt the host sent first. A prompt's turn is the order it was
+  captured in. Prompts that reach the daemon live are captured in arrival order, and prompts
+  replayed from the hooks' client spools (the HotSpool submode, `runtime.daemon.enabled=false`, a
+  hook that could not reach the daemon) are replayed in the order their hooks stamped them. Two
+  cases fall outside both. In the first, a prompt's hook could not reach the daemon and spooled it,
+  then a later prompt arrived live and was captured before a drain replayed the spool. In the
+  second, a spool file is named by the hook's pid, so a later hook that reuses the pid appends to an
+  earlier hook's file. One drain pass replays a file's records in file order, so that later prompt
+  can be replayed ahead of another file's earlier one. Either way the later prompt can take turn 0.
+- **Why.** The daemon cannot see a prompt that exists only in a hook's spool, so it cannot hold the
+  live prompt back for it without waiting on a file that may never appear. Replay is ordered file by
+  file, and a file shared by two hooks through pid reuse keeps its own record order. Captured turns
+  are never renumbered, because every later artifact is numbered against them. The V6 close-out's
+  owner decision D35 ruled the live race out of the host-order guarantee and specified the
+  file-by-file order.
+- **What Qompack does instead.** Every prompt record carries the host's timestamp. Any capture that
+  lands behind a turn its host sent later, from either source, is counted
+  (`observer.prompt_out_of_host_order`) and logged as a Warn naming the turn it came in behind. A
+  rehydration whose turn 0 is not the session's earliest-stamped prompt says so. Section 7 carries
+  a `user_intent_source` entry, `host_order`, naming both records and the `expand(tool_use_id=…)`
+  call for the host-first one. The client-spool watcher limits the live race's window: once the
+  daemon serves another request, a spooled prompt is replayed within about two check intervals of
+  2 s each, so only a live prompt sent inside that window can come in ahead of it. A spool file
+  that a pid-reusing hook appended to after a drain had begun it is placed by the record the next
+  drain replays from it, so reuse reorders prompts only when both hooks spooled before one pass.
+- **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);
+  `plans/CARRIED-DEFECTS.tsv`; [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
+
+### No recording in a session whose project root is the home directory
+
+- **Limit.** A session whose project root resolves to your home directory records nothing, and every
+  Qompack command there refuses or reports that it is inactive. That covers a session started in the
+  home directory, one started below a home that is itself a git work tree (a dotfiles repository) in
+  a directory with no `.git` of its own, and `QOMPACK_PROJECT_ROOT` naming the home directory. A
+  session that started in the home directory stays inactive even if its work moves into a project.
+- **Why.** Owner decision D18. The project store would be `~/.qompack`, the directory that already
+  holds Qompack's user-wide configuration, calibration file, fallback logs and, on Windows, the
+  staged daemon copies; a project store there would mix the two and put project records where
+  uninstalling or resetting the user-wide settings would take them. The comparison ignores case on
+  Windows and follows symlinks and junctions, so it cannot be spelled around.
+- **What Qompack does instead.** It says so once, on `SessionStart`, and writes nothing: no store, no
+  log, no lock, no daemon. The MCP tools answer a stable refusal, `status` and `doctor` report the
+  reason, and a project below the home directory — with or without its own `.git`, below a plain
+  home — works as it always did.
+- **Recorded at.** [docs/troubleshooting.md](troubleshooting.md#qompack-is-inactive-in-the-home-directory);
+  [docs/architecture.md §2](architecture.md#2-write-set-and-retention); `plans/00-ARCHITECTURE.md` §3.3.
+
 ### No performance guarantee on any host
 
 - **Limit.** Qompack makes no performance guarantee. The latency budgets in this repository gate
@@ -236,6 +331,95 @@ host change could lift — as prepared proposals, none of which has been filed.
   [docs/troubleshooting.md §2](troubleshooting.md#2-unknown-capability-or-telemetry).
 - **Recorded at.** [ADR 0010](adr/0010-wall-clock-under-coload.md) (Context, "What this does not
   decide", Addendum 1); `plans/V5-report.md` §29.
+
+### No bounded delivery history on disk, and no downgrade across a rotation
+
+- **Limit.** The delivery journals never forget an identity, so the delivery state on disk grows with
+  every delivery a project has ever had — about 0.18 GiB per 100,000 deliveries as measured at the
+  V6 close-out — and nothing prunes it. And once a store's delivery journal has
+  rotated (every 65,536 deliveries), a Qompack build that predates segmented rollover cannot use it:
+  it refuses the journal and assigns no observation identity to anything it captures.
+- **Why.** A redelivered copy of any past delivery must get its original observation identity back,
+  and a session's arrivals must never restart, so every lease, acknowledgement and arrival stays
+  resolvable. What is bounded is memory, not storage: between rotations the daemon holds the active
+  window, a lookup reads one path of the archive whose depth grows with the logarithm of the history,
+  and a store GC pass holds at most the active window and 65,536 carried leases (the next entry); a
+  rotation briefly also holds the outgoing window's archive plan and the carried leases, at most
+  64 MiB of them. An older build cannot see the later segments, and appending to the original
+  journal would re-mint arrival numbers those segments already assigned, so the first rotation makes
+  it refuse instead.
+- **What Qompack does instead.** It archives rotated windows compactly (one pack file per generation)
+  and keeps the refusal fail-closed: pending input is retained for the current build. A backup taken
+  before the first rotation is the rollback path. The daemon rotates on its own when the journal
+  fills, and warns once per run beforehand, when a project that has never rotated reaches 49,152
+  deliveries ([Backup and restore](backup.md) says when to take it).
+- **Recorded at.** `plans/CARRIED-DEFECTS.tsv` SP20-D4; `plans/V2-WAVE1-carried-defects.md` §SP20-D4.
+
+### A rotation pauses capture, and the carried leases have two hard bounds
+
+- **Limit.** Every 65,536 deliveries (or 64 MiB of journal) leases and acknowledgements stop while
+  the rotation archives the outgoing window: 2.3 to 6.8 s per full window in the V6 close-out's
+  measurements on loaded Windows and Linux hosts. And the archived leases that have no
+  acknowledgement are carried from segment to segment with two bounds: past 65,536 of them every
+  store GC pass halts and collects nothing, so disk use grows; past 64 MiB of them (about 200,000)
+  the next rotation refuses, the journal stops leasing, and capture stops. This build has no repair
+  for either. A delivery retired by a policy denial is never acknowledged, and neither is a leased
+  delivery that is never published, so both count toward the bounds for the life of the project.
+- **Why.** A rotation archives the window under a barrier that excludes both journal pipelines, so
+  no identity is assigned while the history it must stay consistent with is moving. The carry is how
+  store GC knows what old leases still retain without reading every old segment; a pass holds it in
+  memory, so it is bounded, and a carry past its file's own bound could not be read back by the next
+  rotation, the offline check or `fsck`, so the rotation refuses to write one.
+- **What Qompack does instead.** Hooks spool during the pause and the drain leases their deliveries
+  afterwards under the same nonce, so the pause loses nothing. A refused rotation stages nothing and
+  keeps every later delivery in durable input. Every rotation, halted GC pass and refused rotation is
+  a Loud line and a counter, shown by `qompack status` and summarised in `qompack doctor`'s
+  `delivery.rollover` row ([Troubleshooting](troubleshooting.md#7-daemon-problems)). Owner decision
+  D6 accepted both as documented residuals, and deferred moving the archive off the pause past this
+  release.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D6; `plans/V2-WAVE1-carried-defects.md` §SP20-D4.
+
+### A delivery made while Windows reports `config.json` missing uses the configuration without it
+
+- **Limit.** On Windows, a rename that replaces `config.json` (how most editors save) can leave the
+  name missing for tens of milliseconds while it runs. A hook whose first look at the file falls in
+  that moment finds no file and uses the configuration without that layer, so that one delivery is
+  recorded, or not, without the file being saved: a `runtime.mode` of `off` or a `runtime.redact`
+  addition in it does not apply to that delivery.
+- **Why.** At that moment the file does not exist for any reader: on the development host about one
+  rename in every 10,000 to 40,000 left the name missing, for 18 to 115 ms, with no reader holding the
+  file, whichever rename the writer used. A hook that has not yet seen the file cannot tell that
+  moment from a file you deleted. Refusing every delivery whose project has no `config.json` would
+  stop recording in every project that has none, and looking again after every miss would delay
+  every hook in those projects.
+- **What Qompack does instead.** It reads `config.json` with delete sharing, so an editor's save never
+  makes a hook's read fail or refuse, and it never takes a file that exists but cannot be read for a
+  missing one: `config.Load` warns (`loud`) and the hook path refuses the capture. A hook that saw the
+  file and then could not open it looks again for up to 250 ms, reads the file that comes back, and
+  goes on without that layer only if the file stays gone throughout.
+- **Recorded at.** [docs/architecture.md §2](architecture.md#2-write-set-and-retention);
+  `plans/00-ARCHITECTURE.md` §3.2 (owner decision D22).
+
+### A session's end can wait for the next session when the daemon is stopping
+
+- **Limit.** A `SessionEnd` whose `qompack flush` arrives while the project's daemon is stopping —
+  it has closed its listener but still holds `.qompack/run/daemon.lock`, as it does for a moment at
+  its idle exit — reaches no daemon. The flush starts a new daemon, which cannot take the lock and
+  exits, so nothing ends that session now: its end-of-session work (the observer's end of session,
+  the terminal-hook marker, the saved sketches, the store GC pass a session end runs) waits until a
+  daemon next starts for the project, normally with the next session there.
+- **Why.** Only the lock's holder may serve the project (one daemon per project), and a daemon that
+  has begun to stop does not serve again. The flush cannot wait for the stop to finish: the host
+  gives every plugin's `SessionEnd` hooks one shared 1.5 s budget
+  ([architecture §1](architecture.md#1-process-model)). The idle exit comes only after
+  `runtime.daemon.idleExitSeconds` with no live session, so there it takes a session that was silent
+  that long and then ended just as the daemon stopped.
+- **What Qompack does instead.** The flush is written to the project's client spool before the hook
+  exits, so it is replayed, not lost: the next daemon's drain replays it and ends the session the
+  way it ends one whose flush arrived live. The extra daemon is the "second `qompack daemon` that
+  exits at once" of [Troubleshooting](troubleshooting.md#7-daemon-problems).
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D35(c); `plans/sdd/V6-closeout/w7-spawnclaim/report.md`
+  (open issues).
 
 ### No cost or price guarantee
 
@@ -295,6 +479,27 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `Qompack.md` v1.5 §12 (both the risk-register row and "What this plugin cannot
   do"); [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states).
 
+### It cannot see every host permission rule
+
+- **Limit.** Qompack re-applies the `Read` deny and ask rules saved in Claude Code's settings files
+  to every archived retrieval, but it cannot see rules that exist only in the running session: rules
+  added with `/permissions` for the session alone, `--allowedTools`, `--disallowedTools`,
+  `--settings` and `--setting-sources` flags, PreToolUse hooks that refuse reads, an embedding
+  host's managed settings, a managed `policyHelper`'s output, or the session's working directory
+  when it is not the project root. Content captured without a path — shell output — has nothing for
+  a path rule to match, so `cat .env` archived as shell output is served even under `Read(./.env)`.
+- **Why.** The host offers no interface through which an MCP server can ask whether a native Read of
+  a path would be allowed now; the settings files are the only part of that decision a plugin can
+  read. Checked against the permissions and settings documentation on 2026-09-22.
+- **What Qompack does instead.** It reads every settings file the host reads (managed, cached
+  server-managed, user, project and local), re-reads one as soon as it changes, refuses an ask rule
+  as well as a deny rule, answers `unavailable` ("host policy unavailable") for every path-bearing
+  record while a settings file exists but cannot be read or parsed, and takes the more refusing
+  reading wherever the documentation leaves one open. The refusal never echoes the path or the rule
+  — [docs/security.md §1](security.md#1-trust-boundaries).
+- **Recorded at.** `internal/hostperm`'s package comment; the evidence under
+  `plans/sdd/V6-closeout/hostperm/runs/`.
+
 ### Redaction is applied at capture, and telemetry is hardwired off
 
 - **Limit.** Qompack cannot retroactively redact what it already stored, and it cannot send
@@ -316,16 +521,27 @@ host change could lift — as prepared proposals, none of which has been filed.
 
 These are the limits that can move. Each names the gate or the owner that would move it.
 
-### `/qompack:checkpoint` is not routed
+### No manual checkpoint command
 
-- **Limit.** `/qompack:checkpoint` is advertised but not reachable as a subcommand in this build.
-- **Why.** `qompack checkpoint` is the PreCompact hook entry point: it always exits 0 and reads a
-  hook event from stdin. A separate local-seal route needs an architecture pre-step (SP-14 handoff
-  edge H3), which is open by design.
-- **What Qompack does instead.** Checkpoints are written by the PreCompact hook on the host's
-  compaction boundary and by the scheduler; there is no manual route to one yet.
-- **Recorded at.** [docs/commands.md](commands.md#qompackcheckpoint) ("Not available in this
-  build"); `plans/V5-report.md` §29 item 3.
+- **Limit.** Qompack does not offer a manual checkpoint: there is no `/qompack:checkpoint` command,
+  and no `qompack` subcommand seals one on demand.
+- **Why.** The only route such a command could shell out to, `qompack checkpoint`, is the
+  `PreCompact` hook entry point: it reads a hook event from stdin and always exits 0. Earlier builds
+  shipped a `/qompack:checkpoint` command file that ran it, so the command wrote nothing and reported
+  nothing; it is no longer installed. A separate on-demand route has not been built, and it would
+  add little: the block injected after a compaction is built from the session's latest checkpoint,
+  which is normally the one that compaction sealed.
+- **What Qompack does instead.** Checkpoints are written automatically: by the `PreCompact` hook
+  just before every compaction, and on the checkpointer's own cadence during a session once enough
+  new work has accumulated. `qompack fsck` verifies the checkpoint tier against its manifest.
+  `/qompack:status` reports no checkpoint list or latest seq; checkpoint activity shows up there
+  only as the `checkpoint_finalize` latency (the `PreCompact` hook row and budget B-E) and as any
+  `checkpoint.*` counters the daemon has recorded, such as `checkpoint.cadence.local_seal` or
+  `checkpoint.sources.unavailable`.
+- **Recorded at.** [docs/commands.md](commands.md) (the preamble: "There is no checkpoint
+  command"); [docs/user-guide.md](user-guide.md#checkpoints-are-automatic);
+  `internal/pluginmanifest/manifest.go` (`commandSpecs`); `plans/V5-report.md` §29 item 3 (the
+  SP-14 handoff edge H3 this closes by not shipping the command).
 
 ### No operator backup, restore or rollback command; `bench` unimplemented
 

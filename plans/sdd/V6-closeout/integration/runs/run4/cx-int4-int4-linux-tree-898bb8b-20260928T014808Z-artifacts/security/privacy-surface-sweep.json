@@ -1,0 +1,248 @@
+{
+  "surfaces": {
+    "backup": {
+      "files": 53,
+      "bytes": 158112,
+      "names": [
+        "backup/security-sweep-backup/manifest.json",
+        "backup/security-sweep-backup/tree/.gitignore",
+        "backup/security-sweep-backup/tree/checkpoints/0001.json",
+        "backup/security-sweep-backup/tree/checkpoints/MANIFEST.jsonl",
+        "backup/security-sweep-backup/tree/config.json",
+        "backup/security-sweep-backup/tree/dag/deps.jsonl",
+        "backup/security-sweep-backup/tree/index/files.json",
+        "backup/security-sweep-backup/tree/index/files.jsonl",
+        "backup/security-sweep-backup/tree/index/observations.jsonl",
+        "backup/security-sweep-backup/tree/index/roots.jsonl",
+        "backup/security-sweep-backup/tree/index/segments.jsonl",
+        "backup/security-sweep-backup/tree/index/sessions.jsonl",
+        "backup/security-sweep-backup/tree/index/tool_use.jsonl",
+        "backup/security-sweep-backup/tree/objects/02/e5/02e538451b9499d75bdb283f791f22aa308fe495c63aeb55532581ee905043ee.zst",
+        "backup/security-sweep-backup/tree/objects/09/57/0957143cb64261b7b3ee4b3237aa309c8fcc54b62b3b32987f8b1d350dcf5708.zst",
+        "backup/security-sweep-backup/tree/objects/31/f9/31f9af694967468d263e5e42b8269efbb08c1f135b8d556c539b4a962873cdb7.zst",
+        "backup/security-sweep-backup/tree/objects/93/c4/93c4dc65a284b9e7f457c7ee10eec74cbf64caedecf181570e7d84d8f4ec07bd.zst",
+        "backup/security-sweep-backup/tree/objects/ca/4d/ca4ddd021a89e4d5272f47412f7a783c24ce6f33cced2b529729e83726df6b29.zst",
+        "backup/security-sweep-backup/tree/objects/da/40/da4025975a1ef2fc9a48c1a07ec5916eb35b1251d563cfe8982de29b2cc6b7ad.zst",
+        "backup/security-sweep-backup/tree/objects/dc/41/dc41c4bc319b71f804c2ccdc6274abca5ab8b4d48b34f6448abfa32d732d3879.zst",
+        "backup/security-sweep-backup/tree/objects/f0/8d/f08d82a24710785fc860abdc639fe9fa8d4ca5c98b6cc2bf7669374ec5c66d06.zst",
+        "backup/security-sweep-backup/tree/objects/f5/b8/f5b80e3b92702f2a42257d23b2055d5756adf29d1ebe5a728d2f434199c0108e.zst",
+        "backup/security-sweep-backup/tree/pins/invariants.json",
+        "backup/security-sweep-backup/tree/records/captures/2e/2e61c1cf560618e71f211c109d07c8a678945204a81add94319bdd3e65a81e66.json",
+        "backup/security-sweep-backup/tree/records/captures/60/60420e98e846d496e81591453a2ab5015a97b936de7ec0343cf6586a2aa3eeac.json",
+        "backup/security-sweep-backup/tree/records/captures/b0/b0767fd4ff27c2634fbaaaf8ea6d1cd060a9f39862ce0ac38df6109ca3781d23.json",
+        "backup/security-sweep-backup/tree/records/eliminations.jsonl",
+        "backup/security-sweep-backup/tree/sketches/explore.hll",
+        "backup/security-sweep-backup/tree/sketches/touch.cms",
+        "backup/security-sweep-backup/tree/sketches/tried.bloom",
+        "backup/security-sweep-backup/tree/spool/client-39779.ndjson",
+        "backup/security-sweep-backup/tree/state/bocd.json",
+        "backup/security-sweep-backup/tree/state/chunktokens.bin",
+        "backup/security-sweep-backup/tree/state/delivery-ack-position.json",
+        "backup/security-sweep-backup/tree/state/delivery-acks.jsonl",
+        "backup/security-sweep-backup/tree/state/delivery-generations/manifest.jsonl",
+        "backup/security-sweep-backup/tree/state/delivery-journal-log.jsonl",
+        "backup/security-sweep-backup/tree/state/delivery-journal.json",
+        "backup/security-sweep-backup/tree/state/delivery-lease-position.json",
+        "backup/security-sweep-backup/tree/state/delivery-leases.jsonl",
+        "backup/security-sweep-backup/tree/state/draft-sess-security-redaction-0001.json",
+        "backup/security-sweep-backup/tree/state/drain.json",
+        "backup/security-sweep-backup/tree/state/gc-live.bin",
+        "backup/security-sweep-backup/tree/state/history.json",
+        "backup/security-sweep-backup/tree/state/mcp.json",
+        "backup/security-sweep-backup/tree/state/observations.json",
+        "backup/security-sweep-backup/tree/state/observer.json",
+        "backup/security-sweep-backup/tree/state/precompact.json",
+        "backup/security-sweep-backup/tree/state/promotions.json",
+        "backup/security-sweep-backup/tree/state/retention-roots.jsonl",
+        "backup/security-sweep-backup/tree/state/scheduler.json",
+        "backup/security-sweep-backup/tree/state/session-recovery.json",
+        "backup/security-sweep-backup/tree/state/store.json"
+      ]
+    },
+    "checkpoints": {
+      "files": 2,
+      "bytes": 981,
+      "names": [
+        "checkpoints/0001.json",
+        "checkpoints/MANIFEST.jsonl"
+      ]
+    },
+    "dag": {
+      "files": 1,
+      "bytes": 3355,
+      "names": [
+        "dag/deps.jsonl"
+      ]
+    },
+    "dot-root": {
+      "files": 2,
+      "bytes": 135,
+      "names": [
+        ".gitignore",
+        "config.json"
+      ]
+    },
+    "eval-export": {
+      "files": 1,
+      "bytes": 1361,
+      "names": [
+        "sess-security.json"
+      ]
+    },
+    "index": {
+      "files": 7,
+      "bytes": 30954,
+      "names": [
+        "index/files.json",
+        "index/files.jsonl",
+        "index/observations.jsonl",
+        "index/roots.jsonl",
+        "index/segments.jsonl",
+        "index/sessions.jsonl",
+        "index/tool_use.jsonl"
+      ]
+    },
+    "logs": {
+      "files": 1,
+      "bytes": 858,
+      "names": [
+        "logs/qompack-20260928.log"
+      ]
+    },
+    "mcp-retrieval": {
+      "files": 7,
+      "bytes": 10075,
+      "names": [
+        "00-recall.json",
+        "01-expand.json",
+        "02-expand.json",
+        "03-re_read.json",
+        "04-timeline.json",
+        "05-why.json",
+        "06-dropped.json"
+      ]
+    },
+    "metrics": {
+      "files": 1,
+      "bytes": 2786,
+      "names": [
+        "metrics/latency.json"
+      ]
+    },
+    "objects": {
+      "files": 9,
+      "bytes": 21775,
+      "names": [
+        "objects/02/e5/02e538451b9499d75bdb283f791f22aa308fe495c63aeb55532581ee905043ee.zst",
+        "objects/09/57/0957143cb64261b7b3ee4b3237aa309c8fcc54b62b3b32987f8b1d350dcf5708.zst",
+        "objects/31/f9/31f9af694967468d263e5e42b8269efbb08c1f135b8d556c539b4a962873cdb7.zst",
+        "objects/93/c4/93c4dc65a284b9e7f457c7ee10eec74cbf64caedecf181570e7d84d8f4ec07bd.zst",
+        "objects/ca/4d/ca4ddd021a89e4d5272f47412f7a783c24ce6f33cced2b529729e83726df6b29.zst",
+        "objects/da/40/da4025975a1ef2fc9a48c1a07ec5916eb35b1251d563cfe8982de29b2cc6b7ad.zst",
+        "objects/dc/41/dc41c4bc319b71f804c2ccdc6274abca5ab8b4d48b34f6448abfa32d732d3879.zst",
+        "objects/f0/8d/f08d82a24710785fc860abdc639fe9fa8d4ca5c98b6cc2bf7669374ec5c66d06.zst",
+        "objects/f5/b8/f5b80e3b92702f2a42257d23b2055d5756adf29d1ebe5a728d2f434199c0108e.zst"
+      ]
+    },
+    "pins": {
+      "files": 1,
+      "bytes": 3,
+      "names": [
+        "pins/invariants.json"
+      ]
+    },
+    "records": {
+      "files": 4,
+      "bytes": 10124,
+      "names": [
+        "records/captures/2e/2e61c1cf560618e71f211c109d07c8a678945204a81add94319bdd3e65a81e66.json",
+        "records/captures/60/60420e98e846d496e81591453a2ab5015a97b936de7ec0343cf6586a2aa3eeac.json",
+        "records/captures/b0/b0767fd4ff27c2634fbaaaf8ea6d1cd060a9f39862ce0ac38df6109ca3781d23.json",
+        "records/eliminations.jsonl"
+      ]
+    },
+    "run": {
+      "files": 1,
+      "bytes": 61,
+      "names": [
+        "run/marker.json"
+      ]
+    },
+    "sketches": {
+      "files": 3,
+      "bytes": 68648,
+      "names": [
+        "sketches/explore.hll",
+        "sketches/touch.cms",
+        "sketches/tried.bloom"
+      ]
+    },
+    "spool": {
+      "files": 1,
+      "bytes": 3248,
+      "names": [
+        "spool/client-39779.ndjson"
+      ]
+    },
+    "state": {
+      "files": 22,
+      "bytes": 11676,
+      "names": [
+        "state/bocd.json",
+        "state/chunktokens.bin",
+        "state/delivery-ack-position.json",
+        "state/delivery-acks.jsonl",
+        "state/delivery-generations/manifest.jsonl",
+        "state/delivery-journal-log.jsonl",
+        "state/delivery-journal.json",
+        "state/delivery-lease-position.json",
+        "state/delivery-leases.jsonl",
+        "state/draft-sess-security-redaction-0001.json",
+        "state/drain.json",
+        "state/gc-live.bin",
+        "state/history.json",
+        "state/mcp.json",
+        "state/observations.json",
+        "state/observer.json",
+        "state/precompact.json",
+        "state/promotions.json",
+        "state/retention-roots.jsonl",
+        "state/scheduler.json",
+        "state/session-recovery.json",
+        "state/store.json"
+      ]
+    }
+  },
+  "redaction_placeholders": {
+    "backup": 40,
+    "checkpoints": 0,
+    "dag": 0,
+    "dot-root": 0,
+    "eval-export": 0,
+    "index": 4,
+    "logs": 0,
+    "mcp-retrieval": 23,
+    "metrics": 0,
+    "objects": 36,
+    "pins": 0,
+    "records": 0,
+    "run": 0,
+    "sketches": 0,
+    "spool": 0,
+    "state": 0
+  },
+  "hits": null,
+  "planted_rules": [
+    "anthropic_key",
+    "assignment_secret",
+    "aws_access_key_id",
+    "bearer_token",
+    "credentialed_uri",
+    "custom:0",
+    "dotenv_value",
+    "generic_sk_key",
+    "github_token",
+    "jwt",
+    "pem_private_key"
+  ]
+}

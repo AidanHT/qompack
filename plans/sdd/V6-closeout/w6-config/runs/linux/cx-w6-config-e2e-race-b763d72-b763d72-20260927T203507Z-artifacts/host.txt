@@ -1,0 +1,10 @@
+run_id=cx-w6-config-e2e-race-b763d72-b763d72-20260927T203507Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config
+rev=b763d72
+commit=b763d728ded3e6d6369a6e72d66bd0d125bb1120
+bundle_sha256=f2d9e77ea938aec72eb9dcb1d3282f365c9b89996a1ccd9a667f6685f6820b17
+host_started_utc=2026-09-27T20:35:31Z
+inner_args=--timeout 60m -- ./test/e2e
+host_finished_utc=2026-09-27T21:16:26Z
+container_exit=1

@@ -1,0 +1,51 @@
+File: negknow.test.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\bin\new2\negknow.test.exe2026-09-22 18:31:41.883593 -0400 EDT
+Type: cpu
+Time: 2026-09-22 18:32:13 EDT
+Duration: 29.81s, Total samples = 17.27s (57.93%)
+Active filters:
+   focus=negknow.Open$
+Showing nodes accounting for -0.73s, 4.23% of 17.27s total
+Dropped 3 nodes (cum <= 0.09s)
+Showing top 40 nodes out of 260
+      flat  flat%   sum%        cum   cum%
+     0.16s  0.93%  0.93%      0.16s  0.93%  runtime.cgocall
+     0.15s  0.87%  1.80%      0.16s  0.93%  github.com/qompack/qompack/internal/negknow.parseHash
+    -0.13s  0.75%  1.04%     -0.13s  0.75%  encoding/hex.Decode
+    -0.09s  0.52%  0.52%     -0.09s  0.52%  runtime.nextFreeFast (inline)
+    -0.08s  0.46% 0.058%     -0.08s  0.46%  encoding/hex.Encode (inline)
+    -0.07s  0.41%  0.35%     -0.33s  1.91%  github.com/qompack/qompack/internal/negknow.(*ledger).reindex
+    -0.07s  0.41%  0.75%     -0.06s  0.35%  runtime.tryDeferToSpanScan
+    -0.06s  0.35%  1.10%     -0.05s  0.29%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).rawString
+    -0.06s  0.35%  1.45%     -0.06s  0.35%  runtime.memmove
+    -0.05s  0.29%  1.74%     -0.28s  1.62%  github.com/qompack/qompack/internal/core.ParseHash
+     0.05s  0.29%  1.45%      0.05s  0.29%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+    -0.05s  0.29%  1.74%     -0.05s  0.29%  runtime.gcmarknewobject
+    -0.04s  0.23%  1.97%     -0.31s  1.80%  github.com/qompack/qompack/internal/negknow.dedupHexKey
+    -0.04s  0.23%  2.20%     -0.04s  0.23%  github.com/qompack/qompack/internal/sketch.(*Bloom).Add
+    -0.04s  0.23%  2.43%     -0.06s  0.35%  runtime.mapaccess2_faststr
+    -0.03s  0.17%  2.61%     -0.02s  0.12%  github.com/qompack/qompack/internal/negknow.(*ledger).health
+    -0.03s  0.17%  2.78%     -0.02s  0.12%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).int64
+     0.03s  0.17%  2.61%      0.03s  0.17%  runtime.(*fixalloc).alloc
+    -0.03s  0.17%  2.78%     -0.03s  0.17%  runtime.(*mspan).init
+    -0.03s  0.17%  2.95%     -0.03s  0.17%  runtime.acquirem (inline)
+    -0.03s  0.17%  3.13%     -0.03s  0.17%  runtime.memclrNoHeapPointers
+    -0.03s  0.17%  3.30%     -0.09s  0.52%  runtime.wbBufFlush1
+    -0.02s  0.12%  3.42%     -0.08s  0.46%  bufio.(*Scanner).Scan
+    -0.02s  0.12%  3.53%     -0.02s  0.12%  countbody
+    -0.02s  0.12%  3.65%     -0.02s  0.12%  crypto/internal/fips140/sha256.(*Digest).Reset
+    -0.02s  0.12%  3.76%     -0.02s  0.12%  crypto/internal/fips140/sha256.(*Digest).checkSum
+    -0.02s  0.12%  3.88%     -0.02s  0.12%  crypto/internal/fips140/sha256.blockSHANI
+     0.02s  0.12%  3.76%      0.03s  0.17%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).lit
+    -0.02s  0.12%  3.88%     -0.09s  0.52%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).str
+     0.02s  0.12%  3.76%     -0.04s  0.23%  github.com/qompack/qompack/internal/negknow.(*lineDecoder).strBytes
+    -0.02s  0.12%  3.88%     -0.13s  0.75%  github.com/qompack/qompack/internal/negknow.Descriptor.keyHash
+     0.02s  0.12%  3.76%      0.04s  0.23%  github.com/qompack/qompack/internal/negknow.Descriptor.matchHash
+     0.02s  0.12%  3.65%     -0.01s 0.058%  runtime.(*mheap).initSpan
+    -0.02s  0.12%  3.76%     -0.02s  0.12%  runtime.(*mheap).tryAllocMSpan (inline)
+    -0.02s  0.12%  3.88%     -0.02s  0.12%  runtime.(*sweepLocker).tryAcquire
+    -0.02s  0.12%  4.00%     -0.02s  0.12%  runtime.cheaprand (inline)
+    -0.02s  0.12%  4.11%     -0.02s  0.12%  runtime.findObject
+    -0.02s  0.12%  4.23%     -0.36s  2.08%  runtime.mallocgc
+     0.02s  0.12%  4.11%      0.02s  0.12%  runtime.memequal
+    -0.02s  0.12%  4.23%     -0.03s  0.17%  runtime.scanblock

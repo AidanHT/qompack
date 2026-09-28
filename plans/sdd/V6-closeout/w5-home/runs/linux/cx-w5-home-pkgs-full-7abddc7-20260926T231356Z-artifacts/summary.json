@@ -1,0 +1,62 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/paths": {
+   "result": "pass",
+   "passed": 177,
+   "failed": [],
+   "skipped": [
+    "TestOpenFile_HandlesUnresolvableRootGracefully",
+    "TestRestoreLog_UnstatablePathIsNotCreated",
+    "TestReplaceBloom_PruneSurvivesUnreadableSketchesDir",
+    "TestHighestBloomBackupSeq_UnreadableDirIsAnError",
+    "TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows",
+    "TestReplacePinsView_DeniedStagingCreatePreservesView",
+    "TestTerminatePartialTail_UnreadablePathIsLeftAlone",
+    "TestWriteAtomic_CreateTempFailureLeavesNoStaging",
+    "TestEnsureLayout_WriteAtomicFailureIsPropagated",
+    "TestLong_IdentityWhenAbsFails",
+    "TestLong_PrefixesOverThreshold",
+    "TestLong_IdempotentOnAlreadyPrefixed",
+    "TestLong_UNCGetsUNCPrefix",
+    "TestManifest_ReadPropagatesNonNotExistOpenError",
+    "TestNorm_RejectsDifferentVolume",
+    "TestNorm_LeavesUNCVolumeMismatchUnresolved",
+    "TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved",
+    "TestResolve_PropagatesAbsFailure"
+   ]
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 414,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/commands": {
+   "result": "pass",
+   "passed": 126,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/mcp": {
+   "result": "pass",
+   "passed": 387,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1501,
+   "failed": [],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/test/docs": {
+   "result": "pass",
+   "passed": 19,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

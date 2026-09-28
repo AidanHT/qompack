@@ -67,9 +67,24 @@ Future existing commands: `go test ./internal/commands ./internal/pluginmanifest
 | TestStatus_HotPathNames / SP14-M7-01 | Per-hook daemon/disk rows carry measured source/age or unavailable; no aggregate presented as individual timing |
 | TestStatus_NilDepsUnavailable / SP14-M7-02 | Missing usage/errors shown unknown, not zero/absent; human and JSON parity fixtures |
 | TestRecall_NoSecondImplementation / SP14-M2-01 | Frontends reuse SP13 and preserve denial/history/error/fidelity distinctions before preview |
-| SP14-M3-01 | Correction/overflow/failed checkpoint remain explicit; checkpoint command does not request native compaction |
+| SP14-M3-01 | **Retired 2026-09-27 (D36).** Was: correction/overflow/failed checkpoint remain explicit; checkpoint command does not request native compaction. See the D36 note below |
 | SP14-M7-03 | Cost categories, retries/aborts and estimate/invoice distinctions survive display; cheap wrong result cannot pass |
 | SP14-M7-04 | Help and generated command documentation match installed schemas; unsafe unsupported features not advertised |
+
+**D36 note (2026-09-27, V6 close-out coordinator under D33).** 0.3.0 ships **six** commands, not
+seven: `/qompack:checkpoint` is removed (V6 close-out w7b-checkpoint, option B). Its only route,
+`qompack checkpoint`, is the PreCompact hook entry point, which reads a hook event from stdin and
+always exits 0, so the command sealed and reported nothing; the checkpoint-now subcommand this plan
+names as handoff H3 was never built. Rehydration reads the checkpoint PreCompact seals at that
+compaction, so a manual seal would be superseded before anything read it. Exit criterion SP14-M3-01
+is therefore **retired, not satisfied**: its gate test, `TestCheckpoint_NeverRequestsNativeCompaction`,
+was deleted with the `cmd_checkpoint.go` frontend, and the criterion is vacuous while no checkpoint
+command ships. It returns with any future checkpoint-now route; `${CLAUDE_SESSION_ID}`, which Claude
+Code 2.1.280 substitutes in plugin commands, can bind that route to its session. Where this plan
+says "seven" command names or frontends, read six for 0.3.0; the `checkpoint` rows above are
+history. The PreCompact checkpoint and the automatic cadence seals are unchanged. Records:
+`plans/V6-CLOSEOUT-CHECKLIST.md` D36, `plans/sdd/V6-closeout/w7b-checkpoint/report.md`,
+`Qompack.md` v1.7.
 
 ### Focused validation and bounded parallel runs
 

@@ -1,0 +1,47 @@
+package store
+
+// TEMPORARY DIAGNOSTIC for w5-dirsync (SP08-D1 / D20): NOT part of the repository's test suite. It
+// is copied into a base tree (90e1db3) and a new tree (the w5-dirsync head) and prices ONE
+// SyncPublication pass over a fixed multi-object root in allocations and bytes, where the observer
+// benchmark's per-capture figures also carry the zstd encoder pool's GC-timed rebuilds.
+
+import (
+	"context"
+	"fmt"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestTempDiagSyncPublicationPassAllocs(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	var b strings.Builder
+	for i := range 4096 {
+		fmt.Fprintf(&b, "publication barrier fixture line %d of %d, with its own words\r\n", i, 4096)
+	}
+	res, err := tp.Store.PutBytes(ctx, []byte(b.String()), PutOptions{Tool: "Bash", KeepRaw: true})
+	require.NoError(t, err)
+	objects, err := tp.Store.publicationObjects(ctx, res.Root.Hash)
+	require.NoError(t, err)
+	root := res.Root.Hash
+	pass := func() {
+		if err := tp.Store.SyncPublication(ctx, root); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pass() // warm
+	const runs = 20
+	allocs := testing.AllocsPerRun(runs, pass)
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	for range runs {
+		pass()
+	}
+	runtime.ReadMemStats(&after)
+	t.Logf("TEMPDIAG goos=%s objects=%d allocs/pass=%.1f bytes/pass=%.0f", runtime.GOOS, len(objects),
+		allocs, float64(after.TotalAlloc-before.TotalAlloc)/runs)
+}

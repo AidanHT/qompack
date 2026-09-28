@@ -1,0 +1,21 @@
+run_id=cx-w2-lifetime-fixseat-daemon-full-race-657a31c-20260925T233855Z
+commit=657a31c214ff071eee55bc92b5e276643faaceb5
+tree=0f4b006bfe49e0f58e7cf8b5a4b5efb4f98fe2ab
+bundle_sha256=5abc2a5b03a535ab9844b427602e5bc7dd91249991d2c0993c84a0125b4f3719
+started_utc=2026-09-25T23:39:08Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-25T23:53:33Z

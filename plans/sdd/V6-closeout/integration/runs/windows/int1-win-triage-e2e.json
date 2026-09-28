@@ -1,0 +1,27 @@
+{
+  "id": "int1-win-triage-e2e",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout",
+    "30m",
+    "-run",
+    "TestE2EHookRoundTrip$",
+    "-v",
+    "./test/e2e"
+  ],
+  "source_head": "b070bbec1b2050a560e28e4444e8ca91679b93a4",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go",
+    "QOMPACK_FAULT_ARTIFACTS": "C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/int-evidence/artifacts/fault-triage"
+  },
+  "started_at": "2026-09-25T14:54:46-04:00",
+  "ended_at": "2026-09-25T14:54:56-04:00",
+  "exit_code": 0,
+  "log": "int1-win-triage-e2e.log",
+  "log_sha256": "d37fc5feb176e6b724caf38042657b6d03d848c7c085e07d44aaf3f686c254c8"
+}

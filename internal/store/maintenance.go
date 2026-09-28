@@ -166,6 +166,12 @@ func (x *Maintenance) TakeBackup(ctx context.Context, id string) (BackupManifest
 	if err := paths.CreateNew(pending, []byte("writer lease certification pending\n")); err != nil {
 		return BackupManifest{}, err
 	}
+	// The marker is only evidence if it is durable before the manifest is: CreateNew syncs its bytes,
+	// not its name, and a power cut that kept the manifest and took the marker's name would present an
+	// uncertified backup as certified.
+	if err := x.m.barriers.DirBarrier(x.m.l.Backup); err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup certification marker is not durable: %w", err)
+	}
 	man, err := x.m.TakeBackup(ctx, id)
 	if err != nil {
 		return BackupManifest{}, err
@@ -176,6 +182,12 @@ func (x *Maintenance) TakeBackup(ctx context.Context, id string) (BackupManifest
 	}
 	if err := os.Remove(paths.Long(pending)); err != nil {
 		return BackupManifest{}, fmt.Errorf("store: backup certification remains pending: %w", err)
+	}
+	// Certified is what this returns, so the marker's removal is made durable first. Were it lost, the
+	// marker would come back and verification would refuse the backup: safe, but not what the operator
+	// was told.
+	if err := x.m.barriers.DirBarrier(x.m.l.Backup); err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup certification is not yet durable: %w", err)
 	}
 	return man, nil
 }
@@ -252,7 +264,9 @@ func (x *Maintenance) Restore(ctx context.Context, id, dest string) (RestoreProo
 	if err := maintRefuseExistingDot(dl.Dot); err != nil {
 		return proof, err
 	}
-	if err := os.MkdirAll(paths.Long(dest), 0o700); err != nil {
+	// A destination this restore creates is synced into its parent, so the restore reported below
+	// cannot vanish with a directory whose own entry a power cut took.
+	if err := x.m.barriers.MkdirAll(dest, 0o700); err != nil {
 		return proof, fmt.Errorf("store: restore backup %q: destination: %w", id, err)
 	}
 
@@ -275,8 +289,20 @@ func (x *Maintenance) Restore(ctx context.Context, id, dest string) (RestoreProo
 	if err := x.verifyStaged(ctx, stagedDot, man); err != nil {
 		return proof, maintStagePreserved(staging, err)
 	}
+	// Every name in the staged tree is made durable before the rename publishes it: each staged file
+	// synced its bytes, but on POSIX not its directory entry, and a power cut after the publish could
+	// otherwise leave a restored store missing files the proof above read.
+	if err := syncTreeDirs(stagedDot, x.m.barriers); err != nil {
+		return proof, maintStagePreserved(staging, err)
+	}
 	if err := maintPublish(dest, stagedDot, dl.Dot); err != nil {
 		return proof, maintStagePreserved(staging, err)
+	}
+	// And the rename itself, before the restore is reported: without it a power cut could undo the
+	// publish, leaving the staging tree and no .qompack for the operator to find.
+	if err := x.m.barriers.DirBarrier(dest); err != nil {
+		return proof, fmt.Errorf("store: restore backup %q: published %s but could not make it durable: %w",
+			id, dl.Dot, err)
 	}
 	_ = os.Remove(paths.Long(staging)) // best-effort: the staging parent is now empty
 	return proof, nil
@@ -647,6 +673,11 @@ func maintStagePreserved(staging string, cause error) error {
 // maintNoFollow refuses when any path component between anchor and full is a symlink or reparse
 // point. anchor is a trusted root (the project root); its own ancestors are not inspected, since a
 // legitimate temp root can itself sit under a symlinked ancestor.
+//
+// Both arguments are in the spelling this package keeps every path in, never paths.Long's \\?\
+// form: that is applied here, per component, at the Lstat. filepath.Rel cannot relate a prefixed
+// path to an unprefixed anchor, so a prefixed full is refused with Rel's error, and TakeBackup's
+// walk once did exactly that to every project past MAX_PATH (C1.7).
 func maintNoFollow(anchor, full string) error {
 	rel, err := filepath.Rel(anchor, full)
 	if err != nil {

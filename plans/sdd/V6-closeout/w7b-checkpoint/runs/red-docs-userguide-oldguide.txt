@@ -1,0 +1,6 @@
+--- FAIL: TestUserGuideMarksCheckpointAsUnrouted (0.13s)
+    userguide_test.go:128: docs/user-guide.md: docs/commands.md lists no /qompack:checkpoint, so the guide must not document it under a heading of its own
+    userguide_test.go:133: docs/user-guide.md: no "Checkpoints are automatic" section saying where checkpoints come from
+FAIL
+FAIL	github.com/qompack/qompack/test/docs	0.970s
+FAIL

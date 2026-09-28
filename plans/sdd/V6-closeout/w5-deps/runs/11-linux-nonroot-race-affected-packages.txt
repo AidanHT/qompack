@@ -1,0 +1,73 @@
+== host.txt
+run_id=cx-w5-deps-deps-affected-2167632-20260926T220058Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-deps
+rev=2167632
+commit=2167632c3baeb3ef2f0457e3864aa7115e79531a
+bundle_sha256=c3c7790064607b1b0fc1841267d7395fa7513d8d0e8b6b2e5ce3e49f5fe893e6
+host_started_utc=2026-09-26T22:01:17Z
+inner_args=-- ./internal/store ./test/security ./internal/paths ./internal/ipc ./tools/lint/nomagic
+host_finished_utc=2026-09-26T22:10:19Z
+container_exit=0
+== identity.txt
+run_id=cx-w5-deps-deps-affected-2167632-20260926T220058Z
+commit=2167632c3baeb3ef2f0457e3864aa7115e79531a
+tree=13445f5b4d94c02bb8afddc2f6bcc202dbb10751
+bundle_sha256=c3c7790064607b1b0fc1841267d7395fa7513d8d0e8b6b2e5ce3e49f5fe893e6
+started_utc=2026-09-26T22:01:27Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T22:10:19Z
+== summary.txt
+PASS      github.com/qompack/qompack/internal/store  (pass=847 fail=0 skip=4)
+PASS      github.com/qompack/qompack/test/security  (pass=30 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/paths  (pass=162 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/ipc  (pass=144 fail=0 skip=0)
+PASS      github.com/qompack/qompack/tools/lint/nomagic  (pass=2 fail=0 skip=0)
+== exit.txt
+go_test_exit=0
+exit=0
+== source-status-after.txt (empty = tree unchanged)
+== race logs: 0 file(s)
+== skipped cases (platform skips, unchanged code):
+internal/paths TestEnsureLayout_WriteAtomicFailureIsPropagated
+internal/paths TestHighestBloomBackupSeq_UnreadableDirIsAnError
+internal/paths TestLong_IdempotentOnAlreadyPrefixed
+internal/paths TestLong_IdentityWhenAbsFails
+internal/paths TestLong_PrefixesOverThreshold
+internal/paths TestLong_UNCGetsUNCPrefix
+internal/paths TestManifest_ReadPropagatesNonNotExistOpenError
+internal/paths TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved
+internal/paths TestNorm_LeavesUNCVolumeMismatchUnresolved
+internal/paths TestNorm_RejectsDifferentVolume
+internal/paths TestOpenFile_HandlesUnresolvableRootGracefully
+internal/paths TestReplaceBloom_PruneSurvivesUnreadableSketchesDir
+internal/paths TestReplacePinsView_DeniedStagingCreatePreservesView
+internal/paths TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging/plain_reader_blocks_replacement_on_Windows
+internal/paths TestResolve_PropagatesAbsFailure
+internal/paths TestRestoreLog_UnstatablePathIsNotCreated
+internal/paths TestTerminatePartialTail_UnreadablePathIsLeftAlone
+internal/paths TestWriteAtomic_CreateTempFailureLeavesNoStaging
+internal/store TestRenameObject_ContentionIsRetriedThenReported
+internal/store TestStoreKey_CanonicalizesSpellingsOfOnePath/backslashes_become_slashes
+internal/store TestStoreKey_CanonicalizesSpellingsOfOnePath/mixed_separators_and_..
+internal/store TestStoreKey_CanonicalizesSpellingsOfOnePath/windows_absolute
+== package timings
+{"Time":"2026-09-26T22:02:15.919371624Z","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Elapsed":23.262}
+{"Time":"2026-09-26T22:02:17.337915912Z","Action":"pass","Package":"github.com/qompack/qompack/tools/lint/nomagic","Elapsed":1.417}
+{"Time":"2026-09-26T22:02:31.008519163Z","Action":"pass","Package":"github.com/qompack/qompack/internal/ipc","Elapsed":38.353}
+{"Time":"2026-09-26T22:03:25.825813892Z","Action":"pass","Package":"github.com/qompack/qompack/test/security","Elapsed":93.175}
+{"Time":"2026-09-26T22:10:18.836582621Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Elapsed":506.217}

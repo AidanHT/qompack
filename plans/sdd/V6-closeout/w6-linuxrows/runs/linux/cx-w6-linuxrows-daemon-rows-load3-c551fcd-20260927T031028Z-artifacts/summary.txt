@@ -1,0 +1,21 @@
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=100 fail=20 skip=0)
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+    FAIL TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain

@@ -1,0 +1,5 @@
+# 54a4334 + uncommitted paths fix; Windows, co-loaded machine
+ok  	github.com/qompack/qompack/internal/paths	10.462s
+paths exit=0
+ok  	github.com/qompack/qompack/internal/ipc	27.697s
+ipc exit=0

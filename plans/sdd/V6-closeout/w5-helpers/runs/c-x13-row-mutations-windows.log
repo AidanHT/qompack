@@ -1,0 +1,60 @@
+### product mutation C1 (runs/mutate_c.py.txt, temporary), test code OLD (HEAD 994a7cf v4_x13_test.go)
+ internal/daemon/handlers.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:847: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 0 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:869: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 0 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:885: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2908331632\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:887: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2908331632\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (9.55s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	9.985s
+exit=0 (mutation C1, test code OLD)
+### product mutation C1 (runs/mutate_c.py.txt, temporary), test code NEW (this change)
+ internal/daemon/handlers.go      |  2 +-
+ test/e2e/v4_x13_fallback_test.go | 58 ++++++++++++++++++++++++++++++++++-
+ test/e2e/v4_x13_test.go          | 65 +++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 119 insertions(+), 6 deletions(-)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:904: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/e2e/v4_x13_test.go:701
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/e2e/v4_x13_test.go:904
+        	Error:      	Received unexpected error:
+        	            	the daemon's recorded hot-path samples do not account for every hot-path WAL line: the WAL holds 9 hot-path lines but only 0 samples were read, from the B-A histogram and the "hotpath_sample_invalid" counter; if the daemon now records a hot-path sample under another name, Received undercounts and the refusal check is weakened
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	arm sess-e2e-v4-x13 (B-A histogram "hook_controlled")
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (64.87s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	65.084s
+FAIL
+exit=1 (mutation C1, test code NEW)
+### product mutation C2 (runs/mutate_c.py.txt, temporary), test code OLD (HEAD 994a7cf v4_x13_test.go)
+ internal/daemon/handlers.go | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:847: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 0 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:869: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 0 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:885: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2961688724\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:887: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2961688724\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (8.27s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	8.530s
+exit=0 (mutation C2, test code OLD)
+### product mutation C2 (runs/mutate_c.py.txt, temporary), test code NEW (this change)
+ internal/daemon/handlers.go      |  5 +++-
+ test/e2e/v4_x13_fallback_test.go | 58 ++++++++++++++++++++++++++++++++++-
+ test/e2e/v4_x13_test.go          | 65 +++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 122 insertions(+), 6 deletions(-)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:904: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/e2e/v4_x13_test.go:701
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-helpers/test/e2e/v4_x13_test.go:904
+        	Error:      	Received unexpected error:
+        	            	the daemon's recorded hot-path samples do not account for every hot-path WAL line: the WAL holds 9 hot-path lines but only 0 samples were read, from the B-A histogram and the "hotpath_sample_invalid" counter; if the daemon now records a hot-path sample under another name, Received undercounts and the refusal check is weakened
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	arm sess-e2e-v4-x13 (B-A histogram "hook_controlled")
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (64.58s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	64.867s
+FAIL
+exit=1 (mutation C2, test code NEW)

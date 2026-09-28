@@ -1,0 +1,7 @@
+FAIL      github.com/qompack/qompack/test/e2e  (pass=18 fail=6 skip=0)
+    FAIL TestV4_TombstoneToRecallToExpandRoundTrip
+    FAIL TestV5_TombstoneToExpandRoundTrip
+    FAIL TestV4_TombstoneToRecallToExpandRoundTrip
+    FAIL TestV5_TombstoneToExpandRoundTrip
+    FAIL TestV4_TombstoneToRecallToExpandRoundTrip
+    FAIL TestV5_TombstoneToExpandRoundTrip

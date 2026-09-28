@@ -1,0 +1,1 @@
+ts=2026-09-23T03:40:40.8016102Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=696 ceiling_chars=9400 spent_chars=2436

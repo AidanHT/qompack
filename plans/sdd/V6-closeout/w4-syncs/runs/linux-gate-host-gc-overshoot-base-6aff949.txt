@@ -1,0 +1,36 @@
+run_id=cx-w4-syncs-gc-overshoot-base-6aff949-20260926T162933Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-syncs
+rev=6aff949
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+bundle_sha256=63d91742ac8687b657a0a698227d9ce0143fe63ae0a97020aafde4506a941a3d
+host_started_utc=2026-09-26T16:29:41Z
+inner_args=--run ^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$ --timeout 30m -- ./internal/store
+/work/cx-w4-syncs-gc-overshoot-base-6aff949-20260926T162933Z.bundle: OK
+run_id=cx-w4-syncs-gc-overshoot-base-6aff949-20260926T162933Z
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+tree=a1bf55eca79a86f701f143562d00a101804bc299
+bundle_sha256=63d91742ac8687b657a0a698227d9ce0143fe63ae0a97020aafde4506a941a3d
+started_utc=2026-09-26T16:29:44Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^TestGC_DeadlineOvershootIsBoundedByTheCheckInterval$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+FAIL      github.com/qompack/qompack/internal/store  (pass=0 fail=1 skip=0)
+    FAIL TestGC_DeadlineOvershootIsBoundedByTheCheckInterval
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-syncs/plans/sdd/V6-closeout/w4-syncs/runs/linux/cx-w4-syncs-gc-overshoot-base-6aff949-20260926T162933Z-artifacts
+exit=1
+exit=1

@@ -1,0 +1,45 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1546,
+   "failed": [],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/internal/ipc": {
+   "result": "pass",
+   "passed": 152,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 427,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "fail",
+   "passed": 195,
+   "failed": [
+    "TestCarriedDefects_WaveReportRequiresResolution/SP06-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP10-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP09-D1",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP20-D2",
+    "TestCarriedDefects_WaveReportRequiresResolution/SP08-D3",
+    "TestCarriedDefects_WaveReportRequiresResolution"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/docs": {
+   "result": "pass",
+   "passed": 19,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

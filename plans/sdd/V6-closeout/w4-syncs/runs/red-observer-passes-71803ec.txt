@@ -1,0 +1,37 @@
+=== RUN   TestPublicationPasses_FreshLeasedToolCaptureSyncsTwice
+    publication_passes_test.go:109: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/syncs-work/red-71803ec/internal/observer/publication_passes_test.go:109
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 4
+        	Test:       	TestPublicationPasses_FreshLeasedToolCaptureSyncsTwice
+        	Messages:   	re-read of a stored root that supersedes A: a fresh leased capture pays the two §0.2.2 barriers, not a pass per layer
+--- FAIL: TestPublicationPasses_FreshLeasedToolCaptureSyncsTwice (0.16s)
+=== RUN   TestPublicationPasses_FreshLeasedPromptSyncsTwice
+    publication_passes_test.go:124: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/syncs-work/red-71803ec/internal/observer/publication_passes_test.go:124
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 4
+        	Test:       	TestPublicationPasses_FreshLeasedPromptSyncsTwice
+        	Messages:   	a fresh leased prompt pays the two §0.2.2 barriers
+--- FAIL: TestPublicationPasses_FreshLeasedPromptSyncsTwice (0.12s)
+=== RUN   TestPublicationPasses_FreshLeasedSubagentStopSyncsTwice
+    publication_passes_test.go:135: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/syncs-work/red-71803ec/internal/observer/publication_passes_test.go:135
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 4
+        	Test:       	TestPublicationPasses_FreshLeasedSubagentStopSyncsTwice
+        	Messages:   	a fresh leased subagent capture pays the two §0.2.2 barriers
+--- FAIL: TestPublicationPasses_FreshLeasedSubagentStopSyncsTwice (0.10s)
+=== RUN   TestPublicationPasses_RedeliveryReprovesTheOriginalPublication
+=== RUN   TestPublicationPasses_RedeliveryReprovesTheOriginalPublication/same_process
+=== RUN   TestPublicationPasses_RedeliveryReprovesTheOriginalPublication/after_a_restart
+--- PASS: TestPublicationPasses_RedeliveryReprovesTheOriginalPublication (0.37s)
+    --- PASS: TestPublicationPasses_RedeliveryReprovesTheOriginalPublication/same_process (0.15s)
+    --- PASS: TestPublicationPasses_RedeliveryReprovesTheOriginalPublication/after_a_restart (0.22s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	0.994s
+FAIL
+exit=1

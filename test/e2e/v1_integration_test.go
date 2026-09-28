@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
@@ -63,8 +63,7 @@ type v1Call struct {
 	// payload carries.
 	//
 	// SessionStart's additionalContext carries a live §12.1 sentinel token the daemon mints per
-	// process (fix round 1, Minor M-2). PreCompact's customInstructions are a real sealed
-	// checkpoint's focus instruction, built from what this lifecycle actually observed.
+	// process (fix round 1, Minor M-2). It is the only call in the lifecycle that answers this way.
 	answersThroughHookOutput bool
 }
 
@@ -83,19 +82,16 @@ var v1Lifecycle = []v1Call{
 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", derive: asBashToolUse, logHook: "PostToolUse", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop"}, fixture: "stop", logHook: "Stop", wantStdout: "{}\n"},
 	{
-		// THIS ROW ONCE EXPECTED "{}", AND THAT WAS THE BUG, NOT THE CONTRACT. The shipped daemon
-		// could not seal a checkpoint on the first PreCompact of its life: wireCheckpointSources
-		// published a SourceSet whose Ledger was nil (negknow.Open is lazy on purpose),
-		// FileWriter.SetSources dropped it in silence, and the seam answered
-		// `hookSpecificOutput: null` behind a single Warn. A minimal "{}" here is that defect's
-		// own signature, so do not "restore" it: what it means is that a compaction threw the
-		// session's context away with nothing written down.
+		// "{}" IS THE HOST CONTRACT HERE, AND IT IS NOT, BY ITSELF, EVIDENCE OF A SEAL. Claude Code
+		// has no PreCompact hookSpecificOutput variant and rejects the whole response over one
+		// (C1.12: 2.1.280 answered this row's former focus-instruction output with "Hook JSON
+		// output validation failed"), and it discards a PreCompact systemMessage, so the empty
+		// object is the only conforming answer, sealed or not.
 		//
-		// PreCompact now answers the way SessionStart does -- through a hookSpecificOutput naming
-		// itself -- and carries the sealed checkpoint's focus instruction. See the PreCompact
-		// block in the loop below for what is asserted in place of the byte compare.
-		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact",
-		answersThroughHookOutput: true,
+		// That is why the first-PreCompact defect this row once guarded — no checkpoint on a
+		// daemon's first compaction, answered with that same "{}" — is caught by the artifact
+		// instead: see the PreCompact block in the loop below.
+		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact", wantStdout: "{}\n",
 	},
 	{argv: []string{"flush"}, fixture: "session_end", logHook: "SessionEnd", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop", "--subagent"}, fixture: "subagent_stop", logHook: "Stop", wantStdout: "{}\n"},
@@ -184,14 +180,12 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 	// means the exact response bytes are no longer a CLI-side constant: SessionStart's
 	// additionalContext now carries a live §12.1 sentinel token the daemon mints unconditionally
 	// (handleSessionStart mints and emits it whenever the mode may act, with no wave-3 seam
-	// required). PreCompact answers through hookSpecificOutput too, and its customInstructions are
-	// a REAL sealed checkpoint's focus instruction -- built from what the five calls above this one
-	// actually left in the store, and so not a constant either. This row expected a bare "{}" here
-	// until the first-PreCompact defect was fixed; see the lifecycle entry for why that expectation
-	// was the symptom and not the contract. What stays true, and what this loop still proves end to
-	// end across pluginmanifest -> cmd/qompack -> cli -> ipc -> daemon -> hookio, is that every call
-	// in the lifecycle exits 0 with exactly one well-formed hookio.Output, and that the two calls
-	// that answer with a hookSpecificOutput name their own event in it.
+	// required). PreCompact answers the host with the empty object (C1.12), and since C1.18 the
+	// daemon renders no focus instruction for it at all; what the PreCompact DID is read from what
+	// it left behind (the block at the end of this loop). What stays true, and what this loop still
+	// proves end to end across pluginmanifest -> cmd/qompack -> cli -> ipc -> daemon -> hookio, is
+	// that every call in the lifecycle exits 0 with exactly one well-formed hookio.Output, and that
+	// the call that answers with a hookSpecificOutput names its own event in it.
 	for i, call := range v1Lifecycle {
 		payload := v1Payload(t, call)
 
@@ -211,26 +205,28 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 			require.Equal(t, call.wantStdout, string(stdout), "call %d (%v): exact response shape", i+1, call.argv)
 		}
 
-		// PreCompact is the ONE call in this lifecycle that answers with content rather than with
-		// an acknowledgement, so it gets its own assertions. The customInstructions it returns are
-		// the only bytes this plugin ever puts back into the model's context, and §5.14 permits them
-		// to be built from the SourceSet -- durable, original content -- and from nothing else.
+		// PreCompact answers the host with nothing, so what it DID is read from what it left behind.
+		// The seal: a checkpoint artifact, which is exactly what the first-PreCompact defect never
+		// wrote.
+		//
+		// Criterion change (C1.18): this block also used to read the rendered focus instruction —
+		// from the contract history, where the route recorded its first 256 runes, and from the
+		// daemon's IPC reply to this same frozen PreCompact — and hold both to §5.14 (built from the
+		// SourceSet, so no payload secret in it). The instruction is retired: no host accepts one,
+		// so the daemon neither returns nor records it. The block now pins that retirement on both
+		// surfaces the instruction used to reach — nothing recorded, and the empty object on the IPC
+		// hop — which also leaves a payload secret nowhere new to land. The logs check after this
+		// loop still covers every log file.
 		if call.logHook == "PreCompact" {
-			instr := out.HookSpecificOutput.CustomInstructions
-			require.NotEmpty(t, instr,
-				"call %d (%v): a sealed checkpoint must come back as customInstructions; empty here is "+
-					"the first-PreCompact defect, whose signature was a bare \"{}\" response", i+1, call.argv)
-			// Paragraph 1 is §8.5's standing focus instruction: always emitted, always first, and the
-			// whole of the first LINE, which is what contract.probePhrase scans a transcript tail for.
-			// It is computed from the package rather than pasted, so this row cannot drift from the
-			// text the daemon actually emits (and cannot re-key that probe by asserting a paraphrase).
-			standing := checkpoint.FocusInstructions(checkpoint.Checkpoint{}, checkpoint.Ref{}, checkpoint.FocusOptions{})
-			require.Equal(t, standing, cpFirstLine(instr),
-				"the emitted instruction's first line is the standing focus paragraph\ninstructions:\n%s", instr)
-			for _, secret := range v1Secrets {
-				require.NotContains(t, instr, secret,
-					"customInstructions is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
-			}
+			require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root),
+				"call %d (%v): the PreCompact must seal a checkpoint; none here is the first-PreCompact "+
+					"defect, whose host-visible answer was the same \"{}\"", i+1, call.argv)
+			require.Empty(t, contract.LoadHistory(contract.HistoryPath(p.Root)).PrecompactInstr,
+				"call %d (%v): no route records a retired instruction into the contract history", i+1, call.argv)
+
+			var ev hookio.Event
+			require.NoError(t, json.Unmarshal(payload, &ev))
+			cpRequireNoInstructionReply(t, cpPreCompactReplyFor(t, p.Root, ev))
 		}
 	}
 
@@ -385,7 +381,12 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 		require.True(t, req.Capture.Truncated)
 		require.Equal(t, len(payload), req.Capture.SourceBytes,
 			"the delivery's real size survives even though its bytes do not")
-		require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix survives as evidence")
+		// V6-AUTH-1 (00e0c98, capture-work.md "Deliberate consequence"): a cut prefix of the envelope
+		// cannot prove its file target is inside the project, so the record keeps its classification
+		// and SourceBytes and NO opaque bytes. internal/cli's TestHooks_OverBudgetDeliveryIsRecordedNotDropped
+		// pins the same delivery in process; this is its twin through the real binary.
+		require.Empty(t, req.Capture.Bytes,
+			"an incomplete envelope cannot prove scope; classification and observed size remain")
 		require.Less(t, len(req.Capture.Bytes), len(payload))
 		require.NotEmpty(t, req.Nonce, "an over-budget delivery keeps its own nonce like any other")
 	})
@@ -480,9 +481,10 @@ type hooksManifest struct {
 	Hooks map[string][]struct {
 		Matcher string `json:"matcher"`
 		Hooks   []struct {
-			Type    string `json:"type"`
-			Command string `json:"command"`
-			Timeout int    `json:"timeout"`
+			Type    string   `json:"type"`
+			Command string   `json:"command"`
+			Args    []string `json:"args"`
+			Timeout int      `json:"timeout"`
 		} `json:"hooks"`
 	} `json:"hooks"`
 }
@@ -503,7 +505,8 @@ var v1ManifestPayload = map[string]string{
 // Crosses pluginmanifest -> plugin/hooks/hooks.json -> cli's dispatch table -> hookio. This is the
 // seam that breaks silently when a subcommand is renamed: the manifest is generated data, the
 // dispatch table is code, and nothing else in the tree executes one against the other. Every
-// command string is run VERBATIM, argv-split the way a shell would split it.
+// entry is run VERBATIM the way the host runs an exec-form hook: `command` is the executable and
+// `args` the argument vector, with no shell and no re-splitting (C1.11).
 func TestV1_PluginManifestCommandsExecuteAgainstRealBinary(t *testing.T) {
 	bin := Build(t)
 
@@ -545,7 +548,7 @@ func TestV1_PluginManifestCommandsExecuteAgainstRealBinary(t *testing.T) {
 				for _, h := range entry.Hooks {
 					require.Equal(t, "command", h.Type)
 
-					argv := v1SplitCommand(t, h.Command, pluginRoot, staged)
+					argv := v1ExecArgv(t, h.Command, h.Args, pluginRoot)
 
 					// The seam: every subcommand the manifest names must be one cli registers.
 					sub := v1SubcommandOf(argv)
@@ -691,32 +694,29 @@ func v1RegisteredSubcommands(t *testing.T, bin string) string {
 	return string(stdout) + string(stderr)
 }
 
-// v1SplitCommand argv-splits a manifest command string the way a shell would, after substituting
-// ${CLAUDE_PLUGIN_ROOT}.
+// v1ExecArgv is what the host does with an exec-form hook entry (C1.11): it substitutes
+// ${CLAUDE_PLUGIN_ROOT} into `command` and into each `args` element "as plain strings", and spawns
+// `command` with `args` as its argument vector — no shell, no splitting, no quoting.
 //
-// Since finding F-1 the executable word is DOUBLE-QUOTED — hooks.json is shell form and an install
-// directory containing a space word-splits an unquoted expansion — so the split honours exactly
-// that one shape: a leading `"…"` word, then a tail that carries no quoting at all. Anything else
-// fails here rather than being silently re-split, which is what keeps this faithful to what a shell
-// would do with the committed bytes.
-func v1SplitCommand(t *testing.T, command, pluginRoot, staged string) []string {
+// The committed tree is the linux/darwin rendering (pluginmanifest.CommittedGOOS), so its command
+// is the extensionless ${CLAUDE_PLUGIN_ROOT}/bin/qompack on every host this test runs on; a windows
+// bundle names bin/qompack.exe, which test/platform drives against a real assembled bundle. Here
+// the staged build is what runs, and the argument vector is returned exactly as the manifest
+// carries it.
+func v1ExecArgv(t *testing.T, command string, args []string, pluginRoot string) []string {
 	t.Helper()
-	require.True(t, strings.HasPrefix(command, `"`),
-		"the shell-form hook command must quote the plugin root: %q", command)
-
-	end := strings.Index(command[1:], `"`)
-	require.Positive(t, end, "unterminated quote in the manifest command %q", command)
-	exe := command[1 : 1+end]
-	tail := strings.TrimSpace(command[2+end:])
-	require.NotContains(t, tail, `"`, "only the executable word may be quoted: %q", command)
-	require.NotContains(t, tail, `'`, "manifest commands must not need shell quoting: %q", command)
-
+	require.NotEmpty(t, args, "an entry with no args is SHELL form, which C1.11 removed: %q", command)
+	require.NotContains(t, command, `"`, "exec form takes no shell quoting: %q", command)
 	require.Equal(t, filepath.ToSlash(filepath.Join(pluginRoot, "bin", "qompack")),
-		filepath.ToSlash(strings.ReplaceAll(exe, "${CLAUDE_PLUGIN_ROOT}", pluginRoot)),
-		"every manifest command must invoke ${CLAUDE_PLUGIN_ROOT}/bin/qompack")
+		filepath.ToSlash(strings.ReplaceAll(command, "${CLAUDE_PLUGIN_ROOT}", pluginRoot)),
+		"every manifest command must be exactly ${CLAUDE_PLUGIN_ROOT}/bin/qompack")
 
-	// exe is the manifest's extension-less path; the staged executable is what we can run.
-	return strings.Fields(tail)
+	argv := make([]string, len(args))
+	for i, a := range args {
+		require.NotContains(t, a, `"`, "exec form takes no shell quoting: %q", a)
+		argv[i] = strings.ReplaceAll(a, "${CLAUDE_PLUGIN_ROOT}", pluginRoot)
+	}
+	return argv
 }
 
 // v1SubcommandOf reconstructs the dispatch name from an argv tail, dropping flags. cli registers

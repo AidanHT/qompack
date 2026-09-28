@@ -1,0 +1,61 @@
+# C1.16 load rig, BEFORE the fix: HEAD 7a10f71 + the first attempt's uncommitted phase histograms (incl. scratch.ss.* observer lock timings)
+# QOMPACK_C116_ROUNDS=30 QOMPACK_C116_WORKERS=8 QOMPACK_C116_READ_BYTES=262144 go test ./internal/cli/ -run TestSessionStartCompact_LoadRig -count=1 -v
+# machine: Windows 11, shared with the other wave-2 workstreams (their own test runs), no extra co-load
+=== RUN   TestSessionStartCompact_LoadRig
+    sessionstart_compact_load_test.go:261: round 0: 449.5705ms rehydration
+    sessionstart_compact_load_test.go:261: round 1: 614.784ms rehydration
+    sessionstart_compact_load_test.go:261: round 2: 400.8459ms rehydration
+    sessionstart_compact_load_test.go:261: round 3: 332.5654ms rehydration
+    sessionstart_compact_load_test.go:261: round 4: 683.7348ms rehydration
+    sessionstart_compact_load_test.go:261: round 5: 389.4414ms rehydration
+    sessionstart_compact_load_test.go:261: round 6: 418.0837ms rehydration
+    sessionstart_compact_load_test.go:261: round 7: 224.9927ms rehydration
+    sessionstart_compact_load_test.go:261: round 8: 259.2597ms rehydration
+    sessionstart_compact_load_test.go:261: round 9: 248.5169ms rehydration
+    sessionstart_compact_load_test.go:261: round 10: 617.5157ms rehydration
+    sessionstart_compact_load_test.go:261: round 11: 460.519ms rehydration
+    sessionstart_compact_load_test.go:261: round 12: 209.4875ms rehydration
+    sessionstart_compact_load_test.go:261: round 13: 185.6899ms rehydration
+    sessionstart_compact_load_test.go:261: round 14: 290.818ms rehydration
+    sessionstart_compact_load_test.go:261: round 15: 394.3093ms rehydration
+    sessionstart_compact_load_test.go:261: round 16: 267.2898ms rehydration
+    sessionstart_compact_load_test.go:261: round 17: 240.3093ms rehydration
+    sessionstart_compact_load_test.go:261: round 18: 230.118ms rehydration
+    sessionstart_compact_load_test.go:261: round 19: 259.687ms rehydration
+    sessionstart_compact_load_test.go:261: round 20: 359.941ms rehydration
+    sessionstart_compact_load_test.go:261: round 21: 246.3967ms rehydration
+    sessionstart_compact_load_test.go:261: round 22: 247.5601ms rehydration
+    sessionstart_compact_load_test.go:261: round 23: 202.7272ms rehydration
+    sessionstart_compact_load_test.go:261: round 24: 182.8634ms rehydration
+    sessionstart_compact_load_test.go:261: round 25: 364.9332ms rehydration
+    sessionstart_compact_load_test.go:261: round 26: 331.7223ms rehydration
+    sessionstart_compact_load_test.go:261: round 27: 346.5337ms rehydration
+    sessionstart_compact_load_test.go:261: round 28: 515.7628ms rehydration
+    sessionstart_compact_load_test.go:261: round 29: 313.9377ms rehydration
+    sessionstart_compact_load_test.go:267: compact SessionStart wall (n=30): p50=313.9377ms p95=617.5157ms p99=683.7348ms max=683.7348ms answers=map[rehydration:30]
+    sessionstart_compact_load_test.go:267:   checkpoint.precompact              n=30    p50=196.608ms  p95=327.68ms   p99=327.68ms   max=317.373ms
+    sessionstart_compact_load_test.go:267:   checkpoint_finalize                n=30    p50=196.608ms  p95=327.68ms   p99=327.68ms   max=317.373ms
+    sessionstart_compact_load_test.go:267:   l0_ingest                          n=391   p50=30.72ms    p95=57.344ms   p99=90.112ms   max=200.11ms
+    sessionstart_compact_load_test.go:267:   l0_process                         n=67    p50=294.912ms  p95=589.824ms  p99=655.36ms   max=645.665ms
+    sessionstart_compact_load_test.go:267:   negknow.rebuild                    n=1     p50=6.656ms    p95=6.656ms    p99=6.656ms    max=6.443ms
+    sessionstart_compact_load_test.go:267:   negknow.refresh                    n=1     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:267:   observer.prompt                    n=2     p50=2µs        p95=229.376ms  p99=229.376ms  max=219.593ms
+    sessionstart_compact_load_test.go:267:   observer.session_start             n=31    p50=81.92ms    p95=294.912ms  p99=458.752ms  max=441.284ms
+    sessionstart_compact_load_test.go:267:   observer.stop                      n=88    p50=229.376ms  p95=393.216ms  p99=589.824ms  max=547.753ms
+    sessionstart_compact_load_test.go:267:   rehydrate.build                    n=30    p50=1.92ms     p95=10.24ms    p99=20.48ms    max=19.06ms
+    sessionstart_compact_load_test.go:267:   rehydrate.deps                     n=30    p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:267:   rehydrate.latest                   n=30    p50=832µs      p95=7.168ms    p99=10.24ms    max=9.533ms
+    sessionstart_compact_load_test.go:267:   rehydrate.record                   n=30    p50=26.624ms   p95=73.728ms   p99=98.304ms   max=93.659ms
+    sessionstart_compact_load_test.go:267:   rehydrate.selection                n=30    p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:267:   scratch.ss.ensureseg               n=31    p50=2µs        p95=2µs        p99=512µs      max=504µs
+    sessionstart_compact_load_test.go:267:   scratch.ss.frontier                n=31    p50=2µs        p95=7.68ms     p99=8.192ms    max=7.796ms
+    sessionstart_compact_load_test.go:267:   scratch.ss.locked                  n=31    p50=36.864ms   p95=90.112ms   p99=106.496ms  max=100.247ms
+    sessionstart_compact_load_test.go:267:   scratch.ss.omu                     n=31    p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:267:   scratch.ss.stmu                    n=31    p50=45.056ms   p95=229.376ms  p99=425.984ms  max=406.509ms
+    sessionstart_compact_load_test.go:267:   session_start.contract             n=31    p50=147.456ms  p95=294.912ms  p99=393.216ms  max=378.439ms
+    sessionstart_compact_load_test.go:267:   session_start.finish               n=31    p50=36.864ms   p95=98.304ms   p99=180.224ms  max=174.51ms
+    sessionstart_compact_load_test.go:267:   session_start.route                n=31    p50=327.68ms   p95=655.36ms   p99=720.896ms  max=668.794ms
+    sessionstart_compact_load_test.go:267:   session_start.seam                 n=31    p50=81.92ms    p95=294.912ms  p99=458.752ms  max=441.284ms
+--- PASS: TestSessionStartCompact_LoadRig (28.15s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	28.367s

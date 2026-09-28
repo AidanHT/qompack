@@ -1,0 +1,10 @@
+run_id=cx-w2-lifetime-n1-inflight-race50-7a10f71-20260925T213315Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime
+rev=7a10f71
+commit=7a10f71630b1d4bbc73f4c5115fcc34ac1b5c82f
+bundle_sha256=aac87af1721897b69694eb946bb2d604bb2dbcd42a1099ae8ef146a0d67d82bb
+host_started_utc=2026-09-25T21:33:21Z
+inner_args=--run ^(TestServerClose|TestAdminShutdownReplyReachesTheCallerOverTheTransport$) --count 50 -- ./internal/ipc ./internal/daemon
+host_finished_utc=2026-09-25T21:35:17Z
+container_exit=0

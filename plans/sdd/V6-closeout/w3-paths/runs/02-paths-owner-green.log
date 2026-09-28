@@ -1,0 +1,55 @@
+# GREEN: every new internal/paths owner row with ownerOf applied (uncommitted on 80deba0), Windows, co-loaded
+# go test ./internal/paths -run '^(TestWriteAtomic_(NeverStagesInAStoreThatDoesNotHoldTheTarget|AProjectStoreBelowAUserStoreIsItsOwnOwner|TheUserGlobalLayerWritesInItsOwnStore|AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt|RefusesAProtectedPathNamedRelatively|ACaseVariantStoreNameIsStillTheStoreOnWindows|AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt|AStorelessProjectInsideAnotherStoresTreeStagesBesideItself)|TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget|TestOwnerOf_AsksEveryStoreOnThePathForProtection)$' -count=1 -v
+=== RUN   TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget
+=== RUN   TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_project_store_file
+=== RUN   TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_project_store_file_deep_in_the_tree
+=== RUN   TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/the_user-global_layer's_own_file
+=== RUN   TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_file_beside_a_project_store
+=== RUN   TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_store_file_of_a_project_with_no_store_yet
+=== RUN   TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_store_file_of_a_storeless_project_inside_a_store's_tree
+=== RUN   TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_file_in_no_store
+--- PASS: TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget (0.02s)
+    --- PASS: TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_project_store_file (0.00s)
+    --- PASS: TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_project_store_file_deep_in_the_tree (0.00s)
+    --- PASS: TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/the_user-global_layer's_own_file (0.00s)
+    --- PASS: TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_file_beside_a_project_store (0.00s)
+    --- PASS: TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_store_file_of_a_project_with_no_store_yet (0.00s)
+    --- PASS: TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_store_file_of_a_storeless_project_inside_a_store's_tree (0.00s)
+    --- PASS: TestTmpDirFor_IsTheOwningStoresTmpOrBesideTheTarget/a_file_in_no_store (0.00s)
+=== RUN   TestOwnerOf_AsksEveryStoreOnThePathForProtection
+=== RUN   TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_checkpoint
+=== RUN   TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_state_file
+=== RUN   TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_file_through_a_stray_store_in_checkpoints/
+=== RUN   TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_storeless_project's_file_inside_pins/
+=== RUN   TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_storeless_project's_file_beside_the_store
+--- PASS: TestOwnerOf_AsksEveryStoreOnThePathForProtection (0.02s)
+    --- PASS: TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_checkpoint (0.00s)
+    --- PASS: TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_state_file (0.00s)
+    --- PASS: TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_file_through_a_stray_store_in_checkpoints/ (0.00s)
+    --- PASS: TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_storeless_project's_file_inside_pins/ (0.00s)
+    --- PASS: TestOwnerOf_AsksEveryStoreOnThePathForProtection/a_storeless_project's_file_beside_the_store (0.00s)
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all
+=== RUN   TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_beside_a_project_store_but_outside_it
+--- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget (0.07s)
+    --- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_project's_first_store_file_before_its_store_exists (0.02s)
+    --- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_in_no_store_at_all (0.01s)
+    --- PASS: TestWriteAtomic_NeverStagesInAStoreThatDoesNotHoldTheTarget/a_file_beside_a_project_store_but_outside_it (0.03s)
+=== RUN   TestWriteAtomic_AProjectStoreBelowAUserStoreIsItsOwnOwner
+--- PASS: TestWriteAtomic_AProjectStoreBelowAUserStoreIsItsOwnOwner (0.04s)
+=== RUN   TestWriteAtomic_TheUserGlobalLayerWritesInItsOwnStore
+--- PASS: TestWriteAtomic_TheUserGlobalLayerWritesInItsOwnStore (0.04s)
+=== RUN   TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt
+--- PASS: TestWriteAtomic_AStrayStoreInsideAProtectedDirectoryCannotUnprotectIt (0.05s)
+=== RUN   TestWriteAtomic_RefusesAProtectedPathNamedRelatively
+--- PASS: TestWriteAtomic_RefusesAProtectedPathNamedRelatively (0.03s)
+=== RUN   TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt
+--- PASS: TestWriteAtomic_AStrayStoreOnThePathCannotUnprotectWhatIsBelowIt (0.02s)
+=== RUN   TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself
+--- PASS: TestWriteAtomic_AStorelessProjectInsideAnotherStoresTreeStagesBesideItself (0.03s)
+=== RUN   TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows
+--- PASS: TestWriteAtomic_ACaseVariantStoreNameIsStillTheStoreOnWindows (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.720s
+exit=0

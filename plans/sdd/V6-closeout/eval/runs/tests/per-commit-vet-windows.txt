@@ -1,0 +1,11 @@
+5b6c073 test(eval): add the frozen live task set, fixtures and rates vet-exit=0
+3d986ae feat(eval): parse and account real headless host sessions vet-exit=0
+75c57d8 feat(eval): grade live trials and summarize them per arm vet-exit=0
+715a614 feat(eval): implement eval.LiveRunner with a host fork runner vet-exit=0
+ecbdd74 feat(devtool): add live-eval, the real-host trial driver vet-exit=0
+31b1d40 docs(eval): pre-register the qompack-live-v1 evaluation vet-exit=0
+251ec8b docs(eval): preserve the C5.4 smoke sessions and duplicate files vet-exit=0
+09a5222 fix(devtool): remove the orphaned cache a marketplace trial leaves vet-exit=0
+9d5efc6 fix(devtool): record a run with no plugin arm as installing nothing vet-exit=0
+4eee177 fix(devtool): never remove a plugin data dir the trial did not make vet-exit=0
+40657c1 test(eval): check every type assertion in the live tests vet-exit=0

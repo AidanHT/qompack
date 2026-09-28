@@ -1,0 +1,22 @@
+Red run of the review-round tests on 25c5691 (red-review-tests-25c5691.log).
+
+The five test bodies were exactly those committed in 0fbc6b6 (delivery_order_lanes_test.go). Only the
+three helpers they call were mapped onto the API that exists on 25c5691, because the new API did not
+exist yet:
+
+  laneTestSetLanes(dd, capacity, perSession)  ->  dd.ing.lanes = newDispatchLanes(capacity)   (no per-session bound)
+  laneTestStartDrainRequests(t, dd)           ->  no-op                                      (no drain requester)
+  laneTestSetSettle(dd, stall, limit)         ->  dd.ing.settleBound = stall                 (one fixed bound)
+
+Red points:
+  AStuckSessionCannotTakeTheOtherSessionsLanes    other session 0 of 2 acknowledged after 30 s (lanes full of the stuck session)
+  ParkedLaneAsksForADrainRatherThanWaitingForIdle 0 of 2 acknowledged after 30 s, l0_ordering_deferred=1 (nothing drains)
+  LaneOverflowIsDrainedOnRequest                  no job refused: 25c5691 has no per-session bound (the overflow-needs-an-
+                                                  explicit-Drain behaviour on 25c5691 is what the pre-existing
+                                                  TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain shows)
+  FlushOverAnUnreadableFrontierIsCountedNotSilent l0_flush_unsettled 0 (unreadable frontier taken for settled)
+  FlushWaitsForABacklogThatKeepsPublishing        flush answered "delivery still in progress" at the fixed 5 s bound
+
+red-release-absorbed.log is the red run of TestDeliveryOrder_DrainReleasesOnlySessionsItPublishedOrRetired on
+the review-round working tree before drain.go's release rule changed (Released was told about a session whose
+lines the pass had only re-read).

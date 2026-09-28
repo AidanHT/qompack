@@ -1,0 +1,12 @@
+# TEMPORARY DIAGNOSTIC (third w6-config seat, 2026-09-27; never committed as code). Source: runs/diag-src/config_readers_under_movefileex_windows_test.go.txt
+# Built as an internal/config test binary from the product code of 2d3ccd0 (readCaptureConfig still refuses a file gone at open); Windows 11, co-loaded host (other workstreams running).
+# DIAG_READER=capture-paced DIAG_ROUNDS=30 DIAG_READS=2000: config.LoadForCapture, paced 2 ms, under a MoveFileEx writer.
+=== RUN   TestZZDiagConfigUnderMoveFileEx
+    zz_diag_cfg_windows_test.go:165: reader=capture-paced capture WRONG 12000 (layer dropped): 86
+    zz_diag_cfg_windows_test.go:165: reader=capture-paced capture ok: 59913
+    zz_diag_cfg_windows_test.go:165: reader=capture-paced capture refused: qompack: running in degraded mode: capture configuration unavailable: the project config file is not a bounded regular file: 1
+    zz_diag_cfg_windows_test.go:165: reader=capture-paced writer rename errno 5: 108501
+    zz_diag_cfg_windows_test.go:165: reader=capture-paced writer rename ok: 130844
+--- PASS: TestZZDiagConfigUnderMoveFileEx (1010.77s)
+PASS
+exit=0

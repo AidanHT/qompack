@@ -1,0 +1,12 @@
+# HEAD 12f64ca + the new pathstest test only; Windows
+=== RUN   TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned
+    home_test.go:105: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/pathstest/home_test.go:105
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned3798423311\\002\\ran" exists
+        	Test:       	TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned
+        	Messages:   	every toolchain location was already pinned, so no go command may run
+--- FAIL: TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned (0.22s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths/pathstest	2.107s
+FAIL
+exit=1

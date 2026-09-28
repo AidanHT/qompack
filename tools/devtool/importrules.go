@@ -69,9 +69,9 @@ var compositionRoots = map[string]bool{
 	// bundle through `devtool bundle`, drives that bundle's binary and its `qompack mcp` server
 	// against denied and escaping addresses, sweeps every durable surface for planted credentials,
 	// and seeds malformed objects straight into the store. It therefore reaches store, mcp, eval,
-	// config, sketch, daemon, ipc, paths, core and testutil directly and cli through the binary it
-	// spawns, which no internal allow-set permits — the same reason test/e2e, test/canary and
-	// test/platform are roots. Nothing imports it back.
+	// config, sketch, daemon, ipc, hookio, paths, core and testutil directly and cli through the
+	// binary it spawns, which no internal allow-set permits — the same reason test/e2e, test/canary
+	// and test/platform are roots. Nothing imports it back.
 	"test/security": true,
 	// test/fault (SP-17 Task 4) is the fault-and-recovery matrix: it assembles a real plugin bundle
 	// through `devtool bundle`, cuts a real detached daemon and the files it wrote at every
@@ -97,9 +97,12 @@ var compositionRoots = map[string]bool{
 // on disk but is absent from both allow and compositionRoots is an error: new packages must be
 // declared here, which forces an architecture amendment.
 var allow = map[string][]string{
-	"core":   {},
-	"paths":  {"core"},
-	"config": {"core"},
+	"core":  {},
+	"paths": {"core"},
+	// config -> paths is owner decision D22 (2026-09-26): the config loaders name the user-global
+	// root through paths.Global and read config.json with delete sharing. paths imports only core,
+	// so the edge closes no cycle.
+	"config": {"core", "paths"},
 
 	"logging": {"core", "paths", "config"},
 	"obs":     {"core", "paths", "config"},
@@ -129,7 +132,9 @@ var allow = map[string][]string{
 	"checkpoint": {"store", "dag", "negknow", "pins", "grammar", "tokens"},
 	"rehydrate":  {"checkpoint", "store", "negknow", "dag", "rules", "skills", "tokens"},
 
-	"mcp": {"store", "negknow", "checkpoint"},
+	// mcp gains hostperm at the V6 close-out (C1.9, V6-HOST-1): every retrieval form re-checks a
+	// stored path against the host's current Read deny and ask rules before content is served.
+	"mcp": {"store", "negknow", "checkpoint", "hostperm"},
 
 	"contract": {"hookio", "store"},
 	"ipc":      {"hookio", "contract"},
@@ -150,4 +155,9 @@ var allow = map[string][]string{
 	// at a composition root. If a future slice needs a real internal/ import, that is another
 	// amendment to §3.2 — which is exactly the control this table exists to impose.
 	"admission": {},
+
+	// hostperm (V6 close-out C1.9, owned by SP-13) is foundation-only: it reads Claude Code's
+	// settings files and evaluates their Read deny/ask rules for one path, which needs paths and
+	// core and nothing else in internal/. mcp is its only consumer.
+	"hostperm": {},
 }

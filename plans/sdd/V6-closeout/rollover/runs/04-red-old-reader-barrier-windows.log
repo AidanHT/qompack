@@ -1,0 +1,35 @@
+--- FAIL: TestDeliveryRollover_ArchivedLegacySegmentRefusesThePreSegmentReader (1.52s)
+    delivery_frozen_seal_test.go:55: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_frozen_seal_test.go:55
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestDeliveryRollover_ArchivedLegacySegmentRefusesThePreSegmentReader
+        	Messages:   	delivery-lease-position.json: the pre-segment dual reader must refuse an archived segment 0
+--- FAIL: TestDeliveryRollover_ArchivedLegacySegmentIsRefrozenAtOpen (1.10s)
+    delivery_frozen_seal_test.go:91: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_frozen_seal_test.go:91
+        	Error:      	Should be true
+        	Test:       	TestDeliveryRollover_ArchivedLegacySegmentIsRefrozenAtOpen
+--- FAIL: TestDeliveryRollover_FrozenSealThatDisagreesWithItsJournalRefusesOpen (1.36s)
+    delivery_frozen_seal_test.go:112: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_frozen_seal_test.go:112
+        	Error:      	Should be true
+        	Test:       	TestDeliveryRollover_FrozenSealThatDisagreesWithItsJournalRefusesOpen
+--- FAIL: TestDeliveryRollover_FrozenSealOnTheActiveSegmentRefusesOpen (0.52s)
+    delivery_frozen_seal_test.go:153: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_frozen_seal_test.go:153
+        	Error:      	Not equal: 
+        	            	expected: []byte(nil)
+        	            	actual  : []byte{}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,3 @@
+        	            	-([]uint8) <nil>
+        	            	+([]uint8) {
+        	            	+}
+        	            	 
+        	Test:       	TestDeliveryRollover_FrozenSealOnTheActiveSegmentRefusesOpen
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	4.770s
+FAIL

@@ -85,6 +85,10 @@ type daemon struct {
 	m    obs.Registry
 	clk  core.Clock
 
+	// deliveryDiag is this daemon's logger and metrics as the delivery journal reports to them
+	// (delivery_diagnostics.go), attached to the lock on every journal access. Set once in New.
+	deliveryDiag *deliveryDiagnostics
+
 	cfgMu        sync.RWMutex
 	cfg          config.Config
 	cfgEnv       config.Env
@@ -121,13 +125,21 @@ type daemon struct {
 	lastBudgets []obs.BudgetBreach
 
 	// historyMu serializes every access to the SessionHistory value: it carries no lock of its
-	// own (contract.SessionHistory's own doc comment), and routes run concurrently.
+	// own (contract.SessionHistory's own doc comment), and routes run concurrently. It also guards
+	// lastStartAnswer, which the session.start route reads and writes beside the history.
 	historyMu sync.Mutex
+	// lastStartAnswer is what the last live session.start's answer carried that is true only once
+	// the host has it (handlers.go startAnswer): a replay of that same request withdraws it.
+	lastStartAnswer startAnswer
 
-	// modeMu guards lastReportedMode, used both for the §12.1 SystemMessage-on-just-degraded
-	// check and for the contract_mode_change counter (ruling #26).
-	modeMu           sync.Mutex
-	lastReportedMode contract.Mode
+	// modeMu guards lastReportedMode, the mode the contract_mode_change counter (ruling #26)
+	// compares against, and lastAnnouncedMode, the mode the host was last told about, which the
+	// §12.1 SystemMessage-on-just-degraded check compares against. They differ only after a start
+	// whose answer reached no host (a replay from a spool): its transition is counted at once, and
+	// announced by the next live start.
+	modeMu            sync.Mutex
+	lastReportedMode  contract.Mode
+	lastAnnouncedMode contract.Mode
 
 	// startMu guards the three fields Run publishes while starting up and another goroutine reads:
 	// lock, server and addr. The admin.shutdown route answers the client and then runs the whole
@@ -178,11 +190,19 @@ type daemon struct {
 	runCancel   context.CancelFunc
 
 	// firstServed closes the first time this daemon dispatches a request that arrived over the
-	// transport — the earliest instant it can PROVE server.Serve is accepting. Run watches it to
+	// transport — the earliest instant it can PROVE it serves: its startup is done and serveOp let a
+	// request through to dispatchOp. Run watches it to
 	// re-drain the spool; see noteServed and redrainOnceServing for why that instant, and not any
 	// point inside Run's own startup sequence, is the one that closes V2-MERGE-25's window.
 	firstServedOnce sync.Once
 	firstServed     chan struct{}
+
+	// startedOnce/started open the gate every request Run's accept loop reads waits at (serveOp).
+	// The loop runs from the moment the endpoint exists, while the startup still replays the spool;
+	// started closes once that startup is done, which is the point the loop used to start at, so no
+	// live request is dispatched ahead of the replay (V6 close-out D17, the NOUP row).
+	startedOnce sync.Once
+	started     chan struct{}
 
 	// runWG tracks the goroutines Run starts DIRECTLY: the hot-path worker and the serving
 	// re-drain. Cancelling runCtx tells them to stop; it does not wait for them to have stopped,
@@ -193,11 +213,39 @@ type daemon struct {
 	// merely signalled. The ingest worker pool has its own join (ing.Wait) and the connection
 	// handlers have theirs (ipc.Server.Close); this is the group nothing else covered.
 	//
-	// Every goRun call sits in Run's startup, ahead of the ipc.NewServer that binds the endpoint,
-	// and every way Stop can be reached — admin.shutdown, Run's ctx.Done arm, its idle-exit arm,
-	// its serveErrCh arm — is downstream of that endpoint existing or of Run's own select loop. So
-	// a goRun can never add to this group after Stop's join has already passed it.
+	// Every goRun call sits in Run's startup, and Stop joins this group only after startupMu tells
+	// it that startup is over (see startupMu). So a goRun can never add to this group after Stop's
+	// join has already passed it, and every Add happens before the Wait in the memory model's sense
+	// and not merely on the wall clock.
 	runWG sync.WaitGroup
+
+	// startupMu is held by Run for the whole of its startup — from before it publishes runCancel
+	// until the last thing Stop tears down has been published and nothing is left but the serve
+	// loop: the goRun goroutines, the ingest workers, the drainer, the server, state.bin — and Stop,
+	// once it has signalled the stop, takes it before it joins or closes any of that.
+	//
+	// "Stop is only ever reached downstream of the endpoint existing" was the ordering this struct
+	// used to rely on. Every in-tree production route into Stop does carry a happens-before edge to
+	// Run's startup: Run's own serve loop runs after it, and admin.shutdown's `go Stop()` is reached
+	// through server.Serve, which Run starts after every goRun, so a chain of go statements carries
+	// the edge (a spooled admin op never gets there: drainDispatch answers it without dispatching).
+	// The shipped binary did not race here. But Stop is an exported method, and a caller with no
+	// such edge ran it unordered against startup. The two tests that call dispatchOp directly after
+	// a dial or a lock-file readiness were such callers: -race reported Stop's runWG.Wait against
+	// Run's first runWG.Add (V6 close-out, Linux, TestRunReturnsOnlyAfterAsyncStopHasFinished every
+	// run; TestAdminShutdownStopsTheDaemon about one run in seventy). An unordered Stop that arrived
+	// between stopBegun's check and the first goRun broke the contract outright: its Wait could see
+	// zero, return, and let Run start goroutines, bind a server and write state.bin after the join
+	// and the RemoveState that were meant to follow them. startupMu makes the ordering hold for
+	// every caller instead of depending on the route.
+	//
+	// Holding the mutex costs Stop nothing it could have used. Stop cancels runCtx BEFORE it waits
+	// here, so the rest of the startup it waits out runs cancelled — the startup drain, the
+	// integrity sweep and the publication audit all answer to runCtx — and a Stop that begins
+	// before stopBegun's check still makes Run abort there, releasing the mutex on its way out. Run
+	// never calls Stop while holding it: its own Stop calls are all in the serve loop, after
+	// endStartup.
+	startupMu sync.Mutex
 
 	stopOnce sync.Once
 	// stopped closes near the START of Stop's cleanup sequence (before the actual work), so Run's
@@ -234,7 +282,41 @@ type daemon struct {
 	// it, before abandoning a callee that ignores cancellation. New sets it to promptReplyDeadline
 	// and nothing in production changes it; it is a field only so a test can hold a cancelled
 	// capture open for as long as it needs to prove that Stop really joins it.
+	//
+	// The same group, gate and lifetime carry the SessionStart(source=compact) work the session.start
+	// route stops waiting for — the rehydration past its answer budget, and the observer's
+	// bookkeeping it never waits for (session_start_compact.go, startReplyWork) — so Stop joins those
+	// through stopPromptRecordings too, before it closes what they write into.
 	promptAbandonAfter time.Duration
+
+	// compactBudget is how long the session.start route waits for a compact rehydration, from the
+	// request's arrival, before answering with the deferred note (compactAnswerBudget). New sets it;
+	// it is a field only so a test can make the bound short.
+	compactBudget time.Duration
+
+	// compactGates holds each session's next observer work until the compact SessionStart
+	// bookkeeping the route did not wait for has finished (session_start_compact.go).
+	compactGates compactGates
+
+	// ends is the set of session ends the flush route started on goroutines of their own (C1.15,
+	// session_end.go); New creates it, and Stop joins it (stopSessionEnds).
+	ends *sessionEnds
+	// drainsEndSessions is set once Run's startup drain is done: from then on a drain that replays a
+	// leased flush hands it to a session end of its own rather than ending the session inside its pass
+	// (endDrainedFlush, session_end.go).
+	drainsEndSessions atomic.Bool
+	// sessionEndGrace is how long Stop lets the session ends in flight finish on their merits before
+	// it cancels them. New sets it to stopDrainBound and nothing in production changes it; it is a
+	// field only so a test can prove what Stop does once the grace is over without waiting it out.
+	sessionEndGrace time.Duration
+	// recoveryMu serializes the read-change-write of the session recovery set (markRecoveryNeeded,
+	// clearRecoveryNeeded): the session ends run concurrently, so an unserialized rewrite lost the
+	// entry another end had just written (C1.15).
+	recoveryMu sync.Mutex
+
+	// spool is the client-spool watcher's configuration and kick (C1.13, spool_watch.go): every served
+	// request kicks it (noteServed). New creates it; nil on a daemon value that never went through New.
+	spool *spoolWatcher
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -290,6 +372,7 @@ func New(o Options) (Daemon, error) {
 		svc:         svc,
 		monitor:     monitor,
 		firstServed: make(chan struct{}),
+		started:     make(chan struct{}),
 		stopped:     make(chan struct{}),
 		stopDone:    make(chan struct{}),
 		// The POINTER, so a closer registered after this copy was taken -- which is every one of
@@ -301,14 +384,21 @@ func New(o Options) (Daemon, error) {
 	// and only Stop may end it (stopPromptRecordings).
 	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
 	d.promptAbandonAfter = promptReplyDeadline
+	d.compactBudget = compactAnswerBudget()
+	d.orderAfterCompactBookkeeping()
+	d.ends = newSessionEnds()
+	d.sessionEndGrace = stopDrainBound
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
 
 	d.idle = newIdleController(o.Cfg.Scheduler.Idle.DetectAfterSeconds, o.Clock, o.Log, o.Metrics, monitor.Mode)
-	d.idle.Register(idleTaskDrain, idlePrioDrain, d.idleDrain)
+	d.idle.registerPaced(idleTaskDrain, idlePrioDrain, d.idleDrain)
 	d.idle.Register(idleTaskSketches, idlePrioSketches, d.idleSaveSketches)
 	d.idle.Register(idleTaskMetrics, idlePrioMetrics, d.idleWriteMetrics)
+	// The client-spool watcher retries a spool it cannot yet consume only up to the idle drain's own
+	// horizon, which covers it after that (spool_watch.go).
+	d.spool = newSpoolWatcher(d.idle.detectAfter())
 
 	need := o.Cfg.Runtime.HotPath.BreachWindows
 	limit := time.Duration(o.Cfg.Runtime.HotPath.BudgetMs) * time.Millisecond
@@ -318,6 +408,7 @@ func New(o Options) (Daemon, error) {
 	d.ing = newIngest(o.ProjectRoot, o.Cfg, o.Log, o.Metrics, o.Clock)
 	// The delivery journal belongs to the singleton Lock Run acquires later, so both the ingest
 	// queue and the drainer reach it through this accessor rather than holding it.
+	d.deliveryDiag = &deliveryDiagnostics{log: o.Log, m: o.Metrics}
 	d.ing.journal = d.deliveryJournal
 	d.ing.admit = d.admitDelivery
 
@@ -325,6 +416,7 @@ func New(o Options) (Daemon, error) {
 
 	d.startTS = core.NowMilli(o.Clock)
 	d.lastReportedMode = monitor.Mode()
+	d.lastAnnouncedMode = d.lastReportedMode
 
 	return d, nil
 }
@@ -493,6 +585,18 @@ func (d *daemon) stopBegun() bool {
 
 // Run implements the daemon lifecycle of task-5-spec.md's daemon.go section.
 func (d *daemon) Run(ctx context.Context) error {
+	// Startup is one critical section against Stop (see startupMu). endStartup releases it exactly
+	// once: explicitly just before the serve loop, or by this defer on every earlier return.
+	d.startupMu.Lock()
+	startupHeld := true
+	endStartup := func() {
+		if startupHeld {
+			startupHeld = false
+			d.startupMu.Unlock()
+		}
+	}
+	defer endStartup()
+
 	// The run context is created and PUBLISHED first — ahead of the address resolve, the lock and
 	// everything it actually cancels. Stop reads d.runCancel under runCancelMu and calls it only
 	// if it is non-nil, so a Stop that reads it while it is still nil cancels nothing at all; Run
@@ -560,6 +664,14 @@ func (d *daemon) Run(ctx context.Context) error {
 	d.goRun(func() { d.hotPathWorker(runCtx) })
 
 	d.drain.Store(newDrainer(d.drainConfig()))
+	// The drains the ingest's lanes ask for (delivery_order.go drainOnRequest, C1.1). Started once the
+	// drainer exists, joined by Stop with the rest of runWG, and stopped by runCtx.
+	d.goRun(func() { d.drainOnRequest(runCtx) })
+	// The client-spool watcher (spool_watch.go, C1.13): a delivery that reached only a hook's client
+	// spool while its session is active is published about two check intervals after it was spooled,
+	// not at the session's end or after DetectAfterSeconds of project-wide idleness. Kicked by every
+	// served request, idle otherwise; started once the drainer exists and joined by Stop with runWG.
+	d.goRun(func() { d.watchClientSpools(runCtx) })
 
 	// Started here, before ipc.NewServer binds anything, rather than beside the `go server.Serve`
 	// it waits on. It costs nothing — the goroutine's first act is to block on d.firstServed, which
@@ -589,14 +701,38 @@ func (d *daemon) Run(ctx context.Context) error {
 	}
 	d.setServer(server)
 
+	// The accept loop starts now, not after the startup below. A dial that meets an endpoint nobody
+	// accepts on does not queue everywhere: on Windows a named pipe with no accept pending refuses
+	// every dial until one is posted, so a daemon that listened and then spent its startup replaying
+	// the spool looked absent for all of it — session-start's poll missed it, the hook's connect
+	// failed and spooled, and every lazy spawn that followed started a daemon that lost the lock and
+	// exited (V6 close-out D17, the NOUP row: 30 s undiallable under CPU co-load). The requests it
+	// reads wait at serveOp's gate until the startup is done, so the replay still comes first and a
+	// Stop still meets a finished startup (startupMu); the defer opens the gate on every return.
+	serveErrCh := make(chan error, 1)
+	go func() { serveErrCh <- server.Serve(runCtx, d.serveOp) }()
+	defer d.openForRequests()
+
 	if err := ipc.WriteState(d.root, d.currentState()); err != nil {
 		d.log.Warn("daemon: failed to write state.bin", "err", err)
 	}
 	removeSpawnLockFile(d.root)
+	// On Windows a hook starts the daemon from a staged copy of the binary (spawn_stage.go, C1.17);
+	// a daemon found running from inside the plugin directory means that staging failed, and that
+	// the plugin cannot be removed or updated for as long as this process lives.
+	if exe, err := os.Executable(); err == nil && runningFromPluginRoot(exe, os.Getenv(pluginRootEnv), stagingEnabled) {
+		d.log.Loud("daemon: running from inside the plugin directory, which it keeps from being removed or "+
+			"updated until it exits; staging the binary under the user's .qompack/bin failed",
+			"exe", exe)
+	}
 
 	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
 		d.log.Warn("daemon: startup drain failed", "err", err)
 	}
+	// The startup drain replays a flush inside its own pass, before the daemon serves anything. From
+	// here on a drain hands a leased flush to a session end of its own (endDrainedFlush), as the flush
+	// route does.
+	d.drainsEndSessions.Store(true)
 	d.sweepCheckpointIntegrity(runCtx)
 	// Account for crash residues even when no operator has invoked fsck. This
 	// bounded startup snapshot may be incomplete; counters and LOUD preserve that
@@ -620,8 +756,12 @@ func (d *daemon) Run(ctx context.Context) error {
 	idleTicker := time.NewTicker(idleTick)
 	defer idleTicker.Stop()
 
-	serveErrCh := make(chan error, 1)
-	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
+	// Everything Stop tears down is published; from here on a Stop may proceed. This precedes the
+	// serve loop and every Stop call in it, which would otherwise wait on Run's own mutex.
+	endStartup()
+	// The startup is done: the requests the accept loop has held, and every one after them, are
+	// dispatched from here on.
+	d.openForRequests()
 
 	var zeroLiveSince time.Time
 	for {
@@ -656,9 +796,16 @@ func (d *daemon) Run(ctx context.Context) error {
 				d.awaitStopCleanup()
 				return nil
 			default:
-				_ = d.Stop(context.Background())
-				return err
 			}
+			if ctx.Err() != nil {
+				// The caller's cancellation closed the server, not a transport failure: the
+				// ctx.Done arm's shutdown, whichever of the two ready arms select picked. The
+				// accept loop starts before the startup, so a cancellation during the startup has
+				// already ended Serve by the time this loop first selects (V6 close-out D17).
+				return d.Stop(context.Background())
+			}
+			_ = d.Stop(context.Background())
+			return err
 		case <-hbTicker.C:
 			// The local, not d.lock: this is Run's own goroutine reading the value Run itself
 			// published, which needs no synchronisation and cannot be nil here (every path that
@@ -709,6 +856,25 @@ func (d *daemon) idleExitDue(now core.UnixMilli, zeroLiveSince *time.Time) bool 
 	return d.clk.Now().Sub(*zeroLiveSince) >= window
 }
 
+// serveOp is the handler Run's accept loop dispatches through. The loop starts as soon as the
+// endpoint exists, so a dial never meets an endpoint that cannot take it; every request it reads
+// waits here until Run's startup is done — the spool replayed, the checkpoint sweep and the
+// publication audit run — and only then reaches dispatchOp. A request therefore sees exactly the
+// daemon it saw when the loop started only after the startup, and dispatchOp's first served request
+// still proves that (redrainOnceServing). The wait has no bound of its own: the caller's reply or ACK
+// deadline is the bound, and a caller that gives up spools, as it does against a slow daemon. Run
+// opens the gate on every return, so a Stop in the middle of the startup releases what it held.
+func (d *daemon) serveOp(ctx context.Context, req ipc.Request) ipc.Response {
+	<-d.started
+	return d.dispatchOp(ctx, req)
+}
+
+// openForRequests opens serveOp's gate. Idempotent: Run calls it once its startup is done, and
+// again, deferred, on its way out.
+func (d *daemon) openForRequests() {
+	d.startedOnce.Do(func() { close(d.started) })
+}
+
 // noteServed records that this daemon has dispatched a request, releasing redrainOnceServing. It
 // is called from dispatchOp, which is the function Run hands to server.Serve — so it fires only
 // once a connection has been accepted, a full frame read, and a request decoded.
@@ -717,17 +883,19 @@ func (d *daemon) idleExitDue(now core.UnixMilli, zeroLiveSince *time.Time) bool 
 // the filesystem, so it is safe to leave on the B-A/B-B path.
 func (d *daemon) noteServed() {
 	d.firstServedOnce.Do(func() { close(d.firstServed) })
+	d.kickSpoolWatch()
 }
 
 // redrainOnceServing replays the spool a second time, once the daemon is provably serving.
 //
-// Run's own startup Drain runs BEFORE `go server.Serve(...)`, and after it the next drain is an
-// idle tick away — idleTickMax, 30s (V2-MERGE-25). Anything a client spools inside that window is
-// durable but invisible for up to half a minute, and on a cold start that window is precisely
-// where the spawn-causing entry lives. internal/ipc/client.go now spools before it spawns, which
-// keeps the ordinary cold start ahead of the startup drain, but that is a property of the CLIENT:
-// a second client dialling the not-yet-accepting daemon in the same window still times out and
-// spools with nothing left to notice it. This closes that from the daemon's own side, so
+// Run's own startup Drain runs before Run dispatches any request (serveOp holds what the accept loop
+// reads until the startup is done), and after it the next drain is an idle tick away — idleTickMax,
+// 30s (V2-MERGE-25). Anything a client spools inside that window is durable but invisible for up to
+// half a minute, and on a cold start that window is precisely where the spawn-causing entry lives.
+// internal/ipc/client.go now spools before it spawns, which keeps the ordinary cold start ahead of
+// the startup drain, but that is a property of the CLIENT: a second client whose request the
+// still-starting daemon holds past its deadline, or whose dial came before the endpoint existed,
+// spools in the same window with nothing left to notice it. This closes that from the daemon's own side, so
 // freshness stops depending on client-side ordering at all.
 //
 // The trigger is the FIRST SERVED REQUEST rather than a second Drain call placed after
@@ -736,7 +904,7 @@ func (d *daemon) noteServed() {
 //   - `go` orders nothing. A Drain written on the line after it can still run before the accept
 //     loop has started, which leaves exactly the window it was meant to close, just narrower and
 //     by an unbounded amount. A served request is the earliest fact the daemon can observe that
-//     PROVES Serve is accepting.
+//     PROVES it is past its startup and dispatching.
 //   - It is the only trigger with a happens-before edge to the thing being drained. A client that
 //     failed to reach this daemon appended to the spool before it gave up, and it gave up before
 //     any later client could be served — so every spool entry from the cold-start window is
@@ -767,7 +935,9 @@ func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 // grown since it was drained, is never deleted, whatever the registry says about its session.
 // HoldsWAL asks that ingest first, so the drainer leaves a segment it holds without forgetting it.
 // SyncedWAL is that ingest's synced size, so the drainer never leases a line of a held segment
-// before the WAL Sync covering the line has returned.
+// before the WAL Sync covering the line has returned. Released wakes the ingest's parked
+// same-session lane once a drain pass that published or retired one of the session's leased lines
+// has ended (drain.go releaseSessions, C1.1).
 func (d *daemon) drainConfig() DrainConfig {
 	return DrainConfig{
 		Root:      d.root,
@@ -782,6 +952,9 @@ func (d *daemon) drainConfig() DrainConfig {
 		RemoveWAL: d.ing.removeDrainedWAL,
 		HoldsWAL:  d.ing.holdsWAL,
 		SyncedWAL: d.ing.syncedWAL,
+		Released:  d.ing.wakeSession,
+		// A leased flush a drain replays while the daemon serves is ended on its own (C1.15).
+		EndSession: d.endDrainedFlush,
 	}
 }
 
@@ -845,7 +1018,7 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 		}
 	case ipc.OpObservePrompt:
 		// The sentinel scan is independent of capture and runs regardless.
-		d.scanSentinelForPrompt(ev)
+		d.scanSentinelForPrompt(ev, req.TS, req.Nonce)
 		// SP08-D3 (Option A): the AUTHORITATIVE verbatim capture. Both the live worker (ingest) and
 		// the drain replay reach here with the leased observation identity on ctx (WithObservation),
 		// so ObservePrompt records under it — idempotent for a redelivery via the sidecar join, and
@@ -854,8 +1027,12 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 		// restored. The returned Output is discarded — a replay never injects (no late output). A
 		// prompt that reached the daemon only by replay is therefore captured, not lost, which is the
 		// defect; and because the turn advances here, a later live prompt can no longer take turn 0.
+		// The host's own timestamp rides along (WithHostTS): the turn is publication order, and the
+		// record's host stamp is what shows a spooled prompt published behind one its host sent later
+		// (SP08-D3, owner decision D35).
 		if d.svc.ObservePrompt != nil {
-			if _, err := d.svc.ObservePrompt(observer.WithPromptCaptureOnly(ctx), *ev); err != nil {
+			capCtx := observer.WithPromptCaptureOnly(observer.WithHostTS(ctx, req.TS))
+			if _, err := d.svc.ObservePrompt(capCtx, *ev); err != nil {
 				d.log.Warn("daemon: ObservePrompt capture not durable; WAL retained for retry")
 				return ipc.Response{Err: "prompt capture failed"}
 			}
@@ -881,8 +1058,10 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 // into d.Drain — as the ordinary flush route does — would deadlock this goroutine on a lock it is
 // already holding, permanently. That deadlock is not a rare interleaving: ipc.client.Send spools
 // EVERY op on EVERY connect failure (no hot-path filter), so a SessionEnd hook firing while the
-// daemon is down leaves exactly this line for the very next daemon's STARTUP drain — before Serve
-// has accepted a single connection — to trip over.
+// daemon is down leaves exactly this line for the very next daemon's STARTUP drain — before Run
+// dispatches a single request — to trip over. A LEASED flush reaches here only when no session
+// end of its own could take it (drainer.dispatchPending asks endDrainedFlush first, C1.15): during
+// the startup drain, during Stop's drain, and in a drain a session end runs itself.
 //
 // admin.* is skipped entirely: an admin op replayed from a stale spool file has no operator
 // waiting on its reply, admin.drain would hit the identical re-entrancy hazard as flush, and
@@ -909,7 +1088,10 @@ func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Respons
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
 		return ipc.Response{OK: true}
 	default:
-		return d.dispatchOp(ctx, req)
+		// Marked as a replay: the hook that spooled it has already answered without the daemon, so
+		// a compact SessionStart's rehydration built here can only be recorded as undelivered
+		// (session_start_compact.go).
+		return d.dispatchOp(withSpoolReplay(ctx), req)
 	}
 }
 
@@ -933,12 +1115,29 @@ func (d *daemon) Stop(ctx context.Context) error {
 		if runCancel != nil {
 			runCancel() // unblocks Run's own select loop and stops the worker pool below.
 		}
+		// The session ends the flush route started run on goroutines of their own (session_end.go).
+		// No new one starts from here on, and their grace starts now: the join of Run's goroutines
+		// below can wait on one of them (stopSessionEnds says why), and they are joined after it.
+		joinSessionEnds := d.stopSessionEnds(ctx)
+
+		// Wait out whatever is left of Run's startup — cancelled now, so briefly — before joining or
+		// closing anything it publishes, and take the two things it published for this cleanup to
+		// close, its server and its lock, as they stand once it is over. Acquiring the mutex orders
+		// all of startup before everything below; see startupMu. A Run that never started, or has
+		// already reached its serve loop, holds nothing, and neither value changes after startup.
+		d.startupMu.Lock()
+		srv, lk := d.currentServer(), d.currentLock()
+		d.startupMu.Unlock()
 
 		// Cancelling is a request, not an acknowledgement. Join Run's own goroutines here, before
 		// anything below writes, so that no later step of this cleanup — and no caller who waits
 		// for this cleanup — can be racing a paths.WriteAtomic that the hot-path worker or the
 		// serving re-drain still has open under .qompack/tmp/. See runWG.
 		d.runWG.Wait()
+
+		// What is left of the session ends' grace, before the drain below, which replays any flush
+		// one of them had to leave.
+		joinSessionEnds()
 
 		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
 		_, _ = d.Drain(drainCtx)
@@ -947,7 +1146,9 @@ func (d *daemon) Stop(ctx context.Context) error {
 		// The verbatim prompt captures the reply path stopped waiting for are joined here: after the
 		// ingest workers, which hold the observer session locks a capture may be queued on, and
 		// before anything below saves or closes what a capture writes into. They share the drain's
-		// bounded window rather than adding one of their own (stopPromptRecordings).
+		// bounded window rather than adding one of their own (stopPromptRecordings). The compact
+		// SessionStart work the session.start route started (startReplyWork) is in the same group
+		// and is joined by the same call.
 		d.stopPromptRecordings(drainCtx)
 		cancel()
 		if err := d.ing.Close(); err != nil {
@@ -968,13 +1169,13 @@ func (d *daemon) Stop(ctx context.Context) error {
 			d.log.Warn("daemon: stop: removing state.bin", "err", err)
 		}
 
-		// Read out under startMu, acted on outside it. Both fields are Run's, published from a
-		// goroutine this one has no ordering with (see startMu), and both calls below block on
-		// I/O — Close waits out the in-flight connection handlers, Release does three filesystem
-		// syscalls — so holding the mutex across either would put Run's startup behind them for
-		// no reason. A nil here is now a real observation, not the coin-flip the plain field's
-		// `!= nil` check was: it means Run genuinely had not published yet.
-		if srv := d.currentServer(); srv != nil {
+		// Read out above, under startMu and after startup; acted on here, outside both mutexes. Both
+		// fields are Run's, published from another goroutine (see startMu), and both calls below
+		// block on I/O — Close waits out the in-flight connection handlers, Release does three
+		// filesystem syscalls — so holding a mutex across either would serve no purpose. A nil is a
+		// real observation, not the coin-flip the plain field's `!= nil` check was: it means Run
+		// never published one (it never started, or it gave up before that point).
+		if srv != nil {
 			if err := srv.Close(); err != nil {
 				stopErr = err
 			}
@@ -989,7 +1190,7 @@ func (d *daemon) Stop(ctx context.Context) error {
 		// daemon by that definition.
 		d.owned.closeAll(d.log)
 
-		if lk := d.currentLock(); lk != nil {
+		if lk != nil {
 			if err := d.releaseRunLease(lk, "stop"); err != nil && stopErr == nil {
 				stopErr = err
 			}
@@ -1064,6 +1265,9 @@ func (d *daemon) deliveryJournal() (*deliveryJournal, error) {
 	if lock == nil {
 		return nil, deliveryJournalError()
 	}
+	// The journal reports its rollover diagnostics through this daemon's logger and metrics
+	// (delivery_diagnostics.go); after the first access this is one atomic load.
+	lock.attachDeliveryDiagnostics(d.deliveryDiag)
 	return lock.openDeliveryJournal()
 }
 

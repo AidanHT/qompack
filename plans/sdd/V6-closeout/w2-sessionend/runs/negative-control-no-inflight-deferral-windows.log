@@ -1,0 +1,14 @@
+# negative control: deferInFlight disabled (drain.go client-spool in-flight branch forced off), c4d27e2 + working tree
+# go test ./internal/daemon -run '^TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight$' -count=1 -v
+=== RUN   TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight
+    spool_watch_test.go:306: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/spool_watch_test.go:306
+        	Error:      	Received unexpected error:
+        	            	daemon: drain: delivery still in progress
+        	Test:       	TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight
+        	Messages:   	a copy of a delivery in flight is not a failure of its spool file
+--- FAIL: TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight (0.60s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.888s
+FAIL
+exit=1

@@ -1,0 +1,13 @@
+# fix seat (w6-config), 2026-09-27: TEMPORARY DIAGNOSTIC (two t.Logf lines, never committed as code) in TestGuard_EveryHomeReachingTestPackageIsolatesHome with the extended scanner (review finding 3): every resolver it finds and the reaching test packages. New resolvers against HEAD: cmd/qompack and internal/ipc (value rule); the reaching set is unchanged at 44, all isolated. Windows.
+=== RUN   TestGuard_EveryHomeReachingTestPackageIsolatesHome
+    homeisolation_test.go:108: TEMPORARY DIAGNOSTIC resolver cmd/qompack: [main.go main: os.Getenv as a value]
+    homeisolation_test.go:108: TEMPORARY DIAGNOSTIC resolver internal/cli: [config.go homeDir: os.UserHomeDir homeroot.go homeDirsFor: paths.HomeDirs]
+    homeisolation_test.go:108: TEMPORARY DIAGNOSTIC resolver internal/daemon: [daemon.go New: os.Getenv as a value daemon.go userHomeDir: os.UserHomeDir lock.go AcquireLock: paths.HomeDirs lock.go AcquireLock: os.Getenv as a value]
+    homeisolation_test.go:108: TEMPORARY DIAGNOSTIC resolver internal/eval: [importer.go Import: os.Getenv as a value importer.go Import: os.UserHomeDir importer.go ImportCommand: os.Getenv as a value]
+    homeisolation_test.go:108: TEMPORARY DIAGNOSTIC resolver internal/hostperm: [policy.go New: os.Getenv as a value policy.go home: os.UserHomeDir sources.go DefaultManaged: os.Getenv as a value]
+    homeisolation_test.go:108: TEMPORARY DIAGNOSTIC resolver internal/ipc: [resolve.go Resolve: os.Getenv as a value]
+    homeisolation_test.go:108: TEMPORARY DIAGNOSTIC resolver internal/tokens: [exact.go DefaultCalibPath: os.Getenv(QOMPACK_HOME) exact.go DefaultCalibPath: os.UserHomeDir]
+    homeisolation_test.go:137: TEMPORARY DIAGNOSTIC 44 reaching test packages: [internal/analyzer internal/analyzer/analyzertest internal/canon internal/checkpoint internal/checkpoint/checkpointtest internal/chunk internal/cli internal/commands internal/contract internal/contract/contracttest internal/daemon internal/eval internal/eval/evaltest internal/hostperm internal/ipc internal/ipc/ipctest internal/mcp internal/mcp/mcptest internal/negknow internal/negknow/negknowtest internal/observer internal/observer/observertest internal/pins internal/redact internal/rehydrate internal/rehydrate/rehydratetest internal/sketch internal/store internal/store/storetest internal/testutil internal/tokens internal/tokens/tokenstest test/bench/hotpath test/canary test/e2e test/fault test/guards test/integration test/platform test/release test/replay test/replay/l3policy test/security tools/devtool]
+--- PASS: TestGuard_EveryHomeReachingTestPackageIsolatesHome (3.87s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	4.198s

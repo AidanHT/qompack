@@ -1,0 +1,113 @@
+=== RUN   TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+--- PASS: TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain (5.21s)
+=== RUN   TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+--- PASS: TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain (1.31s)
+=== RUN   TestDeliveryOrder_LiveOtherSessionsAreNotSerialized
+--- PASS: TestDeliveryOrder_LiveOtherSessionsAreNotSerialized (1.65s)
+=== RUN   TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+--- PASS: TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor (1.60s)
+=== RUN   TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain
+--- PASS: TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain (4.22s)
+=== RUN   TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun
+--- PASS: TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun (2.01s)
+=== RUN   TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView
+--- PASS: TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView (0.00s)
+=== RUN   TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+--- PASS: TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass (2.56s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (4.08s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (4.45s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (2.49s)
+=== RUN   TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+--- PASS: TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain (5.31s)
+=== RUN   TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+--- PASS: TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain (1.44s)
+=== RUN   TestDeliveryOrder_LiveOtherSessionsAreNotSerialized
+--- PASS: TestDeliveryOrder_LiveOtherSessionsAreNotSerialized (1.66s)
+=== RUN   TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+--- PASS: TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor (1.42s)
+=== RUN   TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain
+--- PASS: TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain (3.36s)
+=== RUN   TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun
+--- PASS: TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun (2.53s)
+=== RUN   TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView
+--- PASS: TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView (0.00s)
+=== RUN   TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+--- PASS: TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass (2.30s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (3.89s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (4.07s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (3.22s)
+=== RUN   TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+--- PASS: TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain (5.90s)
+=== RUN   TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+--- PASS: TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain (2.14s)
+=== RUN   TestDeliveryOrder_LiveOtherSessionsAreNotSerialized
+--- PASS: TestDeliveryOrder_LiveOtherSessionsAreNotSerialized (2.06s)
+=== RUN   TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+--- PASS: TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor (2.00s)
+=== RUN   TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain
+--- PASS: TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain (4.90s)
+=== RUN   TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun
+--- PASS: TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun (3.81s)
+=== RUN   TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView
+--- PASS: TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView (0.00s)
+=== RUN   TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+--- PASS: TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass (2.79s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (3.93s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (3.72s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (2.66s)
+=== RUN   TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+--- PASS: TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain (4.62s)
+=== RUN   TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+--- PASS: TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain (2.08s)
+=== RUN   TestDeliveryOrder_LiveOtherSessionsAreNotSerialized
+--- PASS: TestDeliveryOrder_LiveOtherSessionsAreNotSerialized (1.40s)
+=== RUN   TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+--- PASS: TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor (1.74s)
+=== RUN   TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain
+--- PASS: TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain (2.79s)
+=== RUN   TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun
+--- PASS: TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun (2.53s)
+=== RUN   TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView
+--- PASS: TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView (0.00s)
+=== RUN   TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+--- PASS: TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass (2.36s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (5.66s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (5.77s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (9.79s)
+=== RUN   TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+--- PASS: TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain (8.66s)
+=== RUN   TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+--- PASS: TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain (3.30s)
+=== RUN   TestDeliveryOrder_LiveOtherSessionsAreNotSerialized
+--- PASS: TestDeliveryOrder_LiveOtherSessionsAreNotSerialized (2.18s)
+=== RUN   TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+--- PASS: TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor (2.95s)
+=== RUN   TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain
+--- PASS: TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain (4.29s)
+=== RUN   TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun
+--- PASS: TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun (1.59s)
+=== RUN   TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView
+--- PASS: TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView (0.00s)
+=== RUN   TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+--- PASS: TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass (2.22s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (5.32s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (5.28s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (3.47s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	172.298s
+exit=0

@@ -1,0 +1,3 @@
+Validating plugin manifest: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w7b\checkpoint\bundle\qompack-plugin-v0.2.0-1279-ga0e84956-windows-amd64\.claude-plugin\plugin.json
+
+✔ Validation passed

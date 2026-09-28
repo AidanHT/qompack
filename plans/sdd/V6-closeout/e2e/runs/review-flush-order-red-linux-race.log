@@ -1,0 +1,28 @@
+# commit=6edd2e4875c08d2cfe358daa9c2c634348ec7f53 uid=10001 user=qompack-test GOMAXPROCS=4 go version go1.26.6 linux/amd64
+# go test ./internal/daemon -run ^TestFlush_SessionEndIsOrderedAfterAcceptedArrivals$ -count=1 -race -v -timeout=30m
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+    flush_arrival_order_test.go:162: 
+        	Error Trace:	/work/cx-e2e-review-20260922T235835Z/src/internal/daemon/flush_arrival_order_test.go:122
+        	            				/work/cx-e2e-review-20260922T235835Z/src/internal/daemon/flush_arrival_order_test.go:162
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached
+        	Messages:   	tool toolu_flush_order_b was accepted after toolu_flush_order_a in the same turn; it reports turn 0 after turn 1, so SessionEnd reset the session before the accepted arrival was published (turns are monotone)
+=== RUN   TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+    flush_arrival_order_test.go:216: 
+        	Error Trace:	/work/cx-e2e-review-20260922T235835Z/src/internal/daemon/flush_arrival_order_test.go:122
+        	            				/work/cx-e2e-review-20260922T235835Z/src/internal/daemon/flush_arrival_order_test.go:216
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session
+        	Messages:   	tool toolu_flush_order_b was accepted after toolu_flush_order_a in the same turn; it reports turn 0 after turn 1, so SessionEnd reset the session before the accepted arrival was published (turns are monotone)
+--- FAIL: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals (10.51s)
+    --- FAIL: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/queued_job_no_worker_has_reached (5.44s)
+    --- FAIL: TestFlush_SessionEndIsOrderedAfterAcceptedArrivals/one_worker_busy_on_another_session (5.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	10.557s
+FAIL
+exit=1

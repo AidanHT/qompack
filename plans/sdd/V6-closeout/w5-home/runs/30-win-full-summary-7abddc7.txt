@@ -1,0 +1,10 @@
+# Windows full-package runs at 7abddc7 (tree 520058e6), go test -count=1 -timeout=30m ./<pkg>, sequential,
+# machine co-loaded by other workstreams and by this seat's own bisect sweep.
+./internal/paths exit=0 seconds=8 head=7abddc7
+./internal/commands exit=0 seconds=3 head=7abddc7
+./internal/cli exit=0 seconds=32 head=7abddc7
+./test/docs exit=0 seconds=3 head=7abddc7
+./tools/devtool exit=0 seconds=107 head=7abddc7
+./internal/mcp exit=0 seconds=173 head=7abddc7
+./internal/daemon exit=0 seconds=384 head=7abddc7
+done

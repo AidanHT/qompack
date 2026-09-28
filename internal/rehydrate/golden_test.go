@@ -3,6 +3,7 @@ package rehydrate
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,6 +33,23 @@ import (
 // belongs to a same-wave sibling.
 const goldenRehydrateDir = "../../testdata/golden/rehydrate"
 
+// updateGolden reports whether -update was passed: `go test ./internal/rehydrate -run
+// 'TestBuild_Golden_PayloadsMatchFrozenBytes|TestState_MatchesFrozenGolden' -update` is the
+// generator for every file in goldenRehydrateDir except the rule bodies under input/. It mirrors
+// the -update flag internal/mcp, internal/dag and internal/commands use, and is registered the same
+// defensive way. Re-recording is for an INTENDED change of shape only, and the diff is read first:
+// these bytes are what a model reads after a compaction.
+var updateGolden = registerGoldenUpdateFlag()
+
+// registerGoldenUpdateFlag registers -update, or adopts an existing registration of it.
+func registerGoldenUpdateFlag() func() bool {
+	if f := flag.Lookup("update"); f != nil {
+		return func() bool { return f.Value.String() == "true" }
+	}
+	v := flag.Bool("update", false, "rewrite golden files instead of comparing against them")
+	return func() bool { return *v }
+}
+
 // goldenRuleDir holds the rule bodies item 6a restores verbatim. They live on disk rather than in
 // a string literal for two reasons: a restored rule IS a file's contents, so the fixture should be
 // a file; and it makes the bulk of the payload goldens reviewable as a diff against their source
@@ -48,10 +66,15 @@ const goldenSession = core.SessionID("sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A")
 const goldenEmitted = core.UnixMilli(1767225600000)
 
 // stateGoldenCase names the case whose State is frozen as state.json. full-8k is chosen because it
-// is the only case that carries all three drop sources at once — the checkpoint's own two entries,
-// construction drops from items 6a and 6b, and budget-truncation drops — and because two of its
-// items are Truncated, which is the flag nothing else in the fixture set would pin.
+// carries all three drop sources at once — the checkpoint's own two entries, construction drops
+// from items 6a and 6b, and budget-truncation drops — and because its restored instructions, skill
+// index and drop report are all Truncated, which is the flag nothing else would pin as fully.
 const stateGoldenCase = "full-8k"
+
+// tokenBoundBudget is the "token-bound" case's budget: inside the old §8.6 band's reach of the
+// host ceiling but below it, so the TOKEN budget, not the character ceiling, decides what fits.
+// It is a fixture parameter, not a configuration default — no config key names it.
+const tokenBoundBudget = core.Tokens(1500)
 
 // degradedBudget is the "degraded" case's budget: far below the §8.6 band, chosen so that the
 // injection wrapper and tier 1 still fit and everything after them does not. It is a fixture
@@ -84,15 +107,23 @@ func goldenCases(t *testing.T) []goldenCase {
 			name: "full-12k",
 			req:  goldenRequest(full, maxBudget()),
 			deps: goldenDeps(t, full),
-			why: "the whole §8.6 injection at the top of the 8-12K band: all ten kinds present, " +
-				"every restored rule whole, and only the checkpoint's own drops in section 7",
+			why: "the default budget, where the host's character ceiling binds first (D5): all ten " +
+				"kinds present, items 1-6 whole, only the restored rules that fit (each whole, " +
+				"G4.3), and section 7 naming what did not with the call that restores it",
 		},
 		{
 			name: "full-8k",
 			req:  goldenRequest(full, minBudget()),
 			deps: goldenDeps(t, full),
-			why: "the same material at the bottom of the band: item 6a restores FEWER rules, each " +
-				"still whole (G4.3), and section 7 names the ones that no longer fit",
+			why: "the bottom of the old 8-12K band, which the character ceiling also binds: the same " +
+				"payload as full-12k, because the token budget is no longer what decides at either end",
+		},
+		{
+			name: "token-bound",
+			req:  goldenRequest(full, tokenBoundBudget),
+			deps: goldenDeps(t, full),
+			why: "a budget the TOKEN cap binds before the character ceiling: fewer rules and skills " +
+				"than full-12k, the same order, and every omission still named with its pointer",
 		},
 		{
 			name: "minimal",
@@ -113,7 +144,8 @@ func goldenCases(t *testing.T) []goldenCase {
 			req:  goldenRequest(full, degradedBudget),
 			deps: goldenDeps(t, full),
 			why: "a budget far below the §8.6 band: tier 1 survives, everything else is dropped " +
-				"and named, and section 7 itself truncates to a counted line",
+				"and named, and section 7 — held back from the first admission on — is cut to a " +
+				"prefix and a counted tail rather than evicted",
 		},
 	}
 }
@@ -323,7 +355,11 @@ func TestBuild_Golden_PayloadsMatchFrozenBytes(t *testing.T) {
 			res, err := Build(context.Background(), c.req, c.deps)
 			require.NoError(t, err)
 
-			want, err := os.ReadFile(filepath.Join(goldenRehydrateDir, c.name+".txt"))
+			path := filepath.Join(goldenRehydrateDir, c.name+".txt")
+			if updateGolden() {
+				require.NoError(t, os.WriteFile(path, []byte(res.Text), 0o600))
+			}
+			want, err := os.ReadFile(path)
 			require.NoError(t, err, "frozen payload fixture missing")
 
 			require.Equal(t, string(want), res.Text,
@@ -334,9 +370,12 @@ func TestBuild_Golden_PayloadsMatchFrozenBytes(t *testing.T) {
 					"diff before re-recording it: a golden accepted without reading is a "+
 					"placeholder.", c.why)
 
-			// The payload never exceeds its budget, at either end of the band or below it.
+			// The payload never exceeds its budget, at either end of the band or below it, nor the
+			// host's character ceiling (D5).
 			require.LessOrEqual(t, int(res.Tokens), int(c.req.Budget),
 				"%s: Result.Tokens must never exceed Request.Budget", c.name)
+			require.LessOrEqual(t, hostChars(res.Text), PayloadCeilingChars,
+				"%s: the frozen payload must fit the host ceiling", c.name)
 		})
 	}
 }
@@ -396,7 +435,13 @@ func TestState_MatchesFrozenGolden(t *testing.T) {
 		Degraded: res.Degraded,
 	}
 
-	want, err := os.ReadFile(filepath.Join(goldenRehydrateDir, "state.json"))
+	statePath := filepath.Join(goldenRehydrateDir, "state.json")
+	if updateGolden() {
+		b, merr := json.MarshalIndent(current, "", "  ")
+		require.NoError(t, merr)
+		require.NoError(t, os.WriteFile(statePath, append(b, '\n'), 0o600))
+	}
+	want, err := os.ReadFile(statePath)
 	require.NoError(t, err, "the frozen state fixture is missing")
 
 	// Rule W-2's round trip: the frozen bytes must decode back into the declared type without

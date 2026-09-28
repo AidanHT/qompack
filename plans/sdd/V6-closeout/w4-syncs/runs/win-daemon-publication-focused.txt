@@ -1,0 +1,63 @@
+=== RUN   TestDeliveryJournal_AcknowledgementIsTheCommittedFrontier
+--- PASS: TestDeliveryJournal_AcknowledgementIsTheCommittedFrontier (0.32s)
+=== RUN   TestDeliveryJournal_AcknowledgementSurvivesReopen
+--- PASS: TestDeliveryJournal_AcknowledgementSurvivesReopen (0.54s)
+=== RUN   TestEqualContentDeliveriesStayDistinct
+--- PASS: TestEqualContentDeliveriesStayDistinct (0.60s)
+=== RUN   TestRedeliveryOfOneNonceIsObservedOnce
+--- PASS: TestRedeliveryOfOneNonceIsObservedOnce (0.38s)
+=== RUN   TestPublicationOrderIsObjectReferenceFrontier
+--- PASS: TestPublicationOrderIsObjectReferenceFrontier (0.38s)
+=== RUN   TestDrainAdmitsAndAcknowledgesInheritedRecords
+--- PASS: TestDrainAdmitsAndAcknowledgesInheritedRecords (0.47s)
+=== RUN   TestDrainReportsGapsInsteadOfSilentCompleteness
+--- PASS: TestDrainReportsGapsInsteadOfSilentCompleteness (0.14s)
+=== RUN   TestCrashCutBetweenReferenceAndFrontierRedelivers
+--- PASS: TestCrashCutBetweenReferenceAndFrontierRedelivers (0.47s)
+=== RUN   TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned
+=== RUN   TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_batch_in_flight_adds_nothing_until_its_Sync_returns
+=== RUN   TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_failed_Sync_freezes_it_until_a_segment_is_opened
+=== RUN   TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_segment_closed_by_CloseSession_or_Close_is_not_held
+=== RUN   TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_segment_opened_over_bytes_it_did_not_write_counts_none_of_them_synced
+=== RUN   TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_Sync_that_panics_freezes_it
+--- PASS: TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned (0.23s)
+    --- PASS: TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_batch_in_flight_adds_nothing_until_its_Sync_returns (0.06s)
+    --- PASS: TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_failed_Sync_freezes_it_until_a_segment_is_opened (0.07s)
+    --- PASS: TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_segment_closed_by_CloseSession_or_Close_is_not_held (0.04s)
+    --- PASS: TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_segment_opened_over_bytes_it_did_not_write_counts_none_of_them_synced (0.02s)
+    --- PASS: TestIngest_SyncedWALAdvancesOnlyPastASyncThatReturned/a_Sync_that_panics_freezes_it (0.04s)
+=== RUN   TestDrainNeverLeasesAWALLineBeforeItsSyncReturns
+=== RUN   TestDrainNeverLeasesAWALLineBeforeItsSyncReturns/wired_as_the_daemon_wires_it,_a_pass_takes_nothing_past_the_synced_size
+=== RUN   TestDrainNeverLeasesAWALLineBeforeItsSyncReturns/a_drainer_with_no_ingest_behind_it_syncs_the_segment_before_it_leases
+--- PASS: TestDrainNeverLeasesAWALLineBeforeItsSyncReturns (1.21s)
+    --- PASS: TestDrainNeverLeasesAWALLineBeforeItsSyncReturns/wired_as_the_daemon_wires_it,_a_pass_takes_nothing_past_the_synced_size (0.83s)
+    --- PASS: TestDrainNeverLeasesAWALLineBeforeItsSyncReturns/a_drainer_with_no_ingest_behind_it_syncs_the_segment_before_it_leases (0.37s)
+=== RUN   TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent
+--- PASS: TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent (1.51s)
+=== RUN   TestStoreWrapperDropsTheSupersedingCapability
+--- PASS: TestStoreWrapperDropsTheSupersedingCapability (0.00s)
+=== RUN   TestObserverAtomicPublicationFailureRemainsDrainRetryable
+--- PASS: TestObserverAtomicPublicationFailureRemainsDrainRetryable (0.34s)
+=== RUN   TestObserverPublicationFailureRemainsDrainRetryable
+=== RUN   TestObserverPublicationFailureRemainsDrainRetryable/object_write
+=== RUN   TestObserverPublicationFailureRemainsDrainRetryable/tool-use_reference
+--- PASS: TestObserverPublicationFailureRemainsDrainRetryable (0.78s)
+    --- PASS: TestObserverPublicationFailureRemainsDrainRetryable/object_write (0.48s)
+    --- PASS: TestObserverPublicationFailureRemainsDrainRetryable/tool-use_reference (0.30s)
+=== RUN   TestPromptOrder_V6_OrderingGateGivesTurnZeroToEarliestLeasedArrival
+--- PASS: TestPromptOrder_V6_OrderingGateGivesTurnZeroToEarliestLeasedArrival (0.88s)
+=== RUN   TestPromptOrder_V6_UnleasedEarlierSpooledIsSeparateUncertainty
+--- PASS: TestPromptOrder_V6_UnleasedEarlierSpooledIsSeparateUncertainty (0.57s)
+=== RUN   TestObservePrompt_RecordingOutlivesTheReplyDeadline
+=== PAUSE TestObservePrompt_RecordingOutlivesTheReplyDeadline
+=== RUN   TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock
+--- PASS: TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock (0.51s)
+=== RUN   TestLoudPublicationGaps_AnnouncesAnUnpublishedCapture
+--- PASS: TestLoudPublicationGaps_AnnouncesAnUnpublishedCapture (0.15s)
+=== RUN   TestLoudPublicationGaps_QuietWhenClean
+--- PASS: TestLoudPublicationGaps_QuietWhenClean (0.11s)
+=== CONT  TestObservePrompt_RecordingOutlivesTheReplyDeadline
+--- PASS: TestObservePrompt_RecordingOutlivesTheReplyDeadline (0.29s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	10.139s
+exit=0

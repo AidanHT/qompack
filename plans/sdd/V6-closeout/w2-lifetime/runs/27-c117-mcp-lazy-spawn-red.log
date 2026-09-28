@@ -1,0 +1,20 @@
+# Fix seat, review finding 1 (MCP lazy spawn without CLAUDE_PLUGIN_ROOT), Windows 11, co-loaded.
+# New row against f8159a1's staging (keyed on CLAUDE_PLUGIN_ROOT only):
+# go test ./test/e2e/ -run '^(TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable|TestE2E_DaemonLeavesThePluginDirectoryRemovable)$' -count=1 -v -timeout=30m
+# Unit rows at the same point: TestDaemonProgram_StagesAPluginLayoutWithoutTheVariable and TestRunningFromPluginRoot
+# failed ('a plugin's binary is staged whether or not CLAUDE_PLUGIN_ROOT is set'; 'a plugin's layout pins its directory').
+=== RUN   TestE2E_DaemonLeavesThePluginDirectoryRemovable
+--- PASS: TestE2E_DaemonLeavesThePluginDirectoryRemovable (2.49s)
+=== RUN   TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable
+    plugin_dir_lifetime_test.go:81: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/test/e2e/plugin_dir_lifetime_test.go:104
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/test/e2e/plugin_dir_lifetime_test.go:81
+        	Error:      	Received unexpected error:
+        	            	unlinkat C:\Users\Quant\AppData\Local\Temp\TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable88209407\002\qompack-plugin\bin\qompack.exe: Access is denied.
+        	Test:       	TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable
+        	Messages:   	the plugin directory must be removable while the daemon it started is running
+--- FAIL: TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable (0.83s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	3.569s
+FAIL
+exit=1

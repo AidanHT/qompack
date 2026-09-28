@@ -1,0 +1,69 @@
+File: store-base.exe
+Build ID: C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\perfstore\store-base.exe2026-09-22 17:22:33.8917402 -0400 EDT
+Type: cpu
+Time: 2026-09-22 17:24:32 EDT
+Duration: 98.32s, Total samples = 93.75s (95.35%)
+Showing nodes accounting for 90.03s, 96.03% of 93.75s total
+Dropped 349 nodes (cum <= 0.47s)
+Showing top 60 nodes out of 119
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     93.04s 99.24%  testing.(*B).runN
+         0     0%     0%     91.16s 97.24%  testing.(*B).launch
+    90.01s 96.01% 96.01%     90.04s 96.04%  runtime.cgocall
+         0     0% 96.01%     90.04s 96.04%  syscall.syscalln
+         0     0% 96.01%     87.72s 93.57%  syscall.SyscallN
+         0     0% 96.01%     79.19s 84.47%  github.com/qompack/qompack/internal/store.BenchmarkPutBytes_100KB_Cold
+         0     0% 96.01%     44.61s 47.58%  github.com/qompack/qompack/internal/store.(*FSStore).PutBytes
+         0     0% 96.01%     34.83s 37.15%  os.MkdirAll
+         0     0% 96.01%     34.80s 37.12%  os.ignoringEINTR (inline)
+         0     0% 96.01%     34.77s 37.09%  os.Mkdir
+         0     0% 96.01%     34.77s 37.09%  os.Mkdir.func1 (inline)
+         0     0% 96.01%     34.77s 37.09%  syscall.CreateDirectory
+         0     0% 96.01%     34.77s 37.09%  syscall.Mkdir
+         0     0% 96.01%     34.57s 36.87%  github.com/qompack/qompack/internal/store.benchStore
+         0     0% 96.01%     32.25s 34.40%  github.com/qompack/qompack/internal/store.openFS
+         0     0% 96.01%     27.17s 28.98%  github.com/qompack/qompack/internal/store.(*FSStore).putObject
+         0     0% 96.01%     20.27s 21.62%  github.com/qompack/qompack/internal/paths.EnsureLayout
+         0     0% 96.01%     17.49s 18.66%  os.OpenFile
+         0     0% 96.01%     17.49s 18.66%  os.openFileNolog
+         0     0% 96.01%     17.47s 18.63%  syscall.Open
+         0     0% 96.01%     17.46s 18.62%  syscall.createFile
+         0     0% 96.01%     15.55s 16.59%  github.com/qompack/qompack/internal/paths.OpenFile
+         0     0% 96.01%     13.85s 14.77%  testing.(*B).runN.func1
+         0     0% 96.01%     13.85s 14.77%  testing.(*common).Cleanup.func1
+         0     0% 96.01%     13.85s 14.77%  testing.(*common).runCleanup
+         0     0% 96.01%     13.25s 14.13%  github.com/qompack/qompack/internal/store.ensureDir
+         0     0% 96.01%     11.62s 12.39%  github.com/qompack/qompack/internal/paths.WriteAtomic
+         0     0% 96.01%     10.82s 11.54%  internal/poll.(*FD).execIO
+         0     0% 96.01%     10.81s 11.53%  syscall.WriteFile (inline)
+         0     0% 96.01%     10.81s 11.53%  syscall.writeFile
+         0     0% 96.01%     10.55s 11.25%  github.com/qompack/qompack/internal/store.openAppendFile
+         0     0% 96.01%     10.48s 11.18%  github.com/qompack/qompack/internal/paths.AppendOnly
+         0     0% 96.01%     10.26s 10.94%  internal/poll.(*FD).Write
+         0     0% 96.01%     10.26s 10.94%  internal/poll.(*FD).Write.func1
+         0     0% 96.01%     10.26s 10.94%  os.(*File).Write
+         0     0% 96.01%     10.26s 10.94%  os.(*File).write (inline)
+     0.01s 0.011% 96.02%      9.39s 10.02%  github.com/qompack/qompack/internal/store.(*FSStore).writeStaged
+         0     0% 96.02%      8.63s  9.21%  sync.(*Once).Do (inline)
+         0     0% 96.02%      8.63s  9.21%  sync.(*Once).doSlow
+         0     0% 96.02%      8.57s  9.14%  github.com/qompack/qompack/internal/store.(*FSStore).Close
+         0     0% 96.02%      8.57s  9.14%  github.com/qompack/qompack/internal/store.(*FSStore).Close.func1
+         0     0% 96.02%      8.57s  9.14%  github.com/qompack/qompack/internal/store.(*FSStore).closeBody
+         0     0% 96.02%      8.57s  9.14%  github.com/qompack/qompack/internal/store.benchStore.func1
+         0     0% 96.02%      8.47s  9.03%  syscall.CloseHandle
+         0     0% 96.02%      7.42s  7.91%  github.com/qompack/qompack/internal/store.(*FSStore).Flush
+         0     0% 96.02%      6.95s  7.41%  github.com/qompack/qompack/internal/store.(*FSStore).beginPendingWrite
+         0     0% 96.02%      6.95s  7.41%  github.com/qompack/qompack/internal/store.(*FSStore).pending
+         0     0% 96.02%      5.27s  5.62%  os.RemoveAll (inline)
+         0     0% 96.02%      5.27s  5.62%  os.removeAll
+         0     0% 96.02%      5.27s  5.62%  os.removeAllFrom
+         0     0% 96.02%      5.27s  5.62%  testing.(*common).makeTempDir.func1
+         0     0% 96.02%      5.27s  5.62%  testing.removeAll
+     0.01s 0.011% 96.03%         5s  5.33%  os.(*File).Close (partial-inline)
+         0     0% 96.03%      4.99s  5.32%  os.(*file).close
+         0     0% 96.03%      4.95s  5.28%  internal/poll.(*FD).Close
+         0     0% 96.03%      4.95s  5.28%  internal/poll.(*FD).decref
+         0     0% 96.03%      4.95s  5.28%  internal/poll.(*FD).destroy
+         0     0% 96.03%      4.74s  5.06%  os.Remove
+         0     0% 96.03%      4.73s  5.05%  github.com/qompack/qompack/internal/store.(*pendingWrite).done
+         0     0% 96.03%      4.73s  5.05%  syscall.DeleteFile

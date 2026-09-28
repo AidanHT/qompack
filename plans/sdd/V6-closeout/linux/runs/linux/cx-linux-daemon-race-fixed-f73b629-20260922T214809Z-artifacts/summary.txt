@@ -1,0 +1,3 @@
+FAIL      github.com/qompack/qompack/internal/daemon  (pass=130 fail=2 skip=0)
+    FAIL TestRunReturnsOnlyAfterAsyncStopHasFinished
+    FAIL TestRunReturnsOnlyAfterAsyncStopHasFinished

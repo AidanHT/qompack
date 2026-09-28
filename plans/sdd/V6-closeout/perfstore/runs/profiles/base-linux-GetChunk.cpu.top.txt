@@ -1,0 +1,69 @@
+File: store.test
+Build ID: 99ce539d432428efbd5c364fad772711ae69322e
+Type: cpu
+Time: 2026-09-22 22:03:42 UTC
+Duration: 8.23s, Total samples = 6.64s (80.66%)
+Showing nodes accounting for 4.80s, 72.29% of 6.64s total
+Dropped 222 nodes (cum <= 0.03s)
+Showing top 60 nodes out of 176
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      5.31s 79.97%  testing.(*B).runN
+         0     0%     0%      5.30s 79.82%  github.com/qompack/qompack/internal/store.BenchmarkGetChunk
+         0     0%     0%      5.29s 79.67%  testing.(*B).launch
+         0     0%     0%      5.22s 78.61%  github.com/qompack/qompack/internal/store.(*FSStore).GetChunk
+         0     0%     0%      5.21s 78.46%  github.com/qompack/qompack/internal/store.(*FSStore).getObject
+         0     0%     0%      1.97s 29.67%  github.com/qompack/qompack/internal/store.Decode
+         0     0%     0%      1.96s 29.52%  github.com/klauspost/compress/zstd.(*Decoder).DecodeAll
+         0     0%     0%      1.69s 25.45%  github.com/qompack/qompack/internal/store.(*FSStore).readObjectFile
+         0     0%     0%      1.55s 23.34%  github.com/qompack/qompack/internal/core.HashBytes
+     0.01s  0.15%  0.15%      1.51s 22.74%  crypto/internal/fips140/sha256.(*Digest).Write
+         0     0%  0.15%      1.50s 22.59%  crypto/internal/fips140/sha256.block
+     1.50s 22.59% 22.74%      1.50s 22.59%  crypto/internal/fips140/sha256.blockSHANI
+         0     0% 22.74%      1.42s 21.39%  github.com/qompack/qompack/internal/store.readBoundedObject
+         0     0% 22.74%      1.41s 21.23%  github.com/klauspost/compress/zstd.(*frameDec).runDecoder
+     0.01s  0.15% 22.89%      1.12s 16.87%  github.com/klauspost/compress/zstd.(*blockDec).decodeBuf
+     0.01s  0.15% 23.04%      1.11s 16.72%  github.com/klauspost/compress/zstd.(*blockDec).decodeCompressed
+         0     0% 23.04%      1.09s 16.42%  runtime.systemstack
+         0     0% 23.04%      1.03s 15.51%  github.com/klauspost/compress/zstd.(*sequenceDecs).decodeSync
+         0     0% 23.04%      1.03s 15.51%  github.com/klauspost/compress/zstd.(*sequenceDecs).decodeSyncSimple
+     1.02s 15.36% 38.40%      1.02s 15.36%  github.com/klauspost/compress/zstd.sequenceDecs_decodeSync_safe_bmi2
+     1.01s 15.21% 53.61%      1.01s 15.21%  internal/runtime/syscall/linux.Syscall6
+     0.03s  0.45% 54.07%         1s 15.06%  syscall.RawSyscall6
+         0     0% 54.07%      0.82s 12.35%  runtime.gcBgMarkWorker
+         0     0% 54.07%      0.81s 12.20%  os.ignoringEINTR (inline)
+     0.02s   0.3% 54.37%      0.75s 11.30%  runtime.mallocgc
+         0     0% 54.37%      0.75s 11.30%  syscall.Syscall6
+         0     0% 54.37%      0.70s 10.54%  runtime.gcBgMarkWorker.func2
+     0.01s  0.15% 54.52%      0.70s 10.54%  runtime.gcDrain
+         0     0% 54.52%      0.58s  8.73%  runtime.makeslice
+         0     0% 54.52%      0.57s  8.58%  os.OpenFile
+         0     0% 54.52%      0.57s  8.58%  os.openFileNolog
+         0     0% 54.52%      0.56s  8.43%  os.Open (inline)
+     0.02s   0.3% 54.82%      0.56s  8.43%  runtime.mallocgcSmallNoscan
+         0     0% 54.82%      0.46s  6.93%  os.Lstat
+         0     0% 54.82%      0.46s  6.93%  os.lstatNolog
+         0     0% 54.82%      0.44s  6.63%  os.lstatNolog.func1 (inline)
+     0.01s  0.15% 54.97%      0.44s  6.63%  syscall.Lstat (inline)
+     0.01s  0.15% 55.12%      0.43s  6.48%  syscall.fstatat
+         0     0% 55.12%      0.41s  6.17%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 55.12%      0.36s  5.42%  syscall.Syscall
+         0     0% 55.12%      0.35s  5.27%  os.open
+         0     0% 55.12%      0.35s  5.27%  os.openFileNolog.func1 (inline)
+         0     0% 55.12%      0.35s  5.27%  syscall.Open (inline)
+         0     0% 55.12%      0.35s  5.27%  syscall.openat
+     0.32s  4.82% 59.94%      0.32s  4.82%  runtime.futex
+     0.31s  4.67% 64.61%      0.31s  4.67%  runtime.memclrNoHeapPointers
+         0     0% 64.61%      0.29s  4.37%  runtime.gcDrainMarkWorkerDedicated (inline)
+     0.10s  1.51% 66.11%      0.27s  4.07%  runtime.scanObject
+         0     0% 66.11%      0.26s  3.92%  github.com/qompack/qompack/internal/store.(*FSStore).objectCandidates
+     0.01s  0.15% 66.27%      0.25s  3.77%  github.com/klauspost/compress/zstd/internal/xxhash.(*Digest).Write
+     0.24s  3.61% 69.88%      0.24s  3.61%  github.com/klauspost/compress/zstd/internal/xxhash.writeBlocks
+         0     0% 69.88%      0.23s  3.46%  runtime.futexwakeup
+         0     0% 69.88%      0.23s  3.46%  runtime.schedule
+         0     0% 69.88%      0.22s  3.31%  os.newFile
+         0     0% 69.88%      0.22s  3.31%  runtime.markroot
+         0     0% 69.88%      0.22s  3.31%  runtime.notewakeup
+         0     0% 69.88%      0.21s  3.16%  runtime.scanSpan
+     0.16s  2.41% 72.29%      0.21s  3.16%  runtime.tryDeferToSpanScan
+         0     0% 72.29%      0.20s  3.01%  runtime.bgsweep
+         0     0% 72.29%      0.20s  3.01%  runtime.mcall

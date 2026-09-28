@@ -1,0 +1,22 @@
+=== RUN   TestObservationPublish_FreshPublishSyncsTheRootBeforeTheIntentAndTheIndexAfterTheWrite
+--- PASS: TestObservationPublish_FreshPublishSyncsTheRootBeforeTheIntentAndTheIndexAfterTheWrite (0.13s)
+=== RUN   TestObservationPublish_RecoveryReprovesTheRootBeforeTheRecord
+--- PASS: TestObservationPublish_RecoveryReprovesTheRootBeforeTheRecord (0.17s)
+=== RUN   TestObservationPublish_CrashAtEveryStepPublishesOnce
+=== RUN   TestObservationPublish_CrashAtEveryStepPublishesOnce/root-synced
+=== RUN   TestObservationPublish_CrashAtEveryStepPublishesOnce/intent-durable
+=== RUN   TestObservationPublish_CrashAtEveryStepPublishesOnce/record-written
+=== RUN   TestObservationPublish_CrashAtEveryStepPublishesOnce/record-written/power_loss_drops_the_unsynced_batch
+=== RUN   TestObservationPublish_CrashAtEveryStepPublishesOnce/publication-synced
+--- PASS: TestObservationPublish_CrashAtEveryStepPublishesOnce (0.97s)
+    --- PASS: TestObservationPublish_CrashAtEveryStepPublishesOnce/root-synced (0.28s)
+    --- PASS: TestObservationPublish_CrashAtEveryStepPublishesOnce/intent-durable (0.17s)
+    --- PASS: TestObservationPublish_CrashAtEveryStepPublishesOnce/record-written (0.20s)
+    --- PASS: TestObservationPublish_CrashAtEveryStepPublishesOnce/record-written/power_loss_drops_the_unsynced_batch (0.15s)
+    --- PASS: TestObservationPublish_CrashAtEveryStepPublishesOnce/publication-synced (0.17s)
+=== RUN   TestSyncPublication_CountsOnePassPerCall
+--- PASS: TestSyncPublication_CountsOnePassPerCall (0.10s)
+=== RUN   TestObservationPublish_UnverifiableRootWritesNoIntent
+--- PASS: TestObservationPublish_UnverifiableRootWritesNoIntent (0.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	1.714s

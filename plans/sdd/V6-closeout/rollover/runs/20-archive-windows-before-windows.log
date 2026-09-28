@@ -1,0 +1,15 @@
+# base 6724fef (closeout/rollover before the review fixes), Windows 11, 2026-09-22T23:11:15-04:00
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkDeliveryRolloverArchiveWindows-22    	       1	254623087600 ns/op
+--- BENCH: BenchmarkDeliveryRolloverArchiveWindows-22
+    delivery_rollover_archive_bench_test.go:38: window 0: 12.3097746s, generations=33
+    delivery_rollover_archive_bench_test.go:38: window 1: 23.3929094s, generations=81
+    delivery_rollover_archive_bench_test.go:38: window 2: 50.6308696s, generations=134
+    delivery_rollover_archive_bench_test.go:38: window 3: 1m10.4360904s, generations=191
+    delivery_rollover_archive_bench_test.go:38: window 4: 1m37.5846136s, generations=250
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	261.286s
+exit=0

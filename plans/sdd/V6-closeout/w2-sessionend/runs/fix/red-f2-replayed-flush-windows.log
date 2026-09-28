@@ -1,0 +1,20 @@
+=== RUN   TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+    flush_async_test.go:476: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:476
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget
+        	Messages:   	the replayed flush's SessionEnd ran to completion, once, and was not cut off at the pass's budget
+--- FAIL: TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget (0.30s)
+=== RUN   TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged
+    flush_async_test.go:502: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-sessionend/internal/daemon/flush_async_test.go:502
+        	Error:      	Should be false
+        	Test:       	TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged
+        	Messages:   	a session end its context cut short answered OK, so its drain would acknowledge it
+--- FAIL: TestFlushRoute_AReplayedSessionEndCutShortIsNotAcknowledged (0.29s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.821s
+FAIL
+exit=1

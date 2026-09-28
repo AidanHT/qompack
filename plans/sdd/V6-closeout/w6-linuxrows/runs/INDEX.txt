@@ -1,0 +1,153 @@
+w6-linuxrows evidence (branch closeout/w6-linuxrows, base f6095e2)
+
+Load generators (temporary, never in the tree): /work/cx-w6-linuxrows-load/cx-w6-linuxrows-load.sh in
+container qompack-v6-linux-verification, "sh cx-w6-linuxrows-load.sh <seconds> <cpu> <fsync>": <cpu>
+busy-loop shells plus <fsync> loops of dd bs=64k count=16 conv=fsync, each child killed by timeout(1).
+  heavy (first seat, 2026-09-27 02:30-04:45 UTC, before the owner capped load): 22 cpu + 8 fsync.
+      Runs named load1..load4.
+  capped (this seat, from 17:48 UTC): 5 cpu + 3 fsync = 8 busy processes, 1200 s per run, stopped by
+      timeout(1) or by its owner. Runs named load7..load9 and the final --coload run.
+Every Linux run shared the container with other workstreams' gate runs; "idle" means only that no
+generator of this workstream was on. Runs made with --coload say so in identity.txt (coload=1).
+
+linux/  (linux-nonroot-gate.sh artifacts, non-root uid 10001, -race)
+  base f6095e2
+    e2e-rows-idle-f6095e2          x09, spooled start, ThinSlice, count 3, no generator: 9/9 PASS
+    daemon-rows-idle-f6095e2       LaneOverflow, ShingleCap, count 20, no generator: 40/40 PASS
+    daemon-rows-load1-f6095e2      the same, count 40, heavy generator: LaneOverflow 7/40 FAIL
+                                   ("4 of 5 arrivals acknowledged"), ShingleCap 3/40 FAIL (15.4/17.2/18.4 ms)
+    daemon-rows-load7-f6095e2      LaneOverflow, ShingleCap, backoff row, count 30, capped generator,
+                                   --coload: LaneOverflow 8/30 FAIL, the others 60/60 PASS
+    e2e-rows-load8-f6095e2         x09, spooled start, ThinSlice, count 3, capped generator, --coload:
+                                   x09 3/3 FAIL (no "observer: gc" in 32 s), ThinSlice 1/3 FAIL
+                                   (observer_e2e_test.go:563, no EdgeControlOnly), spooled start 3/3 PASS
+  intermediate heads (first seat, root-cause history only)
+    daemon-rows-load3-c551fcd      heavy generator: LaneOverflow and the cut-short row fail
+    e2e-rows-load3-c551fcd         heavy generator: ThinSlice 2/3 FAIL
+  heads c08d008 / 64a01ed (before 7dc9527; daemon code of c08d008)
+    daemon-rows-idle-c08d008       every daemon row and the new rows, count 10: 99/100, the one red is
+                                   ShingleCap at 12.3 ms (timing only, no --coload)
+    daemon-rows-load7-c08d008      A/B partner of daemon-rows-load7-f6095e2, same generator window:
+                                   90/90 PASS (LaneOverflow 30/30)
+    e2e-rows-load8-64a01ed         A/B partner of e2e-rows-load8-f6095e2, same generator window: 9/9
+                                   PASS; x09's GC line 2m2s-3m3s after the flush behind 420-450 lines
+  final head 7dc9527
+    daemon-rows-load9-7dc9527      11 daemon rows (the two task rows, the backoff row, the six new rows,
+                                   the idle-drain row, SP05-D1), count 10, capped generator, --coload:
+                                   110/110 PASS; ShingleCap min-of-5 3.0-4.8 ms (reported)
+    e2e-rows-load9-7dc9527         x09, spooled start, ThinSlice, count 3, same generator window,
+                                   --coload: 9/9 PASS; x09's GC line 2m31s-2m58s behind 410-439 lines
+    daemon-whole-idle-7dc9527      ./internal/daemon, no generator, no --coload: PASS, 1523 pass, 0 fail,
+                                   1 skip (TestDrainWindowsOpenBlobRetainsCleanupIntent, Windows only)
+    e2e-whole-idle-7dc9527         ./test/e2e, --timeout 150m, no generator, no --coload: 307 pass, 1 FAIL
+                                   (TestV3_HotPathUnchangedWithLedgerResident, the x11 B-A/B-B wall-clock
+                                   gate: p99 426 ms against 15 ms), 3 skips; x09, spooled start and
+                                   ThinSlice PASS; x09's GC line 1m45s behind 409 lines
+    x11-ab-f6095e2 / x11-ab-7dc9527
+                                   TestV3_HotPathUnchangedWithLedgerResident alone, count 2, base and head
+                                   side by side, no --coload: FAIL on both, 2/2 each; B-A p50 115/82 ms
+                                   (base) and 123/82 ms (head), p99 180-213 ms on both: pre-existing on
+                                   this container, not from this branch
+    daemon-e2e-whole-coload-7dc9527
+                                   ./internal/daemon and ./test/e2e together, --coload, --timeout 150m,
+                                   capped generator 20:21-20:41 UTC (the whole daemon package and the
+                                   first 32 e2e tests, ThinSlice among them): PASS, daemon 1523/0/1 skip,
+                                   e2e 308/0/3 skips; x09's GC line 1m5s behind 406 lines
+
+linux-diag/  (first seat's temporary diagnostics in a scratch clone at base + patch; never merged, the
+  patches are kept as .txt). Each run's zz-w6/<Test>-<pid>-<n> copy directory was renamed
+  zz-w6/thinslice-<n> or zz-w6/x09-<n> so the paths fit git's Windows path limit; the test output
+  still names the original directories.
+  zz-diag-laneoverflow.patch.txt                 records every requested drain pass (lines, time, error)
+  cx-w6-linuxrows-diag-laneoverflow-load2-*      28/30 PASS, 2 FAIL; each failing iteration had exactly one requested
+                                                 pass, ended "context deadline exceeded" after 2.26 s / 2.12 s, never repeated
+  zz-diag-x09-timeline.patch.txt                 x09: spool before/after the pre-flush shutdown, GC-line time up to 300 s
+  zz-diag-thinslice-dag.patch.txt                ThinSlice: persisted DAG stats after the shutdown, day log copy
+  cx-w6-linuxrows-diag-e2e-load2-*               x09 3/3 FAIL: (1) no daemon logged anything after the flush;
+                                                 (2) GC line after 3 m 20 s; (3) the flush's daemon logged "ObservePrompt
+                                                 capture not durable" and an idle drain "context deadline exceeded" at
+                                                 every idle tick, drain.json shows the WAL stopped at 226467/267147 and
+                                                 every client spool, the flush's own (client-64327) among them, unread
+  cx-w6-linuxrows-diag-thinslice-load2-*         ThinSlice 7/8 PASS, 1 FAIL: persisted DAG 0 nodes / 0 edges for 48
+                                                 indexed tool uses; day log: session end cancelled by Stop
+  zz-diag-x09-rundir-procs.patch.txt             x09: run/ contents and live daemon processes at +1 s ... +120 s
+  cx-w6-linuxrows-diag-x09v2-load2-*             both iterations: a spawn.lock written mid-session by a hook's loser
+                                                 spawn; the flush's daemon came up, GC line after 4 m 4 s and 4 m 16 s
+  zz-diag-lane2-passlog.patch.txt, cx-w6-linuxrows-diag-lane2-load3-*
+                                                 at c551fcd + patch, heavy generator: requested passes ending "context
+                                                 deadline exceeded" after ~2.6 s on the same "not durable" prompt capture
+
+mutants/  (this seat) each fix's behaviour reverted in a scratch clone of 64a01ed, with the final
+  tests: every targeted row fails (M1..M6, logs and the tool that applied them, .txt)
+
+seat1-windows/  the first seat's Windows red/green logs. The reds were taken against the code before
+  each fix and still stand for the tests of that moment; two watcher rows were revised later
+  (c08d008), so their final red is mutants/. c-green-watcher-family-windows.log is NOT green: it
+  ran during the heavy generator with the pre-c08d008 tests and is kept only as history.
+
+Windows (this seat)
+  idle-drain-red-64a01ed-windows.log     the new idle-drain row on the code before 7dc9527: FAIL,
+                                         15 of 15 attempts cut inside the slow part, neither spool published
+  idle-drain-green-7dc9527-windows.log   the same row and the idle neighbours after the fix: PASS
+  win-daemon-families-7dc9527.log        -run 'Idle|Drain|SpoolWatch|DeliveryOrder|RunOnce': 149 PASS
+  win-new-rows-x3-64a01ed.log            the new rows and their neighbours, count 3: 30 PASS
+  win-daemon-full-7dc9527.log            go test ./internal/daemon, whole package, run beside the Linux
+                                         --coload run: ok, 768 top-level PASS
+
+Review fix seat (after the independent review of 3c15ec7; code head 87f1713)
+  Commits: 2189321 (the pass budget stops at the pass's boundary: a session end a budgeted pass
+  starts no longer inherits it), 0d20057 (the requester asks again only after a pass that made
+  progress), 6065247 (the watcher keeps the back-off of spools a budget-stopped pass reached),
+  87f1713 (x09's GC wait ends before the test binary's own -timeout).
+
+review/  (Windows, this seat)
+  f1-red-windows-3c15ec7.log      TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget on
+                                  the 3c15ec7 code: FAIL, recovery marker left at stage "drain"
+  f1-green-windows.log            the same row and the two replayed-flush neighbours after 2189321: PASS
+  f3-red-windows-extracted.log    TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress with
+                                  requestedDrainPass extracted but the old policy kept: FAIL, a pass that
+                                  published nothing before a line ran out of its deadline asked again
+  f3-green-windows.log            that row and the three requested-drain rows after 0d20057: PASS
+  f4-red-windows.log              TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached before
+                                  6065247: FAIL, the blocked spool the pass reached was due at once
+  f4-green-windows.log            that row and the four watcher/budget neighbours after 6065247: PASS
+  f2-x09-windows.log              x09 at 87f1713 with the package's default -timeout: PASS, cut: false
+  f2-x09-clamped-windows.log      x09 at 87f1713 under -timeout 3m: PASS, the wait cut to 2m21s (cut: true)
+  f5-diag-spawnclaim_test.go.txt  TEMPORARY DIAGNOSTIC, never in the tree: a lock-losing daemon exits,
+  f5-diag-spawnclaim-red-windows.log  the running daemon stops, and the flush's ClaimSpawn still answers
+                                  SpawnInFlight (2) instead of SpawnClaimed (1): FAIL, reproducing the
+                                  stray spawn-claim gap x09 waits out (owner decision; w6-borrow's scope)
+  win-daemon-families-review.log  -run 'Idle|Drain|SpoolWatch|DeliveryOrder|RunOnce|Flush|SessionEnd|PassBudget'
+                                  on the final daemon code: ok (no -v)
+  win-daemon-full-review.log      go test -v ./internal/daemon, whole package, final daemon code: ok,
+                                  771 top-level PASS, 0 FAIL, 1 platform skip
+
+linux/  (this seat, code head 87f1713)
+  daemon-rows-load10 / e2e-rows-load10
+                                  NOT under load, whatever the label says: the generator was launched with
+                                  docker exec -d, which started nothing (no generator process, no log).
+                                  They are plain --coload runs with no generator of this workstream:
+                                  daemon rows 160/160 PASS (count 10), e2e rows 9/9 PASS (count 3); x09's
+                                  GC line 6-40 s behind 264-293 lines
+  daemon-rows-load11 / e2e-rows-load11
+                                  the same rows under the capped generator (5 cpu + 3 fsync, load-11,
+                                  22:04:49-22:15:17 UTC, stopped by its owner), --coload: daemon 160/160
+                                  PASS (count 10), e2e 9/9 PASS (count 3); x09's GC line 44-52 s behind
+                                  351-403 lines, and the derived bound (29m52s-34m12s) exceeded what was
+                                  left of the 30m -timeout every time, so the wait was cut (cut: true)
+  daemon-whole-idle (87f1713)     ./internal/daemon, no generator, no --coload: PASS, 1526 pass, 0 fail,
+                                  1 skip (TestDrainWindowsOpenBlobRetainsCleanupIntent, Windows only)
+  e2e-whole-idle (87f1713)        ./test/e2e, --timeout 150m, no generator, no --coload: 307 pass, 1 FAIL
+                                  (TestV3_HotPathUnchangedWithLedgerResident, B-A p99 90.1 ms, B-B p99
+                                  81.9 ms against 15 ms), 3 skips; x09 (GC line 5.4 s behind 198 lines),
+                                  spooled start and ThinSlice PASS
+  daemon-e2e-whole-coload (87f1713)
+                                  ./internal/daemon and ./test/e2e together, --coload, --timeout 150m,
+                                  capped generator load-12 22:51:35-23:11:35 UTC (ended by timeout(1)):
+                                  PASS, daemon 1526/0/1 skip, e2e 308/0/3 skips; ShingleCap reported
+                                  11.66 ms (min of 5) against 10 ms, not judged under --coload; x09's GC
+                                  line 5.9 s behind 207 lines
+  x11-ab-87f1713 / x11-ab-f6095e2 (20260927T232948Z)
+                                  TestV3_HotPathUnchangedWithLedgerResident alone, head and base side by
+                                  side, no --coload: FAIL on both (B-A p99 147.5 ms head, 131.1 ms base,
+                                  limit 15 ms): pre-existing on this container, as at 7dc9527

@@ -92,7 +92,9 @@ func installSegAuthority(t *testing.T, tp *testProject, specs []segSpec) {
 }
 
 // installSegmentFiles creates a segment directory with its four journal/seal files: empty journals and
-// non-empty (structurally complete) seals.
+// non-empty (structurally complete) seals — and, for a segment past 0, the carried-lease file the daemon
+// writes when it opens one, here carrying nothing (V6 close-out C1.10). Tests that carry a lease
+// overwrite it.
 func installSegmentFiles(t *testing.T, tp *testProject, active uint64) {
 	t.Helper()
 	dir := segDirOf(tp, active)
@@ -108,6 +110,9 @@ func installSegmentFiles(t *testing.T, tp *testProject, active uint64) {
 	// lease and ack seals carry their own journal's seed.
 	writeV1Seal(t, filepath.Join(dir, deliveryLeasePositionFile), dsealLeaseSeed)
 	writeV1Seal(t, filepath.Join(dir, deliveryAckPositionFile), dsealAckSeed)
+	if active >= 1 {
+		writeCarry(t, tp, active, renderCarry(active))
+	}
 }
 
 // writeV1Seal writes a canonical v1 empty position seal for a journal with the given chain seed.
@@ -162,7 +167,9 @@ func ackLine(nonce, obs string) string {
 
 // TestGCSegments_HarvestsOldestLeaseAcrossRotation: after a rotation to segment 1, a lease still open
 // in the OLDEST segment (0) and a lease in the new segment (1) are both harvested. The pre-integration
-// reader saw only segment 0 and swept the segment-1 lease root.
+// reader saw only segment 0 and swept the segment-1 lease root. The segment-0 lease is retained through
+// segment 1's carried-lease file, which is how the daemon records that it was archived unacknowledged
+// (criterion change, V6 close-out C1.10: GC no longer reads an archived segment's own journal).
 func TestGCSegments_HarvestsOldestLeaseAcrossRotation(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
@@ -171,8 +178,9 @@ func TestGCSegments_HarvestsOldestLeaseAcrossRotation(t *testing.T) {
 	newRoot := gcSeed(t, tp, "src/new.txt", "leased in the active segment\n")
 
 	installSegAuthority(t, tp, []segSpec{{0, ""}, {1, segBaseRoot("seg1")}})
-	writeSegJournal(t, tp, 0, deliveryLeaseFile,
-		leaseLine(deliveryNonce("1"), oldRoot.Hash.String(), obsIDText("old")))
+	oldLease := leaseLine(deliveryNonce("1"), oldRoot.Hash.String(), obsIDText("old"))
+	writeSegJournal(t, tp, 0, deliveryLeaseFile, oldLease)
+	writeCarry(t, tp, 1, renderCarry(1, oldLease))
 	writeSegJournal(t, tp, 1, deliveryLeaseFile,
 		leaseLine(deliveryNonce("2"), newRoot.Hash.String(), obsIDText("new")))
 
@@ -187,7 +195,8 @@ func TestGCSegments_HarvestsOldestLeaseAcrossRotation(t *testing.T) {
 
 // TestGCSegments_AckInLaterSegmentSettlesOlderLease: an acknowledgement recorded in the ACTIVE segment
 // settles a lease opened in the OLDEST segment, releasing its root; a lease with no matching ack is
-// retained. The join is exact nonce+observation+version across segments.
+// retained. The join is exact nonce+observation+version across segments. Both segment-0 leases were
+// archived unacknowledged, so segment 1 carries both (criterion change, V6 close-out C1.10).
 func TestGCSegments_AckInLaterSegmentSettlesOlderLease(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
@@ -198,9 +207,10 @@ func TestGCSegments_AckInLaterSegmentSettlesOlderLease(t *testing.T) {
 	installSegAuthority(t, tp, []segSpec{{0, ""}, {1, segBaseRoot("seg1")}})
 	nSettled, nOpen := deliveryNonce("1"), deliveryNonce("2")
 	oSettled := obsIDText("settled")
-	writeSegJournal(t, tp, 0, deliveryLeaseFile,
-		leaseLine(nSettled, settled.Hash.String(), oSettled),
-		leaseLine(nOpen, openR.Hash.String(), obsIDText("open")))
+	settledLease := leaseLine(nSettled, settled.Hash.String(), oSettled)
+	openLease := leaseLine(nOpen, openR.Hash.String(), obsIDText("open"))
+	writeSegJournal(t, tp, 0, deliveryLeaseFile, settledLease, openLease)
+	writeCarry(t, tp, 1, renderCarry(1, settledLease, openLease))
 	// The ACK lands in the LATER segment's ack journal, under the exact identity.
 	writeSegJournal(t, tp, 1, deliveryAckFile, ackLine(nSettled, oSettled))
 
@@ -467,4 +477,64 @@ func TestGCSegments_UnmigratedTreeStaysLegacy(t *testing.T) {
 	require.False(t, rep.RetentionRootsError)
 	_, err = tp.Store.GetRoot(ctx, leased.Hash)
 	require.NoError(t, err, "the legacy segment 0 lease is harvested exactly as before segments existed")
+}
+
+// frozenSealBytes renders a canonical frozen segment-0 seal (the daemon's old-reader barrier, mirrored
+// by dsealFrozen) sealing an empty journal with the given seed.
+func frozenSealBytes(t *testing.T, seed core.Hash) []byte {
+	t.Helper()
+	b, err := json.Marshal(dsealFrozen{Format: dsealFrozenFormat, Segment: 0, Chain: seed})
+	require.NoError(t, err)
+	require.True(t, dsealParseFrozen(b, seed), "fixture: a canonical frozen seal")
+	return b
+}
+
+// TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment: once the store has rotated, segment
+// 0's seals are frozen and GC harvests it normally. The same document is refused anywhere it cannot
+// legitimately be: on a later segment, or on segment 0 while it is still the active segment.
+func TestGCSegments_FrozenSealAcceptedOnlyOnTheArchivedLegacySegment(t *testing.T) {
+	ctx := context.Background()
+	freeze := func(t *testing.T, tp *testProject, active uint64) {
+		t.Helper()
+		dir := segDirOf(tp, active)
+		require.NoError(t, os.WriteFile(paths.Long(filepath.Join(dir, deliveryLeasePositionFile)),
+			frozenSealBytes(t, dsealLeaseSeed), 0o600))
+		require.NoError(t, os.WriteFile(paths.Long(filepath.Join(dir, deliveryAckPositionFile)),
+			frozenSealBytes(t, dsealAckSeed), 0o600))
+	}
+
+	t.Run("archived segment 0", func(t *testing.T) {
+		tp := newTestStore(t)
+		leased := gcSeed(t, tp, "src/leased.txt", "held by an open lease in segment 1\n")
+		installSegAuthority(t, tp, []segSpec{{0, ""}, {1, segBaseRoot("seg1")}})
+		freeze(t, tp, 0)
+		writeSegJournal(t, tp, 1, deliveryLeaseFile,
+			leaseLine(deliveryNonce("1"), leased.Hash.String(), obsIDText("frozen")))
+		rep, err := tp.Store.GC(ctx, forceCollect)
+		require.NoError(t, err)
+		require.False(t, rep.RetentionRootsError, "a frozen seal on the archived legacy segment is accepted")
+		_, err = tp.Store.GetRoot(ctx, leased.Hash)
+		require.NoError(t, err)
+	})
+	for _, tc := range []struct {
+		name   string
+		specs  []segSpec
+		frozen uint64
+	}{
+		{"a later segment", []segSpec{{0, ""}, {1, segBaseRoot("seg1")}}, 1},
+		{"segment 0 while active", []segSpec{{0, ""}}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tp := newTestStore(t)
+			doomed := gcSeed(t, tp, "src/doomed.txt", "collectable only if the pass runs\n")
+			installSegAuthority(t, tp, tc.specs)
+			freeze(t, tp, tc.frozen)
+			rep, err := tp.Store.GC(ctx, forceCollect)
+			require.NoError(t, err)
+			require.True(t, rep.RetentionRootsError, "a frozen seal where none can be halts the pass")
+			require.Zero(t, rep.DeletedObjects)
+			_, err = tp.Store.GetRoot(ctx, doomed.Hash)
+			require.NoError(t, err)
+		})
+	}
 }

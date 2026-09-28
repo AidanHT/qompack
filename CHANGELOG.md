@@ -11,9 +11,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `devtool bundle` assembles a deterministic, versioned plugin bundle per release target, with a
   `BUNDLE.json` identity and a `sha256sum`-format `checksums.txt`; see `packaging/README.md`.
-- `devtool bundle --archive` packs each bundle reproducibly (sorted entries, a fixed epoch mtime,
-  normalised modes, a gzip header carrying no name or timestamp) and writes one `checksums.txt`
-  over the archives — the files a release uploads.
+- `devtool bundle --archive` packs each bundle reproducibly into a `.zip` for every target (sorted
+  entries, the DOS-epoch mtime, normalised Unix modes with `bin/` at 0755, no extra fields) and
+  writes one `checksums.txt` over the archives — the files a release uploads.
+- `devtool marketplace` generates the release's `marketplace.json` from that `checksums.txt`: six
+  per-target `archive` entries, each pinned by sha256 to its release zip.
 - `devtool release-check` is the release gate: version agreement, `ci-local`'s own sequence,
   `build-all`, the generated-doc checks, `test/guards`, govulncheck, the licence inventory,
   real-binary determinism, the store rollback rehearsal and `plugin-validate`, stopping at the
@@ -50,7 +52,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   containing a space no longer word-splits under a shell launcher.
 - A configuration violation no longer disables capture wholesale: the hot-path loader applies the
   same per-leaf fallback `config print` does and records the violation in
-  `state/config-violations.json`.
+  `state/config-violations.json`. An unknown key, a value of the wrong type or an unparseable
+  `QOMPACK_*`/`--set` value is now dropped with a warning on the hook path too, instead of making
+  every hook record nothing; only unreadable input and a `runtime.redact` or `runtime.mode` setting
+  that cannot be applied as written still refuse capture, and `qompack self-test` and
+  `qompack doctor` report that as `config.capture`.
+- A `runtime.mode` the hooks cannot apply as written — `"OFF"`, `false`, any value outside
+  `auto|full|passive|off` — now stops recording, as `off` would, instead of falling back to `auto`
+  and recording. `config print` and the other read commands still fall back and warn.
+- One nonfinite `QOMPACK_*`/`--set` float, or one integer an `int` cannot hold from any layer
+  (including a `QOMPACK_*`/`--set` value from 2^63-512 up, which rounds past the int64 maximum), no
+  longer resets every configuration layer to the defaults; it is a per-leaf warning like any other
+  bad value.
 
 ### Fixed
 

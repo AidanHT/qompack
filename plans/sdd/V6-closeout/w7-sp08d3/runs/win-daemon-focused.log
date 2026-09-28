@@ -1,0 +1,38 @@
+=== RUN   TestDispatchOp_OutOfProjectDirectIPCDoesNotReachWAL
+--- PASS: TestDispatchOp_OutOfProjectDirectIPCDoesNotReachWAL (0.04s)
+=== RUN   TestAdmitDelivery_ForgedOKCaptureWithOutOfProjectPathDenied
+--- PASS: TestAdmitDelivery_ForgedOKCaptureWithOutOfProjectPathDenied (0.01s)
+=== RUN   TestAdmitDelivery_ForgedOKInProjectEventButOutOfProjectBytesDenied
+--- PASS: TestAdmitDelivery_ForgedOKInProjectEventButOutOfProjectBytesDenied (0.05s)
+=== RUN   TestAdmitDelivery_OKCaptureWithDroppedPathUnavailable
+--- PASS: TestAdmitDelivery_OKCaptureWithDroppedPathUnavailable (0.04s)
+=== RUN   TestAdmitDelivery_DegradedWithOutOfProjectBytesRefused
+--- PASS: TestAdmitDelivery_DegradedWithOutOfProjectBytesRefused (0.05s)
+=== RUN   TestAdmitDelivery_ByteFreeDegradedAdmittedAsEvidence
+--- PASS: TestAdmitDelivery_ByteFreeDegradedAdmittedAsEvidence (0.01s)
+=== RUN   TestAdmitDelivery_OKCaptureInProjectAdmitted
+--- PASS: TestAdmitDelivery_OKCaptureInProjectAdmitted (0.04s)
+=== RUN   TestAdmitDelivery_PathlessBashOKCaptureAdmitted
+--- PASS: TestAdmitDelivery_PathlessBashOKCaptureAdmitted (0.07s)
+=== RUN   TestAdmitDelivery_NoCaptureOutOfProjectDeniedBeforePolicy
+--- PASS: TestAdmitDelivery_NoCaptureOutOfProjectDeniedBeforePolicy (0.01s)
+=== RUN   TestDeliveryMigration_OrphanArtifactsPreserveLegacyAnchorsWithoutContinuing
+--- PASS: TestDeliveryMigration_OrphanArtifactsPreserveLegacyAnchorsWithoutContinuing (0.89s)
+=== RUN   TestCrashCutBetweenReferenceAndFrontierRedelivers
+--- PASS: TestCrashCutBetweenReferenceAndFrontierRedelivers (2.14s)
+=== RUN   TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero
+--- PASS: TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero (4.12s)
+=== RUN   TestSP08D3_DistinctSameTextRepliesStayDistinct
+--- PASS: TestSP08D3_DistinctSameTextRepliesStayDistinct (2.32s)
+=== RUN   TestSP08D3_CaptureFailureIsNotAcknowledged
+--- PASS: TestSP08D3_CaptureFailureIsNotAcknowledged (3.15s)
+=== RUN   TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput
+--- PASS: TestSP08D3_ReplayThroughRunIngestedEmitsNoOutput (0.89s)
+=== RUN   TestPromptOrder_V6_OrderingGateGivesTurnZeroToEarliestLeasedArrival
+--- PASS: TestPromptOrder_V6_OrderingGateGivesTurnZeroToEarliestLeasedArrival (3.72s)
+=== RUN   TestPromptOrder_V6_UnleasedEarlierSpooledIsSeparateUncertainty
+--- PASS: TestPromptOrder_V6_UnleasedEarlierSpooledIsSeparateUncertainty (1.37s)
+=== RUN   TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock
+--- PASS: TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock (2.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	21.490s

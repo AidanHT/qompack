@@ -1,0 +1,22 @@
+LOUD.log
+qompack-20260923.log
+==> /work/cx-rollover-drill-20260922-drill2/oldcopy/.qompack/logs/LOUD.log <==
+ts=2026-09-23T00:29:10.122366568Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=11 objects_scanned=13 truncated=false notes="capture sidecar with an unrecognized op"
+
+==> /work/cx-rollover-drill-20260922-drill2/oldcopy/.qompack/logs/qompack-20260923.log <==
+ts=2026-09-23T00:26:28.345578962Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-23T00:26:28.725199634Z level=info msg="observer: session registered" session=sess-drill-history source=startup turn=0 segment=1
+ts=2026-09-23T00:26:28.72538104Z level=info msg="scheduler: session bound" session=sess-drill-history effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-23T00:28:33.197739093Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=sess-drill-history
+ts=2026-09-23T00:28:33.855554539Z level=info msg="observer: gc" scanned=1 deleted=0 freed=0 truncated=false
+ts=2026-09-23T00:28:49.115349795Z level=warn msg="observer: tool capture unpublished" stage=index
+ts=2026-09-23T00:28:49.115861159Z level=warn msg="daemon: ObserveTool failed"
+ts=2026-09-23T00:28:54.616410849Z level=warn msg="observer: stage failed" stage=fileversion err="context deadline exceeded"
+ts=2026-09-23T00:29:00.234801172Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-23T00:29:09.536270122Z level=info msg="observer: gc" scanned=13 deleted=0 freed=0 truncated=false
+ts=2026-09-23T00:29:10.122366568Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=11 objects_scanned=13 truncated=false notes="capture sidecar with an unrecognized op"
+ts=2026-09-23T00:29:57.041053571Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-23T00:29:57.802175635Z level=info msg="observer: session registered" session=sess-drill-history source=startup turn=0 segment=2
+ts=2026-09-23T00:29:57.802769655Z level=info msg="scheduler: session bound" session=sess-drill-history effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-23T00:30:01.387423574Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=sess-drill-history
+ts=2026-09-23T00:30:02.418573967Z level=info msg="observer: gc" scanned=16 deleted=1 freed=269 truncated=false

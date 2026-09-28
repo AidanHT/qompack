@@ -1,0 +1,17 @@
+{
+  "name": "retention_forced_gc_preserves_evidence",
+  "capability": "retention",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "8167097dd99bbe027fe70afec02f91669cea979d8e881ddd6a3efd1f5e673269"
+  },
+  "outcome": "verified",
+  "reason": "a GC pass with negative retention on both axes — the forcing form — collected objects and left every piece of diagnostic evidence in place: the quarantined object, the .corrupt.\u003cms\u003e sketch, and every records/captures/** sidecar.",
+  "detail": "GC deleted 5 object(s); quarantine 1→1, captures 1→1"
+}

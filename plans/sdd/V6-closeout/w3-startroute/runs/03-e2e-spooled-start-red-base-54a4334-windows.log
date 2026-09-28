@@ -1,0 +1,10 @@
+=== RUN   TestE2E_SpooledSessionStartNeverDegradesTheProject
+    spooled_sessionstart_test.go:107: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w3-startroute/base/test/e2e/spooled_sessionstart_test.go:107
+        	Error:      	Should be empty, but was qompack-contract-10f6c030eded
+        	Test:       	TestE2E_SpooledSessionStartNeverDegradesTheProject
+        	Messages:   	the replayed start minted no probe: nobody received its answer
+--- FAIL: TestE2E_SpooledSessionStartNeverDegradesTheProject (5.35s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	5.899s
+FAIL

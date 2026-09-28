@@ -1,0 +1,1170 @@
+package main
+
+// `devtool live-eval` — V6 close-out C5.4: the real-host evaluation driver.
+//
+// It runs a declared task set (testdata/eval/live/) as real headless Claude Code sessions, each in a
+// disposable project copied from the task's fixture, in two arms: `stock` (no plugin) and `qompack`
+// (the plugin loaded from a bundle, by --plugin-dir or through the real marketplace flow). Every
+// task forces a compaction midway with a `/compact` user turn and is graded afterwards by checks a
+// program evaluates — files, a hidden test suite, `go` commands, the text of named answers, and
+// tool calls the session should not have needed. Per trial it records completion and constraint
+// outcomes, per-category usage from the host's own JSON, a dated list-price ESTIMATE, wall time,
+// the hook latency the host measured and the plugin's store size.
+//
+// Everything that is a pure function lives in internal/eval (live*.go) and is unit-tested there
+// with recorded fixtures. This file and liveeval_host.go own the side effects: processes, the
+// disposable projects, the plugin install/uninstall, and the guard over the operator's real
+// Claude Code configuration, which fails the run closed if a guarded file changed.
+//
+// Nothing here runs unless QOMPACK_LIVE_EVAL=1 is set: CI never sets it, so CI never calls a
+// model. --dry-run validates the task set, the bundle and the plan without starting a session.
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/qompack/qompack/internal/eval"
+)
+
+// liveEvalGateEnv is the environment gate. A run that would start a real session refuses unless it
+// is exactly "1".
+const liveEvalGateEnv = "QOMPACK_LIVE_EVAL"
+
+// Defaults, relative to the repository root.
+const (
+	liveDefaultTasks = "testdata/eval/live/tasks-v2.json"
+	liveDefaultRates = "testdata/eval/live/rates.json"
+	liveDefaultOut   = "dist/live-eval"
+)
+
+// The two ways the qompack arm reaches the host.
+const (
+	liveInstallPluginDir   = "plugin-dir"
+	liveInstallMarketplace = "marketplace"
+)
+
+// liveMCPToolPrefix is the prefix the host gives the plugin's MCP tools.
+const liveMCPToolPrefix = eval.LiveQompackToolPrefix
+
+// liveMCPServerName is the name the host lists the plugin's MCP server under.
+const liveMCPServerName = "plugin:qompack:qompack"
+
+// liveInlineSource is the marketplace name Claude Code gives a plugin loaded with --plugin-dir: the
+// host lists it as "<name>@inline" (2.1.280, observed in the smoke and pilot sessions).
+const liveInlineSource = "inline"
+
+// livePluginName is the plugin's name as the host lists it.
+const livePluginName = "qompack"
+
+// liveMarketplaceName is the disposable local marketplace the marketplace flow publishes through.
+// It is distinctive so the guard can recognise anything it leaves behind.
+const liveMarketplaceName = "qompack-live-eval"
+
+// Timeouts and bounds.
+const (
+	liveDefaultStepTimeout    = 10 * time.Minute
+	liveDefaultSessionTimeout = 45 * time.Minute
+	liveExitGrace             = 90 * time.Second
+	liveCommandTimeout        = 5 * time.Minute
+	liveCLITimeout            = 2 * time.Minute
+	liveDaemonStopBound       = 60 * time.Second
+	liveDefaultIdleExit       = 120
+	liveCommandOutputKeep     = 16 << 10
+	liveMTimeMargin           = 2 * time.Second
+	liveDirPerm               = 0o755
+	liveFilePerm              = 0o644
+)
+
+// liveOptions is one invocation's settled flags.
+type liveOptions struct {
+	tasksFile      string
+	arms           []string
+	trials         int
+	model          string
+	out            string
+	install        string
+	bundle         string
+	claude         string
+	rates          string
+	only           map[string]bool
+	includeHeldOut bool
+	maxSessions    int
+	stepTimeout    time.Duration
+	sessionTimeout time.Duration
+	idleExit       int
+	keepRaw        bool
+	dryRun         bool
+	// defectsAttested reports that --known-open-defects was given; openDefects is what it named
+	// (empty for "none").
+	defectsAttested bool
+	openDefects     []string
+	// confirmatory refuses to plan a run that departs, at plan time, from its task set's
+	// pre-registered confirmatory design (eval.LivePlanDepartures).
+	confirmatory bool
+}
+
+// taskLiveEval implements `devtool live-eval`.
+func taskLiveEval(args []string) error {
+	o, err := parseLiveFlags(args)
+	if err != nil {
+		return errors.Join(errUsage, err)
+	}
+	env, err := newLiveEnv(o)
+	if err != nil {
+		return err
+	}
+	return runLiveEval(context.Background(), o, env, os.Stdout)
+}
+
+func parseLiveFlags(args []string) (liveOptions, error) {
+	fs := flag.NewFlagSet("live-eval", flag.ContinueOnError)
+	o := liveOptions{}
+	fs.StringVar(&o.tasksFile, "tasks", liveDefaultTasks, "task-set file")
+	arms := fs.String("arms", eval.ArmStock+","+eval.ArmQompack, "comma-separated arms: stock, qompack")
+	fs.IntVar(&o.trials, "trials", 0, "trials per task per arm (default: the task set's pre-registered trials_per_arm)")
+	fs.StringVar(&o.model, "model", "", "model ID (default: the task set's pre-registered model)")
+	fs.StringVar(&o.out, "out", "", "output directory (default dist/live-eval/<run-id>)")
+	fs.StringVar(&o.install, "install", liveInstallPluginDir, "how the qompack arm loads the plugin: plugin-dir or marketplace")
+	fs.StringVar(&o.bundle, "bundle", "", "assembled host-target bundle directory (from `devtool bundle`); required for the qompack arm")
+	fs.StringVar(&o.claude, "claude", "", "Claude Code CLI (default: `claude` on PATH)")
+	fs.StringVar(&o.rates, "rates", liveDefaultRates, "dated rate table for the list-price estimate")
+	only := fs.String("only", "", "comma-separated task IDs to run (default: every non-held-out task)")
+	fs.BoolVar(&o.includeHeldOut, "include-held-out", false, "also run held-out tasks (the confirmatory run only)")
+	fs.IntVar(&o.maxSessions, "max-sessions", 0, "refuse a plan that would start more sessions than this (0: no cap)")
+	fs.DurationVar(&o.stepTimeout, "step-timeout", liveDefaultStepTimeout, "bound on one step's turn")
+	fs.DurationVar(&o.sessionTimeout, "session-timeout", liveDefaultSessionTimeout, "bound on one whole session")
+	fs.IntVar(&o.idleExit, "daemon-idle-exit", liveDefaultIdleExit,
+		"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS for the trial's daemon, so it exits after the session")
+	fs.BoolVar(&o.keepRaw, "keep-raw-transcripts", false,
+		"also copy the host's raw transcript into the trial directory (it carries the operator's identity and system prompt: never commit it)")
+	fs.BoolVar(&o.dryRun, "dry-run", false, "validate the task set, bundle and plan; start nothing")
+	fs.BoolVar(&o.confirmatory, "confirmatory", false,
+		"refuse to plan, dry run included, unless the plan is the task set's pre-registered confirmatory design")
+	defects := fs.String("known-open-defects", "",
+		"the operator's statement of which known defects the bundle still carries: none, or their checklist IDs "+
+			"comma-separated (required with the qompack arm; preregistration section 9)")
+	if err := fs.Parse(args); err != nil {
+		return o, err
+	}
+	if fs.NArg() > 0 {
+		return o, fmt.Errorf("live-eval: unexpected argument %q", fs.Arg(0))
+	}
+	for _, a := range strings.Split(*arms, ",") {
+		a = strings.TrimSpace(a)
+		switch a {
+		case eval.ArmStock, eval.ArmQompack:
+			o.arms = append(o.arms, a)
+		case "":
+		default:
+			return o, fmt.Errorf("live-eval: unknown arm %q (stock, qompack)", a)
+		}
+	}
+	if len(o.arms) == 0 {
+		return o, errors.New("live-eval: --arms names no arm")
+	}
+	if o.install != liveInstallPluginDir && o.install != liveInstallMarketplace {
+		return o, fmt.Errorf("live-eval: --install %q is neither plugin-dir nor marketplace", o.install)
+	}
+	if *only != "" {
+		o.only = map[string]bool{}
+		for _, id := range strings.Split(*only, ",") {
+			if id = strings.TrimSpace(id); id != "" {
+				o.only[id] = true
+			}
+		}
+	}
+	if *defects != "" {
+		open, err := parseKnownOpenDefects(*defects)
+		if err != nil {
+			return o, err
+		}
+		o.defectsAttested, o.openDefects = true, open
+	}
+	if o.trials < 0 || o.maxSessions < 0 || o.idleExit <= 0 {
+		return o, errors.New("live-eval: --trials and --max-sessions must be non-negative and --daemon-idle-exit positive")
+	}
+	return o, nil
+}
+
+// liveDefectID is the shape of a checklist ID such as C1.12.
+var liveDefectID = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)*$`)
+
+// parseKnownOpenDefects reads --known-open-defects: "none", or the comma-separated checklist IDs of
+// every known defect the bundle still carries. The result is never nil, so "none" is recorded as an
+// empty list rather than as no statement.
+func parseKnownOpenDefects(v string) ([]string, error) {
+	if strings.TrimSpace(v) == liveNoOpenDefects {
+		return []string{}, nil
+	}
+	open := []string{}
+	for _, id := range strings.Split(v, ",") {
+		id = strings.TrimSpace(id)
+		switch {
+		case id == "":
+		case id == liveNoOpenDefects:
+			return nil, fmt.Errorf("live-eval: --known-open-defects %q names defects and %q at once", v, liveNoOpenDefects)
+		case !liveDefectID.MatchString(id):
+			return nil, fmt.Errorf("live-eval: --known-open-defects: %q is not a checklist ID such as C1.12", id)
+		default:
+			open = append(open, id)
+		}
+	}
+	if len(open) == 0 {
+		return nil, fmt.Errorf("live-eval: --known-open-defects %q names no defect; say %q if the bundle carries none",
+			v, liveNoOpenDefects)
+	}
+	return open, nil
+}
+
+// liveNoOpenDefects is the --known-open-defects value that attests the bundle carries no known defect.
+const liveNoOpenDefects = "none"
+
+// liveDefectSource is how plan.json says where its defect attestation came from.
+const liveDefectSource = "the operator, by live-eval --known-open-defects when the run was planned"
+
+// knownDefectsText renders an attestation for the run's output and summary.md.
+func knownDefectsText(a *eval.LiveDefectAttestation) string {
+	switch {
+	case a == nil:
+		return "not attested"
+	case len(a.Open) == 0:
+		return liveNoOpenDefects
+	default:
+		return strings.Join(a.Open, ", ")
+	}
+}
+
+// runLiveEval is the whole run: validate, plan, gate, execute, summarize.
+func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) error {
+	ts, raw, err := eval.LoadLiveTaskSet(o.tasksFile)
+	if err != nil {
+		return err
+	}
+	if pre, ok := eval.LivePreregistrations[ts.ID]; ok && pre.SupersededBy != "" {
+		// A dry run is refused too: it exists to validate the real run's command.
+		next := eval.LivePreregistrations[pre.SupersededBy]
+		return fmt.Errorf("live-eval: task set %s was %s; no run of it can be the confirmatory run, so none is "+
+			"planned. Run %s (%s) instead", ts.ID, pre.SupersededWhy, pre.SupersededBy, next.TaskSetFile)
+	}
+	rates, err := loadLiveRates(o.rates)
+	if err != nil {
+		return err
+	}
+	if o.model == "" {
+		o.model = ts.Analysis.Model
+	}
+	if o.trials == 0 {
+		o.trials = ts.Analysis.TrialsPerArm
+	}
+	tasks, err := selectLiveTasks(ts, o)
+	if err != nil {
+		return err
+	}
+	treeDirs := ts.FixtureTreeDirs()
+	tree, err := eval.TreeManifestSHA256(filepath.Dir(o.tasksFile), treeDirs...)
+	if err != nil {
+		return fmt.Errorf("live-eval: hashing the fixture tree: %w", err)
+	}
+	runID := liveRunID(env.now())
+	if o.out == "" {
+		o.out = filepath.Join(liveDefaultOut, runID)
+	}
+
+	plan := eval.LivePlan{
+		RunID: runID, CreatedAt: env.now().UTC().Format(time.RFC3339), TaskSet: ts.ID,
+		TaskSetFile: filepath.ToSlash(o.tasksFile), TaskSetSHA256: sha256Hex(raw),
+		TaskSetTasks: len(ts.Tasks), FixtureTreeSHA256: tree, FixtureTreeDirs: treeDirs,
+		Model: o.model, PreregisteredModel: ts.Analysis.Model, Arms: o.arms, TrialsPerArm: o.trials,
+		Install: o.install, RateTableDate: rates.Date, RateTableSource: rates.Source,
+		HeldOutIncluded: o.includeHeldOut, Host: runtime.GOOS + "/" + runtime.GOARCH,
+		Agent: "agent-executed on the real installed host (owner decision D3); not human UAT",
+	}
+	if !contains(o.arms, eval.ArmQompack) {
+		// --install describes how the plugin reaches the host; a run with no plugin arm has none.
+		o.install, plan.Install = "none", "none"
+	} else {
+		id, idErr := readLiveBundle(o.bundle)
+		if idErr != nil {
+			return idErr
+		}
+		if !o.defectsAttested {
+			return fmt.Errorf("live-eval: the qompack arm needs --known-open-defects: %q, or the checklist IDs of "+
+				"every known defect the bundle still carries. Preregistration section 9 counts only a run on a "+
+				"candidate with no known open defect as the confirmatory run, and a bundle cannot prove which "+
+				"defects it fixes, so the operator states it and plan.json records the statement", liveNoOpenDefects)
+		}
+		id.Install = o.install
+		plan.Plugin = &id
+		plan.KnownDefects = &eval.LiveDefectAttestation{Open: append([]string{}, o.openDefects...), Source: liveDefectSource}
+		// Every session runs in its disposable project, so the host would resolve a relative
+		// --plugin-dir against that project and load nothing. From here on the bundle is named by
+		// the absolute path its identity was read from.
+		o.bundle = id.BundleDir
+	}
+	plan.Trials = planLiveTrials(tasks, o.arms, o.trials)
+	if o.maxSessions > 0 && len(plan.Trials) > o.maxSessions {
+		return fmt.Errorf("live-eval: the plan starts %d session(s), above --max-sessions %d", len(plan.Trials), o.maxSessions)
+	}
+
+	fmt.Fprintf(w, "live-eval: run %s: %d trial(s) of task set %s (%s, fixture tree %s) on %s, arms %s, install %s\n",
+		runID, len(plan.Trials), ts.ID, plan.TaskSetSHA256[:12], plan.FixtureTreeSHA256[:12], o.model,
+		strings.Join(o.arms, ","), o.install)
+	if plan.KnownDefects != nil {
+		fmt.Fprintf(w, "live-eval: known open defects: %s (%s; preregistration section 9)\n",
+			knownDefectsText(plan.KnownDefects), liveDefectSource)
+	}
+	if p := plan.Plugin; p != nil {
+		fmt.Fprintf(w, "live-eval: bundle %s at commit %s (dirty=%t), %s sha256 %s, at %s\n",
+			p.Version, p.Commit, p.Dirty, identityFileName, p.BundleSHA256, p.BundleDir)
+	}
+	// What makes this the confirmatory run is mostly fixed now; say it before any session is spent.
+	departures := eval.LivePlanDepartures(plan, ts.Analysis.TrialsPerArm)
+	if len(departures) == 0 {
+		fmt.Fprintln(w, "live-eval: confirmatory preconditions at plan time: met. Still to be shown by the trials: "+
+			"every planned trial runs, no plugin but the arm's own loads on either arm, and a contingency alias "+
+			"resolves to one model; the section 9 known-defect statement is the operator's, not machine-checked")
+	} else {
+		fmt.Fprintf(w, "live-eval: not the confirmatory design: %s\n", strings.Join(departures, "; "))
+		if o.confirmatory {
+			doc := "its task set has no pre-registration"
+			if pre, ok := eval.LivePreregistrations[ts.ID]; ok {
+				doc = pre.Document
+			}
+			return fmt.Errorf("live-eval: --confirmatory: this plan is not the pre-registered confirmatory design "+
+				"(%s), so no session is planned: %s", doc, strings.Join(departures, "; "))
+		}
+	}
+	if o.dryRun {
+		for _, p := range plan.Trials {
+			fmt.Fprintf(w, "  plan: %s/%s/%d\n", p.Task, p.Arm, p.Trial)
+		}
+		for _, line := range liveDryRunHost(o, env, ts.Defaults, tasks[0]) {
+			fmt.Fprintln(w, "  "+line)
+		}
+		fmt.Fprintln(w, "live-eval: --dry-run: no session started")
+		return nil
+	}
+	if os.Getenv(liveEvalGateEnv) != "1" {
+		return fmt.Errorf("live-eval: refusing to start real sessions without %s=1 (CI never sets it); "+
+			"use --dry-run to validate", liveEvalGateEnv)
+	}
+
+	plan.ClaudeCLI, plan.ClaudeCLIVersion = env.claudeBin, env.cliVersion(ctx)
+	if err := os.MkdirAll(o.out, liveDirPerm); err != nil {
+		return fmt.Errorf("live-eval: creating %s: %w", o.out, err)
+	}
+	if err := writeJSONFile(filepath.Join(o.out, "plan.json"), plan); err != nil {
+		return err
+	}
+
+	byID := map[string]eval.LiveTask{}
+	for _, t := range tasks {
+		byID[t.ID] = t
+	}
+	var trials []eval.LiveTrial
+	var abort error
+	for _, p := range plan.Trials {
+		lt := liveTrialRun{
+			opts: o, env: env, set: ts, task: byID[p.Task], arm: p.Arm, trial: p.Trial,
+			runID: runID, rates: rates, plugin: plan.Plugin,
+		}
+		rec, guardErr := lt.run(ctx)
+		trials = append(trials, rec)
+		fmt.Fprintf(w, "live-eval: %s/%s/%d: completed=%t task_success=%t violations=%d harness_error=%q\n",
+			p.Task, p.Arm, p.Trial, rec.Completed, rec.TaskSuccess, rec.ConstraintViolations, rec.HarnessError)
+		if guardErr != nil {
+			abort = guardErr
+			fmt.Fprintf(w, "live-eval: STOPPING: %v\n", guardErr)
+			break
+		}
+	}
+
+	sum := eval.SummarizeLive(runID, ts.Analysis, trials)
+	if abort != nil {
+		sum.StopEarly(len(trials), len(plan.Trials), abort.Error())
+	}
+	if err := writeJSONFile(filepath.Join(o.out, "summary.json"), sum); err != nil {
+		return err
+	}
+	if err := writeFileAtomic(filepath.Join(o.out, "summary.md"), []byte(renderLiveSummary(plan, sum))); err != nil {
+		return fmt.Errorf("live-eval: writing summary.md: %w", err)
+	}
+	fmt.Fprintf(w, "live-eval: decision %s — %s\nlive-eval: records under %s\n", sum.Decision.Verdict, sum.Decision.Reason, o.out)
+	return abort
+}
+
+// liveRunsPreregisteredModel reports whether model is what a run of ts may run on under its
+// pre-registration: the model ts declares, or the one contingency alias the pre-registration
+// permits in its place (section 3). A task set with no pre-registration has only its own model.
+func liveRunsPreregisteredModel(ts eval.LiveTaskSet, model string) bool {
+	if pre, ok := eval.LivePreregistrations[ts.ID]; ok {
+		return pre.RunsPreregisteredModel(ts.Analysis.Model, model)
+	}
+	return model == ts.Analysis.Model
+}
+
+// liveDryRunHost is what a dry run shows of the host side: each arm's command line for task t (the
+// session id is chosen per trial) and, for the marketplace flow, the plugin commands a qompack trial
+// runs before its session, so the install path can be checked without starting anything.
+func liveDryRunHost(o liveOptions, env *liveEnv, d eval.LiveTaskDefaults, t eval.LiveTask) []string {
+	bin := env.claudeBin
+	if bin == "" {
+		bin = "claude"
+	}
+	var out []string
+	for _, arm := range o.arms {
+		var extra []string
+		if arm == eval.ArmQompack && o.install == liveInstallPluginDir {
+			extra = []string{"--plugin-dir", o.bundle}
+		}
+		if arm == eval.ArmQompack && o.install == liveInstallMarketplace {
+			id := livePluginName + "@" + liveMarketplaceName
+			out = append(out,
+				fmt.Sprintf("install (qompack, per trial): %s plugin marketplace add <trial>/marketplace --scope local "+
+					"(a copy of %s)", bin, o.bundle),
+				fmt.Sprintf("install (qompack, per trial): %s plugin install %s --scope local -y", bin, id))
+		}
+		args := liveSessionArgs(o.model, t, d, "<session-id>", extra)
+		out = append(out, fmt.Sprintf("host (%s, task %s): %s %s", arm, t.ID, bin, strings.Join(args, " ")))
+	}
+	return out
+}
+
+// selectLiveTasks applies --only and the held-out rule.
+func selectLiveTasks(ts eval.LiveTaskSet, o liveOptions) ([]eval.LiveTask, error) {
+	known := map[string]bool{}
+	var out []eval.LiveTask
+	for _, t := range ts.Tasks {
+		known[t.ID] = true
+		if t.HeldOut && !o.includeHeldOut {
+			if o.only[t.ID] {
+				return nil, fmt.Errorf("live-eval: task %s is held out; pass --include-held-out (confirmatory run only)", t.ID)
+			}
+			continue
+		}
+		if o.only != nil && !o.only[t.ID] {
+			continue
+		}
+		out = append(out, t)
+	}
+	for id := range o.only {
+		if !known[id] {
+			return nil, fmt.Errorf("live-eval: --only names unknown task %q", id)
+		}
+	}
+	if len(out) == 0 {
+		return nil, errors.New("live-eval: no task selected")
+	}
+	return out, nil
+}
+
+// planLiveTrials orders trials trial-major, task by task, alternating which arm goes first so a
+// drift over the run's wall-clock (a rate limit, a busy machine) does not always land on one arm.
+func planLiveTrials(tasks []eval.LiveTask, arms []string, trials int) []eval.LivePlannedTrial {
+	var out []eval.LivePlannedTrial
+	for n := 1; n <= trials; n++ {
+		for i, t := range tasks {
+			order := append([]string(nil), arms...)
+			if (n+i)%2 == 0 {
+				for l, r := 0, len(order)-1; l < r; l, r = l+1, r-1 {
+					order[l], order[r] = order[r], order[l]
+				}
+			}
+			for _, a := range order {
+				out = append(out, eval.LivePlannedTrial{Task: t.ID, Arm: a, Trial: n})
+			}
+		}
+	}
+	return out
+}
+
+// liveTrialRun is one trial's inputs.
+type liveTrialRun struct {
+	opts   liveOptions
+	env    *liveEnv
+	set    eval.LiveTaskSet
+	task   eval.LiveTask
+	arm    string
+	trial  int
+	runID  string
+	rates  eval.LiveRateTable
+	plugin *eval.LivePluginIdentity
+}
+
+// run executes one trial and returns its record. The error is non-nil only when the guard over the
+// operator's configuration failed, which stops the whole run. Whatever path the trial leaves by, a
+// harness failure is scored as a failure on every outcome before the record is returned or written
+// (preregistration §8): a trial stopped before grading must still count in every denominator.
+func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr error) {
+	o, env, task := lt.opts, lt.env, lt.task
+	rec = eval.LiveTrial{
+		Schema: eval.LiveTrialSchema, RunID: lt.runID, TaskID: task.ID, Arm: lt.arm, Trial: lt.trial,
+		Category: task.Category, Variant: task.Variant, HeldOut: task.HeldOut, Model: o.model,
+		Install: "none", StartedAt: env.now().UTC().Format(time.RFC3339),
+		PluginExpected:     lt.arm == eval.ArmQompack,
+		PreregisteredModel: liveRunsPreregisteredModel(lt.set, o.model),
+	}
+	trialDir := filepath.Join(o.out, "trials", task.ID, lt.arm, fmt.Sprintf("%02d", lt.trial))
+	if err := os.MkdirAll(trialDir, liveDirPerm); err != nil {
+		rec.HarnessError = err.Error()
+		rec.ApplyHarnessFailure(task)
+		return rec, nil
+	}
+	defer func() {
+		rec.ApplyHarnessFailure(task)
+		_ = writeJSONFile(filepath.Join(trialDir, "trial.json"), rec)
+	}()
+
+	// A filesystem timestamp can trail the wall clock by its resolution; the margin keeps a directory
+	// the host creates in the trial's first instant from reading as older than the trial.
+	trialStart := env.now().Add(-liveMTimeMargin)
+	before, err := env.guardSnapshot()
+	if err != nil {
+		rec.HarnessError = "guard: " + err.Error()
+		return rec, fmt.Errorf("live-eval: the configuration guard could not read the operator's files: %w", err)
+	}
+	guard := &eval.LiveHomeGuard{Checked: true, Before: before.lines()}
+	rec.HomeGuard = guard
+
+	work, err := os.MkdirTemp(env.workRoot, "qompack-live-")
+	if err != nil {
+		rec.HarnessError = err.Error()
+		return rec, nil
+	}
+	project := filepath.Join(work, "project")
+	rec.Notes = append(rec.Notes, "project: "+project)
+	fixture := task.FixtureDir(o.tasksFile)
+	fixtureHashes, err := eval.HashTree(fixture)
+	if err == nil {
+		err = copyTree(fixture, project)
+	}
+	if err == nil {
+		err = env.gitInit(ctx, project)
+	}
+	if err != nil {
+		rec.HarnessError = "preparing the project: " + err.Error()
+		return rec, nil
+	}
+
+	var cleanup []func() []string
+	extraArgs := []string{}
+	if lt.arm == eval.ArmQompack {
+		id := *lt.plugin
+		rec.Plugin = &id
+		rec.Install = o.install
+		switch o.install {
+		case liveInstallPluginDir:
+			extraArgs = append(extraArgs, "--plugin-dir", o.bundle)
+		case liveInstallMarketplace:
+			undo, instErr := env.marketplaceInstall(ctx, project, o.bundle, work)
+			cleanup = append(cleanup, undo)
+			if instErr != nil {
+				rec.HarnessError = "marketplace install: " + instErr.Error()
+			}
+		}
+	}
+
+	var proc liveProcResult
+	sessionID := newUUID()
+	if rec.HarnessError == "" {
+		spec := liveProcSpec{
+			Bin:            env.claudeBin,
+			Args:           liveSessionArgs(o.model, task, lt.set.Defaults, sessionID, extraArgs),
+			Dir:            project,
+			Env:            liveSessionEnv(o.idleExit),
+			Messages:       liveMessages(task),
+			StepTimeout:    o.stepTimeout,
+			SessionTimeout: o.sessionTimeout,
+		}
+		spec.Unset = liveUnsetNames(os.Environ(), spec.Env)
+		if len(spec.Unset) > 0 {
+			rec.Notes = append(rec.Notes, "inherited environment variables removed from the session: "+
+				strings.Join(spec.Unset, ", "))
+		}
+		_ = writeJSONFile(filepath.Join(trialDir, "invocation.json"), spec)
+		proc = env.run(ctx, spec)
+		rec.WallMS = proc.EndedAt.Sub(proc.StartedAt).Milliseconds()
+		rec.ExitCode = proc.ExitCode
+		if proc.Err != "" {
+			rec.HarnessError = proc.Err
+		}
+		_ = os.WriteFile(filepath.Join(trialDir, "stream.jsonl"), proc.Stream, liveFilePerm)
+		_ = os.WriteFile(filepath.Join(trialDir, "stderr.txt"), proc.Stderr, liveFilePerm)
+	}
+
+	if lt.arm == eval.ArmQompack {
+		how, stopErr := env.stopDaemon(project, filepath.Join(trialDir, "harness-spool"))
+		rec.Notes = append(rec.Notes, "trial daemon: "+how)
+		if stopErr != nil {
+			rec.Notes = append(rec.Notes, "trial daemon stop: "+stopErr.Error())
+		}
+	}
+	for i := len(cleanup) - 1; i >= 0; i-- {
+		guard.Leftovers = append(guard.Leftovers, cleanup[i]()...)
+	}
+	if lt.arm == eval.ArmQompack && o.install == liveInstallMarketplace {
+		guard.Leftovers = append(guard.Leftovers, env.removeOrphanedMarketplaceCache(before, lt.plugin.BundleSHA256)...)
+	}
+	guard.Leftovers = append(guard.Leftovers, env.removeCreatedPluginData(before, trialStart)...)
+
+	after, err := env.guardSnapshot()
+	if err != nil {
+		guardErr = fmt.Errorf("live-eval: the configuration guard could not re-read the operator's files: %w", err)
+	} else {
+		guard.After = after.lines()
+		guard.Unchanged = before.equal(after) && len(guard.Leftovers) == 0
+		if !guard.Unchanged {
+			guardErr = fmt.Errorf("live-eval: the operator's Claude Code configuration changed during %s/%s/%d "+
+				"(before %v, after %v, leftovers %v); restore it before running again",
+				task.ID, lt.arm, lt.trial, guard.Before, guard.After, guard.Leftovers)
+		}
+	}
+
+	lt.assemble(&rec, proc, project, trialDir, fixtureHashes, sessionID)
+	return rec, guardErr
+}
+
+// assemble parses what the session left and grades it into rec.
+func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, project, trialDir string,
+	fixtureHashes map[string]string, sessionID string,
+) {
+	task, env := lt.task, lt.env
+	stream, err := eval.ParseHostStream(strings.NewReader(string(proc.Stream)), proc.RecvMS)
+	if err != nil {
+		rec.HarnessError = joinErr(rec.HarnessError, "parsing the stream: "+err.Error())
+	}
+	rec.HostReportedPlugins = stream.Init != nil
+	if stream.Init != nil {
+		rec.SessionID = stream.Init.SessionID
+		rec.ClaudeCodeVersion = stream.Init.ClaudeCodeVersion
+		lt.recordPlugins(rec, stream)
+		rec.HostModel = stream.Init.Model
+		if stream.Init.Model != "" && stream.Init.Model != rec.Model {
+			rec.Notes = append(rec.Notes, "host reported model "+stream.Init.Model)
+		}
+	}
+	if rec.SessionID != "" && rec.SessionID != sessionID {
+		rec.Notes = append(rec.Notes, fmt.Sprintf("host session id %s differs from the requested %s", rec.SessionID, sessionID))
+	}
+	steps, complete := eval.StepRecords(task, stream)
+	rec.Steps, rec.Completed = steps, complete && rec.HarnessError == ""
+	for _, t := range stream.Turns {
+		rec.Compactions = append(rec.Compactions, t.Compactions...)
+		rec.CompactAttempts = append(rec.CompactAttempts, t.CompactAttempts...)
+	}
+	rec.HookLatencyMS = stream.HookLatencies()
+	streamProblems := stream.HookProblems()
+	stderrProblems := eval.ParseHookFailures(string(proc.Stderr), -1)
+	var transcriptProblems []eval.HostHookProblem
+
+	acct := eval.AccountHostStream(stream, eval.AccountBaseline{})
+	rec.Account = acct
+	rec.HostCostUSD = acct.HostCostUSD
+	ledger := eval.RequestLedger{
+		Version: eval.RequestLedgerVersion,
+		Records: acct.LedgerRecords(fmt.Sprintf("%s-%s-%02d", task.ID, lt.arm, lt.trial), "anthropic",
+			eval.PricingSubscription, lt.rates.Date),
+	}
+	rec.Categories = ledger.Sum()
+	est := eval.EstimateLive(ledger, lt.rates)
+	rec.Estimate, rec.EstimateComplete = &est.Total, est.Completeness.Complete
+	rec.EstimateMissing, rec.RateTableDate = est.Completeness.MissingCategories, est.RateTableDate
+	_ = writeJSONFile(filepath.Join(trialDir, "ledger.json"), ledger)
+	_ = writeJSONFile(filepath.Join(trialDir, "estimate.json"), est)
+
+	transcriptPath, tr, trErr := env.readTranscript(sessionID, rec.SessionID)
+	if trErr != nil {
+		rec.Notes = append(rec.Notes, "transcript: "+trErr.Error())
+	} else {
+		rec.TranscriptHookMS = tr.HookLatencies()
+		transcriptProblems = tr.HookProblems()
+		_ = writeJSONFile(filepath.Join(trialDir, "transcript-facts.json"), tr)
+		rec.Notes = append(rec.Notes, "host transcript: "+transcriptPath)
+		if lt.opts.keepRaw {
+			_ = copyFile(transcriptPath, filepath.Join(trialDir, "transcript.raw.jsonl"))
+		}
+	}
+	rec.HookProblems = eval.MergeHookProblems(streamProblems, transcriptProblems, stderrProblems)
+	if lt.arm == eval.ArmQompack {
+		q := &eval.LiveQompackEvidence{MCPToolCalls: eval.MCPToolCalls(stream, liveMCPToolPrefix)}
+		if stream.Init != nil {
+			for _, m := range stream.Init.MCPServers {
+				if m.Name == liveMCPServerName {
+					q.MCPServerStatus = m.Status
+				}
+			}
+		}
+		if trErr == nil {
+			q.Injections, q.InjectedBytes = tr.QompackInjections()
+		}
+		st, idx, cps := liveStoreStats(project)
+		rec.Store, q.IndexLines, q.Checkpoints = st, idx, cps
+		rec.Qompack = q
+	}
+
+	if task.HiddenFixture != "" {
+		if err := copyTree(filepath.Join(filepath.Dir(lt.opts.tasksFile), filepath.FromSlash(task.HiddenFixture)), project); err != nil {
+			rec.HarnessError = joinErr(rec.HarnessError, "overlaying the hidden fixture: "+err.Error())
+		}
+	}
+	commands := map[string]eval.CommandOutcome{}
+	for _, c := range task.Checks {
+		if c.Kind == eval.CheckCommand {
+			commands[c.ID] = env.runCheckCommand(project, c.Argv)
+		}
+	}
+	rec.ApplyGrades(eval.GradeLiveTrial(task, project, eval.LiveEvidence{
+		Answers: eval.AnswersByStep(task, stream), Fixture: fixtureHashes, Commands: commands,
+		ToolUsesAfter: eval.ToolUsesAfterSteps(task, stream),
+	}))
+	if rec.HarnessError != "" {
+		rec.Completed = false
+	}
+}
+
+// recordPlugins decides whether the trial ran with its arm's plugin and names anything else the host
+// loaded. On the qompack arm the plugin counts only when the host loaded it from the arm's own
+// install — the inline --plugin-dir source or the disposable marketplace — because a Qompack copy
+// from anywhere else (an operator install, another lane's marketplace) is not the frozen bundle the
+// trial is about. On the stock arm any Qompack plugin, from any source, contradicts the arm.
+func (lt liveTrialRun) recordPlugins(rec *eval.LiveTrial, stream eval.HostStream) {
+	if lt.arm != eval.ArmQompack {
+		rec.PluginLoaded = stream.PluginLoaded(livePluginName)
+		rec.ForeignPlugins = stream.ForeignPlugins("")
+		return
+	}
+	want := livePluginName + "@" + liveInlineSource
+	if lt.opts.install == liveInstallMarketplace {
+		want = livePluginName + "@" + liveMarketplaceName
+	}
+	rec.ForeignPlugins = stream.ForeignPlugins(want)
+	pl, ok := stream.PluginFrom(livePluginName, want)
+	rec.PluginLoaded = ok
+	if !ok {
+		if other, found := stream.PluginFrom(livePluginName, ""); found {
+			rec.Notes = append(rec.Notes, fmt.Sprintf("the host loaded Qompack from %s (%s), not from this "+
+				"arm's install (%s): not counted as the arm's plugin", other.Source, other.Path, want))
+		}
+		return
+	}
+	if rec.Plugin != nil {
+		rec.Plugin.HostVersion, rec.Plugin.HostSource, rec.Plugin.HostPath = pl.Version, pl.Source, pl.Path
+		if pl.Version != rec.Plugin.Version {
+			rec.Notes = append(rec.Notes, fmt.Sprintf("the host reported plugin version %s; the bundle is %s",
+				pl.Version, rec.Plugin.Version))
+		}
+	}
+}
+
+// liveSessionArgs is the host command line for one trial, identical across arms except extra.
+func liveSessionArgs(model string, t eval.LiveTask, d eval.LiveTaskDefaults, sessionID string, extra []string) []string {
+	args := []string{
+		"-p",
+		"--input-format", "stream-json",
+		"--output-format", "stream-json",
+		"--verbose",
+		"--include-hook-events",
+		"--model", model,
+		"--max-turns", fmt.Sprint(t.EffectiveMaxTurns(d)),
+		"--setting-sources", "project,local",
+		"--permission-mode", "dontAsk",
+		"--session-id", sessionID,
+	}
+	if tools := t.EffectiveAllowedTools(d); len(tools) > 0 {
+		args = append(args, "--allowedTools", strings.Join(tools, ","))
+	}
+	return append(args, extra...)
+}
+
+// liveSessionEnv is the environment both arms add. ENABLE_CLAUDEAI_MCP_SERVERS=false keeps the
+// operator's claude.ai-hosted MCP servers out of both arms alike; the idle-exit setting is inert on
+// the stock arm and makes the qompack arm's daemon exit on its own after the session.
+func liveSessionEnv(idleExit int) []string {
+	return []string{
+		"ENABLE_CLAUDEAI_MCP_SERVERS=false",
+		fmt.Sprintf("QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=%d", idleExit),
+	}
+}
+
+// liveMessages is each step's user message.
+func liveMessages(t eval.LiveTask) []string {
+	out := make([]string, 0, len(t.Steps))
+	for _, s := range t.Steps {
+		out = append(out, s.Message())
+	}
+	return out
+}
+
+func loadLiveRates(path string) (eval.LiveRateTable, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return eval.LiveRateTable{}, fmt.Errorf("live-eval: reading the rate table: %w", err)
+	}
+	return eval.ParseLiveRateTable(raw)
+}
+
+// readLiveBundle verifies a bundle directory against its own BUNDLE.json and returns its identity.
+func readLiveBundle(dir string) (eval.LivePluginIdentity, error) {
+	if dir == "" {
+		return eval.LivePluginIdentity{}, errors.New("live-eval: the qompack arm needs --bundle <dir> " +
+			"(assemble one with `go run ./tools/devtool bundle --target " + runtime.GOOS + "/" + runtime.GOARCH + "`)")
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, identityFileName))
+	if err != nil {
+		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: reading the bundle identity: %w", err)
+	}
+	var id bundleIdentity
+	if err := json.Unmarshal(raw, &id); err != nil {
+		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: parsing %s: %w", identityFileName, err)
+	}
+	if id.Target.OS != runtime.GOOS || id.Target.Arch != runtime.GOARCH {
+		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: bundle is for %s/%s, this host is %s/%s",
+			id.Target.OS, id.Target.Arch, runtime.GOOS, runtime.GOARCH)
+	}
+	for _, f := range id.Files {
+		sum, _, hashErr := hashFile(filepath.Join(dir, filepath.FromSlash(f.Path)))
+		if hashErr != nil || sum != f.SHA256 {
+			return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: bundle file %s does not match BUNDLE.json", f.Path)
+		}
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: resolving the bundle directory: %w", err)
+	}
+	return eval.LivePluginIdentity{
+		BundleDir: abs, Version: id.Version, Commit: id.Source.Commit, Dirty: id.Source.Dirty,
+		BundleSHA256: sha256Hex(raw),
+	}, nil
+}
+
+// liveStoreStats sizes a project's .qompack/ tree and counts index lines and checkpoints.
+func liveStoreStats(project string) (*eval.LiveStoreStats, map[string]int, int) {
+	dir := filepath.Join(project, ".qompack")
+	st := &eval.LiveStoreStats{}
+	idx := map[string]int{}
+	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		// An unreadable entry, or one that vanished under the walk, is not counted: the totals
+		// say what was read, and a trial's store is sized after its daemon has stopped.
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return nil
+		}
+		st.Files++
+		st.Bytes += info.Size()
+		rel, _ := filepath.Rel(dir, p)
+		rel = filepath.ToSlash(rel)
+		if strings.HasPrefix(rel, "objects/") {
+			st.Objects++
+		}
+		if strings.HasPrefix(rel, "index/") && strings.HasSuffix(rel, ".jsonl") {
+			idx[strings.TrimPrefix(rel, "index/")] = countLines(p)
+		}
+		return nil
+	})
+	cps := countLines(filepath.Join(dir, "checkpoints", "MANIFEST.jsonl"))
+	st.Checkpoints = int64(cps)
+	return st, idx, cps
+}
+
+func countLines(p string) int {
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, l := range strings.Split(string(raw), "\n") {
+		if strings.TrimSpace(l) != "" {
+			n++
+		}
+	}
+	return n
+}
+
+// copyTree copies every regular file under src into dst, creating directories as needed.
+func copyTree(src, dst string) error {
+	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, p)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, liveDirPerm)
+		}
+		if !d.Type().IsRegular() {
+			return fmt.Errorf("fixture entry %s is not a regular file", rel)
+		}
+		return copyFile(p, target)
+	})
+}
+
+func copyFile(src, dst string) error {
+	raw, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), liveDirPerm); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, raw, liveFilePerm)
+}
+
+// writeJSONFile writes v as indented JSON through writeFileAtomic: `qompack eval` reads a run's
+// plan.json and summary.json, and may do so while the run is finishing or after it crashed.
+func writeJSONFile(path string, v any) error {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Errorf("live-eval: encoding %s: %w", filepath.Base(path), err)
+	}
+	if err := writeFileAtomic(path, append(b, '\n')); err != nil {
+		return fmt.Errorf("live-eval: writing %s: %w", path, err)
+	}
+	return nil
+}
+
+// writeFileAtomic writes b to a staging file beside path and renames it over path, so a reader sees
+// the old file or the whole new one and never a prefix: os.WriteFile truncates and rewrites in
+// place, which a concurrent reader sees half-written and a crash leaves half-written for good. The
+// staging file is in path's own directory, so the rename never crosses a volume.
+func writeFileAtomic(path string, b []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	renamed := false
+	defer func() {
+		if !renamed {
+			_ = os.Remove(tmp)
+		}
+	}()
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	// os.CreateTemp creates 0o600; the run's records are read by other tools and by the operator.
+	if err := os.Chmod(tmp, liveFilePerm); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	renamed = true
+	return nil
+}
+
+func sha256Hex(b []byte) string {
+	s := sha256.Sum256(b)
+	return hex.EncodeToString(s[:])
+}
+
+func liveRunID(now time.Time) string {
+	var b [3]byte
+	_, _ = rand.Read(b[:])
+	return now.UTC().Format("20060102T150405Z") + "-" + hex.EncodeToString(b[:])
+}
+
+// newUUID returns a random RFC 4122 version-4 UUID, the form --session-id requires.
+func newUUID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	h := hex.EncodeToString(b[:])
+	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:32]
+}
+
+func contains(xs []string, x string) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
+		}
+	}
+	return false
+}
+
+func joinErr(a, b string) string {
+	if a == "" {
+		return b
+	}
+	return a + "; " + b
+}
+
+// renderLiveSummary is the human-readable summary written beside summary.json.
+func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Live evaluation %s\n\n", p.RunID)
+	fmt.Fprintf(&b, "Task set `%s` (sha256 `%s`; fixture tree %v manifest sha256 `%s`), model `%s` "+
+		"(pre-registered `%s`), arms %s, install `%s`, Claude Code %s. %s.\n\n", p.TaskSet, p.TaskSetSHA256,
+		p.FixtureTreeDirs, p.FixtureTreeSHA256, p.Model, p.PreregisteredModel,
+		strings.Join(p.Arms, ", "), p.Install, p.ClaudeCLIVersion, p.Agent)
+	if p.Plugin != nil {
+		fmt.Fprintf(&b, "The bundle's known open defects: %s — the operator's statement when the run was planned, not "+
+			"machine-checked (preregistration section 9 counts only a run with none as the confirmatory run).\n\n",
+			knownDefectsText(p.KnownDefects))
+	}
+	fmt.Fprintf(&b, "Every cost figure is a list-price-equivalent ESTIMATE from the %s rate table; the sessions ran on a "+
+		"subscription, which has no per-token cash charge.\n\n", p.RateTableDate)
+	fmt.Fprintf(&b, "**Decision (pre-registered rule, primary outcome):** %s — %s\n\n", s.Decision.Verdict, s.Decision.Reason)
+	if s.ConstraintRegression != "" {
+		fmt.Fprintf(&b, "**Regression (H2):** %s\n\n", s.ConstraintRegression)
+	}
+	renderArmTable(&b, s.Arms)
+	for _, d := range []struct {
+		name string
+		diff *eval.Difference
+	}{
+		{"Task-success", s.TaskSuccessDiff},
+		{"Constraint-clean", s.ConstraintCleanDiff},
+		{"Recovery", s.RecoveryDiff},
+	} {
+		if d.diff != nil {
+			fmt.Fprintf(&b, "\n%s difference (qompack − stock): %.3f [%.3f, %.3f]\n", d.name, d.diff.Estimate, d.diff.Low, d.diff.High)
+		}
+	}
+	renderHostHookTable(&b, s.Arms)
+	if len(s.ByVariant) > 0 {
+		b.WriteString("\n## By variant\n\nReported, not decided (preregistration section 8).\n\n")
+		b.WriteString("| variant | arm | trials | task success (95% CI) | constraint-clean (95% CI) | recovery (95% CI) |\n")
+		b.WriteString("|---|---|---|---|---|---|\n")
+		for _, v := range liveSortedKeys(s.ByVariant) {
+			for _, as := range s.ByVariant[v] {
+				fmt.Fprintf(&b, "| %s | %s | %d | %s | %s | %s |\n", v, as.Arm, as.Trials,
+					fmtProportion(as.TaskSuccess), fmtProportion(as.ConstraintClean), fmtProportion(as.Recovery))
+			}
+		}
+	}
+	if len(s.TaskSigns) > 0 {
+		b.WriteString("\n## Per-task sign (qompack − stock task success)\n\nReported, not decided.\n\n")
+		for _, id := range liveSortedKeys(s.TaskSigns) {
+			fmt.Fprintf(&b, "- %s: %s\n", id, signWord(s.TaskSigns[id]))
+		}
+	}
+	if len(s.Failed) > 0 {
+		b.WriteString("\n## Failed or incomplete trials\n\n")
+		for _, f := range s.Failed {
+			fmt.Fprintf(&b, "- %s\n", f)
+		}
+	}
+	if len(s.Notes) > 0 {
+		b.WriteString("\n## Notes\n\n")
+		for _, n := range s.Notes {
+			fmt.Fprintf(&b, "- %s\n", n)
+		}
+	}
+	return b.String()
+}
+
+// renderArmTable writes the per-arm outcome table.
+func renderArmTable(b *strings.Builder, arms map[string]eval.ArmSummary) {
+	b.WriteString("| arm | trials | completed | task success (95% CI) | constraint-clean (95% CI) | violations | " +
+		"recovery (95% CI) | mean host cost USD | hook-problem trials | inconsistent accounts |\n")
+	b.WriteString("|---|---|---|---|---|---|---|---|---|---|\n")
+	for _, a := range liveSortedKeys(arms) {
+		as := arms[a]
+		fmt.Fprintf(b, "| %s | %d | %d | %s | %s | %d | %s | %.4f | %d | %d |\n", a, as.Trials, as.Completed,
+			fmtProportion(as.TaskSuccess), fmtProportion(as.ConstraintClean), as.ConstraintViolations,
+			fmtProportion(as.Recovery), as.MeanHostCost, as.HookProblemTrials, as.AccountInconsistent)
+	}
+}
+
+// renderHostHookTable writes each arm's per-hook latency as the host measured it (transcript
+// durationMs), the hook latency preregistration section 6 reports.
+func renderHostHookTable(b *strings.Builder, arms map[string]eval.ArmSummary) {
+	have := false
+	for _, as := range arms {
+		have = have || len(as.HostHookMS) > 0
+	}
+	if !have {
+		return
+	}
+	b.WriteString("\n## Hook latency, as the host measured it\n\nTranscript durationMs per hook, over every trial " +
+		"of the arm; reported, not decided (preregistration section 6).\n\n")
+	b.WriteString("| arm | hook | runs | p50 ms | p95 ms | max ms |\n|---|---|---|---|---|---|\n")
+	for _, arm := range liveSortedKeys(arms) {
+		hooks := arms[arm].HostHookMS
+		for _, name := range liveSortedKeys(hooks) {
+			h := hooks[name]
+			fmt.Fprintf(b, "| %s | %s | %d | %d | %d | %d |\n", arm, name, h.N, h.P50, h.P95, h.Max)
+		}
+	}
+}
+
+// liveSortedKeys is a map's keys in order.
+func liveSortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// signWord renders a task sign.
+func signWord(sign int) string {
+	switch {
+	case sign > 0:
+		return "+1"
+	case sign < 0:
+		return "−1"
+	default:
+		return "0"
+	}
+}
+
+func fmtProportion(p eval.Proportion) string {
+	if p.N == 0 {
+		return "n/a"
+	}
+	return fmt.Sprintf("%d/%d = %.2f [%.2f, %.2f]", p.K, p.N, p.Rate, p.Low, p.High)
+}
+
+// lookClaude resolves the host CLI. An explicit path is made absolute: every session starts in its
+// disposable project, and a relative program path is resolved against the working directory the
+// process starts in, not the one the driver was run from.
+func lookClaude(explicit string) (string, error) {
+	if explicit != "" {
+		if !strings.ContainsAny(explicit, `/\`) {
+			return explicit, nil // a bare name: looked up on PATH when the process starts
+		}
+		abs, err := filepath.Abs(explicit)
+		if err != nil {
+			return "", fmt.Errorf("live-eval: resolving --claude %s: %w", explicit, err)
+		}
+		return abs, nil
+	}
+	p, err := exec.LookPath("claude")
+	if err != nil {
+		return "", fmt.Errorf("live-eval: the Claude Code CLI is not on PATH (pass --claude): %w", err)
+	}
+	return p, nil
+}

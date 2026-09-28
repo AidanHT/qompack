@@ -1,0 +1,12 @@
+close 20
+epoll_ctl 20
+fcntl 80
+fstat 20
+futex 74
+getpid 20
+nanosleep 196
+newfstatat 20
+openat 20
+read 40
+rt_sigreturn 20
+tgkill 20

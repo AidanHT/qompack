@@ -1,0 +1,6 @@
+=== RUN   TestCaptureScope_JunctionSwapDefeatsLexicalContainment
+    capture_scope_v6_test.go:122: symlink unavailable on this platform/privilege: symlink C:\Users\Quant\AppData\Local\Temp\TestCaptureScope_JunctionSwapDefeatsLexicalContainment473243333\002 C:\Users\Quant\AppData\Local\Temp\TestCaptureScope_JunctionSwapDefeatsLexicalContainment473243333\001\link: A required privilege is not held by the client.
+--- SKIP: TestCaptureScope_JunctionSwapDefeatsLexicalContainment (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/hookio	1.171s
+exit=0

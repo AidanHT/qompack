@@ -1,0 +1,14 @@
+# after 6a7621c (key-ordered merge archive), Windows 11, co-loaded host
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkDeliveryRolloverArchiveWindows-22    	       1	20307125900 ns/op
+--- BENCH: BenchmarkDeliveryRolloverArchiveWindows-22
+    delivery_rollover_archive_bench_test.go:38: window 0: 1.4562852s, generations=12
+    delivery_rollover_archive_bench_test.go:38: window 1: 3.0228279s, generations=28
+    delivery_rollover_archive_bench_test.go:38: window 2: 4.518516s, generations=44
+    delivery_rollover_archive_bench_test.go:38: window 3: 5.0462521s, generations=60
+    delivery_rollover_archive_bench_test.go:38: window 4: 6.0136988s, generations=84
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	20.697s

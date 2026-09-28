@@ -1,0 +1,18 @@
+round	variant	wall_s	user_s	sys_s	load	bench_line
+1	base	0.931	0.583	0.177	8.83	BenchmarkPutBytes_100KB_Cold-4   	      40	  15035294 ns/op	   6.81 MB/s	 2183525 B/op	     680 allocs/op
+1	final	0.963	0.675	0.169	8.68	BenchmarkPutBytes_100KB_Cold-4   	      40	  16981111 ns/op	   6.03 MB/s	 1160254 B/op	     331 allocs/op
+2	final	0.963	0.737	0.091	8.68	BenchmarkPutBytes_100KB_Cold-4   	      40	  17140742 ns/op	   5.97 MB/s	 1159776 B/op	     332 allocs/op
+2	base	1.197	0.841	0.252	8.68	BenchmarkPutBytes_100KB_Cold-4   	      40	  20910258 ns/op	   4.90 MB/s	 2655550 B/op	     690 allocs/op
+3	base	0.990	0.760	0.144	8.68	BenchmarkPutBytes_100KB_Cold-4   	      40	  17635331 ns/op	   5.81 MB/s	 2515915 B/op	     690 allocs/op
+3	final	1.465	1.082	0.246	8.68	BenchmarkPutBytes_100KB_Cold-4   	      40	  26285615 ns/op	   3.90 MB/s	 1161270 B/op	     332 allocs/op
+4	final	1.243	0.993	0.295	8.63	BenchmarkPutBytes_100KB_Cold-4   	      40	  23306418 ns/op	   4.39 MB/s	 1158297 B/op	     331 allocs/op
+4	base	1.230	1.036	0.158	8.63	BenchmarkPutBytes_100KB_Cold-4   	      40	  23337987 ns/op	   4.39 MB/s	 3347604 B/op	     713 allocs/op
+5	base	1.304	1.040	0.186	8.63	BenchmarkPutBytes_100KB_Cold-4   	      40	  25072985 ns/op	   4.08 MB/s	 2844757 B/op	     699 allocs/op
+5	final	1.110	0.918	0.173	8.63	BenchmarkPutBytes_100KB_Cold-4   	      40	  19662005 ns/op	   5.21 MB/s	 1157024 B/op	     330 allocs/op
+6	final	1.320	0.986	0.287	8.98	BenchmarkPutBytes_100KB_Cold-4   	      40	  22355537 ns/op	   4.58 MB/s	 1158649 B/op	     332 allocs/op
+6	base	1.494	1.115	0.298	8.98	BenchmarkPutBytes_100KB_Cold-4   	      40	  27158629 ns/op	   3.77 MB/s	 2990930 B/op	     697 allocs/op
+7	base	1.265	0.992	0.170	8.98	BenchmarkPutBytes_100KB_Cold-4   	      40	  22567022 ns/op	   4.54 MB/s	 2705474 B/op	     698 allocs/op
+7	final	0.880	0.652	0.128	8.90	BenchmarkPutBytes_100KB_Cold-4   	      40	  15423303 ns/op	   6.64 MB/s	 1162567 B/op	     333 allocs/op
+8	final	0.800	0.590	0.097	8.90	BenchmarkPutBytes_100KB_Cold-4   	      40	  13813214 ns/op	   7.41 MB/s	 1159513 B/op	     332 allocs/op
+8	base	0.835	0.662	0.084	8.90	BenchmarkPutBytes_100KB_Cold-4   	      40	  14734056 ns/op	   6.95 MB/s	 2844855 B/op	     697 allocs/op
+done

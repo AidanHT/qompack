@@ -1,0 +1,46 @@
+=== RUN   TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed
+=== PAUSE TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed
+=== RUN   TestStageBinary_NeverRemovesACopyHeldOpen
+=== PAUSE TestStageBinary_NeverRemovesACopyHeldOpen
+=== RUN   TestStageBinary_RestagesACopyItCanNeverRead
+=== PAUSE TestStageBinary_RestagesACopyItCanNeverRead
+=== CONT  TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed
+=== RUN   TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/removed
+=== PAUSE TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/removed
+=== CONT  TestStageBinary_RestagesACopyItCanNeverRead
+=== RUN   TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/replaced
+=== PAUSE TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/replaced
+=== CONT  TestStageBinary_NeverRemovesACopyHeldOpen
+=== CONT  TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/removed
+=== CONT  TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/replaced
+=== NAME  TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/removed
+    spawn_stage_test.go:146: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/spawn_stage_test.go:146
+        	Error:      	Target error should be in err chain:
+        	            	expected: "file does not exist"
+        	            	in chain: 
+        	Test:       	TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/removed
+        	Messages:   	a copy removed while it was hashed is not verified
+=== NAME  TestStageBinary_RestagesACopyItCanNeverRead
+    spawn_stage_windows_test.go:137: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/spawn_stage_windows_test.go:137
+        	Error:      	Received unexpected error:
+        	            	daemon: verifying C:\Users\Quant\AppData\Local\Temp\TestStageBinary_RestagesACopyItCanNeverRead4278306219\002\.qompack\bin\a450d9d308a47360bd25c9ba0d7b4b6a49539c07d97b3aa667479d1b0900470f\qompack.exe: open C:\Users\Quant\AppData\Local\Temp\TestStageBinary_RestagesACopyItCanNeverRead4278306219\002\.qompack\bin\a450d9d308a47360bd25c9ba0d7b4b6a49539c07d97b3aa667479d1b0900470f\qompack.exe: Access is denied.
+        	Test:       	TestStageBinary_RestagesACopyItCanNeverRead
+        	Messages:   	an unreadable copy is replaced, not a reason to run the plugin binary
+=== NAME  TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/replaced
+    spawn_stage_test.go:146: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/spawn_stage_test.go:146
+        	Error:      	Target error should be in err chain:
+        	            	expected: "file does not exist"
+        	            	in chain: 
+        	Test:       	TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/replaced
+        	Messages:   	a copy replaced while it was hashed is not verified
+--- PASS: TestStageBinary_NeverRemovesACopyHeldOpen (0.06s)
+--- FAIL: TestStageBinary_RestagesACopyItCanNeverRead (0.07s)
+--- FAIL: TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed (0.00s)
+    --- FAIL: TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/removed (0.07s)
+    --- FAIL: TestVerifyStaged_RefusesACopyRemovedOrReplacedWhileItIsHashed/replaced (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.357s
+FAIL

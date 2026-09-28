@@ -1,0 +1,26 @@
+# side=base (base = git archive 90e1db3, new = git archive b1935ee; each + pass-allocs/tempdiag_passallocs_test.go.txt as internal/store/tempdiag_passallocs_test.go; GOOS=linux CGO_ENABLED=0 go test -c ./internal/store on the Windows host; run as root in /work/cx-w5-dirsync-diag, GOMAXPROCS unset)
+# ./base-store.test -test.run ^TestTempDiagSyncPublicationPassAllocs$ -test.count 3 -test.v
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=linux objects=87 allocs/pass=3236.0 bytes/pass=868974
+--- PASS: TestTempDiagSyncPublicationPassAllocs (321.61s)
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=linux objects=87 allocs/pass=3236.0 bytes/pass=855982
+--- PASS: TestTempDiagSyncPublicationPassAllocs (328.71s)
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=linux objects=87 allocs/pass=3236.0 bytes/pass=834965
+--- PASS: TestTempDiagSyncPublicationPassAllocs (366.56s)
+PASS
+go_test_exit=0
+# side=new (base = git archive 90e1db3, new = git archive b1935ee; each + pass-allocs/tempdiag_passallocs_test.go.txt as internal/store/tempdiag_passallocs_test.go; GOOS=linux CGO_ENABLED=0 go test -c ./internal/store on the Windows host; run as root in /work/cx-w5-dirsync-diag, GOMAXPROCS unset)
+# ./new-store.test -test.run ^TestTempDiagSyncPublicationPassAllocs$ -test.count 3 -test.v
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=linux objects=87 allocs/pass=2944.0 bytes/pass=811404
+--- PASS: TestTempDiagSyncPublicationPassAllocs (173.76s)
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=linux objects=87 allocs/pass=2944.0 bytes/pass=892431
+--- PASS: TestTempDiagSyncPublicationPassAllocs (69.94s)
+=== RUN   TestTempDiagSyncPublicationPassAllocs
+    tempdiag_passallocs_test.go:45: TEMPDIAG goos=linux objects=87 allocs/pass=2944.0 bytes/pass=885006
+--- PASS: TestTempDiagSyncPublicationPassAllocs (105.44s)
+PASS
+go_test_exit=0

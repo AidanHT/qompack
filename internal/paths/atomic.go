@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/qompack/qompack/internal/core"
 )
@@ -14,34 +15,108 @@ import (
 // recognizable as debris rather than mistaken for a real artifact.
 const tempFilePrefix = "wa-"
 
-// rootOf walks upward from the directory containing p, looking for the nearest ancestor that
-// itself contains a .qompack directory, and returns that ancestor as a project root. It is how
-// WriteAtomic, OpenFile and AppendOnly recognize a protected path without every caller having to
-// thread a Layout or project root through every write.
-func rootOf(p string) (string, bool) {
+// pathOwner is what ownerOf finds on a path's own directory chain.
+type pathOwner struct {
+	// root is the project root whose .qompack owns the path, so Of(root).Tmp is where WriteAtomic
+	// stages. It is meaningful only when owned is true.
+	root  string
+	owned bool
+	// protected reports that some store on the path, the owner or one enclosing it, holds the path
+	// at one of its §7.4 append-only locations.
+	protected bool
+}
+
+// ownerOf reports which store owns p and whether any store guards it. It is how WriteAtomic,
+// OpenFile and OpenSharedRW recognize a protected path, and where WriteAtomic stages, without every
+// caller having to thread a Layout or project root through every write.
+//
+// The store that owns p is the NEAREST element of p's own absolute path that is named .qompack. If
+// that directory exists, it owns p; if it does not, p belongs to a store that has not been made yet,
+// and no store owns it. The walk never looks beside the path, and it never passes over the nearest
+// .qompack to an outer one, so a write stages only inside the store whose tree holds the target or,
+// with none, beside the target itself.
+//
+// The walk used to accept the nearest ancestor that merely CONTAINED a .qompack, and two defects
+// followed from that one rule:
+//
+//   - A write outside any store escaped to an unrelated store higher up. With the user-global layer
+//     in a home directory (paths.Global), a write into a project below the home that has no store
+//     yet, or into an operator's directory, staged in <home>/.qompack/tmp. Its rename then failed
+//     when the target's directory had not been made yet (w2-lifetime runs/21: 2 internal/cli and 6
+//     internal/ipc rows on a machine with a real ~/.qompack), and would fail as a cross-device
+//     rename wherever the target sits on another filesystem than the home.
+//   - A directory named .qompack inside checkpoints/, pins/ or sketches/ became the "owner" of the
+//     protected files beside it, IsProtected measured them against it and found them outside, and
+//     WriteAtomic replaced a sealed checkpoint.
+//
+// The user-global layer is reached only by its own path: a write to paths.Global(home)/x is owned by
+// that store because paths.Global(home) is on its path, and nothing below the home can stage in it.
+//
+// Protection is asked of EVERY existing store on the path, not only the owner, so a stray .qompack
+// cannot unprotect anything by standing between a protected file and its real store: a path through
+// <root>/.qompack/checkpoints/.qompack/ is still under <root>'s checkpoints/.
+//
+// Every store is asked about p made absolute: filepath.Rel cannot relate a relative path to an
+// absolute root, so IsProtected(root, p) answered "not protected" for every relative spelling of a
+// protected path. A p that cannot be made absolute is owned and guarded by nothing, as before.
+//
+// Only an element named .qompack costs a stat, so the walk no longer stats every ancestor up to the
+// volume root. Ownership compares that name as isStoreDirName does: case-folded on Windows and
+// exactly elsewhere. Protection compares it as IsProtected compares every name (sameName), which
+// also folds case on darwin, so a store spelled .QOMPACK on a case-insensitive darwin volume still
+// guards its protected files, while staging keeps choosing only a store spelled exactly (a folded
+// match there could make a stray .qompack on a case-sensitive volume). The walk runs over abs with
+// its NTFS stream suffixes removed, since .qompack::$INDEX_ALLOCATION resolves to the store too.
+func ownerOf(p string) pathOwner {
+	var o pathOwner
 	abs, err := filepath.Abs(p)
 	if err != nil {
-		return "", false
+		return o
 	}
+	abs = filepath.Clean(streamless(abs))
+	nearest := true
 	for d := filepath.Dir(abs); ; {
-		fi, statErr := os.Stat(Long(filepath.Join(d, dotDir)))
-		if statErr == nil && fi.IsDir() {
-			return d, true
-		}
 		parent := filepath.Dir(d)
 		if parent == d {
-			return "", false
+			return o
+		}
+		base := filepath.Base(d)
+		owns := isStoreDirName(base)
+		if owns || sameName(base, dotDir) {
+			if fi, statErr := os.Stat(Long(d)); statErr == nil && fi.IsDir() {
+				if owns && nearest {
+					o.root, o.owned = parent, true
+				}
+				if IsProtected(parent, abs) {
+					o.protected = true
+				}
+			}
+			if owns {
+				nearest = false
+			}
 		}
 		d = parent
 	}
 }
 
-// tmpDirFor returns the directory WriteAtomic stages into for a write to p: <root>/.qompack/tmp
-// when p resolves to a project root, so the finishing rename is same-volume by construction and
-// can never cross a volume boundary; filepath.Dir(p) otherwise, for callers exercising
-// WriteAtomic outside any .qompack tree.
-func tmpDirFor(p string) string {
-	if root, ok := rootOf(p); ok {
+// isStoreDirName reports whether name spells dotDir, compared as filepath.Rel compares path
+// elements on this platform (strings.EqualFold on Windows, == elsewhere), so ownerOf's stores and
+// IsProtected's answer about each of them agree on every spelling.
+func isStoreDirName(name string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(name, dotDir)
+	}
+	return name == dotDir
+}
+
+// tmpDirFor returns the directory WriteAtomic stages into for a write to p, given ownerOf(p)'s
+// answer (root, owned): <root>/.qompack/tmp when a store owns p, so the finishing rename stays
+// inside the store that holds both files; filepath.Dir(p) otherwise, which no store owns, so the
+// rename never leaves p's own directory. Either way it is on p's volume, barring a mount point
+// inside a store. It takes the walk's result rather than walking again, because WriteAtomic has
+// already walked for its protected-path check.
+func tmpDirFor(p, root string, owned bool) string {
+	if owned {
 		return Of(root).Tmp
 	}
 	return filepath.Dir(p)
@@ -92,11 +167,15 @@ func renameWithRetry(tmp, p string) error {
 // fsyncDir fsyncs dir's directory entry after a rename — the durability half of the write
 // barrier WriteAtomic promises. Without it, a crash between the rename and the next unrelated
 // metadata flush can lose the rename on some POSIX filesystems even though the renamed file's
-// own data was already synced. Windows needs no equivalent: MoveFileEx's NTFS transaction is
-// durable on its own, so fsyncDir is a no-op there — and that still holds now that the rename may
-// be replace_windows.go's FileRenameInfoEx instead, because the two differ only in the
-// FILE_RENAME_* flags handed to the same NTFS FileRenameInformation path, not in how the metadata
-// change is journalled.
+// own data was already synced.
+//
+// On Windows it is a no-op, by owner decision D24, and SyncDir's comment states the premise that
+// decision rests on and what it leaves exposed. The no-op is also forced by the API: os.Open of a
+// directory yields a handle FlushFileBuffers refuses (ERROR_ACCESS_DENIED), and os.OpenFile(dir,
+// O_RDWR) fails with EISDIR (w5-dirsync, runs/win-dir-fsync-probe.txt), so without the short circuit
+// every call would fail. That still holds now that the rename may be replace_windows.go's
+// FileRenameInfoEx instead of MoveFileEx: the two differ only in the FILE_RENAME_* flags handed to
+// the same NTFS FileRenameInformation path, not in how the metadata change is journalled.
 func fsyncDir(dir string) error {
 	if runtime.GOOS == "windows" {
 		return nil
@@ -112,23 +191,70 @@ func fsyncDir(dir string) error {
 // SyncDir makes dir's entries durable: the names of the files in it, which on POSIX a file's own
 // fsync does not cover. WriteAtomic syncs its destination's directory this way after its rename. A
 // caller that makes durable a file another process created, and never synced the directory of, needs
-// the same: the daemon's drain, before it consumes a spool file a hook created. Like fsyncDir, it is a
-// no-op on Windows.
+// the same: the daemon's drain, before it consumes a spool file a hook created. So does a caller that
+// is about to depend on a new file's name: AppendManifest, before a MANIFEST line names an artifact.
+//
+// On Windows SyncDir is a no-op (owner decision D24), on the NTFS-journaling premise:
+//
+//   - NTFS writes every metadata change — a file's creation, a rename, a deletion, a size change —
+//     to the volume's write-ahead log as one transaction, and replays that log at mount, so after a
+//     power cut each such change is either wholly present or wholly absent. A directory entry is
+//     never torn, and a rename never leaves both names or neither. File contents are NOT journaled,
+//     which is why every durable write still flushes its file.
+//   - FlushFileBuffers on a file (File.Sync) writes the file's bytes and forces the log out through
+//     the file's own latest change. The log is sequential, so every metadata change logged before
+//     that point — the file's own creation or rename among them — is durable when the flush returns.
+//     A directory flush would add nothing to a file that is itself flushed after its last rename.
+//
+// The residual risk is what follows the LAST flush on the volume: a rename or deletion completed
+// after it can be undone by a power cut. WriteAtomic flushes its staging file before the rename, so
+// its most recent replacement of a file can revert to the previous complete version — never to a
+// torn or empty one — and a removed file can reappear. No product guarantee depends on more than
+// the premise: every write whose loss would break one ends with a flush after the directory change it
+// relies on (a checkpoint's MANIFEST line, the delivery and WAL journal appends, each object's flush
+// in a publication pass, the pins log line, an acknowledged elimination's line), except a backup's
+// certification, and every change that can revert is safe to lose. State/ documents, the pins view,
+// precompact.json and a draft are derived or rebuilt; a restore's final directory rename leaves the
+// operator the previous state to retry from. A backup's certification is the rename of its manifest
+// and the removal of its certification-pending marker, the last two steps of TakeBackup, and no flush
+// follows them: a power cut just after it reports the backup certified can leave the backup without
+// its manifest or with the marker back. Verification refuses such a backup, so it is never restored
+// from as certified; it must be taken again.
+// The premise has not been tested with a power cut on this project; a real Windows directory barrier
+// exists (FlushFileBuffers on a CreateFile(GENERIC_WRITE, FILE_FLAG_BACKUP_SEMANTICS) handle,
+// w5-dirsync item 4) and D24 declines it. docs/architecture.md §4 and docs/security.md §8 carry the
+// same statement for operators.
 func SyncDir(dir string) error { return fsyncDir(dir) }
 
-// WriteAtomic writes b to p durably and atomically: stage in a temp file under the project's
-// .qompack/tmp (same volume as p by construction), Sync the temp file, Chmod it to perm, Rename
-// it onto p, then fsync p's parent directory. It refuses outright to write a §7.4 protected
+// ownerWriteBit is the permission bit Windows' os.Chmod reads: it maps the whole mode onto the
+// FILE_ATTRIBUTE_READONLY attribute, set when this bit is clear and cleared when it is set.
+const ownerWriteBit fs.FileMode = 0o200
+
+// chmodChangesStagingFile reports whether WriteAtomic's Chmod of its fresh staging file to perm can
+// change anything. Off Windows it always can: a POSIX mode has more than one bit, and umask may have
+// narrowed what os.CreateTemp created. On Windows os.Chmod only sets or clears READONLY
+// (GOROOT/src/syscall/syscall_windows.go Chmod), and os.CreateTemp's 0o600 create never sets it, so
+// a perm that keeps the owner-write bit asks to clear an attribute the file does not have — and the
+// call would still spend a GetFileAttributes and a SetFileAttributes path lookup saying so.
+func chmodChangesStagingFile(perm fs.FileMode) bool {
+	return runtime.GOOS != "windows" || perm&ownerWriteBit == 0
+}
+
+// WriteAtomic writes b to p durably and atomically: stage in a temp file under the .qompack/tmp of
+// the store that owns p (ownerOf), or beside p when no store does, Sync the temp file, Chmod it to
+// perm, Rename it onto p, then fsync p's parent directory. Staged beside p, the write also makes
+// p's directory if it is missing; staged in a store, p's directory must already exist, as
+// EnsureLayout leaves every directory of a layout. It refuses outright to write a §7.4 protected
 // path — checkpoints/, pins/, or sketches/tried.bloom — because WriteAtomic replaces whatever is
 // at p, and replacing any of those is exactly what the append-only invariant forbids;
 // ReplaceBloom is the one sanctioned exception, and it never calls WriteAtomic.
 func WriteAtomic(p string, b []byte, perm fs.FileMode) error {
-	root, ok := rootOf(p)
-	if ok && IsProtected(root, p) {
+	o := ownerOf(p)
+	if o.protected {
 		return fmt.Errorf("%w: WriteAtomic on protected path %s", core.ErrAppendOnly, p)
 	}
 
-	dir := tmpDirFor(p)
+	dir := tmpDirFor(p, o.root, o.owned)
 	if err := os.MkdirAll(Long(dir), 0o700); err != nil {
 		return err
 	}
@@ -137,7 +263,15 @@ func WriteAtomic(p string, b []byte, perm fs.FileMode) error {
 		return err
 	}
 	tmp := f.Name()
-	defer func() { _ = os.Remove(Long(tmp)) }()
+	// The staging file is removed on every path that leaves it behind, and only on those: after a
+	// successful rename it no longer exists, and removing it anyway cost a failed delete and a
+	// failed rmdir on every successful write.
+	renamed := false
+	defer func() {
+		if !renamed {
+			_ = os.Remove(Long(tmp))
+		}
+	}()
 
 	if _, err := f.Write(b); err != nil {
 		_ = f.Close()
@@ -150,11 +284,14 @@ func WriteAtomic(p string, b []byte, perm fs.FileMode) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	if err := os.Chmod(Long(tmp), perm); err != nil {
-		return err
+	if chmodChangesStagingFile(perm) {
+		if err := os.Chmod(Long(tmp), perm); err != nil {
+			return err
+		}
 	}
 	if err := renameWithRetry(Long(tmp), Long(p)); err != nil {
 		return err
 	}
+	renamed = true
 	return fsyncDir(filepath.Dir(p))
 }

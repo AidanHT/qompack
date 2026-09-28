@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# stub for the GitHub CLI: one pull request per head branch, recorded as a marker file
+m="$SIMROOT/prs/$(printf '%s' "$*" | sed -n 's/.*--head \([^ ]*\).*/\1/p' | tr '/' '_')"
+case "$1 $2" in
+  "pr list") [ -f "$m" ] && cat "$m"; exit 0;;
+  "pr create") [ -f "$m" ] && { echo "a pull request for this head already exists" >&2; exit 1; }; mkdir -p "$SIMROOT/prs"; echo 1 > "$m"; echo "https://example.invalid/pull/1";;
+  *) echo "gh stub: unexpected $*" >&2; exit 2;;
+esac

@@ -1,0 +1,35 @@
+run_id=cx-w6-borrow-fix-rows-x20-d6c103f-20260927T195258Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow
+rev=d6c103f
+commit=d6c103f1e3699e6a51178428de5c0fe38a551a0e
+bundle_sha256=fa26ec59079dc011b4b0cf87e7336c9a12cb1ab361a1b676560f4be4203c41de
+host_started_utc=2026-09-27T19:53:26Z
+inner_args=--count 20 --timeout 50m --run ^(TestEnsureRunningUntil_|TestEnsureRunning_|TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled$|TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud$|TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling$) -- ./internal/daemon ./internal/cli
+/work/cx-w6-borrow-fix-rows-x20-d6c103f-20260927T195258Z.bundle: OK
+run_id=cx-w6-borrow-fix-rows-x20-d6c103f-20260927T195258Z
+commit=d6c103f1e3699e6a51178428de5c0fe38a551a0e
+tree=a8447f96e3cac78d52e38f069606940fe4ab3eb5
+bundle_sha256=fa26ec59079dc011b4b0cf87e7336c9a12cb1ab361a1b676560f4be4203c41de
+started_utc=2026-09-27T19:53:32Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=50m gomaxprocs=4 coload=0
+run=^(TestEnsureRunningUntil_|TestEnsureRunning_|TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled$|TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud$|TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling$)
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=340 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=60 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/plans/sdd/V6-closeout/w6-borrow/runs/linux/cx-w6-borrow-fix-rows-x20-d6c103f-20260927T195258Z-artifacts
+exit=0

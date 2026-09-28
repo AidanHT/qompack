@@ -1,0 +1,21 @@
+run_id=cx-w7-sp08d3-residual-7eca106-20260928T021605Z
+commit=7eca1067e47bdea221433ee48e87e1a9c1afacf3
+tree=044d25bcde9c3066c9135ee3fcd6019cbe3e1975
+bundle_sha256=c458b569df7583a5b25894daaecd643c8156f7bc610abb9d1d5614fa86ccaac1
+started_utc=2026-09-28T02:16:25Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^(TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero|TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-28T02:17:51Z

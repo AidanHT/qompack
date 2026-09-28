@@ -1,0 +1,12 @@
+=== RUN   TestE2E_SessionStartCompactUnreadableCheckpointStore
+    sessionstart_d11_test.go:40: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/startroute-work/base-6aff949/test/e2e/sessionstart_d11_test.go:40
+        	Error:      	Should be true
+        	Test:       	TestE2E_SessionStartCompactUnreadableCheckpointStore
+        	Messages:   	an unreadable checkpoint store is answered with the note naming why:
+        	            	<!-- qompack-contract-probe qompack-contract-110c321eb4c6 -->
+--- FAIL: TestE2E_SessionStartCompactUnreadableCheckpointStore (2.12s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	2.373s
+FAIL
+exit=1

@@ -1,0 +1,21 @@
+run_id=cx-w3-paths-spoolwatch-alone-base-6aff949-20260926T172041Z
+commit=6aff9496e667e908a2d80d8fa6fca6ad9973931b
+tree=a1bf55eca79a86f701f143562d00a101804bc299
+bundle_sha256=0c826e933e32c7322144adad5c6cf0201d8216b85dbbc372de2cf967180c50c7
+started_utc=2026-09-26T17:20:50Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=4 coload=0
+run=^TestSpoolWatch_
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-26T17:21:27Z

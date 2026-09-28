@@ -1,0 +1,110 @@
+# w2-lifetime runs/21 reproduced without the real home: per run, a fresh <fakehome> with an empty
+# <fakehome>/.qompack, and TMP=TEMP=<fakehome>/t (a short path, so no test path crosses the 240-character long-path threshold; runs/15 shows what a long one does), so every t.TempDir() is below a directory holding a
+# .qompack. base = git archive 6aff949 (unmodified), head = git archive c3e3519. Windows, co-loaded.
+# The real C:/Users/Quant/.qompack does not exist and is never touched.
+## base-clean: go test ./internal/ipc ./internal/cli -count=1 -timeout=30m  (fake home C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1)
+--- FAIL: TestStateRoundTrip (0.05s)
+    state_test.go:34: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/ipc/state_test.go:34
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\.qompack\tmp\wa-2346438988 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestStateRoundTrip2181778894\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateRoundTrip
+--- FAIL: TestStateBadCRCFallsBack (0.03s)
+    state_test.go:65: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/ipc/state_test.go:65
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\.qompack\tmp\wa-2900622499 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestStateBadCRCFallsBack1634858055\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateBadCRCFallsBack
+--- FAIL: TestStateWriteIsAtomic (0.02s)
+    state_test.go:133: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/ipc/state_test.go:133
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\.qompack\tmp\wa-2513521401 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestStateWriteIsAtomic4130132394\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateWriteIsAtomic
+--- FAIL: TestRemoveState_IsIdempotent (0.05s)
+    state_test.go:183: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/ipc/state_test.go:183
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\.qompack\tmp\wa-3979397010 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestRemoveState_IsIdempotent4140548477\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestRemoveState_IsIdempotent
+--- FAIL: TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk (0.04s)
+    state_test.go:271: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/ipc/state_test.go:271
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\.qompack\tmp\wa-1034929039 \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk3098558597\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk
+        	Messages:   	the record every reader below must see has to be on disk before any of them starts
+--- FAIL: TestWriteStateLandsWhileAHookClientHoldsTheRecordOpen (0.03s)
+    state_contention_test.go:156: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/ipc/state_contention_test.go:156
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\.qompack\tmp\wa-490066902 \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestWriteStateLandsWhileAHookClientHoldsTheRecordOpen4027346303\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestWriteStateLandsWhileAHookClientHoldsTheRecordOpen
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	16.391s
+--- FAIL: TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites (0.61s)
+    backup_test.go:21: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/cli/backup_test.go:21
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites
+        	Messages:   	{"schema":1,"action":"create","id":"before","error":"store: backup \"before\": Rel: can't make \\\\?\\C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\resume\\paths-work\\f1\\t\\TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites571716468\\001\\.qompack\\.gitignore relative to C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\resume\\paths-work\\f1\\t\\TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites571716468\\001"}
+        	            	 qompack backup create: store: backup "before": Rel: can't make \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites571716468\001\.qompack\.gitignore relative to C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites571716468\001
+--- FAIL: TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader (0.49s)
+    backup_test.go:77: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/cli/backup_test.go:77
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader
+        	Messages:   	{"schema":1,"action":"create","id":"uncertified","error":"store: backup \"uncertified\": Rel: can't make \\\\?\\C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\resume\\paths-work\\f1\\t\\TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader1542559697\\001\\.qompack\\.gitignore relative to C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\resume\\paths-work\\f1\\t\\TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader1542559697\\001"}
+        	            	 qompack backup create: store: backup "uncertified": Rel: can't make \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader1542559697\001\.qompack\.gitignore relative to C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader1542559697\001
+--- FAIL: TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord (0.02s)
+    fault_test.go:302: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/cli/fault_test.go:302
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\.qompack\tmp\wa-2992392051 \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord3817777203\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord
+qompack: cannot write the project log for C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestHookLogger_FallsBackToTheUserLevelLogDirectory374052356\001 (logging: New: open day log in C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestHookLogger_FallsBackToTheUserLevelLogDirectory374052356\001\.qompack\logs: open \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestHookLogger_FallsBackToTheUserLevelLogDirectory374052356\001\.qompack\logs\qompack-20260926.log: is a directory); degradation for this session is being recorded under C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestHookLogger_FallsBackToTheUserLevelLogDirectory374052356\002\.qompack\logs instead
+--- FAIL: TestHooks_ModeOffShortCircuits (0.02s)
+    hooks_test.go:67: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-clean/internal/cli/hooks_test.go:67
+        	Error:      	Received unexpected error:
+        	            	rename C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\.qompack\tmp\wa-651175677 C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f1\t\TestHooks_ModeOffShortCircuits1241726276\001\.qompack\run\state.bin: The system cannot find the path specified.
+        	Test:       	TestHooks_ModeOffShortCircuits
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	34.960s
+FAIL
+exit=1
+## base-clean: the fake home's .qompack after the run (find):
+.qompack
+.qompack/tmp
+## head-export: go test ./internal/ipc ./internal/cli -count=1 -timeout=30m  (fake home C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2)
+ok  	github.com/qompack/qompack/internal/ipc	27.308s
+--- FAIL: TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites (0.61s)
+    backup_test.go:21: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/head-export/internal/cli/backup_test.go:21
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites
+        	Messages:   	{"schema":1,"action":"create","id":"before","error":"store: backup \"before\": Rel: can't make \\\\?\\C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\resume\\paths-work\\f2\\t\\TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites2663344311\\001\\.qompack\\.gitignore relative to C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\resume\\paths-work\\f2\\t\\TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites2663344311\\001"}
+        	            	 qompack backup create: store: backup "before": Rel: can't make \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2\t\TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites2663344311\001\.qompack\.gitignore relative to C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2\t\TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites2663344311\001
+--- FAIL: TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader (0.56s)
+    backup_test.go:77: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/head-export/internal/cli/backup_test.go:77
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader
+        	Messages:   	{"schema":1,"action":"create","id":"uncertified","error":"store: backup \"uncertified\": Rel: can't make \\\\?\\C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\resume\\paths-work\\f2\\t\\TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader2050497333\\001\\.qompack\\.gitignore relative to C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\resume\\paths-work\\f2\\t\\TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader2050497333\\001"}
+        	            	 qompack backup create: store: backup "uncertified": Rel: can't make \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2\t\TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader2050497333\001\.qompack\.gitignore relative to C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2\t\TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader2050497333\001
+qompack: cannot write the project log for C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2\t\TestHookLogger_FallsBackToTheUserLevelLogDirectory1229720813\001 (logging: New: open day log in C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2\t\TestHookLogger_FallsBackToTheUserLevelLogDirectory1229720813\001\.qompack\logs: open \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2\t\TestHookLogger_FallsBackToTheUserLevelLogDirectory1229720813\001\.qompack\logs\qompack-20260926.log: is a directory); degradation for this session is being recorded under C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\resume\paths-work\f2\t\TestHookLogger_FallsBackToTheUserLevelLogDirectory1229720813\002\.qompack\logs instead
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	32.902s
+FAIL
+exit=1
+## head-export: the fake home's .qompack after the run (find):
+.qompack
+DONE

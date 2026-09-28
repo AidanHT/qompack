@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/qompack/qompack/internal/core"
@@ -68,6 +69,19 @@ type Lock struct {
 	// exercise both formats, and it lives on the lock rather than in a package variable so that
 	// tests running beside each other cannot see one another's choice.
 	sealFormat int
+	// rolloverEntries and rolloverBytes, when positive, replace deliveryRolloverEntries and
+	// deliveryRolloverBytes for the journal this lock opens. Zero, the only value production ever
+	// has, means the package thresholds. They are sealFormat's kind of seam: a test sets them before
+	// openDeliveryJournal to rotate after a few leases, and they live on the lock so that rollover
+	// tests can run beside each other (t.Parallel), each at its own threshold.
+	rolloverEntries int
+	rolloverBytes   int64
+	// deliveryDiag is where the journal this lock opens reports its rollover diagnostics
+	// (delivery_diagnostics.go). The daemon attaches its logger and metrics before its first
+	// journal open; nil — the offline tools, and tests that build a bare lock — reports nothing.
+	// It is atomic because the journal reads it at the moment it reports, from whichever goroutine
+	// that is, with or without Lock.mu held.
+	deliveryDiag atomic.Pointer[deliveryDiagnostics]
 }
 
 // deliverySealFormat is the seal format the journal this lock opens writes: the build's constant,
@@ -79,12 +93,44 @@ func (l *Lock) deliverySealFormat() int {
 	return l.sealFormat
 }
 
+// deliveryRollover is the rotation thresholds the journal this lock opens uses: the package's, unless
+// a test set its own on this lock.
+func (l *Lock) deliveryRollover() (entries int, bytes int64) {
+	entries, bytes = deliveryRolloverEntries, deliveryRolloverBytes
+	if l == nil {
+		return entries, bytes
+	}
+	if l.rolloverEntries > 0 {
+		entries = l.rolloverEntries
+	}
+	if l.rolloverBytes > 0 {
+		bytes = l.rolloverBytes
+	}
+	return entries, bytes
+}
+
+// refuseHomeRoot returns the D18 refusal, which wraps paths.ErrHomeRoot, when projectRoot is this
+// process's home directory, and nil otherwise. The homes are this process's own HOME and
+// USERPROFILE, the ones userHomeDir and the D10 staging read. AcquireLock asks it, and so do the
+// spawners, EnsureRunning and SpawnDetached, so that no caller creates a spawn claim, a staged copy
+// or a daemon for the directory whose .qompack is the user-global layer.
+func refuseHomeRoot(projectRoot string) error {
+	return paths.RefuseHome(projectRoot, paths.HomeDirs(os.Getenv)...)
+}
+
 // AcquireLock takes .qompack/run/daemon.lock for the current process at addr, resolving
 // contention with the 5-step staleness protocol of task-3-spec.md: a dead process's lock is
 // reclaimed; a live one's is not.
 func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) {
 	if clk == nil {
 		clk = core.SystemClock()
+	}
+	// Owner decision D18: no daemon and no maintenance writer for the home directory, whose .qompack
+	// is the user-global layer. Every entry point in internal/cli refuses that root first and says
+	// why; this is the one gate every daemon start and every writer lease passes through, so no
+	// other embedder can create run/ and daemon.lock there either.
+	if err := refuseHomeRoot(projectRoot); err != nil {
+		return nil, fmt.Errorf("daemon: lock: %w", err)
 	}
 
 	runDir := paths.Of(projectRoot).Run
@@ -331,6 +377,16 @@ func (l *Lock) SealDowngradeResidual() error {
 // lock already gone (owned reports false) and returns nil without touching anything. It is also
 // safe to call after the lock has been reclaimed by a different process (owned reports false for
 // the same reason): Release never deletes a file it does not currently own.
+//
+// Before it lets go, an owner also gives back run/spawn.lock (V6 close-out D27). A daemon a hook
+// spawned while this lock was held lost it and exited without ever listening, so nothing removed the
+// claim its spawner wrote, and for the claim's freshness window every spawner reads it as a daemon
+// on its way (ipc.ClaimSpawn). While the owner lives that only holds further spawns off; once it has
+// gone, it would leave a SessionEnd flush with no daemon and no spawn. A claim present now is this
+// owner's own spawner's (a daemon stopped before it listened) or was made while this lock was held,
+// so the daemon it names has lost, or will find the lock gone and take it: removing it costs at most
+// one extra spawn, which daemon.lock turns away (D17). It is removed while the lock is still held,
+// so that the lock's removal stays Release's last act.
 func (l *Lock) Release() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -346,6 +402,7 @@ func (l *Lock) Release() error {
 		l.released = true
 		return nil
 	}
+	removeSpawnClaim(filepath.Join(filepath.Dir(l.path), runSpawnLockFileName))
 	_ = os.Chmod(paths.Long(l.path), 0o600) // paths.CreateNew leaves the lock file read-only
 	err1 := os.Remove(paths.Long(l.path))
 	if err1 != nil && os.IsNotExist(err1) {

@@ -1,0 +1,10 @@
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (0.47s)
+=== RUN   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain
+--- PASS: TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain (6.61s)
+=== RUN   TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget
+--- PASS: TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget (6.65s)
+=== RUN   TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress
+--- PASS: TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress (10.34s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	24.306s

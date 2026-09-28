@@ -1,0 +1,10 @@
+# github.com/qompack/qompack/tools/devtool [github.com/qompack/qompack/tools/devtool.test]
+tools\devtool\liveeval_test.go:940:9: undefined: liveProcessEnv
+tools\devtool\liveeval_test.go:949:27: spec.Unset undefined (type liveProcSpec has no field or method Unset)
+FAIL	github.com/qompack/qompack/tools/devtool [build failed]
+FAIL
+exit=1
+
+# Before the fix runLiveProcess started the host with cmd.Env = append(os.Environ(), spec.Env...)
+# (tools/devtool/liveeval_host.go at 97f2557, line 124): every inherited QOMPACK_* variable reached
+# the host, its hooks and the trial daemon, and nothing recorded which.

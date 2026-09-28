@@ -1,0 +1,78 @@
+//go:build linux
+
+// Command inwatch is a TEMPORARY diagnostic for the w6-config proof (scratch only, never
+// committed as code). It watches each directory named on the command line with inotify, and every
+// file directly inside it, and prints one line per event — open, access (read), modify, create,
+// delete, move, attrib — with a UTC timestamp, until killed or until -for elapses.
+//
+//	inwatch -for 30m DIR...
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
+)
+
+func main() {
+	d := flag.Duration("for", 30*time.Minute, "how long to watch")
+	flag.Parse()
+	fd, err := unix.InotifyInit1(unix.IN_CLOEXEC)
+	if err != nil {
+		panic(err)
+	}
+	const mask = unix.IN_OPEN | unix.IN_ACCESS | unix.IN_MODIFY | unix.IN_CREATE | unix.IN_DELETE |
+		unix.IN_MOVED_FROM | unix.IN_MOVED_TO | unix.IN_ATTRIB | unix.IN_CLOSE_WRITE
+	names := map[int]string{}
+	add := func(p string) {
+		wd, err := unix.InotifyAddWatch(fd, p, mask)
+		if err != nil {
+			fmt.Printf("watch %s: %v\n", p, err)
+			return
+		}
+		names[wd] = p
+		fmt.Printf("%s watching %s\n", time.Now().UTC().Format(time.RFC3339Nano), p)
+	}
+	for _, dir := range flag.Args() {
+		add(dir)
+		ents, _ := os.ReadDir(dir)
+		for _, e := range ents {
+			add(filepath.Join(dir, e.Name()))
+		}
+	}
+	go func() { time.Sleep(*d); os.Exit(0) }()
+	buf := make([]byte, 64<<10)
+	for {
+		n, err := unix.Read(fd, buf)
+		if err != nil {
+			panic(err)
+		}
+		for off := 0; off+unix.SizeofInotifyEvent <= n; {
+			ev := (*unix.InotifyEvent)(unsafe.Pointer(&buf[off]))
+			name := ""
+			if ev.Len > 0 {
+				b := buf[off+unix.SizeofInotifyEvent : off+unix.SizeofInotifyEvent+int(ev.Len)]
+				name = strings.TrimRight(string(b), "\x00")
+			}
+			var kinds []string
+			for _, k := range []struct {
+				m uint32
+				s string
+			}{{unix.IN_OPEN, "OPEN"}, {unix.IN_ACCESS, "READ"}, {unix.IN_MODIFY, "MODIFY"}, {unix.IN_CREATE, "CREATE"},
+				{unix.IN_DELETE, "DELETE"}, {unix.IN_MOVED_FROM, "MOVED_FROM"}, {unix.IN_MOVED_TO, "MOVED_TO"},
+				{unix.IN_ATTRIB, "ATTRIB"}, {unix.IN_CLOSE_WRITE, "CLOSE_WRITE"}, {unix.IN_ISDIR, "ISDIR"}} {
+				if ev.Mask&k.m != 0 {
+					kinds = append(kinds, k.s)
+				}
+			}
+			fmt.Printf("%s %s %s %s\n", time.Now().UTC().Format(time.RFC3339Nano), names[int(ev.Wd)], name, strings.Join(kinds, "|"))
+			off += unix.SizeofInotifyEvent + int(ev.Len)
+		}
+	}
+}

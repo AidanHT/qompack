@@ -1,0 +1,48 @@
+run_id=cx-linux-after-rest-949897a-20260922T235535Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux
+rev=949897a
+commit=949897abd6d3b811f8ff40e2d782ff0cf4d6c9d7
+bundle_sha256=c7b91e71cde030c849ab947e227151dc91fddc2fc8055a6f31f1a0abc5cd5f35
+host_started_utc=2026-09-22T23:55:41Z
+inner_args=--coload -- ./internal/ipc ./internal/paths ./internal/testutil ./test/guards ./test/security
+/work/cx-linux-after-rest-949897a-20260922T235535Z.bundle: OK
+run_id=cx-linux-after-rest-949897a-20260922T235535Z
+commit=949897abd6d3b811f8ff40e2d782ff0cf4d6c9d7
+tree=f30bdd5003af79b60fe63d1b9b0b2c09232b1af2
+bundle_sha256=c7b91e71cde030c849ab947e227151dc91fddc2fc8055a6f31f1a0abc5cd5f35
+started_utc=2026-09-22T23:55:43Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=1
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/ipc  (pass=139 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/paths  (pass=130 fail=0 skip=18)
+PASS      github.com/qompack/qompack/internal/testutil  (pass=40 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/guards  (pass=159 fail=8 skip=0)
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP08-D3
+    FAIL TestCarriedDefects_WaveReportRequiresResolution/SP20-D4
+    FAIL TestCarriedDefects_WaveReportRequiresResolution
+FAIL      github.com/qompack/qompack/test/security  (pass=22 fail=1 skip=0)
+    FAIL TestSecurity_ArchivedTextIsDataNeverAnInstruction
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/cx-linux/runs/cx-linux-after-rest-949897a-20260922T235535Z-artifacts
+exit=1
+exit=1

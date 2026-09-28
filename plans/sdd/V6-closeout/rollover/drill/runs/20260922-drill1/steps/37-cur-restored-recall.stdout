@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"QOMPACK-DRILL-HISTORY-00-5c1e\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:60ae5b4410052a281194e352c7bb8c4fd1b29a17f6ca17ee783bc3ba43b88175",
+      "tool_use_id": "qompack-mcp:8aa28dccc92e",
+      "untrusted": true
+    }
+  }
+}

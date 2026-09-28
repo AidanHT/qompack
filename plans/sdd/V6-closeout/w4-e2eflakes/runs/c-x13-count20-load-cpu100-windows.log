@@ -1,0 +1,281 @@
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-45188.ndjson client-55288.ndjson]: 2 late-ACK duplicates [toolu_v4x13_02 toolu_v4x13_01], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet975260390\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet975260390\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (11.63s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-19612.ndjson client-38148.ndjson client-52176.ndjson client-56340.ndjson client-60944.ndjson client-61136.ndjson]: 6 late-ACK duplicates [toolu_v4x13_07 toolu_v4x13_03 toolu_v4x13_01 toolu_v4x13_02 toolu_v4x13_04 toolu_v4x13_05], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2752590004\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2752590004\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (42.12s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-13728.ndjson client-16896.ndjson client-3328.ndjson client-47884.ndjson client-50592.ndjson client-50756.ndjson client-54704.ndjson client-58564.ndjson]: 8 late-ACK duplicates [toolu_v4x13_07 toolu_v4x13_05 toolu_v4x13_02 toolu_v4x13_06 toolu_v4x13_04 toolu_v4x13_01 toolu_v4x13_03 toolu_v4x13_00], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-38588.ndjson client-38904.ndjson client-43440.ndjson client-51684.ndjson client-57380.ndjson client-59804.ndjson]: 6 late-ACK duplicates [toolu_v4x13_04 toolu_v4x13_02 toolu_v4x13_01 toolu_v4x13_05 toolu_v4x13_07 toolu_v4x13_03], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1246389679\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1246389679\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (63.14s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-17216.ndjson client-24604.ndjson client-25240.ndjson client-31624.ndjson client-44320.ndjson client-57556.ndjson client-58220.ndjson client-61000.ndjson]: 8 late-ACK duplicates [toolu_v4x13_03 toolu_v4x13_07 toolu_v4x13_06 toolu_v4x13_02 toolu_v4x13_04 toolu_v4x13_01 toolu_v4x13_00 toolu_v4x13_05], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-12228.ndjson client-25992.ndjson client-26376.ndjson client-44624.ndjson client-52816.ndjson client-59276.ndjson client-9588.ndjson]: 7 late-ACK duplicates [toolu_v4x13_02 toolu_v4x13_06 toolu_v4x13_01 toolu_v4x13_07 toolu_v4x13_05 toolu_v4x13_04 toolu_v4x13_03], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:779: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:779
+        	Error:      	Not equal: 
+        	            	expected: []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-generations/manifest.jsonl", "state/delivery-journal.json", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	actual  : []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-([]string) (len=12) {
+        	            	+([]string) (len=10) {
+        	            	  (string) (len=24) "index/observations.jsonl",
+        	            	@@ -8,4 +8,2 @@
+        	            	  (string) (len=25) "state/delivery-acks.jsonl",
+        	            	- (string) (len=41) "state/delivery-generations/manifest.jsonl",
+        	            	- (string) (len=27) "state/delivery-journal.json",
+        	            	  (string) (len=27) "state/delivery-leases.jsonl",
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	a hook burst must make the daemon touch the same files whether or not the checkpoint writer, the frontier advancer, the pin store, the ledger and the cadence task are resident. A difference here is wave-3 work that migrated ONTO the hot path.
+        	            	with wave 3: [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+        	            	without:    [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal.json state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (48.49s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-17168.ndjson client-29808.ndjson client-33560.ndjson client-50564.ndjson client-51820.ndjson client-59904.ndjson client-60224.ndjson client-60436.ndjson]: 8 late-ACK duplicates [toolu_v4x13_05 toolu_v4x13_07 toolu_v4x13_01 toolu_v4x13_03 toolu_v4x13_06 toolu_v4x13_02 toolu_v4x13_00 toolu_v4x13_04], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-18092.ndjson client-30348.ndjson client-37008.ndjson client-52736.ndjson client-58648.ndjson client-59600.ndjson]: 6 late-ACK duplicates [toolu_v4x13_04 toolu_v4x13_05 toolu_v4x13_07 toolu_v4x13_06 toolu_v4x13_01 toolu_v4x13_00], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:779: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:779
+        	Error:      	Not equal: 
+        	            	expected: []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-generations/manifest.jsonl", "state/delivery-journal.json", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	actual  : []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "logs/LOUD.log", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl", "tmp/<staging>"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -4,2 +4,3 @@
+        	            	  (string) (len=20) "index/tool_use.jsonl",
+        	            	+ (string) (len=13) "logs/LOUD.log",
+        	            	  (string) (len=24) "objects/<shard>/<object>",
+        	            	@@ -8,7 +9,6 @@
+        	            	  (string) (len=25) "state/delivery-acks.jsonl",
+        	            	- (string) (len=41) "state/delivery-generations/manifest.jsonl",
+        	            	- (string) (len=27) "state/delivery-journal.json",
+        	            	  (string) (len=27) "state/delivery-leases.jsonl",
+        	            	  (string) (len=16) "state/drain.json",
+        	            	- (string) (len=27) "state/retention-roots.jsonl"
+        	            	+ (string) (len=27) "state/retention-roots.jsonl",
+        	            	+ (string) (len=13) "tmp/<staging>"
+        	            	 }
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	a hook burst must make the daemon touch the same files whether or not the checkpoint writer, the frontier advancer, the pin store, the ledger and the cadence task are resident. A difference here is wave-3 work that migrated ONTO the hot path.
+        	            	with wave 3: [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl logs/LOUD.log objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl tmp/<staging>]
+        	            	without:    [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<wal> state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal.json state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (80.20s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-41436.ndjson client-47616.ndjson client-52108.ndjson client-55156.ndjson client-56512.ndjson client-57768.ndjson client-58660.ndjson client-58860.ndjson]: 8 late-ACK duplicates [toolu_v4x13_01 toolu_v4x13_00 toolu_v4x13_06 toolu_v4x13_05 toolu_v4x13_04 toolu_v4x13_02 toolu_v4x13_03 toolu_v4x13_07], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-41520.ndjson client-42056.ndjson client-45800.ndjson client-47012.ndjson client-48656.ndjson client-49512.ndjson client-54148.ndjson client-59324.ndjson]: 8 late-ACK duplicates [toolu_v4x13_02 toolu_v4x13_06 toolu_v4x13_05 toolu_v4x13_03 toolu_v4x13_00 toolu_v4x13_07 toolu_v4x13_01 toolu_v4x13_04], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1772308823\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[observe.prompt sess-e2e-v4-x13-ref:1]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1772308823\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (113.84s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2192738993\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet2192738993\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (8.85s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet4214785621\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet4214785621\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (8.51s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3500486512\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3500486512\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (8.38s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3089190566\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3089190566\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (9.11s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet627593243\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet627593243\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.52s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-6936.ndjson]: 1 late-ACK duplicates [toolu_v4x13_07], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet456912968\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet456912968\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.22s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1863122592\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet1863122592\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.70s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet486699182\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet486699182\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (10.55s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read []: 0 late-ACK duplicates [], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-30768.ndjson client-48616.ndjson client-50260.ndjson client-52928.ndjson client-54468.ndjson client-58312.ndjson client-9516.ndjson]: 7 late-ACK duplicates [toolu_v4x13_07 toolu_v4x13_01 toolu_v4x13_04 toolu_v4x13_02 toolu_v4x13_05 toolu_v4x13_03 toolu_v4x13_06], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:788: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3880613926\002\project: 8 from the burst (observe.tool, sess-e2e-v4-x13-ref); setup deliveries that landed late: map[]
+    v4_x13_test.go:790: new capture sidecars in C:\Users\Quant\AppData\Local\Temp\TestV4_HotPathUnchangedWithTheFullWave3ResidentSet3880613926\001\project: 8 from the burst (observe.tool, sess-e2e-v4-x13); setup deliveries that landed late: map[]
+--- PASS: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (42.99s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-35012.ndjson client-4524.ndjson client-52200.ndjson client-54988.ndjson client-59284.ndjson client-60500.ndjson client-7852.ndjson]: 7 late-ACK duplicates [toolu_v4x13_05 toolu_v4x13_01 toolu_v4x13_04 toolu_v4x13_06 toolu_v4x13_03 toolu_v4x13_02 toolu_v4x13_07], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-10164.ndjson client-35024.ndjson client-39968.ndjson client-44812.ndjson client-52852.ndjson client-54660.ndjson client-60540.ndjson]: 7 late-ACK duplicates [toolu_v4x13_04 toolu_v4x13_02 toolu_v4x13_06 toolu_v4x13_01 toolu_v4x13_03 toolu_v4x13_07 toolu_v4x13_05], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:779: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:779
+        	Error:      	Not equal: 
+        	            	expected: []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "logs/LOUD.log", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-ack-position.json", "state/delivery-acks.jsonl", "state/delivery-generations/manifest.jsonl", "state/delivery-journal-log.jsonl", "state/delivery-journal.json", "state/delivery-lease-position.json", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	actual  : []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-([]string) (len=16) {
+        	            	+([]string) (len=10) {
+        	            	  (string) (len=24) "index/observations.jsonl",
+        	            	@@ -4,3 +4,2 @@
+        	            	  (string) (len=20) "index/tool_use.jsonl",
+        	            	- (string) (len=13) "logs/LOUD.log",
+        	            	  (string) (len=24) "objects/<shard>/<object>",
+        	            	@@ -8,8 +7,3 @@
+        	            	  (string) (len=11) "spool/<wal>",
+        	            	- (string) (len=32) "state/delivery-ack-position.json",
+        	            	  (string) (len=25) "state/delivery-acks.jsonl",
+        	            	- (string) (len=41) "state/delivery-generations/manifest.jsonl",
+        	            	- (string) (len=32) "state/delivery-journal-log.jsonl",
+        	            	- (string) (len=27) "state/delivery-journal.json",
+        	            	- (string) (len=34) "state/delivery-lease-position.json",
+        	            	  (string) (len=27) "state/delivery-leases.jsonl",
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	a hook burst must make the daemon touch the same files whether or not the checkpoint writer, the frontier advancer, the pin store, the ledger and the cadence task are resident. A difference here is wave-3 work that migrated ONTO the hot path.
+        	            	with wave 3: [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+        	            	without:    [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl logs/LOUD.log objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-ack-position.json state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal-log.jsonl state/delivery-journal.json state/delivery-lease-position.json state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (65.52s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-13296.ndjson client-2700.ndjson client-32428.ndjson client-59708.ndjson client-60876.ndjson]: 5 late-ACK duplicates [toolu_v4x13_03 toolu_v4x13_05 toolu_v4x13_06 toolu_v4x13_07 toolu_v4x13_04], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-34024.ndjson client-51476.ndjson client-53588.ndjson client-55048.ndjson client-56936.ndjson client-59188.ndjson client-59460.ndjson client-5952.ndjson]: 8 late-ACK duplicates [toolu_v4x13_00 toolu_v4x13_07 toolu_v4x13_01 toolu_v4x13_04 toolu_v4x13_03 toolu_v4x13_05 toolu_v4x13_02 toolu_v4x13_06], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:779: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:779
+        	Error:      	Not equal: 
+        	            	expected: []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-ack-position.json", "state/delivery-acks.jsonl", "state/delivery-generations/manifest.jsonl", "state/delivery-journal-log.jsonl", "state/delivery-journal.json", "state/delivery-lease-position.json", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	actual  : []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-([]string) (len=15) {
+        	            	+([]string) (len=10) {
+        	            	  (string) (len=24) "index/observations.jsonl",
+        	            	@@ -7,8 +7,3 @@
+        	            	  (string) (len=11) "spool/<wal>",
+        	            	- (string) (len=32) "state/delivery-ack-position.json",
+        	            	  (string) (len=25) "state/delivery-acks.jsonl",
+        	            	- (string) (len=41) "state/delivery-generations/manifest.jsonl",
+        	            	- (string) (len=32) "state/delivery-journal-log.jsonl",
+        	            	- (string) (len=27) "state/delivery-journal.json",
+        	            	- (string) (len=34) "state/delivery-lease-position.json",
+        	            	  (string) (len=27) "state/delivery-leases.jsonl",
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	a hook burst must make the daemon touch the same files whether or not the checkpoint writer, the frontier advancer, the pin store, the ledger and the cadence task are resident. A difference here is wave-3 work that migrated ONTO the hot path.
+        	            	with wave 3: [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+        	            	without:    [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-ack-position.json state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal-log.jsonl state/delivery-journal.json state/delivery-lease-position.json state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (79.45s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-15724.ndjson client-37940.ndjson client-49544.ndjson client-53372.ndjson client-53736.ndjson client-60368.ndjson client-7856.ndjson]: 7 late-ACK duplicates [toolu_v4x13_03 toolu_v4x13_04 toolu_v4x13_01 toolu_v4x13_02 toolu_v4x13_07 toolu_v4x13_06 toolu_v4x13_05], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-34000.ndjson client-34928.ndjson client-37736.ndjson client-39816.ndjson client-47532.ndjson client-51580.ndjson client-52872.ndjson]: 7 late-ACK duplicates [toolu_v4x13_02 toolu_v4x13_03 toolu_v4x13_06 toolu_v4x13_04 toolu_v4x13_05 toolu_v4x13_07 toolu_v4x13_01], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:779: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:779
+        	Error:      	Not equal: 
+        	            	expected: []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-generations/manifest.jsonl", "state/delivery-journal.json", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	actual  : []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-([]string) (len=12) {
+        	            	+([]string) (len=10) {
+        	            	  (string) (len=24) "index/observations.jsonl",
+        	            	@@ -8,4 +8,2 @@
+        	            	  (string) (len=25) "state/delivery-acks.jsonl",
+        	            	- (string) (len=41) "state/delivery-generations/manifest.jsonl",
+        	            	- (string) (len=27) "state/delivery-journal.json",
+        	            	  (string) (len=27) "state/delivery-leases.jsonl",
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	a hook burst must make the daemon touch the same files whether or not the checkpoint writer, the frontier advancer, the pin store, the ledger and the cadence task are resident. A difference here is wave-3 work that migrated ONTO the hot path.
+        	            	with wave 3: [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+        	            	without:    [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal.json state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (70.15s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-20228.ndjson client-25536.ndjson client-47212.ndjson client-56316.ndjson client-56420.ndjson client-60512.ndjson]: 6 late-ACK duplicates [toolu_v4x13_04 toolu_v4x13_06 toolu_v4x13_05 toolu_v4x13_01 toolu_v4x13_03 toolu_v4x13_07], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-27144.ndjson client-48564.ndjson client-5008.ndjson client-58276.ndjson]: 4 late-ACK duplicates [toolu_v4x13_07 toolu_v4x13_06 toolu_v4x13_05 toolu_v4x13_04], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:779: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:779
+        	Error:      	Not equal: 
+        	            	expected: []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-generations/manifest.jsonl", "state/delivery-journal.json", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	actual  : []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-([]string) (len=12) {
+        	            	+([]string) (len=10) {
+        	            	  (string) (len=24) "index/observations.jsonl",
+        	            	@@ -8,4 +8,2 @@
+        	            	  (string) (len=25) "state/delivery-acks.jsonl",
+        	            	- (string) (len=41) "state/delivery-generations/manifest.jsonl",
+        	            	- (string) (len=27) "state/delivery-journal.json",
+        	            	  (string) (len=27) "state/delivery-leases.jsonl",
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	a hook burst must make the daemon touch the same files whether or not the checkpoint writer, the frontier advancer, the pin store, the ledger and the cadence task are resident. A difference here is wave-3 work that migrated ONTO the hot path.
+        	            	with wave 3: [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+        	            	without:    [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal.json state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (48.17s)
+=== RUN   TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+    v4_x13_test.go:752: arm sess-e2e-v4-x13: client fallback files read [client-14580.ndjson client-25000.ndjson client-28576.ndjson client-41424.ndjson client-43584.ndjson client-51612.ndjson client-6292.ndjson client-7936.ndjson]: 8 late-ACK duplicates [toolu_v4x13_03 toolu_v4x13_05 toolu_v4x13_04 toolu_v4x13_01 toolu_v4x13_07 toolu_v4x13_06 toolu_v4x13_00 toolu_v4x13_02], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:773: arm sess-e2e-v4-x13-ref: client fallback files read [client-25188.ndjson client-4388.ndjson client-54068.ndjson client-57832.ndjson client-58744.ndjson]: 5 late-ACK duplicates [toolu_v4x13_06 toolu_v4x13_07 toolu_v4x13_04 toolu_v4x13_02 toolu_v4x13_00], 0 never reached the daemon live []; the daemon received 9 hot-path requests live and holds 9 hot-path WAL lines
+    v4_x13_test.go:779: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/v4_x13_test.go:779
+        	Error:      	Not equal: 
+        	            	expected: []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-generations/manifest.jsonl", "state/delivery-journal.json", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	actual  : []string{"index/observations.jsonl", "index/roots.jsonl", "index/tool_use.jsonl", "objects/<shard>/<object>", "records/captures/<shard>/<observation>.json", "spool/<wal>", "state/delivery-acks.jsonl", "state/delivery-leases.jsonl", "state/drain.json", "state/retention-roots.jsonl"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-([]string) (len=12) {
+        	            	+([]string) (len=10) {
+        	            	  (string) (len=24) "index/observations.jsonl",
+        	            	@@ -8,4 +8,2 @@
+        	            	  (string) (len=25) "state/delivery-acks.jsonl",
+        	            	- (string) (len=41) "state/delivery-generations/manifest.jsonl",
+        	            	- (string) (len=27) "state/delivery-journal.json",
+        	            	  (string) (len=27) "state/delivery-leases.jsonl",
+        	Test:       	TestV4_HotPathUnchangedWithTheFullWave3ResidentSet
+        	Messages:   	a hook burst must make the daemon touch the same files whether or not the checkpoint writer, the frontier advancer, the pin store, the ledger and the cadence task are resident. A difference here is wave-3 work that migrated ONTO the hot path.
+        	            	with wave 3: [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+        	            	without:    [index/observations.jsonl index/roots.jsonl index/tool_use.jsonl objects/<shard>/<object> records/captures/<shard>/<observation>.json spool/<client> spool/<wal> state/delivery-acks.jsonl state/delivery-generations/manifest.jsonl state/delivery-journal.json state/delivery-leases.jsonl state/drain.json state/retention-roots.jsonl]
+--- FAIL: TestV4_HotPathUnchangedWithTheFullWave3ResidentSet (63.79s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	806.643s
+FAIL
+exit=1

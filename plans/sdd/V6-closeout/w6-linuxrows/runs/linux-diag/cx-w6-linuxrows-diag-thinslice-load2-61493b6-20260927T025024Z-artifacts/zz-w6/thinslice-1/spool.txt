@@ -1,0 +1,1 @@
+client-23377.ndjson(5742B,99L) client-28667.ndjson(1172B,1L) wal-sess-e2e-thinslice.ndjson(41824B,36L) drain.json={"client-23377.ndjson":{"size":3132,"offset":3132,"done":true,"durable_size":true},"client-28667.ndjson":{"size":1172,"offset":0,"done":false,"durable_size":true},"wal-sess-e2e-thinslice.ndjson":{"size":41824,"offset":40964,"done":false,"durable_size":true}}

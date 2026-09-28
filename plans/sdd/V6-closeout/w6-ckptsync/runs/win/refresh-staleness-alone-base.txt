@@ -1,0 +1,14 @@
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: 4.72281ms CPU/op over 354 iterations (best of 1) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 3.379877ms wall/op over 354 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (2.05s)
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: 7.110252ms CPU/op over 356 iterations (best of 1) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 9.098688ms wall/op over 356 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (4.22s)
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:744: BenchmarkRefreshStaleness: 7.155373ms CPU/op over 214 iterations (best of 1) against a 10ms budget
+    bench_test.go:744: BenchmarkRefreshStaleness: 9.644205ms wall/op over 214 iterations (best of 1) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (3.39s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	9.994s

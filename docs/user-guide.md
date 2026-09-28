@@ -16,7 +16,7 @@ in [docs/install.md](install.md), and its security and recovery posture in
 hooks, writes a checkpoint at `PreCompact`, and — after the compaction — injects one bounded,
 checkpoint-derived block through `SessionStart` with `source=compact`
 ([docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration)). Everything else it
-offers is on demand: seven slash commands and eight MCP tools that read what was recorded.
+offers is on demand: six slash commands and eight MCP tools that read what was recorded.
 
 Three things it does not do, each recorded where
 [docs/architecture.md §10](architecture.md#10-what-is-not-supported) names it:
@@ -36,24 +36,33 @@ The full list is [docs/cannot-do.md](cannot-do.md).
 `.qompack/` in the project directory it resolves and starts that project's daemon. It is a write.
 See [Operator commands](#operator-commands) for exactly which commands do this.
 
+**Open a project, not your home directory.** Qompack works per project: the project root is the
+nearest enclosing `.git`, or else the working directory. When that root is your home
+directory — a session started there, or started below a home that is itself a git repository (a
+dotfiles repository) in a directory with no `.git` of its own — Qompack is inactive for the whole
+session (owner decision D18): its store would be `~/.qompack`, which holds Qompack's own user-wide
+settings. The session opens with one line saying so, the slash commands and MCP tools answer that
+Qompack is inactive, and nothing is written anywhere. Start the session in the project directory
+instead ([docs/troubleshooting.md](troubleshooting.md#qompack-is-inactive-in-the-home-directory)).
+
 ## Slash commands
 
-Qompack installs seven slash commands. Each shells out to the `qompack` binary, so
+Qompack installs six slash commands. Each shells out to the `qompack` binary, so
 `/qompack:status` and `qompack status` are the same code. The inventory, every flag and the exact
 help text are in [docs/commands.md](commands.md); this section says what each one is *for* and what
 it can report.
 
-Two things are true of all seven, per that page's preamble:
+Two things are true of all six, per that page's preamble:
 
 - `--json` emits a versioned envelope instead of text; `--help` prints the usage block.
-- Exit codes are `0` success, `2` a malformed invocation, `1` anything else — except a hook entry
-  point, which is the only kind of subcommand that always exits `0` (`internal/cli/dispatch.go`).
+- Exit codes are `0` success, `2` a malformed invocation, `1` anything else. None of the six is a
+  hook entry point; those are the only subcommands that always exit `0` (`internal/cli/dispatch.go`).
 
-A third rule holds where a frontend's source of answers is left unbound rather than everywhere: it
-reports that it is unavailable and exits `1` instead of inventing one. In this build that is
-`/qompack:eval`, whose artifact seam is nil. It is not how `/qompack:checkpoint` behaves — see
-below — because that name resolves to a hook, not to a frontend (`internal/commands`,
-`internal/cli/qompack_commands.go`).
+A third rule holds where a frontend finds nothing to answer from: it reports that it is unavailable
+and exits `1` instead of inventing an answer. `/qompack:eval` in a project with no evaluation
+artifacts is the everyday case.
+
+There is no checkpoint command — see [Checkpoints are automatic](#checkpoints-are-automatic) below.
 
 ### `/qompack:status`
 
@@ -93,32 +102,28 @@ Pins are read directly from the append-only pin store, so `--list` answers even 
 not running (`internal/cli/qompack_commands.go`). Exit `2` if the flags do not form a valid
 invocation, `1` if the pin could not be written, `0` otherwise.
 
-### `/qompack:checkpoint`
+### Checkpoints are automatic
 
-Installed, and **not yet routed** in this build. The command file ships and the host offers it —
-`plugin/commands/checkpoint.md` runs `qompack checkpoint` — but that name is already the
-`PreCompact` hook entry point (`internal/cli/hooks.go`, registered `Hook: true`), and no separate
-local-seal route exists yet. `docs/commands.md` marks the subcommand column **not yet routed** for
-exactly this reason, and `internal/cli/qompack_commands.go` declines to give the name a second
-meaning: doing so needs the arch pre-step recorded as SP-14 handoff edge H3
-(`plans/V5-report.md` §29 item 3).
+There is no `/qompack:checkpoint` command, and a manual checkpoint is not offered yet. Qompack
+writes a checkpoint automatically at `PreCompact`, just before every compaction, and on its own
+cadence during a session once enough new work has accumulated
+([docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration)). The block injected
+after a compaction is built from the session's latest checkpoint, which is normally the one that
+compaction sealed, so a checkpoint taken by hand earlier would be superseded before anything read
+it.
 
-So invoking it does not write a checkpoint on demand; it runs the hook. A hook reads a hook event
-from stdin and **always exits `0`**, whatever happens inside it — `internal/cli/hooks.go` and the
-exit-code policy in `internal/cli/dispatch.go` ("the ONLY code a hook subcommand may ever return"),
-pinned by `internal/cli/qompack_commands_test.go`. Checkpoints are written at `PreCompact`, by the
-hook, from the event the host supplies.
+Earlier builds shipped a `/qompack:checkpoint` command file that ran `qompack checkpoint`. That name
+is the `PreCompact` hook entry point (`internal/cli/hooks.go`, registered `Hook: true`): it reads a
+hook event from stdin and **always exits `0`**, so the command wrote no checkpoint and reported
+nothing. It is no longer installed, and [docs/cannot-do.md](cannot-do.md#no-manual-checkpoint-command)
+records the limit.
 
-**Typing it by hand is still a write.** Observed on this tree, running the built binary with empty
-stdin in a fresh directory outside the repository: it printed `{}` and exited `0` — and it created
-the full `.qompack/` layout there and started that project's daemon. No checkpoint was written
-(`.qompack/checkpoints` was empty), but the empty payload was classified and recorded as a capture,
-and the run's own state was persisted. So an interactive invocation is a write in that directory,
-not a no-op; it is simply not a way to take a checkpoint.
-
-A frontend for a checkpoint-now command does exist (`internal/commands/cmd_checkpoint.go`, which
-reports unavailable when its dependency is nil), but nothing routes to it in this build, so that is
-not the behaviour you get from typing the command.
+**Typing `qompack checkpoint` by hand is still a write.** Observed on this tree, running the built
+binary with empty stdin in a fresh directory outside the repository: it printed `{}` and exited `0`
+— and it created the full `.qompack/` layout there and started that project's daemon. No checkpoint
+was written (`.qompack/checkpoints` was empty), but the empty payload was classified and recorded as
+a capture, and the run's own state was persisted. It is a hook entry point, not a way to take a
+checkpoint.
 
 ### `/qompack:why`
 
@@ -146,24 +151,75 @@ everything even when the injected payload showed a counted line. Exit `2` on an 
 
 ### `/qompack:eval`
 
-Runs the replay harness and reports the score against the baseline: `[--corpus <dir>]`
+Reports the latest replay and live evaluation results: `[--corpus <path>]`
 ([schema](commands.md#qompackeval)).
 
-The **baseline** is a named policy in the evaluation artifact — `eval.Report.Baseline`, "the Policy
-every Regression is measured against" (`internal/eval/types.go`). The command reports the primary
-policy's score beside it; it does not itself re-run the corpus, because running the harness is
-`test/replay`'s job and a second driver would bring its own corpus selection
-(`internal/commands/cmd_eval.go`).
+It reads what the two evaluation producers left on disk and never runs either of them
+(`internal/commands/evalartifacts.go`):
+
+- the newest finished real-host run `devtool live-eval` wrote under `dist/live-eval/<run-id>/` —
+  its `plan.json` and `summary.json`, the newest by the plan's creation time; a newer run that has
+  a plan and no summary yet (still running, or stopped before writing one) is named in a note. Only
+  the newest run's summary is read, so an older run's unreadable summary does not stop the report,
+  while the newest run's own must be readable (`live-eval` writes both files whole, by a rename);
+- the deterministic replay report the replay driver writes to `testdata/bench-replay.json`.
+
+Both paths are relative to the project root and are build outputs of a Qompack source checkout.
+`--corpus <path>` reads one artifact from anywhere instead: a single run directory, a directory of
+runs, or a replay report file. With nothing to read the command says where it looked, reports
+unavailable and exits `1`; an artifact that is there but unreadable is an error, never an empty
+result.
+
+The **baseline** is a named policy in the replay artifact — `eval.Report.Baseline`, "the Policy
+every Regression is measured against" (`internal/eval/types.go`). The command's replay gates are
+Qompack's own policies' — every scored policy whose name begins `qompack`, each judged:
+`qompack-rehydrate`, the driver's default, leads with the plain gate IDs (`TASK-01`, `REC-02`, …),
+and each further one (`qompack-l3`, when `--policies` asks for it) carries its name after `@`
+(`TASK-01@qompack-l3`), so no Qompack policy the report scored can fail unseen. The other policies
+a replay scores are references that bound the metric — `stock` is the baseline, `null` keeps
+nothing, `oracle` is the Belady ceiling — and are named in a note, never judged; a report that scored no
+Qompack policy is inconclusive. The command does not itself re-run the corpus, because running the
+harness is `test/replay`'s job and a second driver would bring its own corpus selection
+(`internal/commands/cmd_eval.go`). A replay is deterministic and model-free: it estimates what a
+keep-set is worth, not what a model did.
+
+A **live run** is reported with its qualification before any of its numbers: who executed it (the
+run's own statement — agent-executed on the real installed host, never human UAT), the model and the
+pre-registered model, the Claude Code version, the plugin bundle, the task set and fixture-tree
+hashes, and the sample size. Each arm's task success, constraint-clean and recovery proportions carry
+their confidence intervals, and cost is a list-price-equivalent **estimate** beside the host's own
+figure. Its gates are `LIVE-T01` (task success, qompack − stock, under the pre-registered
+non-inferiority rule), `LIVE-T02` (constraint-clean trials, failed only as a regression) and
+`LIVE-R01` (recovery, reported and never judged). They are judged **only for a confirmatory run** —
+a pre-registered task set whose file and fixture tree hash to the values its pre-registration froze
+(`eval.LivePreregistrations`), the plugin loaded by `--plugin-dir`, both arms with no other plugin
+loaded on either, the pre-registered model (or the pre-registration's one contingency alias with the
+single model the hosts resolved it to recorded), every task including the held-out ones, every
+planned trial, a bundle built from a clean tree, and a plan that attests the bundle carries no known
+open defect (`devtool live-eval --known-open-defects none`, the pre-registration's section 9). That
+attestation is the operator's word — a bundle cannot prove which defects it fixes — and the report
+says so beside every run that carries one, so `confirmatory: yes` is never printed unqualified. Any
+other run prints why it is not confirmatory and its gates read `not judged`
+(`internal/commands/cmd_eval_live.go`). Most of these conditions are fixed when a run is planned, so
+`devtool live-eval` prints that half (`eval.LivePlanDepartures`) and the bundle it would load before
+any session starts, and with `--confirmatory` it refuses to plan a run that departs from them.
+
+A pre-registered task set that its pre-registration superseded before use is never confirmatory:
+`qompack-live-v1` gave way to `qompack-live-v2` (`testdata/eval/live/tasks-v2.json`, amendment A7)
+before any trial of either, because two of its tasks could be passed by doing nothing and one
+constraint check failed trials that never touched what it guards, and `devtool live-eval` refuses to
+plan a run of it.
 
 What it can report: a verdict of `pass`, `fail`, or `inconclusive` — a distinct outcome for a run
-whose trials were skipped, "because a gate that passes on an evaluation which did not run is not a
-gate". A metric with no declared threshold is printed and explicitly **not judged**, and cost never
-contributes to the verdict.
-
-In this build the artifact seam is left unbound on purpose — "no committed convention for where a
-completed evaluation's artifacts live" (`internal/cli/qompack_commands.go`) — so the command
-reports that no evaluation artifacts are readable and exits `1`. `plans/V5-report.md` §29 item 3
-records `Deps.EvalArtifacts` as open by design.
+whose trials were skipped, or a replay whose trials failed, "because a gate that passes on an
+evaluation which did not run is not a gate". A live run's failed trials do not by themselves make it
+inconclusive: its pre-registered decision already counts every one of them (intention to treat — a
+harness failure is scored as a failure on every outcome), so the verdict is that decision, and the
+report lists each failed trial by name with how it was counted. When a confirmatory run's rule
+reaches no verdict — inconclusive, or not-applicable because a trial's plugin state contradicted its
+arm — the verdict is `inconclusive` even when a passing replay is read beside it, as plain
+`qompack eval` does; a constraint regression still fails the run. A metric with no declared
+threshold is printed and explicitly **not judged**, and cost never contributes to the verdict.
 
 ## MCP tools
 
@@ -344,9 +400,12 @@ its own authority after admission, and a superseded or corrected record stays re
 in both directions and a retained history
 ([docs/architecture.md §5](architecture.md#5-state-authority-and-uncertainty)). Repeated
 compaction, resume or fork does not promote an obsolete intent into a current one — the original
-user intent is resolved by derived id from the verbatim first prompt, never by relevance search,
-and where the capture layer and the checkpoint disagree the capture layer wins and the
-disagreement is logged loudly ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §10).
+user intent is resolved by derived id from the verbatim first captured prompt, never by relevance
+search, and where the capture layer and the checkpoint disagree the capture layer wins and the
+disagreement is logged loudly ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §10). The
+first captured prompt is the host's first except in a spool race and under hook pid reuse, and a
+rehydration names either case when it happens
+([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
 
 **The recorded partial.** `plans/V5-report.md` §24 records the uncertainty gate as **partial**: it
 "does not survive the digest surface under a blind ledger". Concretely (§29 item 11), a stale
@@ -358,6 +417,13 @@ in a digest as a claim that has not been verified end to end.
 
 After a compaction, Qompack injects one block. Its size is capped and its order is fixed, per
 [ADR 0011](adr/0011-rehydration-budget-and-item-order.md):
+
+- **It always fits what Claude Code delivers whole.** Claude Code hands a hook's
+  `additionalContext` to Claude only up to 10,000 characters; past that, Claude gets a file path and
+  a 2,000-character preview instead. So the whole block — every heading, handle and the report on
+  what was left out — is held to 9,500 characters, and no setting raises that. On a long session
+  that is less than everything Qompack could restore, which is what section 7 and the retrieval
+  tools are for.
 
 - **The budget is a hard cap that is never raised.** A caller's budget may be lowered or filled in,
   never raised — not even to the configured minimum. Ask for 600 tokens and you get at most 600.
@@ -371,14 +437,20 @@ After a compaction, Qompack injects one block. Its size is capped and its order 
 - **A path rule is restored whole or not at all.** A half-restored instruction is worse than an
   absent one, because you cannot tell you are reading half of it; an absent one at least appears in
   the drop report.
-- **Overflow is explicit, never silent.** What did not fit is named in the drop report, the payload
-  is marked degraded, and the complete report is persisted even when the rendered section was
-  truncated to a counted line — which is what `/qompack:dropped` reads.
+- **Overflow is explicit, never silent.** What did not fit is named in section 7 ("No longer in
+  context") with the call that brings it back — `why(<decision id>)`, `re_read(<path>)`,
+  `expand(tool_use_id=…)`, `already_tried(target="…", approach="…")` for an elimination, or `Read`
+  on the rule file, the skill's `SKILL.md` or the checkpoint file — and, when the section
+  cannot list everything, it ends in `… and N more; call dropped()`. The complete report is
+  persisted regardless, which is what `/qompack:dropped` reads. An essential record that could not
+  be carried whole marks the payload degraded.
 
-The shipped defaults that implement the target are in
-[docs/config-reference.md](config-reference.md#checkpoint) and its `runtime` section:
-`checkpoint.budgetTokens` for the checkpoint artifact, `runtime.rehydrate.minTokens` and
-`runtime.rehydrate.maxTokens` for the injected payload.
+The shipped defaults are in [docs/config-reference.md](config-reference.md#checkpoint) and its
+`runtime` section: `checkpoint.budgetTokens` for the checkpoint artifact, `runtime.rehydrate.minTokens`
+and `runtime.rehydrate.maxTokens` for the injected payload. The 9,500-character ceiling binds before
+the default token budget does (it is roughly 2,400 tokens of prose), so raising `maxTokens` does not
+make the block larger; lowering it below that can make it smaller
+([docs/cannot-do.md](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole)).
 
 The rehydration budget is a target for Qompack-added material, not the total restored native context.
 What the host restores on its own is the host's business; Qompack neither measures nor controls it,
@@ -396,6 +468,8 @@ These are run from a terminal rather than from a session. `qompack help` prints 
 rest of the layout) in the project directory it resolves, and starts that project's daemon. Running
 it in a directory that has never been used with Qompack is therefore a write, in that directory —
 verified by running the built binary in an empty scratch directory outside this repository.
+`qompack self-test` does the same: when no daemon answers, its `daemon.reachable` check starts one
+(`internal/cli/selftest.go`, `selfTestDaemonReachable`).
 `qompack config print` and `qompack version` did not create `.qompack/` or start a daemon in the
 same probe. The hook entry points (`checkpoint`, `flush`, `observe prompt|stop|tool`,
 `session-start`) are invoked by Claude Code and always exit 0 — but exiting 0 is not the same as
@@ -411,9 +485,9 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 | `config schema` | the configuration JSON Schema — the machine-readable counterpart to [docs/config-reference.md](config-reference.md) |
 | `self-test` | reports host-contract and subsystem checks as a table (or `{checks,mode,exit}` under `--json`); exits 1 for a critical failed check |
 | `doctor [--project <root>] [--json]` | version, scope, per-capability evidence, disabled controls and gaps; read-only |
-| `fsck [--project <root>] [--json] [--repair] [--yes]` | store, index, checkpoint and backup integrity; read-only unless `--repair --yes`, which performs five explicit additive repairs and deletes nothing |
+| `fsck [--project <root>] [--json] [--seal-check] [--repair] [--yes]` | store, index, checkpoint and backup integrity; read-only unless `--repair --yes`, which performs five explicit additive repairs and deletes nothing, or `--seal-check`, which also runs the full delivery-seal check and so takes the daemon lock |
 | `version` | the plugin version |
-| `admin delivery-seal [--project <root>] (--check \| --to v1)` | checks or converts the delivery journals' position seals. **The daemon must be stopped** |
+| `admin delivery-seal [--project <root>] (--check \| --to v1) [--accept-torn-slot --yes]` | checks or converts the delivery journals' position seals; `--accept-torn-slot --yes` accepts a seal with one valid and one torn slot when the journal holds a complete tail past it. **The daemon must be stopped** |
 | `backup create --project <root> --id <name> [--json]` | takes a consistent backup with the source daemon stopped |
 | `backup verify --project <root> --id <name> [--json]` | validates the named backup's manifest and bytes |
 | `backup restore --project <root> --id <name> --destination <fresh-project> [--json]` | restores into a fresh destination, proves same-build reads and runs integrity checks; source and later writes remain intact ([procedure](backup.md)) |
@@ -424,7 +498,7 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 
 **`doctor` and `fsck` are read-only diagnostics.** SP-17 implemented both. `qompack doctor` reports
 version, scope, per-capability evidence, disabled controls and gaps; `qompack fsck` verifies store,
-index, checkpoint and backup integrity across seventeen check classes. Both open the store read-only;
+index, checkpoint and backup integrity across eighteen check rows. Both open the store read-only;
 `fsck --repair` needs `--yes` and performs five explicit additive repairs that never delete anything
 ([docs/security.md §7](security.md#7-what-needs-an-operator-and-how-to-find-it),
 [docs/release.md §5](release.md#5-rollback)). `fsck` exits 0 when clean, 1 on a defect, 2 on a

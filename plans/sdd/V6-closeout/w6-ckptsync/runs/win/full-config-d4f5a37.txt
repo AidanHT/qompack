@@ -1,0 +1,625 @@
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_top-level_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_nested_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type_keeps_the_lower_layer
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/section_that_is_not_an_object
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/integer_leaf_beyond_the_platform_int
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/invalid_value_beside_an_unknown_key
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_environment_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_environment_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_environment_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_flag_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_flag
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_flag_value
+=== RUN   TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_flag_value
+--- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing (0.14s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_top-level_key (0.02s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_nested_key (0.02s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type (0.01s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/wrong_leaf_type_keeps_the_lower_layer (0.02s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/section_that_is_not_an_object (0.01s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/integer_leaf_beyond_the_platform_int (0.02s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/invalid_value_beside_an_unknown_key (0.02s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_environment_value (0.00s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_environment_value (0.00s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_environment_value (0.02s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/largest_int64_flag_value (0.00s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unknown_flag (0.00s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/nonfinite_flag_value (0.00s)
+    --- PASS: TestLoadForCapture_PerLeafProblemsFallBackInsteadOfRefusing/unparseable_flag_value (0.00s)
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_top-level_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_nested_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type_keeps_the_lower_layer
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/section_that_is_not_an_object
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/integer_leaf_beyond_the_platform_int
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/invalid_value_beside_an_unknown_key
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_environment_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_flag_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_flag
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_flag_value
+=== RUN   TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_flag_value
+--- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem (0.05s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_top-level_key (0.01s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_nested_key (0.01s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/wrong_leaf_type_keeps_the_lower_layer (0.01s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/section_that_is_not_an_object (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/integer_leaf_beyond_the_platform_int (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/invalid_value_beside_an_unknown_key (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_environment_value (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_environment_value (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_environment_value (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/largest_int64_flag_value (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unknown_flag (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/nonfinite_flag_value (0.00s)
+    --- PASS: TestLoadForCapture_AgreesWithLoadOnEveryPerLeafProblem/unparseable_flag_value (0.00s)
+=== RUN   TestLoadForCapture_AcceptsStrictJSONCAndFiveLayerPrecedence
+--- PASS: TestLoadForCapture_AcceptsStrictJSONCAndFiveLayerPrecedence (0.02s)
+=== RUN   TestLoadForCapture_RequiresAbsoluteRoots
+=== RUN   TestLoadForCapture_RequiresAbsoluteRoots/missing_project
+=== RUN   TestLoadForCapture_RequiresAbsoluteRoots/missing_home
+=== RUN   TestLoadForCapture_RequiresAbsoluteRoots/relative_project
+=== RUN   TestLoadForCapture_RequiresAbsoluteRoots/relative_home
+--- PASS: TestLoadForCapture_RequiresAbsoluteRoots (0.00s)
+    --- PASS: TestLoadForCapture_RequiresAbsoluteRoots/missing_project (0.00s)
+    --- PASS: TestLoadForCapture_RequiresAbsoluteRoots/missing_home (0.00s)
+    --- PASS: TestLoadForCapture_RequiresAbsoluteRoots/relative_project (0.00s)
+    --- PASS: TestLoadForCapture_RequiresAbsoluteRoots/relative_home (0.00s)
+=== RUN   TestLoadForCapture_MissingFilesRemainValid
+--- PASS: TestLoadForCapture_MissingFilesRemainValid (0.00s)
+=== RUN   TestLoadForCapture_RefusesUnsafeConfigFileLeaves
+=== RUN   TestLoadForCapture_RefusesUnsafeConfigFileLeaves/directory_instead_of_regular_file
+=== RUN   TestLoadForCapture_RefusesUnsafeConfigFileLeaves/over_size_limit
+=== RUN   TestLoadForCapture_RefusesUnsafeConfigFileLeaves/symlink_leaf
+    capture_load_test.go:100: platform: creating a test-owned symlink is unavailable: symlink C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_RefusesUnsafeConfigFileLeavessymlink_leaf2282688453\003\target.json C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_RefusesUnsafeConfigFileLeavessymlink_leaf2282688453\001\.qompack\config.json: A required privilege is not held by the client.
+--- PASS: TestLoadForCapture_RefusesUnsafeConfigFileLeaves (0.01s)
+    --- PASS: TestLoadForCapture_RefusesUnsafeConfigFileLeaves/directory_instead_of_regular_file (0.00s)
+    --- PASS: TestLoadForCapture_RefusesUnsafeConfigFileLeaves/over_size_limit (0.00s)
+    --- SKIP: TestLoadForCapture_RefusesUnsafeConfigFileLeaves/symlink_leaf (0.00s)
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/malformed
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/top_level_null
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/top_level_array
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/empty_trailing_comma
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/empty_array_comma
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/same_spelling_duplicate
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/decoded_spelling_duplicate
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/invalid_utf8
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/unpaired_surrogate
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/unfinished_block_comment
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/unfinished_trailing_comment
+=== RUN   TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/nonfinite_number
+--- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC (0.13s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/malformed (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/top_level_null (0.00s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/top_level_array (0.00s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/empty_trailing_comma (0.00s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/empty_array_comma (0.02s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/same_spelling_duplicate (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/decoded_spelling_duplicate (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/invalid_utf8 (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/unpaired_surrogate (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/unfinished_block_comment (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/unfinished_trailing_comment (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAmbiguousOrInvalidJSONC/nonfinite_number (0.01s)
+=== RUN   TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy
+=== RUN   TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/environment
+=== RUN   TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/flag
+=== RUN   TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/flag_key
+=== RUN   TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/aggregate
+=== RUN   TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/rule_count
+=== RUN   TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/file_rule_width
+=== RUN   TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/invalid_UTF8
+--- PASS: TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy (0.07s)
+    --- PASS: TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/environment (0.00s)
+    --- PASS: TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/flag (0.00s)
+    --- PASS: TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/flag_key (0.00s)
+    --- PASS: TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/aggregate (0.00s)
+    --- PASS: TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/rule_count (0.00s)
+    --- PASS: TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/file_rule_width (0.06s)
+    --- PASS: TestLoadForCapture_BoundsEnvironmentFlagsAndPolicy/invalid_UTF8 (0.00s)
+=== RUN   TestLoadForCapture_RefusesAnyPrivacyPolicyProblem
+=== RUN   TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/policy_leaf_of_the_wrong_type
+=== RUN   TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/mistyped_enable_over_a_lower_layer's_disable
+=== RUN   TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/unknown_key_inside_the_policy
+=== RUN   TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/policy_section_that_is_not_an_object
+=== RUN   TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/unparseable_environment_value_for_a_policy_leaf
+=== RUN   TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/unparseable_flag_value_for_a_policy_leaf
+=== RUN   TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/unknown_flag_inside_the_policy
+--- PASS: TestLoadForCapture_RefusesAnyPrivacyPolicyProblem (0.08s)
+    --- PASS: TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/policy_leaf_of_the_wrong_type (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/mistyped_enable_over_a_lower_layer's_disable (0.03s)
+    --- PASS: TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/unknown_key_inside_the_policy (0.02s)
+    --- PASS: TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/policy_section_that_is_not_an_object (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/unparseable_environment_value_for_a_policy_leaf (0.00s)
+    --- PASS: TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/unparseable_flag_value_for_a_policy_leaf (0.00s)
+    --- PASS: TestLoadForCapture_RefusesAnyPrivacyPolicyProblem/unknown_flag_inside_the_policy (0.00s)
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/off_in_the_wrong_case
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type_over_a_lower_layer's_off
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum_over_a_lower_layer's_off
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/object_where_the_switch_belongs
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/environment_value_outside_the_enum
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/flag_value_outside_the_enum
+=== RUN   TestLoadForCapture_RefusesAnyCaptureSwitchProblem/unknown_flag_under_the_switch
+--- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem (0.10s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum (0.02s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/off_in_the_wrong_case (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/wrong_type_over_a_lower_layer's_off (0.03s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/value_outside_the_enum_over_a_lower_layer's_off (0.01s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/object_where_the_switch_belongs (0.02s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/environment_value_outside_the_enum (0.00s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/flag_value_outside_the_enum (0.00s)
+    --- PASS: TestLoadForCapture_RefusesAnyCaptureSwitchProblem/unknown_flag_under_the_switch (0.00s)
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_auto
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_auto
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_full
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_full
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_passive
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_passive
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_off
+=== RUN   TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_off
+--- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue (0.06s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_auto (0.01s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_auto (0.00s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_full (0.01s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_full (0.00s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_passive (0.02s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_passive (0.00s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/file_off (0.00s)
+    --- PASS: TestLoadForCapture_AppliesEveryValidCaptureSwitchValue/environment_off (0.00s)
+=== RUN   TestLoadForCapture_CaptureSwitchAncestorProblemDoesNotRefuse
+--- PASS: TestLoadForCapture_CaptureSwitchAncestorProblemDoesNotRefuse (0.01s)
+=== RUN   TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse
+--- PASS: TestLoadForCapture_PolicyAncestorProblemDoesNotRefuse (0.02s)
+=== RUN   TestLoadForCapture_ReturnsWhatItDidNotApply
+--- PASS: TestLoadForCapture_ReturnsWhatItDidNotApply (0.02s)
+=== RUN   TestLoadForCapture_RefusalNamesItsStructuralClassOnly
+=== RUN   TestLoadForCapture_RefusalNamesItsStructuralClassOnly/relative_root
+=== RUN   TestLoadForCapture_RefusalNamesItsStructuralClassOnly/project_file_not_strict_JSONC
+=== RUN   TestLoadForCapture_RefusalNamesItsStructuralClassOnly/user_file_not_a_regular_leaf
+=== RUN   TestLoadForCapture_RefusalNamesItsStructuralClassOnly/oversize_flag
+--- PASS: TestLoadForCapture_RefusalNamesItsStructuralClassOnly (0.02s)
+    --- PASS: TestLoadForCapture_RefusalNamesItsStructuralClassOnly/relative_root (0.00s)
+    --- PASS: TestLoadForCapture_RefusalNamesItsStructuralClassOnly/project_file_not_strict_JSONC (0.02s)
+    --- PASS: TestLoadForCapture_RefusalNamesItsStructuralClassOnly/user_file_not_a_regular_leaf (0.00s)
+    --- PASS: TestLoadForCapture_RefusalNamesItsStructuralClassOnly/oversize_flag (0.00s)
+=== RUN   TestLoadForCapture_ClampsViolationsInsteadOfRefusing
+=== RUN   TestLoadForCapture_ClampsViolationsInsteadOfRefusing/hardwired-off_switch
+=== RUN   TestLoadForCapture_ClampsViolationsInsteadOfRefusing/payload_bound_above_the_hard_capture_cap
+=== RUN   TestLoadForCapture_ClampsViolationsInsteadOfRefusing/relational_invalidity
+=== RUN   TestLoadForCapture_ClampsViolationsInsteadOfRefusing/future_migration_version
+=== RUN   TestLoadForCapture_ClampsViolationsInsteadOfRefusing/future_phase7_version
+--- PASS: TestLoadForCapture_ClampsViolationsInsteadOfRefusing (0.08s)
+    --- PASS: TestLoadForCapture_ClampsViolationsInsteadOfRefusing/hardwired-off_switch (0.02s)
+    --- PASS: TestLoadForCapture_ClampsViolationsInsteadOfRefusing/payload_bound_above_the_hard_capture_cap (0.02s)
+    --- PASS: TestLoadForCapture_ClampsViolationsInsteadOfRefusing/relational_invalidity (0.02s)
+    --- PASS: TestLoadForCapture_ClampsViolationsInsteadOfRefusing/future_migration_version (0.02s)
+    --- PASS: TestLoadForCapture_ClampsViolationsInsteadOfRefusing/future_phase7_version (0.02s)
+=== RUN   TestLoadAndLoadForCapture_AgreeOnNewerSettingsVersion
+=== RUN   TestLoadAndLoadForCapture_AgreeOnNewerSettingsVersion/migration
+=== RUN   TestLoadAndLoadForCapture_AgreeOnNewerSettingsVersion/phase7
+--- PASS: TestLoadAndLoadForCapture_AgreeOnNewerSettingsVersion (0.01s)
+    --- PASS: TestLoadAndLoadForCapture_AgreeOnNewerSettingsVersion/migration (0.00s)
+    --- PASS: TestLoadAndLoadForCapture_AgreeOnNewerSettingsVersion/phase7 (0.00s)
+=== RUN   TestLoadForCapture_CleanConfigReturnsNoViolations
+--- PASS: TestLoadForCapture_CleanConfigReturnsNoViolations (0.00s)
+=== RUN   TestGet_DottedLookup
+--- PASS: TestGet_DottedLookup (0.00s)
+=== RUN   TestGet_NullableLeaf
+--- PASS: TestGet_NullableLeaf (0.00s)
+=== RUN   TestGet_UnknownPathIsFalseNotPanic
+--- PASS: TestGet_UnknownPathIsFalseNotPanic (0.00s)
+=== RUN   TestDefaults_MatchesAppendixCVerbatim
+--- PASS: TestDefaults_MatchesAppendixCVerbatim (0.00s)
+=== RUN   TestDefaults_RuntimeNamespace
+--- PASS: TestDefaults_RuntimeNamespace (0.00s)
+=== RUN   TestDefaults_AckDeadlineCoversTheIngestBudget
+--- PASS: TestDefaults_AckDeadlineCoversTheIngestBudget (0.00s)
+=== RUN   TestDefaults_SubmodularEnabledDefaultsFalseAndHidden
+--- PASS: TestDefaults_SubmodularEnabledDefaultsFalseAndHidden (0.00s)
+=== RUN   TestStripJSONC
+--- PASS: TestStripJSONC (0.00s)
+=== RUN   TestStripJSONC_NoComments
+--- PASS: TestStripJSONC_NoComments (0.00s)
+=== RUN   TestStripJSONC_CRLF
+--- PASS: TestStripJSONC_CRLF (0.00s)
+=== RUN   TestLoad_EnvAllKinds
+--- PASS: TestLoad_EnvAllKinds (0.00s)
+=== RUN   TestLoad_EnvInvalidValuesForEveryKind
+--- PASS: TestLoad_EnvInvalidValuesForEveryKind (0.00s)
+=== RUN   TestLoad_FlagsAllKinds
+--- PASS: TestLoad_FlagsAllKinds (0.00s)
+=== RUN   TestLoad_FlagsInvalidValuesForEveryKind
+--- PASS: TestLoad_FlagsInvalidValuesForEveryKind (0.00s)
+=== RUN   TestLoad_SectionNotObjectWarns
+--- PASS: TestLoad_SectionNotObjectWarns (0.01s)
+=== RUN   TestLoad_WrongTypeForEveryKindViaFile
+--- PASS: TestLoad_WrongTypeForEveryKindViaFile (0.02s)
+=== RUN   TestLoad_PrecedenceFiveLayers
+--- PASS: TestLoad_PrecedenceFiveLayers (0.01s)
+=== RUN   TestLoad_PrecedenceStopsAtHighestSetLayer
+--- PASS: TestLoad_PrecedenceStopsAtHighestSetLayer (0.01s)
+=== RUN   TestLoad_DeepMergePerLeaf
+--- PASS: TestLoad_DeepMergePerLeaf (0.01s)
+=== RUN   TestLoad_EnvKeyMapping
+--- PASS: TestLoad_EnvKeyMapping (0.00s)
+=== RUN   TestLoad_EnvKeyMappingNestedRuntime
+--- PASS: TestLoad_EnvKeyMappingNestedRuntime (0.00s)
+=== RUN   TestLoad_SchedulerCacheRegimeInvalidFallsBack
+--- PASS: TestLoad_SchedulerCacheRegimeInvalidFallsBack (0.02s)
+=== RUN   TestLoad_NullMeansMeasure
+--- PASS: TestLoad_NullMeansMeasure (0.03s)
+=== RUN   TestLoad_EnvFloatPtrNullLiteral
+--- PASS: TestLoad_EnvFloatPtrNullLiteral (0.02s)
+=== RUN   TestLoad_UnknownKeyWarnsNeverErrors
+--- PASS: TestLoad_UnknownKeyWarnsNeverErrors (0.02s)
+=== RUN   TestLoad_RelationalViolationFallsBackToSectionDefaults
+=== RUN   TestLoad_RelationalViolationFallsBackToSectionDefaults/chunk_target_below_min
+=== RUN   TestLoad_RelationalViolationFallsBackToSectionDefaults/chunk_target_above_max
+=== RUN   TestLoad_RelationalViolationFallsBackToSectionDefaults/rehydrate_max_below_min
+=== RUN   TestLoad_RelationalViolationFallsBackToSectionDefaults/named_key_is_the_bad_one_keeps_its_siblings
+--- PASS: TestLoad_RelationalViolationFallsBackToSectionDefaults (0.06s)
+    --- PASS: TestLoad_RelationalViolationFallsBackToSectionDefaults/chunk_target_below_min (0.00s)
+    --- PASS: TestLoad_RelationalViolationFallsBackToSectionDefaults/chunk_target_above_max (0.02s)
+    --- PASS: TestLoad_RelationalViolationFallsBackToSectionDefaults/rehydrate_max_below_min (0.02s)
+    --- PASS: TestLoad_RelationalViolationFallsBackToSectionDefaults/named_key_is_the_bad_one_keeps_its_siblings (0.02s)
+=== RUN   TestLoad_InvalidLeafFallsBackNotCrash
+--- PASS: TestLoad_InvalidLeafFallsBackNotCrash (0.01s)
+=== RUN   TestLoad_WrongTypeFallsBackWithWarning
+--- PASS: TestLoad_WrongTypeFallsBackWithWarning (0.01s)
+=== RUN   TestLoad_UnparseableFileWarns
+--- PASS: TestLoad_UnparseableFileWarns (0.00s)
+=== RUN   TestLoad_ProvenanceLocationHasLine
+--- PASS: TestLoad_ProvenanceLocationHasLine (0.02s)
+=== RUN   TestLoad_ProvenanceLocationHasLine_WithLeadingComment
+--- PASS: TestLoad_ProvenanceLocationHasLine_WithLeadingComment (0.02s)
+=== RUN   TestSubmodularEnabled_DerivedFromRuntime
+--- PASS: TestSubmodularEnabled_DerivedFromRuntime (0.02s)
+=== RUN   TestLoad_FlagsUnknownKeyAndStringSlice
+--- PASS: TestLoad_FlagsUnknownKeyAndStringSlice (0.00s)
+=== RUN   TestLoad_EnvBoolAndInvalidValueSkipped
+--- PASS: TestLoad_EnvBoolAndInvalidValueSkipped (0.00s)
+=== RUN   TestLoad_EmptyProjectRootErrors
+--- PASS: TestLoad_EmptyProjectRootErrors (0.00s)
+=== RUN   TestLoad_MissingFilesAreNotErrors
+--- PASS: TestLoad_MissingFilesAreNotErrors (0.00s)
+=== RUN   TestLoad_NilGetenvAndFlagsAreSafe
+--- PASS: TestLoad_NilGetenvAndFlagsAreSafe (0.00s)
+=== RUN   TestLoad_ArraysReplaceWholesale
+--- PASS: TestLoad_ArraysReplaceWholesale (0.01s)
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/nonfinite_environment_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/infinite_flag_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/integer_beyond_the_platform_int
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_environment_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_flag_value
+=== RUN   TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_literal_in_a_file
+--- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything (0.05s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/nonfinite_environment_value (0.00s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/infinite_flag_value (0.00s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/integer_beyond_the_platform_int (0.01s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_environment_value (0.00s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_flag_value (0.00s)
+    --- PASS: TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything/largest_int64_literal_in_a_file (0.02s)
+=== RUN   TestMigration_DefaultsAreOffExceptTheTestedAdapter
+--- PASS: TestMigration_DefaultsAreOffExceptTheTestedAdapter (0.00s)
+=== RUN   TestMigrationGates_AllPendingInThisBuild
+--- PASS: TestMigrationGates_AllPendingInThisBuild (0.00s)
+=== RUN   TestMigrationGates_CoverEveryGatedLeaf
+--- PASS: TestMigrationGates_CoverEveryGatedLeaf (0.00s)
+=== RUN   TestMigrationBuildGates_LegacyImportIsPendingAndHasNoConfigLeaf
+--- PASS: TestMigrationBuildGates_LegacyImportIsPendingAndHasNoConfigLeaf (0.00s)
+=== RUN   TestValidate_RefusesEveryPendingSwitch
+=== RUN   TestValidate_RefusesEveryPendingSwitch/runtime.migration.capture.rawEvidence
+=== RUN   TestValidate_RefusesEveryPendingSwitch/runtime.migration.publication.durableFrontier
+=== RUN   TestValidate_RefusesEveryPendingSwitch/runtime.migration.replacement.newResult
+=== RUN   TestValidate_RefusesEveryPendingSwitch/runtime.migration.compaction.automaticVeto
+=== RUN   TestValidate_RefusesEveryPendingSwitch/runtime.migration.experiments.enabled
+--- PASS: TestValidate_RefusesEveryPendingSwitch (0.00s)
+    --- PASS: TestValidate_RefusesEveryPendingSwitch/runtime.migration.capture.rawEvidence (0.00s)
+    --- PASS: TestValidate_RefusesEveryPendingSwitch/runtime.migration.publication.durableFrontier (0.00s)
+    --- PASS: TestValidate_RefusesEveryPendingSwitch/runtime.migration.replacement.newResult (0.00s)
+    --- PASS: TestValidate_RefusesEveryPendingSwitch/runtime.migration.compaction.automaticVeto (0.00s)
+    --- PASS: TestValidate_RefusesEveryPendingSwitch/runtime.migration.experiments.enabled (0.00s)
+=== RUN   TestLoad_PendingSwitchFallsBackWithWarning
+--- PASS: TestLoad_PendingSwitchFallsBackWithWarning (0.02s)
+=== RUN   TestLoad_NewerSettingsVersionResetsTheWholeBlock
+--- PASS: TestLoad_NewerSettingsVersionResetsTheWholeBlock (0.02s)
+=== RUN   TestLoad_OlderSettingsVersionFallsBackToCurrent
+--- PASS: TestLoad_OlderSettingsVersionFallsBackToCurrent (0.01s)
+=== RUN   TestLoad_RetiredMeaningKeysWarnButStillApply
+--- PASS: TestLoad_RetiredMeaningKeysWarnButStillApply (0.02s)
+=== RUN   TestMigration_ForwardCompatibleReader
+--- PASS: TestMigration_ForwardCompatibleReader (0.03s)
+=== RUN   TestRetiredMeaningKeys_MirrorTheDeprecationTable
+--- PASS: TestRetiredMeaningKeys_MirrorTheDeprecationTable (0.02s)
+=== RUN   TestVersionedSections_MatchTheConstantsAndTheSchema
+--- PASS: TestVersionedSections_MatchTheConstantsAndTheSchema (0.02s)
+=== RUN   TestProvenanceRender_AnnotatesLeaves
+--- PASS: TestProvenanceRender_AnnotatesLeaves (0.00s)
+=== RUN   TestProvenanceRender_DefaultOrigin
+--- PASS: TestProvenanceRender_DefaultOrigin (0.00s)
+=== RUN   TestProvenanceRender_WriterErrorPropagates
+--- PASS: TestProvenanceRender_WriterErrorPropagates (0.00s)
+=== RUN   TestOrigin_String
+--- PASS: TestOrigin_String (0.00s)
+=== RUN   TestJSONSchema_Golden
+--- PASS: TestJSONSchema_Golden (0.00s)
+=== RUN   TestJSONSchema_EnumsPresentWhereExpected
+--- PASS: TestJSONSchema_EnumsPresentWhereExpected (0.00s)
+=== RUN   TestJSONSchema_SchedulerCacheRegimeLeaves
+--- PASS: TestJSONSchema_SchedulerCacheRegimeLeaves (0.00s)
+=== RUN   TestValidate_EveryRule
+=== RUN   TestValidate_EveryRule/chunk.min_not_less_than_target
+=== RUN   TestValidate_EveryRule/chunk.max_not_greater_than_target
+=== RUN   TestValidate_EveryRule/compression_unknown_value
+=== RUN   TestValidate_EveryRule/retention.days_below_1
+=== RUN   TestValidate_EveryRule/retention.sessions_below_1
+=== RUN   TestValidate_EveryRule/canonicalize.strip_unknown_class
+=== RUN   TestValidate_EveryRule/minhash.permutations_below_16
+=== RUN   TestValidate_EveryRule/minhash.permutations_above_512
+=== RUN   TestValidate_EveryRule/nearDupThreshold_at_0
+=== RUN   TestValidate_EveryRule/nearDupThreshold_above_1
+=== RUN   TestValidate_EveryRule/softFloorPct_at_0
+=== RUN   TestValidate_EveryRule/softFloorPct_at_1
+=== RUN   TestValidate_EveryRule/hardCeilingMargin_at_0
+=== RUN   TestValidate_EveryRule/hazardRate_at_0
+=== RUN   TestValidate_EveryRule/hazardRate_at_1
+=== RUN   TestValidate_EveryRule/readMultiplier_at_0
+=== RUN   TestValidate_EveryRule/readMultiplier_above_1
+=== RUN   TestValidate_EveryRule/writeMultiplier_below_1
+=== RUN   TestValidate_EveryRule/ttlSeconds_at_0
+=== RUN   TestValidate_EveryRule/budgetTokens_below_1000
+=== RUN   TestValidate_EveryRule/budgetTokens_above_100000
+=== RUN   TestValidate_EveryRule/maxResidualTokens_at_0
+=== RUN   TestValidate_EveryRule/tiers.never_unknown_field
+=== RUN   TestValidate_EveryRule/tiers.late_unknown_field
+=== RUN   TestValidate_EveryRule/tiers.first_unknown_field
+=== RUN   TestValidate_EveryRule/tiers_not_disjoint
+=== RUN   TestValidate_EveryRule/tiers_does_not_cover_the_whole_set
+=== RUN   TestValidate_EveryRule/bloom.capacity_below_100
+=== RUN   TestValidate_EveryRule/bloom.fpRate_at_0
+=== RUN   TestValidate_EveryRule/bloom.fpRate_at_0.25
+=== RUN   TestValidate_EveryRule/cms.epsilon_at_0
+=== RUN   TestValidate_EveryRule/cms.epsilon_at_1
+=== RUN   TestValidate_EveryRule/cms.delta_at_0
+=== RUN   TestValidate_EveryRule/cms.delta_at_1
+=== RUN   TestValidate_EveryRule/hll.registers_below_64
+=== RUN   TestValidate_EveryRule/hll.registers_above_65536
+=== RUN   TestValidate_EveryRule/hll.registers_not_a_power_of_two
+=== RUN   TestValidate_EveryRule/eliminations.defaultScope_unknown
+=== RUN   TestValidate_EveryRule/eliminations.rebuildOnStale_unknown
+=== RUN   TestValidate_EveryRule/eliminations.staleResponse_unknown
+=== RUN   TestValidate_EveryRule/retrieval.defaultSpan_unknown
+=== RUN   TestValidate_EveryRule/promoteAfterExpansions_below_1
+=== RUN   TestValidate_EveryRule/selection.slicing_unknown
+=== RUN   TestValidate_EveryRule/selection.deltaScoring_unknown
+=== RUN   TestValidate_EveryRule/submodular.lambda_below_0
+=== RUN   TestValidate_EveryRule/eval.minSessions_below_1
+=== RUN   TestValidate_EveryRule/runtime.mode_unknown
+=== RUN   TestValidate_EveryRule/hotPath.budgetMs_at_0
+=== RUN   TestValidate_EveryRule/hotPath.breachWindows_below_1
+=== RUN   TestValidate_EveryRule/hotPath.maxPayloadBytes_below_4096
+=== RUN   TestValidate_EveryRule/hotPath.maxPayloadBytes_above_the_hook_cap
+=== RUN   TestValidate_EveryRule/logging.level_unknown
+=== RUN   TestValidate_EveryRule/rehydrate.minTokens_below_1
+=== RUN   TestValidate_EveryRule/rehydrate.minTokens_above_maxTokens
+=== RUN   TestValidate_EveryRule/rehydrate.skillIndexTokens_below_1
+=== RUN   TestValidate_EveryRule/rehydrate.eliminationsTopN_below_1
+=== RUN   TestValidate_EveryRule/mcp.spanWidenLines_below_0
+=== RUN   TestValidate_EveryRule/mcp.maxResponseBytes_below_4096
+=== RUN   TestValidate_EveryRule/expiringTriggerFraction_at_0
+=== RUN   TestValidate_EveryRule/expiringTriggerFraction_at_1
+=== RUN   TestValidate_EveryRule/expiringTriggerFraction_above_1
+=== RUN   TestValidate_EveryRule/assumeMaxTTLSeconds_below_scheduler.cache.ttlSeconds
+=== RUN   TestValidate_EveryRule/assumeMaxTTLSeconds_at_0
+=== RUN   TestValidate_EveryRule/proseCharsPerToken_below_1
+=== RUN   TestValidate_EveryRule/proseCharsPerToken_above_20
+=== RUN   TestValidate_EveryRule/codeCharsPerToken_below_1
+=== RUN   TestValidate_EveryRule/codeCharsPerToken_above_20
+=== RUN   TestValidate_EveryRule/jsonCharsPerToken_below_1
+=== RUN   TestValidate_EveryRule/jsonCharsPerToken_above_20
+=== RUN   TestValidate_EveryRule/diffCharsPerToken_below_1
+=== RUN   TestValidate_EveryRule/diffCharsPerToken_above_20
+=== RUN   TestValidate_EveryRule/binaryCharsPerToken_below_1
+=== RUN   TestValidate_EveryRule/binaryCharsPerToken_above_20
+=== RUN   TestValidate_EveryRule/imagePixelsPerToken_below_1
+=== RUN   TestValidate_EveryRule/pdfTokensPerPage_below_1
+=== RUN   TestValidate_EveryRule/calibrationMin_at_0
+=== RUN   TestValidate_EveryRule/calibrationMin_above_1
+=== RUN   TestValidate_EveryRule/calibrationMax_below_1
+=== RUN   TestValidate_EveryRule/calibrationAlpha_at_0
+=== RUN   TestValidate_EveryRule/calibrationAlpha_above_1
+=== RUN   TestValidate_EveryRule/budgets.l0IngestMs_at_0
+=== RUN   TestValidate_EveryRule/budgets.l0ProcessMs_at_0
+=== RUN   TestValidate_EveryRule/budgets.checkpointFinalizeMs_at_0
+=== RUN   TestValidate_EveryRule/budgets.mcpToolCallMs_at_0
+=== RUN   TestValidate_EveryRule/budgets.hookDegradedMs_at_0
+=== RUN   TestValidate_EveryRule/telemetry.enabled_true
+=== RUN   TestValidate_EveryRule/migration.settingsVersion_below_current
+=== RUN   TestValidate_EveryRule/migration.settingsVersion_above_current
+=== RUN   TestValidate_EveryRule/migration.capture.rawEvidence_true
+=== RUN   TestValidate_EveryRule/migration.publication.durableFrontier_true
+=== RUN   TestValidate_EveryRule/migration.replacement.newResult_true
+=== RUN   TestValidate_EveryRule/migration.compaction.automaticVeto_true
+=== RUN   TestValidate_EveryRule/migration.experiments.enabled_true
+=== RUN   TestValidate_EveryRule/migration.compaction.blockManualCompact_true
+=== RUN   TestValidate_EveryRule/phase7.settingsVersion_below_current
+=== RUN   TestValidate_EveryRule/phase7.settingsVersion_above_current
+=== RUN   TestValidate_EveryRule/phase7.reuse.scopedCandidates_true
+=== RUN   TestValidate_EveryRule/phase7.reuse.warmPrior_true
+=== RUN   TestValidate_EveryRule/phase7.retrieval.reminders_true
+=== RUN   TestValidate_EveryRule/phase7.retrieval.demandPromotion_true
+=== RUN   TestValidate_EveryRule/phase7.filters.segmentBloom_true
+=== RUN   TestValidate_EveryRule/phase7.retrieval.maxRemindersPerSession_negative
+=== RUN   TestValidate_EveryRule/phase7.retrieval.maxAttemptsPerTrigger_at_0
+=== RUN   TestValidate_EveryRule/phase7.retrieval.maxQueueDepth_at_0
+--- PASS: TestValidate_EveryRule (0.00s)
+    --- PASS: TestValidate_EveryRule/chunk.min_not_less_than_target (0.00s)
+    --- PASS: TestValidate_EveryRule/chunk.max_not_greater_than_target (0.00s)
+    --- PASS: TestValidate_EveryRule/compression_unknown_value (0.00s)
+    --- PASS: TestValidate_EveryRule/retention.days_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/retention.sessions_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/canonicalize.strip_unknown_class (0.00s)
+    --- PASS: TestValidate_EveryRule/minhash.permutations_below_16 (0.00s)
+    --- PASS: TestValidate_EveryRule/minhash.permutations_above_512 (0.00s)
+    --- PASS: TestValidate_EveryRule/nearDupThreshold_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/nearDupThreshold_above_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/softFloorPct_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/softFloorPct_at_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/hardCeilingMargin_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/hazardRate_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/hazardRate_at_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/readMultiplier_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/readMultiplier_above_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/writeMultiplier_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/ttlSeconds_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/budgetTokens_below_1000 (0.00s)
+    --- PASS: TestValidate_EveryRule/budgetTokens_above_100000 (0.00s)
+    --- PASS: TestValidate_EveryRule/maxResidualTokens_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/tiers.never_unknown_field (0.00s)
+    --- PASS: TestValidate_EveryRule/tiers.late_unknown_field (0.00s)
+    --- PASS: TestValidate_EveryRule/tiers.first_unknown_field (0.00s)
+    --- PASS: TestValidate_EveryRule/tiers_not_disjoint (0.00s)
+    --- PASS: TestValidate_EveryRule/tiers_does_not_cover_the_whole_set (0.00s)
+    --- PASS: TestValidate_EveryRule/bloom.capacity_below_100 (0.00s)
+    --- PASS: TestValidate_EveryRule/bloom.fpRate_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/bloom.fpRate_at_0.25 (0.00s)
+    --- PASS: TestValidate_EveryRule/cms.epsilon_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/cms.epsilon_at_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/cms.delta_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/cms.delta_at_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/hll.registers_below_64 (0.00s)
+    --- PASS: TestValidate_EveryRule/hll.registers_above_65536 (0.00s)
+    --- PASS: TestValidate_EveryRule/hll.registers_not_a_power_of_two (0.00s)
+    --- PASS: TestValidate_EveryRule/eliminations.defaultScope_unknown (0.00s)
+    --- PASS: TestValidate_EveryRule/eliminations.rebuildOnStale_unknown (0.00s)
+    --- PASS: TestValidate_EveryRule/eliminations.staleResponse_unknown (0.00s)
+    --- PASS: TestValidate_EveryRule/retrieval.defaultSpan_unknown (0.00s)
+    --- PASS: TestValidate_EveryRule/promoteAfterExpansions_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/selection.slicing_unknown (0.00s)
+    --- PASS: TestValidate_EveryRule/selection.deltaScoring_unknown (0.00s)
+    --- PASS: TestValidate_EveryRule/submodular.lambda_below_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/eval.minSessions_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/runtime.mode_unknown (0.00s)
+    --- PASS: TestValidate_EveryRule/hotPath.budgetMs_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/hotPath.breachWindows_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/hotPath.maxPayloadBytes_below_4096 (0.00s)
+    --- PASS: TestValidate_EveryRule/hotPath.maxPayloadBytes_above_the_hook_cap (0.00s)
+    --- PASS: TestValidate_EveryRule/logging.level_unknown (0.00s)
+    --- PASS: TestValidate_EveryRule/rehydrate.minTokens_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/rehydrate.minTokens_above_maxTokens (0.00s)
+    --- PASS: TestValidate_EveryRule/rehydrate.skillIndexTokens_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/rehydrate.eliminationsTopN_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/mcp.spanWidenLines_below_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/mcp.maxResponseBytes_below_4096 (0.00s)
+    --- PASS: TestValidate_EveryRule/expiringTriggerFraction_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/expiringTriggerFraction_at_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/expiringTriggerFraction_above_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/assumeMaxTTLSeconds_below_scheduler.cache.ttlSeconds (0.00s)
+    --- PASS: TestValidate_EveryRule/assumeMaxTTLSeconds_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/proseCharsPerToken_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/proseCharsPerToken_above_20 (0.00s)
+    --- PASS: TestValidate_EveryRule/codeCharsPerToken_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/codeCharsPerToken_above_20 (0.00s)
+    --- PASS: TestValidate_EveryRule/jsonCharsPerToken_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/jsonCharsPerToken_above_20 (0.00s)
+    --- PASS: TestValidate_EveryRule/diffCharsPerToken_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/diffCharsPerToken_above_20 (0.00s)
+    --- PASS: TestValidate_EveryRule/binaryCharsPerToken_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/binaryCharsPerToken_above_20 (0.00s)
+    --- PASS: TestValidate_EveryRule/imagePixelsPerToken_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/pdfTokensPerPage_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/calibrationMin_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/calibrationMin_above_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/calibrationMax_below_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/calibrationAlpha_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/calibrationAlpha_above_1 (0.00s)
+    --- PASS: TestValidate_EveryRule/budgets.l0IngestMs_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/budgets.l0ProcessMs_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/budgets.checkpointFinalizeMs_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/budgets.mcpToolCallMs_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/budgets.hookDegradedMs_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/telemetry.enabled_true (0.00s)
+    --- PASS: TestValidate_EveryRule/migration.settingsVersion_below_current (0.00s)
+    --- PASS: TestValidate_EveryRule/migration.settingsVersion_above_current (0.00s)
+    --- PASS: TestValidate_EveryRule/migration.capture.rawEvidence_true (0.00s)
+    --- PASS: TestValidate_EveryRule/migration.publication.durableFrontier_true (0.00s)
+    --- PASS: TestValidate_EveryRule/migration.replacement.newResult_true (0.00s)
+    --- PASS: TestValidate_EveryRule/migration.compaction.automaticVeto_true (0.00s)
+    --- PASS: TestValidate_EveryRule/migration.experiments.enabled_true (0.00s)
+    --- PASS: TestValidate_EveryRule/migration.compaction.blockManualCompact_true (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.settingsVersion_below_current (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.settingsVersion_above_current (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.reuse.scopedCandidates_true (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.reuse.warmPrior_true (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.retrieval.reminders_true (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.retrieval.demandPromotion_true (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.filters.segmentBloom_true (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.retrieval.maxRemindersPerSession_negative (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.retrieval.maxAttemptsPerTrigger_at_0 (0.00s)
+    --- PASS: TestValidate_EveryRule/phase7.retrieval.maxQueueDepth_at_0 (0.00s)
+=== RUN   TestValidate_DefaultsAreValid
+--- PASS: TestValidate_DefaultsAreValid (0.00s)
+=== RUN   TestValidate_RuleTableIsComplete
+--- PASS: TestValidate_RuleTableIsComplete (0.00s)
+=== RUN   TestValidate_TiersPartition
+=== RUN   TestValidate_TiersPartition/overlap
+=== RUN   TestValidate_TiersPartition/missing_narrative
+--- PASS: TestValidate_TiersPartition (0.00s)
+    --- PASS: TestValidate_TiersPartition/overlap (0.00s)
+    --- PASS: TestValidate_TiersPartition/missing_narrative (0.00s)
+=== RUN   TestValidate_TelemetryMustBeFalse
+--- PASS: TestValidate_TelemetryMustBeFalse (0.00s)
+=== RUN   TestValidate_HotPathPayloadIsBoundedFromAbove
+--- PASS: TestValidate_HotPathPayloadIsBoundedFromAbove (0.00s)
+=== RUN   TestLoad_ClampsAnOverCapHotPathPayload
+--- PASS: TestLoad_ClampsAnOverCapHotPathPayload (0.00s)
+=== RUN   FuzzConfigLoad
+=== RUN   FuzzConfigLoad/seed#0
+=== RUN   FuzzConfigLoad/seed#1
+=== RUN   FuzzConfigLoad/seed#2
+=== RUN   FuzzConfigLoad/seed#3
+=== RUN   FuzzConfigLoad/seed#4
+=== RUN   FuzzConfigLoad/seed#5
+=== RUN   FuzzConfigLoad/seed#6
+=== RUN   FuzzConfigLoad/seed#7
+=== RUN   FuzzConfigLoad/seed#8
+=== RUN   FuzzConfigLoad/seed#9
+=== RUN   FuzzConfigLoad/seed#10
+=== RUN   FuzzConfigLoad/seed#11
+=== RUN   FuzzConfigLoad/seed#12
+=== RUN   FuzzConfigLoad/seed#13
+=== RUN   FuzzConfigLoad/seed#14
+=== RUN   FuzzConfigLoad/seed#15
+=== RUN   FuzzConfigLoad/seed#16
+--- PASS: FuzzConfigLoad (0.17s)
+    --- PASS: FuzzConfigLoad/seed#0 (0.00s)
+    --- PASS: FuzzConfigLoad/seed#1 (0.00s)
+    --- PASS: FuzzConfigLoad/seed#2 (0.01s)
+    --- PASS: FuzzConfigLoad/seed#3 (0.00s)
+    --- PASS: FuzzConfigLoad/seed#4 (0.00s)
+    --- PASS: FuzzConfigLoad/seed#5 (0.00s)
+    --- PASS: FuzzConfigLoad/seed#6 (0.00s)
+    --- PASS: FuzzConfigLoad/seed#7 (0.00s)
+    --- PASS: FuzzConfigLoad/seed#8 (0.02s)
+    --- PASS: FuzzConfigLoad/seed#9 (0.01s)
+    --- PASS: FuzzConfigLoad/seed#10 (0.01s)
+    --- PASS: FuzzConfigLoad/seed#11 (0.00s)
+    --- PASS: FuzzConfigLoad/seed#12 (0.02s)
+    --- PASS: FuzzConfigLoad/seed#13 (0.02s)
+    --- PASS: FuzzConfigLoad/seed#14 (0.02s)
+    --- PASS: FuzzConfigLoad/seed#15 (0.02s)
+    --- PASS: FuzzConfigLoad/seed#16 (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	2.659s

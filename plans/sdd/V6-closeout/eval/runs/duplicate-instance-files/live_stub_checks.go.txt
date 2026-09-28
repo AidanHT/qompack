@@ -1,0 +1,46 @@
+package eval
+
+// TEMPORARY contract stubs for the task-set/checks/summary/fork half of the live layer. The
+// implementer of that half deletes this file and supplies these exact signatures elsewhere.
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/qompack/qompack/internal/core"
+)
+
+// LoadLiveTaskSet reads and validates a task-set file.
+func LoadLiveTaskSet(path string) (LiveTaskSet, error) {
+	return LiveTaskSet{}, fmt.Errorf("eval: LoadLiveTaskSet: %w", core.ErrNotImplemented)
+}
+
+// Validate checks every structural rule of a task set.
+func (s LiveTaskSet) Validate() error {
+	return fmt.Errorf("eval: LiveTaskSet.Validate: %w", core.ErrNotImplemented)
+}
+
+// EvaluateChecks evaluates every check of t against o, in declaration order.
+func EvaluateChecks(t LiveTask, o LiveObservation) []LiveCheckOutcome { return nil }
+
+// ScoreTrial fills rec's Completion, ConstraintViolations, RecoveryPassed and RecoveryTotal from
+// rec.Checks and rec.HarnessError.
+func ScoreTrial(rec *LiveTrialRecord) {}
+
+// WilsonInterval is the Wilson score 95% interval for successes out of n.
+func WilsonInterval(successes, n int) (lo, hi float64) { return 0, 0 }
+
+// NewcombeDiff is a.Rate − b.Rate with the Newcombe hybrid-score 95% interval.
+func NewcombeDiff(a, b LiveRate) LiveDiff { return LiveDiff{} }
+
+// SummarizeTrials aggregates trial records per arm and per variant.
+func SummarizeTrials(recs []LiveTrialRecord, now time.Time) LiveSummary { return LiveSummary{} }
+
+// ForkPrompt renders the post-compaction context a LiveRunner fork starts from: the kept blocks'
+// content, in prefix order, followed by the next logged user message after at.
+func ForkPrompt(s Session, at core.TurnIndex, keep KeepSet) (string, error) {
+	return "", fmt.Errorf("eval: ForkPrompt: %w", core.ErrNotImplemented)
+}
+
+// ForkActions maps a fork's main-loop tool uses to Actions numbered from `from`.
+func ForkActions(ls LiveStream, from core.TurnIndex) []Action { return nil }

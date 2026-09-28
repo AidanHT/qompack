@@ -1,0 +1,18 @@
+# C1.16 regression row on the PRE-FIX daemon (HEAD 7a10f71 + the adopted phase histograms, fix stashed):
+# the row TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest copied as TestRedC116_..., minus the three
+# identifiers the fix introduces (compactBudget, DeferredNoteTag, counterCompactDeferred). Run alone:
+# go test ./internal/daemon/ -run 'TestRedC116_' -count=1 -v
+# The TempDir cleanup error is the failure path's: the held Stop is still inside the store when the test fails.
+=== RUN   TestRedC116_AnswerDoesNotWaitForTheSessionsIngest
+    zz_red_c116_test.go:159: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/internal/daemon/zz_red_c116_test.go:99
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lifetime/internal/daemon/zz_red_c116_test.go:159
+        	Error:      	the compact SessionStart waited for the same session's in-flight Stop
+        	Test:       	TestRedC116_AnswerDoesNotWaitForTheSessionsIngest
+        	Messages:   	no answer within 3s
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestRedC116_AnswerDoesNotWaitForTheSessionsIngest142387119\001\.qompack\records\eliminations.jsonl: The process cannot access the file because it is being used by another process.
+--- FAIL: TestRedC116_AnswerDoesNotWaitForTheSessionsIngest (4.62s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	5.121s
+FAIL
+exit=1

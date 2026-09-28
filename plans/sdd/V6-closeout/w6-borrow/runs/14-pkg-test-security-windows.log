@@ -1,0 +1,4 @@
+== HEAD 24eae18, fake HOME/USERPROFILE, started 17:55:55Z: go test ./test/security/ -count=1 -timeout=30m
+ok  	github.com/qompack/qompack/test/security	73.917s
+exit=0
+ended 17:57:11Z

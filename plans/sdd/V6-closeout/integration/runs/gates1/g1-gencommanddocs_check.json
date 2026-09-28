@@ -1,0 +1,22 @@
+{
+  "id": "g1-gencommanddocs_check",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "gen-command-docs",
+    "--check"
+  ],
+  "source_head": "6b3db3251728f62b8cfb810b01e7b99d0b045525",
+  "source_dirty": "",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-25T15:00:00-04:00",
+  "ended_at": "2026-09-25T15:00:00-04:00",
+  "exit_code": 0,
+  "log": "g1-gencommanddocs_check.log",
+  "log_sha256": "d004dd1c1bbdf70d72cf8071b6c34e3851e3a7e7f1f07a585998705721e6dec9"
+}

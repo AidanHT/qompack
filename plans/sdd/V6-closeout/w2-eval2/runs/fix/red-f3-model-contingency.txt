@@ -1,0 +1,17 @@
+# 2026-09-25T23:25:26Z at 22f2a89 + uncommitted red tests (compile red: HostModel/HostModels do not exist yet)
+# go test ./internal/commands -run TestEval_LiveTheSection3ModelContingencyCanBeConfirmatory -count=1
+# github.com/qompack/qompack/internal/commands_test [github.com/qompack/qompack/internal/commands.test]
+internal\commands\eval_live_test.go:559:15: trials[i].HostModel undefined (type eval.LiveTrial has no field or method HostModel)
+internal\commands\eval_live_test.go:571:66: rep.Live.HostModels undefined (type *commands.LiveEvalReport has no field or method HostModels)
+FAIL	github.com/qompack/qompack/internal/commands [build failed]
+FAIL
+exit=1
+# go test ./internal/eval -run TestSummarizeLive_RecordsTheModelsTheHostsReported -count=1
+# github.com/qompack/qompack/internal/eval_test [github.com/qompack/qompack/internal/eval.test]
+internal\eval\live_summary_test.go:298:7: s[0].HostModel undefined (type eval.LiveTrial has no field or method HostModel)
+internal\eval\live_summary_test.go:298:23: s[1].HostModel undefined (type eval.LiveTrial has no field or method HostModel)
+internal\eval\live_summary_test.go:298:39: q[0].HostModel undefined (type eval.LiveTrial has no field or method HostModel)
+internal\eval\live_summary_test.go:300:57: sum.HostModels undefined (type eval.LiveSummary has no field or method HostModels)
+FAIL	github.com/qompack/qompack/internal/eval [build failed]
+FAIL
+exit=1

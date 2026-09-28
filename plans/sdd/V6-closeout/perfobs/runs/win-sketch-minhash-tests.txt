@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/sketch	2.250s
+exit=0

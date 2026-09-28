@@ -1,0 +1,20 @@
+{
+  "name": "v6_backup_refuses_live_writer_and_target_conflict",
+  "phase": "lifecycle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "4fc9c889d6a4af3a168bf02556a91a2e2c61f77bd451ced1438eaa5e5ed7a0f4"
+  },
+  "boundary": "backup create beside a live daemon; restore into an occupied destination",
+  "seed_method": "packaged hooks seed a store and leave the daemon up; backup create is attempted while it holds the lease; then the daemon is stopped, a backup is taken, and restore is aimed at a destination that already holds a .qompack",
+  "outcome": "explicit_incomplete",
+  "reason": "backup create refuses beside a live daemon (telling the operator to stop it) and creates no artifact; restore refuses an occupied destination and leaves it untouched. The product reports both boundaries rather than proceeding.",
+  "detail": "live_refusal=\"backup: stop the source daemon before maintenance: qompack: daemon lock already held\"; conflict_refusal=\"store: restore destination .qompack already exists: /tmp/qompack-fault-2828554693/occupied/.qompack is a directory\"",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

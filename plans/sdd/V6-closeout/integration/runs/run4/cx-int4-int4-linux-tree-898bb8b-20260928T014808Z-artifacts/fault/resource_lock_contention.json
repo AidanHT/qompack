@@ -1,0 +1,20 @@
+{
+  "name": "resource_lock_contention",
+  "phase": "resource",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "f81a30f2bfc81e805526fae2797fb4ece734c17a0d7460babb4d3576ef6db3a7"
+  },
+  "boundary": "two daemons for one project, and a stale lock left by a dead one",
+  "seed_method": "a real session brings the first daemon up; a second `qompack daemon` is run against the same project in the foreground; then the lock is rewritten to name a dead pid",
+  "outcome": "recovered",
+  "reason": "exactly one daemon held the lock, the second exited 0 without touching the project, hooks delivered during the contention exited 0, and a stale lock was reclaimed by the next daemon",
+  "detail": "second `qompack daemon` exited 0 (stdout \"\", stderr \"\"); the lock holder was pid 31608 before and pid 31608 after (held=true)\nstale lock: planted a lock naming pid 0 with an ancient heartbeat; a daemon answered and the lock is now held=true by pid 31689\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:1}; after {tool_uses:5 roots:3 sidecars:4 checkpoints:0 dangling:0 reported:0}",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

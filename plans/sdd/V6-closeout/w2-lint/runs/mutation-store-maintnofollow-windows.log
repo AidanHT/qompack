@@ -1,0 +1,27 @@
+== MUTATION: maintNoFollow checks os.ModeSymlink only (os.ModeIrregular dropped); expected: the junction test FAILS
+diff --git a/internal/store/maintenance.go b/internal/store/maintenance.go
+index 3888427..1a110c6 100644
+--- a/internal/store/maintenance.go
++++ b/internal/store/maintenance.go
+@@ -668,7 +668,7 @@ func maintNoFollow(anchor, full string) error {
+ 		if lerr != nil {
+ 			return lerr
+ 		}
+-		if fi.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
++		if fi.Mode()&os.ModeSymlink != 0 { // MUTATION: ModeIrregular dropped
+ 			return fmt.Errorf("path component %s is a symlink or reparse point", cur)
+ 		}
+ 	}
+=== RUN   TestMaintenance_DirectoryLinkComponentInBackupTreeRefused
+    maintenance_test.go:304: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-lint/internal/store/maintenance_test.go:304
+        	Error:      	Target error should be in err chain:
+        	            	expected: "store: backup manifest is unusable"
+        	            	in chain: 
+        	Test:       	TestMaintenance_DirectoryLinkComponentInBackupTreeRefused
+        	Messages:   	a linked directory component must be refused, not followed
+--- FAIL: TestMaintenance_DirectoryLinkComponentInBackupTreeRefused (0.65s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.980s
+FAIL
+exit=1

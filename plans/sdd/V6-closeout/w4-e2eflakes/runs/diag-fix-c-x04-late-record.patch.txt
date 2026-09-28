@@ -1,0 +1,18 @@
+diff --git a/internal/daemon/rehydrate_service.go b/internal/daemon/rehydrate_service.go
+index b0b14e9..51f51b4 100644
+--- a/internal/daemon/rehydrate_service.go
++++ b/internal/daemon/rehydrate_service.go
+@@ -138,6 +138,13 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
+ 	if !s.o.Cfg.Runtime.Migration.Reinjection.SessionStartCompact {
+ 		s.o.Log.Info("rehydrate: injection disabled by runtime.migration.reinjection.sessionStartCompact",
+ 			"session", string(e.SessionID))
++		// DIAG MUTATION (w4-e2eflakes fix seat, never committed): a regression that still answers
++		// {} with injection off but records a rehydration after the answer, as the live path does.
++		if t := compactTicketFrom(ctx); t != nil {
++			t.offer(hookio.Empty())
++		}
++		time.Sleep(2 * time.Second)
++		_ = s.o.Reporter.Record(ctx, e.SessionID, rehydrate.State{Session: e.SessionID})
+ 		return hookio.Empty(), nil
+ 	}
+ 

@@ -1,0 +1,27 @@
+== GOOS=windows direct importers (incl. test imports)
+github.com/qompack/qompack/internal/ipc: github.com/Microsoft/go-winio 
+github.com/qompack/qompack/internal/paths: golang.org/x/sys/windows 
+github.com/qompack/qompack/internal/store: github.com/klauspost/compress/zstd 
+github.com/qompack/qompack/test/security: github.com/klauspost/compress/zstd 
+github.com/qompack/qompack/tools/lint/nomagic: golang.org/x/tools/go/analysis golang.org/x/tools/go/analysis/singlechecker golang.org/x/tools/go/analysis/analysistest 
+== GOOS=linux direct importers (incl. test imports)
+github.com/qompack/qompack/internal/paths: golang.org/x/sys/unix 
+github.com/qompack/qompack/internal/store: github.com/klauspost/compress/zstd 
+github.com/qompack/qompack/test/security: github.com/klauspost/compress/zstd 
+github.com/qompack/qompack/tools/lint/nomagic: golang.org/x/tools/go/analysis golang.org/x/tools/go/analysis/singlechecker golang.org/x/tools/go/analysis/analysistest 
+== GOOS=darwin direct importers (incl. test imports)
+github.com/qompack/qompack/internal/paths: golang.org/x/sys/unix 
+github.com/qompack/qompack/internal/store: github.com/klauspost/compress/zstd 
+github.com/qompack/qompack/test/security: github.com/klauspost/compress/zstd 
+github.com/qompack/qompack/tools/lint/nomagic: golang.org/x/tools/go/analysis golang.org/x/tools/go/analysis/singlechecker golang.org/x/tools/go/analysis/analysistest 
+== go mod why golang.org/x/mod/semver
+# golang.org/x/mod/semver
+github.com/qompack/qompack/tools/lint/nomagic
+golang.org/x/tools/go/analysis/singlechecker
+golang.org/x/tools/go/analysis/internal/checker
+golang.org/x/tools/go/packages
+golang.org/x/tools/internal/gocommand
+golang.org/x/mod/semver
+== non-test nomagic chain to x/mod
+golang.org/x/tools/internal/gocommand: bytes context encoding/json errors fmt golang.org/x/mod/semver golang.org/x/tools/internal/event golang.org/x/tools/internal/event/keys golang.org/x/tools/internal/event/label io log os os/exec path/filepath regexp runtime slices strconv strings sync time
+golang.org/x/tools/go/packages: bytes context encoding/json errors fmt go/ast go/parser go/scanner go/token go/types golang.org/x/sync/errgroup golang.org/x/tools/go/gcexportdata golang.org/x/tools/internal/gocommand golang.org/x/tools/internal/moremaps golang.org/x/tools/internal/packagesinternal golang.org/x/tools/internal/typesinternal iter log os os/exec path path/filepath reflect runtime slic

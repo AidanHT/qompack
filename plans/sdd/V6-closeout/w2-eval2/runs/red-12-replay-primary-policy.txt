@@ -1,0 +1,49 @@
+--- FAIL: TestEval_ReplayReportsQompacksPolicyNotAReference (0.00s)
+    eval_test.go:383: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/commands/eval_test.go:383
+        	Error:      	Received unexpected error:
+        	            	eval: the evaluation did not pass its task and recovery gates
+        	Test:       	TestEval_ReplayReportsQompacksPolicyNotAReference
+        	Messages:   	Qompack's policy re-attempted nothing
+--- FAIL: TestEval_ReplayWithOnlyReferencePoliciesJudgesNothing (0.00s)
+    eval_test.go:405: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/commands/eval_test.go:405
+        	Error:      	Received unexpected error:
+        	            	eval: the evaluation did not pass its task and recovery gates
+        	Test:       	TestEval_ReplayWithOnlyReferencePoliciesJudgesNothing
+        	Messages:   	a replay of reference policies alone is inconclusive, not a failure
+FAIL
+FAIL	github.com/qompack/qompack/internal/commands	1.480s
+FAIL
+exit=1
+
+
+# The same defect on a real replay report. 'go run ./test/replay --out <scratch>/bench-replay.json'
+# (default policies stock,null,oracle,qompack-rehydrate; exit 0), then 'qompack eval --corpus
+# <scratch>/bench-replay.json' with a binary built from this branch before the fix (a9c3cd3 plus the
+# file_lines edit that became 85db936): it reports the null reference policy and fails on it.
+eval: FAIL
+policy: null   baseline: stock   sessions: 24
+trials: 24 planned, 24 ran, 0 skipped, 0 failed
+
+task outcomes
+  TASK-01  final decision preserved                         1.0000  pass
+  TASK-02  decision preservation                            0.0000  not judged
+  TASK-03  turns to first divergence                        1.0000  not judged
+
+evidence recovery
+  REC-01   retrieval hit rate                               0.0000  not judged
+  REC-02   re-attempts of eliminated approaches            24.0000  FAIL
+  REC-03   redundant reads                                692.0000  not judged
+
+cost — reported separately; it does not decide the verdict
+  unavailable: no request ledger was recorded for this run
+
+historical diagnostics — retained, not decisive
+  HIST-01  fraction of OPT (§11.1, retained diagnostic)     0.0000  not judged
+  HIST-02  file-set Jaccard (retained diagnostic)           0.9968  not judged
+  HIST-03  tool edit distance (retained diagnostic)       716.0000  not judged
+
+note: replay: test/replay/1 from <scratch>\bench-replay.json — corpus testdata/sessions/synthetic (tier synthetic, sha256 ebaf30d212c0…), latency modelled; deterministic and model-free: it estimates what a keep-set is worth, not what a model did
+qompack eval: eval: the evaluation did not pass its task and recovery gates
+exit=1

@@ -1,0 +1,19 @@
+{
+  "name": "switch_daemon_disabled",
+  "capability": "switch",
+  "scope": "installed_bundle",
+  "switch": "runtime.daemon.enabled",
+  "value": "false",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "f81a30f2bfc81e805526fae2797fb4ece734c17a0d7460babb4d3576ef6db3a7"
+  },
+  "outcome": "verified",
+  "reason": "no daemon was started and no lock file appeared, while the hooks still answered and spooled",
+  "detail": "all six hooks exit 0 with empty or parseable JSON with no additionalContext; /tmp/qompack-release-1847876214/project/.qompack/run/daemon.lock never appeared; the spool holds 6 file(s) [client-34577.ndjson client-34589.ndjson client-34602.ndjson client-34616.ndjson client-34632.ndjson client-34643.ndjson], which is what distinguishes a disabled daemon from a disabled plugin. `config print --json` reports runtime.daemon.enabled=false (status --json is not used: this switch starts no daemon). Not duplicated here: test/e2e's v5_x15 daemon-off project covers the end-to-end path"
+}

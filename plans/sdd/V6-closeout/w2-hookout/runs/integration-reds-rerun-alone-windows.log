@@ -1,0 +1,12 @@
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+--- PASS: TestIntegration_DegradedPassiveStillWritesToTheRealStore (1.78s)
+=== RUN   TestIntegration_HookEventThroughDaemonToStore
+--- PASS: TestIntegration_HookEventThroughDaemonToStore (4.69s)
+=== RUN   TestIntegration_SpooledEventsSurviveToTheStore
+--- PASS: TestIntegration_SpooledEventsSurviveToTheStore (8.05s)
+=== RUN   TestIntegration_HotPathDegradesRatherThanBlocks
+    hotpath_test.go:991: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:1196: §4.6 degrade: warm=8 stalled sends=1529 (NAK after 1529, three windows of 512), degraded hooks=9 (all exit 0, spooled), drained=9, store ToolUses=3546, WARN lines=1
+--- PASS: TestIntegration_HotPathDegradesRatherThanBlocks (97.15s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	111.914s

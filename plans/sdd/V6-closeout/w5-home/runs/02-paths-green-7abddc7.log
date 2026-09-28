@@ -1,0 +1,36 @@
+# head=7abddc7: go test -count=1 -v -run '^TestIsHome_|^TestHomeDirs_|^TestRefuseHome_' ./internal/paths/
+=== RUN   TestIsHome_TheHomeDirectoryItselfIsHome
+--- PASS: TestIsHome_TheHomeDirectoryItselfIsHome (0.00s)
+=== RUN   TestIsHome_ARelativeSpellingOfHomeIsHome
+--- PASS: TestIsHome_ARelativeSpellingOfHomeIsHome (0.00s)
+=== RUN   TestIsHome_EverythingElseIsNotHome
+=== RUN   TestIsHome_EverythingElseIsNotHome/a_project_below_home
+=== RUN   TestIsHome_EverythingElseIsNotHome/the_directory_above_home
+=== RUN   TestIsHome_EverythingElseIsNotHome/a_sibling_of_home
+=== RUN   TestIsHome_EverythingElseIsNotHome/the_user-global_layer_itself
+=== RUN   TestIsHome_EverythingElseIsNotHome/no_root_resolved
+=== RUN   TestIsHome_EverythingElseIsNotHome/no_home_known
+=== RUN   TestIsHome_EverythingElseIsNotHome/only_empty_home_candidates
+=== RUN   TestIsHome_EverythingElseIsNotHome/a_root_that_does_not_exist
+--- PASS: TestIsHome_EverythingElseIsNotHome (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/a_project_below_home (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/the_directory_above_home (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/a_sibling_of_home (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/the_user-global_layer_itself (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/no_root_resolved (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/no_home_known (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/only_empty_home_candidates (0.00s)
+    --- PASS: TestIsHome_EverythingElseIsNotHome/a_root_that_does_not_exist (0.00s)
+=== RUN   TestIsHome_ARelativeHomeCandidateIsIgnored
+--- PASS: TestIsHome_ARelativeHomeCandidateIsIgnored (0.00s)
+=== RUN   TestIsHome_ALinkToHomeIsHome
+--- PASS: TestIsHome_ALinkToHomeIsHome (0.04s)
+=== RUN   TestRefuseHome_NamesTheRootAndWrapsTheSentinel
+--- PASS: TestRefuseHome_NamesTheRootAndWrapsTheSentinel (0.00s)
+=== RUN   TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach
+--- PASS: TestHomeDirs_ReadsHOMEAndUSERPROFILEOnceEach (0.00s)
+=== RUN   TestIsHome_ACaseVariantOfHomeIsHomeOnWindows
+--- PASS: TestIsHome_ACaseVariantOfHomeIsHomeOnWindows (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.084s
+exit=0

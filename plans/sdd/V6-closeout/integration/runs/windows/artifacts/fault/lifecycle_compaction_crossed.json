@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_compaction_crossed",
+  "phase": "lifecycle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-863-gb070bbe",
+    "binary_sha256": "8fcaa0a1d100610c9596fc3cddff435dd0ceef916ff496a8ff77901b13fd334b"
+  },
+  "boundary": "PreCompact whose compact SessionStart arrives for ANOTHER session id",
+  "seed_method": "PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:24 roots:19 sidecars:38 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

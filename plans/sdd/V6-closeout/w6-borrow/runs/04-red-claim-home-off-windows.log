@@ -1,0 +1,33 @@
+== RED: git archive 24eae18 with the 'claim-home-off' mutation of scratch mutate.py (the fix reverted), fake HOME, started 17:43:36Z
+applied claim-home-off
+== mutation diff:
+--- a/internal/ipc/spawnlock.go
++++ b/internal/ipc/spawnlock.go
+@@ -68,9 +68,6 @@
+ 	if clk == nil {
+ 		clk = core.SystemClock()
+ 	}
+-	if refuseSpawnRoot(projectRoot) != nil {
+-		return nil, SpawnUnclaimable
+-	}
+ 	runDir := paths.Of(projectRoot).Run
+ 	// A spawner may be the very first process to touch this project's .qompack tree (a cold daemon
+ 	// means nothing has run yet), so run/ cannot be assumed to exist.
+== go test ./internal/ipc/ -run '^(TestClaimSpawn_RefusesTheHomeDirectory|TestLazySpawn_RefusesTheHomeDirectory)$' -count=1 -v -timeout=10m
+=== RUN   TestClaimSpawn_RefusesTheHomeDirectory
+    spawn_home_test.go:71: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/ipc/spawn_home_test.go:71
+        	Error:      	Expected nil, but got: &ipc.SpawnLock{path:"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestClaimSpawn_RefusesTheHomeDirectory4257521922\\001\\home\\.qompack\\run\\spawn.lock", stamp:[]uint8{0x31, 0x37, 0x39, 0x30, 0x35, 0x33, 0x31, 0x30, 0x32, 0x34, 0x33, 0x36, 0x35}}
+        	Test:       	TestClaimSpawn_RefusesTheHomeDirectory
+--- FAIL: TestClaimSpawn_RefusesTheHomeDirectory (0.02s)
+=== RUN   TestLazySpawn_RefusesTheHomeDirectory
+    spawn_home_test.go:91: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/borrow/v3/red/internal/ipc/spawn_home_test.go:91
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestLazySpawn_RefusesTheHomeDirectory
+        	Messages:   	no daemon is spawned for the home directory
+--- FAIL: TestLazySpawn_RefusesTheHomeDirectory (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/ipc	1.524s
+FAIL
+exit=1

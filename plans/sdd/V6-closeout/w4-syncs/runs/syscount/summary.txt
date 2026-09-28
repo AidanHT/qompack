@@ -1,0 +1,65 @@
+
+Deduped leased: per OnToolUse; file syscalls counted below: base 6098.0 -> new 3082.0
+  fsync        base    559.0  new    281.0  delta   -278.0
+  fdatasync    base      1.0  new      1.0  delta     +0.0
+  openat       base   1240.0  new    624.0  delta   -616.0
+  read         base    276.0  new    140.0  delta   -136.0
+  write        base      3.0  new      3.0  delta     +0.0
+  renameat     base      1.0  new      1.0  delta     +0.0
+  newfstatat   base    282.0  new    146.0  delta   -136.0
+  fstat        base    280.0  new    142.0  delta   -138.0
+  close        base   1240.0  new    624.0  delta   -616.0
+  fcntl        base   2216.0  new   1120.0  delta  -1096.0
+
+Delta leased: per OnToolUse; file syscalls counted below: base 6319.8 -> new 3286.2
+  fsync        base    566.2  new    286.6  delta   -279.6
+  fdatasync    base      1.0  new      1.0  delta     +0.0
+  openat       base   1253.4  new    633.8  delta   -619.6
+  read         base    277.6  new    140.8  delta   -136.8
+  write        base      9.2  new      9.2  delta     +0.0
+  renameat     base      5.2  new      5.2  delta     +0.0
+  mkdirat      base      6.2  new      6.2  delta     +0.0
+  newfstatat   base    419.2  new    282.4  delta   -136.8
+  fstat        base    281.6  new    142.8  delta   -138.8
+  close        base   1253.4  new    633.8  delta   -619.6
+  fcntl        base   2244.8  new   1142.4  delta  -1102.4
+  unlinkat     base      2.0  new      2.0  delta     +0.0
+
+AllNovel leased: per OnToolUse; file syscalls counted below: base 13664.2 -> new 7163.4
+  fsync        base   1196.6  new    601.8  delta   -594.8
+  fdatasync    base      1.0  new      1.0  delta     +0.0
+  openat       base   2731.2  new   1402.4  delta  -1328.8
+  read         base    592.8  new    298.4  delta   -294.4
+  write        base     68.6  new     68.6  delta     +0.0
+  renameat     base     64.6  new     64.6  delta     +0.0
+  mkdirat      base    116.4  new    116.4  delta     +0.0
+  newfstatat   base    796.6  new    502.2  delta   -294.4
+  fstat        base    596.8  new    300.4  delta   -296.4
+  close        base   2731.2  new   1402.4  delta  -1328.8
+  fcntl        base   4766.4  new   2403.2  delta  -2363.2
+  unlinkat     base      2.0  new      2.0  delta     +0.0
+
+Deduped unleased: per OnToolUse; file syscalls counted below: base 1.0 -> new 1.0
+  write        base      1.0  new      1.0  delta     +0.0
+
+Delta unleased: per OnToolUse; file syscalls counted below: base 187.6 -> new 187.6
+  fsync        base      4.0  new      4.0  delta     +0.0
+  openat       base      6.2  new      6.2  delta     +0.0
+  write        base      7.2  new      7.2  delta     +0.0
+  renameat     base      4.2  new      4.2  delta     +0.0
+  mkdirat      base      6.2  new      6.2  delta     +0.0
+  newfstatat   base    135.6  new    135.6  delta     +0.0
+  close        base      6.2  new      6.2  delta     +0.0
+  fcntl        base     16.0  new     16.0  delta     +0.0
+  unlinkat     base      2.0  new      2.0  delta     +0.0
+
+AllNovel unleased: per OnToolUse; file syscalls counted below: base 597.6 -> new 597.6
+  fsync        base      4.0  new      4.0  delta     +0.0
+  openat       base     65.6  new     65.6  delta     +0.0
+  write        base     66.6  new     66.6  delta     +0.0
+  renameat     base     63.6  new     63.6  delta     +0.0
+  mkdirat      base    116.4  new    116.4  delta     +0.0
+  newfstatat   base    197.8  new    197.8  delta     +0.0
+  close        base     65.6  new     65.6  delta     +0.0
+  fcntl        base     16.0  new     16.0  delta     +0.0
+  unlinkat     base      2.0  new      2.0  delta     +0.0

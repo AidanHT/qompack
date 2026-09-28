@@ -1,0 +1,32 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "fail",
+   "passed": 100,
+   "failed": [
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_LaneOverflowIsDrainedOnRequest",
+    "TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

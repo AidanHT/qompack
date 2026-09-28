@@ -1,0 +1,24 @@
+--- FAIL: TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal (2.92s)
+    delivery_rollover_archive_test.go:229: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_rollover_archive_test.go:229
+        	Error:      	Received unexpected error:
+        	            	qompack: budget exceeded
+        	Test:       	TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal
+        	Messages:   	a rotation raced by other callers is retried, never refused as a budget
+--- FAIL: TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal (2.96s)
+    delivery_rollover_archive_test.go:229: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_rollover_archive_test.go:229
+        	Error:      	Received unexpected error:
+        	            	qompack: budget exceeded
+        	Test:       	TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal
+        	Messages:   	a rotation raced by other callers is retried, never refused as a budget
+--- FAIL: TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal (3.33s)
+    delivery_rollover_archive_test.go:229: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-rollover/internal/daemon/delivery_rollover_archive_test.go:229
+        	Error:      	Received unexpected error:
+        	            	qompack: budget exceeded
+        	Test:       	TestDeliveryRollover_ConcurrentCallersNeverSeeARotationAsABudgetRefusal
+        	Messages:   	a rotation raced by other callers is retried, never refused as a budget
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	9.469s
+FAIL

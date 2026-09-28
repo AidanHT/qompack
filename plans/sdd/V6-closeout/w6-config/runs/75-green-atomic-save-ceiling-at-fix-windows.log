@@ -1,0 +1,133 @@
+# fix seat (w6-config), 2026-09-27: the final atomic-save tests (absent-run ceiling = 3) at the fix (re-check in readCaptureConfig). Windows 11, co-loaded host.
+# go test ./internal/config/ -run '^(TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves|TestLoad_ReadsThroughAnEditorsAtomicSaves)$' -count=8 -v
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2060 loads: 1008 and 1052 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 200 saves attempted, 0 refused (first: )
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 973 and 1027 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 5054 saves attempted, 3052 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex322806968\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex322806968\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (6.72s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.23s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (5.49s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 981 and 1019 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 332 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 1018 and 982 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 3375 saves attempted, 1671 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex3071054692\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex3071054692\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (7.61s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (2.40s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (5.20s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 995 and 1005 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 449 saves attempted, 0 refused (first: )
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 996 and 977 answered the two saved versions, 27 found no file in 1 run(s), the longest 27 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4381 saves attempted, 2365 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex86588862\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex86588862\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (8.88s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (3.34s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (5.54s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2183 loads: 1092 and 1091 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 200 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 996 and 1004 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 3643 saves attempted, 1922 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex4084315967\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex4084315967\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (3.90s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.08s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (2.82s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 1035 and 965 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 227 saves attempted, 0 refused (first: )
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 934 and 1066 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4337 saves attempted, 2377 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex2006254265\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex2006254265\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (4.61s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.41s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (3.19s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 998 and 1002 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 204 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 990 and 1010 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 3744 saves attempted, 1993 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex989103653\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex989103653\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (4.19s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.29s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (2.90s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 992 and 1008 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 213 saves attempted, 0 refused (first: )
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 1007 and 993 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4449 saves attempted, 2475 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex3816364784\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex3816364784\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (6.42s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.38s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (5.04s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 998 and 1002 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 351 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 1009 and 991 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4208 saves attempted, 2381 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex2530058433\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex2530058433\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (7.36s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (2.25s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (5.11s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 983 and 1017 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 449 saves attempted, 0 refused (first: )
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 977 and 1023 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4635 saves attempted, 2563 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex3388121223\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex3388121223\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (10.22s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (3.86s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (6.37s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 1035 and 965 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 414 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 1000 and 1000 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4401 saves attempted, 2569 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex27375962\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex27375962\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (10.67s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (2.70s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (7.97s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 1034 and 966 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 541 saves attempted, 0 refused (first: )
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 1009 and 991 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4372 saves attempted, 2414 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex2294161902\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex2294161902\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (11.18s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (3.96s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (7.22s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2171 loads: 1099 and 1072 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 200 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 947 and 1053 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 3884 saves attempted, 2074 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex3717386126\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex3717386126\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (4.14s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.23s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (2.91s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 994 and 1006 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 229 saves attempted, 0 refused (first: )
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 1001 and 999 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4157 saves attempted, 2279 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex514571984\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex514571984\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (4.54s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.43s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (3.11s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2219 loads: 1166 and 1053 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 200 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 1035 and 965 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 3518 saves attempted, 1764 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex2880512395\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex2880512395\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (3.78s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.20s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (2.58s)
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 945 and 1055 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 281 saves attempted, 0 refused (first: )
+=== RUN   TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 960 and 1040 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4420 saves attempted, 2438 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex3595114158\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoadForCapture_ReadsThroughAnEditorsAtomicSavesmovefileex3595114158\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves (8.08s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/posix-rename (1.83s)
+    --- PASS: TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves/movefileex (6.25s)
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename
+    atomic_save_test.go:261: 2000 loads: 1020 and 980 answered the two saved versions, 0 found no file in 0 run(s), the longest 0 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 332 saves attempted, 0 refused (first: )
+=== RUN   TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex
+    atomic_save_test.go:261: 2000 loads: 970 and 1007 answered the two saved versions, 23 found no file in 1 run(s), the longest 23 loads (the filesystem reported config.json absent during a rename-replace), 0 wrong; 4189 saves attempted, 2388 refused (first: rename C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex2299844287\001\.qompack\config.json.save-tmp C:\Users\Quant\AppData\Local\Temp\TestLoad_ReadsThroughAnEditorsAtomicSavesmovefileex2299844287\001\.qompack\config.json: Access is denied.)
+--- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves (8.31s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/posix-rename (2.37s)
+    --- PASS: TestLoad_ReadsThroughAnEditorsAtomicSaves/movefileex (5.94s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	111.687s
+exit=0

@@ -1,0 +1,45 @@
+=== RUN   TestUserIntent_HostEarlierLaterTurnIsNamed
+--- PASS: TestUserIntent_HostEarlierLaterTurnIsNamed (0.00s)
+=== RUN   TestUserIntent_HostOrderAgreementReportsNothing
+=== RUN   TestUserIntent_HostOrderAgreementReportsNothing/tie
+=== RUN   TestUserIntent_HostOrderAgreementReportsNothing/later
+--- PASS: TestUserIntent_HostOrderAgreementReportsNothing (0.00s)
+    --- PASS: TestUserIntent_HostOrderAgreementReportsNothing/tie (0.00s)
+    --- PASS: TestUserIntent_HostOrderAgreementReportsNothing/later (0.00s)
+=== RUN   TestUserIntent_HostOrderUnverifiableIsWarnedNotGuessed
+--- PASS: TestUserIntent_HostOrderUnverifiableIsWarnedNotGuessed (0.00s)
+=== RUN   TestUserIntent_FromL0NotCheckpoint
+--- PASS: TestUserIntent_FromL0NotCheckpoint (0.00s)
+=== RUN   TestUserIntent_AgreeingSourcesReportNothing
+--- PASS: TestUserIntent_AgreeingSourcesReportNothing (0.00s)
+=== RUN   TestUserIntent_ResolvesTheDerivedFirstPromptID
+--- PASS: TestUserIntent_ResolvesTheDerivedFirstPromptID (0.00s)
+=== RUN   TestUserIntent_IgnoresOtherSessions
+--- PASS: TestUserIntent_IgnoresOtherSessions (0.00s)
+=== RUN   TestUserIntent_EarliestTurnOfThisSessionWins
+--- PASS: TestUserIntent_EarliestTurnOfThisSessionWins (0.00s)
+=== RUN   TestUserIntent_FallsBackWhenNotFound
+--- PASS: TestUserIntent_FallsBackWhenNotFound (0.00s)
+=== RUN   TestUserIntent_FallsBackWhenStoreErrors
+=== RUN   TestUserIntent_FallsBackWhenStoreErrors/tool_use_errors
+=== RUN   TestUserIntent_FallsBackWhenStoreErrors/no_root
+=== RUN   TestUserIntent_FallsBackWhenStoreErrors/open_errors
+=== RUN   TestUserIntent_FallsBackWhenStoreErrors/empty_content
+=== RUN   TestUserIntent_FallsBackWhenStoreErrors/no_store_at_all
+--- PASS: TestUserIntent_FallsBackWhenStoreErrors (0.00s)
+    --- PASS: TestUserIntent_FallsBackWhenStoreErrors/tool_use_errors (0.00s)
+    --- PASS: TestUserIntent_FallsBackWhenStoreErrors/no_root (0.00s)
+    --- PASS: TestUserIntent_FallsBackWhenStoreErrors/open_errors (0.00s)
+    --- PASS: TestUserIntent_FallsBackWhenStoreErrors/empty_content (0.00s)
+    --- PASS: TestUserIntent_FallsBackWhenStoreErrors/no_store_at_all (0.00s)
+=== RUN   TestUserIntent_StripsPriorInjections
+--- PASS: TestUserIntent_StripsPriorInjections (0.00s)
+=== RUN   TestUserIntent_FencedPromptSurvivesVerbatim
+--- PASS: TestUserIntent_FencedPromptSurvivesVerbatim (0.00s)
+=== RUN   TestUserIntent_CapsAtMaxIntentBytes
+--- PASS: TestUserIntent_CapsAtMaxIntentBytes (0.00s)
+=== RUN   TestUserIntent_EvolutionUnitsFollowTheOriginal
+--- PASS: TestUserIntent_EvolutionUnitsFollowTheOriginal (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/rehydrate	1.779s
+exit=0

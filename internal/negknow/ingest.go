@@ -281,6 +281,10 @@ func (l *ledger) IngestMCP(ctx context.Context, a MCPArgs) (Record, []string, er
 		if err != nil {
 			return Record{}, warnings, err
 		}
+		// The answer names this evidence, so it is durable before the line that names it (durable.go).
+		if err := l.syncEvidence(ctx, h); err != nil {
+			return Record{}, warnings, err
+		}
 		evidence = h
 	}
 
@@ -294,6 +298,10 @@ func (l *ledger) IngestMCP(ctx context.Context, a MCPArgs) (Record, []string, er
 		Source:    SourceMCP,
 	})
 	if err != nil {
+		return Record{}, warnings, err
+	}
+	// record_eliminated answers "recorded" with this record, and no spool line stands behind it.
+	if err := l.syncAcknowledged(); err != nil {
 		return Record{}, warnings, err
 	}
 	return rec, warnings, nil
@@ -327,6 +335,9 @@ func (l *ledger) IngestPin(ctx context.Context, a PinArgs) (Record, []string, er
 		if err != nil {
 			return Record{}, warnings, err
 		}
+		if err := l.syncEvidence(ctx, h); err != nil {
+			return Record{}, warnings, err
+		}
 		evidence = h
 	}
 
@@ -340,6 +351,9 @@ func (l *ledger) IngestPin(ctx context.Context, a PinArgs) (Record, []string, er
 		Source:    SourceSlashCommand,
 	})
 	if err != nil {
+		return Record{}, warnings, err
+	}
+	if err := l.syncAcknowledged(); err != nil {
 		return Record{}, warnings, err
 	}
 	return rec, warnings, nil

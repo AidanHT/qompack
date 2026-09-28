@@ -1,0 +1,51 @@
+C=d4bd626faf13e2d65287e70782bda9e303c97559 ID=cx-hostperm-fix-d4bd626-20260923T015136Z SHA=79a7a891ea6c9d34a4168932c83ed28e8dbb26db6be66a561d3794f342b59fe9
+/work/cx-hostperm-fix-d4bd626-20260923T015136Z.bundle: OK
+run_id=cx-hostperm-fix-d4bd626-20260923T015136Z-hostperm-race
+commit=d4bd626faf13e2d65287e70782bda9e303c97559
+tree=2cf4928689a29bc6db72af1eb40d8f4a7292cde9
+bundle_sha256=79a7a891ea6c9d34a4168932c83ed28e8dbb26db6be66a561d3794f342b59fe9
+started_utc=2026-09-23T01:51:46Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=1
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/hostperm  (pass=111 fail=0 skip=0)
+go_test_exit=0
+exit=0
+exit=0
+/work/cx-hostperm-fix-d4bd626-20260923T015136Z.bundle: OK
+run_id=cx-hostperm-fix-d4bd626-20260923T015136Z-x13-alone
+commit=d4bd626faf13e2d65287e70782bda9e303c97559
+tree=2cf4928689a29bc6db72af1eb40d8f4a7292cde9
+bundle_sha256=79a7a891ea6c9d34a4168932c83ed28e8dbb26db6be66a561d3794f342b59fe9
+started_utc=2026-09-23T01:51:56Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=1
+run=^TestV4_HotPathUnchangedWithTheFullWave3ResidentSet$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/test/e2e  (pass=1 fail=0 skip=0)
+go_test_exit=0
+exit=0
+exit=0

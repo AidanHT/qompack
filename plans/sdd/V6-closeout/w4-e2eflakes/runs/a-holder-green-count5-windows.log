@@ -1,0 +1,13 @@
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (3.61s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.23s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.20s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.17s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.18s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	12.654s
+exit=0

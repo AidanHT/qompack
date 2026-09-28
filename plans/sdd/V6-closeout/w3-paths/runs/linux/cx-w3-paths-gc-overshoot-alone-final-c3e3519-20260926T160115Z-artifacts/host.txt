@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-gc-overshoot-alone-final-c3e3519-20260926T160115Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=c3e3519
+commit=c3e3519bf046f6fc98bef116dbcc602219593ee9
+bundle_sha256=8adfc3e6867aefbe86677aecf31c04e4941673262e470894518e6e43e7acae18
+host_started_utc=2026-09-26T16:01:27Z
+inner_args=--run ^(TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestGCHashOrder_IsTheTextOrder|TestRecordOutcomes_SortingAllocatesNothingPerComparison)$ --count 5 -- ./internal/store
+host_finished_utc=2026-09-26T16:25:17Z
+container_exit=0

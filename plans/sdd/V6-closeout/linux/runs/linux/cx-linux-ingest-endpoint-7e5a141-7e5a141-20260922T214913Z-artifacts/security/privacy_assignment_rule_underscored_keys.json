@@ -1,0 +1,17 @@
+{
+  "name": "privacy_assignment_rule_underscored_keys",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "c5b1b8df642275792bed82dbee4b2ddfd852e4e8d2bb15316f92f34bee9ac3dc"
+  },
+  "outcome": "verified",
+  "reason": "the assignment rule reaches an underscore-prefixed key: an `_authToken=` credential was redacted on every durable surface.",
+  "detail": "swept 31 files under .qompack/; probe key spelling `_authToken=`"
+}

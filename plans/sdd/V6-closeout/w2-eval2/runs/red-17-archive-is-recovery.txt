@@ -1,0 +1,10 @@
+--- FAIL: TestToolUsesAfterSteps_TheArchiveIsRecoveryNotRederivation (0.01s)
+    live_task_test.go:396: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/internal/eval/live_task_test.go:396
+        	Error:      	Should be true
+        	Test:       	TestToolUsesAfterSteps_TheArchiveIsRecoveryNotRederivation
+        	Messages:   	a lookup in Qompack's archive is recovery: mcp__plugin_qompack_qompack__recall after compact matched "go run"
+FAIL
+FAIL	github.com/qompack/qompack/internal/eval	0.250s
+FAIL
+exit=1

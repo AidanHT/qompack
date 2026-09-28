@@ -1,0 +1,11 @@
+=== RUN   TestRun_AcceptsDialsWhileItsStartupDrainRuns
+    startup_accept_test.go:111: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w5-coldstart/internal/daemon/startup_accept_test.go:111
+        	Error:      	Should be true
+        	Test:       	TestRun_AcceptsDialsWhileItsStartupDrainRuns
+        	Messages:   	a daemon still replaying its spool must take a dial, not look absent until its startup ends
+--- FAIL: TestRun_AcceptsDialsWhileItsStartupDrainRuns (1.62s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.970s
+FAIL
+exit=1

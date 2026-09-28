@@ -202,7 +202,15 @@ func artifactDir(t *testing.T) string {
 		return d
 	}
 	d := t.TempDir()
-	tempArtifactDirs[t.Name()] = d
+	name := t.Name()
+	tempArtifactDirs[name] = d
+	// The directory dies with this test, so the entry must too: under `go test -count=N` the next
+	// run of the same name would otherwise be handed a directory that no longer exists.
+	t.Cleanup(func() {
+		tempArtifactMu.Lock()
+		defer tempArtifactMu.Unlock()
+		delete(tempArtifactDirs, name)
+	})
 	return d
 }
 
@@ -1018,9 +1026,11 @@ const (
 	probeTimeout = 250 * time.Millisecond
 	// roundTripDeadline bounds one admin request's connect and ACK.
 	roundTripDeadline = 5 * time.Second
-	// daemonUpBound is how long a case waits for session-start's daemon to answer a dial. It is
-	// longer than daemon.SpawnPollBound on purpose: EnsureRunning has already waited that long, so
-	// anything still outstanding is a cold start on a loaded machine.
+	// daemonUpBound is how long a case waits for session-start's daemon to answer a dial. It is far
+	// longer than session-start's own wait on purpose: its EnsureRunningUntil has already polled
+	// until the hook budget's borrow limit, 8.25 s after the hook began (V6 close-out D21), or for
+	// daemon.SpawnPollBound after a spawn that itself ran late, so anything still outstanding is a
+	// cold start on a loaded machine.
 	daemonUpBound = 60 * time.Second
 	// daemonPollTick is the interval every poll here re-asks on. A ticker, not time.Sleep, per
 	// §6.1's wall-clock-sleep ban (devtool lint's sleepcheck sub-check).
@@ -1073,7 +1083,7 @@ func waitDaemonUpFor(t *testing.T, root string, bound time.Duration) bool {
 			// Every expiry says what it was waiting for and for how long. The review's run spent
 			// hundreds of seconds in waits whose logs said nothing at all, which is what made the
 			// cause unattributable; a bound that expires silently is barely better than none.
-			pid, held := daemonHoldingLock(root)
+			pid, held := testutil.DaemonHoldingLock(root)
 			t.Logf("security: no daemon answered %s within %s (lock pid %d, held=%v)",
 				root, bound, pid, held)
 			return false
@@ -1106,7 +1116,7 @@ func requireIndexed(t *testing.T, root, id string) {
 			if fi, statErr := os.Stat(paths.Long(path)); statErr == nil {
 				size = fi.Size()
 			}
-			pid, held := daemonHoldingLock(root)
+			pid, held := testutil.DaemonHoldingLock(root)
 			t.Fatalf("security: the observer never indexed %s into %s within %s "+
 				"(index size %d bytes, daemon lock pid %d held=%v)",
 				id, path, indexBound, size, pid, held)
@@ -1114,19 +1124,81 @@ func requireIndexed(t *testing.T, root, id string) {
 	}
 }
 
+// requireFileVersion waits until index/files.jsonl records a version of rel (a project-relative,
+// slash-separated path), so a re_read that follows asks about a version that has been captured.
+//
+// The log names the path by its STORE KEY, not by rel: the observer appends under
+// hookio.CaptureScope's PrimaryKey, which is paths.Key and so case-folded on Windows and macOS
+// (§4). Comparing against rel itself made a case whose path has an upper-case letter
+// (docs/NOTES.md) wait out indexBound on Windows for a version that had landed with its record.
+//
+// requireIndexed cannot stand in for it. The observer publishes the tool_use record first and
+// appends the §8.2 file version afterwards (internal/observer/tooluse.go, step 7), behind the
+// publication syncs and the capture-reference link of steps 6a-6b. In that window the record is
+// visible and re_read's answer — "no historical version has been captured for this path yet" — is
+// the correct one; on the Linux verification host the window measured 1.1-2.5 s, longer than the
+// MCP child takes to start, which is how TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk
+// failed 5 of 5 there while passing wherever the child happened to start later.
+func requireFileVersion(t *testing.T, root, rel string) {
+	t.Helper()
+	path := filepath.Join(paths.Of(root).Index, "files.jsonl")
+
+	ticker := time.NewTicker(daemonPollTick)
+	defer ticker.Stop()
+	deadline := time.NewTimer(indexBound)
+	defer deadline.Stop()
+	started := time.Now()
+	for {
+		if b, err := paths.ReadFileShared(path); err == nil && fileVersionNames(b, rel) {
+			if waited := time.Since(started); waited > slowChildNotice {
+				t.Logf("security: a version of %s was recorded after %s", rel, waited.Round(time.Millisecond))
+			}
+			return
+		}
+		select {
+		case <-ticker.C:
+		case <-deadline.C:
+			pid, held := testutil.DaemonHoldingLock(root)
+			t.Fatalf("security: the observer never recorded a file version of %s (store key %q) "+
+				"into %s within %s (daemon lock pid %d held=%v)",
+				rel, paths.Key(rel), path, indexBound, pid, held)
+		}
+	}
+}
+
+// fileVersionNames reports whether any complete line of a files.jsonl image records rel, under the
+// key this platform's store gives it.
+func fileVersionNames(b []byte, rel string) bool {
+	return fileVersionNamesFold(b, rel, paths.DefaultFold())
+}
+
+// fileVersionNamesFold is fileVersionNames with the case fold pinned, so the predicate can be proven
+// for a folding store on a host whose own store does not fold (paths.KeyFold's reason to exist).
+func fileVersionNamesFold(b []byte, rel string, fold bool) bool {
+	key := paths.KeyFold(rel, fold)
+	for _, line := range bytes.Split(b, []byte("\n")) {
+		var rec struct {
+			Path string `json:"path"`
+		}
+		if json.Unmarshal(line, &rec) == nil && rec.Path == key {
+			return true
+		}
+	}
+	return false
+}
+
 // shutdownIfReachable dials root's resolved address and, if anything answers or a live process still
-// holds the lock, sends admin.shutdown until the daemon goes away.
+// holds the lock, sends admin.shutdown until the daemon is gone.
 //
-// This is test/e2e's e2eShutdownIfReachable reduced to what this package needs, cloned rather than
-// imported because test/e2e is a composition root. The two properties worth keeping are the ones its
-// own comments were written around: "gone" is the LOCK disappearing rather than the address going
-// unreachable, because Stop closes the listener first and then goes on writing under .qompack/ for
-// the rest of its unwind; and a daemon that is still COMING UP holds the lock while answering no
-// dial at all, so liveness of the lock holder — not reachability — decides whether there is anything
-// to wait for.
+// What "gone" means is testutil.ShutdownDaemonUntilGone's one definition, shared with every other
+// shutdown helper under test/: no live process holds the lock, every process seen holding it during
+// the call has exited, and no holder went unidentified. This helper keeps only what is this
+// package's own: a daemon that is still COMING UP holds the lock while answering no dial at all, so
+// liveness of the lock holder — not reachability alone — decides whether there is anything to wait
+// for; and a daemon that never goes is terminated, if it serves one of this package's fixtures.
 //
-// It never signals a process: shutdown is requested over the daemon's own admin channel, which is
-// the only mechanism this package uses to stop anything it did not itself fork.
+// It never signals a process on the ordinary path: shutdown is requested over the daemon's own admin
+// channel, which is the only mechanism this package uses to stop anything it did not itself fork.
 func shutdownIfReachable(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
@@ -1134,43 +1206,19 @@ func shutdownIfReachable(t *testing.T, root string) {
 		return
 	}
 	if !ipc.Probe(addr, probeTimeout) {
-		if _, held := daemonHoldingLock(root); !held {
+		if _, held := testutil.DaemonHoldingLock(root); !held {
 			return
 		}
 	}
 
-	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
-		ProjectRoot:     root,
-		ConnectDeadline: roundTripDeadline,
-		AckDeadline:     roundTripDeadline,
+	out := testutil.ShutdownDaemonUntilGone(root, addr, testutil.ShutdownWait{
+		Tick: daemonPollTick, Bound: daemonDownBound, RoundTrip: roundTripDeadline,
 	})
-	defer func() { _ = c.Close() }()
-
-	shutdownPID, _ := daemonHoldingLock(root)
-
-	ticker := time.NewTicker(daemonPollTick)
-	defer ticker.Stop()
-	timeout := time.NewTimer(daemonDownBound)
-	defer timeout.Stop()
-	for {
-		_, _ = c.Send(context.Background(), ipc.Request{
-			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
-		}, roundTripDeadline)
-
-		lockPID, held := daemonHoldingLock(root)
-		if !held && processSettled(shutdownPID) {
-			return
-		}
-		select {
-		case <-ticker.C:
-		case <-timeout.C:
-			t.Logf("security: a daemon (lock pid %d, shutdown pid %d) still held %s after %s of "+
-				"retried admin.shutdown", lockPID, shutdownPID, daemon.LockPath(root), daemonDownBound)
-			terminateOwnDaemon(t, root, lockPID)
-			return
-		}
+	if out.Gone {
+		return
 	}
+	t.Logf("security: %s", out.Describe(daemon.LockPath(root), daemonDownBound))
+	terminateOwnDaemon(t, root, out.LockPID)
 }
 
 // fixturePrefix is the name every temporary directory this package creates begins with. It is what
@@ -1210,30 +1258,6 @@ func terminateOwnDaemon(t *testing.T, root string, pid int) {
 	}
 	t.Logf("security: terminated daemon pid %d, which would not answer admin.shutdown for the "+
 		"fixture project %s", pid, root)
-}
-
-// processSettled reports whether the pid that held the lock can no longer write inside the tree.
-func processSettled(shutdownPID int) bool {
-	if shutdownPID == 0 || shutdownPID == os.Getpid() {
-		return true
-	}
-	return !testutil.ProcessAlive(shutdownPID)
-}
-
-// daemonHoldingLock reports the pid recorded in root's daemon.lock and whether a live process still
-// holds it. The lock is read with paths.ReadFileShared, whose handle carries FILE_SHARE_DELETE, so
-// polling it cannot make the daemon's own Release fail on Windows and thereby CAUSE the abandoned
-// lock it is checking for.
-func daemonHoldingLock(root string) (pid int, held bool) {
-	b, err := paths.ReadFileShared(daemon.LockPath(root))
-	if err != nil {
-		return 0, false
-	}
-	var info daemon.LockInfo
-	if err := json.Unmarshal(b, &info); err != nil {
-		return 0, true
-	}
-	return info.PID, testutil.ProcessAlive(info.PID)
 }
 
 // ---------------------------------------------------------------------------

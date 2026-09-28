@@ -1,0 +1,10 @@
+run_id=cx-w6-linuxrows-daemon-e2e-whole-coload-7dc9527-20260927T202120Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows
+rev=7dc9527
+commit=7dc95273f11a9e164fd27887cc4f5245558eedaa
+bundle_sha256=4ee14da4d256efc19ef6c015c462387eec8fc33f0d2c9e1bf72c9feb8f5e44b3
+host_started_utc=2026-09-27T20:21:46Z
+inner_args=--coload --timeout 150m -- ./internal/daemon ./test/e2e
+host_finished_utc=2026-09-27T21:12:47Z
+container_exit=0

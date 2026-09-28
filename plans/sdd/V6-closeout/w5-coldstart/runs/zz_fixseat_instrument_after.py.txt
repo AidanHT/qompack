@@ -1,0 +1,17 @@
+"""TEMPORARY (w5-coldstart fix seat): the two zzdiag marks runs/zz_instrument_fixed.py.txt cannot
+anchor on 639e6d5's ensureRunning, applied after it to a scratch export of that commit. Never
+committed as code. Usage: python zz_instrument_fixed.py <tree> && python this.py <tree>.
+"""
+import os
+import sys
+
+p = os.path.join(sys.argv[1], 'internal', 'daemon', 'spawn.go')
+s = open(p, encoding='utf-8', newline='').read()
+a = '\t\t\tlock, claim := ipc.ClaimSpawn(projectRoot, clk)\n'
+assert a in s
+s = s.replace(a, a + '\t\t\tzzdiag.Mark("ensure-claimed", "claim", claim)\n', 1)
+b = '\t\t\t\tlock.Release()\n\t\t\t\treturn false, nil\n'
+assert b in s
+s = s.replace(b, '\t\t\t\tzzdiag.Mark("ensure-found-after-claim")\n' + b, 1)
+open(p, 'w', encoding='utf-8', newline='').write(s)
+print('after patched')

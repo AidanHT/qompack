@@ -1,0 +1,14 @@
+# RED at the base: git archive 6aff949 + TestRecordOutcomes_SortingAllocatesNothingPerComparison alone (with its randomHashes helper), Windows
+# go test ./internal/store -run '^TestRecordOutcomes_SortingAllocatesNothingPerComparison$' -count=1 -v
+=== RUN   TestRecordOutcomes_SortingAllocatesNothingPerComparison
+    gc_sortorder_test.go:48: recordOutcomes over 3072 dead roots: 222108 allocations
+    gc_sortorder_test.go:49: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/resume/paths-work/base-6aff949/internal/store/gc_sortorder_test.go:49
+        	Error:      	"222108" is not less than "3071"
+        	Test:       	TestRecordOutcomes_SortingAllocatesNothingPerComparison
+        	Messages:   	recordOutcomes allocated 222108 times for 3072 roots: its sort comparator allocates
+--- FAIL: TestRecordOutcomes_SortingAllocatesNothingPerComparison (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.334s
+FAIL
+exit=1

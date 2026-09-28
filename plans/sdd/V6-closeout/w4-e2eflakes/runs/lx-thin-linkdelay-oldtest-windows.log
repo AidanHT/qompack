@@ -1,0 +1,16 @@
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+    observer_e2e_test.go:536: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/observer_e2e_test.go:536
+        	Error:      	Should NOT be empty, but was []
+        	Test:       	TestE2E_ThinSliceDropsControlOnlyEdges
+--- FAIL: TestE2E_ThinSliceDropsControlOnlyEdges (10.99s)
+=== RUN   TestE2E_ThinSliceDropsControlOnlyEdges
+    observer_e2e_test.go:536: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w4-e2eflakes/test/e2e/observer_e2e_test.go:536
+        	Error:      	Should NOT be empty, but was []
+        	Test:       	TestE2E_ThinSliceDropsControlOnlyEdges
+--- FAIL: TestE2E_ThinSliceDropsControlOnlyEdges (9.75s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	20.967s
+FAIL
+exit=1

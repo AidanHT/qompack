@@ -1,0 +1,30 @@
+# fix seat (w6-config), 2026-09-27: review finding 3. HEAD 91608c4's homeLookupsInFile detection logic (literal keys and the three os.User*Dir only), temporarily kept under the new signature, against the new self-test shapes. Windows.
+=== RUN   TestGuard_HomeIsolationScannersSeeEveryShape
+    homeisolation_test.go:211: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/homeisolation_test.go:211
+        	Error:      	Not equal: 
+        	            	expected: []string{"e: os.Getenv(HOME)", "f: os.Getenv(USERPROFILE)", "h: paths.HomeDirs", "h: os.Getenv as a value", "i: os.Getenv as a value", "j: os.Environ as a value", "k: paths.HomeDirs"}
+        	            	actual  : []string(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,10 +1,2 @@
+        	            	-([]string) (len=7) {
+        	            	- (string) (len=18) "e: os.Getenv(HOME)",
+        	            	- (string) (len=25) "f: os.Getenv(USERPROFILE)",
+        	            	- (string) (len=17) "h: paths.HomeDirs",
+        	            	- (string) (len=23) "h: os.Getenv as a value",
+        	            	- (string) (len=23) "i: os.Getenv as a value",
+        	            	- (string) (len=24) "j: os.Environ as a value",
+        	            	- (string) (len=17) "k: paths.HomeDirs"
+        	            	-}
+        	            	+([]string) <nil>
+        	            	 
+        	Test:       	TestGuard_HomeIsolationScannersSeeEveryShape
+        	Messages:   	a constant key from this file or another, paths.HomeDirs under an alias, and each env reader as a value; not PATH
+--- FAIL: TestGuard_HomeIsolationScannersSeeEveryShape (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.249s
+FAIL
+exit=1

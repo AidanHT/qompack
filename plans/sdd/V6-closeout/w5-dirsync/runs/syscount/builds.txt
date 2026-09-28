@@ -1,0 +1,7 @@
+base = git archive 90e1db3 + w4-syncs/runs/syscount/syscount_harness_test.go.txt (internal/observer), unchanged
+new  = git archive b1935ee (w5-dirsync code head) + the same harness file
+binaries: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test -c ./internal/observer on the Windows host
+run: MSYS_NO_PATHCONV=1 docker run --rm -v <scratch>/syscount:/src golang:1.26.6-bookworm sh /src/syscount.sh
+     (a throwaway container of the local golang image, removed on exit; the verification container is
+     not touched), strace 6.1, root, GOMAXPROCS=4, N=5 timed calls after one warm-up
+summarize.py is w4-syncs/runs/syscount/summarize.py, unchanged

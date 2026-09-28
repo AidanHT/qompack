@@ -1,0 +1,10 @@
+run_id=cx-w3-paths-fix-paths-full-34ddb55-20260926T174454Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths
+rev=34ddb55
+commit=34ddb550fc0b75df2c0294c2383be12c4ef3afc0
+bundle_sha256=91eed6d6fe4f1c4e6afe7df60f7f7ca416872ca38604fb616b568808dc3a1902
+host_started_utc=2026-09-26T17:45:01Z
+inner_args=-- ./internal/paths
+host_finished_utc=2026-09-26T17:45:22Z
+container_exit=0

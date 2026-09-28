@@ -1,0 +1,20 @@
+{
+  "name": "historical_object_unavailable",
+  "phase": "historical",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "c5b1b8df642275792bed82dbee4b2ddfd852e4e8d2bb15316f92f34bee9ac3dc"
+  },
+  "boundary": "an object present at capture, damaged afterwards, asked for through the installed MCP server",
+  "seed_method": "a real session captures a file through the installed binary; one of the stored object files is then truncated in half — §12.3's \"store corrupt (bad CRC, truncated object)\" — and the retrieval is driven through `\u003cbundle\u003e/bin/qompack mcp`",
+  "outcome": "explicit_incomplete",
+  "reason": "the retrieval layer answered `unavailable` for an address whose bytes are gone rather than reporting a miss, the damaged object was quarantined as evidence, and a forced GC pass left that evidence in place",
+  "detail": "damaged: truncated the object file for chunk 62706e319837 from 240 to 120 bytes\nexpand(hash=e5ec33f50136): isError=false found=false denied=false available=false reason=\"the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it\"\nexpand(tool_use_id=toolu_fault_historical_01): isError=false found=false denied=false available=false reason=\"the stored object was refused rather than served: its bytes could not be read intact; a damaged object is preserved as evidence and `qompack fsck` reports it\"\nquarantined: true\nforced GC (RetainDays -1, RetainSessions -1) deleted 3 object(s); quarantine 0→0, capture sidecars 3→3\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:5 roots:4 sidecars:3 checkpoints:0 dangling:3 reported:9}\nnamed as reported: root_chunk(e5ec33f50136/62706e319837): root e5ec33f50136 names chunk 62706e319837, which the object store does not hold; root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; root_chunk(8152211d8f49/3e0c1c855d16): root 8152211d8f49 names chunk 3e0c1c855d16, which the object store does not hold; root_chunk(b072bdf2002a/fad664912af9): root b072bdf2002a names chunk fad664912af9, which the object store does not hold; tool_use_root(toolu_fault_historical_01): tool_use toolu_fault_historical_01 points at root e5ec33f50136, which cannot be materialized; tool_use_root(prompt_sess-fault-historical_0): tool_use prompt_sess-fault-historical_0 points at root 91daa03aa2e6, which cannot be materialized; tool_use_root(toolu_fault_historical_02): tool_use toolu_fault_historical_02 points at root 8152211d8f49, which cannot be materialized; tool_use_root(qompack-mcp:2e10e7403249): tool_use qompack-mcp:2e10e7403249 points at root b072bdf2002a, which cannot be materialized; tool_use_root(qompack-mcp:5de2fbf75538): tool_use qompack-mcp:5de2fbf75538 points at root b072bdf2002a, which cannot be materialized",
+  "dangling_before": 0,
+  "dangling_after": 3
+}

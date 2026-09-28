@@ -1,0 +1,49 @@
+import sys
+p = 'internal/testutil/daemongone.go'
+s = open(p, encoding='utf-8').read()
+m = sys.argv[1]
+def rep(old, new):
+    global s
+    assert s.count(old) == 1, (m, old)
+    s = s.replace(old, new)
+if m == 'OLD':
+    # The sibling helpers' logic before the port: one read of the lock as the handshake begins, and
+    # pid 0 (an empty lock) counted as a holder that has already exited.
+    start = s.index('\tholders := newLockHolders()\n')
+    end = s.index('// DaemonHoldingLock reports')
+    body = '''\tshutdownPID, _ := DaemonHoldingLock(root)
+\tticker := time.NewTicker(w.Tick)
+\tdefer ticker.Stop()
+\ttimeout := time.NewTimer(w.Bound)
+\tdefer timeout.Stop()
+\tfor {
+\t\t_, _ = c.Send(context.Background(), ipc.Request{
+\t\t\tOp: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
+\t\t}, w.RoundTrip)
+\t\tpid, held := DaemonHoldingLock(root)
+\t\tif !held && (shutdownPID == 0 || lockHolderExited(shutdownPID)) {
+\t\t\treturn ShutdownOutcome{Gone: true, LockPID: pid}
+\t\t}
+\t\tselect {
+\t\tcase <-ticker.C:
+\t\tcase <-timeout.C:
+\t\t\treturn ShutdownOutcome{LockPID: pid, LockHeld: held}
+\t\t}
+\t}
+}
+
+'''
+    s = s[:start] + body + s[end:]
+    s = s.replace('\t"sort"\n', '\t"sort"\n', 1)
+    s += '\nvar _ = newLockHolders\n'
+elif m == 'M1':
+    rep('return !h.unread && !h.unidentified && len(h.running()) == 0', 'return !h.unread && len(h.running()) == 0')
+elif m == 'M2':
+    rep('return !h.unread && !h.unidentified && len(h.running()) == 0', 'return !h.unread && !h.unidentified')
+elif m == 'M3':
+    rep('\tfor {\n\t\tholders.observe(DaemonHoldingLock(root))\n', '\tfor {\n')
+elif m == 'M4':
+    rep('\tcase held:\n\t\th.unread = true\n', '')
+else:
+    raise SystemExit('unknown mutation ' + m)
+open(p, 'w', encoding='utf-8', newline='\n').write(s)

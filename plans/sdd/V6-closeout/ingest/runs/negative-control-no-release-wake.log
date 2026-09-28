@@ -1,0 +1,10 @@
+=== RUN   TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+    delivery_order_live_test.go:293: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-ingest/internal/daemon/delivery_order_live_test.go:293
+        	Error:      	Condition never satisfied
+        	Test:       	TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+        	Messages:   	the woken lane did not publish the successor: 1 of 2 arrivals acknowledged, l0_ordering_deferred=1
+--- FAIL: TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor (31.07s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	31.348s
+FAIL

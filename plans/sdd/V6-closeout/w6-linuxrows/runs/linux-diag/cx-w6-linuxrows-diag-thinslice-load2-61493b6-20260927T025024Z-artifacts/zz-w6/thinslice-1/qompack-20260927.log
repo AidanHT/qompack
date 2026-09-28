@@ -1,0 +1,9 @@
+ts=2026-09-27T02:52:00.102847297Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-27T02:52:00.621027456Z level=info msg="observer: session registered" session=sess-e2e-thinslice source=startup turn=0 segment=1
+ts=2026-09-27T02:52:00.621303459Z level=info msg="scheduler: session bound" session=sess-e2e-thinslice effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-27T02:52:35.294928945Z level=loud msg="daemon: stop: a session end ignored cancellation; abandoning it, its flush stays in the WAL" bound=250ms
+ts=2026-09-27T02:52:35.295644076Z level=warn msg="daemon: flush: the session's drain before SessionEnd did not finish" session=sess-e2e-thinslice err="context canceled"
+ts=2026-09-27T02:52:35.295837667Z level=loud msg="daemon: flush: SessionEnd runs before the session settled; its pending deliveries stay in the WAL for replay" session=sess-e2e-thinslice reason="some of its leased deliveries are not on the committed frontier"
+ts=2026-09-27T02:52:35.391131147Z level=warn msg="scheduler tap: persist at session end failed" err="context canceled"
+ts=2026-09-27T02:52:35.576585345Z level=warn msg="daemon: SessionEnd failed" err="context canceled"
+ts=2026-09-27T02:52:35.887754517Z level=warn msg="daemon: flush not acknowledged; its line stays in the WAL for the next drain" session=sess-e2e-thinslice err="context canceled"

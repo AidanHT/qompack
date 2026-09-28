@@ -13,6 +13,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 // The exact estimator (00-ARCHITECTURE.md §5.20; Qompack.md G10.2) replaces the host's coarse 4/3
@@ -178,6 +179,11 @@ type exact struct {
 	// calib guards the calibration state; see calibrate.go.
 	calib calibState
 
+	// fmu serializes flush's file I/O, which runs after cmu is released: an append's read-write
+	// handle blocks, on Windows, a concurrent compaction's paths.WriteAtomic replace of the same
+	// file, and two appends that measured the same record count write over each other's records.
+	// It is only ever taken first, before cmu.
+	fmu sync.Mutex
 	// cmu guards every chunk-cache field below.
 	cmu       sync.Mutex
 	cache     map[core.Hash]uint32
@@ -357,13 +363,10 @@ func DefaultCalibPath() string {
 		return filepath.Join(h, calibFileName)
 	}
 	if h, err := os.UserHomeDir(); err == nil && h != "" {
-		return filepath.Join(h, dotQompack, calibFileName)
+		return filepath.Join(paths.Global(h), calibFileName)
 	}
-	return filepath.Join(os.TempDir(), dotQompack, calibFileName)
+	return filepath.Join(paths.Global(os.TempDir()), calibFileName)
 }
-
-// dotQompack is the user-global runtime directory name, matching paths.Global's own convention.
-const dotQompack = ".qompack"
 
 // calibFileName is the calibration document's file name within that directory.
 const calibFileName = "calibration.json"

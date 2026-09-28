@@ -225,6 +225,11 @@ func runFsck(ctx context.Context, env Env, args []string, out, errw io.Writer) e
 		fmt.Fprintln(errw, "qompack fsck: could not resolve a project root")
 		return errAlreadyReported
 	}
+	// D18: the home directory's .qompack is the user-global layer, not a store to scan or repair.
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		fmt.Fprintf(errw, "qompack fsck: %v\n", refused)
+		return errAlreadyReported
+	}
 	clk := env.Clock
 	if clk == nil {
 		clk = core.SystemClock()
@@ -795,17 +800,24 @@ func (s *fsckScan) resolveRootLine(row *fsckRowBuilder, rl fsckRootLine) {
 
 // ── 3. tool_use index ──────────────────────────────────────────────────────────────────────────
 
-// fsckToolUseLine is the subset of index/tool_use.jsonl's frozen wire shape fsck resolves.
+// fsckToolUseLine is the subset of an index/tool_use.jsonl LINE fsck resolves, spelled with the keys
+// the store writes to that file: its compact content record (internal/store tuRec: "s", "by", ...)
+// and its append-only supersede mutation ({"op":"supersede","id","by"}). It is deliberately NOT
+// store.ToolUseRecord's long-key MarshalJSON shape ("session", "superseded_by"), which is the TYPE's
+// frozen contract and is never what this file holds: decoded with those keys every session reads as
+// "" and every supersession link as absent, which silently turned the per-session turn check into a
+// cross-session one and left the link check with nothing to check.
 type fsckToolUseLine struct {
-	ID           string `json:"id"`
-	Session      string `json:"session"`
-	Turn         int64  `json:"turn"`
-	Tool         string `json:"tool"`
-	Root         string `json:"root"`
-	Path         string `json:"path"`
-	Status       int    `json:"status"`
-	SupersededBy string `json:"superseded_by"`
+	Op      string `json:"op"`
+	ID      string `json:"id"`
+	Session string `json:"s"`
+	Turn    int64  `json:"turn"`
+	Root    string `json:"root"`
+	By      string `json:"by"`
 }
+
+// fsckToolUseSupersede is the Op of the store's supersede mutation line (MarkSuperseded).
+const fsckToolUseSupersede = "supersede"
 
 // checkToolUse resolves every tool_use record's root by finalize.go's OWN rule — the object is
 // held, or the root resolves and every chunk it names is held — because that is exactly what
@@ -830,6 +842,7 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 	}
 
 	records := make([]fsckToolUseLine, 0, len(lines))
+	var marks []fsckToolUseLine
 	ids := make(map[string]bool, len(lines))
 	for i, raw := range lines {
 		var tu fsckToolUseLine
@@ -841,10 +854,27 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 			row.defect("index/tool_use.jsonl:%d carries no tool_use id", i+1)
 			continue
 		}
+		if tu.Op == fsckToolUseSupersede {
+			// A mark is a LINK between two records, not a record: it has no session and no turn, so
+			// it neither joins the turn ordering nor counts toward the population scanned.
+			marks = append(marks, tu)
+			continue
+		}
 		ids[tu.ID] = true
 		records = append(records, tu)
 	}
 	row.scan(len(records))
+
+	// The store refuses a mark whose either end it does not hold (MarkSuperseded: ErrNotFound), so a
+	// mark in the file that names a record the file does not carry is damage at either end.
+	for _, m := range marks {
+		if !ids[m.ID] {
+			row.defect("a supersede mark names %s, which this index does not record", m.ID)
+		}
+		if m.By == "" || !ids[m.By] {
+			row.defect("tool_use %s is superseded by %s, which this index does not record", m.ID, m.By)
+		}
+	}
 
 	lastTurn := map[string]int64{}
 	for _, tu := range records {
@@ -854,9 +884,9 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 		}
 		lastTurn[tu.Session] = tu.Turn
 
-		if tu.SupersededBy != "" && !ids[tu.SupersededBy] {
+		if tu.By != "" && !ids[tu.By] {
 			row.defect("tool_use %s is superseded by %s, which this index does not record",
-				tu.ID, tu.SupersededBy)
+				tu.ID, tu.By)
 		}
 		if tu.Root == "" || fsckIsZeroHash(tu.Root) || s.fsckHashHeld(tu.Root) {
 			continue
@@ -1080,6 +1110,7 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	row := newFsckRow("captures", contract.SevWarn)
 	dir := filepath.Join(s.l.Records, "captures")
 	seen := 0
+	control := 0 // legacy sidecars of drained control lines (store.IsControlCaptureOp)
 
 	err := filepath.WalkDir(paths.Long(dir), func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -1110,6 +1141,12 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 			row.defect("capture sidecar %s declares version %d, which this build does not read",
 				d.Name(), sc.Version)
 		}
+		if !sc.Published && store.IsControlCaptureOp(sc.Op) {
+			// A drained control line's sidecar, left by a build before the V6 close-out: evidence of a
+			// delivery that is not an observation, which nothing references. Kept, counted, not a gap.
+			control++
+			return nil
+		}
 		if !sc.Published {
 			required, known := store.CaptureRequiresReference(sc.Op, sc.Bytes)
 			if !known && sc.Outcome == string(core.OutcomeOK) && sc.BytesHash != "" && !fsckIsZeroHash(sc.BytesHash) {
@@ -1133,8 +1170,19 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		row.defect("records/captures could not be walked: %v", err)
 	}
+	if control > 0 {
+		row.note("%s", fsckLegacyControlCapturesNote(control))
+	}
 	row.scan(seen)
 	return row.build()
+}
+
+// fsckLegacyControlCapturesNote is the one sentence the captures and publication rows both use for
+// the sidecars builds before the V6 close-out published for drained control lines.
+func fsckLegacyControlCapturesNote(n int) string {
+	return fmt.Sprintf("%d capture sidecar(s) record control lines (a session start, checkpoint or flush a "+
+		"drain replayed under a build before the V6 close-out): legacy evidence, kept as written, which "+
+		"needs no reference and is not a gap", n)
 }
 
 // fsckFirstNonEmpty returns the first non-empty string, for identifying a record by whichever of
@@ -1659,6 +1707,14 @@ func (s *fsckScan) checkDelivery() fsckCheck {
 	return row.build()
 }
 
+// deliveryActiveSegment reads the active segment the delivery segment authority's head names
+// (state/delivery-journal.json), and reports false when there is no head or it does not read. It is a
+// classification aid for the read-only row only; the authority's full validation is --seal-check's.
+func (s *fsckScan) deliveryActiveSegment() (uint64, bool) {
+	active, err := readDeliveryActiveSegment(s.l)
+	return active, err == nil
+}
+
 // checkDeliveryPositions classifies each position seal and, when the project is quiet, runs the
 // offline tool's own full check.
 func (s *fsckScan) checkDeliveryPositions(row *fsckRowBuilder) {
@@ -1677,6 +1733,21 @@ func (s *fsckScan) checkDeliveryPositions(row *fsckRowBuilder) {
 			// A v2 seal is a binary A/B image, not JSON. Its slots are the offline tool's to read.
 			row.note("state/%s is not JSON, which is what a v2 sealed position looks like; "+
 				"its slots are read below", name)
+			continue
+		}
+		if sealed, entries, frozen := daemon.FrozenDeliverySeal(name, raw); frozen {
+			// The old-reader barrier: once the store has rotated, segment 0's seals are frozen so a build
+			// that predates segments refuses the journal. It is only ever legitimate beside an authority
+			// naming a later segment.
+			if active, ok := s.deliveryActiveSegment(); ok && active >= 1 {
+				row.note("state/%s is the frozen seal of the archived legacy segment (%d entries, %d bytes); "+
+					"the store has rotated to segment %d, whose journals --seal-check reads", name, entries, sealed, active)
+			} else {
+				row.defect("state/%s is a frozen legacy-segment seal, but no readable segment authority "+
+					"names a later segment: either a rotation stopped between freezing segment 0 and "+
+					"committing its transition, which the daemon finishes at its next start when the window "+
+					"was archived, or damage", name)
+			}
 			continue
 		}
 		switch {
@@ -2190,9 +2261,12 @@ func fsckRepairPinsView(ctx context.Context, root string, clk core.Clock) []fsck
 // re-hashes cleanly and parses at a schema version this build reads.
 //
 // It goes through paths.AppendManifest because that is the ONLY legal writer of
-// checkpoints/MANIFEST.jsonl (paths.IsProtected covers the whole checkpoints/ subtree). The
-// artifact itself is never rewritten: finalize.go left it on disk precisely so a session would not
-// be lost, and reconciling it is an append.
+// checkpoints/MANIFEST.jsonl (paths.IsProtected covers the whole checkpoints/ subtree), and because
+// that writer syncs the checkpoints directory before the line and the line before it returns: the
+// orphan was found by listing a directory whose entries a power cut could still take, and a durable
+// line naming an artifact whose name was lost would turn an orphan into a MANIFEST entry without its
+// artifact. The artifact itself is never rewritten: finalize.go left it on disk precisely so a
+// session would not be lost, and reconciling it is an append.
 func fsckRepairOrphanManifestLines(l paths.Layout, clk core.Clock) []fsckRepair {
 	entries, err := paths.ReadManifest(l)
 	if err != nil {

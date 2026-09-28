@@ -1,0 +1,10 @@
+run_id=cx-w6-ckptsync-lane-overflow-alone-eddb208-20260927T185127Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-ckptsync
+rev=eddb208
+commit=eddb208c7b9b4e200dcf3acbdfe3c4c7ef955f7b
+bundle_sha256=e50e2150d1a5ac29ba2e7b79c9f297cb3d029ed5f4b3954096e2766519c8e2a1
+host_started_utc=2026-09-27T18:51:51Z
+inner_args=--run ^TestDeliveryOrder_LaneOverflowIsDrainedOnRequest$ --count 10 --timeout 30m -- ./internal/daemon
+host_finished_utc=2026-09-27T18:53:01Z
+container_exit=0

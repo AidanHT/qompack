@@ -1,0 +1,52 @@
+# Windows full package runs at 91db668, -count=1 -timeout=30m, machine co-loaded by other workstreams and this lane's Linux run; QOMPACK_UNDER_COLOAD not set
+## go test ./internal/paths -count=1 -timeout=30m  (start 02:27:53Z)
+ok  	github.com/qompack/qompack/internal/paths	7.796s
+exit=0 (end 02:28:03Z)
+## go test ./internal/ipc -count=1 -timeout=30m  (start 02:28:03Z)
+ok  	github.com/qompack/qompack/internal/ipc	19.748s
+exit=0 (end 02:28:25Z)
+## go test ./internal/tokens -count=1 -timeout=30m  (start 02:28:25Z)
+ok  	github.com/qompack/qompack/internal/tokens	4.561s
+exit=0 (end 02:28:32Z)
+## go test ./internal/eval -count=1 -timeout=30m  (start 02:28:32Z)
+ok  	github.com/qompack/qompack/internal/eval	2.797s
+exit=0 (end 02:28:39Z)
+## go test ./tools/devtool -count=1 -timeout=30m  (start 02:28:39Z)
+ok  	github.com/qompack/qompack/tools/devtool	62.881s
+exit=0 (end 02:29:46Z)
+## go test ./internal/cli -count=1 -timeout=30m  (start 02:29:46Z)
+ok  	github.com/qompack/qompack/internal/cli	139.928s
+exit=0 (end 02:32:10Z)
+## go test ./internal/store -count=1 -timeout=30m  (start 02:32:10Z)
+ok  	github.com/qompack/qompack/internal/store	356.039s
+exit=0 (end 02:38:07Z)
+## go test ./internal/daemon -count=1 -timeout=30m  (start 02:38:07Z)
+--- FAIL: TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease (0.21s)
+    borrowed_lease_test.go:79: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/daemon/borrowed_lease_test.go:79
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestBorrowedLease_ReportsResidualOnlyAfterOwnerRelease
+--- FAIL: TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases (0.49s)
+    delivery_seal_format2_test.go:788: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/daemon/delivery_seal_format2_test.go:788
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: running in degraded mode"
+        	            	in chain: 
+        	Test:       	TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases
+        	Messages:   	the failure is recorded rather than discarded, so a caller can log it once
+--- FAIL: TestDeliverySeal_AResidualReachesTheOperatorFromStop (0.49s)
+    --- FAIL: TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair (0.25s)
+        delivery_seal_format2_test.go:857: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w3-paths/internal/daemon/delivery_seal_format2_test.go:857
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: running in degraded mode"
+            	            	in chain: 
+            	Test:       	TestDeliverySeal_AResidualReachesTheOperatorFromStop/a_failed_downgrade_is_reported_once,_at_Warn,_naming_the_repair
+            	Messages:   	the fixture's downgrade must really have failed, or the report below proves nothing
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	257.063s
+FAIL
+exit=1 (end 02:42:30Z)
+DONE

@@ -1,0 +1,20 @@
+=== RUN   TestListRetentionDir_AShortListingCompletesUnderAnExpiredDeadline
+    gc_retention_dir_budget_test.go:66: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux/internal/store/gc_retention_dir_budget_test.go:66
+        	Error:      	Should be false
+        	Test:       	TestListRetentionDir_AShortListingCompletesUnderAnExpiredDeadline
+        	Messages:   	a listing that one batch completed was truncated by the deadline check that is only meant to run BETWEEN batches — the whole mark is thrown away for a directory that was already fully read
+--- FAIL: TestListRetentionDir_AShortListingCompletesUnderAnExpiredDeadline (0.10s)
+=== RUN   TestListRetentionDir_AFullBatchStillAnswersAnExpiredDeadline
+--- PASS: TestListRetentionDir_AFullBatchStillAnswersAnExpiredDeadline (0.46s)
+=== RUN   TestGC_AnExpiredDeadlineDoesNotStopASmallPassAtItsCheckpointListing
+    gc_retention_dir_budget_test.go:100: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-linux/internal/store/gc_retention_dir_budget_test.go:100
+        	Error:      	Should be false
+        	Test:       	TestGC_AnExpiredDeadlineDoesNotStopASmallPassAtItsCheckpointListing
+        	Messages:   	no loop of this pass reaches a budget check, so an expired deadline must not truncate it
+--- FAIL: TestGC_AnExpiredDeadlineDoesNotStopASmallPassAtItsCheckpointListing (0.14s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.930s
+FAIL
+exit=1

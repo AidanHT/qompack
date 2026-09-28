@@ -1,0 +1,23 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/security": {
+   "result": "fail",
+   "passed": 0,
+   "failed": [
+    "TestSecurity_ReReadAnswersFromTheArchiveNotTheLiveDisk",
+    "TestSecurity_ArchivedTextIsDataNeverAnInstruction"
+   ],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/guards": {
+   "result": "fail",
+   "passed": 2,
+   "failed": [
+    "TestGuard_TheV1DeliveryPositionHasOneEncoder/every_deliveryPosition_marshal_site_is_named_here",
+    "TestGuard_TheV1DeliveryPositionHasOneEncoder"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

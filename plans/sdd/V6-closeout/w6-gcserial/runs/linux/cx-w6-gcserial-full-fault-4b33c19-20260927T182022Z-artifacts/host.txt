@@ -1,0 +1,10 @@
+run_id=cx-w6-gcserial-full-fault-4b33c19-20260927T182022Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-gcserial
+rev=4b33c19
+commit=4b33c19f8853f3f0d5821f8f1f8dc6b9b8df5c54
+bundle_sha256=143fc2976b6f091c1466f39cb7fa0c05d6980fc46b67d2814e374c507f71c85c
+host_started_utc=2026-09-27T18:20:56Z
+inner_args=--timeout 60m -- ./test/fault
+host_finished_utc=2026-09-27T18:35:32Z
+container_exit=1

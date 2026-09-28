@@ -1,0 +1,11 @@
+=== RUN   TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+    spool_watch_test.go:284: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/linuxrows/diagclone/internal/daemon/spool_watch_test.go:284
+        	Error:      	Condition never satisfied
+        	Test:       	TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished
+        	Messages:   	a client spool slower than a pass's budget was never published
+--- FAIL: TestSpoolWatch_AClientSpoolSlowerThanAPassBudgetIsPublished (34.89s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	35.145s
+FAIL
+exit=1

@@ -1,0 +1,1 @@
+PASS      github.com/qompack/qompack/test/security  (pass=30 fail=0 skip=0)

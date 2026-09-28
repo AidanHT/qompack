@@ -1,0 +1,18 @@
+Reviewer finding 7 (doctor exec bit), RED run before doctor.go's row was wired, 2026-09-22.
+Host: docker run --rm golang:1.26.6-bookworm (go1.26.6 linux/amd64), worktree mounted read-only,
+GOPROXY=off, host module cache mounted read-only.
+Command: go test ./internal/cli -run "TestPluginBinaryExecutable|TestDoctor_ReportsTheThreePluginRootOutcomes" -count=1 -v
+(pluginBinaryExecutable existed; pluginRootRow did not call it yet.)
+Excerpt, verbatim:
+    doctor_test.go:438:
+        	Error:      	Not equal:
+        	            	expected: "degraded"
+        	            	actual  : "ok"
+        	Test:       	TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable
+        	Messages:   	row=map[detail:/tmp/TestDoctor_ReportsTheThreePluginRootOutcomesset,_present,_not_e1161487552/001/bin/qompack id:version.pluginRoot observed:set and resolves status:ok]
+--- FAIL: TestDoctor_ReportsTheThreePluginRootOutcomes (0.73s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves (0.00s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/unset (0.00s)
+    --- FAIL: TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable (0.00s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it (0.00s)
+FAIL	github.com/qompack/qompack/internal/cli	0.752s

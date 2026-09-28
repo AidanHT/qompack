@@ -1,0 +1,22 @@
+## tree: git archive 90e1db3 (base) + this branch's internal/cli/backup_longpath_test.go and fsck_test.go (seedFsckProjectAt); Windows
+## go test ./internal/cli -run '^TestBackupCLI_CreateVerifyRestoreBeyondMaxPath$' -count=1 -v
+=== RUN   TestBackupCLI_CreateVerifyRestoreBeyondMaxPath
+    backup_longpath_test.go:54: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/winfiles/b90/internal/cli/backup_longpath_test.go:54
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestBackupCLI_CreateVerifyRestoreBeyondMaxPath
+        	Messages:   	backup create past MAX_PATH: {"schema":1,"action":"create","id":"deep","error":"store: backup \"deep\": Rel: can't make \\\\?\\C:\\Users\\Quant\\AppData\\Local\\Temp\\TestBackupCLI_CreateVerifyRestoreBeyondMaxPath3487308298\\002\\project\\a-deliberately-long-directory-name-to-pass-max-path\\a-deliberately-long-directory-name-to-pass-max-path\\a-deliberately-long-directory-name-to-pass-max-path\\a-deliberately-long-directory-name-to-pass-max-path\\.qompack\\.gitignore relative to C:\\Users\\Quant\\AppData\\Local\\Temp\\TestBackupCLI_CreateVerifyRestoreBeyondMaxPath3487308298\\002\\project\\a-deliberately-long-directory-name-to-pass-max-path\\a-deliberately-long-directory-name-to-pass-max-path\\a-deliberately-long-directory-name-to-pass-max-path\\a-deliberately-long-directory-name-to-pass-max-path"}
+        	            	 qompack backup create: store: backup "deep": Rel: can't make \\?\C:\Users\Quant\AppData\Local\Temp\TestBackupCLI_CreateVerifyRestoreBeyondMaxPath3487308298\002\project\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\.qompack\.gitignore relative to C:\Users\Quant\AppData\Local\Temp\TestBackupCLI_CreateVerifyRestoreBeyondMaxPath3487308298\002\project\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path\a-deliberately-long-directory-name-to-pass-max-path
+--- FAIL: TestBackupCLI_CreateVerifyRestoreBeyondMaxPath (0.83s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	1.098s
+FAIL
+exit=1
+## go test ./internal/cli -run '^TestFsckCLI_PassesBeyondMaxPath$' -count=1 -v
+=== RUN   TestFsckCLI_PassesBeyondMaxPath
+--- PASS: TestFsckCLI_PassesBeyondMaxPath (0.46s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.683s
+exit=0

@@ -1,0 +1,21 @@
+run_id=cx-linux-ingest-endpoint-c34acb4-c34acb4-20260922T221949Z
+commit=c34acb41410eadd373bf46ec8c41e455ab9031c7
+tree=209a4e1e17f9a4067dd8131667ed67d7bca09e39
+bundle_sha256=f9a5c5fb2aecab17c0ad1553dc64316020c553e1aedd3e43518bb7cbe2b64b7c
+started_utc=2026-09-22T22:20:04Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=1
+run=^(TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites|TestIntegration_DegradedPassiveStillWritesToTheRealStore|TestIntegration_HotPathWarmWithRealResidentState|TestSecurity_.*|TestFault_.*|TestV6Backup_.*|TestV6_.*)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-09-22T22:50:11Z

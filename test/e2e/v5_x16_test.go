@@ -338,8 +338,9 @@ func TestV5_NoPackageWritesOutsideDotQompack(t *testing.T) {
 		cpCloseObserverSegment(t, r.Segs, x16v5Session)
 		cpCloseSegment(t, r.Segs, x16v5Session, 0, 9) // turns 0..9 of the first burst, as v4_x11 closes them
 		r.RunIdle(t)
-		_, instr := r.PreCompact(t, x16v5Session)
-		require.NotEmpty(t, instr, "the arm needs a sealed checkpoint so the checkpoint writer is in the write set")
+		r.PreCompact(t, x16v5Session)
+		require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root),
+			"the arm needs a sealed checkpoint so the checkpoint writer is in the write set")
 		r.CompactStart(t, x16v5Session)
 		obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, x16v5Session), env)
 
@@ -365,14 +366,13 @@ func TestV5_NoPackageWritesOutsideDotQompack(t *testing.T) {
 		// settle and get none: the directed-import arm never touches IPC, and the severed-writers
 		// arm runs under the daemon-down fault, whose spawn site is a no-op.
 		//
-		// Unlike that arm's, this call spends its whole e2eDaemonDownBound and then logs "released …
-		// but was still running": v4StartRig's daemon is IN-PROCESS, so daemon.lock records the test
-		// binary's own pid (internal/daemon/lock.go) and the helper's second condition — the pid that
-		// held the lock has exited — can never be met by a daemon living inside the test that is
-		// asking. That log line is an artefact of an in-process daemon, not a straggler. The settle
-		// underneath it is real and lands in milliseconds: admin.shutdown runs daemon.Stop, whose
-		// LAST act is Lock.Release, so the lock's disappearance already proves every cleanup step
-		// above it has run.
+		// Unlike that arm's, this daemon is IN-PROCESS (v4StartRig), so daemon.lock records the test
+		// binary's own pid (internal/daemon/lock.go), and "has that pid exited?" could never be
+		// answered yes from inside the test that is asking. The helper therefore counts our own pid
+		// as settled once the lock is gone (internal/testutil's lockHolderExited says why), and the
+		// settle lands in milliseconds: admin.shutdown runs daemon.Stop, whose LAST act is
+		// Lock.Release, so the lock's disappearance already proves every cleanup step above it has
+		// run.
 		e2eShutdownIfReachable(t, p.Root)
 
 		after := x16v5Snapshot(t, roots)

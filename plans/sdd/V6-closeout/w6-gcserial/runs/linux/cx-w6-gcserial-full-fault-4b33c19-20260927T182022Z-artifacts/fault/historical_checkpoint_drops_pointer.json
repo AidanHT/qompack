@@ -1,0 +1,20 @@
+{
+  "name": "historical_checkpoint_drops_pointer",
+  "phase": "historical",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "381006e47a7677b23ef7868bab0e44a001d160f33d55bbfa4dcbd9610a7415b4"
+  },
+  "boundary": "a checkpoint written after the object one of its pointers names went away",
+  "seed_method": "a real session, one stored object removed outright, then a real PreCompact through the installed binary, then one more observation so the judge has a measured \"did recording go on\" rather than an assumed one",
+  "outcome": "failed",
+  "reason": "3 reference(s) the cut introduced do not resolve and NO surface gained anything about it — not LOUD.log, not status --json taken with the recovery daemon up, not self-test --json, not the day log, not a DropEntry. Owner: internal/store (the index keeps naming bytes that are gone). Returned as F4-1.",
+  "detail": "removed: removed the object file for chunk 6139dde14f6a\nartifacts 0 -\u003e 1 (sealed 1); pointers across them: 4\nnew drop entries: [pointer_git_unavailable()], of which naming the cut: []\nrecovery observation toolu_fault_historical_drop_03 indexed: true\neverything the surfaces gained: daylog[1]: qompack-20260927.log: ts=2026-09-27T18:22:08.314765944Z level=warn msg=\"store: segment closed without a tokens feature; Segment.Tokens stays zero permanently\" segment=2 session=sess-fault-historical-drop; drop[1]: pointer_git_unavailable(); status[1]: spool_files=2; surfaces status --json+checkpoint DropEntry+day log (warn)\nof which naming this cut (quarantin, materialize, dangling, missing object, prompt_sess-fault-historical-drop_0, 6139dde14f6a): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry\nnote: the sealed checkpoint's OWN pointers all resolve on disk, so the references listed as newly dangling below are not the checkpoint's — they are what the removed object left behind in the index that outlived it. This row cannot distinguish finalize having DROPPED an unresolvable pointer from the pointer never having been a candidate: no drop entry names the removed object either way.\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:1 dangling:3 reported:0}\ndegradation (new since the cut): nothing new on LOUD.log, status --json, self-test --json, the day log or a DropEntry\nnewly dangling: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve\nnewly reported: none\nremaining dangling after recovery: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; tool_use_root(prompt_sess-fault-historical-drop_0): tool_use prompt_sess-fault-historical-drop_0 points at root 91daa03aa2e6, which cannot be materialized; capture_bytes_absent(prompt_sess-fault-historical-drop_0): published capture sidecar names root 91daa03aa2e6, which does not resolve",
+  "dangling_before": 0,
+  "dangling_after": 3
+}

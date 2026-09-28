@@ -7,14 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 )
 
-// TestMain owns the one `go build` this package performs, removing it after the last test.
-func TestMain(m *testing.M) {
-	code := m.Run()
-	removeBuild()
-	os.Exit(code)
-}
+// TestMain isolates the user's home for every test here (pathstest.Main: the binary this package
+// builds and drives resolves it, and no test may read or write the real ~/.qompack or ~/.claude),
+// and owns the one `go build` this package performs, removing it after the last test.
+func TestMain(m *testing.M) { os.Exit(pathstest.Main(m, removeBuild)) }
 
 // TestCanary_HostInventory is plans/MIGRATION-EVIDENCE.md B01's first named action: "Inventory
 // installed Claude Code/provider/OS". It establishes nothing about any capability, and that is the

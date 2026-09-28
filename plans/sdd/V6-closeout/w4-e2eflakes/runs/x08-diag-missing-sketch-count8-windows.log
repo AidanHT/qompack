@@ -1,0 +1,39 @@
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+    v3_x08_test.go:301: ZZDIAG sketches/tried.bloom
+    v3_x08_test.go:301: ZZDIAG sketches/tried.bloom.2.bak
+    v3_x08_test.go:303: ZZDIAG LOUD: [ts=2026-09-26T18:30:41.6244917Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="v3 test" failed=x8.forced/critical]
+    v3_x08_test.go:313: ZZDIAG ran=[drain sketches metrics negknow.maintain observer.persist]
+    v3_x08_test.go:316: ZZDIAG touch.cms 3s later: <nil>
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (10.15s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (6.31s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (6.11s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (6.27s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+    v3_x08_test.go:301: ZZDIAG sketches/tried.bloom
+    v3_x08_test.go:301: ZZDIAG sketches/tried.bloom.2.bak
+    v3_x08_test.go:303: ZZDIAG LOUD: [ts=2026-09-26T18:31:09.615342Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="v3 test" failed=x8.forced/critical]
+    v3_x08_test.go:313: ZZDIAG ran=[drain sketches metrics negknow.maintain observer.persist]
+    v3_x08_test.go:316: ZZDIAG touch.cms 3s later: <nil>
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (8.59s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (6.24s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+    v3_x08_test.go:301: ZZDIAG sketches/tried.bloom
+    v3_x08_test.go:301: ZZDIAG sketches/tried.bloom.2.bak
+    v3_x08_test.go:303: ZZDIAG LOUD: [ts=2026-09-26T18:31:24.4290854Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="v3 test" failed=x8.forced/critical]
+    v3_x08_test.go:313: ZZDIAG ran=[drain sketches metrics negknow.maintain observer.persist]
+    v3_x08_test.go:316: ZZDIAG touch.cms 3s later: <nil>
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (8.14s)
+=== RUN   TestV3_DegradedPassiveStillRecordsEverything
+    v3_x08_test.go:301: ZZDIAG sketches/tried.bloom
+    v3_x08_test.go:301: ZZDIAG sketches/tried.bloom.2.bak
+    v3_x08_test.go:303: ZZDIAG LOUD: [ts=2026-09-26T18:31:32.5626662Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="v3 test" failed=x8.forced/critical]
+    v3_x08_test.go:313: ZZDIAG ran=[drain sketches metrics negknow.maintain observer.persist]
+    v3_x08_test.go:316: ZZDIAG touch.cms 3s later: <nil>
+--- PASS: TestV3_DegradedPassiveStillRecordsEverything (8.55s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	60.563s
+exit=0

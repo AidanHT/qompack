@@ -53,7 +53,8 @@ type selfTestReport struct {
 
 // runSelfTest implements `qompack self-test [--json]` (task-6-spec.md). It reports critical
 // check failures with a non-zero exit. It runs config load, .qompack/ writability, the append-only
-// guard, ipc.Resolve, daemon reachability, an admin.ping round trip, an ops-coverage summary, and
+// guard, ipc.Resolve, daemon reachability, an admin.ping round trip (both skipped, never spawning,
+// under runtime.daemon.enabled: false — selfTestDaemonDisabled), an ops-coverage summary, and
 // contract.StandardAssertions against a synthetic Env built from the persisted SessionHistory, in
 // that order, then reports a fixed-width table (or, under --json, {checks,mode,exit}). Exit 0 iff no
 // check failed at SevCritical.
@@ -71,12 +72,20 @@ func runSelfTest(ctx context.Context, env Env, args []string, out, errw io.Write
 		clk = core.SystemClock()
 	}
 
-	// config-corrupt fault site (fix round 1, Minor M-12): inert for every hook subcommand, but
-	// self-test DOES call config.Load (selfTestConfigLoad, below) — this is where the site
-	// actually engages for real, before that call, exactly as task-6-spec.md's fault table says.
-	faultCorruptConfigIfNeeded(root)
-
-	checks, mode := runSelfTestChecks(ctx, root, env, clk)
+	var checks []selfTestCheck
+	var mode contract.Mode
+	if refused := refuseHomeRoot(env, root); refused != nil {
+		// D18: every other check would lay out, probe, lock or spawn for the root, and this root's
+		// .qompack is the user-global layer. The refusal is the one critical result, and the report
+		// still renders, so a --json caller reads why instead of a bare exit code.
+		checks, mode = []selfTestCheck{selfTestHomeRootCheck(refused)}, contract.ModeOff
+	} else {
+		// config-corrupt fault site (fix round 1, Minor M-12): inert for every hook subcommand, but
+		// self-test DOES call config.Load (selfTestConfigLoad, below) — this is where the site
+		// actually engages for real, before that call, exactly as task-6-spec.md's fault table says.
+		faultCorruptConfigIfNeeded(root)
+		checks, mode = runSelfTestChecks(ctx, root, env, clk)
+	}
 
 	critical := false
 	for _, c := range checks {
@@ -107,6 +116,18 @@ func runSelfTest(ctx context.Context, env Env, args []string, out, errw io.Write
 	return nil
 }
 
+// selfTestHomeRootCheck is the one check a refused root gets (D18): critical, because Qompack
+// records nothing in such a session, with the refusal — which names the root and the fix — as what
+// was observed.
+func selfTestHomeRootCheck(refused error) selfTestCheck {
+	return selfTestCheck{
+		ID: "project.root", Severity: contract.SevCritical,
+		Expected: "a project directory", Observed: refused.Error(),
+		Detail: "owner decision D18: a session whose project root is the home directory records " +
+			"nothing, because the home directory's .qompack holds only the user-global layer",
+	}
+}
+
 // runSelfTestChecks runs every check in order and returns them together with the contract mode
 // they collectively observed.
 func runSelfTestChecks(ctx context.Context, root string, env Env, clk core.Clock) ([]selfTestCheck, contract.Mode) {
@@ -114,16 +135,21 @@ func runSelfTestChecks(ctx context.Context, root string, env Env, clk core.Clock
 
 	cfg, cfgCheck := selfTestConfigLoad(env, root)
 	checks = append(checks, cfgCheck)
+	checks = append(checks, selfTestCaptureConfig(env, root))
 	checks = append(checks, selfTestWritable(root))
 	checks = append(checks, selfTestAppendOnlyGuard(root))
 
 	addr, addrCheck := selfTestResolve(root)
 	checks = append(checks, addrCheck)
 
-	reachable := selfTestDaemonReachable(root, addr, env.Self, clk)
-	checks = append(checks, reachable)
-
-	checks = append(checks, selfTestAdminPing(root, addr, clk))
+	// runtime.daemon.enabled: false promises no resident process and no lock file
+	// (docs/release.md §4), so neither daemon check may spawn one or dial for one.
+	if cfg.Runtime.Daemon.Enabled {
+		checks = append(checks, selfTestDaemonReachable(root, addr, env.Self, clk))
+		checks = append(checks, selfTestAdminPing(root, addr, clk))
+	} else {
+		checks = append(checks, selfTestDaemonDisabled(addr)...)
+	}
 	checks = append(checks, selfTestOpsCoverage())
 
 	assertionChecks, mode := selfTestContractAssertions(ctx, root, cfg, clk)
@@ -145,6 +171,43 @@ func selfTestConfigLoad(env Env, root string) (config.Config, selfTestCheck) {
 	return cfg, selfTestCheck{
 		ID: "config.load", OK: true, Severity: contract.SevInfo,
 		Expected: "configuration loads", Observed: "loaded",
+	}
+}
+
+// selfTestCaptureConfig asks the question config.load cannot: can the HOOK path load this
+// configuration, and does it apply all of it?
+//
+// config.load exercises the soft loader, which never refuses, so it said `ok` for a configuration
+// every hook refused — SP-18 found a project recording nothing while self-test passed, and that is
+// half of V6 close-out item C1.8. This runs the hook path's own config.LoadForCapture, read-only (it
+// persists nothing, unlike config.load's LoadConfigAndReport), and is never ok when capture would
+// refuse or degrade:
+//
+//   - refused: SevCritical, because every hook then admits nothing. The detail is the loader's own
+//     error, which names the structural class and never an input value;
+//   - applied with a fallback or a dropped key: SevWarn, naming every key, because capture continues;
+//   - applied as written: ok.
+func selfTestCaptureConfig(env Env, root string) selfTestCheck {
+	const expected = "hooks load the configuration as written"
+	_, _, violations, warnings, err := config.LoadForCapture(config.Env{
+		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
+	})
+	if err != nil {
+		return selfTestCheck{
+			ID: "config.capture", Severity: contract.SevCritical, Expected: expected,
+			Observed: "refused: every hook admits nothing", Detail: err.Error(),
+		}
+	}
+	if len(violations)+len(warnings) > 0 {
+		return selfTestCheck{
+			ID: "config.capture", Severity: contract.SevWarn, Expected: expected,
+			Observed: captureConfigDegradedSummary(violations, warnings),
+			Detail:   captureConfigKeys(violations, warnings),
+		}
+	}
+	return selfTestCheck{
+		ID: "config.capture", OK: true, Severity: contract.SevInfo, Expected: expected,
+		Observed: "applied as written",
 	}
 }
 
@@ -268,6 +331,40 @@ func selfTestDaemonReachable(root string, addr ipc.Addr, self string, clk core.C
 		ID: "daemon.reachable", OK: true, Severity: contract.SevInfo,
 		Expected: "the daemon is reachable or spawnable", Observed: observed,
 	}
+}
+
+// selfTestDaemonSkipped is what both daemon checks observe when the configuration disables the
+// daemon: the check was not run, which is not a failure.
+const selfTestDaemonSkipped = "skipped: runtime.daemon.enabled is false"
+
+// selfTestDaemonDisabled reports daemon.reachable and admin.ping for a project whose configuration
+// sets runtime.daemon.enabled: false. It never calls daemon.EnsureRunning: a disabled daemon means
+// no resident process and no lock file (docs/release.md §4), and a daemon self-test started would
+// drain the spool the operator chose to leave alone, exactly as session-start's did before FR-6
+// (ensureDaemonRunning). Both checks pass as skipped by configuration.
+//
+// It still dials once (ipc.Probe creates nothing), because a daemon that answers anyway contradicts
+// the configuration: one started before the switch was set, or by hand with `qompack daemon`. That
+// is reported as a warning rather than hidden behind "skipped", and admin.ping is still not sent.
+func selfTestDaemonDisabled(addr ipc.Addr) []selfTestCheck {
+	reachable := selfTestCheck{
+		ID: "daemon.reachable", OK: true, Severity: contract.SevInfo,
+		Expected: "the daemon is reachable or spawnable", Observed: selfTestDaemonSkipped,
+	}
+	if ipc.Probe(addr, selfTestProbeTimeout) {
+		reachable = selfTestCheck{
+			ID: "daemon.reachable", Severity: contract.SevWarn,
+			Expected: "no daemon runs while runtime.daemon.enabled is false",
+			Observed: "a daemon is reachable although runtime.daemon.enabled is false",
+			Detail: "it was started before the switch was set, or by hand, and it drains the spool " +
+				"while it runs; it exits after runtime.daemon.idleExitSeconds with no live session, " +
+				"or end the process whose pid is in .qompack/run/daemon.lock",
+		}
+	}
+	return []selfTestCheck{reachable, {
+		ID: "admin.ping", OK: true, Severity: contract.SevInfo,
+		Expected: "admin.ping round trips OK:true", Observed: selfTestDaemonSkipped,
+	}}
 }
 
 func selfTestAdminPing(root string, addr ipc.Addr, clk core.Clock) selfTestCheck {

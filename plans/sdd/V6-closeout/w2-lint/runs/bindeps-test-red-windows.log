@@ -1,0 +1,7 @@
+=== RUN   TestAllowedBinDep
+    bindeps_test.go:45: allowedBinDep("golang.org/x/sys/unix") = false, want true
+--- FAIL: TestAllowedBinDep (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	1.402s
+FAIL
+exit=1

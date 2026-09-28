@@ -1,0 +1,19 @@
+--- FAIL: TestRunLiveEval_StoppedRunReachesNoVerdict (15.60s)
+    liveeval_test.go:891: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w2-eval2/tools/devtool/liveeval_test.go:891
+        	Error:      	Not equal: 
+        	            	expected: "not-applicable"
+        	            	actual  : "inconclusive"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-not-applicable
+        	            	+inconclusive
+        	Test:       	TestRunLiveEval_StoppedRunReachesNoVerdict
+        	Messages:   	interval [-0.793, 0.658] straddles -0.200
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	18.217s
+FAIL
+exit=1

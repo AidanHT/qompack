@@ -1,0 +1,484 @@
+=== RUN   TestZZW5_ColdStart
+    zz_w5_coldstart_diag_test.go:426: GOOS=windows NumCPU=22 cpu-coload="1" mult=1 fsync=0 iters=5 up="marks"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=startup i=0 wall= 3897ms sswall= 3897ms overhead= 771ms presend=  463ms dialable= 3114ms stall=  77ms up= 3317ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=startup i=1 wall= 1467ms sswall= 1467ms overhead= 398ms presend=  796ms dialable= 1118ms stall=  16ms up= 1150ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=startup i=2 wall= 2663ms sswall= 2663ms overhead= 453ms presend=  615ms dialable= 2249ms stall=  43ms up= 2330ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=startup i=3 wall= 2250ms sswall= 2250ms overhead= 380ms presend=  887ms dialable= 1793ms stall=  61ms up= 1816ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=startup i=4 wall= 1638ms sswall= 1638ms overhead= 401ms presend=  701ms dialable= 1250ms stall=  20ms up= 1284ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=resume  i=0 wall= 3971ms sswall= 3971ms overhead= 373ms presend= 2084ms dialable= 3400ms stall=  27ms up= 3675ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=resume  i=1 wall= 2540ms sswall= 2540ms overhead= 434ms presend= 1569ms dialable= 2010ms stall=  40ms up= 2027ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=resume  i=2 wall= 2513ms sswall= 2513ms overhead= 472ms presend=  683ms dialable= 1946ms stall=  37ms up= 1969ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=resume  i=3 wall= 1455ms sswall= 1455ms overhead= 352ms presend=  377ms dialable=  831ms stall=  40ms up=  901ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=resume  i=4 wall= 4830ms sswall= 4830ms overhead=1513ms presend= 3103ms dialable= 6249ms stall=  42ms up= 7223ms(ok=true) spooled=true  daemons=1 leaseOK=1 lockHeld=0 answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:446: TIMELINE mode=unstaged source=resume i=4
+          +1399ms pid=57312 ppid=56532 +1118ms hook-start [op session.start]
+          +1567ms pid=57312 ppid=56532 +1285ms presend-start [by_in_ms 3082]
+          +1568ms pid=57312 ppid=56532 +1286ms ensure-probe-miss []
+          +1633ms pid=57312 ppid=56532 +1352ms ensure-claimed [claim 1]
+          +1633ms pid=57312 ppid=56532 +1352ms stage-start []
+          +1634ms pid=57312 ppid=56532 +1353ms stage-end [err <nil>]
+          +1634ms pid=57312 ppid=56532 +1353ms spawn-start [program C:\Users\Quant\AppData\Local\Temp\qompack-e2e-1443552226\qompack.exe]
+          +1676ms pid=57312 ppid=56532 +1395ms spawn-started [child 52492]
+          +1676ms pid=57312 ppid=56532 +1395ms ensure-spawned []
+          +1881ms pid=52492 ppid=57312 +173ms daemon-enter []
+          +1882ms pid=52492 ppid=57312 +174ms lease-try []
+          +2078ms pid=52492 ppid=57312 +370ms lease-result [err <nil>]
+          +4054ms pid=52492 ppid=57312 +2347ms wired []
+          +4649ms pid=57312 ppid=56532 +4368ms ensure-timeout [spawned true]
+          +4670ms pid=57312 ppid=56532 +4388ms presend-end []
+          +4670ms pid=57312 ppid=56532 +4388ms send-start [deadline_ms 9979]
+          +4670ms pid=57312 ppid=56532 +4389ms connect [err open \\.\pipe\qompack.ed0850b4659e: The system cannot find the file specified.]
+          +4716ms pid=57312 ppid=56532 +4435ms lazyspawn-claim [claim 2]
+          +4716ms pid=57312 ppid=56532 +4435ms send-end [ok false out false]
+          +4716ms pid=57312 ppid=56532 +4435ms hook-end []
+          +6216ms pid=52492 ppid=57312 +4509ms run-call []
+          +6216ms pid=52492 ppid=57312 +4509ms run-enter []
+          +6217ms pid=52492 ppid=57312 +4510ms lock-ok []
+          +6217ms pid=52492 ppid=57312 +4510ms ing-started []
+          +6217ms pid=52492 ppid=57312 +4510ms listen-start []
+          +6249ms pid=52492 ppid=57312 +4541ms listening []
+          +6249ms pid=52492 ppid=57312 +4541ms accepting []
+          +6282ms pid=52492 ppid=57312 +4575ms state-written []
+          +6284ms pid=52492 ppid=57312 +4576ms drain-start []
+          +7091ms pid=52492 ppid=57312 +5383ms drain-line [file client-57312.ndjson op session.start sess sess-zzw-unstaged-resume-4 ms 297 err <nil>]
+          +7221ms pid=52492 ppid=57312 +5513ms drain-end []
+          +7221ms pid=52492 ppid=57312 +5513ms sweep-end []
+          +7223ms pid=52492 ppid=57312 +5515ms audit-end []
+          +7223ms pid=52492 ppid=57312 +5515ms serving []
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=compact i=0 wall= 2602ms sswall= 2602ms overhead= 401ms presend= 1090ms dialable= 2039ms stall=  23ms up= 2102ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=compact i=1 wall= 1723ms sswall= 1723ms overhead= 363ms presend=  640ms dialable=  865ms stall=  14ms up=  920ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=compact i=2 wall= 3836ms sswall= 3836ms overhead= 486ms presend= 1818ms dialable= 3203ms stall=  68ms up= 3266ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=compact i=3 wall= 2383ms sswall= 2383ms overhead= 507ms presend= 1068ms dialable= 1950ms stall=  32ms up= 2015ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=unstaged    source=compact i=4 wall= 3391ms sswall= 3391ms overhead= 439ms presend= 1228ms dialable= 2669ms stall=  26ms up= 2847ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=startup i=0 wall= 5563ms sswall= 5563ms overhead=1091ms presend= 3532ms dialable= 4981ms stall= 233ms up= 5044ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=startup i=1 wall=13570ms sswall=13570ms overhead=1618ms presend= 9537ms dialable=15118ms stall= 510ms up=15877ms(ok=true) spooled=true  daemons=1 leaseOK=1 lockHeld=0 answer={}                                       probe_minted=false sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:446: TIMELINE mode=staged-cold source=startup i=1
+          +1466ms pid=55404 ppid=56532 +232ms hook-start [op session.start]
+          +3818ms pid=55404 ppid=56532 +2584ms presend-start [by_in_ms 898]
+          +3819ms pid=55404 ppid=56532 +2585ms ensure-probe-miss []
+          +3905ms pid=55404 ppid=56532 +2671ms ensure-claimed [claim 1]
+          +3905ms pid=55404 ppid=56532 +2671ms stage-start []
+         +11279ms pid=55404 ppid=56532 +10045ms stage-end [err <nil>]
+         +11281ms pid=55404 ppid=56532 +10047ms spawn-start [program C:\Users\Quant\AppData\Local\Temp\TestZZW5_ColdStart2501295095\034\home\.qompack\bin\071054c82d3c044afc439d3d97ed335451e49aaaf1631138f165bd80581ee7ab\qompack.exe]
+         +11791ms pid=55404 ppid=56532 +10557ms spawn-started [child 64408]
+         +11791ms pid=55404 ppid=56532 +10557ms ensure-spawned []
+         +13354ms pid=55404 ppid=56532 +12120ms ensure-timeout [spawned true]
+         +13355ms pid=55404 ppid=56532 +12121ms presend-end []
+         +13355ms pid=55404 ppid=56532 +12121ms send-start [deadline_ms 1361]
+         +13355ms pid=55404 ppid=56532 +12121ms connect [err open \\.\pipe\qompack.23524032ece9: The system cannot find the file specified.]
+         +13418ms pid=55404 ppid=56532 +12184ms lazyspawn-claim [claim 2]
+         +13418ms pid=55404 ppid=56532 +12184ms send-end [ok false out false]
+         +13418ms pid=55404 ppid=56532 +12184ms hook-end []
+         +13929ms pid=64408 ppid=55404 +2067ms daemon-enter []
+         +13929ms pid=64408 ppid=55404 +2068ms lease-try []
+         +14080ms pid=64408 ppid=55404 +2219ms lease-result [err <nil>]
+         +14286ms pid=64408 ppid=55404 +2425ms wired []
+         +15091ms pid=64408 ppid=55404 +3230ms run-call []
+         +15091ms pid=64408 ppid=55404 +3230ms run-enter []
+         +15092ms pid=64408 ppid=55404 +3231ms lock-ok []
+         +15092ms pid=64408 ppid=55404 +3231ms ing-started []
+         +15092ms pid=64408 ppid=55404 +3231ms listen-start []
+         +15118ms pid=64408 ppid=55404 +3256ms listening []
+         +15118ms pid=64408 ppid=55404 +3256ms accepting []
+         +15133ms pid=64408 ppid=55404 +3271ms state-written []
+         +15137ms pid=64408 ppid=55404 +3275ms drain-start []
+         +15810ms pid=64408 ppid=55404 +3948ms drain-line [file client-55404.ndjson op session.start sess sess-zzw-staged-cold-startup-1 ms 222 err <nil>]
+         +15873ms pid=64408 ppid=55404 +4011ms drain-end []
+         +15873ms pid=64408 ppid=55404 +4011ms sweep-end []
+         +15877ms pid=64408 ppid=55404 +4015ms audit-end []
+         +15877ms pid=64408 ppid=55404 +4015ms serving []
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=startup i=2 wall= 5335ms sswall= 5335ms overhead=1234ms presend= 1619ms dialable= 4337ms stall=  89ms up= 4616ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=startup i=3 wall= 2302ms sswall= 2302ms overhead= 699ms presend= 1252ms dialable= 2071ms stall= 203ms up= 2091ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=startup i=4 wall= 7779ms sswall= 7779ms overhead=1982ms presend= 3335ms dialable= 7283ms stall= 559ms up= 7340ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=resume  i=0 wall= 5109ms sswall= 5109ms overhead= 815ms presend= 3131ms dialable= 4413ms stall= 308ms up= 4438ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=resume  i=1 wall= 4923ms sswall= 4923ms overhead= 980ms presend= 3291ms dialable= 4331ms stall= 570ms up= 4411ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=resume  i=2 wall= 5640ms sswall= 5640ms overhead=1546ms presend= 2604ms dialable= 4970ms stall= 239ms up= 5085ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=resume  i=3 wall=12918ms sswall=12918ms overhead=3581ms presend= 8893ms dialable=12267ms stall= 506ms up=12444ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:446: TIMELINE mode=staged-cold source=resume i=3
+          +3421ms pid=51376 ppid=56532 +1884ms hook-start [op session.start]
+          +3428ms pid=51376 ppid=56532 +1891ms presend-start [by_in_ms 3244]
+          +3429ms pid=51376 ppid=56532 +1892ms ensure-probe-miss []
+          +3511ms pid=51376 ppid=56532 +1974ms ensure-claimed [claim 1]
+          +3511ms pid=51376 ppid=56532 +1974ms stage-start []
+         +10759ms pid=51376 ppid=56532 +9222ms stage-end [err <nil>]
+         +10759ms pid=51376 ppid=56532 +9222ms spawn-start [program C:\Users\Quant\AppData\Local\Temp\TestZZW5_ColdStart2501295095\055\home\.qompack\bin\071054c82d3c044afc439d3d97ed335451e49aaaf1631138f165bd80581ee7ab\qompack.exe]
+         +11265ms pid=51376 ppid=56532 +9728ms spawn-started [child 65332]
+         +11265ms pid=51376 ppid=56532 +9728ms ensure-spawned []
+         +11420ms pid=65332 ppid=51376 +86ms daemon-enter []
+         +11421ms pid=65332 ppid=51376 +86ms lease-try []
+         +11478ms pid=65332 ppid=51376 +143ms lease-result [err <nil>]
+         +11654ms pid=65332 ppid=51376 +319ms wired []
+         +12243ms pid=65332 ppid=51376 +908ms run-call []
+         +12243ms pid=65332 ppid=51376 +908ms run-enter []
+         +12244ms pid=65332 ppid=51376 +909ms lock-ok []
+         +12244ms pid=65332 ppid=51376 +909ms ing-started []
+         +12244ms pid=65332 ppid=51376 +909ms listen-start []
+         +12267ms pid=65332 ppid=51376 +932ms listening []
+         +12267ms pid=65332 ppid=51376 +932ms accepting []
+         +12318ms pid=65332 ppid=51376 +982ms state-written []
+         +12320ms pid=51376 ppid=56532 +10783ms ensure-up [spawned true]
+         +12321ms pid=51376 ppid=56532 +10784ms presend-end []
+         +12321ms pid=51376 ppid=56532 +10784ms send-start [deadline_ms 4350]
+         +12323ms pid=65332 ppid=51376 +987ms drain-start []
+         +12339ms pid=51376 ppid=56532 +10802ms connect [err <nil>]
+         +12351ms pid=65332 ppid=51376 +1016ms drain-end []
+         +12443ms pid=65332 ppid=51376 +1108ms sweep-end []
+         +12444ms pid=65332 ppid=51376 +1109ms audit-end []
+         +12444ms pid=65332 ppid=51376 +1109ms serving []
+         +12758ms pid=51376 ppid=56532 +11221ms reply [err <nil>]
+         +12758ms pid=51376 ppid=56532 +11221ms send-end [ok true out true]
+         +12758ms pid=51376 ppid=56532 +11221ms hook-end []
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=resume  i=4 wall= 6406ms sswall= 6406ms overhead=1400ms presend= 2711ms dialable= 4210ms stall= 446ms up= 4376ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=compact i=0 wall= 7078ms sswall= 7078ms overhead= 485ms presend= 4559ms dialable= 6116ms stall= 777ms up= 6415ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=compact i=1 wall= 3144ms sswall= 3144ms overhead= 368ms presend= 1282ms dialable= 2591ms stall= 108ms up= 2673ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=compact i=2 wall= 5001ms sswall= 5001ms overhead= 557ms presend= 3411ms dialable= 4322ms stall= 709ms up= 4381ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=compact i=3 wall= 9866ms sswall= 9866ms overhead= 469ms presend= 7796ms dialable= 9201ms stall= 331ms up= 9268ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:446: TIMELINE mode=staged-cold source=compact i=3
+           +366ms pid=64360 ppid=56532 +235ms hook-start [op session.start]
+          +1425ms pid=64360 ppid=56532 +1294ms presend-start [by_in_ms 2190]
+          +1425ms pid=64360 ppid=56532 +1294ms ensure-probe-miss []
+          +1514ms pid=64360 ppid=56532 +1383ms ensure-claimed [claim 1]
+          +1514ms pid=64360 ppid=56532 +1383ms stage-start []
+          +7612ms pid=64360 ppid=56532 +7481ms stage-end [err <nil>]
+          +7612ms pid=64360 ppid=56532 +7481ms spawn-start [program C:\Users\Quant\AppData\Local\Temp\TestZZW5_ColdStart2501295095\075\.qompack\bin\071054c82d3c044afc439d3d97ed335451e49aaaf1631138f165bd80581ee7ab\qompack.exe]
+          +7943ms pid=64360 ppid=56532 +7812ms spawn-started [child 46316]
+          +7943ms pid=64360 ppid=56532 +7812ms ensure-spawned []
+          +8096ms pid=46316 ppid=64360 +91ms daemon-enter []
+          +8096ms pid=46316 ppid=64360 +91ms lease-try []
+          +8222ms pid=46316 ppid=64360 +217ms lease-result [err <nil>]
+          +8735ms pid=46316 ppid=64360 +730ms wired []
+          +9135ms pid=46316 ppid=64360 +1130ms run-call []
+          +9135ms pid=46316 ppid=64360 +1130ms run-enter []
+          +9136ms pid=46316 ppid=64360 +1131ms lock-ok []
+          +9179ms pid=46316 ppid=64360 +1174ms ing-started []
+          +9180ms pid=46316 ppid=64360 +1175ms listen-start []
+          +9201ms pid=46316 ppid=64360 +1196ms listening []
+          +9201ms pid=46316 ppid=64360 +1196ms accepting []
+          +9209ms pid=46316 ppid=64360 +1204ms state-written []
+          +9213ms pid=46316 ppid=64360 +1208ms drain-start []
+          +9221ms pid=64360 ppid=56532 +9090ms ensure-up [spawned true]
+          +9221ms pid=64360 ppid=56532 +9090ms presend-end []
+          +9221ms pid=64360 ppid=56532 +9090ms send-start [deadline_ms 4394]
+          +9243ms pid=46316 ppid=64360 +1237ms drain-end []
+          +9245ms pid=46316 ppid=64360 +1239ms sweep-end []
+          +9268ms pid=46316 ppid=64360 +1262ms audit-end []
+          +9268ms pid=46316 ppid=64360 +1262ms serving []
+          +9270ms pid=64360 ppid=56532 +9139ms connect [err <nil>]
+          +9763ms pid=64360 ppid=56532 +9632ms reply [err <nil>]
+          +9763ms pid=64360 ppid=56532 +9632ms send-end [ok true out true]
+          +9763ms pid=64360 ppid=56532 +9632ms hook-end []
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-cold source=compact i=4 wall= 4802ms sswall= 4802ms overhead= 410ms presend= 3328ms dialable= 4169ms stall= 649ms up= 4266ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=startup i=0 wall= 2609ms sswall= 2609ms overhead= 464ms presend=  963ms dialable= 1600ms stall=  62ms up= 1813ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=startup i=1 wall= 1174ms sswall= 1174ms overhead= 245ms presend=  653ms dialable=  987ms stall=  35ms up= 1008ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=startup i=2 wall= 2963ms sswall= 2963ms overhead= 452ms presend= 1083ms dialable= 2205ms stall=  58ms up= 2223ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=startup i=3 wall= 2288ms sswall= 2288ms overhead= 285ms presend= 1185ms dialable= 1802ms stall=  23ms up= 1827ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=startup i=4 wall= 2638ms sswall= 2638ms overhead= 380ms presend= 1121ms dialable= 2121ms stall=  26ms up= 2176ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=resume  i=0 wall= 1753ms sswall= 1753ms overhead= 328ms presend=  951ms dialable= 1131ms stall=  32ms up= 1172ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=resume  i=1 wall= 3235ms sswall= 3235ms overhead= 312ms presend= 1609ms dialable= 2691ms stall=  16ms up= 2786ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=resume  i=2 wall= 2147ms sswall= 2147ms overhead= 393ms presend= 1158ms dialable= 1540ms stall=  20ms up= 1697ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=resume  i=3 wall= 2389ms sswall= 2389ms overhead= 438ms presend= 1114ms dialable= 1712ms stall=  44ms up= 1739ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=resume  i=4 wall= 1473ms sswall= 1473ms overhead= 327ms presend=  739ms dialable= 1200ms stall=  45ms up= 1217ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=compact i=0 wall= 2483ms sswall= 2483ms overhead=1109ms presend=  796ms dialable= 1733ms stall=  27ms up= 1911ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=compact i=1 wall= 3537ms sswall= 3537ms overhead= 419ms presend= 1489ms dialable= 2311ms stall=  75ms up= 2685ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=compact i=2 wall= 4940ms sswall= 4940ms overhead=1574ms presend= 2283ms dialable= 5155ms stall=   9ms up=14143ms(ok=true) spooled=true  daemons=1 leaseOK=1 lockHeld=0 answer=note(the Qompack daemon did not answer in time) probe_minted=true  sessions=2 mode=full drop="rehydration:not delivered: no answer from the daemon reached the Session"
+    zz_w5_coldstart_diag_test.go:446: TIMELINE mode=staged-warm source=compact i=2
+           +742ms pid=45320 ppid=56532 +103ms hook-start [op session.start]
+          +1728ms pid=45320 ppid=56532 +1090ms presend-start [by_in_ms 2263]
+          +1728ms pid=45320 ppid=56532 +1090ms ensure-probe-miss []
+          +1771ms pid=45320 ppid=56532 +1133ms ensure-claimed [claim 1]
+          +1771ms pid=45320 ppid=56532 +1133ms stage-start []
+          +1801ms pid=45320 ppid=56532 +1163ms stage-end [err <nil>]
+          +1802ms pid=45320 ppid=56532 +1164ms spawn-start [program C:\Users\Quant\AppData\Local\Temp\TestZZW5_ColdStart2501295095\081\.qompack\bin\071054c82d3c044afc439d3d97ed335451e49aaaf1631138f165bd80581ee7ab\qompack.exe]
+          +1811ms pid=45320 ppid=56532 +1173ms spawn-started [child 59192]
+          +1811ms pid=45320 ppid=56532 +1173ms ensure-spawned []
+          +2066ms pid=59192 ppid=45320 +26ms daemon-enter []
+          +2067ms pid=59192 ppid=45320 +27ms lease-try []
+          +2747ms pid=59192 ppid=45320 +707ms lease-result [err <nil>]
+          +3972ms pid=59192 ppid=45320 +1931ms wired []
+          +4011ms pid=45320 ppid=56532 +3373ms ensure-timeout [spawned true]
+          +4011ms pid=45320 ppid=56532 +3373ms presend-end []
+          +4011ms pid=45320 ppid=56532 +3373ms send-start [deadline_ms 9980]
+          +4012ms pid=45320 ppid=56532 +3374ms connect [err open \\.\pipe\qompack.896b25d42f5d: The system cannot find the file specified.]
+          +4108ms pid=45320 ppid=56532 +3470ms lazyspawn-claim [claim 2]
+          +4108ms pid=45320 ppid=56532 +3470ms send-end [ok false out false]
+          +4108ms pid=45320 ppid=56532 +3470ms hook-end []
+          +4633ms pid=59192 ppid=45320 +2593ms run-call []
+          +4633ms pid=59192 ppid=45320 +2593ms run-enter []
+          +4634ms pid=59192 ppid=45320 +2594ms lock-ok []
+          +5016ms pid=59192 ppid=45320 +2976ms ing-started []
+          +5016ms pid=59192 ppid=45320 +2976ms listen-start []
+          +5155ms pid=59192 ppid=45320 +3115ms listening []
+          +5155ms pid=59192 ppid=45320 +3115ms accepting []
+          +5162ms pid=59192 ppid=45320 +3121ms state-written []
+          +5164ms pid=59192 ppid=45320 +3124ms drain-start []
+         +11866ms pid=59192 ppid=45320 +9826ms watchdog-stack [i 0 after 2s]
+         +11991ms pid=59192 ppid=45320 +9950ms watchdog-stack [i 1 after 4s]
+         +12537ms pid=59192 ppid=45320 +10497ms watchdog-stack [i 2 after 7s]
+         +14104ms pid=59192 ppid=45320 +12064ms drain-line [file client-45320.ndjson op session.start sess sess-zzw-staged-warm-compact-2 ms 941 err <nil>]
+         +14124ms pid=59192 ppid=45320 +12084ms drain-end []
+         +14125ms pid=59192 ppid=45320 +12085ms sweep-end []
+         +14143ms pid=59192 ppid=45320 +12103ms audit-end []
+         +14143ms pid=59192 ppid=45320 +12103ms serving []
+        STACK 59192-stack-0.txt:
+        goroutine 1 [syscall]:
+        syscall.syscalln(0x0?, 0x0?, {0x3167d63e3f80?, 0x3167d63e3f60?, 0x0?})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+        syscall.SyscallN(0x3167d63e3f98?, {0x3167d63e3f80?, 0x0?, 0x0?})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+        syscall.CloseHandle(0x2c4)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/zsyscall_windows.go:482 +0x5b
+        internal/poll.(*FD).destroy(0x3167d618c0c0)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_windows.go:526 +0x6f
+        internal/poll.(*FD).decref(0x7ff7668ece19?)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_mutex.go:213 +0x53
+        internal/poll.(*FD).Close(0x3167d618c0c0)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/poll/fd_windows.go:545 +0x5e
+        os.(*file).close(0x3167d618c0c0)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file_windows.go:178 +0x90
+        os.(*File).Close(...)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file_posix.go:24
+        github.com/qompack/qompack/internal/paths.WriteAtomic({0x3167d61d8000, 0x64}, {0x3167d5f8f6c0, 0x2, 0x8}, 0x180)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/paths/atomic.go:240 +0x25b
+        github.com/qompack/qompack/internal/daemon.(*drainer).saveState(0x3167d620a000, 0x3167d624c4da?)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:1385 +0x97
+        github.com/qompack/qompack/internal/daemon.(*drainer).removeCompletedFile(0x3167d620a000, {0x3167d624c480, 0x83}, {0x3167d624c4da, 0x29}, 0x3167d6188040, 0x3167d5f8c300)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:1002 +0x152
+        github.com/qompack/qompack/internal/daemon.(*drainer).drainFile(0x3167d620a000, {0x7ff766e391e0, 0x3167d61f60f0}, {0x3167d624c480, 0x83}, 0x3167d5f8c300, 0x3167d63e5048)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:458 +0x2a7
+        github.com/qompack/qompack/internal/daemon.(*drainer).pass(0x3167d620a000, {0x7ff766e391e0, 0x3167d61f60f0}, 0x0)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:388 +0xa26
+        github.com/qompack/qompack/internal/daemon.(*drainer).Drain(...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:322
+        github.com/qompack/qompack/internal/daemon.(*daemon).Drain(0x7ff766dfc2df?, {0x7ff766e391e0?, 0x3167d61f60f0?})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/daemon.go:990 +0x2c
+        github.com/qompack/qompack/internal/daemon.(*daemon).Run(0x3167d5fc1108, {0x7ff766e391e0, 0x3167d61f60a0})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/daemon.go:744 +0x1498
+        github.com/qompack/qompack/internal/cli.runDaemon({0x7ff766e39170, 0x7ff7671f2840}, {0x7ff766e30928, {0x7ff766e37040, 0x3167d5f82028}, 0x3167d61ad140, {0x7ff766e37d40, 0x7ff7671f2840}, {0x0, 0x0}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:194 +0x15b8
+        github.com/qompack/qompack/internal/cli.runGuarded({0x7ff766e39170, 0x7ff7671f2840}, {{0x7ff766df9698, 0x6}, {0x7ff766e0f142, 0x23}, 0x0, 0x7ff766e30a28}, {0x7ff766e30928, {0x7ff766e37040, ...}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/recover.go:50 +0x1ea
+        github.com/qompack/qompack/internal/cli.Dispatch({0x7ff766e39170, 0x7ff7671f2840}, {0x3167d6026a08, 0x1a, 0x1a}, {0x3167d5fb6000, 0x4, 0x4}, {0x7ff766e30928, {0x7ff766e37040, ...}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/dispatch.go:115 +0x8b1
+        main.main()
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/cmd/qompack/main.go:29 +0x13a
+        
+        goroutine 45 [select]:
+        github.com/qompack/qompack/internal/cli.runDaemon.func4()
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:186 +0x69
+        created by github.com/qompack/qompack/internal/cli.runDaemon in goroutine 1
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:185 +0x1577
+        STACK 59192-stack-1.txt:
+        goroutine 1 [runnable]:
+        syscall.syscalln(0x0?, 0x0?, {0x3167d63e4098?, 0x3167d63e40b0?, 0x0?})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+        syscall.SyscallN(0x3167d63ae480?, {0x3167d63e4098?, 0x3167d6500380?, 0x3167d63ae360?})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+        syscall.DeleteFile(0x3167d624c480?)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/zsyscall_windows.go:570 +0x65
+        os.Remove({0x3167d624c480, 0x83})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/file_windows.go:230 +0xe5
+        github.com/qompack/qompack/internal/daemon.removeIfUnchanged({0x3167d624c480, 0x83}, 0x541)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:1032 +0x59
+        github.com/qompack/qompack/internal/daemon.(*ingest).removeDrainedWAL(0x3167d6340a08, {0x3167d624c480, 0x83}, 0x541)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/ingest.go:942 +0xfd
+        github.com/qompack/qompack/internal/daemon.(*drainer).removeCompletedFile(0x3167d620a000, {0x3167d624c480, 0x83}, {0x3167d624c4da, 0x29}, 0x3167d6188040, 0x3167d5f8c300)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:1006 +0x1f3
+        github.com/qompack/qompack/internal/daemon.(*drainer).drainFile(0x3167d620a000, {0x7ff766e391e0, 0x3167d61f60f0}, {0x3167d624c480, 0x83}, 0x3167d5f8c300, 0x3167d63e5048)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:458 +0x2a7
+        github.com/qompack/qompack/internal/daemon.(*drainer).pass(0x3167d620a000, {0x7ff766e391e0, 0x3167d61f60f0}, 0x0)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:388 +0xa26
+        github.com/qompack/qompack/internal/daemon.(*drainer).Drain(...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:322
+        github.com/qompack/qompack/internal/daemon.(*daemon).Drain(0x7ff766dfc2df?, {0x7ff766e391e0?, 0x3167d61f60f0?})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/daemon.go:990 +0x2c
+        github.com/qompack/qompack/internal/daemon.(*daemon).Run(0x3167d5fc1108, {0x7ff766e391e0, 0x3167d61f60a0})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/daemon.go:744 +0x1498
+        github.com/qompack/qompack/internal/cli.runDaemon({0x7ff766e39170, 0x7ff7671f2840}, {0x7ff766e30928, {0x7ff766e37040, 0x3167d5f82028}, 0x3167d61ad140, {0x7ff766e37d40, 0x7ff7671f2840}, {0x0, 0x0}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:194 +0x15b8
+        github.com/qompack/qompack/internal/cli.runGuarded({0x7ff766e39170, 0x7ff7671f2840}, {{0x7ff766df9698, 0x6}, {0x7ff766e0f142, 0x23}, 0x0, 0x7ff766e30a28}, {0x7ff766e30928, {0x7ff766e37040, ...}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/recover.go:50 +0x1ea
+        github.com/qompack/qompack/internal/cli.Dispatch({0x7ff766e39170, 0x7ff7671f2840}, {0x3167d6026a08, 0x1a, 0x1a}, {0x3167d5fb6000, 0x4, 0x4}, {0x7ff766e30928, {0x7ff766e37040, ...}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/dispatch.go:115 +0x8b1
+        main.main()
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/cmd/qompack/main.go:29 +0x13a
+        
+        goroutine 45 [select]:
+        github.com/qompack/qompack/internal/cli.runDaemon.func4()
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:186 +0x69
+        created by github.com/qompack/qompack/internal/cli.runDaemon in goroutine 1
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:185 +0x1577
+        STACK 59192-stack-2.txt:
+        goroutine 1 [runnable]:
+        syscall.syscalln(0x0?, 0x0?, {0x3167d63e3ac8?, 0x77?, 0x0?})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+        syscall.SyscallN(0x3167d63e3af8?, {0x3167d63e3ac8?, 0x3167d5ef4600?, 0x76?})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+        golang.org/x/sys/windows.CreateFile(0x3167d5ef4600?, 0x80000000, 0x7, 0x3167d5ef4600?, 0x3, 0x2000080, 0x0)
+        	C:/Users/Quant/go/pkg/mod/golang.org/x/sys@v0.44.0/windows/zsyscall_windows.go:1879 +0xeb
+        github.com/qompack/qompack/internal/paths.openShared({0x3167d5ef4600, 0x76})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/paths/replace_windows.go:167 +0xcd
+        github.com/qompack/qompack/internal/paths.OpenShared({0x3167d5ef4600?, 0x73?})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/paths/shared.go:37 +0x1d
+        github.com/qompack/qompack/internal/paths.ReadFileShared({0x3167d5ef4600?, 0x76?})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/paths/shared.go:46 +0x51
+        github.com/qompack/qompack/internal/daemon.readFrozenSealFile({0x3167d5ef4600, 0x76}, {0xf4, 0x22, 0x6b, 0x81, 0x48, 0xad, 0x9, 0xe4, ...})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/delivery_frozen_seal.go:110 +0xe5
+        github.com/qompack/qompack/internal/daemon.legacySealFrozen({0x3167d6343140, 0x59})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/delivery_frozen_seal.go:153 +0x1e5
+        github.com/qompack/qompack/internal/daemon.(*Lock).openDeliveryJournal(0x3167d61c8580)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/delivery_lease.go:312 +0x3ee
+        github.com/qompack/qompack/internal/daemon.(*daemon).deliveryJournal(0x3167d5fc1108)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/daemon.go:1287 +0x9a
+        github.com/qompack/qompack/internal/daemon.(*drainer).leaseDelivery(0x3167d620a000, {0x7ff766e391e0, 0x3167d61f60f0}, {{0x3167d5ed8700, 0xd}, {0x3167d5ee2320, 0x1e}, 0x1a0e08ecb09, 0x1, 0x3167d5efa340, ...})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:1546 +0x8b
+        github.com/qompack/qompack/internal/daemon.(*drainer).drainFile(0x3167d620a000, {0x7ff766e391e0, 0x3167d61f60f0}, {0x3167d624c3c0, 0x6d}, 0x3167d5f8c300, 0x3167d63e5048)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:763 +0x1bb9
+        github.com/qompack/qompack/internal/daemon.(*drainer).pass(0x3167d620a000, {0x7ff766e391e0, 0x3167d61f60f0}, 0x0)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:388 +0xa26
+        github.com/qompack/qompack/internal/daemon.(*drainer).Drain(...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/drain.go:322
+        github.com/qompack/qompack/internal/daemon.(*daemon).Drain(0x7ff766dfc2df?, {0x7ff766e391e0?, 0x3167d61f60f0?})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/daemon.go:990 +0x2c
+        github.com/qompack/qompack/internal/daemon.(*daemon).Run(0x3167d5fc1108, {0x7ff766e391e0, 0x3167d61f60a0})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/daemon.go:744 +0x1498
+        github.com/qompack/qompack/internal/cli.runDaemon({0x7ff766e39170, 0x7ff7671f2840}, {0x7ff766e30928, {0x7ff766e37040, 0x3167d5f82028}, 0x3167d61ad140, {0x7ff766e37d40, 0x7ff7671f2840}, {0x0, 0x0}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:194 +0x15b8
+        github.com/qompack/qompack/internal/cli.runGuarded({0x7ff766e39170, 0x7ff7671f2840}, {{0x7ff766df9698, 0x6}, {0x7ff766e0f142, 0x23}, 0x0, 0x7ff766e30a28}, {0x7ff766e30928, {0x7ff766e37040, ...}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/recover.go:50 +0x1ea
+        github.com/qompack/qompack/internal/cli.Dispatch({0x7ff766e39170, 0x7ff7671f2840}, {0x3167d6026a08, 0x1a, 0x1a}, {0x3167d5fb6000, 0x4, 0x4}, {0x7ff766e30928, {0x7ff766e37040, ...}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/dispatch.go:115 +0x8b1
+        main.main()
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/cmd/qompack/main.go:29 +0x13a
+        
+        goroutine 45 [select]:
+        github.com/qompack/qompack/internal/cli.runDaemon.func4()
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:186 +0x69
+        created by github.com/qompack/qompack/internal/cli.runDaemon in goroutine 1
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:185 +0x1577
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=compact i=3 wall= 4943ms sswall= 4943ms overhead= 756ms presend= 1707ms dialable= 4456ms stall=  78ms up= 6464ms(ok=true) spooled=true  daemons=1 leaseOK=1 lockHeld=0 answer=note(the Qompack daemon did not answer in time) probe_minted=true  sessions=2 mode=full drop="rehydration:not delivered: no answer from the daemon reached the Session"
+    zz_w5_coldstart_diag_test.go:446: TIMELINE mode=staged-warm source=compact i=3
+           +206ms pid=60900 ppid=56532 +43ms hook-start [op session.start]
+          +2602ms pid=60900 ppid=56532 +2439ms presend-start [by_in_ms 854]
+          +2603ms pid=60900 ppid=56532 +2440ms ensure-probe-miss []
+          +2671ms pid=60900 ppid=56532 +2508ms ensure-claimed [claim 1]
+          +2671ms pid=60900 ppid=56532 +2508ms stage-start []
+          +2703ms pid=60900 ppid=56532 +2540ms stage-end [err <nil>]
+          +2704ms pid=60900 ppid=56532 +2541ms spawn-start [program C:\Users\Quant\AppData\Local\Temp\TestZZW5_ColdStart2501295095\081\.qompack\bin\071054c82d3c044afc439d3d97ed335451e49aaaf1631138f165bd80581ee7ab\qompack.exe]
+          +2782ms pid=60900 ppid=56532 +2619ms spawn-started [child 61368]
+          +2782ms pid=60900 ppid=56532 +2619ms ensure-spawned []
+          +2925ms pid=61368 ppid=60900 +66ms daemon-enter []
+          +2925ms pid=61368 ppid=60900 +66ms lease-try []
+          +3148ms pid=61368 ppid=60900 +289ms lease-result [err <nil>]
+          +3825ms pid=61368 ppid=60900 +966ms wired []
+          +4275ms pid=61368 ppid=60900 +1416ms run-call []
+          +4275ms pid=61368 ppid=60900 +1416ms run-enter []
+          +4276ms pid=61368 ppid=60900 +1417ms lock-ok []
+          +4309ms pid=60900 ppid=56532 +4146ms ensure-timeout [spawned true]
+          +4309ms pid=60900 ppid=56532 +4146ms presend-end []
+          +4309ms pid=60900 ppid=56532 +4146ms send-start [deadline_ms 9147]
+          +4310ms pid=60900 ppid=56532 +4146ms connect [err open \\.\pipe\qompack.fccd7d318771: The system cannot find the file specified.]
+          +4380ms pid=61368 ppid=60900 +1521ms ing-started []
+          +4380ms pid=61368 ppid=60900 +1521ms listen-start []
+          +4392ms pid=60900 ppid=56532 +4228ms lazyspawn-claim [claim 2]
+          +4393ms pid=60900 ppid=56532 +4229ms send-end [ok false out false]
+          +4393ms pid=60900 ppid=56532 +4229ms hook-end []
+          +4456ms pid=61368 ppid=60900 +1597ms listening []
+          +4456ms pid=61368 ppid=60900 +1597ms accepting []
+          +4527ms pid=61368 ppid=60900 +1668ms state-written []
+          +4538ms pid=61368 ppid=60900 +1679ms drain-start []
+          +6133ms pid=61368 ppid=60900 +3274ms drain-line [file client-60900.ndjson op session.start sess sess-zzw-staged-warm-compact-3 ms 652 err <nil>]
+          +6356ms pid=61368 ppid=60900 +3497ms drain-end []
+          +6356ms pid=61368 ppid=60900 +3497ms sweep-end []
+          +6417ms pid=61368 ppid=60900 +3558ms watchdog-stack [i 0 after 2s]
+          +6464ms pid=61368 ppid=60900 +3605ms audit-end []
+          +6464ms pid=61368 ppid=60900 +3605ms serving []
+        STACK 61368-stack-0.txt:
+        goroutine 1 [syscall]:
+        syscall.syscalln(0x0?, 0x0?, {0x2d250e34a378?, 0x22b3d9f86f8?, 0x0?})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+        syscall.SyscallN(0x2d250e34a388?, {0x2d250e34a378?, 0x10?, 0x7ff766dad3e0?})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+        internal/syscall/windows.NtCreateFile(0x2d250dceef73?, 0x120089, 0x2d250e34a4d8?, 0x0?, 0x0?, 0x1, 0x7, 0x1, 0x204020, 0x0, ...)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/syscall/windows/zsyscall_windows.go:557 +0x165
+        internal/syscall/windows.Openat(0x7ffce58a6e00?, {0x2d250dceef73?, 0x2d250e34a598?}, 0x1?, 0x0)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/internal/syscall/windows/at_windows.go:144 +0x315
+        os.openat(0x2e4, {0x2d250dceef73, 0x45}, 0x0?, 0x0?)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/root_windows.go:147 +0x79
+        os.rootStat.func1(0x2d8?, {0x2d250dceef73?, 0x0?}, 0x2f?)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/root_windows.go:222 +0x5d
+        os.doInRoot[...](0x2d250de02188, {0x2d250e1a31cb, 0x62}, 0x4, 0x0, 0x2d250e34a7e0)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/root_openat.go:443 +0x55a
+        os.rootStat(0x2d250e1a3182?, {0x2d250e1a31cb, 0x62}, 0x4a?)
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/root_windows.go:221 +0x6b
+        os.(*Root).Lstat(0x2d250de02188, {0x2d250e1a31cb, 0x62})
+        	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/root.go:211 +0x3e
+        github.com/qompack/qompack/internal/store.(*FSStore).openPublicationPath(0x2d250e0da008, {0x2d250e1a3180, 0xad})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:661 +0x16c
+        github.com/qompack/qompack/internal/store.(*FSStore).readPublicationFile(0x2d250e1a3180?, {0x2d250e1a3180?, 0x45?}, 0x810000)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:673 +0x48
+        github.com/qompack/qompack/internal/store.(*FSStore).classifyCaptureFile(0x2d250e0da008, {0x2d250e1a3180, 0xad}, {0x7ff766e392f8?, 0x2d250de96690?}, 0x2d250e34ae78, 0x2d250e34ae90)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:429 +0x145
+        github.com/qompack/qompack/internal/store.(*FSStore).auditCaptures.func1.1({0x7ff766e392f8, 0x2d250de96690})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:403 +0x1a5
+        github.com/qompack/qompack/internal/store.(*FSStore).eachDirEntry(0x2d250e34ac28?, {0x7ff766e39250, 0x2d250de96230}, {0x2d250dceed20?, 0xe0?}, 0x2d250e34ae78, 0x2d250e34ae90, 0x2d250e34ac48)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:341 +0x2c2
+        github.com/qompack/qompack/internal/store.(*FSStore).auditCaptures.func1({0x7ff766e392f8, 0x2d250de96460})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:390 +0x1b5
+        github.com/qompack/qompack/internal/store.(*FSStore).eachDirEntry(0x2d250e34add0?, {0x7ff766e39250, 0x2d250de96230}, {0x2d250e0d9140?, 0x2d250e09c300?}, 0x2d250e34ae78, 0x2d250e34ae90, 0x2d250e34ad88)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:341 +0x2c2
+        github.com/qompack/qompack/internal/store.(*FSStore).auditCaptures(0x2d250e0da008, {0x7ff766e39250, 0x2d250de96230}, 0x2000, 0x2d250e34ae78, 0x2d250e34ae90)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:380 +0x125
+        github.com/qompack/qompack/internal/store.(*FSStore).AuditPublication(0x2d250e0da008, {0x7ff766e39250, 0x2d250de96230}, {0x7ff7668ed7c5?, 0x20?, 0x7ff766dab140?, 0x7ff7668ecb1d?})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/store/publication_audit.go:296 +0x18d
+        github.com/qompack/qompack/internal/daemon.(*daemon).AccountPublicationGaps(0xd641120db18?, {0x7ff766e39250?, 0x2d250de96230?})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/publication_audit.go:90 +0xca
+        github.com/qompack/qompack/internal/daemon.(*daemon).LoudPublicationGaps(0x2d250e42c008, {0x7ff766e39250?, 0x2d250de96230?})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/publication_audit.go:123 +0x5f
+        github.com/qompack/qompack/internal/daemon.(*daemon).Run(0x2d250e42c008, {0x7ff766e391e0, 0x2d250e1380a0})
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/daemon/daemon.go:758 +0x1612
+        github.com/qompack/qompack/internal/cli.runDaemon({0x7ff766e39170, 0x7ff7671f2840}, {0x7ff766e30928, {0x7ff766e37040, 0x2d250dcd4050}, 0x2d250dff3170, {0x7ff766e37d40, 0x7ff7671f2840}, {0x0, 0x0}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:194 +0x15b8
+        github.com/qompack/qompack/internal/cli.runGuarded({0x7ff766e39170, 0x7ff7671f2840}, {{0x7ff766df9698, 0x6}, {0x7ff766e0f142, 0x23}, 0x0, 0x7ff766e30a28}, {0x7ff766e30928, {0x7ff766e37040, ...}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/recover.go:50 +0x1ea
+        github.com/qompack/qompack/internal/cli.Dispatch({0x7ff766e39170, 0x7ff7671f2840}, {0x2d250ddf8a08, 0x1a, 0x1a}, {0x2d250dd7e040, 0x4, 0x4}, {0x7ff766e30928, {0x7ff766e37040, ...}, ...}, ...)
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/dispatch.go:115 +0x8b1
+        main.main()
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/cmd/qompack/main.go:29 +0x13a
+        
+        goroutine 51 [select]:
+        github.com/qompack/qompack/internal/cli.runDaemon.func4()
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:186 +0x69
+        created by github.com/qompack/qompack/internal/cli.runDaemon in goroutine 1
+        	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w5/coldstart/fixseat-diag/after/internal/cli/daemon.go:185 +0x1577
+    zz_w5_coldstart_diag_test.go:442: ROW mode=staged-warm source=compact i=4 wall= 3009ms sswall= 3009ms overhead= 434ms presend= 1451ms dialable= 1851ms stall=  44ms up= 2325ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=startup i=0 wall= 2057ms sswall= 1816ms overhead= 185ms presend=   41ms dialable=  487ms stall=  28ms up= 1800ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=startup i=1 wall= 2176ms sswall= 1468ms overhead= 347ms presend=    0ms dialable= 1223ms stall=  29ms up= 1868ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=startup i=2 wall= 3092ms sswall= 2563ms overhead= 411ms presend=    0ms dialable= 1033ms stall=  14ms up= 2754ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=startup i=3 wall= 2693ms sswall= 2247ms overhead= 186ms presend=   37ms dialable=  630ms stall=  15ms up= 2291ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=startup i=4 wall= 1802ms sswall= 1572ms overhead= 275ms presend=    0ms dialable=  504ms stall=  13ms up= 1412ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=resume  i=0 wall= 4380ms sswall= 2855ms overhead= 284ms presend=    1ms dialable= 2078ms stall=  21ms up= 3753ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=resume  i=1 wall= 2585ms sswall= 2332ms overhead= 188ms presend=   30ms dialable=  438ms stall=  14ms up= 2102ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=resume  i=2 wall= 3592ms sswall= 3158ms overhead= 241ms presend=  493ms dialable= 1295ms stall=  21ms up= 3040ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=resume  i=3 wall= 3862ms sswall= 3108ms overhead= 286ms presend=  631ms dialable= 1086ms stall=  14ms up= 3464ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=resume  i=4 wall= 1992ms sswall= 1773ms overhead= 129ms presend=    0ms dialable=  328ms stall=  12ms up= 1734ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=probe                                    probe_minted=true  sessions=1 mode=full drop=""
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=compact i=0 wall= 2724ms sswall= 1937ms overhead= 398ms presend=    1ms dialable= 1208ms stall=  29ms up= 2299ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=compact i=1 wall= 3932ms sswall= 3315ms overhead= 233ms presend=    1ms dialable= 1236ms stall=  41ms up= 3522ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=compact i=2 wall= 2313ms sswall= 1697ms overhead= 158ms presend=    0ms dialable=  761ms stall=  14ms up= 1996ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=compact i=3 wall= 3471ms sswall= 3021ms overhead= 420ms presend=  330ms dialable= 1557ms stall=  14ms up= 3150ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:442: ROW mode=prespawned  source=compact i=4 wall= 1788ms sswall=  942ms overhead= 299ms presend=    0ms dialable= 1389ms stall=  50ms up= 1631ms(ok=true) spooled=false daemons=1 leaseOK=1 lockHeld=0 answer=rehydration+probe                        probe_minted=true  sessions=2 mode=full drop="pointer_git_unavailable:checkpoint: no .git at the project root"
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=unstaged    source=startup n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=2250ms p90=2663ms max=3897ms overhead p50=401ms max=771ms wall p50=2250ms p90=2663ms max=3897ms presend p50=701ms max=887ms up p50=1816ms max=3317ms answers=map[probe:5]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=unstaged    source=resume  n=5 spooled=1 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=2540ms p90=3971ms max=4830ms overhead p50=434ms max=1513ms wall p50=2540ms p90=3971ms max=4830ms presend p50=1569ms max=3103ms up p50=2027ms max=7223ms answers=map[probe:4 {}:1]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=unstaged    source=compact n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=2602ms p90=3391ms max=3836ms overhead p50=439ms max=507ms wall p50=2602ms p90=3391ms max=3836ms presend p50=1090ms max=1818ms up p50=2102ms max=3266ms answers=map[rehydration+probe:5]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=staged-cold source=startup n=5 spooled=1 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=5563ms p90=7779ms max=13570ms overhead p50=1234ms max=1982ms wall p50=5563ms p90=7779ms max=13570ms presend p50=3335ms max=9537ms up p50=5044ms max=15877ms answers=map[probe:4 {}:1]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=staged-cold source=resume  n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=5640ms p90=6406ms max=12918ms overhead p50=1400ms max=3581ms wall p50=5640ms p90=6406ms max=12918ms presend p50=3131ms max=8893ms up p50=4438ms max=12444ms answers=map[probe:5]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=staged-cold source=compact n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=5001ms p90=7078ms max=9866ms overhead p50=469ms max=557ms wall p50=5001ms p90=7078ms max=9866ms presend p50=3411ms max=7796ms up p50=4381ms max=9268ms answers=map[rehydration+probe:5]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=staged-warm source=startup n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=2609ms p90=2638ms max=2963ms overhead p50=380ms max=464ms wall p50=2609ms p90=2638ms max=2963ms presend p50=1083ms max=1185ms up p50=1827ms max=2223ms answers=map[probe:5]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=staged-warm source=resume  n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=2147ms p90=2389ms max=3235ms overhead p50=328ms max=438ms wall p50=2147ms p90=2389ms max=3235ms presend p50=1114ms max=1609ms up p50=1697ms max=2786ms answers=map[probe:5]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=staged-warm source=compact n=5 spooled=2 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=3537ms p90=4940ms max=4943ms overhead p50=756ms max=1574ms wall p50=3537ms p90=4940ms max=4943ms presend p50=1489ms max=2283ms up p50=2685ms max=14143ms answers=map[note(the Qompack daemon did not answer in time):2 rehydration+probe:3]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=prespawned  source=startup n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=1816ms p90=2247ms max=2563ms overhead p50=275ms max=411ms wall p50=2176ms p90=2693ms max=3092ms presend p50=0ms max=41ms up p50=1868ms max=2754ms answers=map[probe:5]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=prespawned  source=resume  n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=2855ms p90=3108ms max=3158ms overhead p50=241ms max=286ms wall p50=3592ms p90=3862ms max=4380ms presend p50=30ms max=631ms up p50=3040ms max=3753ms answers=map[probe:5]
+    zz_w5_coldstart_diag_test.go:487: SUMMARY mode=prespawned  source=compact n=5 spooled=0 noup=0 multi-daemon-rows=0 spawn-stalls>1s=0 sswall p50=1937ms p90=3021ms max=3315ms overhead p50=299ms max=420ms wall p50=2724ms p90=3471ms max=3932ms presend p50=1ms max=330ms up p50=2299ms max=3522ms answers=map[rehydration+probe:5]
+--- PASS: TestZZW5_ColdStart (821.74s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	822.048s
+exit=0

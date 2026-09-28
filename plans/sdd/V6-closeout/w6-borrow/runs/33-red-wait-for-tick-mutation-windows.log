@@ -1,0 +1,13 @@
+== w6-borrow fix seat: red run of TestWaitForTick_EndsAtTheDeadlineNotTheTick against a temporary mutation restoring the pre-fix wait (<-ticker.C, then the deadline check); spawn.go restored right after
+== $ go test ./internal/daemon/ -run '^TestWaitForTick_EndsAtTheDeadlineNotTheTick$' -count=1 -v
+=== RUN   TestWaitForTick_EndsAtTheDeadlineNotTheTick
+    spawn_lock_test.go:565: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-borrow/internal/daemon/spawn_lock_test.go:565
+        	Error:      	"5.0005743s" is not less than "2.5s"
+        	Test:       	TestWaitForTick_EndsAtTheDeadlineNotTheTick
+        	Messages:   	the wait ended at the deadline, not at the tick
+--- FAIL: TestWaitForTick_EndsAtTheDeadlineNotTheTick (5.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	5.330s
+FAIL
+exit=1

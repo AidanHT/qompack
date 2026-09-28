@@ -1,13 +1,12 @@
 package main
 
 import (
-	"archive/tar"
 	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -24,67 +23,92 @@ func assembleForArchive(t *testing.T, tgt bundleTarget) string {
 	return dir
 }
 
-// archiveEntries reads an archive back into name -> bytes, so the assertions below are about what
-// a consumer would actually extract rather than about how it was written.
+// archiveEntries reads a zip back into name -> bytes, so the assertions below are about what a
+// consumer would actually extract rather than about how it was written.
 func archiveEntries(t *testing.T, path string) map[string][]byte {
 	t.Helper()
 	out := map[string][]byte{}
-	if filepath.Ext(path) == ".zip" {
-		zr, err := zip.OpenReader(path)
+	for _, f := range openArchive(t, path) {
+		rc, err := f.Open()
 		if err != nil {
-			t.Fatalf("opening %s: %v", path, err)
+			t.Fatalf("opening %s in %s: %v", f.Name, path, err)
 		}
-		defer func() { _ = zr.Close() }()
-		for _, f := range zr.File {
-			rc, err := f.Open()
-			if err != nil {
-				t.Fatalf("opening %s in %s: %v", f.Name, path, err)
-			}
-			b, err := io.ReadAll(rc)
-			_ = rc.Close()
-			if err != nil {
-				t.Fatalf("reading %s in %s: %v", f.Name, path, err)
-			}
-			out[f.Name] = b
-		}
-		return out
-	}
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading %s: %v", path, err)
-	}
-	gz, err := gzip.NewReader(bytes.NewReader(raw))
-	if err != nil {
-		t.Fatalf("gunzipping %s: %v", path, err)
-	}
-	defer func() { _ = gz.Close() }()
-	if gz.Name != "" || !gz.ModTime.IsZero() {
-		t.Errorf("%s: gzip header carries name %q and mtime %v; both must be empty so the stream "+
-			"does not record the machine that wrote it", path, gz.Name, gz.ModTime)
-	}
-	tr := tar.NewReader(gz)
-	for {
-		h, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
+		b, err := io.ReadAll(rc)
+		_ = rc.Close()
 		if err != nil {
-			t.Fatalf("reading %s: %v", path, err)
+			t.Fatalf("reading %s in %s: %v", f.Name, path, err)
 		}
-		b, err := io.ReadAll(tr)
-		if err != nil {
-			t.Fatalf("reading %s in %s: %v", h.Name, path, err)
-		}
-		if h.Uid != 0 || h.Gid != 0 || h.Uname != "" || h.Gname != "" {
-			t.Errorf("%s: %s carries uid/gid %d/%d (%q/%q); a shipped archive names no accounts",
-				path, h.Name, h.Uid, h.Gid, h.Uname, h.Gname)
-		}
-		if h.ModTime.Unix() != archiveEpoch {
-			t.Errorf("%s: %s carries mtime %v, not the fixed epoch", path, h.Name, h.ModTime)
-		}
-		out[h.Name] = b
+		out[f.Name] = b
 	}
 	return out
+}
+
+// openArchive returns a zip's central-directory entries; the reader is closed on test cleanup.
+func openArchive(t *testing.T, path string) []*zip.File {
+	t.Helper()
+	zr, err := zip.OpenReader(path)
+	if err != nil {
+		t.Fatalf("opening %s: %v", path, err)
+	}
+	t.Cleanup(func() { _ = zr.Close() })
+	return zr.File
+}
+
+// TestArchiveName_EveryTargetIsZip is C7.5: a Claude Code marketplace `archive` source is "Zip
+// archive downloaded over HTTPS" (plugin-marketplaces, fetched 2026-09-22), so every one of the six
+// release targets ships a .zip — the four POSIX ones included, which used to ship .tar.gz.
+func TestArchiveName_EveryTargetIsZip(t *testing.T) {
+	for _, tgt := range releaseTargets {
+		dirName := bundleDirName("0.3.0", bundleTarget{OS: tgt.GOOS, Arch: tgt.GOARCH})
+		if got, want := archiveName(dirName, tgt.GOOS), dirName+".zip"; got != want {
+			t.Errorf("archiveName(%s, %s) = %q, want %q", dirName, tgt.GOOS, got, want)
+		}
+	}
+}
+
+// TestWriteArchive_ZipCarriesUnixModesAndARootLayout pins what a host extracting the archive reads.
+//
+//   - Layout: "Claude Code looks for .claude-plugin/ at the top of the archive, then inside a single
+//     top-level folder", so members sit at the root and .claude-plugin/plugin.json is a top-level
+//     member path.
+//   - Modes: bin/ is 0755 and everything else 0644, recorded as Unix external attributes (creator
+//     host Unix) so an extractor that honours them — which is still unverified for Claude Code on
+//     linux/darwin and is an owner action on a published pre-release — restores the executable bit.
+func TestWriteArchive_ZipCarriesUnixModesAndARootLayout(t *testing.T) {
+	for _, tgt := range []bundleTarget{{"linux", "amd64"}, {"darwin", "arm64"}, {"windows", "amd64"}} {
+		t.Run(tgt.OS, func(t *testing.T) {
+			path, err := writeArchive(assembleForArchive(t, tgt), tgt.OS)
+			if err != nil {
+				t.Fatalf("writeArchive: %v", err)
+			}
+			var sawManifest, sawBin bool
+			for _, f := range openArchive(t, path) {
+				if strings.Contains(f.Name, `\`) || strings.HasPrefix(f.Name, "/") {
+					t.Errorf("%s: member %q is not a relative slash path", path, f.Name)
+				}
+				if f.CreatorVersion>>8 != 3 {
+					t.Errorf("%s: %s records creator host %d, want 3 (Unix) so its mode is read", path, f.Name, f.CreatorVersion>>8)
+				}
+				want := os.FileMode(archiveFileMode)
+				if strings.HasPrefix(f.Name, "bin/") {
+					want = archiveBinMode
+					sawBin = true
+				}
+				if got := f.Mode().Perm(); got != want {
+					t.Errorf("%s: %s has mode %o, want %o", path, f.Name, got, want)
+				}
+				if f.Name == ".claude-plugin/plugin.json" {
+					sawManifest = true
+				}
+			}
+			if !sawManifest {
+				t.Errorf("%s has no top-level .claude-plugin/plugin.json", path)
+			}
+			if !sawBin {
+				t.Errorf("%s has no bin/ member", path)
+			}
+		})
+	}
 }
 
 // TestWriteArchive_MembersMatchTheBundleDirectory is the packer's central claim: the archive and
@@ -173,7 +197,7 @@ func TestArchiveMode(t *testing.T) {
 		"bin/qompack":              archiveBinMode,
 		"bin/qompack.exe":          archiveBinMode,
 		"BUNDLE.json":              archiveFileMode,
-		"commands/checkpoint.md":   archiveFileMode,
+		"commands/status.md":       archiveFileMode,
 		".claude-plugin/plugin.js": archiveFileMode,
 	} {
 		if got := archiveMode(name); got != want {
@@ -229,6 +253,7 @@ func TestArchiveAssembledBundles_RemovesStaleArchives(t *testing.T) {
 	staleNames := []string{
 		"qompack-plugin-old-linux-amd64.tar.gz",
 		"qompack-plugin-old-windows-amd64.zip",
+		marketplaceFileName,
 	}
 	for _, name := range staleNames {
 		if err := os.WriteFile(filepath.Join(out, name), []byte("stale"), 0o600); err != nil {

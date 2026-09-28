@@ -1,0 +1,39 @@
+=== RUN   TestPlainLineRules
+    plainline_test.go:32: pids rule 1: lead "[", plain (?m)\A[ \t]*\[(\d{2,7})\]
+    plainline_test.go:32: testrunner rule 0: lead "ok", plain (?m)\A[ \t]*ok[^\S\n]+\S+[^\S\n]+(\d+\.\d{1,3}s)\b
+    plainline_test.go:32: testrunner rule 1: lead "--- ", plain (?m)\A[ \t]*--- (?:PASS|FAIL|SKIP): \S+ \((\d+\.\d{2}s)\)
+    plainline_test.go:32: testrunner rule 2: lead "goroutine ", plain (?m)\A[ \t]*goroutine (\d{1,6}) \[
+    plainline_test.go:32: testrunner rule 3: lead "Time:", plain (?m)\A[ \t]*Time:[^\S\n]+(\d+(?:\.\d+)?\s?s)\b
+    plainline_test.go:32: testrunner rule 5: lead "==", plain (?m)\A[ \t]*={2,} .* in (\d+\.\d+s) ={2,}[ \t]*$
+    plainline_test.go:32: testrunner rule 9: lead "Finished ", plain (?m)\A[ \t]*Finished .* in (\d+\.\d+s)[ \t]*$
+    plainline_test.go:32: git rule 0: lead "commit ", plain (?m)\A[ \t]*commit ([0-9a-f]{40})[ \t]*$
+    plainline_test.go:32: git rule 1: lead "index ", plain (?m)\A[ \t]*index ([0-9a-f]{7,40})\.\.([0-9a-f]{7,40})\b
+    plainline_test.go:32: git rule 2: lead "From ", plain (?m)\A[ \t]*From ([0-9a-f]{40}) 
+    plainline_test.go:51: [rapid] OK, passed 100 tests (2.9849ms)
+--- PASS: TestPlainLineRules (1.39s)
+=== RUN   TestPrefilterAgreesWithFullScan
+=== RUN   TestPrefilterAgreesWithFullScan/ansi
+=== RUN   TestPrefilterAgreesWithFullScan/timestamps
+=== RUN   TestPrefilterAgreesWithFullScan/durations
+=== RUN   TestPrefilterAgreesWithFullScan/pids
+=== RUN   TestPrefilterAgreesWithFullScan/addresses
+=== RUN   TestPrefilterAgreesWithFullScan/tmpPaths
+=== RUN   TestPrefilterAgreesWithFullScan/testrunner
+=== RUN   TestPrefilterAgreesWithFullScan/webfetch
+=== RUN   TestPrefilterAgreesWithFullScan/git
+--- PASS: TestPrefilterAgreesWithFullScan (1.45s)
+    --- PASS: TestPrefilterAgreesWithFullScan/ansi (0.01s)
+    --- PASS: TestPrefilterAgreesWithFullScan/timestamps (0.16s)
+    --- PASS: TestPrefilterAgreesWithFullScan/durations (0.00s)
+    --- PASS: TestPrefilterAgreesWithFullScan/pids (0.12s)
+    --- PASS: TestPrefilterAgreesWithFullScan/addresses (0.19s)
+    --- PASS: TestPrefilterAgreesWithFullScan/tmpPaths (0.13s)
+    --- PASS: TestPrefilterAgreesWithFullScan/testrunner (0.43s)
+    --- PASS: TestPrefilterAgreesWithFullScan/webfetch (0.25s)
+    --- PASS: TestPrefilterAgreesWithFullScan/git (0.16s)
+=== RUN   TestPrefilterAgreesOnGeneratedInput
+    prefilter_test.go:100: [rapid] OK, passed 100 tests (9.3226ms)
+--- PASS: TestPrefilterAgreesOnGeneratedInput (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/canon	5.321s
+exit=0

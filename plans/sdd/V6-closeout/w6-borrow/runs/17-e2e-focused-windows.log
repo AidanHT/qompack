@@ -1,0 +1,224 @@
+== HEAD 24eae18, fake HOME/USERPROFILE, started 18:11:08Z: go test ./test/e2e/ -count=1 -v -timeout=60m -run ^(TestE2E_SessionStart|TestE2ELazySpawn$|TestE2EHookRoundTrip$|TestE2EIdleExit$|TestE2E_AllSixHooksExitZero$|TestHooksExitZeroUnderFaults$|TestE2E_HooksExitZeroUnderFaultInjection$|TestE2E_DaemonLeavesThePluginDirectoryRemovable$|TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable$|TestE2E_SpooledSessionStartNeverDegradesTheProject$|TestV1_HookLifecycleThroughRealBinary$|TestE2E_ContractSentinelIsAppendedByTheDaemon$|TestV4_PreCompactToCheckpointToRehydrateRoundTrip$|TestV5_PreCompactToRehydrateToDroppedRoundTrip$|TestV5_EveryContractAssertionHasARealProducer$|TestE2ESpoolSubmodeEndToEnd$|TestE2E_StoreSurvivesProcessRestart$|TestE2EShutdownIfReachable_)
+=== RUN   TestE2E_SessionStartCompactFitsTheHostCap
+    c114_hostcap_test.go:58: compact additionalContext: 7378 host characters (ceiling 9500, host cap 10000); restorable rules offered: 15750
+--- PASS: TestE2E_SessionStartCompactFitsTheHostCap (3.66s)
+=== RUN   TestE2EHookRoundTrip
+--- PASS: TestE2EHookRoundTrip (6.50s)
+=== RUN   TestE2ELazySpawn
+--- PASS: TestE2ELazySpawn (0.99s)
+=== RUN   TestE2EIdleExit
+--- PASS: TestE2EIdleExit (3.12s)
+=== RUN   TestE2ESpoolSubmodeEndToEnd
+--- PASS: TestE2ESpoolSubmodeEndToEnd (0.84s)
+=== RUN   TestHooksExitZeroUnderFaults
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/oversize
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/PostToolUse/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/oversize
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/Stop/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/Stop/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/Stop/oversize
+=== RUN   TestHooksExitZeroUnderFaults/Stop/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/Stop/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/Stop/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/Stop/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/Stop/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/Stop/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/Stop/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/Stop/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/oversize
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/SessionStart/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/oversize
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/PreCompact/panic:client
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/stdin-eof
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/oversize
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/daemon-down
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/spool-readonly
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/spool-full:0
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/disk-full
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/state-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/config-corrupt
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/panic:hook
+=== RUN   TestHooksExitZeroUnderFaults/SessionEnd/panic:client
+=== NAME  TestHooksExitZeroUnderFaults
+    faultinject_test.go:99: TestHooksExitZeroUnderFaults: 6 hooks x 11 sites = 66 combinations run
+--- PASS: TestHooksExitZeroUnderFaults (119.10s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/stdin-eof (0.65s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/stdin-garbage (0.67s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/oversize (0.91s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/daemon-down (10.12s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/spool-readonly (0.51s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/spool-full:0 (0.46s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/disk-full (0.39s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/state-corrupt (1.04s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/config-corrupt (1.59s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/panic:hook (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/PostToolUse/panic:client (1.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-eof (0.69s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/stdin-garbage (0.76s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/oversize (1.09s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/daemon-down (10.09s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-readonly (0.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/spool-full:0 (0.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/disk-full (0.51s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/state-corrupt (1.07s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/config-corrupt (1.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:hook (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/UserPromptSubmit/panic:client (1.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/stdin-eof (0.87s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/stdin-garbage (0.78s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/oversize (1.69s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/daemon-down (10.11s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/spool-readonly (0.46s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/spool-full:0 (0.49s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/disk-full (0.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/state-corrupt (0.89s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/config-corrupt (1.59s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/panic:hook (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/Stop/panic:client (1.56s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/stdin-eof (0.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/stdin-garbage (0.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/oversize (0.74s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/daemon-down (10.12s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/spool-readonly (0.49s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/spool-full:0 (0.46s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/disk-full (0.46s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/state-corrupt (0.45s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/config-corrupt (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/panic:hook (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionStart/panic:client (0.38s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/stdin-eof (0.81s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/stdin-garbage (0.75s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/oversize (0.94s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/daemon-down (10.11s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/spool-readonly (0.49s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/spool-full:0 (0.59s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/disk-full (0.54s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/state-corrupt (1.62s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/config-corrupt (1.60s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/panic:hook (1.57s)
+    --- PASS: TestHooksExitZeroUnderFaults/PreCompact/panic:client (1.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/stdin-eof (1.02s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/stdin-garbage (1.07s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/oversize (1.27s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/daemon-down (10.11s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/spool-readonly (0.53s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/spool-full:0 (0.40s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/disk-full (0.58s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/state-corrupt (1.26s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/config-corrupt (1.63s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/panic:hook (1.59s)
+    --- PASS: TestHooksExitZeroUnderFaults/SessionEnd/panic:client (1.57s)
+=== RUN   TestE2E_AllSixHooksExitZero
+=== RUN   TestE2E_AllSixHooksExitZero/PostToolUse
+=== RUN   TestE2E_AllSixHooksExitZero/UserPromptSubmit
+=== RUN   TestE2E_AllSixHooksExitZero/Stop
+=== RUN   TestE2E_AllSixHooksExitZero/SessionStart
+=== RUN   TestE2E_AllSixHooksExitZero/PreCompact
+=== RUN   TestE2E_AllSixHooksExitZero/SessionEnd
+--- PASS: TestE2E_AllSixHooksExitZero (2.26s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PostToolUse (0.08s)
+    --- PASS: TestE2E_AllSixHooksExitZero/UserPromptSubmit (0.07s)
+    --- PASS: TestE2E_AllSixHooksExitZero/Stop (0.04s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionStart (0.89s)
+    --- PASS: TestE2E_AllSixHooksExitZero/PreCompact (0.23s)
+    --- PASS: TestE2E_AllSixHooksExitZero/SessionEnd (0.10s)
+=== RUN   TestE2E_HooksExitZeroUnderFaultInjection
+--- PASS: TestE2E_HooksExitZeroUnderFaultInjection (7.36s)
+=== RUN   TestE2E_DaemonLeavesThePluginDirectoryRemovable
+--- PASS: TestE2E_DaemonLeavesThePluginDirectoryRemovable (2.82s)
+=== RUN   TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable
+--- PASS: TestE2E_MCPLazySpawnLeavesThePluginDirectoryRemovable (1.24s)
+=== RUN   TestE2E_SessionStartCompact
+--- PASS: TestE2E_SessionStartCompact (0.91s)
+=== RUN   TestE2E_SessionStartCompactRestoresCheckpointItems
+--- PASS: TestE2E_SessionStartCompactRestoresCheckpointItems (0.82s)
+=== RUN   TestE2E_ContractSentinelIsAppendedByTheDaemon
+--- PASS: TestE2E_ContractSentinelIsAppendedByTheDaemon (1.08s)
+=== RUN   TestE2E_SessionStartCompactUnderBudget
+--- PASS: TestE2E_SessionStartCompactUnderBudget (0.89s)
+=== RUN   TestE2E_SessionStartClear
+--- PASS: TestE2E_SessionStartClear (1.12s)
+=== RUN   TestE2E_SessionStartCompactNoStore
+--- PASS: TestE2E_SessionStartCompactNoStore (1.21s)
+=== RUN   TestE2E_SessionStartCompactAfterFailedSummary
+--- PASS: TestE2E_SessionStartCompactAfterFailedSummary (1.03s)
+=== RUN   TestE2E_SessionStartLatency
+--- PASS: TestE2E_SessionStartLatency (5.97s)
+=== RUN   TestE2E_SessionStartCompactUnreadableCheckpointStore
+--- PASS: TestE2E_SessionStartCompactUnreadableCheckpointStore (2.32s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight
+--- PASS: TestE2EShutdownIfReachable_WaitsForASpawnStillInFlight (3.16s)
+=== RUN   TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit
+--- PASS: TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit (2.07s)
+=== RUN   TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified
+    shutdown_spawn_inflight_test.go:284: e2eShutdownIfReachable: a process held C:\Users\Quant\AppData\Local\Temp\TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified713303933\001\.qompack\run\daemon.lock with no readable pid and released it before any check could read one, so whether it has exited cannot be asked; waited out 20s instead; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to
+--- PASS: TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified (21.54s)
+=== RUN   TestE2E_SpooledSessionStartNeverDegradesTheProject
+--- PASS: TestE2E_SpooledSessionStartNeverDegradesTheProject (2.62s)
+=== RUN   TestE2E_StoreSurvivesProcessRestart
+--- PASS: TestE2E_StoreSurvivesProcessRestart (8.43s)
+=== RUN   TestV1_HookLifecycleThroughRealBinary
+--- PASS: TestV1_HookLifecycleThroughRealBinary (2.42s)
+=== RUN   TestV4_PreCompactToCheckpointToRehydrateRoundTrip
+--- PASS: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (4.06s)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops
+    v5_x04_test.go:528: bounded arm: tokens=572 budget=600 degraded=false dropped=41 item7_rendered=true
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (23.47s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (10.83s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (9.89s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (2.75s)
+=== RUN   TestV5_EveryContractAssertionHasARealProducer
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence/self_test_reads_the_same_ids_and_writes_no_evidence
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set
+--- PASS: TestV5_EveryContractAssertionHasARealProducer (7.43s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence (3.24s)
+        --- PASS: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence/self_test_reads_the_same_ids_and_writes_no_evidence (0.08s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud (2.41s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set (1.77s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	238.776s
+exit=0
+ended 18:15:10Z

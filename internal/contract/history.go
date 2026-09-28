@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
@@ -48,7 +49,17 @@ type SentinelState struct {
 	// The CAdditionalContext assertion fails once this reaches 2 ("not found ⇒ fail" after two
 	// chances) and is never itself incremented by that assertion's Check.
 	Chances int `json:"chances"`
+	// MissedBy names the prompt deliveries (their hook's delivery nonce) whose misses Chances has
+	// counted for Token, so a delivery handed over again — a retry after a capture that failed, a
+	// redelivery after a daemon restart — spends no second chance (RecordSentinelScanOf). It is reset
+	// wherever Chances is, and holds at most maxSentinelMissedBy entries.
+	MissedBy []string `json:"missed_by,omitempty"`
 }
+
+// maxSentinelMissedBy caps SentinelState.MissedBy. The assertion fails at the second counted miss;
+// the few entries past that keep a later redelivery of any counted prompt from counting again while
+// the project sits degraded, and bound what a hand-edited history.json can carry.
+const maxSentinelMissedBy = 8
 
 // SessionHistory is the first real implementation of History (00-ARCHITECTURE.md §5.19): the
 // persistent, cross-session record every §12.1 assertion phrased "across two sessions" or
@@ -108,8 +119,11 @@ type SessionHistory struct {
 	// precompact.has_time_to_write computes a p99 over.
 	PrecompactWallMs    []int64 `json:"precompact_wall_ms"`
 	PrecompactTimeoutMs int64   `json:"precompact_timeout_ms"`
-	// PrecompactInstr is the most recently emitted custom_instructions text, truncated to
-	// maxPrecompactInstrChars, that precompact.custom_instructions_accepted probes for.
+	// PrecompactInstr is RETIRED (C1.18). A daemon before C1.18 recorded the focus instruction it
+	// last emitted here, truncated to maxPrecompactInstrChars, for
+	// precompact.custom_instructions_accepted to probe for. No host accepts a PreCompact
+	// instruction, so nothing writes this field any more and nothing reads it; it stays so that a
+	// history an older daemon wrote still loads and round-trips.
 	PrecompactInstr string `json:"precompact_instr"`
 	// AwaitingCompactStart is set when a PreCompact has been observed for the current session id
 	// and cleared by session_start.source_compact on the FOLLOWING SessionStart, whichever way
@@ -191,7 +205,8 @@ func (h *SessionHistory) AddPrecompactWallSample(ms int64) {
 // SetPrecompactInstr truncates instr to maxPrecompactInstrChars runes (not bytes — task-4-spec.md
 // says "≤256 chars", and a byte-boundary cut can split a multi-byte UTF-8 rune, which json.Marshal
 // would then replace with U+FFFD and break the SaveHistory/LoadHistory round trip) before storing
-// it. A nil receiver is a no-op.
+// it. A nil receiver is a no-op. Since C1.18 its only production caller is applyCaps, which keeps a
+// retired PrecompactInstr an older daemon wrote within its cap.
 func (h *SessionHistory) SetPrecompactInstr(instr string) {
 	if h == nil {
 		return
@@ -222,14 +237,29 @@ func (h *SessionHistory) RecordLast(results []Result) {
 // ScanTranscriptTail, and directly by this package's own tests to drive the two-chances state
 // machine the CAdditionalContext assertion reads — deliberately never by the assertion's Check
 // itself (see SentinelState's doc comment). A nil receiver is a no-op.
-func (h *SessionHistory) RecordSentinelScan(found bool) {
+func (h *SessionHistory) RecordSentinelScan(found bool) { h.RecordSentinelScanOf(found, "") }
+
+// RecordSentinelScanOf is RecordSentinelScan for the scan one prompt delivery made, named by its
+// hook's delivery nonce. A delivery is one chance, however many times the daemon handles it: a miss
+// by a delivery MissedBy already names changes nothing. A delivery with no name ("") counts every
+// time, as every scan did before deliveries were named. A find clears the record with the count.
+func (h *SessionHistory) RecordSentinelScanOf(found bool, delivery string) {
 	if h == nil {
 		return
 	}
 	if found {
 		h.Sentinel.Observed = true
 		h.Sentinel.Chances = 0
+		h.Sentinel.MissedBy = nil
 		return
+	}
+	if delivery != "" {
+		if slices.Contains(h.Sentinel.MissedBy, delivery) {
+			return
+		}
+		if len(h.Sentinel.MissedBy) < maxSentinelMissedBy {
+			h.Sentinel.MissedBy = append(h.Sentinel.MissedBy, delivery)
+		}
 	}
 	h.Sentinel.Chances++
 }
@@ -250,6 +280,9 @@ func (h *SessionHistory) applyCaps() {
 	}
 	if len(h.Last) > maxLastResults {
 		h.Last = h.Last[len(h.Last)-maxLastResults:]
+	}
+	if len(h.Sentinel.MissedBy) > maxSentinelMissedBy {
+		h.Sentinel.MissedBy = h.Sentinel.MissedBy[:maxSentinelMissedBy]
 	}
 }
 

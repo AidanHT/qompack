@@ -1,0 +1,13 @@
+HEAD=54b3204
+== devtool gen-config-docs --check
+gen-config-docs: docs/config-reference.md is up to date
+exit=0
+== devtool gen-command-docs --check
+gen-command-docs: docs/commands.md is up to date
+exit=0
+== devtool gen-mcp-docs --check
+gen-mcp-docs: docs/mcp-tools.md is up to date
+exit=0
+== go test ./test/docs
+ok  	github.com/qompack/qompack/test/docs	3.390s
+exit=0

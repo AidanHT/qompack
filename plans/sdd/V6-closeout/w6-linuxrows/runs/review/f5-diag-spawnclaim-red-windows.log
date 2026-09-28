@@ -1,0 +1,12 @@
+=== RUN   TestDiagSpawnClaim_ALockLosingDaemonLeavesNoFreshClaimOnceNoDaemonRuns
+    zz_diag_spawnclaim_test.go:61: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-linuxrows/internal/daemon/zz_diag_spawnclaim_test.go:61
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestDiagSpawnClaim_ALockLosingDaemonLeavesNoFreshClaimOnceNoDaemonRuns
+        	Messages:   	no daemon runs, yet the flush's lazy spawn is held off (SpawnInFlight) by the claim a lock-losing daemon left fresh: the flush starts no daemon for up to the claim's staleness window
+--- FAIL: TestDiagSpawnClaim_ALockLosingDaemonLeavesNoFreshClaimOnceNoDaemonRuns (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.276s
+FAIL

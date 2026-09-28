@@ -1,0 +1,4 @@
+2026-09-23T01:08:36Z
+057fdd904369633110ffcc64d8fb09f24080f10c
+go version go1.26.6 windows/amd64
+CGO_ENABLED=0 go test -p 1 ./test/release ./test/security ./test/integration -run '^(TestSwitch_ModePassiveStopsActingAndKeepsRecording|TestSecurity_LoudDiagnosticsNeverCarryTheSecret|TestV6_HashAddressesDoNotBypassPathAuthorization|TestIntegration_HookEventThroughDaemonToStore|TestIntegration_SpooledEventsSurviveToTheStore)$' -count=1 -timeout=30m -json

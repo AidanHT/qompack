@@ -1,0 +1,351 @@
+review-round working tree, final code before commit
+=== RUN   TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== PAUSE TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== RUN   TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== PAUSE TestMarkerIsWrittenByFlushAndCheckpointOnly
+=== RUN   TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes
+--- PASS: TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes (1.31s)
+=== RUN   TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle
+--- PASS: TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle (0.80s)
+=== RUN   TestDeliveryOrder_LaneOverflowIsDrainedOnRequest
+--- PASS: TestDeliveryOrder_LaneOverflowIsDrainedOnRequest (1.44s)
+=== RUN   TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent
+--- PASS: TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent (0.51s)
+=== RUN   TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing
+--- PASS: TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing (7.48s)
+=== RUN   TestDispatchLanes_PerSessionBoundOverflowAndForget
+--- PASS: TestDispatchLanes_PerSessionBoundOverflowAndForget (0.00s)
+=== RUN   TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls
+--- PASS: TestAwaitLaneQuiet_WaitsWhileTheLaneSettlesAndStopsWhenItStalls (1.10s)
+=== RUN   TestSettleSessionLimitNestsInsideTheFlushDeadlines
+--- PASS: TestSettleSessionLimitNestsInsideTheFlushDeadlines (0.00s)
+=== RUN   TestDeliveryOrder_DrainReleasesOnlySessionsItPublishedOrRetired
+--- PASS: TestDeliveryOrder_DrainReleasesOnlySessionsItPublishedOrRetired (1.06s)
+=== RUN   TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain
+--- PASS: TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain (2.88s)
+=== RUN   TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain
+--- PASS: TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain (0.80s)
+=== RUN   TestDeliveryOrder_LiveOtherSessionsAreNotSerialized
+--- PASS: TestDeliveryOrder_LiveOtherSessionsAreNotSerialized (1.03s)
+=== RUN   TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor
+--- PASS: TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor (0.90s)
+=== RUN   TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain
+--- PASS: TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain (1.66s)
+=== RUN   TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun
+--- PASS: TestDeliveryOrder_LiveFailedHeadIsRetriedByTheNextArrivalNotSpun (0.91s)
+=== RUN   TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView
+--- PASS: TestDispatchLanes_SignalsKeepTheOwnerFromParkingOnAStaleView (0.00s)
+=== RUN   TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass
+--- PASS: TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass (1.01s)
+=== RUN   TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd (2.40s)
+=== RUN   TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd
+--- PASS: TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd (2.13s)
+=== RUN   TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing
+--- PASS: TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing (1.74s)
+=== RUN   TestDeliveryOrder_PredecessorsAcknowledgedGate
+--- PASS: TestDeliveryOrder_PredecessorsAcknowledgedGate (0.31s)
+=== RUN   TestDeliveryOrder_DrainReversedWALvsLeaseOrder
+--- PASS: TestDeliveryOrder_DrainReversedWALvsLeaseOrder (0.98s)
+=== RUN   TestDeliveryOrder_UnreadableFrontierFailsClosed
+--- PASS: TestDeliveryOrder_UnreadableFrontierFailsClosed (0.26s)
+=== RUN   TestDeliveryOrder_MissingJournalGetterFailsClosed
+--- PASS: TestDeliveryOrder_MissingJournalGetterFailsClosed (0.10s)
+=== RUN   TestDeliveryOrder_UnreadableFrontierNoPublication
+--- PASS: TestDeliveryOrder_UnreadableFrontierNoPublication (0.29s)
+=== RUN   TestDeliveryOrder_DrainReversedPrefixBeyondBufferBoundDoesNotWedge
+--- PASS: TestDeliveryOrder_DrainReversedPrefixBeyondBufferBoundDoesNotWedge (71.24s)
+=== RUN   TestDeliveryOrder_DrainOrdersPerSessionIndependently
+--- PASS: TestDeliveryOrder_DrainOrdersPerSessionIndependently (2.05s)
+=== RUN   TestDeliveryOrder_DrainCancellationPreservesUnconsumed
+--- PASS: TestDeliveryOrder_DrainCancellationPreservesUnconsumed (0.31s)
+=== RUN   TestDeliveryOrder_LeasedDenyOnRetryPreservedPending
+--- PASS: TestDeliveryOrder_LeasedDenyOnRetryPreservedPending (0.40s)
+=== RUN   TestDrainAdmitsAndAcknowledgesInheritedRecords
+--- PASS: TestDrainAdmitsAndAcknowledgesInheritedRecords (0.32s)
+=== RUN   TestDrainReportsGapsInsteadOfSilentCompleteness
+--- PASS: TestDrainReportsGapsInsteadOfSilentCompleteness (0.11s)
+=== RUN   TestSessionEndRecordsRecoveryNeeded
+--- PASS: TestSessionEndRecordsRecoveryNeeded (0.29s)
+=== RUN   TestDeliveryTerminal_ArchivedDenialSettlesOrderingWithoutCaptureAck
+--- PASS: TestDeliveryTerminal_ArchivedDenialSettlesOrderingWithoutCaptureAck (1.42s)
+=== RUN   TestDeliveryTerminal_RotationDefersDispositionWithoutDeadlock
+--- PASS: TestDeliveryTerminal_RotationDefersDispositionWithoutDeadlock (0.33s)
+=== RUN   TestDeliveryTerminal_DrainAfterPhysicalScopeChanges
+    delivery_terminal_integration_test.go:45: directory symlink unavailable: symlink C:\Users\Quant\AppData\Local\Temp\TestDeliveryTerminal_DrainAfterPhysicalScopeChanges1647321876\002 C:\Users\Quant\AppData\Local\Temp\TestDeliveryTerminal_DrainAfterPhysicalScopeChanges1647321876\001\allowed: A required privilege is not held by the client.
+--- SKIP: TestDeliveryTerminal_DrainAfterPhysicalScopeChanges (0.39s)
+=== RUN   TestDeliveryTerminal_RetirementBeforeOffsetSurvivesRestart
+--- PASS: TestDeliveryTerminal_RetirementBeforeOffsetSurvivesRestart (1.00s)
+=== RUN   TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending
+=== RUN   TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/policy_unavailable
+=== RUN   TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/journal_unavailable
+=== RUN   TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/binding_conflict
+--- PASS: TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending (1.64s)
+    --- PASS: TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/policy_unavailable (0.59s)
+    --- PASS: TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/journal_unavailable (0.53s)
+    --- PASS: TestDeliveryTerminal_UnprovedPolicyAndUnavailableJournalRemainPending/binding_conflict (0.52s)
+=== RUN   TestDeliveryTerminal_LiveQueuePolicyChangeCreatesNoCapture
+--- PASS: TestDeliveryTerminal_LiveQueuePolicyChangeCreatesNoCapture (0.63s)
+=== RUN   TestDeliveryTerminal_DrainWaitsForLivePublicationOwner
+--- PASS: TestDeliveryTerminal_DrainWaitsForLivePublicationOwner (0.78s)
+=== RUN   TestDeliveryTerminal_RestartRetainsDenialWithoutCaptureACK
+--- PASS: TestDeliveryTerminal_RestartRetainsDenialWithoutCaptureACK (0.42s)
+=== RUN   TestDeliveryTerminal_RejectsUnknownOrChangedLease
+--- PASS: TestDeliveryTerminal_RejectsUnknownOrChangedLease (0.19s)
+=== RUN   TestDeliveryTerminal_MalformedEvidenceIsPreservedAndUnavailable
+--- PASS: TestDeliveryTerminal_MalformedEvidenceIsPreservedAndUnavailable (0.44s)
+=== RUN   TestDeliveryTerminal_StagingArtifactIsNotACompletion
+--- PASS: TestDeliveryTerminal_StagingArtifactIsNotACompletion (0.35s)
+=== RUN   TestDrainDoesNotRedeliverAnAcknowledgedClientCopy
+--- PASS: TestDrainDoesNotRedeliverAnAcknowledgedClientCopy (0.27s)
+=== RUN   TestDrainSkipsAnUnadmittableRecordAndDeliversWhatFollows
+--- PASS: TestDrainSkipsAnUnadmittableRecordAndDeliversWhatFollows (0.35s)
+=== RUN   TestDrainReportsADeniedRecordAsAGapAndMovesOn
+--- PASS: TestDrainReportsADeniedRecordAsAGapAndMovesOn (0.31s)
+=== RUN   TestDrainPersistsADegradedCaptureAsEvidence
+--- PASS: TestDrainPersistsADegradedCaptureAsEvidence (0.31s)
+=== RUN   TestDrainTakesNothingOfAFreshSegmentBeforeItsFirstSyncReturns
+--- PASS: TestDrainTakesNothingOfAFreshSegmentBeforeItsFirstSyncReturns (0.33s)
+=== RUN   TestDrainReadsAHeldSegmentNoFurtherThanItsStat
+--- PASS: TestDrainReadsAHeldSegmentNoFurtherThanItsStat (0.08s)
+=== RUN   TestDrainLeavesBytesAppendedAfterItsSyncForTheNextPass
+--- PASS: TestDrainLeavesBytesAppendedAfterItsSyncForTheNextPass (0.13s)
+=== RUN   TestDrainFsyncsASpoolFileOnAHandleOfItsOwnBeforeItsFirstDispatch
+--- PASS: TestDrainFsyncsASpoolFileOnAHandleOfItsOwnBeforeItsFirstDispatch (0.11s)
+=== RUN   TestDrainCountsTheBytesOfAFileItCouldNotSyncAsPending
+--- PASS: TestDrainCountsTheBytesOfAFileItCouldNotSyncAsPending (0.17s)
+=== RUN   TestDrainSyncsTheSpoolDirectoryOncePerPassBeforeItConsumesASyncedFile
+--- PASS: TestDrainSyncsTheSpoolDirectoryOncePerPassBeforeItConsumesASyncedFile (0.44s)
+=== RUN   TestDrainAnnouncesAFileItCannotSyncOncePerFailure
+--- PASS: TestDrainAnnouncesAFileItCannotSyncOncePerFailure (0.18s)
+=== RUN   TestDrainRecoversFromACrashThatTookAHeldSegmentsUnsyncedTail
+--- PASS: TestDrainRecoversFromACrashThatTookAHeldSegmentsUnsyncedTail (0.20s)
+=== RUN   TestDrainRefusesProgressWhoseFileLostItsDurableBytes
+=== RUN   TestDrainRefusesProgressWhoseFileLostItsDurableBytes/a_file_truncated_below_the_bytes_the_drain_consumed
+=== RUN   TestDrainRefusesProgressWhoseFileLostItsDurableBytes/a_file_replaced_by_different_bytes,_short_of_the_bound_its_progress_names
+=== RUN   TestDrainRefusesProgressWhoseFileLostItsDurableBytes/a_held_segment_that_comes_back_short_of_the_synced_size_it_recorded
+--- PASS: TestDrainRefusesProgressWhoseFileLostItsDurableBytes (0.22s)
+    --- PASS: TestDrainRefusesProgressWhoseFileLostItsDurableBytes/a_file_truncated_below_the_bytes_the_drain_consumed (0.09s)
+    --- PASS: TestDrainRefusesProgressWhoseFileLostItsDurableBytes/a_file_replaced_by_different_bytes,_short_of_the_bound_its_progress_names (0.07s)
+    --- PASS: TestDrainRefusesProgressWhoseFileLostItsDurableBytes/a_held_segment_that_comes_back_short_of_the_synced_size_it_recorded (0.06s)
+=== RUN   TestDrainConsumesNothingOfAFileWhoseFsyncFailed
+--- PASS: TestDrainConsumesNothingOfAFileWhoseFsyncFailed (0.08s)
+=== RUN   TestDrainConsumesNothingWhenItCannotCloseTheHandleItSynced
+--- PASS: TestDrainConsumesNothingWhenItCannotCloseTheHandleItSynced (0.33s)
+=== RUN   TestDrainSyncNeverCreatesASpoolFileThatIsGone
+--- PASS: TestDrainSyncNeverCreatesASpoolFileThatIsGone (0.13s)
+=== RUN   TestDrainNeverLeasesAWALLineBeforeItsSyncReturns
+=== RUN   TestDrainNeverLeasesAWALLineBeforeItsSyncReturns/wired_as_the_daemon_wires_it,_a_pass_takes_nothing_past_the_synced_size
+=== RUN   TestDrainNeverLeasesAWALLineBeforeItsSyncReturns/a_drainer_with_no_ingest_behind_it_syncs_the_segment_before_it_leases
+--- PASS: TestDrainNeverLeasesAWALLineBeforeItsSyncReturns (0.69s)
+    --- PASS: TestDrainNeverLeasesAWALLineBeforeItsSyncReturns/wired_as_the_daemon_wires_it,_a_pass_takes_nothing_past_the_synced_size (0.41s)
+    --- PASS: TestDrainNeverLeasesAWALLineBeforeItsSyncReturns/a_drainer_with_no_ingest_behind_it_syncs_the_segment_before_it_leases (0.28s)
+=== RUN   TestDrainSyncsAFileTheIngestDoesNotHoldBeforeItsFirstLease
+--- PASS: TestDrainSyncsAFileTheIngestDoesNotHoldBeforeItsFirstLease (0.88s)
+=== RUN   TestDrainLeasesNothingFromAFileItCouldNotSync
+--- PASS: TestDrainLeasesNothingFromAFileItCouldNotSync (1.26s)
+=== RUN   TestDrainSyncsASpoolFileAHookStillHasOpen
+--- PASS: TestDrainSyncsASpoolFileAHookStillHasOpen (0.29s)
+=== RUN   TestDrainKeepsTheWALTheIngestHoldsForAnUnregisteredSession
+=== PAUSE TestDrainKeepsTheWALTheIngestHoldsForAnUnregisteredSession
+=== RUN   TestDrainKeepsTheWALOfASessionLiveByTrafficAlone
+=== PAUSE TestDrainKeepsTheWALOfASessionLiveByTrafficAlone
+=== RUN   TestDrainDoesNotRemoveAWALThatGrewBeforeTheRemovalDecision
+=== PAUSE TestDrainDoesNotRemoveAWALThatGrewBeforeTheRemovalDecision
+=== RUN   TestDrainPassIsBoundedByItsOwnSnapshotOfAGrowingSpoolFile
+=== PAUSE TestDrainPassIsBoundedByItsOwnSnapshotOfAGrowingSpoolFile
+=== RUN   TestDrainRemovesClosedRotatedSegmentsAndKeepsTheHeldOne
+=== PAUSE TestDrainRemovesClosedRotatedSegmentsAndKeepsTheHeldOne
+=== RUN   TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+=== PAUSE TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+=== RUN   TestDrainRoundTripsACleanupIntentThroughTheRecordCodec
+=== RUN   TestDrainRoundTripsACleanupIntentThroughTheRecordCodec/the_intents_a_record_holds_survive_the_write_and_the_read
+=== RUN   TestDrainRoundTripsACleanupIntentThroughTheRecordCodec/a_later_pass_removes_the_blob_an_inherited_intent_names
+--- PASS: TestDrainRoundTripsACleanupIntentThroughTheRecordCodec (0.22s)
+    --- PASS: TestDrainRoundTripsACleanupIntentThroughTheRecordCodec/the_intents_a_record_holds_survive_the_write_and_the_read (0.10s)
+    --- PASS: TestDrainRoundTripsACleanupIntentThroughTheRecordCodec/a_later_pass_removes_the_blob_an_inherited_intent_names (0.12s)
+=== RUN   TestDrainKeepsTheDurableBoundItRecordedWhenASegmentIsReopenedBelowIt
+--- PASS: TestDrainKeepsTheDurableBoundItRecordedWhenASegmentIsReopenedBelowIt (0.19s)
+=== RUN   TestDrainDoesNotKeepARawStatBoundItDidNotRecord
+=== RUN   TestDrainDoesNotKeepARawStatBoundItDidNotRecord/a_record_written_before_the_mark,_whose_size_names_the_unsynced_tail
+=== RUN   TestDrainDoesNotKeepARawStatBoundItDidNotRecord/a_record_this_code_wrote,_whose_size_names_only_durable_bytes
+--- PASS: TestDrainDoesNotKeepARawStatBoundItDidNotRecord (0.68s)
+    --- PASS: TestDrainDoesNotKeepARawStatBoundItDidNotRecord/a_record_written_before_the_mark,_whose_size_names_the_unsynced_tail (0.38s)
+    --- PASS: TestDrainDoesNotKeepARawStatBoundItDidNotRecord/a_record_this_code_wrote,_whose_size_names_only_durable_bytes (0.30s)
+=== RUN   TestDrainWritesALoadableRecordWhenAFileShrinksUnderThePass
+--- PASS: TestDrainWritesALoadableRecordWhenAFileShrinksUnderThePass (0.36s)
+=== RUN   TestDrainDoesNotMarkASizeThatRestsOnALegacyOffset
+--- PASS: TestDrainDoesNotMarkASizeThatRestsOnALegacyOffset (0.30s)
+=== RUN   TestDrainKeepsTheProvenanceOfARecordItDidNotVisit
+--- PASS: TestDrainKeepsTheProvenanceOfARecordItDidNotVisit (0.30s)
+=== RUN   TestDrainRejectedResponseIsRetryableAfterRestart
+--- PASS: TestDrainRejectedResponseIsRetryableAfterRestart (0.22s)
+=== RUN   TestDrainCanceledRejectedHandlerLeavesCurrentLinePending
+--- PASS: TestDrainCanceledRejectedHandlerLeavesCurrentLinePending (0.11s)
+=== RUN   TestDrainTrailingIncompleteLineWaitsForCompletion
+--- PASS: TestDrainTrailingIncompleteLineWaitsForCompletion (0.15s)
+=== RUN   TestDrainLoadStateTreatsAFileParentAsNoState
+--- PASS: TestDrainLoadStateTreatsAFileParentAsNoState (0.01s)
+=== RUN   TestDrainStatePersistenceFailurePreservesSpool
+--- PASS: TestDrainStatePersistenceFailurePreservesSpool (0.06s)
+=== RUN   TestDrainRejectedBlobResponseRetainsBlobForRestart
+--- PASS: TestDrainRejectedBlobResponseRetainsBlobForRestart (0.09s)
+=== RUN   TestDrainRestartCleansPersistedBlobWithoutRedispatching
+--- PASS: TestDrainRestartCleansPersistedBlobWithoutRedispatching (0.05s)
+=== RUN   TestDrainRestartCleansPriorBlobBeforeRetryingLaterRejectedLine
+--- PASS: TestDrainRestartCleansPriorBlobBeforeRetryingLaterRejectedLine (0.13s)
+=== RUN   TestDrainWindowsOpenBlobRetainsCleanupIntent
+--- PASS: TestDrainWindowsOpenBlobRetainsCleanupIntent (0.10s)
+=== RUN   TestDrainCrossFileSharedBlobWaitsForLaterRetry
+--- PASS: TestDrainCrossFileSharedBlobWaitsForLaterRetry (0.21s)
+=== RUN   TestDrainFreshSeenMayRedeliverWithoutPersistedOffset
+--- PASS: TestDrainFreshSeenMayRedeliverWithoutPersistedOffset (0.06s)
+=== RUN   TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources
+=== RUN   TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/malformed
+=== RUN   TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/null_state
+=== RUN   TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/null_file_entry
+=== RUN   TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/negative_offset
+=== RUN   TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/offset_beyond_spool_size
+=== RUN   TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/done_without_complete_offset
+--- PASS: TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources (0.13s)
+    --- PASS: TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/malformed (0.01s)
+    --- PASS: TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/null_state (0.01s)
+    --- PASS: TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/null_file_entry (0.01s)
+    --- PASS: TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/negative_offset (0.04s)
+    --- PASS: TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/offset_beyond_spool_size (0.03s)
+    --- PASS: TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources/done_without_complete_offset (0.04s)
+=== RUN   TestDrainKeepsItsProgressLoadableWhenAStragglerReopensADrainedSegment
+--- PASS: TestDrainKeepsItsProgressLoadableWhenAStragglerReopensADrainedSegment (0.26s)
+=== RUN   TestDrainForgetsAFileDurablyBeforeUnlinkingIt
+=== PAUSE TestDrainForgetsAFileDurablyBeforeUnlinkingIt
+=== RUN   TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment
+=== PAUSE TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment
+=== RUN   TestDrainRestoresProgressWhenItDoesNotRemoveTheFile
+=== PAUSE TestDrainRestoresProgressWhenItDoesNotRemoveTheFile
+=== RUN   TestDrainDoesNotForgetASegmentTheIngestHolds
+=== PAUSE TestDrainDoesNotForgetASegmentTheIngestHolds
+=== RUN   TestDrainCrashBetweenForgettingAndUnlinkingReplaysOnlyWhatTheFrontierLacks
+--- PASS: TestDrainCrashBetweenForgettingAndUnlinkingReplaysOnlyWhatTheFrontierLacks (0.73s)
+=== RUN   TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment
+=== PAUSE TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment
+=== RUN   TestDrainForgetsReleasedProgressForMissingFilesBeforeReadingAny
+=== PAUSE TestDrainForgetsReleasedProgressForMissingFilesBeforeReadingAny
+=== RUN   TestDrainForgetsAFileAlreadyGoneAtItsRemoval
+=== PAUSE TestDrainForgetsAFileAlreadyGoneAtItsRemoval
+=== RUN   TestDrainKeepsProgressWhenItCannotPersistTheForgetting
+=== PAUSE TestDrainKeepsProgressWhenItCannotPersistTheForgetting
+=== RUN   TestDrainRejectsMismatchedProgressBeforePruningIt
+=== PAUSE TestDrainRejectsMismatchedProgressBeforePruningIt
+=== RUN   TestDrainKeepsCleanupIntentsForAFileDeletedAfterTheListing
+=== PAUSE TestDrainKeepsCleanupIntentsForAFileDeletedAfterTheListing
+=== RUN   TestDrainPersistsPerFileBeforeMovingOn
+=== PAUSE TestDrainPersistsPerFileBeforeMovingOn
+=== RUN   TestDrainPersistsAFileBeforeCleaningUpItsBlobs
+=== PAUSE TestDrainPersistsAFileBeforeCleaningUpItsBlobs
+=== RUN   TestDrainIsIdempotent
+=== PAUSE TestDrainIsIdempotent
+=== RUN   TestDrainResumesAfterCancel
+=== PAUSE TestDrainResumesAfterCancel
+=== RUN   TestDrainResolvesBlobs
+=== PAUSE TestDrainResolvesBlobs
+=== RUN   TestDrainSurvivesCorruptLine
+=== PAUSE TestDrainSurvivesCorruptLine
+=== RUN   TestDrainKeepsLiveSessionWAL
+=== PAUSE TestDrainKeepsLiveSessionWAL
+=== RUN   TestDrainNotesAStaleProgressOnceThenClears
+=== PAUSE TestDrainNotesAStaleProgressOnceThenClears
+=== CONT  TestDrainOfSpooledFlushLineDoesNotDeadlock
+=== CONT  TestDrainForgetsReleasedProgressForMissingFilesBeforeReadingAny
+=== CONT  TestDrainKeepsCleanupIntentsForAFileDeletedAfterTheListing
+=== CONT  TestDrainPersistsAFileBeforeCleaningUpItsBlobs
+=== CONT  TestDrainRejectsMismatchedProgressBeforePruningIt
+=== CONT  TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment
+=== CONT  TestDrainRemovesClosedRotatedSegmentsAndKeepsTheHeldOne
+=== RUN   TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_smaller
+=== PAUSE TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_smaller
+=== CONT  TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment
+=== CONT  TestDrainDoesNotForgetASegmentTheIngestHolds
+=== RUN   TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_at_the_same_size
+=== PAUSE TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_at_the_same_size
+=== CONT  TestDrainRestoresProgressWhenItDoesNotRemoveTheFile
+=== RUN   TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_larger
+=== PAUSE TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_larger
+=== RUN   TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_smaller
+=== CONT  TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_smaller
+=== PAUSE TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_smaller
+=== RUN   TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_at_the_same_size
+=== PAUSE TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_at_the_same_size
+=== RUN   TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_larger
+=== PAUSE TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_larger
+=== CONT  TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_smaller
+=== CONT  TestDrainNotesAStaleProgressOnceThenClears
+=== RUN   TestDrainRestoresProgressWhenItDoesNotRemoveTheFile/the_ingest_refuses_a_segment_reopened_after_the_drain_asked
+=== PAUSE TestDrainRestoresProgressWhenItDoesNotRemoveTheFile/the_ingest_refuses_a_segment_reopened_after_the_drain_asked
+=== RUN   TestDrainRestoresProgressWhenItDoesNotRemoveTheFile/the_unlink_fails
+=== PAUSE TestDrainRestoresProgressWhenItDoesNotRemoveTheFile/the_unlink_fails
+=== CONT  TestDrainForgetsAFileAlreadyGoneAtItsRemoval
+=== CONT  TestDrainKeepsLiveSessionWAL
+=== CONT  TestDrainIsIdempotent
+=== CONT  TestDrainKeepsProgressWhenItCannotPersistTheForgetting
+=== CONT  TestDrainResolvesBlobs
+=== CONT  TestDrainPassIsBoundedByItsOwnSnapshotOfAGrowingSpoolFile
+=== CONT  TestDrainDoesNotRemoveAWALThatGrewBeforeTheRemovalDecision
+=== CONT  TestDrainSurvivesCorruptLine
+=== CONT  TestDrainKeepsTheWALOfASessionLiveByTrafficAlone
+=== CONT  TestDrainKeepsTheWALTheIngestHoldsForAnUnregisteredSession
+=== CONT  TestDrainResumesAfterCancel
+=== CONT  TestMarkerIsWrittenByFlushAndCheckpointOnly
+--- PASS: TestDrainRejectsMismatchedProgressBeforePruningIt (0.31s)
+=== CONT  TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_larger
+--- PASS: TestDrainKeepsLiveSessionWAL (0.52s)
+=== CONT  TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_at_the_same_size
+--- PASS: TestDrainIsIdempotent (0.60s)
+=== CONT  TestDrainForgetsAFileDurablyBeforeUnlinkingIt
+=== RUN   TestDrainForgetsAFileDurablyBeforeUnlinkingIt/read_to_its_end_by_the_same_pass
+=== PAUSE TestDrainForgetsAFileDurablyBeforeUnlinkingIt/read_to_its_end_by_the_same_pass
+=== RUN   TestDrainForgetsAFileDurablyBeforeUnlinkingIt/finished_by_an_earlier_pass
+=== PAUSE TestDrainForgetsAFileDurablyBeforeUnlinkingIt/finished_by_an_earlier_pass
+=== CONT  TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment
+--- PASS: TestDrainSurvivesCorruptLine (0.60s)
+=== CONT  TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_larger
+--- PASS: TestDrainNotesAStaleProgressOnceThenClears (0.60s)
+=== CONT  TestDrainRestoresProgressWhenItDoesNotRemoveTheFile/the_ingest_refuses_a_segment_reopened_after_the_drain_asked
+--- PASS: TestDrainPersistsAFileBeforeCleaningUpItsBlobs (0.60s)
+=== CONT  TestDrainPersistsPerFileBeforeMovingOn
+--- PASS: TestDrainResolvesBlobs (0.67s)
+=== CONT  TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_at_the_same_size
+--- PASS: TestDrainKeepsCleanupIntentsForAFileDeletedAfterTheListing (0.73s)
+=== CONT  TestDrainRestoresProgressWhenItDoesNotRemoveTheFile/the_unlink_fails
+--- PASS: TestDrainKeepsProgressWhenItCannotPersistTheForgetting (0.75s)
+=== CONT  TestDrainForgetsAFileDurablyBeforeUnlinkingIt/read_to_its_end_by_the_same_pass
+--- PASS: TestDrainResumesAfterCancel (0.77s)
+=== CONT  TestDrainForgetsAFileDurablyBeforeUnlinkingIt/finished_by_an_earlier_pass
+--- PASS: TestDrainOfSpooledFlushLineDoesNotDeadlock (0.79s)
+--- PASS: TestDrainKeepsTheWALOfASessionLiveByTrafficAlone (0.87s)
+--- PASS: TestDrainKeepsTheWALTheIngestHoldsForAnUnregisteredSession (0.91s)
+--- PASS: TestDrainForgetsAFileAlreadyGoneAtItsRemoval (0.93s)
+--- PASS: TestDrainDoesNotForgetASegmentTheIngestHolds (0.94s)
+--- PASS: TestDrainPassIsBoundedByItsOwnSnapshotOfAGrowingSpoolFile (0.97s)
+--- PASS: TestDrainForgetsReleasedProgressForMissingFilesBeforeReadingAny (0.97s)
+--- PASS: TestDrainRemovesClosedRotatedSegmentsAndKeepsTheHeldOne (1.00s)
+--- PASS: TestDrainDoesNotRemoveAWALThatGrewBeforeTheRemovalDecision (1.01s)
+--- PASS: TestMarkerIsWrittenByFlushAndCheckpointOnly (1.03s)
+--- PASS: TestDrainPersistsPerFileBeforeMovingOn (0.46s)
+--- PASS: TestDrainForgetsAFileDurablyBeforeUnlinkingIt (0.00s)
+    --- PASS: TestDrainForgetsAFileDurablyBeforeUnlinkingIt/read_to_its_end_by_the_same_pass (0.33s)
+    --- PASS: TestDrainForgetsAFileDurablyBeforeUnlinkingIt/finished_by_an_earlier_pass (0.30s)
+--- PASS: TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment (0.00s)
+    --- PASS: TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_smaller (1.01s)
+    --- PASS: TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_larger (0.49s)
+    --- PASS: TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment/recreated_at_the_same_size (0.44s)
+--- PASS: TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment (0.00s)
+    --- PASS: TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_smaller (1.01s)
+    --- PASS: TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_larger (0.74s)
+    --- PASS: TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment/recreated_at_the_same_size (0.63s)
+--- PASS: TestDrainRestoresProgressWhenItDoesNotRemoveTheFile (0.00s)
+    --- PASS: TestDrainRestoresProgressWhenItDoesNotRemoveTheFile/the_ingest_refuses_a_segment_reopened_after_the_drain_asked (0.50s)
+    --- PASS: TestDrainRestoresProgressWhenItDoesNotRemoveTheFile/the_unlink_fails (0.44s)
+--- PASS: TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment (0.88s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	126.325s
+exit=0

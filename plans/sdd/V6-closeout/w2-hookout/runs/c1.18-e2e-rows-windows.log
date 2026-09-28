@@ -1,0 +1,70 @@
+=== RUN   TestE2E_CheckpointDegradedPassiveSealsNothing
+--- PASS: TestE2E_CheckpointDegradedPassiveSealsNothing (8.57s)
+=== RUN   TestE2E_CheckpointHookWritesImmutableArtifact
+--- PASS: TestE2E_CheckpointHookWritesImmutableArtifact (15.35s)
+=== RUN   TestV1_HookLifecycleThroughRealBinary
+--- PASS: TestV1_HookLifecycleThroughRealBinary (2.28s)
+=== RUN   TestV4_PreCompactToCheckpointToRehydrateRoundTrip
+--- PASS: TestV4_PreCompactToCheckpointToRehydrateRoundTrip (3.68s)
+=== RUN   TestV4_O1SpanInstructionFromARealCheckpointFrontier
+--- PASS: TestV4_O1SpanInstructionFromARealCheckpointFrontier (3.52s)
+=== RUN   TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint
+--- PASS: TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint (6.32s)
+=== RUN   TestV4_DegradedPassiveWithEverySubsystem
+--- PASS: TestV4_DegradedPassiveWithEverySubsystem (6.96s)
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops
+    v5_x04_test.go:526: bounded arm: tokens=572 budget=600 degraded=false dropped=41 item7_rendered=true
+=== RUN   TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled
+--- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip (29.17s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/full_budget_round_trip (11.71s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/bounded_budget_reports_complete_drops (14.25s)
+    --- PASS: TestV5_PreCompactToRehydrateToDroppedRoundTrip/negative_control_reinjection_disabled (3.20s)
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/uncertain_under_stale_response_drop
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/negative_control_blind_ledger_is_unavailable_not_absent
+    v5_x05_test.go:625: blind-ledger digest carries the MCP record's line: true; the stale tag: false
+=== RUN   TestV5_EliminationThroughEveryFourSurfaces/old_caller_adapter_agrees_with_the_wire
+--- PASS: TestV5_EliminationThroughEveryFourSurfaces (12.77s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/active_through_both_write_surfaces (3.07s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface (1.48s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/uncertain_under_stale_response_drop (2.51s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/negative_control_blind_ledger_is_unavailable_not_absent (2.58s)
+    --- PASS: TestV5_EliminationThroughEveryFourSurfaces/old_caller_adapter_agrees_with_the_wire (1.52s)
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/degraded_passive_records_the_loop_and_says_nothing_until_restored
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself
+--- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (66.04s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule (35.42s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/degraded_passive_records_the_loop_and_says_nothing_until_restored (30.47s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself (0.14s)
+=== RUN   TestV5_EveryContractAssertionHasARealProducer
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence/self_test_reads_the_same_ids_and_writes_no_evidence
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud
+=== RUN   TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set
+--- PASS: TestV5_EveryContractAssertionHasARealProducer (7.73s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence (3.40s)
+        --- PASS: TestV5_EveryContractAssertionHasARealProducer/full_composition_records_per_capability_evidence/self_test_reads_the_same_ids_and_writes_no_evidence (0.08s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/negative_control_severed_delivery_is_failed_and_loud (2.54s)
+    --- PASS: TestV5_EveryContractAssertionHasARealProducer/observer_only_composition_declares_a_different_producer_set (1.79s)
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/full_reference
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/degraded
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/daemon_disabled
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/admission_switch_refused
+    v5_x15_test.go:612: testutil: configuration warning: key="runtime.migration.replacement.newResult" invalid value, using default: true not in false (C:\Users\Quant\AppData\Local\Temp\TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresentad1734270337\002\project\.qompack\config.json:1)
+    v5_x15_test.go:649: v5 §4.15: runtime.migration.replacement.newResult refused by gate "M4 admission (T21 pipeline, pass-through and recovery)" (SP-21)
+=== RUN   TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/config_corrupt_refuses_capture
+--- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent (11.64s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/full_reference (0.67s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/degraded (4.53s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/daemon_disabled (4.54s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/admission_switch_refused (0.25s)
+    --- PASS: TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent/config_corrupt_refuses_capture (1.65s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	174.321s

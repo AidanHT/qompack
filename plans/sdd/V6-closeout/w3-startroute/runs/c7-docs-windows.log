@@ -1,0 +1,4 @@
+ok  	github.com/qompack/qompack/test/docs	3.279s
+gen-config-docs: docs/config-reference.md is up to date
+gen-command-docs: docs/commands.md is up to date
+gen-mcp-docs: docs/mcp-tools.md is up to date
