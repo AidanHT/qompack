@@ -733,8 +733,9 @@ one that a stopping daemon never started records nothing at all; one its stop cu
 report that opens `not delivered: the Qompack daemon was shutting down, so no rehydration was built`.
 When the hook client wrote the note ("did not answer in time"), the daemon may still have answered,
 too late, and recorded that rehydration as delivered; the client spools a request it got no answer to,
-and when the daemon replays it — at its next idle drain, within 30 s, or its next start — it
-records the rehydration as undelivered and says the hook answered without it. If the spool itself
+and when the daemon replays it — its client-spool watcher a few seconds after the spool is written,
+else its idle drain once the project has been quiet for `scheduler.idle.detectAfterSeconds` (120 s
+by default), or its next start — it records the rehydration as undelivered and says the hook answered without it. If the spool itself
 could not be written, that correction never comes: `.qompack/logs/LOUD.log` then has an `ipc: spool`
 line for the dropped request.
 
@@ -765,8 +766,9 @@ and D21): the daemon must be listening within 8.25 s of the hook starting (or wi
 spawn that itself ran late), and its answer must arrive within the reply wait that follows — 10 s
 when the daemon was up within 3.25 s, less when it came up later, and about the 5 s a compaction
 may take when it came up just before 8.25 s. A start that misses either is
-spooled, not lost: the daemon replays it — at its next idle drain, within 30 s, or its next start —
-and records the session, but a replayed start mints no probe and delivers no rehydration, because
+spooled, not lost: the daemon replays it — its client-spool watcher a few seconds after the spool is
+written, else its idle drain once the project has been quiet for `scheduler.idle.detectAfterSeconds`
+(120 s by default), or its next start — and records the session, but a replayed start mints no probe and delivers no rehydration, because
 its answer could reach no one. Only one daemon is started per project however many hooks race to
 start it (`.qompack/run/spawn.lock`); a second `qompack daemon` process that appears and exits at
 once, because it cannot take the project's singleton lock, means a spawner found neither a daemon
