@@ -1,0 +1,30 @@
+=== RUN   TestSpawnClaim_ALostRaceLeavesNoClaimOnceTheRunningDaemonStops
+    spawn_claim_release_test.go:90: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-spawnclaim/internal/daemon/spawn_claim_release_test.go:90
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestSpawnClaim_ALostRaceLeavesNoClaimOnceTheRunningDaemonStops
+        	Messages:   	no daemon runs, so the next lazy spawn must claim; SpawnInFlight means the claim a lock-losing daemon left held it off for the claim's whole freshness window
+--- FAIL: TestSpawnClaim_ALostRaceLeavesNoClaimOnceTheRunningDaemonStops (0.13s)
+=== RUN   TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon
+    spawn_claim_release_test.go:127: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-spawnclaim/internal/daemon/spawn_claim_release_test.go:127
+        	Error:      	Not equal: 
+        	            	expected: int(1)
+        	            	actual  : int64(0)
+        	Test:       	TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon
+        	Messages:   	the flush's lazy spawn must start the daemon, once
+--- FAIL: TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon (0.12s)
+=== RUN   TestLockRelease_GivesBackTheSpawnClaim
+=== PAUSE TestLockRelease_GivesBackTheSpawnClaim
+=== CONT  TestLockRelease_GivesBackTheSpawnClaim
+    spawn_claim_release_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-spawnclaim/internal/daemon/spawn_claim_release_test.go:157
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestLockRelease_GivesBackTheSpawnClaim1660738687\\001\\.qompack\\run\\spawn.lock" exists
+        	Test:       	TestLockRelease_GivesBackTheSpawnClaim
+        	Messages:   	releasing daemon.lock must give run/spawn.lock back
+--- FAIL: TestLockRelease_GivesBackTheSpawnClaim (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.555s
+FAIL

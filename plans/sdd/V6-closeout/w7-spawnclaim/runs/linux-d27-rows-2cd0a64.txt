@@ -1,0 +1,34 @@
+run_id=cx-w7-spawnclaim-d27-rows-2cd0a64-20260928T020657Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-spawnclaim
+rev=2cd0a644
+commit=2cd0a6447a9ce86c66902148443689e80e5b9112
+bundle_sha256=9d3017adcf2793a09e35e5314e569ab129032bd4424a5282db2bf98bafcdea27
+host_started_utc=2026-09-28T02:07:06Z
+inner_args=--run ^(TestSpawnClaim_ALostRaceLeavesNoClaimOnceTheRunningDaemonStops|TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon|TestLockRelease_GivesBackTheSpawnClaim|TestEnsureRunning_.*|TestLock.*|TestAcquireLock.*|TestReleaseIsIdempotent)$ --count 5 -- ./internal/daemon
+/work/cx-w7-spawnclaim-d27-rows-2cd0a64-20260928T020657Z.bundle: OK
+run_id=cx-w7-spawnclaim-d27-rows-2cd0a64-20260928T020657Z
+commit=2cd0a6447a9ce86c66902148443689e80e5b9112
+tree=08b5516d1c11fe474fc531fa0724c0b7c6e1cc33
+bundle_sha256=9d3017adcf2793a09e35e5314e569ab129032bd4424a5282db2bf98bafcdea27
+started_utc=2026-09-28T02:07:11Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=^(TestSpawnClaim_ALostRaceLeavesNoClaimOnceTheRunningDaemonStops|TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon|TestLockRelease_GivesBackTheSpawnClaim|TestEnsureRunning_.*|TestLock.*|TestAcquireLock.*|TestReleaseIsIdempotent)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=100 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w7/spawnclaim/linux/cx-w7-spawnclaim-d27-rows-2cd0a64-20260928T020657Z-artifacts
+exit=0

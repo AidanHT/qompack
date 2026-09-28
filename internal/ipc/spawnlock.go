@@ -41,7 +41,9 @@ const (
 )
 
 // SpawnLock is a held claim on a project's spawn.lock. The daemon a claimant launches removes the
-// file once it listens (daemon.removeSpawnLockFile); a claimant whose spawn failed calls Release.
+// file once it listens (daemon.removeSpawnLockFile); a claimant whose spawn failed calls Release;
+// and whoever holds daemon.lock removes it as it lets that lock go (daemon's Lock.Release, V6
+// close-out D27), so a claim whose daemon lost the singleton lock does not outlive the winner.
 type SpawnLock struct {
 	path  string
 	stamp []byte
