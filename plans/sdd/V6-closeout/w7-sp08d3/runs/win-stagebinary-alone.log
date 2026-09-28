@@ -1,0 +1,14 @@
+=== RUN   TestStageBinary_ConcurrentSpawnersAgree
+=== PAUSE TestStageBinary_ConcurrentSpawnersAgree
+=== CONT  TestStageBinary_ConcurrentSpawnersAgree
+--- PASS: TestStageBinary_ConcurrentSpawnersAgree (0.04s)
+=== RUN   TestStageBinary_ConcurrentSpawnersAgree
+=== PAUSE TestStageBinary_ConcurrentSpawnersAgree
+=== CONT  TestStageBinary_ConcurrentSpawnersAgree
+--- PASS: TestStageBinary_ConcurrentSpawnersAgree (0.05s)
+=== RUN   TestStageBinary_ConcurrentSpawnersAgree
+=== PAUSE TestStageBinary_ConcurrentSpawnersAgree
+=== CONT  TestStageBinary_ConcurrentSpawnersAgree
+--- PASS: TestStageBinary_ConcurrentSpawnersAgree (0.06s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.628s

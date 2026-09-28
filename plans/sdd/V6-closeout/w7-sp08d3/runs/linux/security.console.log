@@ -1,0 +1,34 @@
+run_id=cx-w7-sp08d3-security-898bb8b-20260928T015850Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w7-sp08d3
+rev=898bb8b
+commit=898bb8b27b0b29370e6198aeab73763f1c5f498a
+bundle_sha256=3aca198992eaf345edb095fb8fd43004626bb748cbfe43171b4da1b820aae0d8
+host_started_utc=2026-09-28T01:59:03Z
+inner_args=--timeout 30m -- ./test/security
+/work/cx-w7-sp08d3-security-898bb8b-20260928T015850Z.bundle: OK
+run_id=cx-w7-sp08d3-security-898bb8b-20260928T015850Z
+commit=898bb8b27b0b29370e6198aeab73763f1c5f498a
+tree=e1d448b8717edd75cdb26f8a94e005982a74de97
+bundle_sha256=3aca198992eaf345edb095fb8fd43004626bb748cbfe43171b4da1b820aae0d8
+started_utc=2026-09-28T01:59:11Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/test/security  (pass=30 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w7/sp08d3/linux/cx-w7-sp08d3-security-898bb8b-20260928T015850Z-artifacts
+exit=0

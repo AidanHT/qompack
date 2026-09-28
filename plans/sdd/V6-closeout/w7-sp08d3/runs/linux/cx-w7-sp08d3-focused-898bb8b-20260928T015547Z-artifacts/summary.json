@@ -1,0 +1,29 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 18,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/observer": {
+   "result": "pass",
+   "passed": 29,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/mcp": {
+   "result": "pass",
+   "passed": 3,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "pass",
+   "passed": 3,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}
