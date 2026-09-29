@@ -1,0 +1,20 @@
+=== RUN   TestDoctor_UnpublishedCapturesAgreesWithFsck
+    doctor_captures_test.go:48: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/cli/doctor_captures_test.go:48
+        	Error:      	Not equal: 
+        	            	expected: "ok"
+        	            	actual  : "degraded"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-ok
+        	            	+degraded
+        	Test:       	TestDoctor_UnpublishedCapturesAgreesWithFsck
+        	Messages:   	doctor must agree with fsck on a fully published store: map[detail:a sidecar is a gap only for a tool delivery whose outcome is ok and whose bytes are durable with no reference joined; sidecars are evidence and are never swept id:captures.unpublished observed:1 gap(s) across 1 sidecar(s) status:degraded]
+--- FAIL: TestDoctor_UnpublishedCapturesAgreesWithFsck (0.20s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.809s
+FAIL
+EXIT=1
