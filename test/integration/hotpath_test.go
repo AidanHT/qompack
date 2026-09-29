@@ -54,10 +54,11 @@ import (
 //     daemon over a project pre-populated with real state"; when SP-08 lands a production
 //     ObserveTool, the same harness run exercises it with no change here.
 //
-//  2. Test 2's stall (25ms at the linux budget; hotpathStallFor) is a CLOCK stall, not a wall-clock sleep. §6.1 bans time.Sleep outside
-//     test/bench (sleepcheck), and internal/daemon's own tests simulate a slow hot path exactly
-//     this way: a controllable clock whose recvTS−reqTS gap the breach detector reads
-//     (daemon_test.go's feedBreachingWindow constructs the same relationship by hand). Here the
+//  2. Test 2's stall (hotpathStallFor: 25ms at the linux budget) is a CLOCK stall, not a
+//     wall-clock sleep. §6.1 bans time.Sleep outside test/bench (sleepcheck), and
+//     internal/daemon's own tests simulate a slow hot path exactly this way: a controllable clock
+//     whose recvTS−reqTS gap the breach detector reads (daemon_test.go's feedBreachingWindow
+//     constructs the same relationship by hand). Here the
 //     bound ObserveTool consumes the stall from the daemon's own clock per event while it is
 //     switched on, and the driver stamps each request before the previous event's stall has been
 //     consumed — so the daemon's TS-anchored estimate for the next sample is the stall, measured
@@ -946,10 +947,10 @@ func hotpathBuildBenchBinary(t *testing.T) string {
 // spawn_floor_ms must be present; and the daemon must never transition to spool during an
 // isolated run, while a co-loaded one reports a transition that is loud, named and fully
 // accounted for (D39, hotpathJudgeSpool). B-A p99 < runtime.hotPath.budgetMs (15ms on linux, 50 on
-// Windows and 40 on macOS since D41) and B-E's wall-clock p99 < 2000ms are
-// judged here only when the invoking job has not declared the run co-loaded (obs.UnderCoload —
-// ci.yml's `timing` job runs this test alone for exactly that), and asserted REPORTED-and-disclosed
-// when it has; see the comment above the harness invocation.
+// Windows and 40 on macOS since D41) and B-E's wall-clock p99 < 2000ms are judged here only when
+// the invoking job has not declared the run co-loaded (obs.UnderCoload — ci.yml's `timing` job
+// runs this test alone for exactly that), and asserted REPORTED-and-disclosed when it has; see the
+// comment above the harness invocation.
 func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	ctx := context.Background()
 	p := testutil.NewProject(t)
@@ -1332,8 +1333,8 @@ func (b *hotpathStallBinding) ObserveTool(ctx context.Context, e hookio.Event) e
 
 // TestIntegration_HotPathDegradesRatherThanBlocks is §4.6's second test: the same warm daemon
 // (same §4.2 binding, same resident-state construction), a stall of budget + 10ms (25ms at the
-// linux budget, hotpathStallFor) injected into the bound
-// ObserveTool for three consecutive 512-sample windows, and §8.1's promise held against a real
+// linux budget, hotpathStallFor) injected into the bound ObserveTool for three consecutive
+// 512-sample windows, and §8.1's promise held against a real
 // L1: the daemon flips to spool, clients stop connecting, every hook still exits 0, no event is
 // lost after the next drain, and one WARN line plus the status payload record the transition.
 func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
@@ -1343,9 +1344,8 @@ func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
 
 	// The transition arithmetic below is §2.4's: p99 over 512-sample windows against the configured
 	// B-A budget (15ms on linux, 50 on Windows, 40 on macOS since D41), three consecutive breaching
-	// windows to flip. Pin the premises to the configuration
-	// the daemon will actually gate on, so a changed default fails loudly here instead of
-	// silently bending the window count.
+	// windows to flip. Pin the premises to the configuration the daemon will actually gate on, so a
+	// changed default fails loudly here instead of silently bending the window count.
 	require.Equal(t, 3, p.Cfg.Runtime.HotPath.BreachWindows,
 		"§4.6's 'three consecutive windows' is cfg.Runtime.HotPath.BreachWindows' default")
 	require.True(t, p.Cfg.Runtime.HotPath.SpoolOnBreach,

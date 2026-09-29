@@ -47,9 +47,8 @@ const (
 // if this value ever drops below 2 x dialBusyRetryQuantum, or if the quantum grows past it.
 //
 // Raising it does not move the B-A hot-path budget (§8.1; HotPathBudgetMsFor below) and is not
-// meant to. A
-// successful connect to a warm daemon is microseconds; this deadline caps only the rare
-// ERROR_PIPE_BUSY path, which under 5 ms did not retry at all.
+// meant to. A successful connect to a warm daemon is microseconds; this deadline caps only the
+// rare ERROR_PIPE_BUSY path, which under 5 ms did not retry at all.
 const (
 	ConnectDeadlineMsPortable = 5
 	ConnectDeadlineMsWindows  = 25
