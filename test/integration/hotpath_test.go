@@ -940,10 +940,10 @@ func hotpathBuildBenchBinary(t *testing.T) string {
 // on every run; b_a_method must name the TS-anchored hook_controlled estimate (ruling #29);
 // spawn_floor_ms must be present; and the daemon must never transition to spool during an
 // isolated run, while a co-loaded one reports a transition that is loud, named and fully
-// accounted for (D39, hotpathJudgeSpool). B-A p99 < 15ms and B-E's wall-clock p99 < 2000ms are judged here only when the invoking job has
-// not declared the run co-loaded (obs.UnderCoload — ci.yml's `timing` job runs this test alone
-// for exactly that), and asserted REPORTED-and-disclosed when it has; see the comment above the
-// harness invocation.
+// accounted for (D39, hotpathJudgeSpool). B-A p99 < 15ms and B-E's wall-clock p99 < 2000ms are
+// judged here only when the invoking job has not declared the run co-loaded (obs.UnderCoload —
+// ci.yml's `timing` job runs this test alone for exactly that), and asserted REPORTED-and-disclosed
+// when it has; see the comment above the harness invocation.
 func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	ctx := context.Background()
 	p := testutil.NewProject(t)
