@@ -82,6 +82,9 @@ type Lock struct {
 	// It is atomic because the journal reads it at the moment it reports, from whichever goroutine
 	// that is, with or without Lock.mu held.
 	deliveryDiag atomic.Pointer[deliveryDiagnostics]
+	// tookOver is the record of the stale owner AcquireLock replaced, nil when the lock was free
+	// (TookOver).
+	tookOver *LockInfo
 }
 
 // deliverySealFormat is the seal format the journal this lock opens writes: the build's constant,
@@ -156,6 +159,7 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 		return nil, fmt.Errorf("daemon: lock: encode: %w", err)
 	}
 
+	var took *LockInfo
 	if err := paths.CreateNew(lockPath, body); err != nil {
 		if !os.IsExist(err) {
 			return nil, fmt.Errorf("daemon: lock: create: %w", err)
@@ -163,9 +167,13 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 		if !lockIsStale(lockPath, hbPath, a, clk) {
 			return nil, ErrLockHeld
 		}
+		prev, prevOK := readLockFile(lockPath)
 		removeLockFiles(lockPath, hbPath)
 		if err := paths.CreateNew(lockPath, body); err != nil {
 			return nil, ErrLockHeld // lost the retry race: another daemon won it (step 5)
+		}
+		if prevOK {
+			took = &prev
 		}
 	}
 
@@ -177,7 +185,17 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 		return nil, fmt.Errorf("daemon: lock: initial heartbeat: %w", err)
 	}
 
-	return &Lock{path: lockPath, hb: hbPath, clk: clk, owner: owner}, nil
+	return &Lock{path: lockPath, hb: hbPath, clk: clk, owner: owner, tookOver: took}, nil
+}
+
+// TookOver reports the lock record this acquisition replaced: the owner the staleness protocol
+// judged gone — a daemon that was terminated, crashed or lost its machine without releasing the
+// lock. ok is false when the lock was free, or when the replaced record did not parse.
+func (l *Lock) TookOver() (LockInfo, bool) {
+	if l == nil || l.tookOver == nil {
+		return LockInfo{}, false
+	}
+	return *l.tookOver, true
 }
 
 // LockPath returns the path ReadLock reads: <projectRoot>/.qompack/run/daemon.lock.
