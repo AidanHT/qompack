@@ -6,6 +6,7 @@ package checkpoint_test
 // TestLivePreCompactCarriesEliminationAndDecision drives the same through the daemon.
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -84,4 +85,55 @@ func TestAdvanceDecisionsComeOnlyFromTheSessionsOwnEliminations(t *testing.T) {
 	require.Len(t, rejected(cp, "drop the cache"), 1, "a project-scoped elimination is a decision")
 	require.Empty(t, rejected(cp, "retry forever"),
 		"another session's session-scoped elimination must not become this session's decision")
+}
+
+// TestPreCompactDecisionsAreTheSessionsOwnNotEveryCarriedElimination: the seal-time refresh adds
+// the decisions an Advance over the unencoded range would have — this session's own eliminations
+// at or after the draft's frontier — and no more. Every project-scoped elimination another session
+// recorded is carried in eliminated[], but its node turn is in THAT session's numbering, so minting
+// all of them as decisions at every seal let 64 foreign ones at high turns fill the Turn-descending
+// cap (maxDraftDecisions) and push the session's own decision out of the sealed checkpoint.
+func TestPreCompactDecisionsAreTheSessionsOwnNotEveryCarriedElimination(t *testing.T) {
+	f := newFx(t)
+	seedForPreCompact(t, f) // begins the live draft; the frontier is turn 9
+
+	const foreign = 70 // more than maxDraftDecisions (64)
+	foreignIDs := map[string]bool{}
+	for i := range foreign {
+		ctx := negknow.WithCaller(f.ctx(), negknow.Caller{Session: "sess_other", Turn: core.TurnIndex(500 + i)})
+		target := fmt.Sprintf("src/other%02d.go", i)
+		id, err := f.ledger.Record(ctx, negknow.Record{
+			Scope: negknow.ScopeProject, Target: target, Approach: "foreign approach", Reason: "another session's",
+			Evidence: core.HashBytes(core.DomainChunk, []byte(target)),
+		})
+		require.NoError(t, err)
+		foreignIDs[id] = true
+	}
+	ctx := negknow.WithCaller(f.ctx(), negknow.Caller{Session: f.sess, Turn: 12})
+	_, err := f.ledger.Record(ctx, negknow.Record{
+		Target: "src/pool.go:DialPool", Approach: "widen pool timeout", Reason: "max_idle caps it",
+		Evidence: core.HashBytes(core.DomainChunk, []byte("pool evidence")),
+	})
+	require.NoError(t, err)
+
+	// A token budget wide enough that the decision cap, not Truncate, is what decides which
+	// decisions are sealed: at the default budget the 70 foreign decisions overflow it and Truncate
+	// drops every decision, which hides the same loss behind a different mechanism.
+	in := f.precompactInput()
+	in.Budget = 1 << 20
+	res, err := f.w.PreCompact(f.ctx(), in)
+	require.NoError(t, err)
+	cp := f.sealed(t, res.Ref.Seq)
+
+	carried := 0
+	for _, r := range cp.Eliminated {
+		if foreignIDs[r.ID] {
+			carried++
+		}
+	}
+	require.Equal(t, foreign, carried, "every project-scoped elimination is still carried as negative knowledge")
+	require.Len(t, rejected(cp, "widen pool timeout"), 1,
+		"the session's own decision must survive the seal: %d decisions sealed", len(cp.Decisions))
+	require.Empty(t, rejected(cp, "foreign approach"),
+		"another session's eliminations are not minted as this session's decisions at the seal")
 }
