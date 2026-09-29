@@ -1,0 +1,7 @@
+=== RUN   TestSessionStart_ASecondWindowLeavesTheFirstSessionsLateRowsPending
+--- PASS: TestSessionStart_ASecondWindowLeavesTheFirstSessionsLateRowsPending (0.36s)
+=== RUN   TestSessionStart_AHandshakeThisDaemonSawCountsForTheContract
+--- PASS: TestSessionStart_AHandshakeThisDaemonSawCountsForTheContract (0.16s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.971s
+EXIT=0

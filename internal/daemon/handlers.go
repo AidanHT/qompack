@@ -713,8 +713,8 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // scanSentinelForPrompt is the §12.1 hook.additional_context_delivered probe's other half: a
 // worker (never the reply path) scans the transcript for the sentinel SessionStart minted — in a
 // bounded window from where the transcript ended at the mint, and in its tail
-// (contract.ScanTranscriptForProbe) — and records what it found. It is a no-op once the sentinel has already been observed, or when
-// none is current: none was ever minted (every start so far was act.-suppressed or replayed, or the
+// (contract.ScanTranscriptForProbe) — and records what it found. The scan is skipped once the
+// sentinel has already been observed, or when none is current: none was ever minted (every start so far was act.-suppressed or replayed, or the
 // project predates this mechanism), or the replay of the start whose answer lost it withdrew it
 // (withdrawLostStartAnswer).
 //
@@ -727,20 +727,29 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // nonce (ipc.Request.Nonce): the same for every copy of one delivery, so a delivery the daemon handles
 // more than once — a retry after a capture that failed, a redelivery after a restart — is one chance
 // (contract.SessionHistory.RecordSentinelScanOf), not one per attempt.
+//
+// The same history load also records that the prompt's session has had a prompt
+// (contract.SessionHistory.NotePrompt): the MCP handshake and the transcript a session start left
+// pending become due only then, so a later start may fail mcp.server_registered or
+// transcript.readable for that session once it has ended. The history is saved only when either
+// record changed.
 func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli, nonce string) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
-	if h.Sentinel.Token == "" || h.Sentinel.Observed {
+	changed := h.NotePrompt(ev.SessionID)
+	if h.Sentinel.Token != "" && !h.Sentinel.Observed {
+		found, _ := contract.ScanTranscriptForProbe(ev.TranscriptPath, h.Sentinel.Token,
+			h.Sentinel.ScanFrom, sentinelScanFromMintBytes)
+		if found || sentinelMissCounts(h.Sentinel, ev.SessionID, promptTS) {
+			h.RecordSentinelScanOf(found, nonce)
+			changed = true
+		}
+	}
+	if !changed {
 		return
 	}
-	found, _ := contract.ScanTranscriptForProbe(ev.TranscriptPath, h.Sentinel.Token,
-		h.Sentinel.ScanFrom, sentinelScanFromMintBytes)
-	if !found && !sentinelMissCounts(h.Sentinel, ev.SessionID, promptTS) {
-		return
-	}
-	h.RecordSentinelScanOf(found, nonce)
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history after sentinel scan", "err", err)
 	}
@@ -846,6 +855,7 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 		Log:         d.log,
 		Clock:       d.clk,
 		History:     h,
+		SessionLive: d.registry.IsLive,
 	}
 	// A replayed start the host fired BEFORE the pending PreCompact is not the start that PreCompact
 	// announced: its hook had already run when the PreCompact did, and only its replay comes after.

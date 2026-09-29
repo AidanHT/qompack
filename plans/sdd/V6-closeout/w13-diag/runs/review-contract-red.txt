@@ -1,0 +1,16 @@
+--- FAIL: TestMCPServerRegistered_ASecondWindowBeforeTheFirstHasTurnedIsPending (0.00s)
+    late_observation_test.go:133: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/contract/late_observation_test.go:133
+        	Error:      	Should be true
+        	Test:       	TestMCPServerRegistered_ASecondWindowBeforeTheFirstHasTurnedIsPending
+        	Messages:   	the first session has had no turn, so its handshake is not overdue: {ID:mcp.server_registered OK:false Severity:0 Expected:MCP server received initialize Observed:initialize-not-received TS:1767225600000 Detail:}
+--- FAIL: TestTranscriptReadable_ASecondWindowBeforeTheFirstPromptIsPending (0.02s)
+    late_observation_test.go:152: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/contract/late_observation_test.go:152
+        	Error:      	Should be true
+        	Test:       	TestTranscriptReadable_ASecondWindowBeforeTheFirstPromptIsPending
+        	Messages:   	the first session has had no prompt, so no transcript is due: {ID:transcript.readable OK:false Severity:1 Expected:transcript_path exists and parses Observed:an earlier session's transcript_path never appeared TS:1767225600000 Detail:}
+FAIL
+FAIL	github.com/qompack/qompack/internal/contract	1.619s
+FAIL
+EXIT=1
