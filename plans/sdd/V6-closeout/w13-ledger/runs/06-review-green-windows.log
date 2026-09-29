@@ -1,0 +1,53 @@
+# GREEN on the fix seat's final tree (1d289874), Windows 11, go1.26.6, -p 2, machine shared with other seats
+
+$ go test -p 2 -count=1 -run '^TestFsck_ToolUse.*$' -v ./internal/cli/
+--- PASS: TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions (0.61s)
+--- PASS: TestFsck_ToolUseNonMonotoneTurnNamesItsSession (0.43s)
+--- PASS: TestFsck_ToolUseSupersedeMarkIsNotATurnRegression (0.41s)
+--- PASS: TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries (0.44s)
+--- PASS: TestFsck_ToolUseUnattributedSelfRecordIsNotARegression (0.41s)
+--- PASS: TestFsck_ToolUseRegressionAfterASelfRecordIsStillADefect (0.38s)
+--- PASS: TestFsck_ToolUseAttributedSelfRecordIsOrderedLikeAnyOther (0.37s)
+--- PASS: TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression (0.50s)
+--- PASS: TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect (0.48s)
+--- PASS: TestFsck_ToolUseSegmentStartOfAnotherSessionDoesNotExcuseASelfRecord (0.48s)
+--- PASS: TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted (0.42s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	5.416s
+exit=0
+
+$ go test -p 2 -count=1 -run '^TestPreCompact(DecisionsAreTheSessionsOwnNotEveryCarriedElimination|SealsEliminationsRecordedAfterTheDraftBegan)$' -v ./internal/checkpoint/
+--- PASS: TestPreCompactSealsEliminationsRecordedAfterTheDraftBegan (0.34s)
+--- PASS: TestPreCompactDecisionsAreTheSessionsOwnNotEveryCarriedElimination (0.39s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	1.205s
+exit=0
+
+$ go test -p 2 -count=1 -run '^TestLedger_(OtherSessionsRecordIsAPlainAbsence|CallerSessionStampsRecordAndScopesQuery)$' -v ./internal/negknow/
+--- PASS: TestLedger_CallerSessionStampsRecordAndScopesQuery (0.04s)
+--- PASS: TestLedger_OtherSessionsRecordIsAPlainAbsence (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.580s
+exit=0
+
+$ go test -p 2 -count=1 -run '^TestQuery_(BloomOnly|ScopeSession_OtherSessionHidden|ScopeSession_OtherSessionHidden_NextIdle|ScopeProject_ExcludesSessionScoped)$' -v ./internal/negknow/
+--- PASS: TestQuery_BloomOnly (0.04s)
+--- PASS: TestQuery_ScopeSession_OtherSessionHidden (0.08s)
+--- PASS: TestQuery_ScopeSession_OtherSessionHidden_NextIdle (0.08s)
+--- PASS: TestQuery_ScopeProject_ExcludesSessionScoped (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.725s
+exit=0
+
+# touched packages in full on the same tree content (each once):
+$ go test -p 2 -count=1 -timeout=30m ./internal/cli/
+ok  	github.com/qompack/qompack/internal/cli	76.331s
+$ go test -p 2 -count=1 ./internal/checkpoint/  -> ok  github.com/qompack/qompack/internal/checkpoint 89.395s
+$ go test -p 2 -count=1 ./internal/negknow/...  -> ok  internal/negknow 25.748s; ok internal/negknow/negknowtest 1.633s
+# consumers, focused (not touched by this seat):
+$ go test -p 2 -count=1 -timeout=30m -run '^(TestAlreadyTried.*|TestRecordEliminated.*|TestLedgerToolsWithNoLedger|TestWhy.*)$' -v ./internal/mcp/  -> 29 PASS, ok 6.201s
+$ go test -p 2 -count=1 ./internal/rehydrate/...  -> ok 2.067s; ok rehydratetest 2.488s
+$ go test -p 2 -count=1 -timeout=30m -run '^(TestCadenceFinalizesWhenDraftReachesBudget|TestBindCheckpointSealsOnTheFirstPreCompact|TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened|TestWireCheckpointResolvesItsSourcesLive)$' -v ./internal/daemon/  -> 4 PASS, ok 1.247s
+$ go test -p 2 -count=1 -timeout=30m -run '^(TestLive(MCPSelfRecordKeepsSessionTurnOrder|LedgerToolsAnswerBeforeFirstCompaction|SessionScopedEliminationStaysInItsSession|AlreadyTriedSeesInSessionDependencyChange|PreCompactCarriesEliminationAndDecision|TimelineShowsOpenSegmentProgress|TimelineRefusesAnInvertedRange)|TestFsck_ToolUse.*)$' -v ./internal/cli/  -> 18 PASS, ok 13.837s
+$ go run ./tools/devtool fmt-check -> exit 0; go vet (windows and GOOS=linux) ./internal/cli/ ./internal/checkpoint/ ./internal/negknow/ -> clean
+$ go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns -> exit 0 (every sub-check PASS)

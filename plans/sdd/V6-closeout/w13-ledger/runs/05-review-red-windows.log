@@ -1,0 +1,69 @@
+# RED for the three review findings, each row run against the implementer's code (the fix file reverted to its pre-fix commit), Windows 11, go1.26.6, machine shared with other seats
+
+# RED: finding 1 rows on the implementer's fsck.go (HEAD f8ee78ba), Windows 11, go1.26.6
+$ go test -p 2 -count=1 -run '^(TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression|TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect|TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted|TestFsck_ToolUseSegmentStartOfAnotherSessionDoesNotExcuseASelfRecord)$' -v ./internal/cli/
+=== RUN   TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression
+    fsck_tooluse_test.go:258: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/fsck_tooluse_test.go:258
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression
+        	Messages:   	a self-record at its segment's first turn is not a regression: tool_use qompack-mcp:908f1acbdbd2 reports turn 10 after turn 12 in session s-u11; turns are monotone
+        	            	tool_use qompack-mcp:8872503177bb reports turn 10 after turn 12 in session s-u11; turns are monotone
+        	            	tool_use qompack-mcp:762640538da0 is a retrieval self-record filed with no turn (turn 0) after turn 12 in session s-u11; it is outside the session's turn order, which it does not break
+--- FAIL: TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression (0.28s)
+=== RUN   TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect
+    fsck_tooluse_test.go:285: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/fsck_tooluse_test.go:285
+        	Error:      	"tool_use qompack-mcp:908f1acbdbd2 reports turn 10 after turn 12 in session s-u11; turns are monotone\ntool_use qompack-mcp:8872503177bb reports turn 10 after turn 12 in session s-u11; turns are monotone\ntool_use qompack-mcp:5e1f0000000b reports turn 11 after turn 12 in session s-u11; turns are monotone\ntool_use tu-u11-back reports turn 10 after turn 12 in session s-u11; turns are monotone\ntool_use qompack-mcp:762640538da0 is a retrieval self-record filed with no turn (turn 0) after turn 12 in session s-u11; it is outside the session's turn order, which it does not break" should not contain "tool_use qompack-mcp:908f1acbdbd2 reports"
+        	Test:       	TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect
+        	Messages:   	the segment-start self-records stay notes beside a real regression
+--- FAIL: TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect (0.29s)
+=== RUN   TestFsck_ToolUseSegmentStartOfAnotherSessionDoesNotExcuseASelfRecord
+--- PASS: TestFsck_ToolUseSegmentStartOfAnotherSessionDoesNotExcuseASelfRecord (0.33s)
+=== RUN   TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted
+    fsck_tooluse_test.go:324: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/fsck_tooluse_test.go:324
+        	Error:      	"tool_use qompack-mcp:908f1acbdbd2 reports turn 10 after turn 12 in session s-u11; turns are monotone\ntool_use qompack-mcp:8872503177bb reports turn 10 after turn 12 in session s-u11; turns are monotone\ntool_use tu-u11-back reports turn 10 after turn 12 in session s-u11; turns are monotone\ntool_use qompack-mcp:762640538da0 is a retrieval self-record filed with no turn (turn 0) after turn 12 in session s-u11; it is outside the session's turn order, which it does not break" does not contain "tool_use qompack-mcp:908f1acbdbd2 is a retrieval self-record filed at turn 10, which the unreadable segment log cannot place, after turn 12"
+        	Test:       	TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted
+--- FAIL: TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted (0.26s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	1.544s
+FAIL
+exit=1
+
+# RED: finding 2 row on the implementer's writer.go (HEAD 7d44c3ca), Windows 11, go1.26.6
+$ go test -p 2 -count=1 -run '^TestPreCompactDecisionsAreTheSessionsOwnNotEveryCarriedElimination$' -v ./internal/checkpoint/
+=== RUN   TestPreCompactDecisionsAreTheSessionsOwnNotEveryCarriedElimination
+    negknow_refresh_test.go:135: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/checkpoint/negknow_refresh_test.go:135
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestPreCompactDecisionsAreTheSessionsOwnNotEveryCarriedElimination
+        	Messages:   	the session's own decision must survive the seal: 64 decisions sealed
+--- FAIL: TestPreCompactDecisionsAreTheSessionsOwnNotEveryCarriedElimination (0.24s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.606s
+FAIL
+exit=1
+
+# RED: finding 3 rows on the implementer's ledger.go (HEAD fb8ebc93), Windows 11, go1.26.6
+$ go test -p 2 -count=1 -run '^(TestLedger_OtherSessionsRecordIsAPlainAbsence|TestLedger_CallerSessionStampsRecordAndScopesQuery)$' -v ./internal/negknow/
+=== RUN   TestLedger_CallerSessionStampsRecordAndScopesQuery
+    caller_test.go:57: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/negknow/caller_test.go:57
+        	Error:      	Should be false
+        	Test:       	TestLedger_CallerSessionStampsRecordAndScopesQuery
+        	Messages:   	the filter holding another session's key is not a false positive (TestLedger_OtherSessionsRecordIsAPlainAbsence)
+--- FAIL: TestLedger_CallerSessionStampsRecordAndScopesQuery (0.04s)
+=== RUN   TestLedger_OtherSessionsRecordIsAPlainAbsence
+    caller_test.go:88: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/negknow/caller_test.go:88
+        	Error:      	Should be false
+        	Test:       	TestLedger_OtherSessionsRecordIsAPlainAbsence
+        	Messages:   	a record in the ledger backs the filter's hit; it is only out of this session's scope
+--- FAIL: TestLedger_OtherSessionsRecordIsAPlainAbsence (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	0.447s
+FAIL
+exit=1
