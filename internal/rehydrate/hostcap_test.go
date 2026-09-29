@@ -357,8 +357,7 @@ func requireOriginalWholeOrNamed(t *rapid.T, res Result, original string, fromL0
 	want := strings.TrimSpace(original)
 	if fromL0 {
 		if int64(len(original)) > intentReadLimit {
-			want = "" // never read whole, so it can only be named
-			requireOriginalNamed(t, res.Dropped)
+			requireOriginalNamed(t, res.Dropped) // never read whole, so it can only be named
 			return
 		}
 		want = strings.TrimSpace(checkpoint.StripInjections(string(trimToRuneBoundary([]byte(original)))))
