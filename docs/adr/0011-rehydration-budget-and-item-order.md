@@ -194,12 +194,17 @@ ways item 2 misrepresented the user's intent, and all three are corrected:
    closed segments, and a session's segment closes at SessionEnd, so no correction made in a live
    session ever reached a checkpoint (F-UAT05-1, F-UAT06-2). It now recomputes the session's
    intent from its own prompt records at every refresh and just before each seal, keeping the
-   newest 64 entries and naming how many earlier ones it left out.
+   newest whole entries, at most 64 and at most `checkpoint.EvolutionCeilingChars` (this ADR's
+   payload ceiling, the most one rehydration can carry) of text, and naming how many earlier ones
+   it left out with the expand call for the newest and the oldest. Tier 1 is never truncated, so
+   the size bound is what keeps a session of long pastes from costing a checkpoint its pointers
+   and decisions for restatements item 2 could never admit.
 3. *A fork keeps its parent's original.* A session started with `--fork-session` has a new id,
    so `prompt_<fork>_0` is the fork's own first prompt, and L0-wins overrode the parent's original
    with it (F-UAT06-1). The daemon records the fork's lineage when it starts
-   (`state/lineage-<session>.json`, the project's newest checkpoint being the one it continues);
-   the checkpointer inherits the parent's intent from it, and item 2 verifies the original against
+   (`state/lineage-<session>.json`, the session last prompted before it started being the one it
+   continues); the checkpointer inherits what that session had said before the fork, from its own
+   prompt records, and item 2 verifies the original against
    the ORIGIN session's `prompt_<origin>_0`, opens the unit with a line naming that session, and
    renders the fork's own first prompt as an evolution delta. L0 still wins, loudly, when that
    session's capture and the checkpoint disagree. Another session's checkpoint no longer seeds a
