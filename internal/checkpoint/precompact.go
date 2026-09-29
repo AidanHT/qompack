@@ -173,6 +173,11 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 			"session", string(in.Session), "err", rerr.Error())
 	}
 
+	// The checkpoint this compaction seals carries every prompt the session has made, the ones in
+	// its still-open segment included: a live draft is otherwise only as fresh as its last idle
+	// Advance, and no segment encoding ever reads the open segment (F-UAT05-1, intent.go).
+	d.RefreshIntent(ctx)
+
 	d.SetCache(in.Cache)
 	d.AddDrops(in.ExtraDrops...)
 	if in.CurrentWork != nil {

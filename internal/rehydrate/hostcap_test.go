@@ -331,6 +331,7 @@ func PropBuild_NeverExceedsTheHostCeiling(t *rapid.T) {
 			}
 		}
 	}
+	requireOriginalWholeOrNamed(t, res, cp.UserIntent.Original, deps.Store != nil)
 
 	// When the token budget cannot bind — the default budget is several times what the ceiling
 	// holds — every omission is accounted for in the rendered section 7, and the hard-cap eviction
@@ -343,6 +344,52 @@ func PropBuild_NeverExceedsTheHostCeiling(t *rapid.T) {
 			}
 		}
 	}
+}
+
+// requireOriginalWholeOrNamed is the whole-record claim for item 2's verbatim original, the one
+// tier-1 record the property above did not check — which is how an 8 KiB prefix of a long first
+// prompt reached the model as "verbatim" (F-UAT04-1). The original is either the first thing in
+// section 2, whole, or named as an explicit overflow; never a prefix of itself.
+//
+// fromL0 says whether the build read it from the (agreeing) L0 capture, whose text item 2
+// normalizes as readL0First does; otherwise the checkpoint copy is the record.
+func requireOriginalWholeOrNamed(t *rapid.T, res Result, original string, fromL0 bool) {
+	want := strings.TrimSpace(original)
+	if fromL0 {
+		if int64(len(original)) > intentReadLimit {
+			requireOriginalNamed(t, res.Dropped) // never read whole, so it can only be named
+			return
+		}
+		want = strings.TrimSpace(checkpoint.StripInjections(string(trimToRuneBoundary([]byte(original)))))
+	}
+	if want == "" {
+		return
+	}
+	body := sectionBody(res.Text, sectionHeading(ItemUserIntent))
+	if strings.HasPrefix(body, "> ") {
+		if !strings.HasPrefix(body, quoteLines(want)) {
+			t.Fatalf("the verbatim original was cut mid-record: section 2 begins %q", firstLineOf(body))
+		}
+		return
+	}
+	requireOriginalNamed(t, res.Dropped)
+}
+
+// requireOriginalNamed asserts the verbatim original is named in the drop report as an explicit
+// overflow: the tier-1 entry, or the hard cap's eviction of item 2.
+func requireOriginalNamed(t *rapid.T, drops []checkpoint.DropEntry) {
+	for _, e := range drops {
+		if e.Kind == ItemUserIntent.String() && (e.ID == "tier1" || e.ID == dropIDEvicted) {
+			return
+		}
+	}
+	t.Fatalf("the verbatim original is neither in the payload nor named as an overflow: %v", drops)
+}
+
+// firstLineOf is s up to its first newline.
+func firstLineOf(s string) string {
+	line, _, _ := strings.Cut(s, "\n")
+	return line
 }
 
 // requireNamedOverflow asserts a tier-1 record absent from the payload is named as an explicit
@@ -487,4 +534,12 @@ func FuzzBuild_HostCeiling(f *testing.F) {
 			require.Contains(t, res.Text, "- [inv_fuzz] "+invariant, "an invariant is whole or absent")
 		}
 	})
+}
+
+// TestEvolutionCeiling_IsThePayloadCeiling: the checkpointer keeps no more restatement text than one
+// rehydration can carry (checkpoint.EvolutionCeilingChars), and that bound is this package's payload
+// ceiling. It is spelled there as a derived constant because checkpoint may not import rehydrate;
+// this row is what keeps the two from drifting apart.
+func TestEvolutionCeiling_IsThePayloadCeiling(t *testing.T) {
+	require.Equal(t, PayloadCeilingChars, checkpoint.EvolutionCeilingChars)
 }

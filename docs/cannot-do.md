@@ -294,6 +294,29 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);
   `plans/CARRIED-DEFECTS.tsv`; [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
 
+### A forked session's parent is inferred, not reported by the host
+
+- **Limit.** `claude --resume <id> --fork-session` starts a new session that continues the parent's
+  task, so Qompack keeps the parent's original request as the fork's original intent, carries every
+  correction the parent made before the fork started (whether or not the parent ever compacted),
+  and treats the fork's own prompts, its first one included, as later statements of that task. No
+  hook names the parent, though. Qompack takes the session you last prompted before the fork
+  started as the one it continues, which is what Claude Code's own "most recent session" means. If
+  you fork a session other than the one you last prompted in the same project, the fork inherits
+  the last-prompted session's intent instead. If no other session in the project has been prompted,
+  the fork's parent is unknown and its own first prompt stands as its original request.
+- **Why.** Claude Code reports a fork only as `SessionStart` with `source` `fork` and the new
+  session id. Nothing in any hook payload identifies the session it was forked from.
+- **What Qompack does instead.** It records the inference once, when the fork starts, in
+  `.qompack/state/lineage-<session>.json`, and never re-points it; a backup carries the record. The
+  parent's prompts stamped after the fork started are not inherited. The rehydration labels the
+  inherited original with the session it came from (`(forked session: the original request of session
+  …)`), checks it against that session's own verbatim capture, and adds a `user_intent_source` entry
+  with id `fork` to section 7, naming the parent and the `expand(tool_use_id=…)` call for its first
+  prompt. A fork with no known parent gets the same entry, saying its parent is unknown.
+- **Recorded at.** `plans/sdd/V6-closeout/live/report.md` (F-UAT06-1);
+  `internal/checkpoint/lineage.go`; [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
+
 ### No recording in a session whose project root is the home directory
 
 - **Limit.** A session whose project root resolves to your home directory records nothing, and every
