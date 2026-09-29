@@ -179,6 +179,38 @@ The transcript is never read. That is what closes G7.5 as a side effect: when th
 call fails by calling a tool instead of summarizing, the injection is unchanged, because it was
 never derived from the summary in the first place.
 
+*Review correction (2026-09-29, V6 close-out wave 13, D45).* The Phase 4 live lane found three
+ways item 2 misrepresented the user's intent, and all three are corrected:
+
+1. *The capture is read whole.* Item 2 read the L0 record through an 8,192-byte cap and quoted the
+   prefix under the "verbatim" heading: a 17,774-character brief reached the model cut mid-word,
+   the prefix fitted so nothing was named, and it never equalled the checkpoint's whole copy, so
+   every compaction logged a spurious mismatch (F-UAT04-1). The record is now read up to
+   `intentReadLimit`, three UTF-8 bytes per host character times the D5 ceiling, past which no
+   text can be emitted whole. A readable original is one tier-1 record, admitted whole or named
+   with `expand(tool_use_id=prompt_<session>_0)`; a longer capture is named the same way and
+   compared with nothing.
+2. *Evolution is every later prompt.* The checkpointer filled `user_intent.evolution` only from
+   closed segments, and a session's segment closes at SessionEnd, so no correction made in a live
+   session ever reached a checkpoint (F-UAT05-1, F-UAT06-2). It now recomputes the session's
+   intent from its own prompt records at every refresh and just before each seal, keeping the
+   newest whole entries, at most 64 and at most `checkpoint.EvolutionCeilingChars` (this ADR's
+   payload ceiling, the most one rehydration can carry) of text, and naming how many earlier ones
+   it left out with the expand call for the newest and the oldest. Tier 1 is never truncated, so
+   the size bound is what keeps a session of long pastes from costing a checkpoint its pointers
+   and decisions for restatements item 2 could never admit.
+3. *A fork keeps its parent's original.* A session started with `--fork-session` has a new id,
+   so `prompt_<fork>_0` is the fork's own first prompt, and L0-wins overrode the parent's original
+   with it (F-UAT06-1). The daemon records the fork's lineage when it starts
+   (`state/lineage-<session>.json`, the session last prompted before it started being the one it
+   continues); the checkpointer inherits what that session had said before the fork, from its own
+   prompt records, and item 2 verifies the original against
+   the ORIGIN session's `prompt_<origin>_0`, opens the unit with a line naming that session, and
+   renders the fork's own first prompt as an evolution delta. L0 still wins, loudly, when that
+   session's capture and the checkpoint disagree. Another session's checkpoint no longer seeds a
+   new unforked session's intent at all, which is what made every later session in a project
+   report a mismatch at its first rehydration.
+
 ## 11. The no-contents guard covers items 4–6 only
 
 `guardNoContents` rejects a unit containing a fenced code block or exceeding six lines, and it runs

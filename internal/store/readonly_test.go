@@ -393,6 +393,8 @@ func TestReadOnly_EveryExportedMethodIsClassified(t *testing.T) {
 var readOnlyReadsAllowlist = map[string]string{
 	"PromptFrontier": "bounded read of the loaded tool-use index, without filesystem writes",
 	"EarliestPrompt": "the same bounded read of the loaded tool-use index, without filesystem writes",
+	"SessionPrompts": "the same bounded read of the loaded tool-use index, without filesystem writes",
+	"LatestPrompt":   "the same bounded read of the loaded tool-use index, without filesystem writes",
 	"ContentOrigins": "bounded read of loaded roots, tool uses and file history",
 	"Has": "a map lookup under an RLock, with a stat only when the index says no; it opens " +
 		"and writes nothing",

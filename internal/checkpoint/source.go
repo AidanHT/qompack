@@ -167,6 +167,13 @@ type Draft struct {
 	// across a resume costs nothing but this safety net.
 	fileTurn map[string]core.TurnIndex
 	toolTurn map[core.ToolUseID]core.TurnIndex
+	// promptText caches each prompt record's verbatim text by record id, so refreshIntentLocked
+	// reads a prompt's bytes once per draft rather than at every refresh. In-memory only: a
+	// resumed draft reads them again once.
+	promptText map[core.ToolUseID]string
+	// fork is the intent this session inherits as a fork of another (lineage.go), or nil. It is
+	// resolved at Begin — fresh or resumed — from the lineage record and the parent checkpoint.
+	fork *forkIntent
 }
 
 // Ref is the durable reference to one finalized checkpoint artifact (00-ARCHITECTURE.md §5.14):

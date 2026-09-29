@@ -1,9 +1,11 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/qompack/qompack/internal/core"
 )
@@ -65,6 +67,101 @@ func (s *FSStore) PromptFrontier(ctx context.Context, session core.SessionID, di
 		}
 	}
 	return next, found, nil
+}
+
+// SessionPrompts is an optional capability internal/checkpoint reads a session's user intent through:
+// every verbatim prompt capture of ONE session, in turn order. The dependence graph cannot answer
+// that question — its userprompt node is keyed by turn alone, so two sessions' prompts at one turn
+// share a node and the later capture's reference replaces the earlier one's.
+type SessionPrompts interface {
+	SessionPrompts(context.Context, core.SessionID) ([]ToolUseRecord, error)
+}
+
+// SessionPrompts returns session's UserPromptSubmit records in ascending turn order, ties broken by
+// id, and an empty slice when it has none. Like EarliestPrompt it is one bounded scan of the loaded
+// index: past promptScanLimit records it is core.ErrDegraded, never a partial answer.
+func (s *FSStore) SessionPrompts(ctx context.Context, session core.SessionID) ([]ToolUseRecord, error) {
+	if err := s.use(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.toolUse) > promptScanLimit {
+		return nil, core.ErrDegraded
+	}
+	out := []ToolUseRecord{}
+	for _, rec := range s.toolUse {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if rec.Session == session && rec.Tool == promptTool {
+			out = append(out, *rec)
+		}
+	}
+	slices.SortFunc(out, func(a, b ToolUseRecord) int {
+		if c := cmp.Compare(a.Turn, b.Turn); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.ID, b.ID)
+	})
+	return out, nil
+}
+
+// LatestPrompt is an optional capability internal/checkpoint infers a forked session's parent
+// through (checkpoint/lineage.go): the newest verbatim prompt capture of any OTHER session at or
+// before a moment. The host names no parent for `--fork-session`, and the session the user was last
+// talking to when the fork started is the one Claude Code's own "most recent" means.
+type LatestPrompt interface {
+	LatestPrompt(ctx context.Context, exclude core.SessionID, at core.UnixMilli) (ToolUseRecord, error)
+}
+
+// LatestPrompt returns the UserPromptSubmit record with the highest TS at or before at whose session
+// is not exclude, the higher turn of two equal stamps and then the greater id, or core.ErrNotFound
+// when there is none. Like EarliestPrompt it is one bounded scan of the loaded index: past
+// promptScanLimit records it is core.ErrDegraded.
+func (s *FSStore) LatestPrompt(ctx context.Context, exclude core.SessionID, at core.UnixMilli) (ToolUseRecord, error) {
+	if err := s.use(); err != nil {
+		return ToolUseRecord{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ToolUseRecord{}, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.toolUse) > promptScanLimit {
+		return ToolUseRecord{}, core.ErrDegraded
+	}
+	var best *ToolUseRecord
+	for _, rec := range s.toolUse {
+		if err := ctx.Err(); err != nil {
+			return ToolUseRecord{}, err
+		}
+		if rec.Session == exclude || rec.Tool != promptTool || rec.TS > at {
+			continue
+		}
+		if best == nil || newerPrompt(rec, best) {
+			best = rec
+		}
+	}
+	if best == nil {
+		return ToolUseRecord{}, fmt.Errorf("%w: no prompt of another session at or before %d", core.ErrNotFound, int64(at))
+	}
+	return *best, nil
+}
+
+// newerPrompt orders two prompt records for LatestPrompt: the later stamp, then the higher turn,
+// then the greater id, so the answer does not depend on map iteration order.
+func newerPrompt(a, b *ToolUseRecord) bool {
+	if a.TS != b.TS {
+		return a.TS > b.TS
+	}
+	if a.Turn != b.Turn {
+		return a.Turn > b.Turn
+	}
+	return a.ID > b.ID
 }
 
 // PromptOrder is an optional capability internal/rehydrate uses to check that prompt_<s>_0 is the

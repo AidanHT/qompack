@@ -1,0 +1,9 @@
+--- FAIL: TestGC_DeadlineTruncatesAndResumes (16.94s)
+    gc_test.go:552: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/store/gc_test.go:552
+        	Error:      	"511" is not less than "256"
+        	Test:       	TestGC_DeadlineTruncatesAndResumes
+        	Messages:   	an already-expired deadline must stop the sweep at its FIRST check, not one interval later
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	216.971s
+FAIL

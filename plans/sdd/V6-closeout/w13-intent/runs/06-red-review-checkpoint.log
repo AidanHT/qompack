@@ -1,0 +1,72 @@
+--- FAIL: TestEvolutionHoldsTheRehydrationCeilingSoPointersSurvive (2.03s)
+    intent_evolution_test.go:218: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_evolution_test.go:218
+        	Error:      	Should not be: "tool_pointer"
+        	Test:       	TestEvolutionHoldsTheRehydrationCeilingSoPointersSurvive
+        	Messages:   	no pointer is cut to make room for evolution: {tool_pointer toolu_bound_0001 truncated at budget; expand(hash) still resolves}
+--- FAIL: TestForkCarriesTheParentsCorrectionsAfterItsLastCheckpoint (0.26s)
+    intent_fork_test.go:186: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:186
+        	Error:      	Not equal: 
+        	            	expected: []string{"Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded.", "Correction: the limit must now be 75 requests per minute per client. The 60 figure is superseded as well.", "We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?"}
+        	            	actual  : []string{"Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded.", "We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,3 @@
+        	            	-([]string) (len=3) {
+        	            	+([]string) (len=2) {
+        	            	  (string) (len=103) "Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded.",
+        	            	- (string) (len=105) "Correction: the limit must now be 75 requests per minute per client. The 60 figure is superseded as well.",
+        	            	  (string) (len=110) "We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?"
+        	Test:       	TestForkCarriesTheParentsCorrectionsAfterItsLastCheckpoint
+        	Messages:   	the parent's correction after its last checkpoint is part of the conversation the fork continues
+--- FAIL: TestForkOfANeverCompactedParentInheritsItsIntent (0.23s)
+    intent_fork_test.go:207: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:207
+        	Error:      	Not equal: 
+        	            	expected: "sess_sp10_parent"
+        	            	actual  : "sess_sp10_other"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(core.SessionID) (len=16) "sess_sp10_parent"
+        	            	+(core.SessionID) (len=15) "sess_sp10_other"
+        	            	 
+        	Test:       	TestForkOfANeverCompactedParentInheritsItsIntent
+        	Messages:   	the session the user was last talking to
+--- FAIL: TestForkInheritsOnlyWhatItsParentSaidBeforeTheFork (0.20s)
+    intent_fork_test.go:230: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:230
+        	Error:      	Not equal: 
+        	            	expected: "We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client."
+        	            	actual  : "We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client.
+        	            	+We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?
+        	Test:       	TestForkInheritsOnlyWhatItsParentSaidBeforeTheFork
+--- FAIL: TestForkWithAnUnreadableLineageKeepsTheIntentItInherited (0.36s)
+    intent_fork_test.go:253: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:253
+        	Error:      	Not equal: 
+        	            	expected: "We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client."
+        	            	actual  : "We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client.
+        	            	+We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?
+        	Test:       	TestForkWithAnUnreadableLineageKeepsTheIntentItInherited
+        	Messages:   	the fork's own chain is the only copy of what it inherited
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	3.489s
+FAIL

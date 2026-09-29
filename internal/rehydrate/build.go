@@ -218,6 +218,18 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		spent = minFill(d, all, fills, shareOrder, spent, core.Tokens(cfg.MinTokens), limit, reserveDrop)
 	}
 
+	// An original item 2 had to name rather than read whole (an L0 capture past intentReadLimit)
+	// never became a unit, so no fill saw it: its tier-1 overflow is among the builder's own drops.
+	// The rehydration is degraded and item 2's row says truncated, exactly as when step 3 forces a
+	// tier-1 unit out. It is set after min-fill, which clears truncated once its own pending units
+	// are all back in.
+	if Overflowed(all[ItemUserIntent].drops) {
+		degraded = true
+		if a := fills[ItemUserIntent]; a != nil {
+			a.truncated = true
+		}
+	}
+
 	// ── 10. the drop report, last, because it reports on everything above ────────────────────
 	//
 	// It is built from the COMPLETE drop set and may be rendered as a prefix plus a counted tail;

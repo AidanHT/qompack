@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -100,6 +99,10 @@ type FileWriter struct {
 	// concurrent calls for one session both observe no live draft, both publish, and the loser's
 	// draft is displaced while still holding the same file path.
 	begins map[core.SessionID]*sessionGate
+	// handoff carries a sealed draft's prompt-text cache to the successor Finalize opens for the
+	// same session (afterSeal), so the successor's intent refresh does not re-read every prompt of
+	// the session inside the PreCompact window. Begin consumes the entry; it is never read twice.
+	handoff map[core.SessionID]map[core.ToolUseID]string
 }
 
 // sessionGate is one session's Begin admission gate, reference-counted so the map does not grow
@@ -357,6 +360,12 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	gate := w.acquireBeginGate(s)
 	defer w.releaseBeginGate(s, gate)
 
+	// The sealed predecessor's prompt texts, when Finalize is opening this draft as its successor
+	// (afterSeal). They are taken on every path, so a Begin that finds a live draft or resumes a
+	// persisted one leaves nothing stashed; prompt records are immutable, so a text read once
+	// stays valid for whichever draft uses it.
+	handed := w.takeHandoff(s)
+
 	w.mu.Lock()
 	w.lastSrc = src
 	live := w.drafts[s]
@@ -380,6 +389,22 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 
 	p := draftPathFor(w.l, s)
 	if d, ok := w.resumeDraft(s, p, parent, src); ok {
+		// A draft written by an earlier process — possibly an earlier build — carries whatever intent
+		// that process computed; it is recomputed from the session's own prompt records now.
+		// A fork's resumed draft inherited its intent from the checkpoint the fork continues, so
+		// it is forkIntentFor's fallback when that checkpoint no longer verifies.
+		d.mu.Lock()
+		prior := Checkpoint{UserIntent: UserIntent{
+			Original: d.cp.UserIntent.Original, Evolution: slices.Clone(d.cp.UserIntent.Evolution),
+		}}
+		d.mu.Unlock()
+		fork := w.forkIntentFor(ctx, src.Store, s, &prior)
+		d.mu.Lock()
+		d.fork = fork
+		d.promptText = handed
+		d.refreshIntentLocked(ctx)
+		d.persistOrLogLocked()
+		d.mu.Unlock()
 		w.noteSeq(d.seq)
 		w.mu.Lock()
 		w.drafts[s] = d
@@ -388,16 +413,17 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	}
 
 	d := &Draft{
-		session:  s,
-		seq:      w.claimSeq(),
-		parent:   parent,
-		encoded:  map[core.SegmentID]bool{},
-		src:      src,
-		started:  w.clk.Now(),
-		dirty:    true,
-		path:     p,
-		fileTurn: map[string]core.TurnIndex{},
-		toolTurn: map[core.ToolUseID]core.TurnIndex{},
+		session:    s,
+		seq:        w.claimSeq(),
+		parent:     parent,
+		encoded:    map[core.SegmentID]bool{},
+		src:        src,
+		started:    w.clk.Now(),
+		dirty:      true,
+		path:       p,
+		fileTurn:   map[string]core.TurnIndex{},
+		toolTurn:   map[core.ToolUseID]core.TurnIndex{},
+		promptText: handed,
 	}
 	d.cp = Checkpoint{
 		Version:    SchemaVersion,
@@ -530,17 +556,19 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 		parent = maxSeq(w.l)
 	}
 
-	inherited := false
+	var own *Checkpoint
 	if parent != 0 {
 		pc, _, gerr := w.reader.Get(ctx, parent)
 		switch {
 		case gerr == nil:
-			// The parent chain is how the verbatim original survives arbitrarily many checkpoints
-			// (G2.3): copied, never regenerated.
 			d.parent = parent
 			d.cp.Parent = filepath.Base(paths.CheckpointPath(w.l, parent))
-			d.cp.UserIntent.Original = pc.UserIntent.Original
-			inherited = true
+			// An explicit parent is the caller's statement about THIS session's chain (Finalize's
+			// successor). A derived one is only the project's newest checkpoint, and when another
+			// session sealed it, that session's intent is not this one's.
+			if !derived || pc.Session == d.session {
+				own = &pc
+			}
 		case derived:
 			w.log.Warn("checkpoint: begin: latest checkpoint unreadable; beginning an unchained draft",
 				"parent", int(parent), "err", gerr.Error())
@@ -548,13 +576,7 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 			return fmt.Errorf("checkpoint: begin: parent %d: %w", int(parent), gerr)
 		}
 	}
-	if !inherited {
-		if first, ok := earliestPrompt(src.Graph); ok {
-			if text, ok := readPromptText(ctx, src, first); ok {
-				d.cp.UserIntent.Original = text
-			}
-		}
-	}
+	w.seedIntent(ctx, d, own)
 
 	all, err := src.Ledger.All(ctx)
 	if err != nil {
@@ -713,6 +735,10 @@ func (w *FileWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentI
 		}
 	}
 
+	// The session's intent is recomputed from its own prompt records on every pass — the open
+	// segment's prompts included, which no segment encoding reaches (intent.go).
+	d.refreshIntentLocked(ctx)
+
 	if err := d.persistLocked(); err != nil {
 		return d.frontier, err
 	}
@@ -751,13 +777,9 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 		}
 	}
 
-	// Intent evolution: every prompt in range, verbatim through fromStore (§8.5's regeneration
-	// rule — the store's bytes may carry a prior injection, and it must never re-enter).
-	for _, pn := range prompts {
-		if text, ok := readPromptText(ctx, src, pn); ok {
-			d.appendEvolutionLocked(text)
-		}
-	}
+	// Intent evolution is not read here: Advance recomputes it from the session's own prompt
+	// records after the batch (intent.go), because a segment's prompts are only the ones that
+	// happened to close in a segment, and the graph's userprompt nodes are shared across sessions.
 
 	// Decisions: §9's extractor, merged by ID. decisions.go is another SP-10 slice; until it
 	// lands, its Rule W-1 stub answers ErrNotImplemented and the honest merge input is empty —
@@ -978,23 +1000,6 @@ func (d *Draft) deriveOpenQuestionsLocked() {
 	}
 }
 
-// appendEvolutionLocked appends one verbatim restatement to UserIntent.Evolution: deduped by
-// exact string (the Original counts as already listed), capped at maxIntentEvolution with the
-// OLDEST kept — intent history is tier 1, and early restatements are the ones that explain the
-// session's shape.
-func (d *Draft) appendEvolutionLocked(text string) {
-	if text == "" || text == d.cp.UserIntent.Original {
-		return
-	}
-	if slices.Contains(d.cp.UserIntent.Evolution, text) {
-		return
-	}
-	if len(d.cp.UserIntent.Evolution) >= maxIntentEvolution {
-		return
-	}
-	d.cp.UserIntent.Evolution = append(d.cp.UserIntent.Evolution, text)
-}
-
 // mergeDecisionsLocked merges one extraction pass into cp.Decisions by Decision.ID — first
 // occurrence wins, and existing entries came from earlier (lower-turn) passes — then restores the
 // serialized order §8 fixes: Turn descending, tiebreak ID ascending, capped at maxDraftDecisions
@@ -1182,24 +1187,8 @@ func readPromptText(ctx context.Context, src SourceSet, n dag.Node) (string, boo
 		}
 		root = rec.Root
 	}
-	if root.IsZero() {
-		pkgLog().Debug("checkpoint: prompt has no stored root; skipped", "node", string(n.ID))
-		return "", false
-	}
-	rc, err := src.Store.Open(ctx, root)
-	if err != nil {
-		pkgLog().Debug("checkpoint: prompt bytes unreadable; skipped",
-			"node", string(n.ID), "err", err.Error())
-		return "", false
-	}
-	defer func() { _ = rc.Close() }()
-	b, err := io.ReadAll(rc)
-	if err != nil {
-		pkgLog().Debug("checkpoint: prompt bytes unreadable; skipped",
-			"node", string(n.ID), "err", err.Error())
-		return "", false
-	}
-	return fromStore(b), true
+	text, st := readRootText(ctx, src, root, string(n.ID), 0)
+	return text, st == textWhole
 }
 
 // fileTouch is one file's presence in one segment: the path, the turn that orders its pointer

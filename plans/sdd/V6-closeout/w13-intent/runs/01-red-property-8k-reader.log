@@ -1,0 +1,59 @@
+--- FAIL: TestBuild_NeverExceedsTheHostCeiling (37.20s)
+    hostcap_test.go:411: [rapid] failed after 185 tests: the verbatim original is neither in the payload nor named as an overflow: [{intent_mismatch sess_prop checkpoint user_intent.original differs from the L0 capture; injecting the L0 text}]
+        To reproduce, specify -run="TestBuild_NeverExceedsTheHostCeiling" -rapid.failfile="testdata\\rapid\\TestBuild_NeverExceedsTheHostCeiling\\TestBuild_NeverExceedsTheHostCeiling-20260929161818-15404.fail" (or -rapid.seed=6961513935418193916)
+        Failed test output:
+    hostcap_test.go:440: [rapid] draw session_shape: 0
+    hostcap_test.go:448: [rapid] draw seq: 0
+    hostcap_test.go:450: [rapid] draw invariants: 15
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw inv_shape: 0
+    hostcap_test.go:418: [rapid] draw inv: "A"
+    hostcap_test.go:416: [rapid] draw original_shape: 2
+    hostcap_test.go:424: [rapid] draw original_chunk: "中"
+    hostcap_test.go:425: [rapid] draw original_n: 9401
+    hostcap_test.go:456: [rapid] draw evolution: 0
+    hostcap_test.go:459: [rapid] draw decisions: 0
+    hostcap_test.go:416: [rapid] draw goal_shape: 0
+    hostcap_test.go:418: [rapid] draw goal: "A"
+    hostcap_test.go:416: [rapid] draw next_shape: 0
+    hostcap_test.go:418: [rapid] draw next: "A"
+    hostcap_test.go:466: [rapid] draw files: 0
+    hostcap_test.go:471: [rapid] draw tools: 0
+    hostcap_test.go:477: [rapid] draw eliminations: 0
+    hostcap_test.go:485: [rapid] draw rules: 0
+    hostcap_test.go:490: [rapid] draw nested: 0
+    hostcap_test.go:496: [rapid] draw skills: 0
+    hostcap_test.go:510: [rapid] draw l0: true
+    hostcap_test.go:281: [rapid] draw budget: 0
+    hostcap_test.go:282: [rapid] draw bareEstimator: false
+    hostcap_test.go:387: the verbatim original is neither in the payload nor named as an overflow: [{intent_mismatch sess_prop checkpoint user_intent.original differs from the L0 capture; injecting the L0 text}]
+FAIL
+FAIL	github.com/qompack/qompack/internal/rehydrate	40.852s
+FAIL

@@ -3,6 +3,7 @@ package rehydrate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"sort"
@@ -112,10 +113,24 @@ var (
 
 // ── bounds ──
 
+// maxUTF8BytesPerHostChar is the most UTF-8 one host character (a UTF-16 code unit, hostChars) can
+// take: three bytes for a Basic Multilingual Plane rune, while a four-byte rune is two units and an
+// invalid byte one. It is a property of the two encodings, not a tunable.
+const maxUTF8BytesPerHostChar = 3
+
+// intentReadLimit is how much of one L0 prompt capture item 2 reads. It is NOT a cut: a capture
+// longer than this is never quoted in part, it is named as an explicit overflow with the expand call
+// that returns it whole (buildUserIntent). It is derived, not chosen: a text of more than
+// maxUTF8BytesPerHostChar x PayloadCeilingChars bytes is more than PayloadCeilingChars host
+// characters, so it cannot be emitted whole inside the D5 ceiling, and reading further buys nothing
+// item 2 could inject.
+//
+// It replaces an 8,192-byte cap ("the tail of a paste is not the statement of intent") that item 2
+// then quoted as if it were the whole prompt, mid-word, under the heading that calls it verbatim
+// (F-UAT04-1): D5 admits a record whole or names it, and never presents a prefix as the record.
+const intentReadLimit int64 = maxUTF8BytesPerHostChar * PayloadCeilingChars
+
 const (
-	// maxIntentBytes caps how much of the L0 verbatim prompt item 2 reads. A prompt longer than
-	// this is a paste, and the tail of a paste is not the statement of intent.
-	maxIntentBytes = 8192
 	// maxReasonRunes bounds an elimination's reason line.
 	maxReasonRunes = 240
 	// maxDecisionWhatRunes and maxDecisionWhyRunes bound item 4's two prose lines.
@@ -336,14 +351,35 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	log := loggerOf(d)
 	fallback := strings.TrimSpace(r.Checkpoint.UserIntent.Original)
 
-	text, rec0, ok := readL0Intent(ctx, r, d)
-	if ok {
-		if drop, substituted := hostOrderNotice(ctx, r, d, rec0); substituted {
+	// Whose first prompt the original is: this session's, or — for a fork whose parent is recorded
+	// — the session the fork continues (F-UAT06-1, checkpoint/lineage.go). The fork's checkpoint
+	// inherited that session's original, so it is that session's L0 capture it is verified against;
+	// the fork's own first prompt is a later statement of the same task.
+	fork := forkOf(r)
+	origin := r.Session
+	if fork != nil && fork.OriginSession != "" {
+		origin = fork.OriginSession
+	}
+
+	l0 := readL0First(ctx, d, origin)
+	if l0.state == l0Whole {
+		if drop, substituted := hostOrderNotice(ctx, origin, d, l0.rec); substituted {
 			b.drops = append(b.drops, drop)
 		}
 	}
+	text := l0.text
 	switch {
-	case !ok:
+	case l0.state == l0TooLarge:
+		// The capture is longer than any payload the ceiling allows (intentReadLimit), so it is
+		// named whole rather than quoted in part (D5, F-UAT04-1), with the call that returns it. It
+		// was read only in part, so it is compared with nothing: no mismatch is claimed either way.
+		b.seen++
+		b.drops = append(b.drops, tier1Overflow(ItemUserIntent, "the verbatim original user intent",
+			"expand(tool_use_id="+string(firstPromptID(origin))+")"))
+		log.Info("rehydrate: the L0 original is longer than the ceiling can carry; named as an overflow",
+			"session", string(r.Session), "origin", string(origin), "read_limit_bytes", intentReadLimit)
+		text = ""
+	case l0.state == l0Unavailable:
 		// Degraded but correct: §8.5 guarantees the checkpoint's copy is itself verbatim-from-L0
 		// and never regenerated, so this is a weaker provenance chain, not a wrong one. Info, not
 		// Loud — it is the ordinary case for a session whose first prompt predates the store.
@@ -353,7 +389,7 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 				"guarantees is itself verbatim-from-L0 and never regenerated",
 		})
 		log.Info("rehydrate: L0 verbatim prompt unavailable; using the checkpoint copy",
-			"session", string(r.Session), "id", string(firstPromptID(r.Session)))
+			"session", string(r.Session), "id", string(firstPromptID(origin)))
 		text = fallback
 	case fallback != "" && fallback != text:
 		// L0 WINS. This is the mechanical guarantee that no summary-derived intent reaches the
@@ -364,22 +400,26 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 			Detail: "checkpoint user_intent.original differs from the L0 capture; injecting the L0 text",
 		})
 		log.Loud("rehydrate: checkpoint user_intent.original differs from the L0 capture",
-			"session", string(r.Session))
+			"session", string(r.Session), "origin", string(origin))
+	}
+	if fork != nil {
+		b.drops = append(b.drops, forkNotice(r, fork))
 	}
 
 	if text != "" {
 		b.seen++
 		// L0 is the source of record when it answered; otherwise the checkpoint's own copy is.
-		pointer := "expand(tool_use_id=" + string(firstPromptID(r.Session)) + ")"
-		if !ok {
+		pointer := "expand(tool_use_id=" + string(firstPromptID(origin)) + ")"
+		if l0.state == l0Unavailable {
 			pointer = checkpointPointer(r, "user_intent.original")
 		}
 		b.units = append(b.units, unit{
-			text:     quoteLines(text),
+			text:     forkProvenance(r, origin) + quoteLines(text),
 			overflow: tier1Overflow(ItemUserIntent, "the verbatim original user intent", pointer),
 		})
 	}
-	// Evolution is append-only and oldest-first (checkpoint/writer.go's appendEvolutionLocked), but
+
+	// Evolution is append-only and oldest-first (checkpoint/intent.go's setIntentLocked), but
 	// units are built NEWEST-FIRST here: fillPrefix admits a PREFIX of whatever order it is given
 	// and stops at the first unit that does not fit (Qompack.md's current-authority rule; see
 	// TestBuild_LatestEvolutionSurvivesTruncation). Building in stored (oldest-first) order would
@@ -394,13 +434,9 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	// Each unit's drop ID is still the delta's TRUE index into Checkpoint.UserIntent.Evolution —
 	// not its position in this reversed build order — so provenance (T11-AUTH-01) and any
 	// consumer correlating by that index are unaffected by the display/truncation order.
-	for i := len(r.Checkpoint.UserIntent.Evolution) - 1; i >= 0; i-- {
-		ev := strings.TrimSpace(r.Checkpoint.UserIntent.Evolution[i])
-		if ev == "" {
-			continue
-		}
+	for _, ev := range evolutionOf(ctx, r, d, fork, origin, text) {
 		b.seen++
-		body := quoteLines(ev)
+		body := quoteLines(ev.text)
 		if len(b.units) == 0 || isFixedUnit(b.units[len(b.units)-1]) {
 			// The header belongs to the first (most recent) evolution unit, so it disappears with
 			// it if that one unit alone is dropped.
@@ -409,59 +445,189 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		b.units = append(b.units, unit{
 			text: body,
 			drop: checkpoint.DropEntry{
-				Kind: dropKindUserIntentEvolution, ID: itoa(i),
-				Detail: "did not fit the rehydration budget" +
-					restoreClause(checkpointPointer(r, "user_intent.evolution["+itoa(i)+"]")),
+				Kind: dropKindUserIntentEvolution, ID: ev.id,
+				Detail: "did not fit the rehydration budget" + restoreClause(ev.pointer),
 			},
 		})
 	}
 	return b
 }
 
-// readL0Intent resolves this session's verbatim first prompt from L0, reporting ok=false for every
-// reason the caller must fall back to the checkpoint's own copy.
+// evolutionDelta is one evolution unit's content and where it can be read back from.
+type evolutionDelta struct {
+	text    string
+	id      string
+	pointer string
+}
+
+// evolutionOf returns the checkpoint's evolution deltas NEWEST FIRST (see buildUserIntent), each
+// with its true index as its id and the checkpoint field that holds it as its pointer. original is
+// the text item 2 shows as the original.
+//
+// A fork's own first prompt is one of them: the checkpointer records it after the parent's history
+// (checkpoint/intent.go). A checkpoint that cannot be carrying it — its prompt record was unreadable
+// or not yet published when the checkpoint was sealed — gets it from L0 as the newest delta,
+// pointing at its own capture, so the fork's first statement is never lost with its misplaced role.
+// Two absences are not that, and adding it back would misrepresent it: the checkpoint's evolution
+// bounds left it out as one of the OLDEST restatements (checkpoint.EvolutionElided), which on top
+// of "most recent first" would present a superseded statement as the current authority; or it is
+// word for word the original, which the checkpointer lists once, as the original.
+func evolutionOf(ctx context.Context, r Request, d Deps, fork *checkpoint.Lineage, origin core.SessionID,
+	original string,
+) []evolutionDelta {
+	evo := r.Checkpoint.UserIntent.Evolution
+	out := make([]evolutionDelta, 0, len(evo)+1)
+	if fork != nil && origin != r.Session && !checkpoint.EvolutionElided(r.Checkpoint) {
+		own := readL0First(ctx, d, r.Session)
+		if own.state == l0Whole && own.text != strings.TrimSpace(original) && !listedIn(evo, own.text) {
+			id := string(firstPromptID(r.Session))
+			out = append(out, evolutionDelta{text: own.text, id: id, pointer: "expand(tool_use_id=" + id + ")"})
+		}
+	}
+	for i := len(evo) - 1; i >= 0; i-- {
+		ev := strings.TrimSpace(evo[i])
+		if ev == "" {
+			continue
+		}
+		out = append(out, evolutionDelta{
+			text: ev, id: itoa(i),
+			pointer: checkpointPointer(r, "user_intent.evolution["+itoa(i)+"]"),
+		})
+	}
+	return out
+}
+
+// listedIn reports whether text is one of evo's entries, compared as item 2 renders them.
+func listedIn(evo []string, text string) bool {
+	for _, e := range evo {
+		if strings.TrimSpace(e) == text {
+			return true
+		}
+	}
+	return false
+}
+
+// forkOf is r's lineage when r's session is a fork (checkpoint.LineageFork), or nil. A record for
+// another session is not this session's lineage and is ignored.
+func forkOf(r Request) *checkpoint.Lineage {
+	if l := r.Lineage; l != nil && l.Source == checkpoint.LineageFork && l.Session == r.Session {
+		return l
+	}
+	return nil
+}
+
+// forkDropID is the drop ID, under dropKindUserIntentSource, of the entry saying a session is a fork
+// and where its original came from.
+const forkDropID = "fork"
+
+// forkProvenance is the line a forked session's original unit opens with, saying whose request it
+// is. It is the unit's own first line so it can never be admitted without the record it labels,
+// and it is not quoted, so it is never mistaken for the user's words. It is empty for a session
+// that is not a fork of a known parent.
+func forkProvenance(r Request, origin core.SessionID) string {
+	if origin == r.Session {
+		return ""
+	}
+	return "(forked session: the original request of session " + shortSession(origin) +
+		", which this session continues)\n"
+}
+
+// forkNotice is the drop-report entry that says r's session is a fork: which session's first
+// prompt its original is and how to read it, or that its parent is unknown and its own first
+// prompt stands in.
+func forkNotice(r Request, fork *checkpoint.Lineage) checkpoint.DropEntry {
+	if fork.OriginSession == "" || fork.OriginSession == r.Session {
+		return checkpoint.DropEntry{
+			Kind: dropKindUserIntentSource, ID: forkDropID,
+			Detail: "this session was forked from another, but its parent is unknown to Qompack (no " +
+				"other session had been prompted when it started), so its own first prompt is shown as its " +
+				"original request",
+		}
+	}
+	parent := "session " + string(fork.ParentSession)
+	if fork.ParentSeq != 0 {
+		parent += " (its newest checkpoint then: " + fmt.Sprintf("%04d", int(fork.ParentSeq)) + ")"
+	}
+	return checkpoint.DropEntry{
+		Kind: dropKindUserIntentSource, ID: forkDropID,
+		Detail: "this session is a fork of " + parent + ", which Qompack inferred because the host names " +
+			"no parent; its original request is session " + string(fork.OriginSession) +
+			"'s first prompt, and its own first prompt is an evolution entry" +
+			restoreClause("expand(tool_use_id="+string(firstPromptID(fork.OriginSession))+")"),
+	}
+}
+
+// l0State is how one L0 first-prompt lookup ended.
+type l0State uint8
+
+const (
+	// l0Unavailable: no usable capture — no store, no record, a record that fails its sanity check,
+	// unreadable or empty bytes. The caller falls back to the checkpoint's own copy.
+	l0Unavailable l0State = iota
+	// l0Whole: the capture was read in full; text is its verbatim, injection-stripped content.
+	l0Whole
+	// l0TooLarge: the capture exists and is longer than intentReadLimit. text is empty: a prefix is
+	// never handed back, because nothing may present one as the record (D5).
+	l0TooLarge
+)
+
+// l0Prompt is one resolved L0 first prompt.
+type l0Prompt struct {
+	text  string
+	rec   store.ToolUseRecord
+	state l0State
+}
+
+// readL0First resolves session s's verbatim first prompt, prompt_<s>_0, from L0.
 //
 // The record is sanity-checked BEFORE it is trusted: a record whose session or turn disagrees with
 // the derived id means SP-08's id scheme drifted, and injecting a record this slice cannot vouch
 // for is worse than injecting the checkpoint copy. That case is a Warn, because it is a contract
 // drift rather than an ordinary absence.
-func readL0Intent(ctx context.Context, r Request, d Deps) (string, store.ToolUseRecord, bool) {
+//
+// The capture is read whole, up to intentReadLimit; one longer than that is reported as l0TooLarge
+// with no text. It used to be read to 8,192 bytes and the prefix returned as if it were the prompt.
+func readL0First(ctx context.Context, d Deps, s core.SessionID) l0Prompt {
 	if d.Store == nil {
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
 	log := loggerOf(d)
 
-	rec, err := d.Store.ToolUse(ctx, firstPromptID(r.Session))
+	rec, err := d.Store.ToolUse(ctx, firstPromptID(s))
 	if err != nil || rec.Root == (core.Hash{}) {
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
-	if rec.Session != r.Session || rec.Turn != 0 {
+	if rec.Session != s || rec.Turn != 0 {
 		log.Warn("rehydrate: L0 prompt record does not match its derived id; using the checkpoint copy",
-			"session", string(r.Session), "got_session", string(rec.Session), "turn", int(rec.Turn))
-		return "", store.ToolUseRecord{}, false
+			"session", string(s), "got_session", string(rec.Session), "turn", int(rec.Turn))
+		return l0Prompt{}
 	}
 
 	rc, err := d.Store.Open(ctx, rec.Root)
 	if err != nil || rc == nil {
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
-	raw, readErr := io.ReadAll(io.LimitReader(rc, maxIntentBytes))
+	// One byte past the limit is what tells "exactly the limit" from "longer than it".
+	raw, readErr := io.ReadAll(io.LimitReader(rc, intentReadLimit+1))
 	closeErr := rc.Close()
 	if readErr != nil {
 		log.Debug("rehydrate: L0 prompt read failed", "err", readErr.Error())
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
 	if closeErr != nil {
 		log.Debug("rehydrate: L0 prompt close failed", "err", closeErr.Error())
+	}
+	if int64(len(raw)) > intentReadLimit {
+		return l0Prompt{rec: rec, state: l0TooLarge}
 	}
 
 	// A prior rehydration's payload could, in a pathological transcript, have been captured as a
 	// prompt; §8.5's tagging exists precisely so that material is identifiable and ignorable.
 	text := strings.TrimSpace(checkpoint.StripInjections(string(trimToRuneBoundary(raw))))
 	if text == "" {
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
-	return text, rec, true
+	return l0Prompt{text: text, rec: rec, state: l0Whole}
 }
 
 // hostOrderDropID is the drop ID of the notice hostOrderNotice writes, under
@@ -482,17 +648,17 @@ const hostOrderDropID = "host_order"
 // The check needs the store's PromptOrder capability (one bounded index scan, once per
 // rehydration); a store without it answers as before. A store that has it but cannot answer is
 // logged, and no substitution is claimed on a guess.
-func hostOrderNotice(ctx context.Context, r Request, d Deps, rec0 store.ToolUseRecord) (checkpoint.DropEntry, bool) {
+func hostOrderNotice(ctx context.Context, s core.SessionID, d Deps, rec0 store.ToolUseRecord) (checkpoint.DropEntry, bool) {
 	po, ok := d.Store.(store.PromptOrder)
 	if !ok {
 		return checkpoint.DropEntry{}, false
 	}
 	log := loggerOf(d)
-	first, err := po.EarliestPrompt(ctx, r.Session)
+	first, err := po.EarliestPrompt(ctx, s)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
 			log.Warn("rehydrate: could not check that the L0 original is the host's first prompt",
-				"session", string(r.Session), "err", err.Error())
+				"session", string(s), "err", err.Error())
 		}
 		return checkpoint.DropEntry{}, false
 	}
@@ -500,7 +666,7 @@ func hostOrderNotice(ctx context.Context, r Request, d Deps, rec0 store.ToolUseR
 		return checkpoint.DropEntry{}, false
 	}
 	log.Warn("rehydrate: the L0 original is not the host's first prompt of the session",
-		"session", string(r.Session), "substituted_id", string(rec0.ID), "host_first_id", string(first.ID))
+		"session", string(s), "substituted_id", string(rec0.ID), "host_first_id", string(first.ID))
 	return checkpoint.DropEntry{
 		Kind: dropKindUserIntentSource, ID: hostOrderDropID,
 		Detail: string(rec0.ID) + " is this session's first captured prompt, not the first its host " +

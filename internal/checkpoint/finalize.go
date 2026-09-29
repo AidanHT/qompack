@@ -199,6 +199,7 @@ func (w *FileWriter) afterSeal(ctx context.Context, d *Draft, src SourceSet, seq
 	//    the very next idle tick. This is what keeps the NEXT residual span O(delta) rather than
 	//    letting it grow from zero again (§8.5, O5).
 	w.retireDraft(d)
+	w.handOff(d)
 	if _, err := w.Begin(ctx, d.session, seq, src); err != nil {
 		// The artifact is written and indexed; only the successor draft failed to open. Advance
 		// will open one on its next call.
