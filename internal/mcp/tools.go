@@ -196,13 +196,11 @@ type ToolDeps struct {
 	// LedgerFn resolves the ledger LIVE, on every call, and takes precedence over Ledger.
 	//
 	// It exists because negknow.Open is deliberately lazy: the daemon opens the elimination ledger
-	// on the FIRST compaction, not at startup, so that a daemon which never compacts never creates
-	// sketches/tried.bloom. A composition root that reads its ledger field at wiring time therefore
-	// reads nil, and a ToolDeps that stored that value would freeze it — leaving `already_tried`
-	// and `record_eliminated` permanently answering "not present in this build" beside a ledger
-	// that is open. The accessor closes over the field instead, exactly as
-	// daemon.SchedulerRuntimeOptions.LedgerFn does one layer up. It never opens a ledger and never
-	// owns one; the lifecycle stays with whoever does.
+	// on the first call that needs it — a compaction, or one of these two tools — not at startup,
+	// so that a daemon which never needs it never creates sketches/tried.bloom. A composition root
+	// therefore has no handle at wiring time, and a ToolDeps that stored one would freeze the nil.
+	// The daemon's accessor (internal/cli liveLedger) opens through the daemon's own memoized
+	// opener on first use; the handlers here only call it, and never open or own a ledger.
 	LedgerFn func() negknow.Ledger
 	// Checkpoints backs `why`.
 	Checkpoints checkpoint.Reader

@@ -274,6 +274,11 @@ func (h *handlers) invoke(ctx context.Context, r Request, name string,
 	if vs := schema.Validate(args); len(vs) > 0 {
 		return errResponse("invalid arguments for " + name + ": " + vs[0].String())
 	}
+	// The ledger is the daemon's one ledger for every session of the project, so every ledger call
+	// a tool makes carries the session and turn it is made for (negknow.WithCaller): the session a
+	// record_eliminated is written for and whose session-scoped records already_tried may answer
+	// from, and the turn the elimination's DAG node is placed at.
+	ctx = negknow.WithCaller(ctx, negknow.Caller{Session: r.Session, Turn: r.Turn})
 	resp, err := fn(h.withHostSnapshot(ctx), r, args)
 	if err != nil {
 		h.log.Warn("mcp: tool failed", "tool", name, "err", err.Error())

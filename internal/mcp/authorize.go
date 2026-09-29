@@ -7,6 +7,7 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hostperm"
+	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -219,12 +220,19 @@ func (h *handlers) authorizePath(ctx context.Context, path string) any {
 // file path (including a legacy record) into a permission grant. Unknown producers
 // remain denied rather than being guessed to have no file dependency. A pathless record has no
 // path for a host rule to match, so it keeps exactly this V6-AUTH behaviour.
+//
+// An elimination's evidence is one of those legitimate pathless records: the reason text the agent
+// passed to record_eliminated (or a user to `/qompack:pin --eliminated`), which the ledger stores
+// under negknow.EvidenceTool with no path. It is recognised by that spelling as well as by the
+// mcp__qompack__ one this package's own fallback writes; recognising only the latter made `why`
+// withhold every ledger-minted evidence as having "no usable path provenance" (retrieval D5).
 func (h *handlers) authorizeOrigin(ctx context.Context, tool, path string) any {
 	if path != "" {
 		return h.authorizePath(ctx, path)
 	}
 	switch tool {
-	case "Bash", "PowerShell", "UserPromptSubmit", "SubagentStop", mcpToolPrefix + ToolRecordEliminated:
+	case "Bash", "PowerShell", "UserPromptSubmit", "SubagentStop",
+		mcpToolPrefix + ToolRecordEliminated, negknow.EvidenceTool:
 		return nil
 	default:
 		return denied("authorization denied: the capture has no usable path provenance")

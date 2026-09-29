@@ -67,9 +67,14 @@ func TestNewToolDepsResolvesTheLedgerLive(t *testing.T) {
 	require.NoFileExists(t, filepath.Join(root, ".qompack", "sketches", "tried.bloom"))
 	require.NoDirExists(t, filepath.Join(root, ".qompack", "sketches"))
 
+	// Criterion change (V6 close-out wave 13, retrieval D1): "say so" used to be the body
+	// {"available":false,...}, outside already_tried's documented states; it is now the tool's own
+	// unavailable state, degraded. The row still asserts the tool invents no answer.
 	args := `{"target":"src/auth.ts:refreshToken","approach":"widen pool timeout"}`
-	require.Contains(t, callWiredTool(t, deps, mcp.ToolAlreadyTried, args), `"available":false`,
+	noLedger := callWiredTool(t, deps, mcp.ToolAlreadyTried, args)
+	require.Contains(t, noLedger, `"state":"unavailable"`,
 		"with no ledger open yet the tool must say so, not invent an answer")
+	require.Contains(t, noLedger, `"degraded":true`)
 
 	// 2. A ledger opened AFTER wiring — exactly as the first compaction opens it, onto the same
 	//    Options — is visible to the tools.
@@ -81,7 +86,7 @@ func TestNewToolDepsResolvesTheLedgerLive(t *testing.T) {
 	opts.Ledger = led
 
 	body := callWiredTool(t, deps, mcp.ToolAlreadyTried, args)
-	require.NotContains(t, body, `"available":false`,
+	require.NotContains(t, body, `"state":"unavailable"`,
 		"the accessor reads the FIELD; a captured value would still be nil")
 	require.Contains(t, body, `"state":"absent"`, "an open, empty ledger answers absent")
 
@@ -97,7 +102,10 @@ func TestNewToolDepsResolvesTheLedgerLive(t *testing.T) {
 
 // TestNewToolDepsWithoutAnAccessorStaysNilTolerant keeps the zero value honest: a caller that
 // supplies no ledger accessor at all (mcptest's shape block, the proxy's tools/list) must still
-// register every tool and answer "not present in this build" rather than panic.
+// register every tool and answer already_tried's unavailable state rather than panic.
+//
+// Criterion change (V6 close-out wave 13, retrieval D1): the answer was {"available":false,...},
+// a body outside the tool's documented states; it is now state "unavailable", degraded.
 func TestNewToolDepsWithoutAnAccessorStaysNilTolerant(t *testing.T) {
 	t.Parallel()
 
@@ -105,8 +113,9 @@ func TestNewToolDepsWithoutAnAccessorStaysNilTolerant(t *testing.T) {
 	cfg := config.Defaults()
 	deps := NewToolDeps(root, cfg, nil, nil, nil, nil, nil, nil, logging.Nop(), nil, testClock())
 
-	require.Contains(t, callWiredTool(t, deps, mcp.ToolAlreadyTried,
-		`{"target":"a","approach":"b"}`), `"available":false`)
+	body := callWiredTool(t, deps, mcp.ToolAlreadyTried, `{"target":"a","approach":"b"}`)
+	require.Contains(t, body, `"state":"unavailable"`)
+	require.Contains(t, body, `"degraded":true`)
 }
 
 // TestNewToolDepsAlwaysSuppliesARedactor pins the composition root's half of T20-M2-04.
@@ -220,3 +229,4 @@ func TestLedgerAccessorsAreSafeAgainstTheLazyOpen(t *testing.T) {
 		"the open must actually have happened, or the readers raced against nothing")
 	require.NotNil(t, live(), "and every accessor must see the published handle")
 }
+
