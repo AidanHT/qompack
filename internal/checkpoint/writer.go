@@ -909,8 +909,8 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 }
 
 // refreshNegativeKnowledge brings a draft about to be sealed up to date with the ledger: the
-// eliminations recorded since the draft last read it, and the rejected-alternative decision each
-// of them is (ExtractDecisions' source (b)).
+// eliminations recorded since the draft last read it, and the rejected-alternative decisions an
+// Advance over the not-yet-encoded range would have minted (ExtractDecisions' source (b)).
 //
 // A draft reads the ledger at Begin and again at each Advance, and Advance runs only over CLOSED
 // segments. A session's segment stays open until a changepoint or the session's end closes it, so
@@ -918,8 +918,20 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 // next PreCompact without ever re-reading the ledger, and the checkpoint sealed eliminated [] and
 // decisions [] beside an active elimination; `why` then had nothing to answer for the session
 // (retrieval D5 of the V6 live lane). Reading it here is O(records) and touches no graph scan:
-// source (b) needs only each record and its node's turn, and a record whose node the graph does
-// not hold is placed at turn 0, which Truncate cuts first.
+// source (b) needs only each record and its node's turn.
+//
+// eliminated[] takes every record the draft carries (carriedBy), exactly as Advance merges it. The
+// decisions are narrower, and each limit is Advance's own cut applied to the open range:
+//
+//   - only this session's records. A project-scoped record another session made is carried as
+//     negative knowledge, but its node turn is in THAT session's numbering, so minting every one
+//     of them at every seal let a project's older eliminations at high turns fill the
+//     Turn-descending maxDraftDecisions cap and push this session's own decisions out of the
+//     sealed checkpoint. Advance still mints the ones its from-turn cut admits, as it always has;
+//   - only turns at or after the draft's frontier, the first turn no encoded segment covers. An
+//     earlier record of this session was recorded before the segment holding it closed, so the
+//     Advance that encoded that segment has already considered it; a record whose node the graph
+//     does not hold takes the frontier, as Advance's takes its from-turn.
 //
 // It is a no-op on a sealed draft, and a ledger that cannot be read leaves the draft's own copy
 // standing: the caller seals what the draft has, as the PreCompact failure rows require.
@@ -934,9 +946,16 @@ func (d *Draft) refreshNegativeKnowledge(ctx context.Context) error {
 		return err
 	}
 	d.deriveOpenQuestionsLocked()
-	decs := make([]Decision, 0, len(d.cp.Eliminated))
+	var decs []Decision
 	for _, r := range d.cp.Eliminated {
-		if dec, ok := eliminationDecision(r, eliminationTurn(src.Graph, r, 0)); ok {
+		if r.Session != d.session {
+			continue
+		}
+		turn := eliminationTurn(src.Graph, r, d.frontier)
+		if turn < d.frontier {
+			continue
+		}
+		if dec, ok := eliminationDecision(r, turn); ok {
 			decs = append(decs, dec)
 		}
 	}
