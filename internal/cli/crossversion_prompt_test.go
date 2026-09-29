@@ -79,7 +79,9 @@ func TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished(t *testing.
 
 		s, err := store.OpenReadOnly(p.Root, config.Defaults(), store.Deps{})
 		require.NoError(t, err)
-		audit, err := s.(store.PublicationAuditor).AuditPublication(context.Background(), store.DefaultPublicationScanCap())
+		auditor, ok := s.(store.PublicationAuditor)
+		require.True(t, ok)
+		audit, err := auditor.AuditPublication(context.Background(), store.DefaultPublicationScanCap())
 		require.NoError(t, s.Close())
 		require.NoError(t, err)
 		require.Zero(t, audit.UnpublishedCaptures, "the daemon's startup accounting agrees: no gap")
