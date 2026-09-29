@@ -681,17 +681,31 @@ at the position its journal's full scan recovers. The tool refuses Rule R on any
 
 **Symptom.** A daemon will not start, or a lock file looks orphaned.
 
-**Diagnose.** `.qompack/run/daemon.lock` carries the owning `pid`, start time, address and version
-as JSON, and `.qompack/run/daemon.hb` is its heartbeat (`internal/daemon/lock.go`).
+**Diagnose.** `.qompack/run/daemon.lock` carries the owning `pid`, start time, address, version
+and project root as JSON, and `.qompack/run/daemon.hb` is its heartbeat
+(`internal/daemon/lock.go`). A lock written by an earlier build has no root.
 
 **Meaning.** A lock is not reclaimed on age alone. `internal/daemon/lock.go` returns `ErrLockHeld`
 while the liveness dial succeeds or the recorded process is still alive, and reclaims the lock only
 once the heartbeat's mtime is older than its staleness window *and* neither probe finds a live
 process — "rather than blocking every future daemon start forever".
 
+A daemon that cannot take the lock exits 0 and leaves one line in the day log (and on stderr under
+`--foreground`). The line names the holder's `pid`, its address and how long ago its heartbeat last
+moved. `another daemon holds this project's lock` is the ordinary case: a spawn raced a daemon that
+was already running. `this project's lock was written for another project path` means the store was
+copied or moved with its `run/` directory: the lock's root is another store, or, in a lock without
+a root, its address is named for another project's hash. That project's daemon does not serve this
+store, so only this store's own heartbeat counts, and the lock is reclaimed once that heartbeat is
+older than the staleness window. `fsck`'s `daemon` row probes this project's own address and names
+such a lock. A lock this project's own daemon wrote from another environment (another
+`XDG_RUNTIME_DIR`, `TMPDIR` or `QOMPACK_IPC_ADDR`, so another address) is not foreign: its recorded
+address is dialled and its `pid` checked as usual.
+
 **Action.** Do not delete `daemon.lock` to unblock a start. If a daemon really is gone, the
 staleness protocol reclaims the lock by itself; if it is not gone, deleting the file removes the
-protection against a second writer.
+protection against a second writer. To copy a project, use `qompack backup create` and `backup
+restore`, which leave `run/` out ([Backup and restore](backup.md)).
 
 ---
 
@@ -1015,9 +1029,38 @@ records remain historical evidence; neither certifies an installed older release
 candidate's data. Human UAT, cross-version readers and supported-platform rehearsals must record
 the actual candidate and backup identities. Missing or failed checks remain unverified.
 
+`backup verify` restores the backup into a scratch destination under the source's
+`.qompack/tmp/` and runs the same reader proof and integrity checks as `backup restore`. A backup
+that verifies therefore restores. A failing scratch restore is kept, and the error names where;
+delete it once inspected.
+
+**Symptom.** `fsck`'s `index.segments` row carries a note that begins `unsealed-draft claim`.
+
+**Meaning.** A build before the V6 close-out recorded a segment as encoded into a draft checkpoint
+before any seal wrote that checkpoint. It happened after an idle exit that no compaction preceded.
+The draft's state file (`.qompack/state/draft-<session>.json`) still holds the segment. The next
+compaction of that session seals the draft at that number. A draft that was set aside
+(`draft-<session>.stale.json`) is sealed by nothing. The segment's turns stay readable from the
+capture log either way. This build records a segment's encode only when its checkpoint is sealed.
+
+**Action.** None. The note does not fail `fsck` or a restore. An encode record that no draft and no
+checkpoint artifact explains is still a defect.
+
+**Symptom.** `expand` or `re_read` answers `unavailable` with "the stored object is missing".
+
+**Meaning.** The index records the object, but its bytes are in neither `objects/` nor
+`tmp/quarantine/`: something outside the store moved or deleted them. Nothing was damaged or
+preserved. `fsck`'s `index.roots` row names it ("which the object store does not hold"). An object the store refused as damaged answers "a damaged object is preserved as evidence"
+instead, and its bytes are under `tmp/quarantine/`.
+
+**Action.** Restore the store from a verified backup into a fresh destination if you need the
+content. Do not copy objects in by hand.
+
 Startup publication accounting surfaces incomplete captures and object candidates through status
 counters and LOUD diagnostics. A bounded scan can be incomplete; zero observed gaps then means
 only a lower bound. `fsck` inspects integrity but never promises that missing content was restored.
+Prompt capture sidecars that a development build before the prompt link wrote are read as published
+when their prompt record exists ([Backup and restore](backup.md)). They are not gaps.
 
 An uncertain observation-intent write stops new capture publication until the store is reopened
 and checked. After resolving a transient storage error, restart the daemon to retry retained input.

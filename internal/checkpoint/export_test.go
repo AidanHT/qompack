@@ -31,3 +31,11 @@ func HandoffPendingForTest(w *FileWriter, s core.SessionID) bool {
 	_, ok := w.handoff[s]
 	return ok
 }
+
+// DraftScansForTest reports how many times w has scanned state/ for the claim floor
+// (persistedClaimFloor): once per writer, however many drafts it begins.
+func DraftScansForTest(w *FileWriter) int {
+	w.claimFloorMu.Lock()
+	defer w.claimFloorMu.Unlock()
+	return w.draftScans
+}

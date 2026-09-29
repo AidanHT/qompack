@@ -20,9 +20,55 @@ an existing destination. Unsupported no-replace filesystem operations fail close
 then runs the packaged integrity checks, including the delivery-seal check. An unsuccessful
 integrity check returns failure and retains the destination for inspection.
 
+Verify judges a backup the way restore does. It re-hashes every file the manifest names, then
+restores the backup into a scratch destination, `.qompack/tmp/verify-<id>-<random>/project` inside
+the source project, makes the same reader proof and runs the same integrity checks, and reports
+both. A scratch restore that passes is removed; one that fails is kept, and the error names where.
+A backup that verifies therefore restores, and one that restore would refuse does not verify. The
+scratch copy stays inside the source's `.qompack/`, on the same filesystem as the store and outside
+every backup; verify writes nothing to the system temporary directory, changes nothing in the
+backup, and changes nothing in the source store outside `tmp/` and the daemon lock it holds while it
+runs. Delete a kept scratch restore once you have inspected it.
+
+The reader proof reads every content root and every tool reference back. A tool reference whose
+root a garbage-collection tombstone retired (typically the MCP server's own ephemeral answer, which
+the daemon collects after an idle period) is counted in `ToolRefsTombstoned` rather than read, which
+is how `qompack fsck` reads the same reference; a reference nothing accounts for fails the restore.
+The proof itself does not read checkpoint chains or delivery seals (`CheckpointSealCovered` stays
+false). The integrity report that follows it does, and the response's note says whether that report
+ran: a restore refused before it published a destination says that no integrity check ran.
+
 The JSON response reports the manifest or reader proof, integrity results and any error. Exit codes
 are 0 for success, 1 for an operational failure and 2 for invalid arguments. A restore proves only
 the checks it reports; it is not evidence that an older release can read newer data.
+
+A store written by an earlier build reads as follows:
+
+- A store the public v0.2.0 release wrote passes `fsck`, backs up, verifies and restores with this
+  build. A committed store written by that release's own hooks and daemon keeps this checked. v0.2.0
+  writes no capture sidecars, checkpoints or drafts.
+- Development builds before the prompt link (up to 0.2.99-prev) published every prompt as its
+  `prompt_<session>_<turn>` record but left its capture sidecar unlinked. Such a sidecar is read as
+  published when a prompt record in its session matches its prompt, one record per sidecar, and
+  that record comes before the first prompt this build published in the session (this build's own
+  prompts carry an observation record in `index/observations.jsonl`; a record from then on is this
+  build's and accounts for no earlier sidecar). `fsck`'s `captures` and `publication` rows name how
+  many there were. Nothing is rewritten.
+- Builds before the V6 close-out recorded an idle-time segment encode before any checkpoint sealed
+  it. After an idle exit, `index/segments.jsonl` could then name a checkpoint that was never written.
+  `fsck`'s `index.segments` row names such a record as an `unsealed-draft claim` when the draft's
+  own state file explains it. The session's next compaction seals a pending draft at that number. A
+  draft that was set aside is sealed by nothing, and the segment's turns stay readable from the
+  capture log either way. A claim nothing on disk explains is still a defect. This build records a
+  segment's encode only when the checkpoint that holds it is sealed.
+
+Copy a project to another path with `backup` and `restore`, not by hand. A backup leaves out
+`.qompack/run/`. A hand copy carries the original's `run/daemon.lock`, which records the original
+project's root (or, from an earlier build, an address named for the original project). This build
+judges such a lock by the copied store's own heartbeat. It is reclaimed once that heartbeat is older
+than the 90-second staleness window; a copy that gave `run/daemon.hb` a fresh modification time
+waits that long. Until then each daemon start logs `this project's lock was written for another
+project path` and exits, and `fsck`'s `daemon` row names the lock.
 
 The source remains the source. Restore does not switch the active project, delete later writes or
 automatically downgrade a schema. Preserve later writes in the original tree. Before activating a
