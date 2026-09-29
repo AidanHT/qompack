@@ -535,3 +535,11 @@ func FuzzBuild_HostCeiling(f *testing.F) {
 		}
 	})
 }
+
+// TestEvolutionCeiling_IsThePayloadCeiling: the checkpointer keeps no more restatement text than one
+// rehydration can carry (checkpoint.EvolutionCeilingChars), and that bound is this package's payload
+// ceiling. It is spelled there as a derived constant because checkpoint may not import rehydrate;
+// this row is what keeps the two from drifting apart.
+func TestEvolutionCeiling_IsThePayloadCeiling(t *testing.T) {
+	require.Equal(t, PayloadCeilingChars, checkpoint.EvolutionCeilingChars)
+}

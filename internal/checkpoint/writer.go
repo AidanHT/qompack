@@ -360,6 +360,12 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	gate := w.acquireBeginGate(s)
 	defer w.releaseBeginGate(s, gate)
 
+	// The sealed predecessor's prompt texts, when Finalize is opening this draft as its successor
+	// (afterSeal). They are taken on every path, so a Begin that finds a live draft or resumes a
+	// persisted one leaves nothing stashed; prompt records are immutable, so a text read once
+	// stays valid for whichever draft uses it.
+	handed := w.takeHandoff(s)
+
 	w.mu.Lock()
 	w.lastSrc = src
 	live := w.drafts[s]
@@ -395,6 +401,7 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		fork := w.forkIntentFor(ctx, s, &prior)
 		d.mu.Lock()
 		d.fork = fork
+		d.promptText = handed
 		d.refreshIntentLocked(ctx)
 		d.persistOrLogLocked()
 		d.mu.Unlock()
@@ -406,19 +413,17 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	}
 
 	d := &Draft{
-		session:  s,
-		seq:      w.claimSeq(),
-		parent:   parent,
-		encoded:  map[core.SegmentID]bool{},
-		src:      src,
-		started:  w.clk.Now(),
-		dirty:    true,
-		path:     p,
-		fileTurn: map[string]core.TurnIndex{},
-		toolTurn: map[core.ToolUseID]core.TurnIndex{},
-		// The sealed predecessor's prompt texts, when Finalize is opening this draft as its
-		// successor: prompt records are immutable, so a text read once stays valid.
-		promptText: w.takeHandoff(s),
+		session:    s,
+		seq:        w.claimSeq(),
+		parent:     parent,
+		encoded:    map[core.SegmentID]bool{},
+		src:        src,
+		started:    w.clk.Now(),
+		dirty:      true,
+		path:       p,
+		fileTurn:   map[string]core.TurnIndex{},
+		toolTurn:   map[core.ToolUseID]core.TurnIndex{},
+		promptText: handed,
 	}
 	d.cp = Checkpoint{
 		Version:    SchemaVersion,
@@ -1126,7 +1131,8 @@ func readPromptText(ctx context.Context, src SourceSet, n dag.Node) (string, boo
 		}
 		root = rec.Root
 	}
-	return readRootText(ctx, src, root, string(n.ID))
+	text, st := readRootText(ctx, src, root, string(n.ID), 0)
+	return text, st == textWhole
 }
 
 // fileTouch is one file's presence in one segment: the path, the turn that orders its pointer

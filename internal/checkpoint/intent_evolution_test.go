@@ -2,13 +2,16 @@ package checkpoint_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -184,4 +187,101 @@ func TestBeginResumesFromTheSessionsOwnCheckpoint(t *testing.T) {
 		"Correction: keep the refresh token in memory only.",
 		"Continue with the refresh fix.",
 	}, cp.UserIntent.Evolution)
+}
+
+// TestEvolutionHoldsTheRehydrationCeilingSoPointersSurvive: a session of long pastes. Truncate never
+// cuts user_intent (tier 1), so an evolution bounded only by count (64 verbatim prompts of any size)
+// pushed the checkpoint past its budget and cost it every pointer, open question and decision while
+// still recording budget_exceeded — for restatements no rehydration could ever inject, since item 2
+// admits evolution newest first and stops at the first that does not fit the payload ceiling. The
+// checkpoint keeps the newest whole restatements up to that ceiling and names the rest by prompt id.
+func TestEvolutionHoldsTheRehydrationCeilingSoPointersSurvive(t *testing.T) {
+	f := newFx(t)
+	const pastes = 64
+	f.prompt(0, "Reconcile the ledger exports with the bank statements.", true)
+	for i := 1; i <= pastes; i++ {
+		f.prompt(core.TurnIndex(i), fmt.Sprintf("Paste %02d: ", i)+strings.Repeat("lorem ipsum dolor ", 222), true)
+	}
+	const correction = "Correction: reconcile against the March statements only."
+	f.prompt(pastes+1, correction, true)
+	f.tool("toolu_bound_0001", pastes+2, "Bash", "", "reconciled 412 of 430 rows", false)
+	f.tool("toolu_bound_0002", pastes+3, "Bash", "", "18 rows differ by rounding", false)
+	f.closedSeg(1, 0, pastes+3)
+	d := f.begin()
+	f.advance(d, 1)
+
+	res, err := f.w.PreCompact(f.ctx(), f.precompactInput())
+	require.NoError(t, err)
+	cp := sealed(t, f, res)
+
+	for _, e := range cp.Dropped {
+		require.NotEqual(t, "budget_exceeded", e.Kind, "tier 1 fits the checkpoint budget: %v", e)
+		require.NotEqual(t, "tool_pointer", e.Kind, "no pointer is cut to make room for evolution: %v", e)
+	}
+	require.Len(t, cp.Pointers.Tools, 2, "the tool pointers survive truncation")
+
+	require.NotEmpty(t, cp.UserIntent.Evolution)
+	require.Equal(t, correction, cp.UserIntent.Evolution[len(cp.UserIntent.Evolution)-1],
+		"the newest restatement, the current authority, is kept")
+	total := 0
+	for _, e := range cp.UserIntent.Evolution {
+		total += utf8.RuneCountInString(strings.TrimSpace(e))
+	}
+	require.LessOrEqual(t, total, checkpoint.EvolutionCeilingChars,
+		"no more restatement text than one rehydration can carry")
+
+	var elided []checkpoint.DropEntry
+	for _, e := range cp.Dropped {
+		if e.Kind == "user_intent_evolution" {
+			elided = append(elided, e)
+		}
+	}
+	require.Len(t, elided, 1, "%v", cp.Dropped)
+	kept := len(cp.UserIntent.Evolution) - 1 // the pastes kept beside the correction
+	newestLeftOut := fmt.Sprintf("prompt_%s_%d", f.sess, pastes-kept)
+	require.Contains(t, elided[0].Detail, fmt.Sprintf("%d earlier restatements", pastes-kept))
+	require.Contains(t, elided[0].Detail, "expand(tool_use_id="+newestLeftOut+")",
+		"the newest restatement left out is named with the call that returns it")
+	require.Contains(t, elided[0].Detail, fmt.Sprintf("expand(tool_use_id=prompt_%s_1)", f.sess),
+		"and so is the oldest")
+}
+
+// TestRefreshHoldsOnlyTheTextsItKeeps: the draft's prompt-text cache used to hold the verbatim
+// text of every prompt the session ever made, read even when the cap discarded it, and handed on to
+// every successor draft for the daemon's life. It holds the original and the kept restatements.
+func TestRefreshHoldsOnlyTheTextsItKeeps(t *testing.T) {
+	f := newFx(t)
+	const prompts = 100
+	for i := 0; i <= prompts; i++ {
+		f.prompt(core.TurnIndex(i), fmt.Sprintf("Prompt %03d: continue.", i), true)
+	}
+	f.closedSeg(1, 0, prompts)
+	d := f.begin()
+	f.advance(d, 1)
+
+	_, cp := f.persisted()
+	require.Len(t, cp.UserIntent.Evolution, 64, "fixture sanity: the count cap binds")
+	require.Equal(t, len(cp.UserIntent.Evolution)+1, checkpoint.PromptCacheLenForTest(d),
+		"the original and the kept restatements, nothing the cap left out")
+}
+
+// TestBeginConsumesAStashedCacheOnEveryPath: afterSeal stashes the sealed draft's cache for the
+// successor Begin opens. Only a FRESH draft used to take it, so a Begin that found a live draft or
+// resumed a persisted one left it stashed for good.
+func TestBeginConsumesAStashedCacheOnEveryPath(t *testing.T) {
+	f := newFx(t)
+	f.prompt(0, "Start the migration.", true)
+	d := f.begin()
+
+	checkpoint.HandOffForTest(f.w, d)
+	require.True(t, checkpoint.HandoffPendingForTest(f.w, f.sess), "fixture sanity")
+	require.Same(t, d, f.begin(), "the live draft is returned")
+	require.False(t, checkpoint.HandoffPendingForTest(f.w, f.sess), "the live path consumes it")
+
+	w2, err := checkpoint.OpenWriter(f.p.Root, f.p.Cfg, f.p.Log, obs.New(f.p.Clock), f.p.Clock)
+	require.NoError(t, err)
+	checkpoint.HandOffForTest(w2, d)
+	_, err = w2.Begin(f.ctx(), f.sess, 0, f.src)
+	require.NoError(t, err, "a second writer resumes the persisted draft")
+	require.False(t, checkpoint.HandoffPendingForTest(w2, f.sess), "the resume path consumes it")
 }
