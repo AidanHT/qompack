@@ -486,7 +486,16 @@ func TestV1_ObsBudgetsAreConfigDrivenEndToEnd(t *testing.T) {
 		ProjectRoot: p.Root, HomeDir: p.Home(), Getenv: p.Getenv,
 	})
 	require.NoError(t, err)
-	require.Equal(t, 15, defaults.Runtime.HotPath.BudgetMs, "B-A's default limit is 15 ms")
+	// B-A's default limit is platform-derived since D41: max(15, the platform's l0IngestMs default),
+	// so 15 ms on linux, 50 on Windows and 40 on macOS (internal/config/deadlines.go).
+	wantBAMs := 15
+	switch runtime.GOOS {
+	case "windows":
+		wantBAMs = 50
+	case "darwin":
+		wantBAMs = 40
+	}
+	require.Equal(t, wantBAMs, defaults.Runtime.HotPath.BudgetMs, "B-A's default limit on %s", runtime.GOOS)
 
 	tightened, _, _, err := config.Load(config.Env{
 		ProjectRoot: p.Root, HomeDir: p.Home(), Getenv: p.Getenv,
@@ -503,9 +512,10 @@ func TestV1_ObsBudgetsAreConfigDrivenEndToEnd(t *testing.T) {
 		reg.Hist(ba.Hist).Observe(10 * time.Millisecond)
 	}
 
-	// Under defaults, 10 ms is inside the 15 ms budget: no breach, three times running.
+	// Under defaults, 10 ms is inside the default budget on every platform: no breach, three times
+	// running.
 	for i := 1; i <= 3; i++ {
-		require.Empty(t, reg.CheckBudgets(defaults), "call %d: 10ms is under the 15ms default", i)
+		require.Empty(t, reg.CheckBudgets(defaults), "call %d: 10ms is under the %dms default", i, wantBAMs)
 	}
 
 	// Under the loaded 1 ms config, the same histogram breaches, and the window count climbs.

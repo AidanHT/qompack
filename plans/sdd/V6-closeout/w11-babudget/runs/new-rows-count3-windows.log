@@ -1,0 +1,120 @@
+== go test -count=3 -run '^TestDefaults_HotPathBudgetPerPlatform$' ./internal/config
+=== RUN   TestDefaults_HotPathBudgetPerPlatform
+--- PASS: TestDefaults_HotPathBudgetPerPlatform (0.00s)
+=== RUN   TestDefaults_HotPathBudgetPerPlatform
+--- PASS: TestDefaults_HotPathBudgetPerPlatform (0.00s)
+=== RUN   TestDefaults_HotPathBudgetPerPlatform
+--- PASS: TestDefaults_HotPathBudgetPerPlatform (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	1.289s
+exit=0
+== go test -count=3 -run '^TestDefaults_HotPathBudgetCoversTheIngestBudget$' ./internal/config
+=== RUN   TestDefaults_HotPathBudgetCoversTheIngestBudget
+--- PASS: TestDefaults_HotPathBudgetCoversTheIngestBudget (0.00s)
+=== RUN   TestDefaults_HotPathBudgetCoversTheIngestBudget
+--- PASS: TestDefaults_HotPathBudgetCoversTheIngestBudget (0.00s)
+=== RUN   TestDefaults_HotPathBudgetCoversTheIngestBudget
+--- PASS: TestDefaults_HotPathBudgetCoversTheIngestBudget (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	1.174s
+exit=0
+== go test -count=3 -run '^TestDefaults_RuntimeNamespace$' ./internal/config
+=== RUN   TestDefaults_RuntimeNamespace
+--- PASS: TestDefaults_RuntimeNamespace (0.00s)
+=== RUN   TestDefaults_RuntimeNamespace
+--- PASS: TestDefaults_RuntimeNamespace (0.00s)
+=== RUN   TestDefaults_RuntimeNamespace
+--- PASS: TestDefaults_RuntimeNamespace (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	1.208s
+exit=0
+== go test -count=3 -run '^TestLoad_UserSetHotPathBudgetIsKept$' ./internal/config
+=== RUN   TestLoad_UserSetHotPathBudgetIsKept
+--- PASS: TestLoad_UserSetHotPathBudgetIsKept (0.01s)
+=== RUN   TestLoad_UserSetHotPathBudgetIsKept
+--- PASS: TestLoad_UserSetHotPathBudgetIsKept (0.01s)
+=== RUN   TestLoad_UserSetHotPathBudgetIsKept
+--- PASS: TestLoad_UserSetHotPathBudgetIsKept (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	1.231s
+exit=0
+== go test -count=3 -run '^TestJSONSchema_Golden$' ./internal/config
+=== RUN   TestJSONSchema_Golden
+--- PASS: TestJSONSchema_Golden (0.00s)
+=== RUN   TestJSONSchema_Golden
+--- PASS: TestJSONSchema_Golden (0.00s)
+=== RUN   TestJSONSchema_Golden
+--- PASS: TestJSONSchema_Golden (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	1.248s
+exit=0
+== go test -count=3 -run '^TestBudgets_AllSixPresentAndConfigDriven$' ./internal/obs
+=== RUN   TestBudgets_AllSixPresentAndConfigDriven
+--- PASS: TestBudgets_AllSixPresentAndConfigDriven (0.00s)
+=== RUN   TestBudgets_AllSixPresentAndConfigDriven
+--- PASS: TestBudgets_AllSixPresentAndConfigDriven (0.00s)
+=== RUN   TestBudgets_AllSixPresentAndConfigDriven
+--- PASS: TestBudgets_AllSixPresentAndConfigDriven (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/obs	1.325s
+exit=0
+== go test -count=3 -run '^TestBudgets_BGCoversTheDegradedSpoolAppend$' ./internal/obs
+=== RUN   TestBudgets_BGCoversTheDegradedSpoolAppend
+--- PASS: TestBudgets_BGCoversTheDegradedSpoolAppend (0.00s)
+=== RUN   TestBudgets_BGCoversTheDegradedSpoolAppend
+--- PASS: TestBudgets_BGCoversTheDegradedSpoolAppend (0.00s)
+=== RUN   TestBudgets_BGCoversTheDegradedSpoolAppend
+--- PASS: TestBudgets_BGCoversTheDegradedSpoolAppend (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/obs	1.274s
+exit=0
+== go test -count=3 -run '^TestCheckBudgets_CountsConsecutiveWindows$' ./internal/obs
+=== RUN   TestCheckBudgets_CountsConsecutiveWindows
+--- PASS: TestCheckBudgets_CountsConsecutiveWindows (0.00s)
+=== RUN   TestCheckBudgets_CountsConsecutiveWindows
+--- PASS: TestCheckBudgets_CountsConsecutiveWindows (0.00s)
+=== RUN   TestCheckBudgets_CountsConsecutiveWindows
+--- PASS: TestCheckBudgets_CountsConsecutiveWindows (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/obs	1.283s
+exit=0
+== go test -count=3 -run '^TestCheckBudgets_ResetsStreakWhenBackUnderBudget$' ./internal/obs
+=== RUN   TestCheckBudgets_ResetsStreakWhenBackUnderBudget
+--- PASS: TestCheckBudgets_ResetsStreakWhenBackUnderBudget (0.00s)
+=== RUN   TestCheckBudgets_ResetsStreakWhenBackUnderBudget
+--- PASS: TestCheckBudgets_ResetsStreakWhenBackUnderBudget (0.00s)
+=== RUN   TestCheckBudgets_ResetsStreakWhenBackUnderBudget
+--- PASS: TestCheckBudgets_ResetsStreakWhenBackUnderBudget (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/obs	1.581s
+exit=0
+== go test -count=3 -run '^TestBudgetLimit_ReadsFromConfigDefaults$' ./test/bench/hotpath
+=== RUN   TestBudgetLimit_ReadsFromConfigDefaults
+--- PASS: TestBudgetLimit_ReadsFromConfigDefaults (0.00s)
+=== RUN   TestBudgetLimit_ReadsFromConfigDefaults
+--- PASS: TestBudgetLimit_ReadsFromConfigDefaults (0.00s)
+=== RUN   TestBudgetLimit_ReadsFromConfigDefaults
+--- PASS: TestBudgetLimit_ReadsFromConfigDefaults (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/bench/hotpath	1.496s
+exit=0
+== go test -count=3 -run '^TestBAWallWaivedNote_NamesTheLimitItDidNotApply$' ./test/bench/hotpath
+=== RUN   TestBAWallWaivedNote_NamesTheLimitItDidNotApply
+--- PASS: TestBAWallWaivedNote_NamesTheLimitItDidNotApply (0.00s)
+=== RUN   TestBAWallWaivedNote_NamesTheLimitItDidNotApply
+--- PASS: TestBAWallWaivedNote_NamesTheLimitItDidNotApply (0.00s)
+=== RUN   TestBAWallWaivedNote_NamesTheLimitItDidNotApply
+--- PASS: TestBAWallWaivedNote_NamesTheLimitItDidNotApply (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/bench/hotpath	1.359s
+exit=0
+== go test -count=3 -run '^TestV1_ObsBudgetsAreConfigDrivenEndToEnd$' ./test/guards
+=== RUN   TestV1_ObsBudgetsAreConfigDrivenEndToEnd
+--- PASS: TestV1_ObsBudgetsAreConfigDrivenEndToEnd (0.02s)
+=== RUN   TestV1_ObsBudgetsAreConfigDrivenEndToEnd
+--- PASS: TestV1_ObsBudgetsAreConfigDrivenEndToEnd (0.01s)
+=== RUN   TestV1_ObsBudgetsAreConfigDrivenEndToEnd
+--- PASS: TestV1_ObsBudgetsAreConfigDrivenEndToEnd (0.01s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.271s
+exit=0

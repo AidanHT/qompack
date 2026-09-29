@@ -1,0 +1,12 @@
+== head=d0fb4983 go run ./tools/devtool gen-config-docs --check
+gen-config-docs: docs/config-reference.md is up to date
+exit=0
+== head=d0fb4983 go run ./tools/devtool gen-mcp-docs --check
+gen-mcp-docs: docs/mcp-tools.md is up to date
+exit=0
+== head=d0fb4983 go run ./tools/devtool gen-command-docs --check
+gen-command-docs: docs/commands.md is up to date
+exit=0
+== go test -count=1 ./test/docs
+ok  	github.com/qompack/qompack/test/docs	2.666s
+exit=0

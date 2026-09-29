@@ -1,0 +1,8 @@
+head=d0fb4983 cmd: go test -p 1 -count=1 -timeout=30m -v -run '^TestIntegration_HotPathDegradesRatherThanBlocks$' ./test/integration
+=== RUN   TestIntegration_HotPathDegradesRatherThanBlocks
+    hotpath_test.go:1363: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:1568: §4.6 degrade: warm=8 stalled sends=1529 (NAK after 1529, three windows of 512), degraded hooks=9 (all exit 0, spooled), drained=9, store ToolUses=3546, WARN lines=1
+--- PASS: TestIntegration_HotPathDegradesRatherThanBlocks (111.29s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	111.673s
+exit=0

@@ -119,7 +119,7 @@ func Defaults() Config {
 				ConnectDeadlineMs: connectDeadlineMsDefault(),
 			},
 			HotPath: HotPathCfg{
-				BudgetMs:        15,
+				BudgetMs:        hotPathBudgetMsDefault(),
 				BreachWindows:   3,
 				SpoolOnBreach:   true,
 				MaxPayloadBytes: 1048576,

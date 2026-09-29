@@ -76,7 +76,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.daemon.idleExitSeconds` | integer | `1800` | — | 00-ARCH §2.4 | seconds with zero live sessions before the daemon exits |
 | `runtime.daemon.maxSessions` | integer | `8` | — | 00-ARCH §2.4 | maximum concurrent sessions the daemon tracks |
 | `runtime.hotPath.breachWindows` | integer | `3` | [1,∞) | §8.1 | consecutive 512-sample windows over budget before the daemon spools instead of syncing |
-| `runtime.hotPath.budgetMs` | integer | `15` | (0,∞) | §8.1 | B-A hot-path latency budget in milliseconds |
+| `runtime.hotPath.budgetMs` | integer | `15` (`50` on Windows, `40` on macOS) | (0,∞) | §8.1 | B-A hot-path latency budget in milliseconds |
 | `runtime.hotPath.maxPayloadBytes` | integer | `1048576` | [4096,∞) | 00-ARCH §2.4 | maximum NDJSON request line size accepted by the daemon |
 | `runtime.hotPath.spoolOnBreach` | boolean | `true` | — | §8.1 | degrade to spool-only mode when the hot-path budget is breached |
 | `runtime.logging.level` | string | `"info"` | one of `debug`, `info`, `warn`, `error` | 00-ARCH §5.2 | minimum log level written to the day log |

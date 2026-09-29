@@ -1,0 +1,34 @@
+--- FAIL: TestDefaults_RuntimeNamespace (0.00s)
+    defaults_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/defaults_test.go:77
+        	Error:      	Not equal: 
+        	            	expected: config.HotPathCfg{BudgetMs:50, BreachWindows:3, SpoolOnBreach:true, MaxPayloadBytes:1048576}
+        	            	actual  : config.HotPathCfg{BudgetMs:15, BreachWindows:3, SpoolOnBreach:true, MaxPayloadBytes:1048576}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,3 @@
+        	            	 (config.HotPathCfg) {
+        	            	- BudgetMs: (int) 50,
+        	            	+ BudgetMs: (int) 15,
+        	            	  BreachWindows: (int) 3,
+        	Test:       	TestDefaults_RuntimeNamespace
+--- FAIL: TestDefaults_HotPathBudgetCoversTheIngestBudget (0.00s)
+    defaults_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/defaults_test.go:157
+        	Error:      	"15" is not greater than or equal to "50"
+        	Test:       	TestDefaults_HotPathBudgetCoversTheIngestBudget
+        	Messages:   	windows: runtime.hotPath.budgetMs (15) must be >= runtime.budgets.l0IngestMs (50): the B-A sample contains B-B's durable ingest (D41, internal/config/deadlines.go)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	1.071s
+FAIL
+exit=1
+# github.com/qompack/qompack/internal/config_test
+# [github.com/qompack/qompack/internal/config_test]
+vet.exe: internal\config\defaults_test.go:179:17: undefined: config.HotPathBudgetMsFor
+vet exit=1
+# github.com/qompack/qompack/internal/config_test
+# [github.com/qompack/qompack/internal/config_test]
+vet.exe: internal\config\defaults_test.go:179:17: undefined: config.HotPathBudgetMsFor
+darwin vet exit=1

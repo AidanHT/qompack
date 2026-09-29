@@ -532,3 +532,31 @@ func TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything(t *testing.T) {
 		})
 	}
 }
+
+// TestLoad_UserSetHotPathBudgetIsKept pins D41's second clause: the platform-derived default of
+// runtime.hotPath.budgetMs is only a default. A value the user sets — here the pre-D41 universal
+// 15 in a project file, and 7 from the environment — is applied exactly as written on every
+// platform, including one whose l0IngestMs default is higher, and is never raised to the derived
+// floor. An operator who wants the old tighter gate can still have it.
+func TestLoad_UserSetHotPathBudgetIsKept(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.ProjectRoot, `{"runtime":{"hotPath":{"budgetMs":15}}}`)
+
+	cfg, prov, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.Empty(t, warns)
+	require.Equal(t, 15, cfg.Runtime.HotPath.BudgetMs, "a project-file budgetMs is applied as written")
+	require.Equal(t, config.OriginProjectFile, prov["runtime.hotPath.budgetMs"].Origin)
+
+	env.Getenv = func(k string) string {
+		if k == "QOMPACK_RUNTIME__HOTPATH__BUDGETMS" {
+			return "7"
+		}
+		return ""
+	}
+	cfg, prov, warns, err = config.Load(env)
+	require.NoError(t, err)
+	require.Empty(t, warns)
+	require.Equal(t, 7, cfg.Runtime.HotPath.BudgetMs, "an environment budgetMs is applied as written")
+	require.Equal(t, config.OriginEnv, prov["runtime.hotPath.budgetMs"].Origin)
+}

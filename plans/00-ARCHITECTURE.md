@@ -278,7 +278,7 @@ allows it.
 
 | ID | Clock | Budget | Enforced |
 |---|---|---|---|
-| **B-A** | `hook_controlled` — client `main()` entry → `exit` (connect + write + ACK) | **p99 < 15 ms** (§11.3 L0) | CI on linux/macos/windows, 5 000 iterations |
+| **B-A** | `hook_controlled` — client `main()` entry → `exit` (connect + write + ACK) | **p99 < 15 ms** (§11.3 L0) (default **50** on Windows, **40** on macOS: the default is never tighter than B-B's — see the D41 note below) | CI on linux/macos/windows, 5 000 iterations |
 | **B-B** | `l0_ingest` — the daemon's whole `ingest.Accept`: durable WAL append, delivery lease, seal | p99 < 15 ms (**50** on Windows, **40** on macOS) — see the B-B note below | daemon self-metrics + CI, except under `QOMPACK_UNDER_COLOAD`, where it is reported and not gated |
 | **B-C** | `l0_process` — WAL → fully chunked, stored, DAG/sketches updated (async) | p99 < 50 ms | soft; overrun → sampling + backpressure, never blocking |
 | **B-D** | `hook_wall` — includes host process creation | reported, not gated; tracked in `/qompack:status` and the bench artifact | — |
@@ -314,7 +314,24 @@ therefore be green while the hook pays a B-A breach. Recorded as carried defect 
 `TestCarriedDefect_SP20D6_GatedBASampleExcludesThePreACKHandler`); the three repairs, each a change
 to a frozen contract, are listed in its detail section and in `plans/V5-report.md` §31.5. Until one
 is chosen the row's number is the hook-controlled *lower bound*, and `AckDeadlineMs` is what bounds
-the hook's wait.
+the hook's wait. **Fixed 2026-09-21 (`c78f610`):** the gated sample is now `recvTS − req.TS` plus
+the measured pre-ACK handler duration plus the 1 ms tail allowance, so it contains B-B (evidence
+`TestCarriedDefect_SP20D6_GatedBASampleIncludesThePreACKHandler`); the D41 note below is the
+budget consequence of that fix.
+
+**B-A default note (amended 2026-09-28, D41).** `runtime.hotPath.budgetMs` defaulted to 15 ms on
+every platform after the SP20-D1 re-budget above had moved B-B to 50 ms on Windows and 40 ms on
+macOS, and B-A's gated sample contains B-B by construction (the ACK follows the durable
+`ingest.Accept`, and since the SP20-D6 fix above the sample includes it). A delivery inside its own
+B-B budget was therefore a B-A breach: isolated V6 close-out Phase 3 runs on Windows measured B-A
+p50 15.4–16.4 ms and p99 22.5–26.6 ms against B-B p99 12.3 ms, and the §8.1 detector below moved
+every run to spool submode after exactly 3 × 512 samples, so any real Windows session past ~1.5k
+tool uses ran degraded with a WARN and a LOUD.log entry. Owner decision D41
+(`plans/V6-CLOSEOUT-CHECKLIST.md`) makes the default `max(15, the platform's l0IngestMs default)` —
+15 on Linux, 50 on Windows, 40 on macOS — composed from the two approved numbers by
+`HotPathBudgetMsFor` in `internal/config/deadlines.go`, which therefore follows B-B wherever B-B is
+re-priced. A `budgetMs` the user sets is applied as written. B-B, the ACK deadline, `breachWindows`
+and every other budget are unchanged. `Qompack.md` v1.8 records the revision.
 
 **When the budget is exceeded (§8.1 fallback).** The daemon keeps a rolling 512-sample HDR
 histogram per hook. If B-A p99 exceeds budget for 3 consecutive 512-sample windows, the daemon
@@ -2638,7 +2655,8 @@ per-invocation wall time and reading the daemon-side B-B histogram at the end.
 
 Outputs `{budget_id, n, p50, p95, p99, p999, max, pass}` for B-A, B-B, B-D. CI runs it on
 ubuntu-latest, macos-latest, and windows-latest with `--iterations 2000` (5 000 nightly) and **fails the
-build if B-A p99 ≥ 15 ms or B-E p99 ≥ 2 s**. B-D is recorded and posted as a PR comment but is
+build if B-A p99 ≥ its platform's `runtime.hotPath.budgetMs` (15 ms; 50 on Windows, 40 on macOS —
+§2.4's D41 note) or B-E p99 ≥ 2 s**. B-D is recorded and posted as a PR comment but is
 never a gate — that is the honest treatment of a cost we do not own.
 
 Micro-benchmarks (`go test -bench=. ./...`) cover FastCDC throughput (MB/s), canonicalizer
