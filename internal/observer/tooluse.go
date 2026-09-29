@@ -76,6 +76,9 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	st := o.session(e.SessionID)
 	st.mu.Lock()
 	defer st.mu.Unlock()
+	// A roll the scheduler made after the previous event is caught up with before this event moves
+	// the prefix position or enrols anything, so the event lands in the session's open segment.
+	o.followSegmentRoll(ctx, st, e.SessionID, now)
 
 	// 2. The display name is what selects the canonicalizer, the supersession class and the
 	//    grammar symbol; the RAW name is what identifies a retrieval result.

@@ -163,6 +163,10 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 	}
 
 	now := o.now()
+	// The worker path moves the prefix position and enrols the prompt, so a roll made after the
+	// previous event is caught up with first (session.go followSegmentRoll). The reply path above
+	// does neither.
+	o.followSegmentRoll(ctx, st, e.SessionID, now)
 
 	// Recognition: a redelivery this observation already published is absorbed — no second object,
 	// no second record, no re-run turn bookkeeping — and the session is moved past it. This is the
