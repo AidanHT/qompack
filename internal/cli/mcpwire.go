@@ -119,6 +119,38 @@ func liveLedger(opts *daemon.Options) func() negknow.Ledger {
 	return func() negknow.Ledger { return opts.LedgerHandle() }
 }
 
+// openingLedger is the accessor the MCP tools are wired with: liveLedger, except that it OPENS the
+// ledger on the first call that needs one, through the daemon's own memoized opener
+// (Options.OpenLedger, which WireRehydrator publishes). The first already_tried or
+// record_eliminated of a daemon's life is that call.
+//
+// With liveLedger alone the tools only READ the handle the first compaction's open had published,
+// so until a daemon's first compaction — and after every daemon restart — both answered
+// "elimination ledger not present in this build" beside a perfectly openable ledger (retrieval D1
+// of the V6 live lane). The ledger's laziness is kept where it matters: a daemon whose sessions
+// never call a ledger tool and never compact still opens nothing and creates no
+// sketches/tried.bloom, and every OTHER accessor (the checkpoint SourceSet supplier, the
+// scheduler's LedgerFn) still only reads. Opening through the shared opener, never a second
+// negknow.Open, keeps one handle per process and hands its close to the daemon (OnStop).
+//
+// The opener is read off the *daemon.Options POINTER at call time, and an Options no wiring has
+// run over (no opener) falls back to liveLedger's read. Both are safe from the per-connection
+// goroutine every MCP tool call runs on: the opener is a sync.Once, the handle a synchronized cell.
+func openingLedger(opts *daemon.Options) func() negknow.Ledger {
+	if opts == nil {
+		return nil
+	}
+	read := liveLedger(opts)
+	return func() negknow.Ledger {
+		if open := opts.OpenLedger; open != nil {
+			if l := open(); l != nil {
+				return l
+			}
+		}
+		return read()
+	}
+}
+
 // NewToolDeps assembles the collaborator set the eight retrieval tools are bound to.
 //
 // Every collaborator may be nil and each handler says so rather than failing: a daemon whose store

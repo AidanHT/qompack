@@ -230,3 +230,32 @@ func TestLedgerAccessorsAreSafeAgainstTheLazyOpen(t *testing.T) {
 	require.NotNil(t, live(), "and every accessor must see the published handle")
 }
 
+// TestOpeningLedgerOpensOnFirstUseAndOnlyThere is retrieval D1's wiring half: the MCP tools'
+// accessor opens the ledger through the daemon's one-shot opener, so both ledger tools work before
+// any compaction; the read-only accessor every other consumer holds still opens nothing.
+func TestOpeningLedgerOpensOnFirstUseAndOnlyThere(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cfg := config.Defaults()
+	opts := daemon.NewOptions(root, cfg)
+	opts.Log = logging.Nop()
+	opts.Clock = testClock()
+	_ = daemon.WireRehydrator(&opts) // installs the one-shot opener, opens nothing yet
+	t.Cleanup(func() {
+		if l := opts.LedgerHandle(); l != nil {
+			_ = l.Close()
+		}
+	})
+	elims := filepath.Join(root, ".qompack", "records", "eliminations.jsonl")
+
+	require.Nil(t, liveLedger(&opts)(), "the read-only accessor opens nothing")
+	require.NoFileExists(t, elims)
+
+	opened := openingLedger(&opts)()
+	require.NotNil(t, opened, "the tools' accessor opens the ledger on first use")
+	require.FileExists(t, elims)
+	require.Same(t, opened, opts.LedgerHandle(), "through the daemon's opener: one handle, published")
+	require.Same(t, opened, liveLedger(&opts)(), "and every reader sees that same handle")
+	require.Same(t, opened, openingLedger(&opts)(), "a second use opens nothing new")
+}
