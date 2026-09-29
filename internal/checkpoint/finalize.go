@@ -40,8 +40,9 @@ var _ Writer = (*FileWriter)(nil)
 // line naming bytes or a name the cut took, and never a seal whose segments the log forgot:
 //
 //  1. the artifact's bytes (paths.CreateNew syncs the file);
-//  2. the draft's segment marks (sealSegmentMarks: re-marked, then store.SegmentSync; a failure
-//     here is Loud and counted but does not refuse the seal — see sealSegmentMarks for why);
+//  2. the draft's segment marks (sealSegmentMarks: committed — Advance only reserved them — or
+//     re-marked, then store.SegmentSync; a failure here is Loud and counted but does not refuse
+//     the seal — see sealSegmentMarks for why);
 //  3. the artifact's name (paths.AppendManifest's first SyncDir of checkpoints/);
 //  4. the MANIFEST line (appended, then the manifest synced) — the seal;
 //  5. the manifest's name, when this seal created the manifest (a second SyncDir). A barrier that
@@ -237,6 +238,12 @@ func (w *FileWriter) reconcileEncodedSeq(
 	if len(ids) == 0 {
 		return
 	}
+	if _, ok := src.Segments.(store.SegmentReservation); ok {
+		// Advance only RESERVED these into the pre-bump number, and a reservation was never written:
+		// sealSegmentMarks commits them at the number the artifact actually has, and reports as
+		// drift only a segment some other sequence already holds durably.
+		return
+	}
 	if err := src.Segments.MarkEncoded(ctx, ids, seq); err != nil {
 		w.m.Counter(metricSeqReferenceDrift).Add(1)
 		w.log.Loud("checkpoint: segments still reference the sequence this checkpoint was NOT written at; run qompack fsck",
@@ -291,6 +298,18 @@ func (w *FileWriter) sealSegmentMarks(ctx context.Context, src SourceSet, ids []
 			failed = err
 		}
 	}
+	if r, ok := src.Segments.(store.SegmentReservation); ok {
+		w.commitSegmentMarks(ctx, r, ids, seq, note)
+		if s, ok := src.Segments.(store.SegmentSync); ok && failed == nil {
+			failed = s.Sync(ctx)
+		}
+		if failed != nil {
+			w.m.Counter(metricSegmentMarksUnsynced).Add(1)
+			w.log.Loud("checkpoint: segment marks not durable before the seal; a later draft may re-encode them",
+				"seq", int(seq), "segments", len(ids), "err", failed.Error())
+		}
+		return
+	}
 	var lost []core.SegmentID
 	for _, id := range ids {
 		seg, err := src.Segments.Get(ctx, id)
@@ -321,6 +340,43 @@ func (w *FileWriter) sealSegmentMarks(ctx context.Context, src SourceSet, ids []
 		w.m.Counter(metricSegmentMarksUnsynced).Add(1)
 		w.log.Loud("checkpoint: segment marks not durable before the seal; a later draft may re-encode them",
 			"seq", int(seq), "segments", len(ids), "err", failed.Error())
+	}
+}
+
+// commitSegmentMarks is sealSegmentMarks for a log that reserves (store.SegmentReservation): the
+// draft's segments were only RESERVED by Advance, so this is where their encode records are first
+// written — after the artifact's bytes are durable and before the MANIFEST line, the order the seal
+// already had. index/segments.jsonl therefore never names a sequence no seal reached (F-UAT03-2);
+// the one window left is a cut between here and the MANIFEST line, and in it the artifact itself
+// is on disk as the orphan `qompack fsck` reports and --repair re-indexes.
+//
+// One batch, in the ordinary seal. A batch the log refuses — one segment another sequence holds
+// DURABLY, or a segment the log does not know or holds open — is retried id by id, so one bad id
+// does not leave its batch-mates unwritten; the durable conflict is the seq-reference drift
+// reconcileEncodedSeq used to report, and it is reported here the same way.
+func (w *FileWriter) commitSegmentMarks(ctx context.Context, r store.SegmentReservation,
+	ids []core.SegmentID, seq core.CheckpointSeq, note func(error),
+) {
+	if r.CommitEncoded(ctx, ids, seq) == nil {
+		return
+	}
+	drift := 0
+	for _, id := range ids {
+		err := r.CommitEncoded(ctx, []core.SegmentID{id}, seq)
+		switch {
+		case err == nil, errors.Is(err, core.ErrNotFound), errors.Is(err, store.ErrSegmentOpen):
+			// Committed, or nothing to point: a segment the log lost or never closed has no record
+			// to write, exactly as sealSegmentMarks treats it.
+		case errors.Is(err, core.ErrAlreadyEncoded):
+			drift++
+		default:
+			note(err)
+		}
+	}
+	if drift > 0 {
+		w.m.Counter(metricSeqReferenceDrift).Add(1)
+		w.log.Loud("checkpoint: segments still reference the sequence this checkpoint was NOT written at; run qompack fsck",
+			"written_seq", int(seq), "segments", drift)
 	}
 }
 

@@ -99,6 +99,12 @@ type segLog struct {
 	// warnedNoTokens records which segments have already produced the missing-tokens warning, so
 	// a reopened log does not repeat it per call.
 	warnedNoTokens map[core.SegmentID]bool
+	// reserved holds the segments ReserveEncoded marked into a DRAFT's sequence: EncodedOnce and
+	// CheckpointSeq are set in memory, and no record has been appended. CommitEncoded (the seal) or
+	// MarkEncoded writes the record and clears the entry. A reservation is deliberately not
+	// durable, so the log never names a checkpoint that has not been sealed (F-UAT03-2); a draft
+	// that outlives this log re-reserves from its own state file.
+	reserved map[core.SegmentID]bool
 
 	// dir is the directory holding the log (index/), and dirSynced records that Sync has made the
 	// log's own name durable in it once this log lifetime. syncDir is that directory barrier:
@@ -539,6 +545,9 @@ func (l *segLog) MarkEncoded(ctx context.Context, ids []core.SegmentID, seq core
 		}
 		if seg.EncodedOnce {
 			if seg.CheckpointSeq == seq {
+				if l.reserved[id] {
+					pending = append(pending, id) // reserved into this seq: write it now
+				}
 				continue // idempotent for the same seq
 			}
 			return fmt.Errorf("%w: segment %d already encoded into checkpoint %d, refused for %d",
@@ -546,17 +555,117 @@ func (l *segLog) MarkEncoded(ctx context.Context, ids []core.SegmentID, seq core
 		}
 		pending = append(pending, id)
 	}
+	return l.appendEncodesLocked(pending, seq)
+}
 
-	for _, id := range pending {
+// appendEncodesLocked writes one encode record per id, then records the mark in memory and drops
+// any reservation it replaces. The caller holds l.mu and has validated every id.
+func (l *segLog) appendEncodesLocked(ids []core.SegmentID, seq core.CheckpointSeq) error {
+	for _, id := range ids {
 		if err := l.append(segEncodeRec{
 			V: indexRecordVersion, Op: segOpEncode, ID: id, Seq: seq, TS: l.now(),
 		}); err != nil {
 			return err
 		}
 		l.byID[id].EncodedOnce, l.byID[id].CheckpointSeq = true, seq
+		delete(l.reserved, id)
 	}
 	return nil
 }
+
+// ReserveEncoded is the first half of SegmentReservation: MarkEncoded's validation and in-memory
+// effect, with no record appended. The DPI guard is the same — the whole batch is validated first,
+// the same seq is idempotent, a different one is core.ErrAlreadyEncoded whether the other mark is
+// durable or itself a reservation — so the scheduler, the frontier and Unencoded see a reserved
+// segment exactly as they see an encoded one.
+//
+// What differs is durability, and that is the point. The checkpointer's idle Advance encodes a
+// session's closed segments into a DRAFT whose sequence number only exists once PreCompact (or the
+// cadence) seals it. Appending the encode record at that moment is what left index/segments.jsonl
+// naming checkpoint 0002 after a clean idle exit that never sealed it (F-UAT03-2): fsck failed
+// index.segments and every backup taken afterwards restored with integrity FAILED. A reservation
+// dies with this log instead; the draft's own state file remembers the segments, and the resumed
+// draft reserves them again.
+func (l *segLog) ReserveEncoded(ctx context.Context, ids []core.SegmentID, seq core.CheckpointSeq) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if err := l.writable(); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	fresh := make([]core.SegmentID, 0, len(ids))
+	for _, id := range ids {
+		seg, ok := l.byID[id]
+		if !ok {
+			return fmt.Errorf("%w: segment %d", core.ErrNotFound, id)
+		}
+		if !seg.Closed {
+			return fmt.Errorf("%w: segment %d", ErrSegmentOpen, id)
+		}
+		if seg.EncodedOnce {
+			if seg.CheckpointSeq == seq {
+				continue
+			}
+			return fmt.Errorf("%w: segment %d already encoded into checkpoint %d, refused for %d",
+				core.ErrAlreadyEncoded, id, seg.CheckpointSeq, seq)
+		}
+		fresh = append(fresh, id)
+	}
+	if l.reserved == nil {
+		l.reserved = make(map[core.SegmentID]bool, len(fresh))
+	}
+	for _, id := range fresh {
+		l.byID[id].EncodedOnce, l.byID[id].CheckpointSeq = true, seq
+		l.reserved[id] = true
+	}
+	return nil
+}
+
+// CommitEncoded is the second half of SegmentReservation: the seal's durable write. Every id is
+// recorded encoded into seq — the sequence the sealed artifact was ACTUALLY written at — whether it
+// was reserved, reserved under another sequence (Finalize's O_EXCL retry bumped the seal past the
+// number the draft reserved under, and a reservation, never having been written, can follow the
+// artifact), or not marked at all (a reservation this log lost, which the draft still remembers).
+//
+// A DURABLE mark into another sequence is the one refusal, and it refuses the whole batch before
+// anything is written, exactly like MarkEncoded: that record is one-way, and an id already durable
+// in seq is idempotent. The caller still has to Sync for the records to be durable.
+func (l *segLog) CommitEncoded(ctx context.Context, ids []core.SegmentID, seq core.CheckpointSeq) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if err := l.writable(); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	pending := make([]core.SegmentID, 0, len(ids))
+	for _, id := range ids {
+		seg, ok := l.byID[id]
+		if !ok {
+			return fmt.Errorf("%w: segment %d", core.ErrNotFound, id)
+		}
+		if !seg.Closed {
+			return fmt.Errorf("%w: segment %d", ErrSegmentOpen, id)
+		}
+		if seg.EncodedOnce && !l.reserved[id] {
+			if seg.CheckpointSeq == seq {
+				continue
+			}
+			return fmt.Errorf("%w: segment %d already encoded into checkpoint %d, refused for %d",
+				core.ErrAlreadyEncoded, id, seg.CheckpointSeq, seq)
+		}
+		pending = append(pending, id)
+	}
+	return l.appendEncodesLocked(pending, seq)
+}
+
+// The store's own segment log offers the two-phase encode checkpoint.Advance and Finalize use.
+var _ SegmentReservation = (*segLog)(nil)
 
 // Frontier returns the checkpoint frontier: the turn up to which s has been encoded.
 //
