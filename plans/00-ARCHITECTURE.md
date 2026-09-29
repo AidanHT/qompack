@@ -2459,8 +2459,12 @@ one file.**
 | `SessionEnd` | SP-05 (`qompack flush` client + daemon op) | SP-08 owns `observer.OnSessionEnd`; it calls `store.Flush`, the session-index write and `store.GC`, whose mechanics SP-06 owns. No subplan other than SP-08 writes code in `internal/observer`. |
 
 **Segment lifecycle.** SP-08 opens a segment at session start and appends turns/verbatim prompts
-to it; SP-12 closes segments on a changepoint, todo completion, or passing test and advances the
-frontier (O5). `SegmentLog` itself is SP-06's.
+to it; SP-12 closes segments on a changepoint, todo completion, passing test, git commit or
+compaction (PreCompact), opens each one's successor, and advances the frontier (O5). No
+SessionStart need follow an SP-12 roll, so SP-08 follows it itself: before an event moves the
+prefix position it checks whether its segment was closed, gives the closed segment its DAG node and
+enrols from then on in the successor; SessionEnd closes the session's open segment. `SegmentLog`
+itself is SP-06's.
 
 ### 5.22a `internal/redact` (§13 invariant 7, `runtime.redact`)
 
