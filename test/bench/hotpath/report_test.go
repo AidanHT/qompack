@@ -449,25 +449,29 @@ func TestExpectedHotPathSends(t *testing.T) {
 // TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad is the direct translation of the old
 // checkDeliveryIntegrity test: every case it failed on with no spool evidence still fails, in
 // both directions. Nothing about the guard is relaxed by knowing about deferral — a shortfall
-// with nothing on disk to account for it is still a hard failure.
+// with nothing on disk to account for it is still a hard failure. A delivered request is
+// accounted for the same way a deferred one is: by its identity, found in the daemon's WAL or the
+// store (censusDeliveries), so each passing case below found every request it sent.
 func TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad(t *testing.T) {
-	noSpool := spoolCensus{}
+	loop := gatedIdentities(2000, false)
+	warm := gatedIdentities(2000, true)
 
-	_, err := reconcileDelivery(expectedHotPathSends(2000, false), 2000, noSpool)
+	_, err := reconcileDelivery(loop, 2000, censusOf(loop...))
 	require.NoError(t, err, "no warm-up: exact match passes")
 
-	_, err = reconcileDelivery(expectedHotPathSends(2000, true), warmHotTranche+2000, noSpool)
+	_, err = reconcileDelivery(warm, warmHotTranche+2000, censusOf(warm...))
 	require.NoError(t, err, "warm-up: exact match passes")
 
-	_, err = reconcileDelivery(expectedHotPathSends(2000, false), 1999, noSpool)
-	require.Error(t, err, "one short with NOTHING in the spool to account for it must still fail loudly")
+	_, err = reconcileDelivery(loop, 1999, censusOf(loop[:1999]...))
+	require.Error(t, err, "one short with NOTHING on disk to account for it must still fail loudly")
 	require.Contains(t, err.Error(), "LOST")
 
-	_, err = reconcileDelivery(expectedHotPathSends(2000, false), 2001, noSpool)
+	_, err = reconcileDelivery(loop, 2001, censusOf(loop...))
 	require.Error(t, err, "one over must also fail — not just a floor check")
 
-	_, err = reconcileDelivery(expectedHotPathSends(2000, true), 2000, noSpool)
+	_, err = reconcileDelivery(warm, 2000, censusOf(loop...))
 	require.Error(t, err, "warm-up ran but l0_ingest only saw the loop's own count, and nothing is spooled")
+	require.Contains(t, err.Error(), "64 are LOST")
 }
 
 // TestReconcileDelivery_DeferredIsNotLost is the regression for run 32296920486's macos-latest
@@ -475,17 +479,18 @@ func TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad(t *testing.T) {
 // — §8.1/§12.2's documented degrade-rather-than-block path, not a defect. It must reconcile, and
 // the deferral must be VISIBLE in the ledger so the percentile accounting can use it.
 func TestReconcileDelivery_DeferredIsNotLost(t *testing.T) {
-	sent := expectedHotPathSends(2000, true) // 2064
-	ledger, err := reconcileDelivery(sent, 2063, spoolCensus{Deferred: 1, Files: 1})
+	sent := gatedIdentities(2000, true) // 2064
+	ledger, err := reconcileDelivery(sent, 2063, censusOf(sent...))
 	require.NoError(t, err, "a shortfall fully accounted for by a spooled request is a deferral, not a loss")
 	require.Equal(t, deliveryLedger{Sent: 2064, Delivered: 2063, Deferred: 1, Lost: 0}, ledger)
 	require.Equal(t, int64(1), ledger.Undelivered())
 }
 
-// TestReconcileDelivery_PartialEvidenceStillFails pins the discriminating half: spool evidence
-// covers only what it covers. Three missing with one spooled line is still two events LOST.
+// TestReconcileDelivery_PartialEvidenceStillFails pins the discriminating half: evidence covers
+// only what it covers. Three missing with one found is still two events LOST.
 func TestReconcileDelivery_PartialEvidenceStillFails(t *testing.T) {
-	_, err := reconcileDelivery(2064, 2061, spoolCensus{Deferred: 1, Files: 1})
+	sent := gatedIdentities(2000, true)
+	_, err := reconcileDelivery(sent, 2061, censusOf(sent[:2062]...))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "2 are LOST")
 }
@@ -493,20 +498,46 @@ func TestReconcileDelivery_PartialEvidenceStillFails(t *testing.T) {
 // TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify pins that a line the harness cannot
 // decode is never assumed to be a deferral in this run's favour.
 func TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify(t *testing.T) {
-	_, err := reconcileDelivery(2064, 2063, spoolCensus{Deferred: 1, Unreadable: 1, Files: 1})
+	sent := gatedIdentities(2000, true)
+	census := censusOf(sent...)
+	census.Unreadable = 1
+	_, err := reconcileDelivery(sent, 2063, census)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "would not decode")
 }
 
 // TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample pins the lost-ACK case: the daemon
 // accepted the line AND the client spooled it (internal/ipc/client.go's awaitACK spools on a read
-// timeout), so the spool holds more lines than there are missing samples. Nothing is missing from
-// the population, so nothing is counted as deferred.
+// timeout), so the request is in two places. It is still one request: nothing is missing from the
+// population, so nothing is counted as deferred.
 func TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample(t *testing.T) {
-	ledger, err := reconcileDelivery(2064, 2064, spoolCensus{Deferred: 1, Files: 1})
+	sent := gatedIdentities(2000, true)
+	ledger, err := reconcileDelivery(sent, 2064, censusOf(sent...))
 	require.NoError(t, err)
 	require.Zero(t, ledger.Deferred, "a duplicate of a DELIVERED request is not a missing sample")
 	require.Zero(t, ledger.Undelivered())
+}
+
+// TestReconcileDelivery_ADuplicateCannotStandInForALoss is what the identity accounting adds over
+// the count it replaced. A spooled duplicate of a delivered request used to count as one deferral,
+// so with one request lost the spool still held as many lines as the shortfall and the loss passed.
+// By identity the duplicate is the delivered request itself, and the lost one is found nowhere.
+func TestReconcileDelivery_ADuplicateCannotStandInForALoss(t *testing.T) {
+	root, ownPath, _ := spoolFixture(t)
+	sent := gatedIdentities(3, false)
+	dup, lost := sent[1], sent[2]
+	// Two delivered live, the second of them also spooled by its hook after a lost ACK; the third
+	// is nowhere. One spooled line against a shortfall of one: the count said "1 deferred, 0 lost".
+	writeWAL(t, root, baSessionID, requestOf(sent[0]), requestOf(dup))
+	writeHookSpool(t, root, 930001, requestOf(dup))
+
+	census, err := censusDeliveries(root, ownPath, harnessHotPathSessions())
+	require.NoError(t, err)
+	require.Equal(t, censusOf(without(sent, lost)...).Found, census.Found)
+	_, err = reconcileDelivery(sent, 2, census)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "1 are LOST")
+	require.Contains(t, err.Error(), lost.String())
 }
 
 // TestHookControlledShortfall pins B-A's own population check: hook_controlled can legitimately
@@ -558,12 +589,16 @@ func TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo(t *testing.T) {
 	require.Zero(t, gated.Undelivered(), "the whole tranche is outside this window, warm-ups included")
 	require.Zero(t, gated.Lost)
 
-	full, err := reconcileDelivery(sent, sent, spoolCensus{})
+	ids := sentIdentities(2000, true, ackRTTSamples)
+	require.Equal(t, sent, int64(len(ids)), "the ledger's identities are the requests Sent counts")
+	full, err := reconcileDelivery(ids, sent, censusOf(ids...))
 	require.NoError(t, err)
 	require.Zero(t, full.Undelivered())
 	require.Zero(t, full.Lost)
 
-	_, err = reconcileDelivery(window+int64(ackRTTSamples), sent, spoolCensus{})
+	timedOnly := append(gatedIdentities(2000, true), ids[len(ids)-ackRTTSamples:]...)
+	require.Equal(t, window+int64(ackRTTSamples), int64(len(timedOnly)))
+	_, err = reconcileDelivery(timedOnly, sent, censusOf(timedOnly...))
 	require.Error(t, err, "counting only the timed samples loses the warm-ups from Sent")
 	require.Contains(t, err.Error(), "OTHER client")
 }

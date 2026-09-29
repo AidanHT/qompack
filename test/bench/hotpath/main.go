@@ -369,6 +369,11 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	if err != nil {
 		return Report{}, fmt.Errorf("hotpath: creating spool: %w", err)
 	}
+	// The delivery census finds this run's requests by identity, so none of them may be in the
+	// project before the run sends the first (refuseInheritedIdentities).
+	if err := refuseInheritedIdentities(projectRoot, spool.Path()); err != nil {
+		return Report{}, err
+	}
 
 	fmt.Fprintf(stdout, "hotpath: starting daemon (%s)...\n", addr.Path)
 	dp, err := startDaemon(binPath, projectRoot, childEnv)
@@ -463,20 +468,20 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	// defect: a request DEFERRED to the spool is durable and replayable (§8.1/§12.2's documented
 	// degrade-rather-than-block behaviour, the same path
 	// TestIntegration_HotPathDegradesRatherThanBlocks pins), while a request LOST is neither. The
-	// census below is what tells them apart — it reads the same spool tier the client wrote to —
-	// and the deferrals it finds are carried into the budget rows as over-budget samples, never
-	// dropped from the population (report.go's tailAdjustedP99).
+	// census below is what tells them apart, request by request: it looks for every identity this
+	// run sent in the client spools, the daemon's WAL and the store's tool_use index
+	// (censusDeliveries says why all three, and in that order). The deferrals are carried into the
+	// budget rows as over-budget samples, never dropped from the population (report.go's
+	// tailAdjustedP99).
 	//
-	// The census runs BEFORE the status read, and that order is deliberate. l0_ingest is frozen
-	// by this point: the last measured spawn has returned, nothing this program sends afterwards
-	// is a hot-path op, and internal/daemon/daemon.go's drainDispatch routes a REPLAYED hot-path
-	// line straight to runIngested — never back through ing.Accept — so a drain can never raise
-	// the delivered count. The spool census, by contrast, can only ever SHRINK (a drain deletes a
-	// client file it has consumed). Reading the shrinking side first is what keeps a drain that
-	// fires mid-teardown from turning a deferral into a false "lost". No drain is expected here at
-	// all — nothing on this path sends flush or admin.drain, and the idle-tick drain is gated on
-	// cfg.Scheduler.Idle.DetectAfterSeconds (120s) of registry silence that a continuous spawn
-	// loop never reaches — but the ordering costs nothing and removes the question.
+	// The census does not have to race anything the daemon does. A drain is expected here: since
+	// C1.13 the daemon's client-spool watcher replays a hook's client spool while requests keep
+	// arriving, and B-E's checkpoint spawns and this program's own status reads keep it looking. A
+	// replayed request leaves the spool and goes into the store, never through ing.Accept, so it
+	// does not raise l0_ingest either (drainDispatch routes it straight to runIngested); the census
+	// finds it in the store instead. l0_ingest is frozen by this point — the last measured spawn has
+	// returned and nothing this program sends afterwards is a hot-path op — so reading the delivered
+	// count after the census costs nothing either.
 	// The hook_ack_rtt tranche is hot-path traffic like any other, so it is part of the population
 	// the ledger reconciles — and it has returned by the time the census runs, which is what keeps
 	// "nothing this program sends afterwards is a hot-path op" true above. It is added HERE rather
@@ -484,13 +489,16 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	// warm-up's own tranche — is what TestExpectedHotPathSends pins, and this row is not part of it.
 	// ackRTTTrancheSends counts the row's DISCARDED warm-ups alongside its timed samples: they are
 	// deliveries too, and a Sent short of them would look to reconcileDelivery like another client
-	// feeding this daemon.
+	// feeding this daemon. sentIdentities lists the same requests by identity.
 	//
 	// The ledger and the gated rows therefore cover two populations that differ by exactly this
 	// tranche: the ledger's is the whole run, and the gated rows' is what the earlier snapshot saw.
 	// gatedLedger (delivery.go) scopes the missing-sample accounting to the second.
-	sent := expectedHotPathSends(f.iterations, f.warmDaemon) + ackRTTTrancheSends(len(ackRTT))
-	census, err := censusClientSpool(paths.Of(projectRoot).Spool, spool.Path(), harnessHotPathSessions())
+	sent := sentIdentities(f.iterations, f.warmDaemon, len(ackRTT))
+	if want := expectedHotPathSends(f.iterations, f.warmDaemon) + ackRTTTrancheSends(len(ackRTT)); int64(len(sent)) != want {
+		return Report{}, fmt.Errorf("hotpath: the ledger lists %d sent identities for the %d hot-path requests this run sent", len(sent), want)
+	}
+	census, err := censusDeliveries(projectRoot, spool.Path(), harnessHotPathSessions())
 	if err != nil {
 		return Report{}, err
 	}

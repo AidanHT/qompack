@@ -96,10 +96,43 @@ func (g *payloadGen) next(i int, sessionID core.SessionID, cwd string) hookio.Ev
 		SessionID:     sessionID,
 		CWD:           cwd,
 		ToolName:      kind,
-		ToolUseID:     core.ToolUseID(fmt.Sprintf("toolu_warm_%d", i)),
+		ToolUseID:     warmToolUseID(i),
 		ToolInput:     toolInput,
 		ToolResponse:  toolResponse,
 	}
+}
+
+// The tool_use_id prefixes of the three hot-path populations this harness sends. Every request it
+// sends carries a tool_use_id no other request of the run carries, because the delivery ledger
+// accounts for each request by its identity (deliveryIdentity, delivery.go): session plus
+// tool_use_id, looked for in the client spools, the daemon's WAL and the store's tool_use index.
+//
+// The hook_ack_rtt tranche used to reuse baToolUsePrefix. Its sequence numbers 0..63 then named
+// the same tool uses as B-A/B-D spawns 0..63, and the store keeps one tool_use record per id
+// (internal/store's tool_use index writes no second record for an id it already holds), so the
+// tranche's own captures were never recorded under its own session. ackRTTToolUsePrefix has the
+// same length as baToolUsePrefix, so for every sequence number the two rows still send byte-for-
+// byte the same size of event, which is what keeps slack99 = p99(hook_ack_rtt) - p99(B-B) a
+// difference of transport and nothing else (observeRTTEvent).
+const (
+	baToolUsePrefix     = "toolu_ba_"
+	ackRTTToolUsePrefix = "toolu_rt_"
+	warmToolUsePrefix   = "toolu_warm_"
+)
+
+// baToolUseID is the tool_use_id of the seq-th B-A/B-D spawn's event.
+func baToolUseID(seq int) core.ToolUseID {
+	return core.ToolUseID(fmt.Sprintf("%s%d", baToolUsePrefix, seq))
+}
+
+// ackRTTToolUseID is the tool_use_id of the hook_ack_rtt request ackRTTTranche numbers seq.
+func ackRTTToolUseID(seq int) core.ToolUseID {
+	return core.ToolUseID(fmt.Sprintf("%s%d", ackRTTToolUsePrefix, seq))
+}
+
+// warmToolUseID is the tool_use_id of the i-th warm-up event (payloadGen.next).
+func warmToolUseID(i int) core.ToolUseID {
+	return core.ToolUseID(fmt.Sprintf("%s%d", warmToolUsePrefix, i))
 }
 
 // representativeObservePayload is the fixed, moderate-size payload every B-A/B-D spawn sample
@@ -107,7 +140,7 @@ func (g *payloadGen) next(i int, sessionID core.SessionID, cwd string) hookio.Ev
 // from payloadGen: every spawn must see byte-identical stdin so the measured spawn-to-spawn
 // variance is host/process cost, not payload-size noise.
 func representativeObservePayload(sessionID core.SessionID, cwd string, seq int) []byte {
-	b, err := json.Marshal(observeRTTEvent(sessionID, cwd, seq))
+	b, err := json.Marshal(observeRTTEvent(sessionID, cwd, baToolUseID(seq)))
 	if err != nil {
 		return []byte(`{}`)
 	}
@@ -120,15 +153,16 @@ func representativeObservePayload(sessionID core.SessionID, cwd string, seq int)
 // The two rows share one event deliberately. hook_ack_rtt is read AGAINST B-B — design §7.5's
 // slack99 is the difference of their p99s — so the two must time the same shape of delivery; a
 // payload of a different size would put a difference between them that is neither the transport nor
-// the daemon, which is the only thing that difference is supposed to name.
-func observeRTTEvent(sessionID core.SessionID, cwd string, seq int) hookio.Event {
+// the daemon, which is the only thing that difference is supposed to name. Only the tool_use_id
+// differs between them, and only in a prefix of the same length (ackRTTToolUsePrefix).
+func observeRTTEvent(sessionID core.SessionID, cwd string, id core.ToolUseID) hookio.Event {
 	body := "package main\n\nfunc main() {\n\tprintln(\"hello from the hot-path bench harness\")\n}\n"
 	return hookio.Event{
 		HookEventName: "PostToolUse",
 		SessionID:     sessionID,
 		CWD:           cwd,
 		ToolName:      "Read",
-		ToolUseID:     core.ToolUseID(fmt.Sprintf("toolu_ba_%d", seq)),
+		ToolUseID:     id,
 		ToolInput:     jsonString(map[string]string{"file_path": "src/main.go"}),
 		ToolResponse:  jsonString(map[string]string{"content": body}),
 	}
