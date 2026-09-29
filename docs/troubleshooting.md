@@ -81,7 +81,8 @@ The other three are in a table this repository maintains for exactly this purpos
 `internal/contract/observation.go`'s `noObservationSpellings`, "every Observed string in
 assertions.go that means 'nothing was seen', as opposed to 'something was seen' or 'the contract was
 broken'". `first-session`, `no-precompact-pending`, `no-transcript-path` and `unset` are all in it,
-alongside `no-samples`, `not-yet-observed` and others you may meet — including `retired`, which is
+alongside `no-samples`, `not-yet-observed` and others you may meet — including `initialize-pending`
+and `transcript-pending` (below), and `retired`, which is
 what `precompact.custom_instructions_accepted` reports wherever a daemon has declared its producer:
 the PreCompact instruction it once probed for is retired, because no host accepts one (C1.18,
 [docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution)). **In every one of those cases
@@ -91,6 +92,16 @@ column describes a real observation is evidence.
 That table is the authority, not this page: it is pinned by a test that parses `assertions.go` and
 fails the build if a check grows a spelling the table does not classify, so a new "nothing was seen"
 word cannot quietly start reading as success.
+
+Two rows are evaluated at `SessionStart`, before what they observe can exist.
+`mcp.server_registered` reads `initialize-pending` until the MCP server's handshake reaches the
+daemon: the host connects the server beside a session's first start, not before it. It fails,
+`initialize-not-received`, only at the start of a later session, once a whole session has passed
+with no handshake. `transcript.readable` reads `transcript-pending` when the transcript does not
+exist yet, because in `-p` mode the host creates it after `SessionStart:startup`. It fails only if
+that transcript has still not appeared by the next start (`an earlier session's transcript_path
+never appeared`), or if it is missing at a compaction's start, when the host has been writing it all
+session (`internal/contract/assertions.go`, `checkMCPServerRegistered`, `checkTranscriptReadable`).
 
 **Action.** Read `OBSERVED`, never the `OK` column alone. To learn what a given assertion would
 observe if it ran, read its constant's comment in `internal/contract/ids.go`.
@@ -107,6 +118,16 @@ host-contract banner, the mode and hot-path lines, counters, the per-hook latenc
 **Meaning.** `source:` tells you whether you are reading a live daemon answer, the metrics file the
 daemon last persisted, or nothing at all (`internal/commands/statuscollect.go`: `daemon`, `disk`,
 `none`). A stale `disk` reading is not a current one.
+
+With no daemon listening, the provenance line says so rather than quoting an empty refusal:
+`daemon: no daemon answered: none is listening for this project yet`. The command asks one to
+start unless `runtime.daemon.enabled` is `false`, so run `status` again once it is up; until then
+the page falls back to the persisted metrics file (`source: disk`) if there is one.
+
+Latency percentiles are never printed above the `max` on the same line. The histogram reports a
+percentile as its bucket's upper bound, which can sit up to about 9% above the samples in it, so the
+page clamps each percentile to the exact maximum; the value stays an upper bound on the true
+percentile (`internal/commands/statuscollect.go`, `latencyOf`).
 
 In the same scratch project the banner read `host contract: no assertions reported`. That is not a
 failure: `status` shows the assertion results the *daemon* holds, and no `SessionStart` hook had
@@ -880,6 +901,41 @@ operator-facing stop path.
 **Action.** Prefer waiting for idle exit. If you terminate the process, terminate only the one whose
 `pid` appears in that project's `daemon.lock`; daemons are per project and another project's daemon
 is a different process.
+
+A terminated daemon leaves `daemon.lock` behind. The next hook, retrieval call or maintenance
+command that needs a daemon checks that lock's `pid`, finds the process gone, and takes the lock at
+once. On Windows the check is `OpenProcess`, which proves a process has exited but says nothing
+about one that is running, because Windows reuses process ids (`internal/daemon/lock_windows.go`,
+`pidAlive`). So in the rare case where a new process has already taken the dead daemon's `pid`, the
+lock is judged by its heartbeat instead: `backup create`/`verify` refuse with `daemon lock already
+held`, and retrieval answers `temporarily offline`, for up to 90 seconds after the daemon's last
+heartbeat (`internal/daemon/lock.go`, `staleAfter`). The daemon that takes the lock over writes
+`daemon: took over the project from a daemon that ended without releasing its lock` to the day log,
+with the old `pid`, `version` and `started` time. If its startup replayed deliveries that hooks
+spooled while no daemon answered, it also writes `daemon: replayed spooled deliveries at start` with
+their count.
+
+---
+
+**Symptom.** The day log says `daemon: ending abandoned session; no SessionEnd arrived and it has
+been silent past the idle-exit window` for a session that is still open.
+
+**Meaning.** The daemon ends a live session in its own bookkeeping once nothing has arrived from it
+for `runtime.daemon.idleExitSeconds` ([default `1800`](config-reference.md#runtime), 30 minutes)
+(`internal/daemon/registry.go`, `EndAbandoned`). This is how a daemon whose client died without a
+`SessionEnd` (a closed terminal, a crashed harness) stops counting that session as live and
+eventually exits. The detector cannot tell a dead client from a live session that has been quiet
+for that long: nothing reached the daemon, whether the user stepped away or one step such as a long
+`/compact` sent no hook. With a short setting it fires sooner; the Phase 4 live lane saw it after 31
+seconds of a 32-second `/compact` with `idleExitSeconds` at 30.
+
+It is bookkeeping only. No marker is written, no observer seam runs, and capture is unaffected. The
+session's next hook revives it. If no other session is live, the daemon may exit after one more
+idle-exit window; the next hook then starts a new daemon, which replays anything spooled meanwhile.
+
+**Action.** None at the default. If you set `runtime.daemon.idleExitSeconds` low, expect this line
+during quiet stretches of a live session. Keep the setting above the longest silence a session of
+yours has, a long compaction included.
 
 ---
 
