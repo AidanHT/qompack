@@ -21,6 +21,7 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
+	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/tokens"
 )
 
@@ -155,11 +156,27 @@ func MintDecisionID(what, why string, evidence core.Hash) core.DecisionID {
 // with a Warn, and a failed emission is logged and ignored. Only a SourceSet.Validate failure or
 // a ctx cancellation returns an error.
 func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) ([]Decision, error) {
+	return extractDecisions(ctx, src, from, "")
+}
+
+// extractDecisions is ExtractDecisions for one session's draft: source (b) considers only the
+// eliminations that draft carries — the session's own and the project-scoped ones (carriedBy) —
+// because another session's session-scoped elimination is not this session's negative knowledge
+// and must not surface as this session's decision. An empty session keeps ExtractDecisions' own
+// rule of every record the ledger holds.
+func extractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex, s core.SessionID) ([]Decision, error) {
 	if err := src.Validate(); err != nil {
 		return nil, err
 	}
-	x := &decisionExtractor{src: src, from: from, texts: make(map[core.Hash]string)}
+	x := &decisionExtractor{src: src, from: from, session: s, texts: make(map[core.Hash]string)}
 	return x.run(ctx)
+}
+
+// carriedBy reports whether r belongs in session s's checkpoint: its own records, and every
+// project-scoped one (§8.3 item 5). It is the one statement of the rule the draft's eliminated[]
+// and its elimination-sourced decisions both follow.
+func carriedBy(r negknow.Record, s core.SessionID) bool {
+	return r.Session == s || r.Scope == negknow.ScopeProject
 }
 
 // decisionCandidate pairs a derived Decision with the node its evidence lives at, which the DAG
@@ -178,9 +195,11 @@ type decisionCandidate struct {
 // decisionExtractor carries one extraction's state: the seams, the from-turn cut, and the
 // per-call evidence text cache.
 type decisionExtractor struct {
-	src   SourceSet
-	from  core.TurnIndex
-	texts map[core.Hash]string
+	src  SourceSet
+	from core.TurnIndex
+	// session, when set, restricts source (b) to the records carriedBy it.
+	session core.SessionID
+	texts   map[core.Hash]string
 }
 
 // run is the §9 pipeline: scan, derive from the three sources, merge, rank, cap, emit.
@@ -324,28 +343,45 @@ func (x *decisionExtractor) fromEliminations(ctx context.Context, cands []decisi
 		if err := ctx.Err(); err != nil {
 			return nil, extractInterrupted(err)
 		}
-		if r.Approach == "" {
+		if x.session != "" && !carriedBy(r, x.session) {
 			continue
 		}
-		turn := x.from
-		if n, ok := x.src.Graph.Node(dag.EliminationNode(r.ID)); ok {
-			turn = n.Turn
-		}
+		turn := eliminationTurn(x.src.Graph, r, x.from)
 		if turn < x.from {
 			continue
 		}
-		what := fmt.Sprintf("rejected %q for %s", r.Approach, r.Target)
-		d := Decision{
-			What:                 what,
-			Why:                  r.Reason,
-			AlternativesRejected: []string{r.Approach},
-			Evidence:             r.Evidence,
-			Turn:                 turn,
+		if d, ok := eliminationDecision(r, turn); ok {
+			cands = append(cands, decisionCandidate{d: d, evidence: dag.EliminationNode(r.ID)})
 		}
-		d.ID = MintDecisionID(what, d.Why, d.Evidence)
-		cands = append(cands, decisionCandidate{d: d, evidence: dag.EliminationNode(r.ID)})
 	}
 	return cands, nil
+}
+
+// eliminationTurn is the turn an elimination was recorded at — its DAG node's — or fallback when
+// the graph holds no node for it.
+func eliminationTurn(g dag.Graph, r negknow.Record, fallback core.TurnIndex) core.TurnIndex {
+	if n, ok := g.Node(dag.EliminationNode(r.ID)); ok {
+		return n.Turn
+	}
+	return fallback
+}
+
+// eliminationDecision is source (b)'s rule for one record: an elimination that names the approach
+// it rejected is a rejected-alternative decision. ok is false for a record with no Approach.
+func eliminationDecision(r negknow.Record, turn core.TurnIndex) (Decision, bool) {
+	if r.Approach == "" {
+		return Decision{}, false
+	}
+	what := fmt.Sprintf("rejected %q for %s", r.Approach, r.Target)
+	d := Decision{
+		What:                 what,
+		Why:                  r.Reason,
+		AlternativesRejected: []string{r.Approach},
+		Evidence:             r.Evidence,
+		Turn:                 turn,
+	}
+	d.ID = MintDecisionID(what, d.Why, d.Evidence)
+	return d, true
 }
 
 // fromPins derives source (c): every pins.Invariant recorded with Source "decision", split into

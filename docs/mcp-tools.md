@@ -17,9 +17,23 @@ context retention. Capture, archive availability and coverage may be partial or 
 `record_eliminated` writes evidence; check its response before relying on persistence.
 
 **Query failures leave prior attempts unknown.** `already_tried` returns the added
-`unavailable` state when its ledger query fails. Legacy JSON fields remain readable,
-but clients with a closed three-state enum must handle this outcome explicitly.
-Unavailable or unrecognized states never establish absence or prohibit an approach.
+`unavailable` state, with `degraded: true`, when no elimination ledger can be opened or
+its query fails. Legacy JSON fields remain readable, but clients with a closed
+three-state enum must handle this outcome explicitly. Unavailable or unrecognized
+states never establish absence or prohibit an approach. `record_eliminated` answers a
+tool error, and records nothing, when no ledger can be opened.
+
+**The elimination ledger is live from the first call.** The daemon opens it the first
+time `already_tried` or `record_eliminated` is called, or at the first compaction,
+whichever comes first. A `session`-scoped elimination belongs to the session that
+recorded it and answers only there; `project` scope is shared across sessions. Each
+`already_tried` compares the matching record's `depends_on` files against the versions
+captured so far, so a dependency changed earlier in the same session answers `stale`.
+
+**Open segments report progress so far.** `timeline` gives a session's open segment
+the session's current turn as its `end_turn`, and its running token count when the
+daemon holds it; a closed segment reports what was recorded when it closed. A `from`
+after `to` is refused as a tool error.
 
 **Spans are minimal by default.** A tool that returns file content returns the smallest
 chunk-aligned span that covers what you asked for, widened to a symbol boundary where

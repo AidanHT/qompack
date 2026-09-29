@@ -62,10 +62,16 @@ var autoDepCandidates = []string{
 // all, because an always-stale elimination is never answered as a block.
 const maxAutoDeps = 8
 
-// evidenceTool is the store.PutOptions.Tool every minted-evidence object is attributed to. Every
+// EvidenceTool is the store.PutOptions.Tool every minted-evidence object is attributed to. Every
 // source that mints one shares it: it names the OPERATION that produced the text, and §8.3 calls
 // that operation record_eliminated whichever surface invoked it.
-const evidenceTool = "record_eliminated"
+//
+// It is exported because it is also a PROVENANCE: the stored object's only recorded origin is this
+// tool with no path, and retrieval authorization (internal/mcp authorizeOrigin) has to recognise it
+// as a known pathless producer — the reason text an agent or a user typed — rather than refusing it
+// as a capture that lost its path. Spelled twice, the two drifted: `why` withheld every
+// MCP-recorded elimination's evidence as having "no usable path provenance" (retrieval D5).
+const EvidenceTool = "record_eliminated"
 
 // counterUserStatementUnresolved counts source #4 phrase matches that could not be placed against
 // a target or an approach. It is a string, so nothing catches a typo at compile time and a second
@@ -230,7 +236,7 @@ func (l *ledger) mintEvidence(ctx context.Context, text string) (core.Hash, erro
 	}
 
 	res, err := l.deps.Store.PutBytes(ctx, []byte(text), store.PutOptions{
-		Tool:      evidenceTool,
+		Tool:      EvidenceTool,
 		Ephemeral: false,
 	})
 	if err != nil {

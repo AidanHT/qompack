@@ -200,6 +200,9 @@ func WireObserver(o *Options) (observer.Observer, error) {
 			_, err := obsv.OnSessionEnd(ctx, e)
 			return err
 		}
+		if pr, ok := obsv.(observer.ProgressReporter); ok {
+			s.SessionProgress = pr.Progress
+		}
 	})
 
 	return obsv, nil

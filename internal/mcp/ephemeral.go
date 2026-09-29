@@ -36,6 +36,10 @@ const mcpToolPrefix = "mcp__qompack__"
 // glance, in a log line and in a tombstone alike.
 const ephemeralIDPrefix = "qompack-mcp:"
 
+// SelfRecordIDPrefix is ephemeralIDPrefix for readers outside this package: `qompack fsck` uses it
+// to recognise the retrieval self-records builds before V6 wave 13 filed at turn 0 (recordTurn).
+const SelfRecordIDPrefix = ephemeralIDPrefix
+
 // domainMCPToolUse is the hash domain the synthetic tool_use_id is derived under.
 //
 // It is declared HERE rather than in core's domain registry because core is SP-01's package and
@@ -105,7 +109,7 @@ func (h *handlers) recordEphemeral(ctx context.Context, r Request, toolName stri
 	rec := store.ToolUseRecord{
 		ID:          id,
 		Session:     r.Session,
-		Turn:        r.Turn,
+		Turn:        recordTurn(ctx, r),
 		TS:          ts,
 		Tool:        mcpToolPrefix + toolName,
 		ArgsDigest:  core.HashBytes(core.DomainArgs, r.Args),
@@ -128,6 +132,24 @@ func (h *handlers) recordEphemeral(ctx context.Context, r Request, toolName stri
 
 	h.m.Counter(counterEphemeralRecorded).Add(1)
 	return ephemeralRec{ToolUseID: id, Hash: pr.Root.Hash}
+}
+
+// recordTurn is the turn an ephemeral record is filed at: the call's own turn, raised to the calling
+// session's current turn when the daemon resolved the call's turn and can re-resolve it now.
+//
+// Re-resolving at the moment of the write, rather than trusting the value resolved at dispatch, is
+// what keeps index/tool_use.jsonl monotone per session (fsck index.tool_use): hook deliveries the
+// daemon's workers publish WHILE this retrieval runs carry the turn the observer holds when they
+// are published, and a self-record written after them at an older turn would read as a regression.
+// It never lowers a turn: the dispatch-time value is already a lower bound on where the session is.
+func recordTurn(ctx context.Context, r Request) core.TurnIndex {
+	turn := r.Turn
+	if f := liveFrom(ctx).Turn; f != nil {
+		if now := f(); now > turn {
+			turn = now
+		}
+	}
+	return turn
 }
 
 // ephemeralSeed builds the domain-separated seed the synthetic id is derived from:

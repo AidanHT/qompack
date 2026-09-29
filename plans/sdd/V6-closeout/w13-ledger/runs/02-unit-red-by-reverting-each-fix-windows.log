@@ -1,0 +1,162 @@
+# RED by revert: each fix hunk reverted alone on the final tree, the test pinning it run, the file restored (scratch mutate.py). Windows 11, go1.26.6.
+=== reverted: fsck: count an unattributed turn-0 self-record as a regression again (internal/cli/fsck.go)
+$ go test -p 1 -count=1 -run '^TestFsck_ToolUseUnattributedSelfRecordIsNotARegression$' ./internal/cli/
+--- FAIL: TestFsck_ToolUseUnattributedSelfRecordIsNotARegression (8.60s)
+    fsck_tooluse_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/fsck_tooluse_test.go:157
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestFsck_ToolUseUnattributedSelfRecordIsNotARegression
+        	Messages:   	an unattributed self-record is not a turn regression: tool_use qompack-mcp:93dd88341192 reports turn 0 after turn 3 in session s-a; turns are monotone
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	10.314s
+FAIL
+exit=1 -> RED as required
+
+=== reverted: observer: close the session-end segment without the tokens pseudo-feature (internal/observer/session.go)
+$ go test -p 1 -count=1 -run '^TestOnSessionEnd_SegmentClosedWithTokensWithoutFeatures$' ./internal/observer/
+--- FAIL: TestOnSessionEnd_SegmentClosedWithTokensWithoutFeatures (0.03s)
+    session_test.go:567: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/observer/session_test.go:567
+        	Error:      	Not equal: 
+        	            	expected: map[string]float64{"tokens":40}
+        	            	actual  : map[string]float64{}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,2 @@
+        	            	-(map[string]float64) (len=1) {
+        	            	- (string) (len=6) "tokens": (float64) 40
+        	            	+(map[string]float64) {
+        	            	 }
+        	Test:       	TestOnSessionEnd_SegmentClosedWithTokensWithoutFeatures
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	0.348s
+FAIL
+exit=1 -> RED as required
+
+=== reverted: checkpoint: seal a live draft without re-reading the ledger (internal/checkpoint/precompact.go)
+$ go test -p 1 -count=1 -run '^TestPreCompactSealsEliminationsRecordedAfterTheDraftBegan$' ./internal/checkpoint/
+--- FAIL: TestPreCompactSealsEliminationsRecordedAfterTheDraftBegan (0.38s)
+    negknow_refresh_test.go:61: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/checkpoint/negknow_refresh_test.go:61
+        	Error:      	Should be true
+        	Test:       	TestPreCompactSealsEliminationsRecordedAfterTheDraftBegan
+        	Messages:   	the elimination recorded before the seal must be sealed: []
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.699s
+FAIL
+exit=1 -> RED as required
+
+=== reverted: checkpoint: extract decisions from every session's eliminations (internal/checkpoint/decisions.go)
+$ go test -p 1 -count=1 -run '^TestAdvanceDecisionsComeOnlyFromTheSessionsOwnEliminations$' ./internal/checkpoint/
+--- FAIL: TestAdvanceDecisionsComeOnlyFromTheSessionsOwnEliminations (0.18s)
+    negknow_refresh_test.go:85: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/checkpoint/negknow_refresh_test.go:85
+        	Error:      	Should be empty, but was [{dec_e1e6b30b86fe rejected "retry forever" for src/c.go it never converges [retry forever] sha256:a5a43f39fada3c1489fbbc556dc32cc768b7befd98de7c8a2e9ca058ab5ab6ac 0}]
+        	Test:       	TestAdvanceDecisionsComeOnlyFromTheSessionsOwnEliminations
+        	Messages:   	another session's session-scoped elimination must not become this session's decision
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.547s
+FAIL
+exit=1 -> RED as required
+
+=== reverted: mcp: authorize only the fallback's spelling of elimination evidence (internal/mcp/authorize.go)
+$ go test -p 1 -count=1 -run '^TestWhyAuthorizesLedgerMintedEvidence$' ./internal/mcp/
+FAIL	github.com/qompack/qompack/internal/mcp [build failed]
+FAIL
+# github.com/qompack/qompack/internal/mcp [github.com/qompack/qompack/internal/mcp.test]
+internal\mcp\authorize.go:10:2: "github.com/qompack/qompack/internal/negknow" imported and not used
+exit=1 -> RED as required
+
+=== reverted: mcp: accept an inverted timeline range (internal/mcp/handlers.go)
+$ go test -p 1 -count=1 -run '^TestTimelineInvertedRangeIsError$' ./internal/mcp/
+--- FAIL: TestTimelineInvertedRangeIsError (0.11s)
+    live_test.go:126: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/mcp/fixture_test.go:352
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/mcp/live_test.go:126
+        	Error:      	Should be true
+        	Test:       	TestTimelineInvertedRangeIsError
+        	Messages:   	timeline was expected to report a tool error, got: {"count":0,"found":false,"from":30,"frontier":0,"segments":[],"to":12}
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.403s
+FAIL
+exit=1 -> RED as required
+
+=== reverted: negknow: answer Query without re-checking the matching record's dependencies (internal/negknow/ledger.go)
+$ go test -p 1 -count=1 -run '^TestQuery_SeesADependencyChangeWithoutARefresh$' ./internal/negknow/
+--- FAIL: TestQuery_SeesADependencyChangeWithoutARefresh (0.02s)
+    caller_test.go:150: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/negknow/caller_test.go:150
+        	Error:      	Not equal: 
+        	            	expected: 0x2
+        	            	actual  : 0x1
+        	Test:       	TestQuery_SeesADependencyChangeWithoutARefresh
+        	Messages:   	the captured change must reach the next answer
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	0.298s
+FAIL
+exit=1 -> RED as required
+
+=== reverted: negknow: default a record's session to the ledger's own again (internal/negknow/ledger.go)
+$ go test -p 1 -count=1 -run '^TestLedger_CallerSessionStampsRecordAndScopesQuery$' ./internal/negknow/
+--- FAIL: TestLedger_CallerSessionStampsRecordAndScopesQuery (0.03s)
+    caller_test.go:47: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/negknow/caller_test.go:47
+        	Error:      	Not equal: 
+        	            	expected: "sess-a"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(core.SessionID) (len=6) "sess-a"
+        	            	+(core.SessionID) ""
+        	            	 
+        	Test:       	TestLedger_CallerSessionStampsRecordAndScopesQuery
+        	Messages:   	the record belongs to the session that made it
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	0.317s
+FAIL
+exit=1 -> RED as required
+
+=== reverted: daemon: resolve the MCP turn from the open segment alone (internal/daemon/mcpop.go)
+$ go test -p 1 -count=1 -run '^TestDaemonMCPOpFilesTheSelfRecordAtTheIndexedFrontier$' ./internal/daemon/
+--- FAIL: TestDaemonMCPOpFilesTheSelfRecordAtTheIndexedFrontier (0.13s)
+    mcpop_test.go:542: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/daemon/mcpop_test.go:542
+        	Error:      	Not equal: 
+        	            	expected: 3
+        	            	actual  : 0
+        	Test:       	TestDaemonMCPOpFilesTheSelfRecordAtTheIndexedFrontier
+        	Messages:   	the self-record is filed at the session's indexed frontier, not at the open segment's turn 0
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.504s
+FAIL
+exit=1 -> RED as required
+
+=== reverted: cli: wire the MCP tools with the read-only ledger accessor again (internal/cli/daemon.go)
+$ go test -p 1 -count=1 -run '^TestLiveLedgerToolsAnswerBeforeFirstCompaction$' ./internal/cli/
+--- FAIL: TestLiveLedgerToolsAnswerBeforeFirstCompaction (1.09s)
+    live_ledger_test.go:394: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:394
+        	Error:      	Not equal: 
+        	            	expected: "absent"
+        	            	actual  : "unavailable"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-absent
+        	            	+unavailable
+        	Test:       	TestLiveLedgerToolsAnswerBeforeFirstCompaction
+        	Messages:   	an unrecorded approach is absent, not {State:unavailable Reason:elimination ledger unavailable Note:Prior attempts are unknown. Retry after ledger recovery; this is not evidence against the approach. StaleBecause:[] Degraded:true Available:<nil>}
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	1.382s
+FAIL
+exit=1 -> RED as required
+
