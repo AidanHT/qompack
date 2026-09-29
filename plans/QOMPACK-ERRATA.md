@@ -407,3 +407,58 @@ directs this revision-log entry. This record belongs to wave 8b (`w8b-polish`).
 
 `plans/V6-CLOSEOUT-CHECKLIST.md` (D33, D36); `plans/sdd/V6-closeout/w7b-checkpoint/report.md`;
 `internal/pluginmanifest/manifest.go`; `internal/rehydrate/build.go`.
+
+## v1.8 — §8.1 the hot-path budget follows the durable ingest it contains (2026-09-28)
+
+### Origin
+
+The V6 close-out's Phase 3 runs on the frozen candidate found every isolated Windows hot-path run
+moving the daemon to spool submode after exactly 3 x 512 samples, with a degraded WARN and a
+LOUD.log entry (the coordinator's Phase 3 logs p3-win-timing.log and p3-win-e2e-timing.log). B-A's
+sample in `internal/daemon/handlers.go` (`recordHotPathSample`) is recvTS - reqTS + handler time +
+a 1 ms tail allowance, and the handler time is the durable `ingest.Accept` B-B times, so B-A
+contains B-B. The V5 ruling that kept fsync-before-ACK re-budgeted B-B per platform (15 / 50 / 40
+ms) and left `runtime.hotPath.budgetMs` at 15 everywhere. The coordinator ratified the repair under
+the owner's delegation D33 as decision D41 (`plans/V6-CLOSEOUT-CHECKLIST.md`), which also directs
+this revision-log entry. This record belongs to wave 11 (`w11-babudget`).
+
+### Checked, and what held
+
+- **The measurement.** Isolated Phase 3 runs on `a94a3fb`: B-A p50 15.4-16.4 ms, p99
+  22.5-26.6 ms; B-B p99 12.3 ms; hook_controlled_observed p99 6.1 ms. B-A therefore breached a
+  15 ms limit while B-B sat well inside its 50 ms one.
+- **The derivation introduces no number.** `HotPathBudgetMsFor` in `internal/config/deadlines.go`
+  is `max(HotPathBudgetMsFloor, l0IngestMs)`; the floor is the 15 ms B-A already shipped, and the
+  per-platform inputs are the approved `L0IngestMs*` constants.
+- **Every platform, from one host.** `TestDefaults_HotPathBudgetPerPlatform` pins 15 / 50 / 40 and
+  B-A >= B-B for linux, Windows and darwin; `TestDefaults_HotPathBudgetCoversTheIngestBudget` and
+  `TestDefaults_RuntimeNamespace` pin the running platform; `TestLoad_UserSetHotPathBudgetIsKept`
+  pins that a user-set value is applied as written. The first two were red on Windows before the
+  change (`plans/sdd/V6-closeout/w11-babudget/runs/red-windows.log`).
+- **The generated configuration reference** renders the key's Default cell as
+  "`15` (`50` on Windows, `40` on macOS)", read from the same function.
+
+### What changed
+
+- `Qompack.md` §8.1: one sentence stating that the hook budget is never tighter than the durable
+  capture it waits on. The declared version is v1.8 and the Revision log carries the entry.
+- `plans/00-ARCHITECTURE.md` §2.4's B-A row, a D41 note beside the SP20-D1 B-B note, and §7's
+  bench-gate sentence; `docs/architecture.md`, `docs/cannot-do.md` and the generated
+  `docs/config-reference.md`.
+
+### What did not change
+
+- B-B, the ACK deadline, `breachWindows`, the certification rule and every other budget.
+- A `budgetMs` set in any configuration layer, and the independence of `budgetMs` from a user-set
+  `l0IngestMs`: only the default is derived, and only from the platform's default.
+
+### What was not verified
+
+- Linux and darwin runs of the hot-path rows at the derived default: the Linux container verifies
+  after this wave; darwin rests on CI's macos-latest, and its 40 ms inherits B-B's provisional
+  status.
+
+### Sources
+
+`plans/V6-CLOSEOUT-CHECKLIST.md` (D33, D41); `internal/config/deadlines.go`;
+`internal/daemon/handlers.go`; `internal/daemon/budget.go`; `internal/obs/budgets.go`.
