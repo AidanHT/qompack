@@ -1,0 +1,56 @@
+--- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode (0.00s)
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition,_loud_and_named,_ledger_adds_up (0.00s)
+        hotpath_test.go:1804: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1804
+            	Error:      	Received unexpected error:
+            	            	state.bin must report hot=0 (sync) for the entire measured run
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition,_loud_and_named,_ledger_adds_up
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_the_watcher's_poll_missed,_left_spool_by_teardown (0.00s)
+        hotpath_test.go:1804: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1804
+            	Error:      	Received unexpected error:
+            	            	no "hot path degraded to spool submode" WARN line may be logged during a run that stays inside its budget; logged: ["ts=2026-09-28T00:00:00.000000001Z level=warn msg=\"daemon: hot path degraded to spool submode\" budget_ms=15 windows=3"]
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_the_watcher's_poll_missed,_left_spool_by_teardown
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_spool_record_with_no_WARN_and_no_LOUD_line (0.00s)
+        hotpath_test.go:1801: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1801
+            	Error:      	Error "state.bin must report hot=0 (sync) for the entire measured run" does not contain "never a silent one"
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_spool_record_with_no_WARN_and_no_LOUD_line
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_missing_its_LOUD.log_line (0.00s)
+        hotpath_test.go:1801: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1801
+            	Error:      	Error "state.bin must report hot=0 (sync) for the entire measured run" does not contain "LOUD.log 0"
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_missing_its_LOUD.log_line
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_missing_its_WARN_line (0.00s)
+        hotpath_test.go:1801: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1801
+            	Error:      	Error "state.bin must report hot=0 (sync) for the entire measured run" does not contain "day logs carry 0"
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_missing_its_WARN_line
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_WARN_and_LOUD_counts_disagree (0.00s)
+        hotpath_test.go:1801: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1801
+            	Error:      	Error "state.bin must report hot=0 (sync) for the entire measured run" does not contain "day logs carry 2 and LOUD.log 1"
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_WARN_and_LOUD_counts_disagree
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_line_that_does_not_name_the_breach (0.00s)
+        hotpath_test.go:1801: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1801
+            	Error:      	Error "state.bin must report hot=0 (sync) for the entire measured run" does not contain "does not name the breach"
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_line_that_does_not_name_the_breach
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_naming_a_different_breach-window_count (0.00s)
+        hotpath_test.go:1801: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1801
+            	Error:      	Error "state.bin must report hot=0 (sync) for the entire measured run" does not contain "budget_ms=15 windows=4, not the configured"
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_naming_a_different_breach-window_count
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_with_no_delivery_ledger (0.00s)
+        hotpath_test.go:1801: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1801
+            	Error:      	Error "state.bin must report hot=0 (sync) for the entire measured run" does not contain "carries no delivery ledger note"
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_with_no_delivery_ledger
+    --- FAIL: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_whose_ledger_does_not_add_up (0.00s)
+        hotpath_test.go:1801: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-coloadspool/test/integration/hotpath_test.go:1801
+            	Error:      	Error "state.bin must report hot=0 (sync) for the entire measured run" does not contain "does not add up: 2130 sent, 1537 delivered live, 575 deferred"
+            	Test:       	TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_whose_ledger_does_not_add_up
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	0.298s
+FAIL
