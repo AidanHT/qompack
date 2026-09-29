@@ -923,13 +923,32 @@ func recordScore(sc map[dag.NodeID]float32, rec negknow.Record) float32 {
 	return s
 }
 
-// buildDecisions is item 4: what was decided and why, ranked by slice relevance.
+// buildDecisions is item 4: what was decided and why — the session's own decisions ranked by slice
+// relevance, then the ones from other sessions' project-scoped eliminations, newest recorded first.
 func buildDecisions(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float32) built { //nolint:unparam // the nine item builders share one signature so buildAll can call them uniformly
 	var b built
 
 	decs := make([]checkpoint.Decision, len(r.Checkpoint.Decisions))
 	copy(decs, r.Checkpoint.Decisions)
+	// D46: the session's own decisions rank before the ones minted from other sessions'
+	// project-scoped eliminations, and those follow by their records' recorded time, newest first,
+	// exactly as the checkpoint orders them (checkpoint.ForeignDecisions). A foreign decision's Turn
+	// is in the other session's numbering (569 against this session's 3), so ranking every decision
+	// by score then Turn put the foreign ones first on a score tie, and fillPrefix's tail-first cut
+	// then dropped the session's own decisions from the payload.
+	foreign := checkpoint.ForeignDecisions(r.Checkpoint)
 	sort.SliceStable(decs, func(i, j int) bool {
+		fi, iForeign := foreign[decs[i].ID]
+		fj, jForeign := foreign[decs[j].ID]
+		if iForeign != jForeign {
+			return !iForeign
+		}
+		if iForeign {
+			if fi != fj {
+				return fi > fj
+			}
+			return decs[i].ID < decs[j].ID
+		}
 		si, sj := sc[dag.DecisionNode(decs[i].ID)], sc[dag.DecisionNode(decs[j].ID)]
 		if si != sj {
 			return si > sj

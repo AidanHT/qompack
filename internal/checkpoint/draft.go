@@ -26,7 +26,9 @@ import (
 //     question that arrived when the list was already saturated is the one the session has had
 //     the least time to depend on.
 //   - maxDraftDecisions keeps the head of the Turn-descending order (§8 step 3): Truncate cuts
-//     tail-first, so the head is the newest and the cap discards the stalest decisions first. It
+//     tail-first, so the head is the newest and the cap discards the stalest decisions first.
+//     Decisions from other sessions' project-scoped eliminations sort after all of the session's
+//     own, newest recorded first (D46, mergeDecisionsLocked), so the cap discards them first. It
 //     is the package's single declaration of §8's decision cap: the per-extraction cap in §9 is
 //     the same bound applied one pass earlier, and a second constant spelling the same number is
 //     free to drift from this one.
