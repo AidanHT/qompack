@@ -152,7 +152,7 @@ real home fingerprint unchanged
 check exit 0
 == staged-copy cleanup (retrieval part end): no qompack.exe running; ~/.qompack/bin/c7b2b120.../qompack.exe sha256 = the frozen bundle bin/qompack.exe
 (c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d); homeguard listed it as gained (created 14:38:33 by session 1); no install in this part
-(--plugin-dir only), so install.md section 6 host uninstall is not applicable; removed with section 6 Remove-Item -Recurse -Force $HOME\.qompackin,
+(--plugin-dir only), so install.md section 6 host uninstall is not applicable; removed with section 6 Remove-Item -Recurse -Force $HOME\.qompack\bin,
 then the empty run-created ~/.qompack (absent at snap).
 == END of retrieval part (after staged-copy cleanup) — 2026-09-29 15:19:52 Eastern Daylight Time
 same  settings.json e15855d7e46a
