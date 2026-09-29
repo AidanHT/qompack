@@ -2,7 +2,7 @@
 --- PASS: TestFsck_ALockCopiedFromAnotherPathIsNotARunningDaemon (0.25s)
 === RUN   TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon
     daemon_lockheld_test.go:145: 
-        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/cli/daemon_lockheld_test.go:145
+        	Error Trace:	<worktree>/internal/cli/daemon_lockheld_test.go:145
         	Error:      	Not equal: 
         	            	expected: true
         	            	actual  : false

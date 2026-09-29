@@ -1,6 +1,6 @@
 === RUN   TestBeginScansPersistedDraftsOncePerWriter
     encode_ordering_test.go:179: 
-        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/checkpoint/encode_ordering_test.go:179
+        	Error Trace:	<worktree>/internal/checkpoint/encode_ordering_test.go:179
         	Error:      	Not equal: 
         	            	expected: 1
         	            	actual  : 2

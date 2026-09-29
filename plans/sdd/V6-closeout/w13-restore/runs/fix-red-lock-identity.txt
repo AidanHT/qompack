@@ -18,13 +18,13 @@
 === CONT  TestForeignLockIsJudgedByThisStoresHeartbeat/a_fresh_heartbeat:_still_held
 === NAME  TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/this_project's_endpoint_under_another_socket_directory,_its_pid_alive
     lock_foreign_test.go:156: 
-        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/daemon/lock_foreign_test.go:156
+        	Error Trace:	<worktree>/internal/daemon/lock_foreign_test.go:156
         	Error:      	Should be false
         	Test:       	TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/this_project's_endpoint_under_another_socket_directory,_its_pid_alive
         	Messages:   	the endpoint is named for this project's own hash
 === NAME  TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/an_address_no_project_hash_names,_answering
     lock_foreign_test.go:141: 
-        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/daemon/lock_foreign_test.go:141
+        	Error Trace:	<worktree>/internal/daemon/lock_foreign_test.go:141
         	Error:      	Target error should be in err chain:
         	            	expected: "qompack: daemon lock already held"
         	            	in chain: 

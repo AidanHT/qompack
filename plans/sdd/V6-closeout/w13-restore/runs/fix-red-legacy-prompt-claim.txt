@@ -3,7 +3,7 @@
 === RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_sidecar_no_record_accounts_for_is_still_a_gap
 === RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_current_build's_unleased_record_does_not_account_for_a_current_build's_gap
     crossversion_prompt_test.go:169: 
-        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/cli/crossversion_prompt_test.go:169
+        	Error Trace:	<worktree>/internal/cli/crossversion_prompt_test.go:169
         	Error:      	Not equal: 
         	            	expected: false
         	            	actual  : true
