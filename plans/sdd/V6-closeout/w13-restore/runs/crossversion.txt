@@ -1,0 +1,52 @@
+Cross-version check (D3, item 3 of the w13-restore brief), 2026-09-29, Windows 11, daytime seat.
+
+Binaries, each built into <scratch>/bin from `git archive <rev>`:
+  qompack-v020.exe   tag v0.2.0 (71c46a2)   the public release; reports version 0.1.0
+  qompack-301a.exe   301a8e9                the live lane's "previous build" (0.2.99-prev)
+  qompack-base.exe   84d25122               this seat's base (closeout/integration)
+  qompack-cand.exe   this branch after 6a0feb9c
+
+Stores: gen_store.py drove each old build's own hooks (session-start, observe prompt x3,
+observe tool x2, observe stop x3, checkpoint, session-start compact, flush) against a fresh
+git-initialized temp project with a fake HOME/USERPROFILE/QOMPACK_HOME and idleExitSeconds=5,
+payload cwd "/fixture/proj" and a relative file_path, then waited for that build's daemon to
+idle-exit. check_store.py copied the project and ran the named binary over the copy:
+fsck --json, backup create/verify/restore --json, a session-start + flush that starts the
+binary's own daemon, its idle exit, LOUD.log, and fsck --json again.
+
+What each old build wrote (read from the stores and from `git show <rev>:`):
+  v0.2.0  no records/captures tree, no checkpoint, no draft, no encode record (the tag has no
+          capture_sidecar.go and no checkpoint writer; checkpoint answered {}).
+  301a8e9 8 capture sidecars: 3 observe.prompt sidecars published:false with no tool_use_id
+          (301a8e9 linked tool and subagent captures only; observer/identity.go linkObservation
+          has no prompt caller there), 1 control-line sidecar, and the rest published; the
+          prompts' own records prompt_<s>_<turn> with argd = ArgsDigest({"prompt": text}).
+
+Results (exit codes; "LOUD" = the daemon's startup publication line):
+
+  base (84d25122) on the v0.2.0 store
+    fsck 0, backup create 0, verify 0, restore 0, daemon start/exit clean, LOUD.log absent,
+    fsck after the daemon 0.
+  candidate on the v0.2.0 store
+    identical: fsck 0, create 0, verify 0, restore 0, LOUD.log absent, fsck after 0.
+  => a store the v0.2.0 release wrote was never affected by D3 (it holds no sidecars).
+
+  base (84d25122) on the 301a8e9 store  -- reproduces the live lane's D3 exactly
+    fsck 1; backup restore 1: captures "capture sidecar ... for a observe.prompt delivery is at
+    stage 1 only: outcome "ok" with bytes ... durable and no reference joined to it" (x3) and
+    publication "publication evidence includes 3 unlinked captures"; the first daemon start
+    logged LOUD "daemon: unpublished captures or unindexed objects found at startup"
+    unpublished_captures=3; fsck after the daemon 1.
+  candidate at 35d3d35a (before 6a0feb9c) on an earlier 301a8e9 store of the same shape (the
+  first generation, which still carried absolute payload paths)
+    fsck 1; verify 1 and restore 1 on the same captures/publication rows; LOUD
+    unpublished_captures=3.
+  candidate (6a0feb9c) on the 301a8e9 store
+    fsck 0, create 0, verify 0, restore 0; the daemon's startup LOUD has no unpublished-captures
+    line (the only LOUD line is "contract: degrading to passive recording", expected with no
+    real host transcript); fsck after the daemon 0.
+
+Committed guard: internal/cli/testdata/crossversion/v0.2.0/qompack-store is the v0.2.0 store
+above (backup-scope directories only; no local path in any file), read by
+TestCrossVersion_AStoreTheV020ReleaseWroteReadsClean. The 301a8e9 shape is pinned synthetically by
+TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished.

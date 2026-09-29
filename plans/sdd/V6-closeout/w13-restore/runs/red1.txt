@@ -1,0 +1,9 @@
+--- FAIL: TestE2E_IdleExitLeavesNoUnsealedEncodeClaim (26.88s)
+    restore_after_use_test.go:93: 
+        	Error Trace:	<worktree>/test/e2e/restore_after_use_test.go:93
+        	Error:      	Should be true
+        	Test:       	TestE2E_IdleExitLeavesNoUnsealedEncodeClaim
+        	Messages:   	index/segments.jsonl records segment 1 encoded into checkpoint 0002, which the manifest does not record (sealed: map[1:true]); the unsealed draft holds seq 2
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	27.169s
+FAIL

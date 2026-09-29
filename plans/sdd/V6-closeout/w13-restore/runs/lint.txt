@@ -1,0 +1,15 @@
+== devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns (run 2, before the errcheck fix in faff8831)
+internal\cli\crossversion_prompt_test.go:82:17: Error return value is not checked (errcheck)
+internal\cli\crossversion_v020_test.go:70:16: Error return value is not checked (errcheck)
+FAIL golangci-lint: exit status 1
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers
+
+== devtool lint --only=golangci-lint (run 3, after faff8831)
+== devtool lint: golangci-lint ==
+PASS golangci-lint
