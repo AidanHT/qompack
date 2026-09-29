@@ -24,6 +24,7 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
@@ -814,6 +815,20 @@ type fsckToolUseLine struct {
 	Turn    int64  `json:"turn"`
 	Root    string `json:"root"`
 	By      string `json:"by"`
+	Eph     bool   `json:"eph"`
+}
+
+// fsckUnattributedSelfRecord reports whether tu is a retrieval self-record filed at turn 0: the
+// record the MCP server writes for its own answer (mcp.SelfRecordIDPrefix, born ephemeral), with
+// no turn attributed. Every build before V6 wave 13 filed them so — its turn came from the
+// session's open segment, whose start is turn 0 for a session's whole first segment — which put
+// them behind hook records of later turns in any session that called a Qompack tool, and failed
+// this check for good in every such store (F-UAT01-2 of the V6 live lane). Such a record has no
+// place in the session's turn order to regress from: it is reported, not counted as a defect, and
+// it does not move the baseline the records after it are checked against. A current build files
+// the record at the session's current turn, which this check then orders like any other.
+func fsckUnattributedSelfRecord(tu fsckToolUseLine) bool {
+	return tu.Turn == 0 && tu.Eph && strings.HasPrefix(tu.ID, mcp.SelfRecordIDPrefix)
 }
 
 // fsckToolUseSupersede is the Op of the store's supersede mutation line (MarkSuperseded).
@@ -878,11 +893,19 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 
 	lastTurn := map[string]int64{}
 	for _, tu := range records {
-		if prev, seen := lastTurn[tu.Session]; seen && tu.Turn < prev {
+		prev, seen := lastTurn[tu.Session]
+		switch {
+		case seen && tu.Turn < prev && fsckUnattributedSelfRecord(tu):
+			row.note("tool_use %s is a retrieval self-record filed with no turn (turn 0) after turn %d "+
+				"in session %s; it is outside the session's turn order, which it does not break",
+				tu.ID, prev, tu.Session)
+		case seen && tu.Turn < prev:
 			row.defect("tool_use %s reports turn %d after turn %d in session %s; turns are monotone",
 				tu.ID, tu.Turn, prev, tu.Session)
+			lastTurn[tu.Session] = tu.Turn
+		default:
+			lastTurn[tu.Session] = tu.Turn
 		}
-		lastTurn[tu.Session] = tu.Turn
 
 		if tu.By != "" && !ids[tu.By] {
 			row.defect("tool_use %s is superseded by %s, which this index does not record",

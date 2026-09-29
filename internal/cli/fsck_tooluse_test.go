@@ -10,6 +10,7 @@ import (
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -129,4 +130,63 @@ func TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries(t *testing.T) 
 	require.Contains(t, detail, "tool_use tu-a-2 is superseded by tu-ghost, which this index does not record")
 	require.Contains(t, detail, "a supersede mark names tu-lost, which this index does not record")
 	require.NotContains(t, detail, "reports turn", "a mark is not a record and has no turn to regress")
+}
+
+// fsckSelfRecord is a retrieval self-record as the MCP server files it: a synthetic id, the
+// server's own tool name, born ephemeral.
+func fsckSelfRecord(id, session string, turn core.TurnIndex) store.ToolUseRecord {
+	return store.ToolUseRecord{
+		ID: core.ToolUseID(mcp.SelfRecordIDPrefix + id), Session: core.SessionID(session), Turn: turn,
+		TS: 2, Tool: "mcp__qompack__recall", Ephemeral: true,
+	}
+}
+
+// TestFsck_ToolUseUnattributedSelfRecordIsNotARegression is the compatibility half of F-UAT01-2:
+// a store written by a build that filed every retrieval self-record at turn 0 must not fail fsck
+// for ever. The record is named in a note, and the session's order is judged without it.
+func TestFsck_ToolUseUnattributedSelfRecordIsNotARegression(t *testing.T) {
+	p := seedFsckProject(t)
+	fsckRecordToolUses(t, p.Root, []store.ToolUseRecord{
+		fsckToolUseRecord("tu-a-3", "s-a", 3),
+		fsckSelfRecord("93dd88341192", "s-a", 0),
+		fsckToolUseRecord("tu-a-3b", "s-a", 3),
+	}, nil)
+
+	code, doc, _ := fsckJSON(t, p.Root)
+	row := fsckRequireRow(t, doc, "index.tool_use")
+	require.Equal(t, true, row["ok"], "an unattributed self-record is not a turn regression: %s", fsckDetail(row))
+	require.Contains(t, fsckDetail(row), "tool_use qompack-mcp:93dd88341192 is a retrieval self-record filed with no turn")
+	require.Equal(t, ExitOK, code, "doc=%v", doc)
+}
+
+// TestFsck_ToolUseRegressionAfterASelfRecordIsStillADefect: leaving the unattributed record out of
+// the order must not reset the baseline — a real regression behind it is still caught.
+func TestFsck_ToolUseRegressionAfterASelfRecordIsStillADefect(t *testing.T) {
+	p := seedFsckProject(t)
+	fsckRecordToolUses(t, p.Root, []store.ToolUseRecord{
+		fsckToolUseRecord("tu-a-3", "s-a", 3),
+		fsckSelfRecord("93dd88341192", "s-a", 0),
+		fsckToolUseRecord("tu-a-1", "s-a", 1),
+	}, nil)
+
+	code, doc, _ := fsckJSON(t, p.Root)
+	require.NotEqual(t, ExitOK, code)
+	row := fsckRequireRow(t, doc, "index.tool_use")
+	require.Equal(t, false, row["ok"])
+	require.Contains(t, fsckDetail(row), "tool_use tu-a-1 reports turn 1 after turn 3 in session s-a;")
+}
+
+// TestFsck_ToolUseAttributedSelfRecordIsOrderedLikeAnyOther: a self-record that DOES carry a turn is
+// held to the session's order like every other record; only the unattributed turn-0 shape is exempt.
+func TestFsck_ToolUseAttributedSelfRecordIsOrderedLikeAnyOther(t *testing.T) {
+	p := seedFsckProject(t)
+	fsckRecordToolUses(t, p.Root, []store.ToolUseRecord{
+		fsckToolUseRecord("tu-a-3", "s-a", 3),
+		fsckSelfRecord("5e1f00000001", "s-a", 2),
+	}, nil)
+
+	code, doc, _ := fsckJSON(t, p.Root)
+	require.NotEqual(t, ExitOK, code)
+	row := fsckRequireRow(t, doc, "index.tool_use")
+	require.Contains(t, fsckDetail(row), "tool_use qompack-mcp:5e1f00000001 reports turn 2 after turn 3 in session s-a;")
 }
