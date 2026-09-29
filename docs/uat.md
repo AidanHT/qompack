@@ -192,12 +192,30 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: not executed — capability unverified
-Snapshot: develop 9c84e31 / branch feat/sp18-documentation-and-uat
-Date: 2026-09-14
-Executed by: —
-Evidence: —
-Rollback verified: —
+Result: pass — frozen bundle installed through a disposable local marketplace at local scope
+  (real profile); the session's init listed plugin:qompack:qompack connected with the eight
+  documented tools and the six /qompack: commands; SessionStart, UserPromptSubmit, PostToolUse
+  and Stop fired (PreCompact, SubagentStop not exercised; SessionEnd ran per the store but has no
+  host stream event); every leaf default and every gated switch false; self-test exit 0, no
+  critical row. Step 8 OBSERVED (to be confirmed at execution): hook.additional_context_delivered,
+  precompact.has_time_to_write, precompact.custom_instructions_accepted and
+  mcp.server_registered all read not-yet-implemented in the installed CLI self-test.
+  Findings (not fail criteria of this row): `qompack status` lists mcp.server_registered failing
+  ("initialize-not-received") although the host connected the server and served a call; `qompack
+  fsck` exits 1 after the session (index.tool_use: the MCP record is indexed at turn 0 after
+  turn 3); doctor reports captures.unpublished degraded; step 4 expects 0.1.0 at
+  plugin/.claude-plugin/plugin.json, the bundle has 0.3.0 at .claude-plugin/plugin.json.
+Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
+  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
+  d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
+  Claude Code 2.1.280
+Date: 2026-09-29 (America/Toronto)
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
+  per owner decision D3 — not human UAT
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-01/ (notes.txt indexes it)
+Rollback verified: not applicable — initial state absent (no <project>/.qompack/, recorded);
+  per the row's rule the run is retained as evidence and no pre-run store exists to restore;
+  no backup or restore was run in this row
 ```
 
 ---
