@@ -1,0 +1,20 @@
+# review fix: failing fixtures before the (c) check (go test -p 2 -count=1 -run '^TestIntegration_HotPathBAPopulationIsTheDaemonHistogram$' ./test/integration/)
+--- FAIL: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram (0.00s)
+    --- FAIL: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_run_deferring_exactly_the_warm-up_tranche (0.00s)
+        hotpath_test.go:1529: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w9-testfix/test/integration/hotpath_test.go:1529
+            	Error:      	An error is expected but got nil.
+            	Test:       	TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_run_deferring_exactly_the_warm-up_tranche
+    --- FAIL: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_with_a_shortfall_covered_by_invalid_timestamps (0.00s)
+        hotpath_test.go:1529: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w9-testfix/test/integration/hotpath_test.go:1529
+            	Error:      	An error is expected but got nil.
+            	Test:       	TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_with_a_shortfall_covered_by_invalid_timestamps
+    --- FAIL: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_clean_run_with_64_invalid_timestamps (0.00s)
+        hotpath_test.go:1529: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w9-testfix/test/integration/hotpath_test.go:1529
+            	Error:      	An error is expected but got nil.
+            	Test:       	TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_clean_run_with_64_invalid_timestamps
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	0.244s
+FAIL
