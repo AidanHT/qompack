@@ -67,7 +67,9 @@ func TestCrossVersion_AStoreTheV020ReleaseWroteReadsClean(t *testing.T) {
 
 	s, err := store.OpenReadOnly(root, config.Defaults(), store.Deps{})
 	require.NoError(t, err)
-	audit, err := s.(store.PublicationAuditor).AuditPublication(context.Background(), store.DefaultPublicationScanCap())
+	auditor, ok := s.(store.PublicationAuditor)
+	require.True(t, ok)
+	audit, err := auditor.AuditPublication(context.Background(), store.DefaultPublicationScanCap())
 	require.NoError(t, s.Close())
 	require.NoError(t, err)
 	require.False(t, audit.HasGaps(), "the startup accounting finds no publication gap: %+v", audit)
