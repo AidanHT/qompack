@@ -1,0 +1,59 @@
+# RED: the live-lane reproduction rows (internal/cli/live_ledger_test.go) on closeout/integration 84d2512 with no fix applied, Windows 11, go1.26.6.
+# $ go test -p 2 -count=1 -run 'TestLive(MCPSelfRecordKeepsSessionTurnOrder|LedgerToolsAnswerBeforeFirstCompaction|SessionScopedEliminationStaysInItsSession|AlreadyTriedSeesInSessionDependencyChange|PreCompactCarriesEliminationAndDecision|TimelineShowsOpenSegmentProgress|TimelineRefusesAnInvertedRange)$' ./internal/cli/
+# (line numbers refer to the test file as it stood for this run)
+--- FAIL: TestLiveMCPSelfRecordKeepsSessionTurnOrder (0.69s)
+    live_ledger_test.go:372: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:372
+        	Error:      	"0" is not greater than or equal to "2"
+        	Test:       	TestLiveMCPSelfRecordKeepsSessionTurnOrder
+        	Messages:   	the self-record must be filed at the session's current turn, not before turn 2
+--- FAIL: TestLiveLedgerToolsAnswerBeforeFirstCompaction (0.65s)
+    live_ledger_test.go:391: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:391
+        	Error:      	Not equal: 
+        	            	expected: "absent"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-absent
+        	            	+
+        	Test:       	TestLiveLedgerToolsAnswerBeforeFirstCompaction
+        	Messages:   	an unrecorded approach is absent, not {State: Reason:elimination ledger not present in this build Note: StaleBecause:[] Degraded:false Available:0x1e566533d948}
+--- FAIL: TestLiveSessionScopedEliminationStaysInItsSession (0.63s)
+    live_ledger_test.go:410: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:291
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:410
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestLiveSessionScopedEliminationStaysInItsSession
+        	Messages:   	record_eliminated must answer the id it recorded, not {ID: Status: Scope: Evidence: DependsOnUnresolved:[] Available:0x1e566521e42e Reason:elimination ledger not present in this build}
+--- FAIL: TestLiveAlreadyTriedSeesInSessionDependencyChange (0.81s)
+    live_ledger_test.go:434: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:291
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:434
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestLiveAlreadyTriedSeesInSessionDependencyChange
+        	Messages:   	record_eliminated must answer the id it recorded, not {ID: Status: Scope: Evidence: DependsOnUnresolved:[] Available:0x1e5663a941c8 Reason:elimination ledger not present in this build}
+--- FAIL: TestLivePreCompactCarriesEliminationAndDecision (0.93s)
+    live_ledger_test.go:465: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:465
+        	Error:      	Should be true
+        	Test:       	TestLivePreCompactCarriesEliminationAndDecision
+        	Messages:   	the checkpoint must carry the active elimination elim_41d22a7ae15c: []
+--- FAIL: TestLiveTimelineShowsOpenSegmentProgress (1.25s)
+    live_ledger_test.go:526: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:526
+        	Error:      	"0" is not greater than or equal to "3"
+        	Test:       	TestLiveTimelineShowsOpenSegmentProgress
+        	Messages:   	an open segment must report the session's current turn, not 0-0
+--- FAIL: TestLiveTimelineRefusesAnInvertedRange (0.86s)
+    live_ledger_test.go:543: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-ledger/internal/cli/live_ledger_test.go:543
+        	Error:      	Should be true
+        	Test:       	TestLiveTimelineRefusesAnInvertedRange
+        	Messages:   	from > to must be refused as a tool error: [{text {"count":1,"found":true,"from":5,"frontier":0,"segments":[{"checkpoint_seq":0,"closed":false,"encoded_once":false,"end_ts":"","end_turn":0,"features":null,"id":1,"start_ts":"2026-09-29T20:14:38Z","start_turn":0,"tokens":0}],"to":2} map[]}]
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	6.086s
+FAIL
