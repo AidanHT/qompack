@@ -127,8 +127,10 @@ func Open(root string) (Store, error) {
 //
 // It creates <root>/.qompack/pins at 0700 — matching paths.EnsureLayout, and done here because
 // the L0 hooks that pin an invariant can run before anything has laid out the store — then
-// replays pins/invariants.jsonl ONCE into memory. Every later mutation is guarded by a mutex and
-// updates the log and that in-memory set together, so All never re-reads the file.
+// replays pins/invariants.jsonl in full into memory. Every later call is guarded by a mutex; a
+// mutation updates the log and that in-memory set together, and every call first folds in the tail
+// another process appended since (`qompack pin` beside a running daemon, F-UAT05-2) — one stat when
+// the log has not changed, never a full re-read.
 //
 // A log that cannot be read is an error rather than an empty store: reporting "no pins" for a
 // file that exists but failed to open would let the next checkpoint drop tier-1 content silently,

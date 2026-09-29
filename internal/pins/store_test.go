@@ -733,3 +733,95 @@ func TestPinsReplayDoesNotAllocateAWholeOversizeLine(t *testing.T) {
 	require.Equal(t, "inv_afterthehuge", got[0].ID)
 	require.Equal(t, int64(1), m.Snapshot().Counters["pins.badline"])
 }
+
+// TestPinsSeesAnotherWritersAppends is F-UAT05-2 at the seam. The resident daemon holds one store
+// for its whole life while `qompack pin` opens a second over the same log in another process and
+// appends to it. The daemon's store must answer the second writer's records — in All, which seeds
+// every checkpoint's tier-1 invariants, and in Materialize, which regenerates invariants.json from
+// memory — rather than the set it replayed at open, which is what dropped a live pin from the next
+// checkpoint and rewrote the view without it.
+func TestPinsSeesAnotherWritersAppends(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	daemonSide, _ := openSeeded(t, root)
+	require.NoError(t, daemonSide.Add(ctx, pins.Invariant{Text: "first, pinned through the daemon", Source: "agent"}))
+
+	cliSide, _ := openSeeded(t, root)
+	cliPin := pins.Invariant{Text: "Never write to prod.db from the export code.", Source: "user"}
+	require.NoError(t, cliSide.Add(ctx, cliPin))
+
+	got, err := daemonSide.All(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 2, "the daemon's store must answer a record another process appended")
+	require.Contains(t, []string{got[0].ID, got[1].ID}, pins.MintID(cliPin.Text))
+
+	require.NoError(t, daemonSide.Materialize(ctx))
+	view, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).Pins, "invariants.json")))
+	require.NoError(t, err)
+	require.Contains(t, string(view), cliPin.Text,
+		"the daemon's Materialize must not rewrite the view without another writer's pin")
+
+	require.NoError(t, cliSide.Remove(ctx, pins.MintID(cliPin.Text)))
+	got, err = daemonSide.All(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 1, "a tombstone another process appended removes the pin here too")
+
+	require.NoError(t, daemonSide.Add(ctx, cliPin), "and an id tombstoned elsewhere can be re-added here")
+	again, _ := openSeeded(t, root)
+	fresh, err := again.All(ctx)
+	require.NoError(t, err)
+	live, err := daemonSide.All(ctx)
+	require.NoError(t, err)
+	require.Equal(t, fresh, live, "the long-lived store and a fresh replay agree on the same log")
+}
+
+// TestPinsRebuildsWhenTheLogShrinks covers the one change an append-only reader cannot fold as a
+// tail: a log shorter than what was already read (a restore put an older log in place). The store
+// replays it from the start instead of reading past its end or keeping pins the log no longer has.
+func TestPinsRebuildsWhenTheLogShrinks(t *testing.T) {
+	ctx := context.Background()
+	one := `{"op":"add","ts":1,"invariant":{"id":"inv_keptafterall","text":"kept","source":"user","pinned":1700000000000}}` + "\n"
+	two := `{"op":"add","ts":2,"invariant":{"id":"inv_gonewithlog0","text":"gone","source":"user","pinned":1700000000001}}` + "\n"
+	root := seedLog(t, one+two)
+	s, _ := openSeeded(t, root)
+	got, err := s.All(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+
+	logPath := paths.Long(filepath.Join(paths.Of(root).Pins, "invariants.jsonl"))
+	require.NoError(t, os.Remove(logPath))
+	w, err := paths.AppendOnly(filepath.Join(paths.Of(root).Pins, "invariants.jsonl"))
+	require.NoError(t, err)
+	_, err = io.WriteString(w, one)
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+
+	got, err = s.All(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 1, "a shorter log is replayed from the start, not read past its end")
+	require.Equal(t, "inv_keptafterall", got[0].ID)
+}
+
+// TestPinsKeepsItsSetWhenTheLogVanishes: a log this store has read that is then deleted holds no
+// tail to fold, and "no pins" is the one answer that would let the next checkpoint drop every
+// invariant silently. The store keeps answering the set it read, and a view regenerated from it
+// still lists the pin.
+func TestPinsKeepsItsSetWhenTheLogVanishes(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	s, _ := openSeeded(t, root)
+	inv := pins.Invariant{Text: "a pin that must not vanish quietly", Source: "user"}
+	require.NoError(t, s.Add(ctx, inv))
+	got, err := s.All(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.NoError(t, os.Remove(paths.Long(filepath.Join(paths.Of(root).Pins, "invariants.jsonl"))))
+
+	after, err := s.All(ctx)
+	require.NoError(t, err)
+	require.Equal(t, got, after, "a vanished log is not an empty set")
+	require.NoError(t, s.Materialize(ctx))
+	view, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).Pins, "invariants.json")))
+	require.NoError(t, err)
+	require.Contains(t, string(view), inv.Text)
+}
