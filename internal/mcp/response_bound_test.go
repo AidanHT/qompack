@@ -11,6 +11,7 @@ import (
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/stretchr/testify/require"
 )
@@ -430,6 +431,27 @@ var runRedactor = regionRedactor{
 	{regexp.MustCompile(`tok-[a-z]{4,}`), "<t>"},
 }
 
+// nestedRedactor adds, inside the blocks, a short match whose placeholder is far longer than it —
+// the shape of the production rules, whose placeholders reach maxPlaceholderBytes (37) while a
+// match can be minMatchBytes (3) and a replaced group one byte. The block rule runs first, so the
+// whole window redacts each block as one placeholder; a kept side that holds half a block renders
+// every short match inside it as a long placeholder, and grows past the raw bytes it came from.
+var nestedRedactor = regionRedactor{
+	{regexp.MustCompile(`(?s)BEGIN.*?END`), "<r>"},
+	{regexp.MustCompile(`zz`), "<" + strings.Repeat("=", 40) + ">"},
+}
+
+// largestSafeCut is the oracle's answer for keep: the largest rune boundary after the first byte
+// and at or before keep whose split is safe, or 0 when there is none.
+func largestSafeCut(r Redactor, window []byte, keep int) int {
+	for c := min(keep, len(window)); c > 0; c-- {
+		if (c == len(window) || utf8.RuneStart(window[c])) && cutIsSafe(r, window, c) {
+			return c
+		}
+	}
+	return 0
+}
+
 // cutIsSafe is the oracle: redacting the two sides of cut separately gives the whole window's
 // redaction back, byte for byte.
 func cutIsSafe(r Redactor, window []byte, cut int) bool {
@@ -485,6 +507,38 @@ func TestSafeCutFindsTheSafeCutBelowARedactedRegion(t *testing.T) {
 		require.Equal(t, string(wantKept), string(kept), row.name)
 	}
 
+	// A short match nested inside a block renders on the kept side as a placeholder longer than
+	// the match (w14-safecut review): the kept side then outgrows the raw bytes it came from, and a
+	// search that trusts its length to locate the block's start jumps below it.
+	nested := strings.Repeat("zz ", 40)
+	nestedLead := "BEGIN zz END" + strings.Repeat("c", 300)
+	nestedRows := []struct {
+		name   string
+		window string
+		keep   int
+		want   int
+	}{
+		{
+			"nested long placeholders inside a block",
+			strings.Repeat("a", 200) + "BEGIN" + nested + strings.Repeat("Q", 600) + "END" + strings.Repeat("b", 50),
+			200 + 5 + len(nested) + 400, 200,
+		},
+		{
+			"nested long placeholders, a safe cut only after an earlier block",
+			nestedLead + "BEGIN" + nested + strings.Repeat("Q", 600) + "END" + "d",
+			len(nestedLead) + 5 + len(nested) + 400, len(nestedLead),
+		},
+	}
+	for _, row := range nestedRows {
+		h := &handlers{redactor: nestedRedactor}
+		window := []byte(row.window)
+		whole, _ := nestedRedactor.Redact(window)
+		require.Equal(t, row.want, largestSafeCut(nestedRedactor, window, row.keep), "%s: oracle", row.name)
+		cut, _, ok := h.safeCut(window, whole, row.keep)
+		require.True(t, ok, "%s: a safe cut exists (got %d)", row.name, cut)
+		require.Equal(t, row.want, cut, row.name)
+	}
+
 	// A token whose first part alone still matches: the kept side does not locate the token's
 	// start, so the search falls back to backing off — and must still find a safe cut below it
 	// rather than give up.
@@ -504,26 +558,27 @@ func TestSafeCutFindsTheSafeCutBelowARedactedRegion(t *testing.T) {
 // oracle: safeCut returns a safe cut, the largest one at or before keep, and reports false only
 // when no rune boundary after the first byte and at or before keep is safe.
 func TestSafeCutReportsFalseOnlyWhenNoCutIsSafe(t *testing.T) {
-	windows := []string{
-		strings.Repeat("a", 30) + "BEGIN" + strings.Repeat("x", 90) + "END" + strings.Repeat("b", 20),
-		"BEGIN" + strings.Repeat("x", 40) + "END" + "ccBEGIN" + strings.Repeat("y", 70) + "END" + "d",
-		"é" + "BEGIN" + strings.Repeat("日", 30) + "END" + "BEGIN" + "zz" + "END" + strings.Repeat("ü", 9),
+	windows := []struct {
+		r Redactor
+		w string
+	}{
+		{blockRedactor, strings.Repeat("a", 30) + "BEGIN" + strings.Repeat("x", 90) + "END" + strings.Repeat("b", 20)},
+		{blockRedactor, "BEGIN" + strings.Repeat("x", 40) + "END" + "ccBEGIN" + strings.Repeat("y", 70) + "END" + "d"},
+		{blockRedactor, "é" + "BEGIN" + strings.Repeat("日", 30) + "END" + "BEGIN" + "zz" + "END" + strings.Repeat("ü", 9)},
+		// Short matches with long placeholders nested inside blocks (w14-safecut review).
+		{nestedRedactor, strings.Repeat("a", 30) + "BEGIN zz zz zz zz" + strings.Repeat("x", 60) + "END" + strings.Repeat("b", 20)},
+		{nestedRedactor, "BEGIN zz END" + "cc" + "BEGIN" + strings.Repeat("zz ", 12) + strings.Repeat("y", 30) + "END" + "d"},
+		{nestedRedactor, "é" + "zz" + "BEGIN" + strings.Repeat("日zz", 10) + "END" + "zz" + strings.Repeat("ü", 9)},
 	}
-	for wi, w := range windows {
-		window := []byte(w)
-		whole, _ := blockRedactor.Redact(window)
-		h := &handlers{redactor: blockRedactor}
+	for wi, ww := range windows {
+		window := []byte(ww.w)
+		whole, _ := ww.r.Redact(window)
+		h := &handlers{redactor: ww.r}
 		for keep := 1; keep <= len(window); keep++ {
 			if !utf8.RuneStart(window[keep%len(window)]) && keep < len(window) {
 				continue
 			}
-			want := 0
-			for c := keep; c > 0; c-- {
-				if (c == len(window) || utf8.RuneStart(window[c])) && cutIsSafe(blockRedactor, window, c) {
-					want = c
-					break
-				}
-			}
+			want := largestSafeCut(ww.r, window, keep)
 			cut, _, ok := h.safeCut(window, whole, keep)
 			require.Equal(t, want > 0, ok, "window %d keep %d: got cut %d, largest safe %d", wi, keep, cut, want)
 			if ok {
@@ -578,5 +633,47 @@ func TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage(t *testing.T) 
 		require.NotEmpty(t, got.NextSpan, "page %d", page)
 		start = got.Span[1]
 		args = map[string]any{"hash": h.String(), "span": got.NextSpan}
+	}
+}
+
+// TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor pins safeCut against the production
+// rules (V6 close-out, w14-safecut review): credentialed URIs inside a private-key block redact, on
+// a kept side that holds half the block, a 3-byte password as a 29-byte placeholder, so the kept
+// side is longer than the raw bytes behind it. The search must still land on the block's start,
+// and must not refuse a page when the only safe cut is after an earlier block.
+func TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Runtime.Redact.Enabled = true
+	r := testRedactor{r: redact.New(cfg)}
+	const (
+		header = "-----BEGIN RSA PRIV" + "ATE KEY-----\n"
+		footer = "\n-----END RSA PRIV" + "ATE KEY-----\n"
+	)
+	uris := strings.Repeat("http://u:"+"abc@h ", 40)
+	pem := header + uris + strings.Repeat("Q", 600) + footer
+	short := header + "Zm9v" + footer
+	rows := []struct {
+		name   string
+		window string
+		keep   int
+		want   int
+	}{
+		{"block after 200 bytes", strings.Repeat("a", 200) + pem + strings.Repeat("b", 50), 200 + len(pem) - 150, 200},
+		{
+			"a safe cut only after an earlier block", short + strings.Repeat("c", 300) + pem + "d",
+			len(short) + 300 + len(pem) - 200, len(short) + 300,
+		},
+	}
+	for _, row := range rows {
+		window := []byte(row.window)
+		whole, rules := r.Redact(window)
+		require.NotEmpty(t, rules, "%s: the production rules must fire on the window", row.name)
+		require.Equal(t, row.want, largestSafeCut(r, window, row.keep), "%s: oracle", row.name)
+		h := &handlers{redactor: r}
+		cut, kept, ok := h.safeCut(window, whole, row.keep)
+		require.True(t, ok, "%s: a safe cut exists (got %d)", row.name, cut)
+		require.Equal(t, row.want, cut, row.name)
+		wantKept, _ := r.Redact(window[:cut])
+		require.Equal(t, string(wantKept), string(kept), row.name)
 	}
 }

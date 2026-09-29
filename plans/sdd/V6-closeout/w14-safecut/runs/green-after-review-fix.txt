@@ -1,0 +1,7 @@
+# GREEN after the review fix (w14-safecut fix seat): focused safeCut and bound rows, -p 2 -count=1 -v
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (12.91s)
+--- PASS: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.13s)
+--- PASS: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.25s)
+--- PASS: TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage (0.88s)
+--- PASS: TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (1.88s)
+ok  	github.com/qompack/qompack/internal/mcp	16.382s
