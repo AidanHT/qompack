@@ -294,9 +294,16 @@ func checkHookPayloadShape(ctx context.Context, e Env) Result {
 }
 
 // checkMCPServerRegistered is CMCPRegistered's real observation: whether the MCP server has
-// received initialize at least once this session. Its declared severity is SevInfo (shipped by
+// completed its handshake with this project's daemon. Its declared severity is SevInfo (shipped by
 // SP-01's StandardAssertions and pinned by standard_test.go), so a failure here is surfaced but
 // never degrades a session on its own.
+//
+// The host connects its MCP servers beside a session's first SessionStart, not before it, so the
+// start that runs this Check is usually too early to have seen the handshake: the Phase 4 live lane
+// read "initialize-not-received" in every healthy first session (install D4, retrieval D7). A start
+// with no handshake on record is therefore pending for the rest of its own session
+// (History.MCPAwaitSession), and the assertion fails only at a start of a later session, once a
+// whole session has passed without one.
 func checkMCPServerRegistered(ctx context.Context, e Env) Result {
 	const desc = "MCP server received initialize"
 	h, ok := historyOf(e)
@@ -304,7 +311,15 @@ func checkMCPServerRegistered(ctx context.Context, e Env) Result {
 		return noObservationYet(CMCPRegistered, desc, e)
 	}
 	if h.MCPInitialized {
+		h.MCPAwaitSession = ""
 		return Result{OK: true, Expected: desc, Observed: "initialize-received", TS: now(e)}
+	}
+	sess := e.Event.SessionID
+	if h.MCPAwaitSession == "" || sess == "" || h.MCPAwaitSession == sess {
+		if h.MCPAwaitSession == "" {
+			h.MCPAwaitSession = sess
+		}
+		return Result{OK: true, Expected: desc, Observed: "initialize-pending", TS: now(e)}
 	}
 	return Result{OK: false, Expected: desc, Observed: "initialize-not-received", TS: now(e)}
 }
@@ -316,14 +331,49 @@ const transcriptReadableTailBytes = 64 << 10
 
 // checkTranscriptReadable is CTranscriptReadable's real observation: transcript_path exists and
 // its last non-empty line parses as JSON.
+//
+// In -p mode the host creates the transcript after SessionStart:startup, so a start other than a
+// compaction's that finds none reports it pending and remembers the path
+// (History.TranscriptAwaitPath). The next start of a different transcript resolves that record
+// first: one that has still not appeared fails the assertion, and one that has is forgotten. A
+// compaction starts from the transcript the host has been writing all session, so its absence then
+// fails at once, as it always did.
 func checkTranscriptReadable(ctx context.Context, e Env) Result {
 	const desc = "transcript_path exists and parses"
 	path := e.Event.TranscriptPath
+	h, hasHistory := historyOf(e)
+	neverAppeared := false
+	if hasHistory && h.TranscriptAwaitPath != "" && h.TranscriptAwaitPath != path {
+		if _, err := os.Stat(paths.Long(h.TranscriptAwaitPath)); err != nil {
+			neverAppeared = true
+		}
+		h.TranscriptAwaitPath = ""
+	}
+	r := observeTranscript(e, desc, path, h, hasHistory)
+	if neverAppeared && r.OK {
+		return Result{
+			OK: false, Expected: desc, Observed: "an earlier session's transcript_path never appeared", TS: now(e),
+		}
+	}
+	return r
+}
+
+// observeTranscript is checkTranscriptReadable's reading of this start's own transcript_path.
+func observeTranscript(e Env, desc, path string, h *SessionHistory, hasHistory bool) Result {
 	if path == "" {
 		return Result{OK: true, Expected: desc, Observed: "no-transcript-path", TS: now(e)}
 	}
 	if _, err := os.Stat(paths.Long(path)); err != nil {
+		if e.Event.Source != "compact" {
+			if hasHistory {
+				h.TranscriptAwaitPath = path
+			}
+			return Result{OK: true, Expected: desc, Observed: "transcript-pending", TS: now(e)}
+		}
 		return Result{OK: false, Expected: desc, Observed: "transcript_path does not exist", TS: now(e)}
+	}
+	if hasHistory && h.TranscriptAwaitPath == path {
+		h.TranscriptAwaitPath = ""
 	}
 	line, err := lastNonEmptyLine(path)
 	if err != nil {
