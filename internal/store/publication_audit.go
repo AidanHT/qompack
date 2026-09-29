@@ -196,6 +196,12 @@ type PublicationAudit struct {
 	// Put whose root line has not landed. Not a gap; drain/GC owns it.
 	PendingObjects int
 
+	// LegacyLinkedPrompts counts unpublished prompt sidecars an earlier build wrote whose reference
+	// exists (legacy_prompt.go): that build published the prompt as its prompt_<session>_<turn>
+	// record and never joined the sidecar to it. Read as published — not a gap — and counted so a
+	// consumer can say they were seen and kept rather than silently skipped.
+	LegacyLinkedPrompts int
+
 	// LegacyControlCaptures counts unpublished sidecars of a CONTROL line (IsControlCaptureOp): the
 	// known artifact builds before the V6 close-out left for a drained session start, checkpoint or
 	// flush. They are classified, so they do not make the pass incomplete; they are not gaps, because a
@@ -293,7 +299,7 @@ func (s *FSStore) AuditPublication(ctx context.Context, scanCap PublicationScanC
 
 	var a PublicationAudit
 	s.auditObservationBindings(ctx, bud, &a)
-	s.auditCaptures(ctx, scanCap.MaxCaptures, bud, &a)
+	s.auditCaptures(ctx, scanCap.MaxCaptures, bud, &a, s.legacyPromptRecords())
 	pending := s.pendingObjectChunks(ctx, bud, &a)
 	s.auditObjects(ctx, scanCap.MaxObjects, bud, &a, pending)
 
@@ -366,6 +372,7 @@ func isRealDir(e os.DirEntry) bool { return e.IsDir() && !isSymlinkish(e) }
 // CaptureSidecar keeps the captured payload (Bytes) out of the classification.
 type captureAuditView struct {
 	Version   int                  `json:"v"`
+	Session   core.SessionID       `json:"session"`
 	Op        string               `json:"op"`
 	Published bool                 `json:"published"`
 	Outcome   core.EvidenceOutcome `json:"outcome"`
@@ -375,7 +382,9 @@ type captureAuditView struct {
 
 // auditCaptures classifies every capture sidecar under records/captures/, bounded by maxCaptures and
 // the shared budget. A missing tree is not a gap; an unreadable one is incomplete.
-func (s *FSStore) auditCaptures(ctx context.Context, maxCaptures int, bud *scanBudget, a *PublicationAudit) {
+func (s *FSStore) auditCaptures(ctx context.Context, maxCaptures int, bud *scanBudget, a *PublicationAudit,
+	legacy map[LegacyPromptKey]int,
+) {
 	root := filepath.Join(s.l.Records, captureSidecarDir)
 	s.eachDirEntry(ctx, root, bud, a, func(shard os.DirEntry) bool {
 		if isSymlinkish(shard) {
@@ -400,7 +409,7 @@ func (s *FSStore) auditCaptures(ctx context.Context, maxCaptures int, bud *scanB
 				a.note("capture scan reached its cap")
 				return false
 			}
-			return s.classifyCaptureFile(filepath.Join(shardPath, file.Name()), file, bud, a)
+			return s.classifyCaptureFile(filepath.Join(shardPath, file.Name()), file, bud, a, legacy)
 		})
 	})
 }
@@ -409,7 +418,9 @@ func (s *FSStore) auditCaptures(ctx context.Context, maxCaptures int, bud *scanB
 // the byte budget is exhausted (the signal to stop the phase). Every failure to read or parse is
 // recorded as incomplete, never silently swallowed: a stage-one gap is exactly the state a torn
 // record hides in.
-func (s *FSStore) classifyCaptureFile(path string, entry os.DirEntry, bud *scanBudget, a *PublicationAudit) bool {
+func (s *FSStore) classifyCaptureFile(path string, entry os.DirEntry, bud *scanBudget, a *PublicationAudit,
+	legacy map[LegacyPromptKey]int,
+) bool {
 	a.CapturesScanned++
 	info, err := entry.Info()
 	if err != nil {
@@ -439,12 +450,15 @@ func (s *FSStore) classifyCaptureFile(path string, entry os.DirEntry, bud *scanB
 		a.note("capture sidecar unreadable")
 		return true
 	}
-	s.classifyCaptureView(view, a)
+	s.classifyCaptureView(view, a, legacy)
 	return true
 }
 
 // classifyCaptureView applies fsck's own gap criterion to one sidecar's fields.
-func (s *FSStore) classifyCaptureView(v captureAuditView, a *PublicationAudit) {
+//
+// legacy is the prompt records an earlier build's unlinked prompt sidecars may claim
+// (ClaimLegacyPrompt); nil claims nothing.
+func (s *FSStore) classifyCaptureView(v captureAuditView, a *PublicationAudit, legacy map[LegacyPromptKey]int) {
 	if v.Version != CaptureSidecarVersion {
 		// A newer schema is a support gap; an older/zero/missing one is an unreadable version. Both
 		// mean this build cannot assert what Published/Outcome mean, so neither is classified.
@@ -480,9 +494,12 @@ func (s *FSStore) classifyCaptureView(v captureAuditView, a *PublicationAudit) {
 		a.note("capture publication requirement is unknown")
 		return
 	}
-	if required {
+	switch {
+	case required && v.Op == auditOpObservePrompt && ClaimLegacyPrompt(legacy, v.Session, v.Bytes):
+		a.LegacyLinkedPrompts++
+	case required:
 		a.UnpublishedCaptures++
-	} else {
+	default:
 		a.LegitimatelyUnpublished++
 	}
 }

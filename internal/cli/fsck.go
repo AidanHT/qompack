@@ -431,6 +431,10 @@ type fsckScan struct {
 	sidecarBytes map[string]bool
 	// manifestSeqs is every checkpoint seq checkpoints/MANIFEST.jsonl records.
 	manifestSeqs map[core.CheckpointSeq]bool
+	// legacyPrompts counts index/tool_use.jsonl's prompt records by (session, args digest), which
+	// checkToolUse fills and checkCaptures claims from (store.ClaimLegacyPrompt): an earlier build's
+	// prompt sidecar its record accounts for is published, not a stage-one gap (D3, cross-version).
+	legacyPrompts map[store.LegacyPromptKey]int
 	// sealCheck is --seal-check: the one opt-in that lets this scan acquire the daemon lock.
 	sealCheck bool
 }
@@ -504,11 +508,12 @@ func fsckScanProject(ctx context.Context, root string, repairing, sealCheck bool
 
 	s := &fsckScan{
 		ctx: ctx, root: root, l: l, report: &rep,
-		roots:        map[string]fsckRootLine{},
-		tombstoned:   map[string]bool{},
-		sidecarBytes: map[string]bool{},
-		manifestSeqs: map[core.CheckpointSeq]bool{},
-		sealCheck:    sealCheck,
+		roots:         map[string]fsckRootLine{},
+		tombstoned:    map[string]bool{},
+		sidecarBytes:  map[string]bool{},
+		manifestSeqs:  map[core.CheckpointSeq]bool{},
+		legacyPrompts: map[store.LegacyPromptKey]int{},
+		sealCheck:     sealCheck,
 	}
 
 	rep.Checks = append(rep.Checks,
@@ -820,6 +825,8 @@ type fsckToolUseLine struct {
 	Turn    int64  `json:"turn"`
 	Root    string `json:"root"`
 	By      string `json:"by"`
+	Tool    string `json:"tool"`
+	ArgD    string `json:"argd"`
 }
 
 // fsckToolUseSupersede is the Op of the store's supersede mutation line (MarkSuperseded).
@@ -880,6 +887,21 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 		if m.By == "" || !ids[m.By] {
 			row.defect("tool_use %s is superseded by %s, which this index does not record", m.ID, m.By)
 		}
+	}
+
+	// The prompt records an earlier build's unlinked prompt sidecars may claim, keyed by id first so
+	// a record the file carries twice counts once, as the store's own index does.
+	prompts := map[string]store.LegacyPromptKey{}
+	for _, tu := range records {
+		if !store.IsPromptRecord(core.ToolUseID(tu.ID), tu.Tool) {
+			continue
+		}
+		if d, err := core.ParseHash(tu.ArgD); err == nil && !d.IsZero() {
+			prompts[tu.ID] = store.LegacyPromptKey{Session: core.SessionID(tu.Session), Digest: d}
+		}
+	}
+	for _, k := range prompts {
+		s.legacyPrompts[k]++
 	}
 
 	lastTurn := map[string]int64{}
@@ -1196,6 +1218,7 @@ func (s *fsckScan) manifestSeqSet() map[core.CheckpointSeq]bool {
 type fsckSidecarLine struct {
 	Version       int    `json:"v"`
 	ObservationID string `json:"observation_id"`
+	Session       string `json:"session"`
 	Op            string `json:"op"`
 	ToolUseID     string `json:"tool_use_id"`
 	Root          string `json:"root"`
@@ -1219,6 +1242,7 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	dir := filepath.Join(s.l.Records, "captures")
 	seen := 0
 	control := 0 // legacy sidecars of drained control lines (store.IsControlCaptureOp)
+	linked := 0  // earlier builds' prompt sidecars their records account for (store.ClaimLegacyPrompt)
 
 	err := filepath.WalkDir(paths.Long(dir), func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -1262,6 +1286,11 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 			}
 			if required && sc.Outcome == string(core.OutcomeOK) &&
 				sc.BytesHash != "" && !fsckIsZeroHash(sc.BytesHash) {
+				if sc.Op == fsckOpObservePrompt &&
+					store.ClaimLegacyPrompt(s.legacyPrompts, core.SessionID(sc.Session), sc.Bytes) {
+					linked++
+					return nil
+				}
 				row.defect("capture sidecar %s for a %s delivery is at stage 1 only: outcome %q with "+
 					"bytes %s durable and no reference joined to it",
 					fsckFirstNonEmpty(sc.ObservationID, d.Name()), sc.Op, sc.Outcome,
@@ -1281,8 +1310,22 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	if control > 0 {
 		row.note("%s", fsckLegacyControlCapturesNote(control))
 	}
+	if linked > 0 {
+		row.note("%s", fsckLegacyLinkedPromptsNote(linked))
+	}
 	row.scan(seen)
 	return row.build()
+}
+
+// fsckOpObservePrompt is ipc.OpObservePrompt's wire form, the Op a prompt capture sidecar carries.
+const fsckOpObservePrompt = "observe.prompt"
+
+// fsckLegacyLinkedPromptsNote is the one sentence the captures and publication rows both use for
+// the prompt sidecars an earlier build wrote and never joined to the record that published them.
+func fsckLegacyLinkedPromptsNote(n int) string {
+	return fmt.Sprintf("%d prompt capture sidecar(s) were written by a build before the prompt link: each "+
+		"prompt was published as its prompt_<session>_<turn> record, which that build never joined to the "+
+		"sidecar; read as published, kept as written, and not a gap", n)
 }
 
 // fsckLegacyControlCapturesNote is the one sentence the captures and publication rows both use for
