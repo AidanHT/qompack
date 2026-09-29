@@ -1,9 +1,11 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/qompack/qompack/internal/core"
 )
@@ -65,6 +67,47 @@ func (s *FSStore) PromptFrontier(ctx context.Context, session core.SessionID, di
 		}
 	}
 	return next, found, nil
+}
+
+// SessionPrompts is an optional capability internal/checkpoint reads a session's user intent through:
+// every verbatim prompt capture of ONE session, in turn order. The dependence graph cannot answer
+// that question — its userprompt node is keyed by turn alone, so two sessions' prompts at one turn
+// share a node and the later capture's reference replaces the earlier one's.
+type SessionPrompts interface {
+	SessionPrompts(context.Context, core.SessionID) ([]ToolUseRecord, error)
+}
+
+// SessionPrompts returns session's UserPromptSubmit records in ascending turn order, ties broken by
+// id, and an empty slice when it has none. Like EarliestPrompt it is one bounded scan of the loaded
+// index: past promptScanLimit records it is core.ErrDegraded, never a partial answer.
+func (s *FSStore) SessionPrompts(ctx context.Context, session core.SessionID) ([]ToolUseRecord, error) {
+	if err := s.use(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.toolUse) > promptScanLimit {
+		return nil, core.ErrDegraded
+	}
+	out := []ToolUseRecord{}
+	for _, rec := range s.toolUse {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if rec.Session == session && rec.Tool == promptTool {
+			out = append(out, *rec)
+		}
+	}
+	slices.SortFunc(out, func(a, b ToolUseRecord) int {
+		if c := cmp.Compare(a.Turn, b.Turn); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.ID, b.ID)
+	})
+	return out, nil
 }
 
 // PromptOrder is an optional capability internal/rehydrate uses to check that prompt_<s>_0 is the
