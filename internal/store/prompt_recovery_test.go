@@ -118,3 +118,40 @@ func TestSessionPrompts_IsOneSessionsPromptsInTurnOrder(t *testing.T) {
 	_, err = p.Store.SessionPrompts(cancelled, "s")
 	require.ErrorIs(t, err, context.Canceled)
 }
+
+// TestLatestPrompt_IsTheNewestOtherSessionsPromptAtOrBefore: internal/checkpoint takes this record's
+// session as the one a fork continues, so it must be another session's prompt, never the fork's
+// own, never one stamped after the fork started, and never a tool record.
+func TestLatestPrompt_IsTheNewestOtherSessionsPromptAtOrBefore(t *testing.T) {
+	p := newTestStore(t)
+	ctx := context.Background()
+
+	_, err := p.Store.LatestPrompt(ctx, "fork", 1_000)
+	require.ErrorIs(t, err, core.ErrNotFound, "an empty index names no one")
+
+	for _, rec := range []ToolUseRecord{
+		{ID: "prompt_old_0", Session: "old", Turn: 0, TS: 100, Tool: "UserPromptSubmit"},
+		{ID: "prompt_parent_3", Session: "parent", Turn: 3, TS: 400, Tool: "UserPromptSubmit"},
+		{ID: "tool_parent", Session: "parent", Turn: 4, TS: 450, Tool: "Read"},
+		{ID: "prompt_fork_0", Session: "fork", Turn: 0, TS: 480, Tool: "UserPromptSubmit"},
+		{ID: "prompt_later_0", Session: "later", Turn: 0, TS: 600, Tool: "UserPromptSubmit"},
+	} {
+		require.NoError(t, p.Store.RecordToolUse(ctx, rec))
+	}
+	got, err := p.Store.LatestPrompt(ctx, "fork", 500)
+	require.NoError(t, err)
+	require.Equal(t, core.ToolUseID("prompt_parent_3"), got.ID)
+
+	got, err = p.Store.LatestPrompt(ctx, "fork", 400)
+	require.NoError(t, err)
+	require.Equal(t, core.ToolUseID("prompt_parent_3"), got.ID, "a stamp equal to the moment counts")
+
+	got, err = p.Store.LatestPrompt(ctx, "fork", 399)
+	require.NoError(t, err)
+	require.Equal(t, core.ToolUseID("prompt_old_0"), got.ID)
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = p.Store.LatestPrompt(cancelled, "fork", 500)
+	require.ErrorIs(t, err, context.Canceled)
+}

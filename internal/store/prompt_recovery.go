@@ -110,6 +110,60 @@ func (s *FSStore) SessionPrompts(ctx context.Context, session core.SessionID) ([
 	return out, nil
 }
 
+// LatestPrompt is an optional capability internal/checkpoint infers a forked session's parent
+// through (checkpoint/lineage.go): the newest verbatim prompt capture of any OTHER session at or
+// before a moment. The host names no parent for `--fork-session`, and the session the user was last
+// talking to when the fork started is the one Claude Code's own "most recent" means.
+type LatestPrompt interface {
+	LatestPrompt(ctx context.Context, exclude core.SessionID, at core.UnixMilli) (ToolUseRecord, error)
+}
+
+// LatestPrompt returns the UserPromptSubmit record with the highest TS at or before at whose session
+// is not exclude, the higher turn of two equal stamps and then the greater id, or core.ErrNotFound
+// when there is none. Like EarliestPrompt it is one bounded scan of the loaded index: past
+// promptScanLimit records it is core.ErrDegraded.
+func (s *FSStore) LatestPrompt(ctx context.Context, exclude core.SessionID, at core.UnixMilli) (ToolUseRecord, error) {
+	if err := s.use(); err != nil {
+		return ToolUseRecord{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ToolUseRecord{}, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.toolUse) > promptScanLimit {
+		return ToolUseRecord{}, core.ErrDegraded
+	}
+	var best *ToolUseRecord
+	for _, rec := range s.toolUse {
+		if err := ctx.Err(); err != nil {
+			return ToolUseRecord{}, err
+		}
+		if rec.Session == exclude || rec.Tool != promptTool || rec.TS > at {
+			continue
+		}
+		if best == nil || newerPrompt(rec, best) {
+			best = rec
+		}
+	}
+	if best == nil {
+		return ToolUseRecord{}, fmt.Errorf("%w: no prompt of another session at or before %d", core.ErrNotFound, int64(at))
+	}
+	return *best, nil
+}
+
+// newerPrompt orders two prompt records for LatestPrompt: the later stamp, then the higher turn,
+// then the greater id, so the answer does not depend on map iteration order.
+func newerPrompt(a, b *ToolUseRecord) bool {
+	if a.TS != b.TS {
+		return a.TS > b.TS
+	}
+	if a.Turn != b.Turn {
+		return a.Turn > b.Turn
+	}
+	return a.ID > b.ID
+}
+
 // PromptOrder is an optional capability internal/rehydrate uses to check that prompt_<s>_0 is the
 // prompt the host sent first (SP08-D3, owner decision D35). A prompt's turn is its publication
 // position, and a prompt that reached only a hook's client spool can be published after one its
