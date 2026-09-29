@@ -1,6 +1,7 @@
 package negknow
 
 import (
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/paths"
 )
@@ -37,12 +38,18 @@ func FileNodeID(p string) dag.NodeID { return dag.FileNode(paths.Key(p)) }
 // slice from it then returns the work that produced it, which is what §8.3's "is this still
 // true?" question needs to be answerable at all. Evidence is deliberately not passed: this
 // package's evidence is a content-store root, not a graph node, so there is nothing to name.
-func (l *ledger) emitDAG(r Record) {
+//
+// turn is the caller's current turn (Caller.Turn), 0 when unknown. It is what places the node in
+// a session's turn order: checkpoint.ExtractDecisions derives a rejected-alternative decision only
+// from an elimination whose node turn is at or after the segment being encoded, so a node left at
+// turn 0 was skipped by every segment but a session's first.
+func (l *ledger) emitDAG(r Record, turn core.TurnIndex) {
 	if l.deps.Graph == nil {
 		return
 	}
 	err := dag.BuildElimination(l.deps.Graph, dag.EliminationSpec{
 		RecordID: r.ID,
+		Turn:     turn,
 		TS:       r.TS,
 		PathKey:  r.Desc.NormalizedPath,
 		Symbol:   r.Desc.Symbol,
