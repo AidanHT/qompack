@@ -37,6 +37,9 @@ const (
 	// counterTapCompactForeign counts compactions of a session other than the one this runtime is
 	// bound to, whose segment the tap therefore leaves alone.
 	counterTapCompactForeign = "sched.tap.compact_foreign"
+	// counterTapCompactUnobserved counts compactions whose open segment the tap left open because
+	// the runtime holds no token account for it: closed, it would record zero tokens for good.
+	counterTapCompactUnobserved = "sched.tap.compact_unobserved"
 
 	msgTapPanic = "scheduler tap panicked; inner seam result returned unchanged"
 )
