@@ -1,0 +1,15 @@
+=== RUN   TestFsck_ALockCopiedFromAnotherPathIsNotARunningDaemon
+--- PASS: TestFsck_ALockCopiedFromAnotherPathIsNotARunningDaemon (0.25s)
+=== RUN   TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon
+    daemon_lockheld_test.go:145: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/cli/daemon_lockheld_test.go:145
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon
+        	Messages:   	the recorded address answers
+--- FAIL: TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon (0.20s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.695s
+FAIL
+exit=1

@@ -16,7 +16,6 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
-	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
@@ -240,14 +239,10 @@ func reportLockHeld(env Env, root string, foreground bool, errw io.Writer) {
 	if clk == nil {
 		clk = core.SystemClock()
 	}
-	addr, err := ipc.Resolve(root)
-	if err != nil {
-		return
-	}
-	h := daemon.DescribeLockHolder(root, addr, clk)
+	h := daemon.DescribeLockHolder(root, clk)
 	msg := "daemon: another daemon holds this project's lock; this one exits"
 	kv := []any{
-		"pid", h.PID, "addr", h.Addr, "version", h.Version,
+		"pid", h.PID, "addr", h.Addr, "root", h.Root, "version", h.Version,
 		"heartbeat_age_s", int64(h.HeartbeatAge / time.Second),
 	}
 	line := fmt.Sprintf("qompack daemon: another daemon holds this project's lock (pid %d, heartbeat %s ago); exiting",
@@ -258,7 +253,7 @@ func reportLockHeld(env Env, root string, foreground bool, errw io.Writer) {
 		kv = append(kv, "stale_after_s", int64(daemon.StaleAfter()/time.Second))
 		line = fmt.Sprintf("qompack daemon: this project's lock was written for another project path (%s, pid %d); "+
 			"it is treated as stale once this store's heartbeat is %s old (now %s); exiting",
-			h.Addr, h.PID, daemon.StaleAfter(), h.HeartbeatAge.Round(time.Second))
+			lockOrigin(h.Root, h.Addr), h.PID, daemon.StaleAfter(), h.HeartbeatAge.Round(time.Second))
 	}
 	if log, closer, lerr := logging.New(paths.Of(root).Logs, logging.Info); lerr == nil {
 		if h.Foreign {
@@ -344,4 +339,13 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}
+}
+
+// lockOrigin names where a foreign lock came from for an operator: the project root it records, or,
+// for a lock written before daemon.LockInfo.Root existed, the address it records.
+func lockOrigin(root, addr string) string {
+	if root != "" {
+		return root
+	}
+	return addr
 }

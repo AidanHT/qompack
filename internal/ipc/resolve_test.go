@@ -329,3 +329,49 @@ func TestSocketPermissionsMatchTheDesign(t *testing.T) {
 	require.Equal(t, 0o700, dirPerm)
 	require.Equal(t, 0o600, socketPerm)
 }
+
+// TestEndpointNamesProject_ReadsEveryResolvedShape pins what a lock reader relies on to tell a lock
+// written for another project from one this project's daemon wrote under another environment:
+// every endpoint §2.4 resolves carries its project's hash, whatever the directory, and an address
+// that names no project (a QOMPACK_IPC_ADDR override) is reported as unknown, never as foreign.
+func TestEndpointNamesProject_ReadsEveryResolvedShape(t *testing.T) {
+	const other = "C:/Users/dev/another"
+	shapes := map[string]struct {
+		goos   string
+		getenv func(string) string
+		tmp    string
+	}{
+		"named pipe":                  {goosWindows, noEnv, "/tmp"},
+		"XDG_RUNTIME_DIR socket":      {"linux", envWith(xdgRuntimeDirEnv, "/run/user/1000"), "/tmp"},
+		"temp-directory socket":       {goosDarwin, noEnv, "/private/var/folders/xy/T"},
+		"short fallback, hash8 named": {"linux", noEnv, "/" + strings.Repeat("t", sunPathMax-len("/qp-12345678.sock")-1)},
+	}
+	for name, c := range shapes {
+		t.Run(name, func(t *testing.T) {
+			a, err := resolveFor(c.goos, c.getenv, c.tmp, testUID, testRoot)
+			require.NoError(t, err)
+			names, known := endpointNamesProjectFor(c.goos, a.Path, testRoot)
+			require.True(t, known, "%s", a.Path)
+			require.True(t, names, "%s is this project's endpoint", a.Path)
+			names, known = endpointNamesProjectFor(c.goos, a.Path, other)
+			require.True(t, known)
+			require.False(t, names, "%s is not another project's endpoint", a.Path)
+		})
+	}
+
+	t.Run("the same hash under another directory is still this project", func(t *testing.T) {
+		hash12, _ := projectHashFor("linux", testRoot)
+		names, known := endpointNamesProjectFor("linux", "/somewhere/else/"+hash12+".sock", testRoot)
+		require.True(t, known)
+		require.True(t, names)
+	})
+
+	for _, addr := range []string{
+		"/tmp/qompack-test/x.sock", `\\.\pipe\qompack-test`, `\\.\pipe\qompack.NOTHEX123456`,
+		"/tmp/qp-1234.sock", "", "/run/user/1000/qompack/0123456789ab.socket",
+	} {
+		names, known := endpointNamesProjectFor("linux", addr, testRoot)
+		require.False(t, known, "%q names no project", addr)
+		require.False(t, names)
+	}
+}

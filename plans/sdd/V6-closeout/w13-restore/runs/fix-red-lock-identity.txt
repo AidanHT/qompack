@@ -1,0 +1,42 @@
+=== RUN   TestForeignLockIsJudgedByThisStoresHeartbeat
+=== PAUSE TestForeignLockIsJudgedByThisStoresHeartbeat
+=== RUN   TestALockThisProjectWroteElsewhereKeepsTheFullProtocol
+=== PAUSE TestALockThisProjectWroteElsewhereKeepsTheFullProtocol
+=== CONT  TestForeignLockIsJudgedByThisStoresHeartbeat
+=== CONT  TestALockThisProjectWroteElsewhereKeepsTheFullProtocol
+=== RUN   TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/an_address_no_project_hash_names,_answering
+=== PAUSE TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/an_address_no_project_hash_names,_answering
+=== RUN   TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/this_project's_endpoint_under_another_socket_directory,_its_pid_alive
+=== PAUSE TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/this_project's_endpoint_under_another_socket_directory,_its_pid_alive
+=== CONT  TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/an_address_no_project_hash_names,_answering
+=== CONT  TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/this_project's_endpoint_under_another_socket_directory,_its_pid_alive
+=== RUN   TestForeignLockIsJudgedByThisStoresHeartbeat/a_stale_heartbeat:_the_copy's_daemon_takes_the_lock
+=== PAUSE TestForeignLockIsJudgedByThisStoresHeartbeat/a_stale_heartbeat:_the_copy's_daemon_takes_the_lock
+=== RUN   TestForeignLockIsJudgedByThisStoresHeartbeat/a_fresh_heartbeat:_still_held
+=== PAUSE TestForeignLockIsJudgedByThisStoresHeartbeat/a_fresh_heartbeat:_still_held
+=== CONT  TestForeignLockIsJudgedByThisStoresHeartbeat/a_stale_heartbeat:_the_copy's_daemon_takes_the_lock
+=== CONT  TestForeignLockIsJudgedByThisStoresHeartbeat/a_fresh_heartbeat:_still_held
+=== NAME  TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/this_project's_endpoint_under_another_socket_directory,_its_pid_alive
+    lock_foreign_test.go:156: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/daemon/lock_foreign_test.go:156
+        	Error:      	Should be false
+        	Test:       	TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/this_project's_endpoint_under_another_socket_directory,_its_pid_alive
+        	Messages:   	the endpoint is named for this project's own hash
+=== NAME  TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/an_address_no_project_hash_names,_answering
+    lock_foreign_test.go:141: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/daemon/lock_foreign_test.go:141
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: daemon lock already held"
+        	            	in chain: 
+        	Test:       	TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/an_address_no_project_hash_names,_answering
+        	Messages:   	the recorded address answers; nothing says the lock belongs to another project
+--- FAIL: TestALockThisProjectWroteElsewhereKeepsTheFullProtocol (0.00s)
+    --- FAIL: TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/this_project's_endpoint_under_another_socket_directory,_its_pid_alive (0.03s)
+    --- FAIL: TestALockThisProjectWroteElsewhereKeepsTheFullProtocol/an_address_no_project_hash_names,_answering (0.06s)
+--- PASS: TestForeignLockIsJudgedByThisStoresHeartbeat (0.01s)
+    --- PASS: TestForeignLockIsJudgedByThisStoresHeartbeat/a_fresh_heartbeat:_still_held (0.04s)
+    --- PASS: TestForeignLockIsJudgedByThisStoresHeartbeat/a_stale_heartbeat:_the_copy's_daemon_takes_the_lock (0.08s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.537s
+FAIL
+exit=1
