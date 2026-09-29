@@ -5,11 +5,17 @@ record another human can audit. Each one states what must be true before it star
 and host actions it performs, the exact fields to read, the evidence to keep, and what a failure or
 a skip means.
 
-**The human scenarios below have not been executed.** SP-17 provides packaging (`go run
-./tools/devtool bundle` assembles the bundle; see [docs/install.md](install.md)). Automated package
-and installation tests have separate evidence; they do not fill these human Result blocks. No
-release has been published. Every Result block below retains `not executed — capability unverified`
-until an actual scenario run records its executor, artifact, date and outcome.
+**All twelve scenarios have been executed once, by an agent, not by a human.** The V6 close-out's
+live lane ran them on 2026-09-29 under owner decision D3 — agent-executed on the owner's real host,
+in real Claude Code 2.1.280 sessions on Windows 11 — against release candidate 3 (commit
+`d5598eb4`, the packaged `0.3.0` bundle that SP-17's `go run ./tools/devtool bundle` assembles; see
+[docs/install.md](install.md)). Each Result block below records that run: its executor, bundle,
+date, evidence and outcome — six pass and six fail. The findings are routed by the close-out's
+decision D45, and **every row is re-run on the fixed candidate**: the six that failed (UAT-05,
+UAT-06, UAT-08, UAT-09, UAT-11, UAT-12) and the six that passed with findings a fix changes
+(UAT-01, UAT-02, UAT-03, UAT-04, UAT-07, UAT-10); a re-run replaces its row's Result block. No
+human has run these scenarios, automated package and installation tests have separate evidence
+and do not fill these blocks, and no release has been published.
 
 What the commands, slash commands and MCP tools *are* is [docs/user-guide.md](user-guide.md); what
 each observation does and does not license you to conclude is
@@ -120,8 +126,8 @@ build does not support is disabled, and can be seen to be disabled.
 1. Install the plugin into Claude Code from the packaged bundle. `[requires SP-17 artifact]`
 2. `qompack version`, and record the output verbatim.
 3. Record the bundle's git SHA, the host OS and its version, and the Claude Code version.
-4. Record the declared plugin version from `plugin/.claude-plugin/plugin.json` in the installed
-   bundle.
+4. Record the declared plugin version from `.claude-plugin/plugin.json` at the installed bundle's
+   root.
 5. Record the hook entry points the host registered, from `plugin/hooks/hooks.json` in the installed
    bundle, and compare them with what the host reports it loaded. `[requires SP-17 artifact]`
 6. Record the MCP tool inventory the host lists for the `qompack` server, and compare it with
@@ -133,9 +139,13 @@ build does not support is disabled, and can be seen to be disabled.
 
 - Step 2 prints the plugin version on a line of its own and exits `0` — `0.1.0` on this tree
   (observed; the value is `core.Version`, so a later build prints its own).
-- Step 4's `version` field is `0.1.0` in the bundle committed on this tree (read from
-  `plugin/.claude-plugin/plugin.json`). The repository's last git tag and this number **do not
-  agree**, and both are recorded as they stand ([README.md](../README.md#status-pre-release)).
+- Step 4's `version` field is the version the bundle was stamped with: the same value step 2
+  printed and the `version` in the bundle's `BUNDLE.json`, because `devtool bundle` stamps one
+  version into the binary, `plugin.json` and `BUNDLE.json` alike, and strips the source tree's
+  `plugin/` prefix so the manifest sits at the bundle's root. The source tree's own
+  `plugin/.claude-plugin/plugin.json` reads `0.1.0` until the release's version commit, and the
+  repository's last git tag does not agree with it either; record all three as they stand
+  ([README.md](../README.md#status-pre-release)).
 - Step 5's hook list is the seven events `plugin/hooks/hooks.json` declares — `PostToolUse`,
   `PreCompact`, `SessionEnd`, `SessionStart`, `Stop`, `SubagentStop`, `UserPromptSubmit` — each
   invoking `${CLAUDE_PLUGIN_ROOT}/bin/qompack` with its own subcommand and timeout (read from that
@@ -293,9 +303,11 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — none of the row's three fail criteria occurred (every capture came back; no cut
-  capture read exact; latency cells without an instrument read `unavailable` with a reason).
-  Two expected-result fields were NOT observed (findings): expand responses carry `_meta.qompack`
+Result: pass on the row's fail criteria; the row's non-exact-fidelity capability — the point of
+  the row — is UNVERIFIED on this host: no oversized or binary capture came back with a non-exact
+  fidelity, because none was produced (below). None of the row's three fail criteria occurred
+  (every capture came back; no cut capture read exact; latency cells without an instrument read
+  `unavailable` with a reason). Two expected-result fields were NOT observed (findings): expand responses carry `_meta.qompack`
   on the result but no Fidelity anywhere (fidelity lives only in the capture sidecars: 34 exact,
   1 redacted); the oversized big.log (310,800 B) was delivered whole by the host and stored whole,
   so its sidecar reads `exact`, and no `binary` fidelity is reachable on this host (Read refuses a
@@ -412,6 +424,11 @@ Result: pass — after a real "/compact" checkpoint 0001 exists and the manifest
   the refusal ("checkpoint artifact does not match its MANIFEST digest; the checkpoint is
   refused", "rehydrate: no checkpoint for session; building from L0"); no older checkpoint was
   presented as current. The gated durable frontier is unverified by this row.
+  Precondition deviation: the session ran with the non-default idle-exit override
+  QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120 (default 1800), set so step 4 could wait for the
+  idle exit; the step-4 idle exit and the segment/0002 defect after it (F-UAT03-2) happened under
+  it. UAT-02 reproduced the same defect (F-UAT02-4) at the default 1800 s, so it does not depend on
+  the override.
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
   32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
   d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
@@ -737,6 +754,10 @@ Result: fail — after `--resume <id> --fork-session` the block's "Original user
   session id and probe id, section 2's content changes and a section 7 entry appears. After the
   second compaction the model recovered a value only a subagent had read (M17) through recall +
   expand, answering "Source: Qompack archive (expand)".
+  Precondition deviation: all three sessions ran with the non-default idle-exit override
+  QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120 (default 1800; uat/UAT-06/cli/00-preconditions.txt),
+  the deviation UAT-03 records; this row's notes give no separate reason. UAT-02 reproduced the
+  idle-work segment defect (F-UAT02-4) at the default 1800 s.
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
   32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
   d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
@@ -1368,14 +1389,17 @@ Result: fail — (a) expand and re_read with full: true on the 324,902-byte capt
   runtime.mcp.maxResponseBytes 262,144: the bound caps the content span, not the response;
   (b) the restore of the pre-upgrade backup proved its reader (16 roots, 10 tool refs, same build)
   but its packaged integrity checks failed (captures/publication: the previous build's four prompt
-  capture sidecars read as unpublished), exit 1. Passed: step 2 — the host refused the direct Read
+  capture sidecars read as unpublished), exit 1; (c) the binary file came back decoded as text —
+  but the decoding happened in the host before Qompack saw the bytes: Bash `cat` delivered the
+  3,000-byte file as 2,134 bytes of host-decoded text (U+FFFD and control characters), which
+  Qompack stored and returned as the text it was given; the owner decides whether (c) counts
+  against the product. Passed: step 2 — the host refused the direct Read
   ("File is in a directory that is denied by your permission settings." — observed string) and
   recall, expand (tool_use_id and root hash), re_read, /qompack:recall and the bundle CLI all
   answered denied with no preview; out-of-project re_read/expand refused without echoing the path;
   step 3 minimal span 5,777 bytes with next_span; .qompack/ byte-identical across the upgrade and
   the uninstall; reinstall found the old build's captures. Not as expected: responses carry no
-  fidelity or coverage field, and the binary file reached Qompack only as host-decoded text (Bash
-  cat), returned as text. Step 7 (to be confirmed at execution): no version-block or
+  fidelity or coverage field. Step 7 (to be confirmed at execution): no version-block or
   retired-meaning warning (no config file); the first post-upgrade daemon start logged LOUD
   unpublished_captures=4; config.capture ok. ORDER: steps 2-5 ran after step 6, on the candidate,
   because the previous build (301a8e9) predates the C1.9 deny-rule support; the baseline was
