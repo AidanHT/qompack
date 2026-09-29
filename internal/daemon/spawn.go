@@ -128,7 +128,8 @@ const (
 // The liveness check is ipc.Probe (Ruling #22: a successful dial, not a round trip through
 // admin.ping) — deliberately: unlike lock.go's staleness protocol, which can afford to fall
 // through to slower POSIX/heartbeat checks on an inconclusive network result, a false "dead" here
-// costs a real SpawnDetached plus a full poll on the B-A hot path (budget 15 ms). Requiring
+// costs a real SpawnDetached plus a full poll on the B-A hot path (runtime.hotPath.budgetMs: by
+// default 15 ms on Linux, 50 on Windows, 40 on macOS, D41). Requiring
 // Response.OK from a specific op would make that false negative depend on how a later op-routing
 // table answers a probe op — Probe never does, because it never asks. A daemon accepts dials from
 // the moment it listens, while its startup still runs (Run), so a successful dial means "a daemon
