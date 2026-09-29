@@ -373,13 +373,16 @@ func TestCensusDeliveries_AReplayDuringTheCensusIsStillFound(t *testing.T) {
 	})
 }
 
-// TestCensusAndReconcile_TheW9PhaseThreeRun is the end-to-end regression for the run that raised
-// this: w9-testfix's full test/integration pass on Windows under Phase 3 load, where the harness
-// sent 2130 hot-path requests, l0_ingest observed 1537, 575 undelivered requests were still in hook
-// client spools and 18 more had already been replayed by the daemon's client-spool watcher. The
-// count-based guard reported those 18 as LOST. Built on disk — live requests in the WAL and the
-// store, deferrals in client spools, the replayed ones in the store only — the run must reconcile
-// as 593 deferrals and no loss; the same run with one deferral missing from everywhere still fails.
+// TestCensusAndReconcile_TheW9PhaseThreeRun is the end-to-end regression modelled on the run that
+// raised this: w9-testfix's full test/integration pass on Windows under Phase 3 load, where the
+// harness sent 2130 hot-path requests, l0_ingest observed 1537 and 575 undelivered requests were in
+// hook client spools, and the count-based guard reported the other 18 as LOST. w9's own artifacts
+// do not record where those 18 were (no watcher counter, store census or spool sample survives).
+// This test places them as replayed — in the store, gone from the spool — which is the mechanism
+// the forced-breach reproduction demonstrated (plans/sdd/V6-closeout/w10-lostev/runs/01 and 05,
+// re-runnable from diag/reproduce.sh). Built on disk — live requests in the WAL and the store,
+// deferrals in client spools, the replayed ones in the store only — the run must reconcile as 593
+// deferrals and no loss; the same run with one deferral missing from everywhere still fails.
 func TestCensusAndReconcile_TheW9PhaseThreeRun(t *testing.T) {
 	const delivered, stillSpooled, replayed = 1537, 575, 18
 	sent := sentIdentities(2000, true, ackRTTSamples)
