@@ -201,16 +201,24 @@ const (
 	// "did this rehydration lose something it could not even name a partial version of" checks
 	// that, never a raw Kind or ID comparison of its own.
 	dropKindOverflow = "overflow"
+	// dropKindInvariants is the kind of the one tier-1 drop a checkpoint SEAL mints: {invariants,
+	// pins}, the pin set could not be re-read, so a pin made after the draft began may be missing
+	// (internal/checkpoint sealInvariants). This package never mints it; it ranks it.
+	dropKindInvariants = "invariants"
 )
 
 // kindRank orders item 7. Overflow sorts FIRST — an essential record this budget could not
-// represent at all outranks even the operating rules the agent no longer has. Path rules and
+// represent at all outranks even the operating rules the agent no longer has. A checkpoint's
+// invariants drop sorts with it: pinned invariants are tier-1 material, and a seal that could not
+// re-read them may be missing one, so that line must not be the one a truncated report counts
+// instead of naming. Path rules and
 // nested CLAUDE.md files sort next because they are precisely the thing G4.5 says nothing
 // surfaces today. The two "open_question" and "narrative" kinds are SP-10's, minted by the
 // checkpointer and carried in Checkpoint.Dropped; they are ranked here so a checkpoint-time drop
 // interleaves correctly with a rehydration-time one.
 var kindRank = map[string]int{
 	dropKindOverflow:       -1,
+	dropKindInvariants:     -1,
 	dropKindPathRule:       0,
 	dropKindNestedClaudeMD: 1,
 	dropKindSkill:          2,
@@ -1439,10 +1447,11 @@ func buildDropReport(entries []checkpoint.DropEntry) built {
 
 // dropRank is where e sorts in item 7. An explicit overflow — a tier-1 record that could not be
 // emitted whole, or a section the hard cap evicted — carries its ITEM's own kind so the line says
-// which requirement is gone, and that kind ("invariants", "user_intent", …) is not in kindRank. It
-// would therefore sort after every known kind, which is the last place the report should put the
-// one line naming essential material the payload could not carry: under a bounded report it would
-// be the first line the counted tail swallows. So every explicit overflow sorts with
+// which requirement is gone, and that kind ("user_intent", …) is not in kindRank ("invariants" is,
+// for the checkpoint's own seal drop, at the same rank). It would otherwise sort after every known
+// kind, which is the last place the report should put the one line naming essential material the
+// payload could not carry: under a bounded report it would be the first line the counted tail
+// swallows. So every explicit overflow sorts with
 // dropKindOverflow, first.
 func dropRank(e checkpoint.DropEntry) int {
 	if Overflowed([]checkpoint.DropEntry{e}) {

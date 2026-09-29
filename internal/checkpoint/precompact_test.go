@@ -376,6 +376,11 @@ func TestPreCompactExtraDropsAndOpenQuestionsReachTheArtifact(t *testing.T) {
 // neither the checkpoint nor the summary, and a maximum frontier would have told the summarizer in
 // writing to drop them.
 //
+// Segment 2 is the gap because it is still OPEN — in-flight evidence no PreCompact may encode. It
+// used to be closed and merely not advanced yet, but PreCompact now catches a warm draft up with
+// every closed segment before it seals (F-UAT03-1), which would fill that gap legitimately; an open
+// segment is the gap a seal still cannot close, so the instruction's arithmetic is asserted on it.
+//
 // The frontier arithmetic itself is asserted in writer_test.go
 // (TestAdvanceKeepsTheFrontierContiguousAcrossAGap); this row asserts what the instruction says.
 func TestPreCompactNamesTheContiguousFrontierInTheSpan(t *testing.T) {
@@ -384,6 +389,12 @@ func TestPreCompactNamesTheContiguousFrontierInTheSpan(t *testing.T) {
 	for k := 1; k <= 3; k++ {
 		start := core.TurnIndex(10*k - 9)
 		f.tool(fmt.Sprintf("tu_%d", k), start+1, "Read", fmt.Sprintf("src/f%d.ts", k), "body", false)
+		if k == 2 {
+			got, err := f.store.Segments().Open(f.ctx(), store.Segment{ID: 2, Session: f.sess, StartTurn: start})
+			require.NoError(t, err)
+			require.Equal(t, core.SegmentID(2), got)
+			continue
+		}
 		f.closedSeg(core.SegmentID(k), start, core.TurnIndex(10*k))
 	}
 
@@ -401,4 +412,39 @@ func TestPreCompactNamesTheContiguousFrontierInTheSpan(t *testing.T) {
 		"the span paragraph names the contiguous frontier")
 	require.NotContains(t, res.Instructions, "turn 30",
 		"naming segment 3's EndTurn would tell the summarizer to drop turns 11-20 entirely")
+}
+
+// TestWarmPreCompactEncodesTheSegmentClosedAtCompaction is F-UAT03-1 at the writer. The daemon
+// closes the compacting session's open segment at the compaction itself, and a session's second
+// and later compactions find a draft already open (the successor the previous seal began). That
+// warm draft must catch up with the just-closed segment before it is sealed, or the checkpoint for
+// the compaction carries nothing of the span being compacted.
+func TestWarmPreCompactEncodesTheSegmentClosedAtCompaction(t *testing.T) {
+	f := newFx(t)
+	f.prompt(0, "Fix the intermittent 500s on POST /api/session/refresh.", true)
+	f.tool("toolu_warm_0001", 1, "Read", "src/auth.ts", "export function refreshToken() {}", false)
+	f.closedSeg(1, 0, 3)
+	d := f.begin()
+	f.advance(d, 1)
+
+	// The span since then: read, and closed only by the compaction.
+	f.tool("toolu_warm_0002", 5, "Read", "src/pool.ts", "export function acquire() {}", false)
+	f.closedSeg(2, 4, 6)
+
+	res, err := f.w.PreCompact(f.ctx(), f.precompactInput())
+	require.NoError(t, err)
+	require.False(t, res.NewDraft, "fixture sanity: the warm path")
+
+	raw, err := os.ReadFile(paths.Long(res.Ref.Path))
+	require.NoError(t, err)
+	cp, err := checkpoint.Unmarshal(raw)
+	require.NoError(t, err)
+	require.Equal(t, []core.SegmentID{1, 2}, cp.EncodedSegments,
+		"the segment closed at the compaction is encoded into the checkpoint sealed for it")
+	var tools []core.ToolUseID
+	for _, tp := range cp.Pointers.Tools {
+		tools = append(tools, tp.ToolUseID)
+	}
+	require.Contains(t, tools, core.ToolUseID("toolu_warm_0002"))
+	require.Equal(t, core.TurnIndex(6), res.Ref.Frontier)
 }

@@ -324,6 +324,11 @@ func (r *schedRuntime) BindSession(id core.SessionID, e *hookio.Event) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.bindSessionLocked(id, e)
+}
+
+// bindSessionLocked is BindSession under r.mu, for a caller that already holds it; id is non-empty.
+func (r *schedRuntime) bindSessionLocked(id core.SessionID, e *hookio.Event) {
 	if e != nil {
 		r.noteBindingEventLocked(e)
 	}
