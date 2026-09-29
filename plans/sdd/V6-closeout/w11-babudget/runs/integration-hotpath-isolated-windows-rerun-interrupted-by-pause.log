@@ -1,0 +1,25 @@
+head=c3782687 cmd: go test -p 1 -count=1 -timeout=30m -v -run '^TestIntegration_HotPathWarmWithRealResidentState$' ./test/integration (re-run alone)
+=== RUN   TestIntegration_HotPathWarmWithRealResidentState
+    hotpath_test.go:981: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:991: §4.6 resident sketch set on disk: tried.bloom=12072B touch.cms=54474B explore.hll=2102B
+    hotpath_test.go:1098: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-3184767310\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-38292-0ef53a5be06b6f30)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+    hotpath_test.go:1102: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/test/integration/hotpath_test.go:1102
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestIntegration_HotPathWarmWithRealResidentState
+        	Messages:   	bench-hotpath exited non-zero (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<50ms and B-E's wall row p99<2000ms) breached against the real resident state, or the harness itself failed (its own delivery-integrity guard included)
+        	            	stderr:
+        	            	hotpath: hotpath: spawn #1487 (qompack observe tool): exit status 0xc0000142
+        	            	
+--- FAIL: TestIntegration_HotPathWarmWithRealResidentState (93.27s)
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	93.495s
+FAIL

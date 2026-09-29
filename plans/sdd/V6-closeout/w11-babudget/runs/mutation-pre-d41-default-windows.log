@@ -1,0 +1,52 @@
+TEMPORARY DIAGNOSTIC (mutation, reverted): HotPathBudgetMsFor returns HotPathBudgetMsFloor (the pre-D41 universal 15); base adc44857 + TestDefaults_HotPathBudgetPerPlatform split into per-platform subtests
+cmd: go test -count=1 -v -run '^(TestDefaults_HotPathBudgetPerPlatform|TestDefaults_HotPathBudgetCoversTheIngestBudget|TestDefaults_RuntimeNamespace)$' ./internal/config
+=== RUN   TestDefaults_RuntimeNamespace
+    defaults_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/defaults_test.go:77
+        	Error:      	Not equal: 
+        	            	expected: config.HotPathCfg{BudgetMs:50, BreachWindows:3, SpoolOnBreach:true, MaxPayloadBytes:1048576}
+        	            	actual  : config.HotPathCfg{BudgetMs:15, BreachWindows:3, SpoolOnBreach:true, MaxPayloadBytes:1048576}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,3 @@
+        	            	 (config.HotPathCfg) {
+        	            	- BudgetMs: (int) 50,
+        	            	+ BudgetMs: (int) 15,
+        	            	  BreachWindows: (int) 3,
+        	Test:       	TestDefaults_RuntimeNamespace
+--- FAIL: TestDefaults_RuntimeNamespace (0.00s)
+=== RUN   TestDefaults_HotPathBudgetCoversTheIngestBudget
+    defaults_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/defaults_test.go:157
+        	Error:      	"15" is not greater than or equal to "50"
+        	Test:       	TestDefaults_HotPathBudgetCoversTheIngestBudget
+        	Messages:   	windows: runtime.hotPath.budgetMs (15) must be >= runtime.budgets.l0IngestMs (50): the B-A sample contains B-B's durable ingest (D41, internal/config/deadlines.go)
+--- FAIL: TestDefaults_HotPathBudgetCoversTheIngestBudget (0.00s)
+=== RUN   TestDefaults_HotPathBudgetPerPlatform
+=== RUN   TestDefaults_HotPathBudgetPerPlatform/linux_portable
+=== RUN   TestDefaults_HotPathBudgetPerPlatform/windows
+    defaults_test.go:181: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/defaults_test.go:181
+        	Error:      	Not equal: 
+        	            	expected: 50
+        	            	actual  : 15
+        	Test:       	TestDefaults_HotPathBudgetPerPlatform/windows
+        	Messages:   	windows: default runtime.hotPath.budgetMs
+=== RUN   TestDefaults_HotPathBudgetPerPlatform/darwin
+    defaults_test.go:181: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/defaults_test.go:181
+        	Error:      	Not equal: 
+        	            	expected: 40
+        	            	actual  : 15
+        	Test:       	TestDefaults_HotPathBudgetPerPlatform/darwin
+        	Messages:   	darwin: default runtime.hotPath.budgetMs
+--- FAIL: TestDefaults_HotPathBudgetPerPlatform (0.00s)
+    --- PASS: TestDefaults_HotPathBudgetPerPlatform/linux_portable (0.00s)
+    --- FAIL: TestDefaults_HotPathBudgetPerPlatform/windows (0.00s)
+    --- FAIL: TestDefaults_HotPathBudgetPerPlatform/darwin (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	1.261s
+FAIL
+exit=1
