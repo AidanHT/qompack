@@ -236,9 +236,10 @@ func clientSpoolNameShape(ownSpoolPath string) (prefix, ext string, err error) {
 // active, and a replayed line never reaches l0_ingest (drainDispatch routes it straight to
 // runIngested) and its file is removed once it is consumed. A census of spool lines alone
 // therefore misses every deferral the watcher has already replayed, and counted against
-// l0_ingest those requests are in neither place: w9's Phase 3 run reported 18 "LOST", and a forced
-// reproduction reported 20 LOST while all 26 requests the watcher had replayed were in the store
-// (plans/sdd/V6-closeout/w10-lostev).
+// l0_ingest those requests are in neither place. A forced-breach reproduction reported 20 LOST
+// while all 26 requests the watcher had replayed were in the store and no request was missing
+// anywhere (plans/sdd/V6-closeout/w10-lostev, re-runnable from its diag/reproduce.sh). w9's Phase 3
+// run reported 18 "LOST" in the same shape; its artifacts do not record where those 18 were.
 //
 // The order is what makes one pass enough. The daemon removes a file from the spool tier — a
 // client spool, a WAL segment — only once the drain has consumed every line in it
