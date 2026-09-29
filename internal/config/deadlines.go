@@ -46,7 +46,8 @@ const (
 // core), so nothing but that test couples this number to the quantum it is derived from. It fails
 // if this value ever drops below 2 x dialBusyRetryQuantum, or if the quantum grows past it.
 //
-// Raising it does not move the B-A hot-path budget (§8.1, 15 ms) and is not meant to. A
+// Raising it does not move the B-A hot-path budget (§8.1; HotPathBudgetMsFor below) and is not
+// meant to. A
 // successful connect to a warm daemon is microseconds; this deadline caps only the rare
 // ERROR_PIPE_BUSY path, which under 5 ms did not retry at all.
 const (
@@ -223,8 +224,9 @@ const (
 // measured round trip by better than a factor of two. That direction is deliberate. A deadline set
 // too short does not lose data — the daemon has already accepted the delivery — it makes the hook
 // spool a duplicate of finished work, which is SP05-D2 itself; a deadline set too long only delays
-// noticing a daemon that is already wedged, and B-A (p99 3-6 ms against a 15 ms budget in these
-// same runs) is what actually bounds what a user waits for.
+// noticing a daemon that is already wedged, and B-A (p99 3-6 ms against the then-universal 15 ms
+// budget in these same runs; D41 later derived it per platform, HotPathBudgetMsFor) is what
+// actually bounds what a user waits for.
 //
 // internal/cli's hookSendDeadlineFloor (8 ms) is a different thing and does not move with this: it
 // exists so a corrupt or zero-valued state record cannot reach Send as literally 0, and it now sits
@@ -271,4 +273,49 @@ func ackDeadlineMsDefault() int {
 	default:
 		return AckDeadlineMsPortable
 	}
+}
+
+// HotPathBudgetMsFloor is the least runtime.hotPath.budgetMs ever defaults to: 15 ms, the §8.1 /
+// §11.3 L0 figure B-A was written against (00-ARCHITECTURE.md §2.4's B-A row), and the value it
+// shipped on every platform until D41. It is not a new number; it is that one, named.
+const HotPathBudgetMsFloor = 15
+
+// HotPathBudgetMsFor is D41's derivation (plans/V6-CLOSEOUT-CHECKLIST.md, 2026-09-28) of
+// runtime.hotPath.budgetMs's built-in default — the B-A limit — from the same platform's
+// runtime.budgets.l0IngestMs default — the B-B limit:
+//
+//	budgetMs = max(HotPathBudgetMsFloor, l0IngestMs)
+//
+// so 15 on Linux (L0IngestMsPortable), 50 on Windows (L0IngestMsWindows) and 40 on macOS
+// (L0IngestMsDarwin). It composes two approved numbers and introduces none.
+//
+// # Why B-A may not be tighter than B-B
+//
+// The B-A sample the daemon gates and feeds to the §8.1 breach detector is (recvTS - reqTS) +
+// handler time + a 1 ms tail allowance (internal/daemon/handlers.go, recordHotPathSample), and
+// since the delivery path became durable the handler time IS B-B's region: the ACK is written only
+// after ingest.Accept's WAL, lease-journal and seal flushes. B-A therefore contains B-B by
+// construction. When the V5 ruling kept fsync-before-ACK and re-budgeted B-B per platform (the
+// L0IngestMs note above), B-A stayed at 15 everywhere, which made a delivery inside its own B-B
+// budget a B-A breach. On Windows that was every real session: isolated Phase 3 runs of the frozen
+// candidate measured B-A p50 15.4-16.4 ms and p99 22.5-26.6 ms against B-B p99 12.3 ms, and the
+// detector moved the daemon to spool submode — degraded WARN and LOUD.log — after exactly
+// 3 x 512 samples, so any session past ~1.5k tool uses ran degraded.
+//
+// # What it does not do
+//
+// It derives only the DEFAULT, and only from the platform's l0IngestMs DEFAULT. A budgetMs the
+// user sets is applied exactly as written (Load never re-derives it), and a user-set l0IngestMs
+// does not move budgetMs: the two keys stay independent, as BudgetsCfg's doc comment requires for
+// every budget. Where B-B is re-priced (the provisional linux and darwin rows above), B-A follows
+// automatically, which is the point of deriving it rather than spelling three more numbers.
+func HotPathBudgetMsFor(l0IngestMs int) int {
+	return max(HotPathBudgetMsFloor, l0IngestMs)
+}
+
+// hotPathBudgetMsDefault is the value Defaults() ships for runtime.hotPath.budgetMs on the
+// platform this binary was built for: HotPathBudgetMsFor applied to l0IngestMsDefault, selected
+// from runtime.GOOS for connectDeadlineMsDefault's reason above.
+func hotPathBudgetMsDefault() int {
+	return HotPathBudgetMsFor(l0IngestMsDefault())
 }

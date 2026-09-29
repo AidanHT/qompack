@@ -242,14 +242,18 @@ func TestBEWallWaivedNote_NamesTheLimitItDidNotApply(t *testing.T) {
 // control the 0.576 → 0.768ms figures were read as, explicitly marked REPORTED here too. A note
 // that named B-B and said nothing more would let a reader carry the old inference across.
 func TestBAWallWaivedNote_NamesTheLimitItDidNotApply(t *testing.T) {
-	note := baWallWaivedNote(budgetLimit(config.Defaults(), obs.BA))
+	limit := budgetLimit(config.Defaults(), obs.BA)
+	note := baWallWaivedNote(limit)
 	require.Contains(t, note, string(obs.BA))
 	require.Contains(t, note, string(obs.BB), "the historical control must still be named")
 	require.NotContains(t, note, string(obs.BB)+" is still gated in this run",
 		"B-B is REPORTED under this flag too since the Q3 ruling; this note may not claim otherwise")
 	require.Contains(t, note, "REPORTED in this run too",
 		"and it must say so out loud, not merely stop claiming the opposite")
-	require.Contains(t, note, "15ms", "the waived limit must be named, not implied by a null")
+	require.Contains(t, note, fmt.Sprintf("The %.0fms limit is still enforced", msf(limit)),
+		"the waived limit must be named, not implied by a null — this platform's own, not the old 15ms (D41)")
+	require.Contains(t, note, "against the 15ms limit B-A then had on every platform",
+		"the historical CI figures must be read against the limit that applied to them, not today's")
 	require.Contains(t, note, "--under-coload")
 	require.Contains(t, note, "bench-gate")
 	require.Contains(t, note, "test-e2e", "every run that still judges B-A must be named")
@@ -412,7 +416,9 @@ func TestBuildBudgetRowFromSnapshot(t *testing.T) {
 // TestBudgetLimit_ReadsFromConfigDefaults pins that the harness never re-hardcodes a budget limit
 // (task-7-brief.md's binding ruling): B-A/B-B/B-E must come from config.Defaults() + obs.Budgets().
 //
-// B-A and B-E are SP-01's, at 15ms and 2000ms on every platform. B-B's is NOT one number any more:
+// B-E is SP-01's, at 2000ms on every platform. B-A's follows B-B's since D41 (2026-09-28):
+// max(15, the platform's l0IngestMs), so 15ms on linux, 50ms on Windows and 40ms on darwin, because
+// the B-A sample contains B-B's durable ingest. B-B's is NOT one number any more:
 // SP20-D1's measured re-budget (2026-09-13) made runtime.budgets.l0IngestMs platform-specific —
 // 50ms on Windows, measured as roundup5(1.25 x 36.864) over fifteen runs; 15ms on linux and 40ms
 // on darwin,
@@ -420,16 +426,16 @@ func TestBuildBudgetRowFromSnapshot(t *testing.T) {
 // is spelled as literals per platform, the same way internal/config's own defaults_test.go does
 // it, so this stays a pin on the shipped numbers rather than a tautology against the constants.
 func TestBudgetLimit_ReadsFromConfigDefaults(t *testing.T) {
-	wantBB := 15 * time.Millisecond
+	wantBA, wantBB := 15*time.Millisecond, 15*time.Millisecond
 	switch runtime.GOOS {
 	case "windows":
-		wantBB = 50 * time.Millisecond
+		wantBA, wantBB = 50*time.Millisecond, 50*time.Millisecond
 	case "darwin":
-		wantBB = 40 * time.Millisecond
+		wantBA, wantBB = 40*time.Millisecond, 40*time.Millisecond
 	}
 
 	cfg := config.Defaults()
-	require.Equal(t, 15*time.Millisecond, budgetLimit(cfg, obs.BA))
+	require.Equal(t, wantBA, budgetLimit(cfg, obs.BA))
 	require.Equal(t, wantBB, budgetLimit(cfg, obs.BB))
 	require.Equal(t, 2000*time.Millisecond, budgetLimit(cfg, obs.BE))
 }

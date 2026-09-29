@@ -57,12 +57,16 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 	//
 	// Every expectation is spelled out here as a literal, not read back from the constants it pins,
 	// so this stays the place the numbers are actually decided.
-	wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs := 5, 17, 15
+	//
+	// hotPath.budgetMs (B-A) follows since D41 (2026-09-28): max(15, the platform's l0IngestMs), so
+	// 15 on linux, 50 on Windows and 40 on macOS — B-A's sample contains B-B's durable ingest, so
+	// its limit may not be tighter than B-B's (deadlines.go, HotPathBudgetMsFor).
+	wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs, wantHotPathBudgetMs := 5, 17, 15, 15
 	switch runtime.GOOS {
 	case "windows":
-		wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs = 25, 73, 50
+		wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs, wantHotPathBudgetMs = 25, 73, 50, 50
 	case "darwin":
-		wantAckDeadlineMs, wantL0IngestMs = 45, 40
+		wantAckDeadlineMs, wantL0IngestMs, wantHotPathBudgetMs = 45, 40, 40
 	}
 
 	require.Equal(t, config.DaemonCfg{
@@ -71,7 +75,7 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 	}, rt.Daemon)
 
 	require.Equal(t, config.HotPathCfg{
-		BudgetMs: 15, BreachWindows: 3, SpoolOnBreach: true, MaxPayloadBytes: 1048576,
+		BudgetMs: wantHotPathBudgetMs, BreachWindows: 3, SpoolOnBreach: true, MaxPayloadBytes: 1048576,
 	}, rt.HotPath)
 
 	require.Equal(t, config.LogCfg{Level: "info", MaxFileMB: 10, MaxFiles: 5}, rt.Logging)
@@ -139,6 +143,49 @@ func TestDefaults_AckDeadlineCoversTheIngestBudget(t *testing.T) {
 				"l0IngestMs + ceil(slack99) with slack99 > 0 (internal/config/deadlines.go)",
 			c.goos, c.ack, c.ingest)
 	}
+}
+
+// TestDefaults_HotPathBudgetCoversTheIngestBudget is D41's guard on the running platform: the
+// default B-A limit (runtime.hotPath.budgetMs) may never be tighter than the default B-B limit
+// (runtime.budgets.l0IngestMs). internal/daemon's recordHotPathSample builds every B-A sample as
+// (recvTS - reqTS) + handler time + a 1 ms tail allowance, and the handler time is the durable
+// ingest.Accept that B-B times, so a B-A limit below B-B's would call a delivery that met its own
+// B-B budget a B-A breach — and three such 512-sample windows move the daemon to spool submode.
+// That is what every Windows session did at 15 ms against B-B's 50 before D41.
+func TestDefaults_HotPathBudgetCoversTheIngestBudget(t *testing.T) {
+	rt := config.Defaults().Runtime
+	require.GreaterOrEqual(t, rt.HotPath.BudgetMs, rt.Budgets.L0IngestMs,
+		"%s: runtime.hotPath.budgetMs (%d) must be >= runtime.budgets.l0IngestMs (%d): the B-A "+
+			"sample contains B-B's durable ingest (D41, internal/config/deadlines.go)",
+		runtime.GOOS, rt.HotPath.BudgetMs, rt.Budgets.L0IngestMs)
+}
+
+// TestDefaults_HotPathBudgetPerPlatform is D41's guard across every platform, from one host: the
+// derivation HotPathBudgetMsFor is applied to each platform's l0IngestMs constant and must give
+// that platform's shipped B-A default, which must not be tighter than its B-B default. The
+// expected values are literals, as in TestDefaults_RuntimeNamespace, so this is where the numbers
+// are decided rather than a tautology against the constants: 15 on linux (the §8.1 figure, which
+// l0IngestMsPortable does not exceed), 50 on Windows and 40 on macOS (their l0IngestMs).
+func TestDefaults_HotPathBudgetPerPlatform(t *testing.T) {
+	for _, c := range []struct {
+		goos   string
+		ingest int
+		want   int
+	}{
+		{"linux (portable)", config.L0IngestMsPortable, 15},
+		{"windows", config.L0IngestMsWindows, 50},
+		{"darwin", config.L0IngestMsDarwin, 40},
+	} {
+		got := config.HotPathBudgetMsFor(c.ingest)
+		require.Equal(t, c.want, got, "%s: default runtime.hotPath.budgetMs", c.goos)
+		require.GreaterOrEqual(t, got, c.ingest,
+			"%s: the B-A default (%d) must not be tighter than the B-B default (%d) it contains (D41)",
+			c.goos, got, c.ingest)
+	}
+
+	// The derivation never goes below the §8.1 figure, whatever B-B is priced at.
+	require.Equal(t, config.HotPathBudgetMsFloor, config.HotPathBudgetMsFor(1),
+		"a B-B budget under the floor leaves B-A at the floor")
 }
 
 // TestDefaults_SubmodularEnabledDefaultsFalseAndHidden checks the §5.12 derived-field decision
