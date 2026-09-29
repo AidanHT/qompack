@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -101,7 +103,12 @@ func runMCP(ctx context.Context, env Env, _ []string, out, errw io.Writer) error
 	client := newMCPClient(root, cfg, env, log, reg, clk)
 	defer func() { _ = client.Close() }()
 
-	srv, err := buildMCPProxy(ctx, root, cfg, client, log)
+	// Ends the handshake relay's background attempts (mcpHandshake) when this server returns, before
+	// the deferred Close above takes their client away.
+	proxyCtx, stopProxy := context.WithCancel(ctx)
+	defer stopProxy()
+
+	srv, err := buildMCPProxy(proxyCtx, root, cfg, client, log)
 	if err != nil {
 		fmt.Fprintf(errw, "qompack mcp: could not build the tool set: %v\n", err)
 		return err
@@ -174,6 +181,8 @@ func newMCPClient(root string, cfg config.Config, env Env,
 func buildMCPProxy(ctx context.Context, root string, cfg config.Config,
 	client ipc.Client, log logging.Logger,
 ) (mcp.Server, error) {
+	hs := &mcpHandshake{client: client}
+
 	// Declared before the server so it can be handed in through ServerOptions — which is the whole
 	// reason NewServerWithOptions exists rather than a method on the §5.16 Server interface.
 	onInit := func(o mcp.Observable) {
@@ -184,7 +193,10 @@ func buildMCPProxy(ctx context.Context, root string, cfg config.Config,
 		if merr != nil {
 			return
 		}
-		_, _ = client.Send(ctx, ipc.Request{Op: ipc.OpMCP, Raw: raw}, mcpCallDeadline)
+		hs.offer(raw)
+		// Off the handshake's own path: the host is waiting for the initialize answer, and the
+		// daemon this notice is for is often still starting.
+		go hs.deliver(ctx)
 	}
 
 	srv := mcp.NewServerWithOptions(mcp.ServerOptions{
@@ -194,10 +206,79 @@ func buildMCPProxy(ctx context.Context, root string, cfg config.Config,
 		MaxLine:      cfg.Runtime.HotPath.MaxPayloadBytes,
 		OnInitialize: onInit,
 	})
-	if err := mcp.RegisterProxy(srv, forwardMCPCall(client, log)); err != nil {
+	forward := forwardMCPCall(client, log)
+	handler := func(ctx context.Context, r mcp.Request) (mcp.Response, error) {
+		resp, err := forward(ctx, r)
+		hs.flush(ctx)
+		return resp, err
+	}
+	if err := mcp.RegisterProxy(srv, handler); err != nil {
 		return nil, err
 	}
 	return srv, nil
+}
+
+// mcpHandshake carries the stdio server's handshake notice to the daemon, which records it as the
+// §12.1 mcp.server_registered observable.
+//
+// The host starts this server beside a session's first SessionStart, usually before the project's
+// daemon is listening. The notice was sent once: its connect failed, the lazy spawn started a
+// daemon, and the notice was dropped, because nothing here is spooled — so status read
+// mcp.server_registered initialize-not-received in sessions whose server was connected and serving
+// (V6 close-out, Phase 4 install D4, C45-1). deliver retries it the way forwardMCPCall retries a
+// call, across the same cold start, and flush gives a notice those attempts missed one more try
+// after each tool call the host makes, when the daemon has just proved it is up. A tool call alone
+// is not the proof: the slash commands forward calls through the same handler, and only this server
+// answers the host's initialize.
+type mcpHandshake struct {
+	client ipc.Client
+	mu     sync.Mutex
+	raw    []byte // the notice not yet delivered; nil when there is none
+}
+
+// offer makes raw the notice to deliver, replacing any earlier one.
+func (h *mcpHandshake) offer(raw []byte) {
+	h.mu.Lock()
+	h.raw = raw
+	h.mu.Unlock()
+}
+
+// deliver retries the pending notice until the daemon accepts it, the attempts run out, or ctx
+// ends.
+func (h *mcpHandshake) deliver(ctx context.Context) {
+	for attempt := 0; attempt < mcpRetryAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(mcpRetryDelay):
+			}
+		}
+		if h.flush(ctx) {
+			return
+		}
+	}
+}
+
+// flush sends the pending notice once and reports whether none is pending any more. The daemon's
+// handling is idempotent, so two flushes racing to deliver the same notice are harmless.
+func (h *mcpHandshake) flush(ctx context.Context) bool {
+	h.mu.Lock()
+	raw := h.raw
+	h.mu.Unlock()
+	if raw == nil {
+		return true
+	}
+	resp, err := h.client.Send(ctx, ipc.Request{Op: ipc.OpMCP, Reply: true, Raw: raw}, mcpCallDeadline)
+	if err != nil || !resp.OK {
+		return false
+	}
+	h.mu.Lock()
+	if bytes.Equal(h.raw, raw) {
+		h.raw = nil
+	}
+	h.mu.Unlock()
+	return true
 }
 
 // forwardMCPCall returns the handler every proxied tool is bound to.

@@ -1,0 +1,11 @@
+=== RUN   TestCmdMCPHandshakeReachesADaemonThatStartsLate
+    cmd_mcp_handshake_test.go:119: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/cli/cmd_mcp_handshake_test.go:119
+        	Error:      	Condition never satisfied
+        	Test:       	TestCmdMCPHandshakeReachesADaemonThatStartsLate
+        	Messages:   	the handshake notice must reach the daemon the first attempt's spawn started
+--- FAIL: TestCmdMCPHandshakeReachesADaemonThatStartsLate (6.68s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	6.928s
+FAIL
+EXIT=1
