@@ -8,3 +8,6 @@ sessions	2	UAT-03/C4.3 (/compact round trip, fact recovery)	plans/sdd/V6-closeou
 sessions	3	UAT-05/C4.3 run 1 (default budget, correction, /compact)	plans/sdd/V6-closeout/live/uat/UAT-05/run1-session	claude-haiku-4-5-20251001	0	71.343
 sessions	4	UAT-05/C4.3 run 2 (tiny budget 150/150, correction, /compact)	plans/sdd/V6-closeout/live/uat/UAT-05/run2-session	claude-haiku-4-5-20251001	0	68.535
 sessions	5	UAT-04/C4.3 (manual + automatic + failed compaction)	plans/sdd/V6-closeout/live/uat/UAT-04/session	claude-haiku-4-5-20251001	0	469.87
+sessions	6	UAT-06 A / C4.3 (intent, correction, /compact, Qompack-sourced fact recovery)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionA	claude-haiku-4-5-20251001	0	46.81
+sessions	7	UAT-06 B --resume A / C4.3 (second compaction, subagent-held fact via Qompack)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionB-resume	claude-haiku-4-5-20251001	0	41.661
+sessions	8	UAT-06 C --resume A --fork-session (compact in fork, second correction, compact)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionC-fork	claude-haiku-4-5-20251001	0	60.144

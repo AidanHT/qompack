@@ -1,0 +1,104 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--resume",
+  "c8f504cc-2864-4daf-8125-f9ee3851b944",
+  "--fork-session"
+ ],
+ "turns": [
+  {
+   "msg": "We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?",
+   "ok": true,
+   "wall_s": 3.008,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 73920,
+    "WorkingSet64": 46919680,
+    "PeakWorkingSet64": 46919680,
+    "CPU": 1.203125,
+    "StartTime": "/Date(1790705859519)/"
+   },
+   "store_bytes": 419329
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 23.844,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 73920,
+    "WorkingSet64": 48295936,
+    "PeakWorkingSet64": 48295936,
+    "CPU": 1.25,
+    "StartTime": "/Date(1790705859519)/"
+   },
+   "store_bytes": 449994
+  },
+  {
+   "msg": "Correction: the limit must now be 75 requests per minute per client. The 60 figure is superseded as well. Acknowledge in one sentence.",
+   "ok": true,
+   "wall_s": 1.603,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 73920,
+    "WorkingSet64": 48328704,
+    "PeakWorkingSet64": 48328704,
+    "CPU": 1.28125,
+    "StartTime": "/Date(1790705859519)/"
+   },
+   "store_bytes": 460606
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 24.853,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 73920,
+    "WorkingSet64": 48357376,
+    "PeakWorkingSet64": 48357376,
+    "CPU": 1.328125,
+    "StartTime": "/Date(1790705859519)/"
+   },
+   "store_bytes": 493037
+  },
+  {
+   "msg": "In one sentence: what is the current per-client rate limit requirement, and which earlier figures were superseded?",
+   "ok": true,
+   "wall_s": 3.005,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 73920,
+    "WorkingSet64": 48365568,
+    "PeakWorkingSet64": 48365568,
+    "CPU": 1.34375,
+    "StartTime": "/Date(1790705859519)/"
+   },
+   "store_bytes": 503525
+  }
+ ],
+ "store_bytes_before": 404522,
+ "started_ms": 1790706012663,
+ "pid": 6400,
+ "exit": 0,
+ "wall_s": 60.144,
+ "store_bytes_after": 467354
+}

@@ -1,0 +1,16 @@
+ts=2026-09-29T18:17:39.5707017Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:17:39.6151031Z level=info msg="observer: session registered" session=c8f504cc-2864-4daf-8125-f9ee3851b944 source=startup turn=0 segment=1
+ts=2026-09-29T18:17:39.6151031Z level=info msg="scheduler: session bound" session=c8f504cc-2864-4daf-8125-f9ee3851b944 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T18:18:25.2635353Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=c8f504cc-2864-4daf-8125-f9ee3851b944
+ts=2026-09-29T18:18:25.4024951Z level=info msg="observer: gc" scanned=19 deleted=0 freed=0 truncated=false
+ts=2026-09-29T18:19:03.4605787Z level=info msg="observer: session registered" session=c8f504cc-2864-4daf-8125-f9ee3851b944 source=resume turn=0 segment=2
+ts=2026-09-29T18:19:43.6206128Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=c8f504cc-2864-4daf-8125-f9ee3851b944
+ts=2026-09-29T18:19:43.7289189Z level=info msg="observer: gc" scanned=35 deleted=0 freed=0 truncated=false
+ts=2026-09-29T18:20:13.7773148Z level=info msg="observer: session registered" session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b source=fork turn=0 segment=3
+ts=2026-09-29T18:20:13.7773148Z level=info msg="scheduler: state from another session discarded" path=<scratch>\sessions\uat06\proj\.qompack\state\bocd.json file_session=c8f504cc-2864-4daf-8125-f9ee3851b944 session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b
+ts=2026-09-29T18:20:13.7778423Z level=info msg="scheduler: state from another session discarded" path=<scratch>\sessions\uat06\proj\.qompack\state\scheduler.json file_session=c8f504cc-2864-4daf-8125-f9ee3851b944 session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b
+ts=2026-09-29T18:20:13.7778423Z level=info msg="scheduler: session bound" session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T18:20:39.9822398Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b
+ts=2026-09-29T18:21:07.896002Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b
+ts=2026-09-29T18:21:12.5882597Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=3 session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b
+ts=2026-09-29T18:21:12.7072586Z level=info msg="observer: gc" scanned=40 deleted=0 freed=0 truncated=false
