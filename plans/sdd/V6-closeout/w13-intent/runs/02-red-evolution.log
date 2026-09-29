@@ -1,0 +1,82 @@
+--- FAIL: TestPreCompactCarriesACorrectionFromTheOpenSegment (0.61s)
+    intent_evolution_test.go:88: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_evolution_test.go:88
+        	Error:      	Not equal: 
+        	            	expected: []string{"Correction: the export delimiter must be a TAB character, not a semicolon. The semicolon requirement is superseded."}
+        	            	actual  : []string{}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,2 @@
+        	            	-([]string) (len=1) {
+        	            	- (string) (len=115) "Correction: the export delimiter must be a TAB character, not a semicolon. The semicolon requirement is superseded."
+        	            	+([]string) {
+        	            	 }
+        	Test:       	TestPreCompactCarriesACorrectionFromTheOpenSegment
+        	Messages:   	the correction is in the checkpoint, verbatim, after the original
+--- FAIL: TestPreCompactCarriesEveryCorrectionAcrossCheckpoints (0.41s)
+    intent_evolution_test.go:105: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_evolution_test.go:105
+        	Error:      	Not equal: 
+        	            	expected: []string{"Correction: the limit must be 60 requests per minute per client, not 100."}
+        	            	actual  : []string{}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,2 @@
+        	            	-([]string) (len=1) {
+        	            	- (string) (len=73) "Correction: the limit must be 60 requests per minute per client, not 100."
+        	            	+([]string) {
+        	            	 }
+        	Test:       	TestPreCompactCarriesEveryCorrectionAcrossCheckpoints
+--- FAIL: TestEvolutionKeepsTheNewestRestatementsPastTheCap (1.34s)
+    intent_evolution_test.go:131: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_evolution_test.go:131
+        	Error:      	Not equal: 
+        	            	expected: "Correction: the migration must stay read-only."
+        	            	actual  : "Step 64: continue."
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-Correction: the migration must stay read-only.
+        	            	+Step 64: continue.
+        	Test:       	TestEvolutionKeepsTheNewestRestatementsPastTheCap
+        	Messages:   	the newest restatement is kept
+--- FAIL: TestBeginDoesNotAdoptAnotherSessionsIntent (0.27s)
+    intent_evolution_test.go:160: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_evolution_test.go:160
+        	Error:      	Not equal: 
+        	            	expected: "Fix the flaky auth refresh."
+        	            	actual  : "Build the CSV importer."
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-Fix the flaky auth refresh.
+        	            	+Build the CSV importer.
+        	Test:       	TestBeginDoesNotAdoptAnotherSessionsIntent
+--- FAIL: TestBeginResumesFromTheSessionsOwnCheckpoint (0.45s)
+    intent_evolution_test.go:183: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_evolution_test.go:183
+        	Error:      	Not equal: 
+        	            	expected: []string{"Correction: keep the refresh token in memory only.", "Continue with the refresh fix."}
+        	            	actual  : []string{}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,2 @@
+        	            	-([]string) (len=2) {
+        	            	- (string) (len=50) "Correction: keep the refresh token in memory only.",
+        	            	- (string) (len=30) "Continue with the refresh fix."
+        	            	+([]string) {
+        	            	 }
+        	Test:       	TestBeginResumesFromTheSessionsOwnCheckpoint
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	3.692s
+FAIL

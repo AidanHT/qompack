@@ -1,0 +1,64 @@
+--- FAIL: TestNoteForkRecordsTheCheckpointTheForkContinues (0.29s)
+    intent_fork_test.go:53: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:53
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestNoteForkRecordsTheCheckpointTheForkContinues
+        	Messages:   	the fork's lineage is recorded when it starts
+--- FAIL: TestNoteForkIsWrittenOnce (0.36s)
+panic: runtime error: invalid memory address or nil pointer dereference [recovered, repanicked]
+[signal 0xc0000005 code=0x0 addr=0x28 pc=0x7ff643e12e67]
+
+goroutine 66 [running]:
+testing.tRunner.func1.2({0x7ff643f2f7c0, 0x7ff6444b7140})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1974 +0x239
+testing.tRunner.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1977 +0x349
+panic({0x7ff643f2f7c0?, 0x7ff6444b7140?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/panic.go:860 +0x13a
+github.com/qompack/qompack/internal/checkpoint_test.TestNoteForkIsWrittenOnce(0xe18183be800)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:81 +0x127
+testing.tRunner(0xe18183be800, 0x7ff644014710)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+FAIL	github.com/qompack/qompack/internal/checkpoint	1.058s
+FAIL
+--- FAIL: TestNoteForkWithNoCheckpointRecordsNoParent (0.13s)
+    intent_fork_test.go:94: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:94
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestNoteForkWithNoCheckpointRecordsNoParent
+--- FAIL: TestForkCarriesTheParentsIntentThenItsOwnPrompts (0.68s)
+    intent_fork_test.go:115: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:115
+        	Error:      	Not equal: 
+        	            	expected: "We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client."
+        	            	actual  : "We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client.
+        	            	+We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?
+        	Test:       	TestForkCarriesTheParentsIntentThenItsOwnPrompts
+        	Messages:   	a fork continues its parent's task
+--- FAIL: TestForkOfAForkKeepsTheFirstOrigin (0.36s)
+panic: runtime error: invalid memory address or nil pointer dereference [recovered, repanicked]
+[signal 0xc0000005 code=0x0 addr=0x38 pc=0x7ff7a6e0384f]
+
+goroutine 23 [running]:
+testing.tRunner.func1.2({0x7ff7a6f1f7c0, 0x7ff7a74a7140})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1974 +0x239
+testing.tRunner.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:1977 +0x349
+panic({0x7ff7a6f1f7c0?, 0x7ff7a74a7140?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/panic.go:860 +0x13a
+github.com/qompack/qompack/internal/checkpoint_test.TestForkOfAForkKeepsTheFirstOrigin(0x232488a90400)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_fork_test.go:137 +0x1af
+testing.tRunner(0x232488a90400, 0x7ff7a70045f0)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+FAIL	github.com/qompack/qompack/internal/checkpoint	1.735s
+FAIL
