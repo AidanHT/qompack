@@ -1,0 +1,53 @@
+=== RUN   TestLoad_UserSetHotPathBudgetIsKept
+    load_test.go:554: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w12-x11pair/internal/config/load_test.go:582
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w12-x11pair/internal/config/load_test.go:554
+        	Error:      	Not equal: 
+        	            	expected: []string{"runtime.hotPath.budgetMs"}
+        	            	actual  : []string{}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,2 @@
+        	            	-([]string) (len=1) {
+        	            	- (string) (len=24) "runtime.hotPath.budgetMs"
+        	            	+([]string) {
+        	            	 }
+        	Test:       	TestLoad_UserSetHotPathBudgetIsKept
+        	Messages:   	budgetMs 15 is below l0IngestMs 50: exactly the D43 WARN, nothing else
+--- FAIL: TestLoad_UserSetHotPathBudgetIsKept (0.02s)
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/defaults_do_not_warn
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept
+    load_test.go:617: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w12-x11pair/internal/config/load_test.go:617
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept
+        	Messages:   	exactly one WARN: []
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept
+    load_test.go:644: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w12-x11pair/internal/config/load_test.go:644
+        	Error:      	Not equal: 
+        	            	expected: []string{"runtime.hotPath.budgetMs"}
+        	            	actual  : []string{}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,2 @@
+        	            	-([]string) (len=1) {
+        	            	- (string) (len=24) "runtime.hotPath.budgetMs"
+        	            	+([]string) {
+        	            	 }
+        	Test:       	TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/equal_is_not_below
+--- FAIL: TestLoad_HotPathBudgetBelowIngestBudgetWarns (0.05s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/defaults_do_not_warn (0.00s)
+    --- FAIL: TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept (0.02s)
+    --- FAIL: TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept (0.00s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/equal_is_not_below (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/config	1.344s
+FAIL
+exit=1
