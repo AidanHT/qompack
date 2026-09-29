@@ -168,3 +168,96 @@ func TestBuild_ForkBlockMatchesUAT06(t *testing.T) {
 	require.NotContains(t, res.Text, "intent_mismatch")
 	require.False(t, res.Degraded, "a fork is not a degradation")
 }
+
+// ── review round (wave 13 fix seat) ─────────────────────────────────────────────────────────────
+
+// evolutionText concatenates item 2's evolution units, the original excluded.
+func evolutionText(b built) string {
+	var out strings.Builder
+	for _, u := range b.units[1:] {
+		out.WriteString(u.text)
+	}
+	return out.String()
+}
+
+// TestUserIntent_ForkFirstPromptTheCheckpointLeftOutIsNotShownAsNewest: the fork has said more than
+// the checkpoint's evolution bounds hold, so its first prompt was left out as one of the OLDEST
+// restatements and the checkpoint says so. Re-adding it from L0 as the NEWEST delta would put a
+// superseded statement at the top of "Evolution (most recent first)".
+func TestUserIntent_ForkFirstPromptTheCheckpointLeftOutIsNotShownAsNewest(t *testing.T) {
+	const newest = "Correction: the limit must now be 75 requests per minute per client."
+	cp := forkedCheckpoint()
+	cp.UserIntent.Evolution = []string{newest}
+	cp.Dropped = append(cp.Dropped, checkpoint.DropEntry{
+		Kind: dropKindUserIntentEvolution, ID: "elided",
+		Detail: "2 earlier restatements were left out to hold the evolution bounds",
+	})
+	r := requestFor(t, cp, generousTestBudget)
+	r.Lineage = forkLineage()
+	d := depsWith(&spyLogger{})
+	d.Store = uat06Store(uat06Original)
+
+	got := buildUserIntent(bg(), r, d)
+
+	evo := evolutionText(got)
+	require.Contains(t, evo, quoteLines(newest))
+	require.NotContains(t, evo, uat06ForkFirst,
+		"a restatement the checkpoint left out is named by its drop entry, not re-added on top")
+}
+
+// TestUserIntent_ForkFirstPromptEqualToTheOriginalIsNotRepeated: the fork's first prompt restates
+// the parent's original word for word, so the checkpointer listed it once, as the original.
+func TestUserIntent_ForkFirstPromptEqualToTheOriginalIsNotRepeated(t *testing.T) {
+	cp := forkedCheckpoint()
+	cp.UserIntent.Evolution = []string{uat06Correction60}
+	r := requestFor(t, cp, generousTestBudget)
+	r.Lineage = forkLineage()
+	d := depsWith(&spyLogger{})
+	d.Store = newFakeStore().
+		withPrompt(firstPromptID(uat06Parent), uat06Parent, 0, uat06Original).
+		withPrompt(firstPromptID(uat06Fork), uat06Fork, 0, uat06Original)
+
+	got := buildUserIntent(bg(), r, d)
+
+	require.Contains(t, got.units[0].text, quoteLines(uat06Original))
+	require.NotContains(t, evolutionText(got), uat06Original, "the original is shown once")
+}
+
+// TestUserIntent_ForkOfAParentWithNoCheckpointNamesNone: the parent never compacted, so the lineage
+// names no checkpoint, and the provenance entry must not invent one ("checkpoint 0000").
+func TestUserIntent_ForkOfAParentWithNoCheckpointNamesNone(t *testing.T) {
+	cp := forkedCheckpoint()
+	r := requestFor(t, cp, generousTestBudget)
+	l := forkLineage()
+	l.ParentSeq = 0
+	r.Lineage = l
+	d := depsWith(&spyLogger{})
+	d.Store = uat06Store(uat06Original)
+
+	got := buildUserIntent(bg(), r, d)
+
+	e, ok := dropFor(got.drops, "fork")
+	require.True(t, ok, "%v", got.drops)
+	require.Contains(t, e.Detail, string(uat06Parent))
+	require.NotContains(t, e.Detail, "checkpoint 0000")
+}
+
+// TestUserIntent_ForkFirstPromptMissingFromTheCheckpointIsAddedAsNewest: the one absence the shim is
+// for. The fork's first prompt was not yet readable when its checkpoint was sealed, the checkpoint
+// left nothing out, and L0 has it now: it is shown as the newest delta, pointing at its own capture.
+func TestUserIntent_ForkFirstPromptMissingFromTheCheckpointIsAddedAsNewest(t *testing.T) {
+	cp := forkedCheckpoint()
+	cp.UserIntent.Evolution = []string{uat06Correction60}
+	r := requestFor(t, cp, generousTestBudget)
+	r.Lineage = forkLineage()
+	d := depsWith(&spyLogger{})
+	d.Store = uat06Store(uat06Original)
+
+	got := buildUserIntent(bg(), r, d)
+
+	evo := evolutionText(got)
+	require.Contains(t, evo, quoteLines(uat06ForkFirst))
+	require.Less(t, strings.Index(evo, uat06ForkFirst), strings.Index(evo, uat06Correction60), "newest first")
+	require.Equal(t, string(firstPromptID(uat06Fork)), got.units[1].drop.ID,
+		"its drop entry points at its own capture")
+}
