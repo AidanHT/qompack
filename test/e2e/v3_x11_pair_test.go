@@ -142,8 +142,8 @@ type x11Pair struct {
 // every sample, and therefore every p50, is a whole number of ticks, and a comparison finer than
 // one tick judges rounding. That floor only acts below four ticks, where 25% of the p50 is less
 // than one tick (Linux's p50 is one tick on every recorded run); from four ticks up, the factor
-// alone decides. The floor is an amendment to D42 proposed to the owner, not a ratified bound:
-// D42 as written has the factor alone decide at every scale (see x11ObservedTickUS).
+// alone decides. The floor is D42's ratified amendment (V6 close-out checklist, 2026-09-29; see
+// x11ObservedTickUS).
 //
 // It returns an error wrapping errX11PairIncomparable when the two notes' sample counts differ,
 // one wrapping errX11LedgerRegressed when the ledger p50 is over the ceiling, and a plain error
