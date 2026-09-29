@@ -71,14 +71,42 @@ func (r *schedRuntime) CloseSegmentOn(ctx context.Context, at core.TurnIndex, f 
 	return r.closeSegmentLocked(ctx, at, f, cause)
 }
 
-// closeSegmentLocked closes the session's current segment and opens its successor.
+// CloseSegmentForCompaction closes sess's current segment at the highest turn observed, with cause
+// "compact", and rolls its successor open: the host is compacting sess, and the checkpoint it seals
+// next encodes closed segments only (F-UAT03-1).
+//
+// The turn and the open-segment token count the close records are this runtime's, and they belong
+// to the session it is bound to. A compaction of ANOTHER session is therefore left alone and
+// counted; a runtime bound to no session yet — a daemon that restarted mid-session, before the next
+// SessionStart — has accumulated exactly the compacting session's observations since, and closes
+// with them. The turn is the highest tool-use turn observed, so a final prompt answered without a
+// tool lands in the successor and is encoded by a later checkpoint rather than this one.
+func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.SessionID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.session != "" && r.session != sess {
+		r.count(counterTapCompactForeign)
+		return nil
+	}
+	return r.closeSessionSegmentLocked(ctx, sess, r.maxTurn, scheduler.Features{}, causeCompact)
+}
+
+// closeSegmentLocked closes the bound session's current segment and opens its successor.
 // Cause is one of: changepoint, todo, test, commit.
 // SP-08 owns the session's FIRST Open; every subsequent roll is owned here.
 func (r *schedRuntime) closeSegmentLocked(ctx context.Context, at core.TurnIndex, f scheduler.Features, cause string) error {
+	return r.closeSessionSegmentLocked(ctx, r.session, at, f, cause)
+}
+
+// closeSessionSegmentLocked is closeSegmentLocked for a named session: every close cause but
+// "compact" names the bound one.
+func (r *schedRuntime) closeSessionSegmentLocked(ctx context.Context, sess core.SessionID, at core.TurnIndex,
+	f scheduler.Features, cause string,
+) error {
 	if !r.cfg.Checkpoint.Frontier.AdvanceOnSegmentClose {
 		return nil
 	}
-	cur, err := r.segs.Current(ctx, r.session)
+	cur, err := r.segs.Current(ctx, sess)
 	if errors.Is(err, core.ErrNotFound) {
 		return nil // SP-08 has not opened one yet; nothing to close
 	} else if err != nil {
@@ -106,7 +134,7 @@ func (r *schedRuntime) closeSegmentLocked(ctx context.Context, at core.TurnIndex
 		return err
 	}
 	_, err = r.segs.Open(ctx, store.Segment{
-		Session: r.session, StartTurn: at + 1, StartTS: r.nowMS(),
+		Session: sess, StartTurn: at + 1, StartTS: r.nowMS(),
 	})
 	r.openSegTokens = 0 // the successor starts empty; the tap refills it from rec.Tokens
 	r.dirty = true
