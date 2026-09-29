@@ -1,0 +1,4 @@
+## go vet ./test/integration (windows) at 023025b1
+exit=0
+## GOOS=linux go vet ./test/integration
+exit=0
