@@ -219,7 +219,7 @@ func buildCommandMCPProxy(cfg config.Config, client ipc.Client, log logging.Logg
 func commandStatusSources(_ context.Context, root string, client ipc.Client) commands.StatusSources {
 	return commands.StatusSources{
 		Daemon: func(ctx context.Context) (commands.DaemonStatus, time.Time, error) {
-			return fetchDaemonStatus(ctx, client)
+			return fetchDaemonStatus(ctx, client, daemonListening(root))
 		},
 		Disk: func(context.Context) (obs.Snapshot, error) {
 			return readPersistedMetrics(paths.Of(root))
@@ -231,13 +231,38 @@ func commandStatusSources(_ context.Context, root string, client ipc.Client) com
 const statusNoDaemonReason = "no daemon answered: none is listening for this project yet. This command " +
 	"asked one to start unless runtime.daemon.enabled is false; run status again once it is up"
 
+// statusSilentDaemonReason is why status has no live answer when a daemon was listening but its reply
+// never came: the command client's read deadline passed, or the connection broke mid-reply.
+var statusSilentDaemonReason = fmt.Sprintf("a daemon is listening for this project but did not answer "+
+	"within %s: it may be busy or stuck. Run status again; if it stays silent, see "+
+	"docs/troubleshooting.md, section 7", commandCallDeadline)
+
+// statusProbeTimeout bounds the dial daemonListening makes. It is self-test's own liveness dial bound,
+// not a new number: both ask only whether anything accepts a connection at the project's address.
+const statusProbeTimeout = selfTestProbeTimeout
+
+// daemonListening reports whether anything accepts a connection at root's daemon address (ipc.Probe).
+func daemonListening(root string) func() bool {
+	return func() bool {
+		addr, err := ipc.Resolve(root)
+		return err == nil && ipc.Probe(addr, statusProbeTimeout)
+	}
+}
+
 // fetchDaemonStatus round-trips ipc.OpStatus and decodes the payload into the frontend's mirror.
 //
 // The decode goes through daemon.StatusSnapshot and is then copied member by member, rather than
 // unmarshalling straight into commands.DaemonStatus. That is what makes the mirror's staleness a
 // COMPILE error here as well as a test failure: a member the daemon adds and the mirror lacks
 // stops this function building.
-func fetchDaemonStatus(ctx context.Context, client ipc.Client) (commands.DaemonStatus, time.Time, error) {
+//
+// listening is asked before the request is sent, because the client answers OK false with no error
+// text both when nothing listened and when a listening daemon never replied: only the dial tells the
+// two apart, and asking it after the send would see the daemon the send's own lazy spawn started.
+func fetchDaemonStatus(
+	ctx context.Context, client ipc.Client, listening func() bool,
+) (commands.DaemonStatus, time.Time, error) {
+	wasListening := listening != nil && listening()
 	resp, err := client.Send(ctx, ipc.Request{
 		Op: ipc.OpStatus, Reply: true, TS: core.NowMilli(core.SystemClock()),
 	}, commandCallDeadline)
@@ -245,10 +270,13 @@ func fetchDaemonStatus(ctx context.Context, client ipc.Client) (commands.DaemonS
 		return commands.DaemonStatus{}, time.Time{}, fmt.Errorf("status round trip: %w", err)
 	}
 	if !resp.OK && resp.Err == "" {
-		// The client's answer for a request no daemon received: nothing listened at the project's
-		// address, or runtime.daemon.enabled is false. It carries no text of its own, and quoting it
-		// as a refusal printed "status refused: " with nothing after the colon (V6 close-out
-		// F-UAT03-3, F-C49-1).
+		// The client's answer for a request no daemon answered: nothing listened at the project's
+		// address, runtime.daemon.enabled is false, or a listening daemon's reply never came. It
+		// carries no text of its own, and quoting it as a refusal printed "status refused: " with
+		// nothing after the colon (V6 close-out F-UAT03-3, F-C49-1).
+		if wasListening {
+			return commands.DaemonStatus{}, time.Time{}, errors.New(statusSilentDaemonReason)
+		}
 		return commands.DaemonStatus{}, time.Time{}, errors.New(statusNoDaemonReason)
 	}
 	if !resp.OK {
