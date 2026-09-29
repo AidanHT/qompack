@@ -177,7 +177,9 @@ func TestFsck_ToolUseRegressionAfterASelfRecordIsStillADefect(t *testing.T) {
 }
 
 // TestFsck_ToolUseAttributedSelfRecordIsOrderedLikeAnyOther: a self-record that DOES carry a turn is
-// held to the session's order like every other record; only the unattributed turn-0 shape is exempt.
+// held to the session's order like every other record; only the pre-wave-13 producer's signature —
+// turn 0, or a turn one of its session's segments opened at — is exempt, and this store has no
+// segment log.
 func TestFsck_ToolUseAttributedSelfRecordIsOrderedLikeAnyOther(t *testing.T) {
 	p := seedFsckProject(t)
 	fsckRecordToolUses(t, p.Root, []store.ToolUseRecord{
@@ -189,4 +191,139 @@ func TestFsck_ToolUseAttributedSelfRecordIsOrderedLikeAnyOther(t *testing.T) {
 	require.NotEqual(t, ExitOK, code)
 	row := fsckRequireRow(t, doc, "index.tool_use")
 	require.Contains(t, fsckDetail(row), "tool_use qompack-mcp:5e1f00000001 reports turn 2 after turn 3 in session s-a;")
+}
+
+// fsckSegmentSpan is one segment of a session as the observer opens it, and, when closed is set,
+// closes it at end.
+type fsckSegmentSpan struct {
+	session    string
+	start, end core.TurnIndex
+	closed     bool
+}
+
+// fsckRecordSegments writes spans to the seeded project's segment log through the store's own
+// writer, in order.
+func fsckRecordSegments(t *testing.T, root string, spans []fsckSegmentSpan) {
+	t.Helper()
+
+	ctx := context.Background()
+	s, err := store.Open(root, config.Defaults(), store.Deps{Clock: testClock()})
+	require.NoError(t, err)
+	for _, sp := range spans {
+		id, err := s.Segments().Open(ctx, store.Segment{Session: core.SessionID(sp.session), StartTurn: sp.start})
+		require.NoError(t, err)
+		if sp.closed {
+			require.NoError(t, s.Segments().Close(ctx, id, sp.end, map[string]float64{"tokens": 1}))
+		}
+	}
+	require.NoError(t, s.Flush(ctx))
+	require.NoError(t, s.Close())
+}
+
+// fsckUAT11Shape is the V6 live lane's UAT-11 diag-rerun store in miniature
+// (plans/sdd/V6-closeout/live/uat/UAT-11/diag-rerun/store): the session's first segment spans turns
+// 0-9, a SubagentStop at turn 10 opens its second, and a pre-wave-13 build filed every retrieval's
+// own record at that open segment's first turn — turn 10, interleaved after hook records of turn 12
+// — and, once the segment had closed, at turn 0.
+func fsckUAT11Shape(tail ...store.ToolUseRecord) []store.ToolUseRecord {
+	recs := []store.ToolUseRecord{
+		fsckToolUseRecord("tu-u11-9", "s-u11", 9),
+		fsckToolUseRecord("tu-u11-10", "s-u11", 10),
+		fsckToolUseRecord("tu-u11-12a", "s-u11", 12),
+		fsckSelfRecord("908f1acbdbd2", "s-u11", 10),
+		fsckToolUseRecord("tu-u11-12b", "s-u11", 12),
+		fsckSelfRecord("8872503177bb", "s-u11", 10),
+		fsckToolUseRecord("tu-u11-12c", "s-u11", 12),
+		fsckSelfRecord("762640538da0", "s-u11", 0),
+	}
+	return append(recs, tail...)
+}
+
+// fsckUAT11Segments is fsckUAT11Shape's segment log: 0-9 closed, 10-13 closed.
+var fsckUAT11Segments = []fsckSegmentSpan{
+	{session: "s-u11", start: 0, end: 9, closed: true},
+	{session: "s-u11", start: 10, end: 13, closed: true},
+}
+
+// TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression is the compatibility half of
+// F-UAT01-2 for a session whose segment had rolled: the pre-wave-13 producer (daemon resolveTurn)
+// filed a retrieval's record at its open segment's StartTurn, which is non-zero after any
+// changepoint, SubagentStop, resume or scheduler roll. Such a store must not fail fsck for ever.
+func TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression(t *testing.T) {
+	p := seedFsckProject(t)
+	fsckRecordSegments(t, p.Root, fsckUAT11Segments)
+	fsckRecordToolUses(t, p.Root, fsckUAT11Shape(), nil)
+
+	code, doc, _ := fsckJSON(t, p.Root)
+	row := fsckRequireRow(t, doc, "index.tool_use")
+	detail := fsckDetail(row)
+	require.Equal(t, true, row["ok"], "a self-record at its segment's first turn is not a regression: %s", detail)
+	require.Contains(t, detail, "tool_use qompack-mcp:908f1acbdbd2 is a retrieval self-record filed at turn 10, "+
+		"the first turn of one of session s-u11's segments, after turn 12")
+	require.Contains(t, detail, "tool_use qompack-mcp:762640538da0 is a retrieval self-record filed with no turn")
+	require.Equal(t, ExitOK, code, "doc=%v", doc)
+}
+
+// TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect: the exemption is the old
+// producer's exact signature and nothing wider. A hook record behind the baseline is a defect, and
+// so is a self-record at a turn no segment of its session opened at; neither is excused by the
+// segment-start self-records around it, which do not move the baseline either.
+func TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect(t *testing.T) {
+	p := seedFsckProject(t)
+	fsckRecordSegments(t, p.Root, fsckUAT11Segments)
+	fsckRecordToolUses(t, p.Root, fsckUAT11Shape(
+		fsckSelfRecord("5e1f0000000b", "s-u11", 11),
+		fsckToolUseRecord("tu-u11-12d", "s-u11", 12),
+		fsckToolUseRecord("tu-u11-back", "s-u11", 10),
+	), nil)
+
+	code, doc, _ := fsckJSON(t, p.Root)
+	require.NotEqual(t, ExitOK, code)
+	row := fsckRequireRow(t, doc, "index.tool_use")
+	require.Equal(t, false, row["ok"])
+	detail := fsckDetail(row)
+	require.Contains(t, detail, "tool_use tu-u11-back reports turn 10 after turn 12 in session s-u11;")
+	require.Contains(t, detail, "tool_use qompack-mcp:5e1f0000000b reports turn 11 after turn 12 in session s-u11;")
+	require.NotContains(t, detail, "tool_use qompack-mcp:908f1acbdbd2 reports",
+		"the segment-start self-records stay notes beside a real regression")
+}
+
+// TestFsck_ToolUseSegmentStartOfAnotherSessionDoesNotExcuseASelfRecord: the segment start that
+// excuses a self-record must be one of ITS session's; another session opening a segment at that
+// turn says nothing about where this session's old producer could have filed it.
+func TestFsck_ToolUseSegmentStartOfAnotherSessionDoesNotExcuseASelfRecord(t *testing.T) {
+	p := seedFsckProject(t)
+	fsckRecordSegments(t, p.Root, []fsckSegmentSpan{
+		{session: "s-a", start: 0},
+		{session: "s-b", start: 2},
+	})
+	fsckRecordToolUses(t, p.Root, []store.ToolUseRecord{
+		fsckToolUseRecord("tu-a-3", "s-a", 3),
+		fsckSelfRecord("5e1f0000000c", "s-a", 2),
+	}, nil)
+
+	code, doc, _ := fsckJSON(t, p.Root)
+	require.NotEqual(t, ExitOK, code)
+	row := fsckRequireRow(t, doc, "index.tool_use")
+	require.Contains(t, fsckDetail(row), "tool_use qompack-mcp:5e1f0000000c reports turn 2 after turn 3 in session s-a;")
+}
+
+// TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted: with the segment log
+// unreadable, the start turns that would confirm the old producer's signature cannot be read. The
+// self-record is reported rather than counted, a hook record behind the baseline is still a
+// defect, and the unreadable log is index.segments' own defect, so the store still does not pass.
+func TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted(t *testing.T) {
+	p := seedFsckProject(t)
+	fsckRecordToolUses(t, p.Root, fsckUAT11Shape(fsckToolUseRecord("tu-u11-back", "s-u11", 10)), nil)
+	segLog := paths.Long(filepath.Join(p.Layot.Index, "segments.jsonl"))
+	require.NoError(t, os.RemoveAll(segLog))
+	require.NoError(t, os.Mkdir(segLog, 0o700), "a directory where the log belongs cannot be read as one")
+
+	code, doc, _ := fsckJSON(t, p.Root)
+	require.NotEqual(t, ExitOK, code)
+	require.Equal(t, false, fsckRequireRow(t, doc, "index.segments")["ok"])
+	detail := fsckDetail(fsckRequireRow(t, doc, "index.tool_use"))
+	require.Contains(t, detail, "tool_use qompack-mcp:908f1acbdbd2 is a retrieval self-record filed at turn 10, "+
+		"which the unreadable segment log cannot place, after turn 12")
+	require.Contains(t, detail, "tool_use tu-u11-back reports turn 10 after turn 12 in session s-u11;")
 }
