@@ -1,0 +1,2 @@
+$ claude plugin validate <scratch>/install/c41/marketplace --strict --json
+cwd: <scratch>/install/c41/proj

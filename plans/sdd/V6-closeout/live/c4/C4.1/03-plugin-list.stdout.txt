@@ -1,0 +1,19 @@
+[
+  {
+    "id": "qompack@qompack-live",
+    "version": "0.3.0",
+    "scope": "user",
+    "enabled": true,
+    "installPath": "<scratch>\\install\\profile\\plugins\\cache\\qompack-live\\qompack\\0.3.0",
+    "installedAt": "2026-09-29T17:12:03.237Z",
+    "lastUpdated": "2026-09-29T17:12:03.237Z",
+    "mcpServers": {
+      "qompack": {
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe",
+        "args": [
+          "mcp"
+        ]
+      }
+    }
+  }
+]

@@ -1,0 +1,11 @@
+<scratch>/install/profile
+<scratch>/install/profile/.claude.json
+<scratch>/install/profile/backups
+<scratch>/install/profile/backups/.claude.json.backup.1790701918129
+<scratch>/install/profile/plugins
+<scratch>/install/profile/plugins/cache
+<scratch>/install/profile/plugins/cache/qompack-live
+<scratch>/install/profile/plugins/installed_plugins.json
+<scratch>/install/profile/plugins/known_marketplaces.json
+<scratch>/install/profile/plugins/marketplaces
+<scratch>/install/profile/settings.json

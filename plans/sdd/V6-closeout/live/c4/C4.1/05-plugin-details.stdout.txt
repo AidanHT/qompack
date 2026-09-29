@@ -1,0 +1,25 @@
+qompack 0.3.0
+  Description: Cache-aware, retrieval-backed context compaction
+  Source: qompack@qompack-live
+
+Component inventory
+  Skills (6)  dropped, eval, pin, recall, status, why
+  Agents (0)
+  Hooks (7)  PostToolUse, PreCompact, SessionEnd, SessionStart, Stop, SubagentStop, UserPromptSubmit  (harness-only — no model context cost)
+  MCP servers (1)  qompack  (tool schemas resolved at runtime; not counted)
+  LSP servers (0)
+
+Projected token cost
+  Always-on:   ~104 tok   added to every session
+
+Per-component (rounded)
+  component  always-on  on-invoke
+  dropped          ~20        ~30
+  eval            < 20        ~30
+  pin             < 20        ~30
+  recall          < 20        ~30
+  status           ~20        ~30
+  why             < 20        ~30
+
+  On-invoke cost is paid each time a skill or agent fires.
+  Token counts are estimates and may differ from actual usage.
