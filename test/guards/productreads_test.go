@@ -143,6 +143,7 @@ var ordinaryReads = []ordinaryRead{
 	{"internal/store/object_open_windows.go", "openObjectLeaf", whyObject},
 	{"internal/store/objects.go", "openObjectChecked", whyObject},
 	{"internal/store/roots.go", "loadRoots", whyAppendOnlyIndex},
+	{"internal/store/maintenance.go", "maintTombstonedRoots", whyAppendOnlyIndex},
 	{"internal/store/tooluseindex.go", "scanIndexJSONL", whyAppendOnlyIndex},
 	{"internal/testutil/fixtures.go", "readContractManifest", whyTestSupport},
 	{"internal/testutil/fixtures.go", "readFixtureFile", whyTestSupport},
