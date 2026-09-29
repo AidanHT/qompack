@@ -1,0 +1,4 @@
+ok  	github.com/qompack/qompack/internal/pins	12.366s
+ok  	github.com/qompack/qompack/internal/pins/pinstest	2.123s
+ok  	github.com/qompack/qompack/internal/checkpoint	151.424s
+ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	2.376s
