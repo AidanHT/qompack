@@ -1115,14 +1115,29 @@ func (d *Draft) mergeDecisionsLocked(cands []decisionCandidate) {
 	}
 }
 
-// foreignDecisionsLocked maps each foreign decision id to its record's recorded time. The draft
-// keeps no per-decision provenance — the artifact's Decision shape is frozen — so it is derived
-// again from what the draft does keep: every carried elimination another session made mints its
-// decision's id (the id does not depend on the turn), and the pass's own candidates say the same
-// for any record the draft has not merged yet. An id this session's own record also mints is own,
-// and when two foreign records mint one id the newer time stands. A resumed draft therefore
-// ranks exactly as the draft that persisted it did. Caller holds d.mu.
+// foreignDecisionsLocked is foreignDecisions over the draft's carried eliminations and this
+// pass's candidates. Caller holds d.mu.
 func (d *Draft) foreignDecisionsLocked(cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
+	return foreignDecisions(d.cp.Eliminated, d.session, cands)
+}
+
+// ForeignDecisions maps each of cp's decisions that was minted from another session's
+// project-scoped elimination to that record's recorded time: the classification the draft's merge
+// ranks by (D46, mergeDecisionsLocked). It is exported for the checkpoint's consumers that re-sort
+// cp.Decisions — item 4 of a rehydration ranks by slice score — so they keep the session's own
+// decisions ahead of the foreign ones, as the sealed order does. An id absent from the map is own.
+func ForeignDecisions(cp Checkpoint) map[core.DecisionID]core.UnixMilli {
+	return foreignDecisions(cp.Eliminated, cp.Session, nil)
+}
+
+// foreignDecisions maps each foreign decision id to its record's recorded time. A checkpoint keeps
+// no per-decision provenance — the artifact's Decision shape is frozen — so it is derived again
+// from what the checkpoint does keep: every carried elimination another session made mints its
+// decision's id (the id does not depend on the turn), and a pass's own candidates say the same for
+// any record the draft has not merged yet. An id this session's own record also mints is own, and
+// when two foreign records mint one id the newer time stands. A resumed draft therefore ranks
+// exactly as the draft that persisted it did, and a sealed checkpoint's reader ranks as its writer.
+func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
 	foreign := make(map[core.DecisionID]core.UnixMilli)
 	own := make(map[core.DecisionID]bool)
 	note := func(id core.DecisionID, isForeign bool, at core.UnixMilli) {
@@ -1134,9 +1149,9 @@ func (d *Draft) foreignDecisionsLocked(cands []decisionCandidate) map[core.Decis
 			foreign[id] = at
 		}
 	}
-	for _, r := range d.cp.Eliminated {
+	for _, r := range eliminated {
 		if dec, ok := eliminationDecision(r, 0); ok {
-			note(dec.ID, r.Session != d.session, r.TS)
+			note(dec.ID, r.Session != session, r.TS)
 		}
 	}
 	for _, c := range cands {
