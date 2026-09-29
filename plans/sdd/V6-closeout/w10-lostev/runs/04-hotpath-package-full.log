@@ -1,0 +1,143 @@
+# Windows, machine loaded by Phase 3. Command: go test -p 2 -count=1 -v ./test/bench/hotpath/
+
+=== RUN   TestClientSpoolNameShape_DerivedFromTheRealWriter
+--- PASS: TestClientSpoolNameShape_DerivedFromTheRealWriter (0.06s)
+=== RUN   TestSentIdentities_AreExactlyTheRequestsTheHarnessSends
+--- PASS: TestSentIdentities_AreExactlyTheRequestsTheHarnessSends (0.09s)
+=== RUN   TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace
+--- PASS: TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace (0.35s)
+=== RUN   TestCensusDeliveries_FindsWhatTheRealStoreRecorded
+--- PASS: TestCensusDeliveries_FindsWhatTheRealStoreRecorded (0.30s)
+=== RUN   TestCensusDeliveries_EmptyProjectFindsNothing
+--- PASS: TestCensusDeliveries_EmptyProjectFindsNothing (0.06s)
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index
+--- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt (0.62s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool (0.07s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail (0.06s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match (0.08s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL (0.10s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index (0.31s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.45s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.37s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.08s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (17.47s)
+=== RUN   TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests
+--- PASS: TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests (0.89s)
+=== RUN   TestReconcileDelivery_ARequestThisRunNeverSentIsRefused
+--- PASS: TestReconcileDelivery_ARequestThisRunNeverSentIsRefused (0.00s)
+=== RUN   TestCensusAndReconcile_Run32296920486
+--- PASS: TestCensusAndReconcile_Run32296920486 (0.37s)
+=== RUN   TestBuildNotes_WarmUpProportionIsComputedNotAsserted
+=== RUN   TestBuildNotes_WarmUpProportionIsComputedNotAsserted/iterations=2000
+=== RUN   TestBuildNotes_WarmUpProportionIsComputedNotAsserted/iterations=10
+--- PASS: TestBuildNotes_WarmUpProportionIsComputedNotAsserted (0.00s)
+    --- PASS: TestBuildNotes_WarmUpProportionIsComputedNotAsserted/iterations=2000 (0.00s)
+    --- PASS: TestBuildNotes_WarmUpProportionIsComputedNotAsserted/iterations=10 (0.00s)
+=== RUN   TestAckRTTNote_DisclosesTheDiscardedWarmUps
+--- PASS: TestAckRTTNote_DisclosesTheDiscardedWarmUps (0.00s)
+=== RUN   TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples
+--- PASS: TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples (0.00s)
+=== RUN   TestAckRTTTranche_ACancelledContextSendsNothing
+--- PASS: TestAckRTTTranche_ACancelledContextSendsNothing (0.00s)
+=== RUN   TestBuildNotes_NoWarmUpOmitsTheProportionNote
+--- PASS: TestBuildNotes_NoWarmUpOmitsTheProportionNote (0.00s)
+=== RUN   TestBuildNotes_CleanRunSaysNothingAboutDelivery
+--- PASS: TestBuildNotes_CleanRunSaysNothingAboutDelivery (0.00s)
+=== RUN   TestBuildNotes_DeferralIsDisclosed
+--- PASS: TestBuildNotes_DeferralIsDisclosed (0.00s)
+=== RUN   TestPercentiles_HandCheckedFixture
+--- PASS: TestPercentiles_HandCheckedFixture (0.00s)
+=== RUN   TestPercentile_RankOneForSmallSamples
+--- PASS: TestPercentile_RankOneForSmallSamples (0.00s)
+=== RUN   TestPercentile_EmptyIsZero
+--- PASS: TestPercentile_EmptyIsZero (0.00s)
+=== RUN   TestSubtractFloor
+--- PASS: TestSubtractFloor (0.00s)
+=== RUN   TestSubtractFloor_NeverNegative
+--- PASS: TestSubtractFloor_NeverNegative (0.00s)
+=== RUN   TestBuildBudgetRow_GatedPassAndFail
+--- PASS: TestBuildBudgetRow_GatedPassAndFail (0.00s)
+=== RUN   TestReport_MatchesGoldenShape
+--- PASS: TestReport_MatchesGoldenShape (0.00s)
+=== RUN   TestBudgetIDBASpawnEstimate_NeverCollidesWithB_A
+--- PASS: TestBudgetIDBASpawnEstimate_NeverCollidesWithB_A (0.00s)
+=== RUN   TestBuildBudgetRows_PublishesExactlyTheDocumentedRowSet
+--- PASS: TestBuildBudgetRows_PublishesExactlyTheDocumentedRowSet (0.00s)
+=== RUN   TestBuildBudgetRows_UnderColoadReportsOnlyTheWallClockBERow
+--- PASS: TestBuildBudgetRows_UnderColoadReportsOnlyTheWallClockBERow (0.00s)
+=== RUN   TestBudgetIDBECPU_IsADistinctRowThatCanStillFailTheRun
+--- PASS: TestBudgetIDBECPU_IsADistinctRowThatCanStillFailTheRun (0.00s)
+=== RUN   TestBEWallWaivedNote_NamesTheLimitItDidNotApply
+--- PASS: TestBEWallWaivedNote_NamesTheLimitItDidNotApply (0.00s)
+=== RUN   TestBAWallWaivedNote_NamesTheLimitItDidNotApply
+--- PASS: TestBAWallWaivedNote_NamesTheLimitItDidNotApply (0.00s)
+=== RUN   TestBBWallWaivedNote_NamesTheLimitItDidNotApply
+--- PASS: TestBBWallWaivedNote_NamesTheLimitItDidNotApply (0.00s)
+=== RUN   TestGateFailed_ANilPassBARowNeverDecidesTheRun
+--- PASS: TestGateFailed_ANilPassBARowNeverDecidesTheRun (0.00s)
+=== RUN   TestBuildDaemonRows_UnderColoadReportsBothDaemonRows
+--- PASS: TestBuildDaemonRows_UnderColoadReportsBothDaemonRows (0.00s)
+=== RUN   TestBuildDaemonRows_UnderColoadKeepsTheShortfallAccounting
+--- PASS: TestBuildDaemonRows_UnderColoadKeepsTheShortfallAccounting (0.00s)
+=== RUN   TestBuildBudgetRowFromSnapshot
+--- PASS: TestBuildBudgetRowFromSnapshot (0.00s)
+=== RUN   TestBudgetLimit_ReadsFromConfigDefaults
+--- PASS: TestBudgetLimit_ReadsFromConfigDefaults (0.00s)
+=== RUN   TestBudgetHistName_MatchesBudgetsTable
+--- PASS: TestBudgetHistName_MatchesBudgetsTable (0.00s)
+=== RUN   TestExpectedHotPathSends
+--- PASS: TestExpectedHotPathSends (0.00s)
+=== RUN   TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad
+--- PASS: TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad (0.03s)
+=== RUN   TestReconcileDelivery_DeferredIsNotLost
+--- PASS: TestReconcileDelivery_DeferredIsNotLost (0.00s)
+=== RUN   TestReconcileDelivery_PartialEvidenceStillFails
+--- PASS: TestReconcileDelivery_PartialEvidenceStillFails (0.00s)
+=== RUN   TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify
+--- PASS: TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify (0.00s)
+=== RUN   TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample
+--- PASS: TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample (0.00s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.11s)
+=== RUN   TestGatedLedger_ScopesTheAccountingToTheSnapshotTheGatesRead
+--- PASS: TestGatedLedger_ScopesTheAccountingToTheSnapshotTheGatesRead (0.00s)
+=== RUN   TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo
+--- PASS: TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo (0.00s)
+=== RUN   TestGatedLedger_DeferralInsideTheWindowIsStillCountedBack
+--- PASS: TestGatedLedger_DeferralInsideTheWindowIsStillCountedBack (0.00s)
+=== RUN   TestGatedLedger_DeferralOutsideTheWindowInventsNoShortfall
+--- PASS: TestGatedLedger_DeferralOutsideTheWindowInventsNoShortfall (0.00s)
+=== RUN   TestGatedLedger_RefusesAGatedPopulationItCannotAccountFor
+--- PASS: TestGatedLedger_RefusesAGatedPopulationItCannotAccountFor (0.00s)
+=== RUN   TestHookControlledShortfall
+--- PASS: TestHookControlledShortfall (0.00s)
+=== RUN   TestTailAdjustedP99_MissingSamplesAreCountedAsOverBudget
+--- PASS: TestTailAdjustedP99_MissingSamplesAreCountedAsOverBudget (0.00s)
+=== RUN   TestTailAdjustedP99_CeilingCanAbsorbTheShift
+--- PASS: TestTailAdjustedP99_CeilingCanAbsorbTheShift (0.00s)
+=== RUN   TestTailAdjustedP99_LargeShortfallCannotBeCertified
+--- PASS: TestTailAdjustedP99_LargeShortfallCannotBeCertified (0.00s)
+=== RUN   TestTailAdjustedP99_NeverReportsBelowTheDeliveredP99
+--- PASS: TestTailAdjustedP99_NeverReportsBelowTheDeliveredP99 (0.00s)
+=== RUN   TestBuildBudgetRowFromSnapshot_ShortfallFailsTheGateItWouldOtherwisePass
+--- PASS: TestBuildBudgetRowFromSnapshot_ShortfallFailsTheGateItWouldOtherwisePass (0.00s)
+=== RUN   TestBuildBudgetRowFromSnapshot_UncertifiableRowFailsAndSaysSo
+--- PASS: TestBuildBudgetRowFromSnapshot_UncertifiableRowFailsAndSaysSo (0.00s)
+=== RUN   TestBudgetsGatedFromSnapshotsAreP99Budgets
+--- PASS: TestBudgetsGatedFromSnapshotsAreP99Budgets (0.00s)
+=== RUN   TestCeilRank_MatchesTheNearestRankRule
+--- PASS: TestCeilRank_MatchesTheNearestRankRule (0.00s)
+=== RUN   TestReport_ExitNonZeroOnAnyGatedFailure
+--- PASS: TestReport_ExitNonZeroOnAnyGatedFailure (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/bench/hotpath	23.243s
+exit=0

@@ -1,0 +1,55 @@
+# Windows, review round. Command: go test -p 2 -count=5 -v -run '^(TestCensusAndReconcile_TheW9PhaseThreeRun|TestReconcileDelivery_ADuplicateCannotStandInForALoss|TestCensusDeliveries_AReplayDuringTheCensusIsStillFound)$' ./test/bench/hotpath/
+
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.14s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.13s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.01s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (5.06s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.02s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.12s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.11s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.01s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (5.32s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.02s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.15s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.13s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.02s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (4.87s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.02s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.13s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.11s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.02s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (5.27s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.02s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.14s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.12s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.01s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (5.81s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.02s)
+PASS
+ok  	github.com/qompack/qompack/test/bench/hotpath	28.262s
+exit=0

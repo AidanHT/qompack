@@ -1,0 +1,16 @@
+# SOURCES (added in the review round): the untracked _w10diag/ copy this header names was deleted before anything was committed.
+# Its reconstruction is committed under plans/sdd/V6-closeout/w10-lostev/diag/ and re-runs with diag/reproduce.sh; this log is the ORIGINAL run's output, unchanged.
+# This run = diag/reproduce.sh red (diag/zz_w10dup_test.go.txt against 8245d4e's census and guard); the reconstruction's own run is runs/09.
+# TEMPORARY DIAGNOSTIC (not committed): HEAD 8245d4e's count-based guard over 3 sent, 2 delivered, 1 spooled DUPLICATE of a delivered request, 1 request nowhere.
+# Command: go test -count=1 -v ./_w10diag/red/ (untracked copy of HEAD's harness plus one temporary test file)
+=== RUN   TestW10Red_OldGuardLetsADuplicateHideALoss
+    zz_w10dup_test.go:15: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-lostev/_w10diag/red/zz_w10dup_test.go:15
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestW10Red_OldGuardLetsADuplicateHideALoss
+        	Messages:   	one request is nowhere; the guard must say LOST (it reported {Sent:3 Delivered:2 Deferred:1 Lost:0})
+--- FAIL: TestW10Red_OldGuardLetsADuplicateHideALoss (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/_w10diag/red	1.060s
+FAIL
+exit=1

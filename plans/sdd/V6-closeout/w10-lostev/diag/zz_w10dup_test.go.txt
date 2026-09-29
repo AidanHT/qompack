@@ -1,0 +1,30 @@
+package main
+
+// TEMPORARY DIAGNOSTIC for the V6 close-out's w10-lostev workstream (.go.txt: never built by the
+// repository); it shares zz_w10red_test.go.txt's helpers and its header's instructions. RECONSTRUCTED:
+// the copy that produced runs/02b was deleted with the untracked _w10diag/; runs/09 is this file's
+// own run.
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestW10Red_OldGuardLetsADuplicateHideALoss: three requests sent; two delivered live, and the
+// first of those was ALSO spooled by its hook after a lost ACK (internal/ipc/client.go spools on an
+// ACK read timeout, after the daemon has already accepted the line); the third request is nowhere.
+// The old census counts one spool line against a shortfall of one and reports no loss. This is the
+// case the identity census exists for; TestReconcileDelivery_ADuplicateCannotStandInForALoss is its
+// committed GREEN counterpart.
+func TestW10Red_OldGuardLetsADuplicateHideALoss(t *testing.T) {
+	root, own := w10Project(t)
+	w10HookSpool(t, root, 940001, w10Request(baSessionID, "toolu_ba_0")) // duplicate of a delivered one
+
+	census, err := censusClientSpool(paths.Of(root).Spool, own, harnessHotPathSessions())
+	require.NoError(t, err)
+	ledger, err := reconcileDelivery(3, 2, census)
+	require.Error(t, err, "one request is nowhere; the guard must say LOST (it reported %+v)", ledger)
+}

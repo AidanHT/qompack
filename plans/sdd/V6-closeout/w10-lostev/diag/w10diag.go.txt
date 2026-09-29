@@ -1,0 +1,374 @@
+package main
+
+// TEMPORARY DIAGNOSTIC for the V6 close-out's w10-lostev workstream. It is committed with a .go.txt
+// extension so nothing in the repository ever builds it; reproduce.sh (next to it) copies it into an
+// untracked _w10diag/ copy of test/bench/hotpath next to the sampler-*.patch hooks that call it.
+//
+// It is a RECONSTRUCTION. The copy that produced runs/01 and runs/05 lived only in an untracked
+// _w10diag/ directory and was deleted before anything was committed; this file was rewritten from
+// those logs' own output lines and the implementer's surviving build script (the post-fix hooks in
+// sampler-postfix.patch are that script's edits verbatim). runs/09 onward are its own re-runs.
+//
+// What it answers: when the delivery-integrity guard of test/bench/hotpath says N requests are
+// LOST, were they ever in a hook's client spool, and where are they now? It watches the spool
+// directory every w10diagTick while the harness runs, remembers every identity (session,
+// tool_use_id) of the harness's own hot-path sessions it ever saw in a CLIENT spool, and after the
+// daemon has stopped reads the store's tool_use index and the spool tier again, so a request the
+// daemon's client-spool watcher replayed during the run (gone from the spool, never in l0_ingest)
+// can be told apart from one that is nowhere at all. It also prints the daemon's drain, spool and
+// degrade counters and every log line that reports a dropped event, the discriminators the
+// product-side hypothesis (a refused or failed append) would leave behind.
+//
+// Every name here carries a diag or w10 prefix: this file is compiled into BOTH the pre-fix harness
+// (8245d4e) and the fixed one (b7ce0e24), so it defines nothing either of them defines and reads
+// nothing but baSessionID and harnessHotPathSessions, which both have.
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/paths"
+)
+
+const (
+	// w10diagTick is how often the sampler lists the spool directory. A hook spawn in this
+	// harness takes tens of milliseconds, so a 2s sample can miss a deferral that is spooled and
+	// replayed inside one tick; everSeen is therefore a LOWER bound on what was ever spooled, and
+	// the store read after the stop is what closes the gap.
+	w10diagTick = 2 * time.Second
+	// w10diagIndexName is the store's tool_use index file under .qompack/index (the fixed harness
+	// names it storeToolUseIndexName; the pre-fix one has no such constant).
+	w10diagIndexName = "tool_use.jsonl"
+	// w10diagClientPrefix is internal/ipc/spool.go's client spool name prefix (client-<pid>.ndjson).
+	w10diagClientPrefix = "client-"
+	// w10diagBAToolUsePrefix is the B-A/B-D loop's tool_use_id prefix, identical in both harnesses
+	// (payload.go's representativeObservePayload): toolu_ba_<seq>.
+	w10diagBAToolUsePrefix = "toolu_ba_"
+	// w10diagLineCap truncates a printed log line; w10diagLinesPerPattern caps how many lines of
+	// one pattern one log file prints (the count is always printed in full).
+	w10diagLineCap         = 400
+	w10diagLinesPerPattern = 5
+	// w10diagGoneShown caps the printed list of identities that left the spool mid-run.
+	w10diagGoneShown = 40
+)
+
+// w10diagLogPatterns are the log substrings that would betray a product-side loss or a drain
+// fault: internal/ipc's three "— event dropped" Loud lines (spool.go's write failure, client.go's
+// append refusal and unavailable spool) and internal/daemon/drain.go's per-file error.
+var w10diagLogPatterns = []string{"event dropped", "drain: file error", "spool"}
+
+// w10diagCounterWatch are the daemon counters printed even at zero, because a zero is itself
+// evidence here; every other counter is printed only when it is non-zero and its name mentions a
+// drain, a spool, a degrade, a drop, a lease or a loss.
+var w10diagCounterWatch = []string{
+	"l0_dropped", "l0_spooled", "drain_file_error", "l0_spool_watch_drains", "hotpath_degraded",
+}
+
+var w10diagCounterSubstrings = []string{"drain", "spool", "degrad", "drop", "lease", "lost", "refus"}
+
+type w10diagID struct {
+	Session core.SessionID
+	ToolUse core.ToolUseID
+}
+
+type diagSampler struct {
+	spoolDir string
+	out      io.Writer
+	start    time.Time
+
+	mu    sync.Mutex
+	phase string
+	ever  map[w10diagID]bool
+
+	stop chan struct{}
+	done chan struct{}
+}
+
+func newDiagSampler(spoolDir string, out io.Writer) *diagSampler {
+	return &diagSampler{
+		spoolDir: spoolDir, out: out, start: time.Now(),
+		ever: map[w10diagID]bool{}, stop: make(chan struct{}), done: make(chan struct{}),
+	}
+}
+
+func (d *diagSampler) elapsed() float64 { return time.Since(d.start).Seconds() }
+
+func (d *diagSampler) setPhase(p string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.phase = p
+	fmt.Fprintf(d.out, "W10DIAG t=%.1fs phase=%s\n", d.elapsed(), p)
+}
+
+func (d *diagSampler) run() {
+	defer close(d.done)
+	tk := time.NewTicker(w10diagTick)
+	defer tk.Stop()
+	d.sample()
+	for {
+		select {
+		case <-d.stop:
+			return
+		case <-tk.C:
+			d.sample()
+		}
+	}
+}
+
+// sample lists the client spools once: how many files, how many lines of the harness's own
+// hot-path sessions they hold right now, and how many distinct identities were ever seen in one.
+func (d *diagSampler) sample() {
+	files, lines, ids := diagReadClientSpools(d.spoolDir)
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for id := range ids {
+		d.ever[id] = true
+	}
+	fmt.Fprintf(d.out, "W10DIAG t=%.1fs phase=%s clientFiles=%d harnessLinesNow=%d everSeen=%d\n",
+		d.elapsed(), d.phase, files, lines, len(d.ever))
+}
+
+// finish stops the sampler after one last sample and returns every identity it ever saw.
+func (d *diagSampler) finish() map[w10diagID]bool {
+	close(d.stop)
+	<-d.done
+	d.sample()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	out := make(map[w10diagID]bool, len(d.ever))
+	for id := range d.ever {
+		out[id] = true
+	}
+	return out
+}
+
+func diagReadClientSpools(spoolDir string) (files, lines int, ids map[w10diagID]bool) {
+	ids = map[w10diagID]bool{}
+	all, err := ipc.SpoolFiles(spoolDir)
+	if err != nil {
+		return 0, 0, ids
+	}
+	for _, p := range all {
+		if !strings.HasPrefix(filepath.Base(p), w10diagClientPrefix) {
+			continue
+		}
+		files++
+		lines += diagScanSpoolFile(p, ids)
+	}
+	return files, lines, ids
+}
+
+// readSpoolIDs returns the identities of the harness's own hot-path requests in the spool tier:
+// the client spools only (clientOnly), or the client spools and the daemon's WAL segments.
+func readSpoolIDs(spoolDir string, clientOnly bool) (map[w10diagID]bool, error) {
+	ids := map[w10diagID]bool{}
+	all, err := ipc.SpoolFiles(spoolDir)
+	if err != nil {
+		return ids, err
+	}
+	for _, p := range all {
+		if clientOnly && !strings.HasPrefix(filepath.Base(p), w10diagClientPrefix) {
+			continue
+		}
+		diagScanSpoolFile(p, ids)
+	}
+	return ids, nil
+}
+
+// diagScanSpoolFile adds every decodable observe.tool line of the harness's own sessions to ids
+// and returns how many such lines the file held. A file gone since the listing holds none.
+func diagScanSpoolFile(path string, ids map[w10diagID]bool) int {
+	f, err := os.Open(paths.Long(path))
+	if err != nil {
+		return 0
+	}
+	defer func() { _ = f.Close() }()
+	sessions := harnessHotPathSessions()
+	n := 0
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64<<10), ipc.MaxLineBytes+1)
+	for sc.Scan() {
+		line := bytes.TrimSpace(sc.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+		req, derr := ipc.DecodeRequest(line)
+		if derr != nil || req.Op != ipc.OpObserveTool || !sessions[req.Session] || req.Event == nil {
+			continue
+		}
+		ids[w10diagID{Session: req.Session, ToolUse: req.Event.ToolUseID}] = true
+		n++
+	}
+	return n
+}
+
+// diagStoreIDs reads the store's tool_use index: every record of the harness's own sessions.
+func diagStoreIDs(projectRoot string) map[w10diagID]bool {
+	ids := map[w10diagID]bool{}
+	f, err := os.Open(paths.Long(filepath.Join(paths.Of(projectRoot).Index, w10diagIndexName)))
+	if err != nil {
+		return ids
+	}
+	defer func() { _ = f.Close() }()
+	sessions := harnessHotPathSessions()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64<<10), ipc.MaxLineBytes+1)
+	for sc.Scan() {
+		var rec struct {
+			Op      string         `json:"op"`
+			ID      core.ToolUseID `json:"id"`
+			Session core.SessionID `json:"s"`
+		}
+		if json.Unmarshal(sc.Bytes(), &rec) != nil || rec.Op != "" || !sessions[rec.Session] {
+			continue
+		}
+		ids[w10diagID{Session: rec.Session, ToolUse: rec.ID}] = true
+	}
+	return ids
+}
+
+// diagCounters prints one status snapshot's spool mode, spool file count and the counters that
+// bear on a loss.
+func diagCounters(out io.Writer, label string, counters map[string]int64, spoolFiles int, hot string) {
+	names := map[string]bool{}
+	for _, n := range w10diagCounterWatch {
+		names[n] = true
+	}
+	for n, v := range counters {
+		if v == 0 {
+			continue
+		}
+		for _, s := range w10diagCounterSubstrings {
+			if strings.Contains(n, s) {
+				names[n] = true
+				break
+			}
+		}
+	}
+	sorted := make([]string, 0, len(names))
+	for n := range names {
+		sorted = append(sorted, n)
+	}
+	sort.Strings(sorted)
+	var b strings.Builder
+	fmt.Fprintf(&b, "W10DIAG %s: hot=%s spool_files=%d", label, hot, spoolFiles)
+	for _, n := range sorted {
+		fmt.Fprintf(&b, " %s=%d", n, counters[n])
+	}
+	fmt.Fprintln(out, b.String())
+}
+
+// diagReport is read after the daemon has stopped, so nothing moves under it: where is every
+// identity the sampler ever saw in a client spool, and is any B-A request nowhere at all?
+func diagReport(out io.Writer, projectRoot string, iterations int, censusIDs, ever map[w10diagID]bool) {
+	spoolDir := paths.Of(projectRoot).Spool
+	store := diagStoreIDs(projectRoot)
+	after, _ := readSpoolIDs(spoolDir, false)
+	fmt.Fprintf(out, "W10DIAG after stop: storeIDs=%d spoolAfterStop(client+wal)=%d census=%d everSeen=%d\n",
+		len(store), len(after), len(censusIDs), len(ever))
+
+	firstSeq := -1
+	var gone []int
+	captured := 0
+	nonBA, nonBANowhere := 0, 0
+	for id := range ever {
+		if id.Session != baSessionID {
+			nonBA++
+			if !censusIDs[id] && !store[id] && !after[id] {
+				nonBANowhere++
+			}
+			continue
+		}
+		seq, err := strconv.Atoi(strings.TrimPrefix(string(id.ToolUse), w10diagBAToolUsePrefix))
+		if err != nil {
+			continue
+		}
+		if firstSeq < 0 || seq < firstSeq {
+			firstSeq = seq
+		}
+		if !censusIDs[id] {
+			gone = append(gone, seq)
+			if store[id] {
+				captured++
+			}
+		}
+	}
+	sort.Ints(gone)
+	fmt.Fprintf(out, "W10DIAG b-a session: first seq seen in a client spool=%d; seen in the spool during the run but absent from the census=%d, of which captured in the store=%d\n",
+		firstSeq, len(gone), captured)
+
+	var nowhere []string
+	for seq := 0; seq < iterations; seq++ {
+		id := w10diagID{Session: baSessionID, ToolUse: core.ToolUseID(w10diagBAToolUsePrefix + strconv.Itoa(seq))}
+		if !store[id] && !after[id] {
+			nowhere = append(nowhere, string(id.ToolUse))
+		}
+	}
+	fmt.Fprintf(out, "W10DIAG b-a session ids in NEITHER the store NOR any spool file after stop: %d %v\n", len(nowhere), nowhere)
+
+	shown := gone
+	if len(shown) > w10diagGoneShown {
+		shown = shown[:w10diagGoneShown]
+	}
+	names := make([]string, 0, len(shown))
+	for _, seq := range shown {
+		names = append(names, w10diagBAToolUsePrefix+strconv.Itoa(seq))
+	}
+	fmt.Fprintf(out, "W10DIAG gone-mid-run ids (first %d): %v\n", w10diagGoneShown, names)
+	fmt.Fprintf(out, "W10DIAG non-b-a identities ever spooled=%d, in neither census/store/spool=%d\n", nonBA, nonBANowhere)
+
+	diagLogs(out, paths.Of(projectRoot).Logs)
+}
+
+// diagLogs prints, for every file in the project's log directory, how many lines match each of
+// w10diagLogPatterns and the first few of them.
+func diagLogs(out io.Writer, logDir string) {
+	entries, err := os.ReadDir(paths.Long(logDir))
+	if err != nil {
+		fmt.Fprintf(out, "W10DIAG log dir %s: %v\n", logDir, err)
+		return
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		names = append(names, e.Name())
+		b, rerr := os.ReadFile(paths.Long(filepath.Join(logDir, e.Name())))
+		if rerr != nil {
+			fmt.Fprintf(out, "W10DIAG log %s: %v\n", e.Name(), rerr)
+			continue
+		}
+		lines := strings.Split(string(b), "\n")
+		for _, pat := range w10diagLogPatterns {
+			n := 0
+			for _, l := range lines {
+				if !strings.Contains(l, pat) {
+					continue
+				}
+				n++
+				if n <= w10diagLinesPerPattern {
+					if len(l) > w10diagLineCap {
+						l = l[:w10diagLineCap]
+					}
+					fmt.Fprintf(out, "W10DIAG log %s [%s #%d]: %s\n", e.Name(), pat, n, l)
+				}
+			}
+			fmt.Fprintf(out, "W10DIAG log %s: %d line(s) contain %q\n", e.Name(), n, pat)
+		}
+	}
+	sort.Strings(names)
+	fmt.Fprintf(out, "W10DIAG log files: %v\n", names)
+}
